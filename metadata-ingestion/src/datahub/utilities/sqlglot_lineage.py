@@ -1,20 +1,20 @@
-from collections import defaultdict
-import itertools
 import contextlib
 import enum
 import functools
+import itertools
 import logging
 import pathlib
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
-from pydantic import BaseModel
+from collections import defaultdict
+from typing import Dict, List, Optional, Set, Tuple
+
 import pydantic
 import pydantic.dataclasses
-
 import sqlglot
 import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
+from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -88,7 +88,7 @@ class _TableName(_FrozenModel):
         dialect: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-    ) -> str:
+    ) -> "_TableName":
         database = self.database or default_db
         db_schema = self.db_schema or default_schema
 
@@ -165,9 +165,18 @@ class SqlParsingResult(BaseModel):
 
     column_lineage: Optional[List[ColumnLineageInfo]]
 
-    # TODO formatted original sql logic
+    # TODO include formatted original sql logic
+    # TODO include list of referenced columns
 
-    debug_info: SqlParsingDebugInfo = pydantic.Field(default=None, exclude=True)
+    debug_info: SqlParsingDebugInfo = pydantic.Field(
+        default_factory=lambda: SqlParsingDebugInfo(
+            confidence=0,
+            tables_discovered=0,
+            table_schemas_resolved=0,
+            column_error=None,
+        ),
+        exclude=True,
+    )
 
 
 def _parse_statement(sql: str, dialect: str) -> sqlglot.Expression:
@@ -504,8 +513,7 @@ def _column_level_lineage(
                     # we don't get any column-level lineage for that.
                     pass
 
-            # TODO: Generate non-SELECT lineage.
-            column_logic = lineage_node.source
+            # column_logic = lineage_node.source
 
             if output_col.startswith("_col_"):
                 # This is the format sqlglot uses for unnamed columns e.g. 'count(id)' -> 'count(id) AS _col_0'
@@ -524,13 +532,16 @@ def _column_level_lineage(
                 )
             )
 
+        # TODO: Also extract referenced columns (e.g. non-SELECT lineage)
     except sqlglot.errors.OptimizeError as e:
         raise SqlOptimizerError(f"sqlglot failed to compute some lineage: {e}") from e
 
     return column_lineage
 
 
-def _extract_select_from_create(statement: sqlglot.exp.Create) -> sqlglot.exp.Select:
+def _extract_select_from_create(
+    statement: sqlglot.exp.Create,
+) -> sqlglot.exp.Expression:
     # TODO: Validate that this properly includes WITH clauses in all dialects.
     inner = statement.expression
 
@@ -542,8 +553,9 @@ def _extract_select_from_create(statement: sqlglot.exp.Create) -> sqlglot.exp.Se
 
 def _try_extract_select(
     statement: sqlglot.exp.Expression,
-) -> Optional[sqlglot.exp.Select]:
+) -> sqlglot.exp.Expression:
     # Try to extract the core select logic from a more complex statement.
+    # If it fails, just return the original statement.
 
     if isinstance(statement, sqlglot.exp.Merge):
         # TODO Need to map column renames in the expressions part of the statement.
@@ -570,9 +582,12 @@ def _translate_internal_column_lineage(
     table_name_urn_mapping: Dict[_TableName, str],
     raw_column_lineage: _ColumnLineageInfo,
 ) -> ColumnLineageInfo:
+    downstream_urn = None
+    if raw_column_lineage.downstream.table:
+        downstream_urn = table_name_urn_mapping[raw_column_lineage.downstream.table]
     return ColumnLineageInfo(
         downstream=DownstreamColumnRef(
-            table=table_name_urn_mapping.get(raw_column_lineage.downstream.table),
+            table=downstream_urn,
             column=raw_column_lineage.downstream.column,
         ),
         upstreams=[
