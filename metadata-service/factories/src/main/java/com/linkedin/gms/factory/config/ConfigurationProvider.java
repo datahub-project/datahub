@@ -78,4 +78,9 @@ public class ConfigurationProvider {
    * Configuration for caching
    */
   private CacheConfiguration cache;
+
+  /**
+   * Configuration for the health check server
+   */
+  private HealthCheckConfiguration healthCheck;
 }

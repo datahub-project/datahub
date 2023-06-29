@@ -29,6 +29,7 @@ from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BQ_AUDIT_V2,
@@ -371,9 +372,15 @@ class BigQueryUsageExtractor:
     :::
     """
 
-    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+    ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
+        self.dataset_urn_builder = dataset_urn_builder
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
 
@@ -384,13 +391,13 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
-    def run(
+    def get_usage_workunits(
         self, projects: Iterable[str], table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
         events = self._get_usage_events(projects)
-        yield from self._run(events, table_refs)
+        yield from self._get_workunits_internal(events, table_refs)
 
-    def _run(
+    def _get_workunits_internal(
         self, events: Iterable[AuditEvent], table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
         try:
@@ -404,7 +411,14 @@ class BigQueryUsageExtractor:
                         usage_state, table_refs
                     )
 
-                yield from self._generate_usage_workunits(usage_state)
+                yield from auto_empty_dataset_usage_statistics(
+                    self._generate_usage_workunits(usage_state),
+                    config=self.config,
+                    dataset_urns={
+                        self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
+                        for ref in table_refs
+                    },
+                )
                 usage_state.report_disk_usage(self.report)
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
@@ -526,9 +540,7 @@ class BigQueryUsageExtractor:
                     user_freq=entry.user_freq,
                     column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
-                    resource_urn_builder=lambda resource: resource.to_urn(
-                        self.config.env
-                    ),
+                    resource_urn_builder=self.dataset_urn_builder,
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
                 )

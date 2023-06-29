@@ -140,7 +140,7 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(
+@capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
     "Platform instance is pre-set to the BigQuery project id",
     supported=False,
@@ -154,6 +154,10 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -218,7 +222,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
-        self.usage_extractor = BigQueryUsageExtractor(config, self.report)
+        self.usage_extractor = BigQueryUsageExtractor(
+            config, self.report, dataset_urn_builder=self.gen_dataset_urn_from_ref
+        )
 
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
@@ -330,7 +336,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_ids: List[str],
         report: BigQueryV2Report,
     ) -> CapabilityReport:
-        usage_extractor = BigQueryUsageExtractor(connection_conf, report)
+        usage_extractor = BigQueryUsageExtractor(
+            connection_conf, report, lambda ref: ""
+        )
         for project_id in project_ids:
             try:
                 logger.info(f"Usage capability test for project {project_id}")
@@ -403,7 +411,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str, project_id: str
     ) -> MetadataWorkUnit:
-        # If we are a platform instance based source, emit the instance aspect
         aspect = DataPlatformInstanceClass(
             platform=make_data_platform_urn(self.platform),
             instance=make_dataplatform_instance_urn(self.platform, project_id),
@@ -417,7 +424,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -426,7 +432,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance,
             env=self.config.env,
             backcompat_env_as_instance=True,
         )
@@ -486,12 +491,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return
 
         for project_id in projects:
-            logger.info(f"Processing project: {project_id.id}")
             self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
+            logger.info(f"Processing project: {project_id.id}")
             yield from self._process_project(conn, project_id)
 
         if self._should_ingest_usage():
-            yield from self.usage_extractor.run(
+            yield from self.usage_extractor.get_usage_workunits(
                 [p.id for p in projects], self.table_refs
             )
 
@@ -1003,11 +1008,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
-        dpi_aspect = self.get_dataplatform_instance_aspect(
+        yield self.get_dataplatform_instance_aspect(
             dataset_urn=dataset_urn, project_id=project_id
         )
-        if dpi_aspect:
-            yield dpi_aspect
 
         subTypes = SubTypes(typeNames=sub_types)
         yield MetadataChangeProposalWrapper(
@@ -1065,12 +1068,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        dataset_urn = make_dataset_urn(
+        return make_dataset_urn(
             self.platform,
             str(datahub_dataset_name),
             self.config.env,
         )
-        return dataset_urn
+
+    def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+        )
 
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []

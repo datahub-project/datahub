@@ -292,15 +292,15 @@ public class SettingsBuilder {
 
     tokenizers.put(UNIT_SEPARATOR_TOKENIZER,
         ImmutableMap.<String, Object>builder()
-                .put(TYPE, PATTERN)
-                .put(PATTERN, "[␟]")
-                .build());
+            .put(TYPE, PATTERN)
+            .put(PATTERN, "[␟]")
+            .build());
 
     tokenizers.put(UNIT_SEPARATOR_PATH_TOKENIZER,
         ImmutableMap.<String, Object>builder()
-                .put(TYPE, PATH_HIERARCHY_TOKENIZER)
-                .put(DELIMITER, "␟")
-                .build());
+            .put(TYPE, PATH_HIERARCHY_TOKENIZER)
+            .put(DELIMITER, "␟")
+            .build());
 
     // Tokenize by whitespace and most special chars
     tokenizers.put(MAIN_TOKENIZER,

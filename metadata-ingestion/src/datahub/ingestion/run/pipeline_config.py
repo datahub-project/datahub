@@ -45,8 +45,16 @@ class FlagsConfig(ConfigModel):
     """
 
     generate_browse_path_v2: bool = Field(
-        default=False,
+        default=True,
         description="Generate BrowsePathsV2 aspects from container hierarchy and existing BrowsePaths aspects.",
+    )
+
+    generate_browse_path_v2_dry_run: bool = Field(
+        default=True,
+        description=(
+            "Run through browse paths v2 generation but do not actually write the aspects to DataHub. "
+            "Requires `generate_browse_path_v2` to also be enabled."
+        ),
     )
 
 
@@ -58,7 +66,7 @@ class PipelineConfig(ConfigModel):
     source: SourceConfig
     sink: DynamicTypedConfig
     transformers: Optional[List[DynamicTypedConfig]]
-    flags: FlagsConfig = Field(default=FlagsConfig())
+    flags: FlagsConfig = Field(default=FlagsConfig(), hidden_from_docs=True)
     reporting: List[ReporterConfig] = []
     run_id: str = DEFAULT_RUN_ID
     datahub_api: Optional[DatahubClientConfig] = None

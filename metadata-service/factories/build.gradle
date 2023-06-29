@@ -46,7 +46,13 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
   testCompile externalDependency.hazelcastTest
+  implementation externalDependency.jline
+  implementation externalDependency.common
+}
 
+configurations.all{
+  exclude group: "commons-io", module:"commons-io"
+  exclude group: "jline", module:"jline"
 }
 
 processResources.configure {

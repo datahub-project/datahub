@@ -67,7 +67,8 @@ public class CreateDomainResolverTest {
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 
@@ -97,7 +98,7 @@ public class CreateDomainResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class), Mockito.eq(false));
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
