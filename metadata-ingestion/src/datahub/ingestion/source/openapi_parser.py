@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import requests
 import yaml
@@ -12,9 +12,21 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    MapTypeClass,
+    NullTypeClass,
+    NumberTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 
 logger = logging.getLogger(__name__)
+
+GET_METHOD = "get"
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_CSV = "text/csv"
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -42,8 +54,7 @@ def flatten2list(d: dict) -> list:
          "anotherone.third_a.last"
          ]
     """
-    fl_l = list(flatten(d))
-    return [d[1:] if d[0] == "-" else d for d in fl_l]
+    return [d[1:] if d[0] == "-" else d for d in flatten(d)]
 
 
 def request_call(
@@ -88,93 +99,85 @@ def get_swag_json(
     return dict_data
 
 
-def get_url_basepath(sw_dict: dict) -> str:
-    try:
-        return sw_dict["basePath"]
-    except KeyError:  # no base path defined
-        return ""
-
-
 def check_sw_version(sw_dict: dict) -> None:
-    if "swagger" in sw_dict:
-        v_split = sw_dict["swagger"].split(".")
-    else:
-        v_split = sw_dict["openapi"].split(".")
+    v_split = (
+        sw_dict["swagger"].split(".")
+        if sw_dict.get("swagger", "")
+        else sw_dict["openapi"].split(".")
+    )
 
-    version = [int(v) for v in v_split]
+    version_major, version_minor, *_ = tuple(int(v) for v in v_split)
 
-    if version[0] == 3 and version[1] > 0:
+    if version_major == 3 and version_minor > 0:
         raise NotImplementedError(
             "This plugin is not compatible with Swagger version >3.0"
         )
 
 
-def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
+def get_endpoints(specification: dict) -> dict:  # noqa: C901
     """
     Get all the URLs accepting the "GET" method, together with their description and the tags
     """
     url_details = {}
 
-    check_sw_version(sw_dict)
+    check_sw_version(specification)
 
-    for p_k, p_o in sw_dict["paths"].items():
+    for api_path, path_details in specification["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
-        if "get" in p_o.keys():
-            if "200" in p_o["get"]["responses"].keys():
-                base_res = p_o["get"]["responses"]["200"]
-            elif 200 in p_o["get"]["responses"].keys():
-                # if you read a plain yml file the 200 will be an integer
-                base_res = p_o["get"]["responses"][200]
-            else:
-                # the endpoint does not have a 200 response
+        if path_get_details := path_details.get(GET_METHOD):
+            api_response = path_get_details["responses"].get("200") or path_get_details[
+                "responses"
+            ].get(200)
+            if api_response is None:
                 continue
 
-            if "description" in p_o["get"].keys():
-                desc = p_o["get"]["description"]
-            elif "summary" in p_o["get"].keys():
-                desc = p_o["get"]["summary"]
-            else:  # still testing
-                desc = ""
+            desc = path_get_details.get("description") or path_get_details.get(
+                "summary", ""
+            )
 
-            try:
-                tags = p_o["get"]["tags"]
-            except KeyError:
-                tags = []
+            tags = path_get_details.get("tags", [])
 
-            url_details[p_k] = {"description": desc, "tags": tags}
+            url_details[api_path] = {
+                "description": desc,
+                "tags": tags,
+            }
+
+            if api_response.get("schema"):
+                url_details[api_path]["schema"] = api_response["schema"]
 
             # trying if dataset is defined in swagger...
-            if "content" in base_res.keys():
-                res_cont = base_res["content"]
-                if "application/json" in res_cont.keys():
-                    ex_field = None
-                    if "example" in res_cont["application/json"]:
-                        ex_field = "example"
-                    elif "examples" in res_cont["application/json"]:
-                        ex_field = "examples"
-
-                    if ex_field:
-                        if isinstance(res_cont["application/json"][ex_field], dict):
-                            url_details[p_k]["data"] = res_cont["application/json"][
-                                ex_field
-                            ]
-                        elif isinstance(res_cont["application/json"][ex_field], list):
+            if response_content := api_response.get("content"):
+                if json_schema := response_content.get(CONTENT_TYPE_JSON, {}).get(
+                    "schema"
+                ):
+                    url_details[api_path]["schema"] = json_schema
+                elif response_content.get(CONTENT_TYPE_JSON):
+                    example = response_content[CONTENT_TYPE_JSON].get(
+                        "example"
+                    ) or response_content[CONTENT_TYPE_JSON].get("examples")
+                    if example:
+                        if isinstance(example, dict):
+                            url_details[api_path]["data"] = example
+                        elif isinstance(example, list):
                             # taking the first example
-                            url_details[p_k]["data"] = res_cont["application/json"][
-                                ex_field
-                            ][0]
+                            url_details[api_path]["data"], *_ = example
                     else:
                         logger.warning(
-                            f"Field in swagger file does not give consistent data --- {p_k}"
+                            f"Field in swagger file does not give consistent data --- {api_path}"
                         )
-                elif "text/csv" in res_cont.keys():
-                    url_details[p_k]["data"] = res_cont["text/csv"]["schema"]
-            elif "examples" in base_res.keys():
-                url_details[p_k]["data"] = base_res["examples"]["application/json"]
+                elif response_content.get(CONTENT_TYPE_CSV):
+                    url_details[api_path]["data"] = response_content[CONTENT_TYPE_CSV][
+                        "schema"
+                    ]
+            elif api_response.get("examples"):
+                url_details[api_path]["data"] = (
+                    api_response["examples"].get(CONTENT_TYPE_JSON)
+                    or api_response["examples"]
+                )
 
             # checking whether there are defined parameters to execute the call...
-            if "parameters" in p_o["get"].keys():
-                url_details[p_k]["parameters"] = p_o["get"]["parameters"]
+            if path_get_details.get("parameters"):
+                url_details[api_path]["parameters"] = path_get_details["parameters"]
 
     return dict(sorted(url_details.items()))
 
@@ -224,7 +227,7 @@ def guessing_url_name(url: str, examples: dict) -> str:
 
     # substituting the parameter's name w the value
     for name, clean_name in zip(needed_n, cleaned_needed_n):
-        if clean_name in examples[ex2use].keys():
+        if examples[ex2use].get(clean_name):
             guessed_url = re.sub(name, str(examples[ex2use][clean_name]), guessed_url)
 
     return guessed_url
@@ -242,7 +245,7 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
                            attr_list=["2",])
     asd2 == "http://asd.com/2"
     """
-    splitted = re.split(r"\{[^}]+\}", raw_url)
+    splitted = re.split(r"\{[^}]+}", raw_url)
     if splitted[-1] == "":  # it can happen that the last element is empty
         splitted = splitted[:-1]
     composed_url = ""
@@ -256,13 +259,13 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
 
 
 def maybe_theres_simple_id(url: str) -> str:
-    dets = re.findall(r"(\{[^}]+\})", url)  # searching the fields between parenthesis
-    if len(dets) == 0:
+    dets = re.findall(r"(\{[^}]+})", url)  # searching the fields between parenthesis
+    if not dets:
         return url
     dets_w_id = [det for det in dets if "id" in det]  # the fields containing "id"
     if len(dets) == len(dets_w_id):
         # if we only have fields containing IDs, we guess to use "1"s
-        return compose_url_attr(url, ["1" for _ in dets_w_id])
+        return compose_url_attr(url, ["1"] * len(dets_w_id))
     else:
         return url
 
@@ -302,24 +305,23 @@ def extract_fields(
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
-        if len(dict_data) == 0:
+        if not dict_data:
             logger.warning(f"Empty data --- {dataset_name}")
             return [], {}
         # so we take the fields of the first element,
         # if it's a dict
-        if isinstance(dict_data[0], dict):
-            return flatten2list(dict_data[0]), dict_data[0]
-        elif isinstance(dict_data[0], str):
+        response_data, *_ = dict_data
+        if isinstance(response_data, dict):
+            return flatten2list(response_data), response_data
+        elif isinstance(response_data, str):
             # this is actually data
-            return ["contains_a_string"], {"contains_a_string": dict_data[0]}
+            return ["contains_a_string"], {"contains_a_string": response_data}
         else:
             raise ValueError("unknown format")
     if len(dict_data.keys()) > 1:
         # the elements are directly inside the dict
         return flatten2list(dict_data), dict_data
-    dst_key = list(dict_data.keys())[
-        0
-    ]  # the first and unique key is the dataset's name
+    dst_key, *_ = dict_data.keys()  # the first and unique key is the dataset's name
 
     try:
         return flatten2list(dict_data[dst_key]), dict_data[dst_key]
@@ -327,10 +329,10 @@ def extract_fields(
         # if the content is a list, we should treat each element as a dataset.
         # ..but will take the keys of the first element (to be improved)
         if isinstance(dict_data[dst_key], list):
-            if len(dict_data[dst_key]) > 0:
-                return flatten2list(dict_data[dst_key][0]), dict_data[dst_key][0]
-            else:
+            if not dict_data[dst_key]:
                 return [], {}  # it's empty!
+            else:
+                return flatten2list(dict_data[dst_key][0]), dict_data[dst_key][0]
         else:
             logger.warning(f"Unable to get the attributes --- {dataset_name}")
             return [], {}
@@ -394,3 +396,236 @@ def set_metadata(
         fields=canonical_schema,
     )
     return schema_metadata
+
+
+OBJECT_TYPE = "object"
+ARRAY_TYPE = "array"
+UNKNOWN_TYPE = "unknown"
+
+TYPES_MAPPING = {
+    "string": StringTypeClass,
+    "integer": NumberTypeClass,
+    "number": NumberTypeClass,
+    "boolean": BooleanTypeClass,
+    ARRAY_TYPE: ArrayTypeClass,
+    OBJECT_TYPE: MapTypeClass,
+    UNKNOWN_TYPE: NullTypeClass,
+}
+
+
+class SchemaMetadataExtractor:
+    """
+    Class for extracting metadata from schemas, defined in definitions
+    Recursively going through all fields without max depth limitations, avoiding circle dependencies
+    """
+
+    def __init__(
+        self,
+        dataset_name: str,
+        endpoint_schema: dict,
+        full_specification: dict,
+        platform: str = "api",
+    ) -> None:
+        self.dataset_name = dataset_name
+        self.endpoint_schema = endpoint_schema
+        self.full_specification = full_specification
+        self.platform = platform
+        self.canonical_schema: list[SchemaField] = []
+        self.schemas_stack: list[str] = []
+
+    def get_schema_by_ref(self, schema_ref: str) -> tuple[str, dict]:
+        _, *schema_path_parts = schema_ref.split("/")
+        schema_name = ""
+        schema_data = self.full_specification
+        for part in schema_path_parts:
+            schema_name = part
+            schema_data = schema_data.get(part, {})
+        if not schema_data:
+            logger.warning(f"Schema is empty --- {schema_name}")
+        return schema_name, schema_data
+
+    def parse_nested_schema(
+        self,
+        schema_ref: str,
+        field_path: str = "",
+    ) -> None:
+        schema_name, inner_schema = self.get_schema_by_ref(schema_ref)
+        if schema_name in self.schemas_stack:
+            return
+        self.parse_schema(inner_schema, field_path, current_schema_name=schema_name)
+
+    def parse_array_type(
+        self,
+        items: Union[dict, str],
+        field_path: str = "",
+        description: str = "",
+        current_schema_name: str = "",
+    ) -> None:
+        if isinstance(items, dict) and items.get("$ref", ""):
+            _, inner_schema = self.get_schema_by_ref(items.get("$ref", ""))
+            nested_type = inner_schema.get("type", UNKNOWN_TYPE)
+        else:
+            nested_type = (
+                items.get("type", OBJECT_TYPE) if isinstance(items, dict) else items
+            )
+        if field_path:
+            field = SchemaField(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(
+                    type=ArrayTypeClass(nestedType=[nested_type])
+                ),
+                nativeDataType=repr(ARRAY_TYPE),
+                description=description,
+                recursive=False,
+            )
+            self.canonical_schema.append(field)
+        if not isinstance(items, dict) or nested_type != OBJECT_TYPE:
+            return
+        if items.get("$ref"):
+            self.schemas_stack.append(current_schema_name)
+            self.parse_nested_schema(items["$ref"], field_path)
+            self.schemas_stack.pop()
+        if items.get("properties"):
+            self.parse_schema(items, field_path, current_schema_name)
+
+    def parse_all_one_of(
+        self, schemas: list[dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]], int]:
+        result_schema: dict[str, dict[str, Any]] = {}
+        schemas_added_to_stack = 0
+        for schema in schemas:
+            if schema.get("$ref", ""):
+                schema_name, schema = self.get_schema_by_ref(schema.get("$ref", ""))
+                self.schemas_stack.append(schema_name)
+                schemas_added_to_stack += 1
+            if schema.get("properties", {}):
+                result_schema["properties"] = {
+                    **result_schema.get("properties", {}),
+                    **schema["properties"],
+                }
+            else:
+                result_schema = {**result_schema, **schema}
+        return result_schema, schemas_added_to_stack
+
+    def parse_properties(
+        self,
+        properties: dict,
+        base_path: str = "",
+        current_schema_name: str = "",
+    ) -> None:
+        for column_name, column_props in properties.items():
+            field_path = f"{base_path}.{column_name}" if base_path else column_name
+            if schema_with_of := (
+                column_props.get("allOf", []) or column_props.get("oneOf", [])
+            ):
+                schema, schemas_in_stack = self.parse_all_one_of(schema_with_of)
+                self.parse_schema(schema, field_path, current_schema_name)
+                if schemas_in_stack > 0:
+                    self.schemas_stack = self.schemas_stack[:-schemas_in_stack]
+                continue
+            else:
+                column_type = column_props.get("type", UNKNOWN_TYPE)
+
+            if column_props.get("$ref"):
+                self.schemas_stack.append(current_schema_name)
+                self.parse_nested_schema(
+                    column_props["$ref"],
+                    field_path,
+                )
+                self.schemas_stack.pop()
+            elif column_type == OBJECT_TYPE and column_props.get("properties"):
+                self.parse_schema(column_props, field_path, current_schema_name)
+            elif column_type == ARRAY_TYPE:
+                self.parse_array_type(
+                    column_props.get("items", ""),
+                    field_path,
+                    column_props.get("description", ""),
+                    current_schema_name,
+                )
+            else:
+                if column_type == UNKNOWN_TYPE:
+                    logger.warning(
+                        f"Unknown type \"{column_props.get('type')}\" for field --- {field_path}"
+                    )
+                field = SchemaField(
+                    fieldPath=field_path,
+                    type=SchemaFieldDataTypeClass(
+                        type=TYPES_MAPPING.get(column_type, NullTypeClass)()
+                    ),
+                    nativeDataType=repr(column_type),
+                    description=column_props.get("description", ""),
+                    recursive=False,
+                )
+                self.canonical_schema.append(field)
+
+    def parse_ref(self, ref: str, base_path: str, current_schema_name: str) -> None:
+        if not ref:
+            return
+        self.schemas_stack.append(current_schema_name)
+        self.parse_nested_schema(ref, base_path)
+        self.schemas_stack.pop()
+
+    def parse_flatten_schema(
+        self, schema_to_parse: dict, field_path: str, current_schema_name: str
+    ) -> None:
+        field_type = schema_to_parse.get("type", "")
+        if field_type in (ARRAY_TYPE, OBJECT_TYPE):
+            return
+        if schema_with_of := (
+            schema_to_parse.get("allOf", []) or schema_to_parse.get("oneOf", [])
+        ):
+            schema, number_of_schemas_in_stack = self.parse_all_one_of(schema_with_of)
+            self.parse_schema(schema, field_path, current_schema_name)
+            if number_of_schemas_in_stack > 0:
+                self.schemas_stack = self.schemas_stack[:-number_of_schemas_in_stack]
+            return
+        if field_type == "":
+            return
+        field = SchemaField(
+            fieldPath=field_path,
+            type=SchemaFieldDataTypeClass(
+                type=TYPES_MAPPING.get(field_type, NullTypeClass)()
+            ),
+            nativeDataType=repr(field_type),
+            description=schema_to_parse.get("description", ""),
+            recursive=False,
+        )
+        self.canonical_schema.append(field)
+
+    def parse_schema(
+        self,
+        schema_to_parse: dict,
+        base_path: str = "",
+        current_schema_name: str = "",
+    ) -> None:
+        self.parse_ref(schema_to_parse.get("$ref", ""), base_path, current_schema_name)
+        self.parse_properties(
+            schema_to_parse.get("properties", {}), base_path, current_schema_name
+        )
+        if schema_to_parse.get("type") == ARRAY_TYPE or schema_to_parse.get("items"):
+            self.parse_array_type(
+                schema_to_parse["items"],
+                base_path,
+                schema_to_parse.get("description", ""),
+                current_schema_name,
+            )
+        self.parse_flatten_schema(schema_to_parse, base_path, current_schema_name)
+
+    def extract_metadata(self) -> Optional[SchemaMetadata]:
+        self.parse_schema(self.endpoint_schema)
+        if self.canonical_schema:
+            if (num_fields := len(self.canonical_schema)) > 1000:
+                logger.warning(
+                    f"Dataset {self.dataset_name} contains {num_fields} fields"
+                )
+
+            schema_metadata = SchemaMetadata(
+                schemaName=self.dataset_name,
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                hash="",
+                platformSchema=OtherSchemaClass(rawSchema=""),
+                fields=self.canonical_schema,
+            )
+            return schema_metadata
+        return None
