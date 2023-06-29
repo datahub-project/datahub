@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Popover } from 'antd';
@@ -42,14 +41,6 @@ export const DatasetStatsSummary = ({
     color,
     mode = 'normal',
 }: Props) => {
-    rowCount = 2133440;
-    columnCount = 12;
-    sizeInBytes = 29321728;
-    totalSqlQueries = 987654321;
-    queryCountLast30Days = 987654321;
-    uniqueUserCountLast30Days = 98765;
-    lastUpdatedMs = Date.now();
-
     const isTooltipMode = mode === 'tooltip-content';
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
@@ -60,12 +51,7 @@ export const DatasetStatsSummary = ({
                 render={(isExpanded) => (
                     <StatText color={displayedColor}>
                         <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                        <b>
-                            {isExpanded
-                                ? formatNumberWithoutAbbreviation(rowCount)
-                                : countFormatter(rowCount as number)}
-                        </b>{' '}
-                        rows
+                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
                         {!!columnCount && (
                             <>
                                 ,{' '}
@@ -97,7 +83,7 @@ export const DatasetStatsSummary = ({
         !!uniqueUserCountLast30Days && (
             <StatText color={displayedColor}>
                 <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users - high
+                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
             </StatText>
         ),
         !!lastUpdatedMs && (
