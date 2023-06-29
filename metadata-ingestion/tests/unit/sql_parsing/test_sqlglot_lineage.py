@@ -385,3 +385,40 @@ FROM (
         },
         expected_file=RESOURCE_DIR / "test_bigquery_nested_subqueries.json",
     )
+
+
+def test_bigquery_sharded_table_normalization():
+    assert_sql_result(
+        """
+SELECT *
+FROM `bq-proj.dataset.table_20230101`
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_sharded_table_normalization.json",
+    )
+
+
+def test_bigquery_from_sharded_table_wildcard():
+    assert_sql_result(
+        """
+SELECT *
+FROM `bq-proj.dataset.table_2023*`
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table_yyyymmdd,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_from_sharded_table_wildcard.json",
+    )
+
+
+# TODO: Add a test for setting platform_instance or env
