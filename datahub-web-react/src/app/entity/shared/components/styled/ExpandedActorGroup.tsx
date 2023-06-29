@@ -5,7 +5,7 @@ import { CorpGroup, CorpUser } from '../../../../../types.generated';
 import { ExpandedActor } from './ExpandedActor';
 
 const PopoverActors = styled.div`
-    width: 600px;
+    max-width: 600px;
 `;
 
 const ActorsContainer = styled.div`
