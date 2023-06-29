@@ -1,4 +1,6 @@
 import asyncio
+import click
+import click_spinner
 import csv
 import functools
 import json
@@ -6,14 +8,11 @@ import logging
 import os
 import sys
 import tzlocal
-from string import Template
-from datetime import datetime
-from typing import Optional
-
-import click
-import click_spinner
 from click_default_group import DefaultGroup
+from datetime import datetime
+from string import Template
 from tabulate import tabulate
+from typing import Optional
 
 import datahub as datahub_package
 from datahub.cli import cli_utils
@@ -24,19 +23,12 @@ from datahub.cli.cli_utils import (
     post_rollback_endpoint,
 )
 from datahub.configuration.config_loader import load_config_file
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities import memory_leak_detector
-from datahub.ingestion.graph.client import get_default_graph
-
-from datahub.metadata.schema_classes import (
-    DataHubIngestionSourceConfigClass as IngestionSourceConfig,
-    DataHubIngestionSourceInfoClass as IngestionSourceInfo,
-    DataHubIngestionSourceScheduleClass as IngestionSourceSchedule
-)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 logger = logging.getLogger(__name__)
 
