@@ -76,21 +76,21 @@ JOIN cte2 ON cte1.col2 = cte2.col4
 def test_create_view_as_select():
     assert_sql_result(
         """
-CREATE VIEW vsal 
-AS 
-  SELECT a.deptno                  "Department", 
-         a.num_emp / b.total_count "Employees", 
-         a.sal_sum / b.total_sal   "Salary" 
-  FROM   (SELECT deptno, 
-                 Count()  num_emp, 
-                 SUM(sal) sal_sum 
-          FROM   scott.emp 
-          WHERE  city = 'NYC' 
-          GROUP  BY deptno) a, 
-         (SELECT Count()  total_count, 
-                 SUM(sal) total_sal 
-          FROM   scott.emp 
-          WHERE  city = 'NYC') b 
+CREATE VIEW vsal
+AS
+  SELECT a.deptno                  "Department",
+         a.num_emp / b.total_count "Employees",
+         a.sal_sum / b.total_sal   "Salary"
+  FROM   (SELECT deptno,
+                 Count()  num_emp,
+                 SUM(sal) sal_sum
+          FROM   scott.emp
+          WHERE  city = 'NYC'
+          GROUP  BY deptno) a,
+         (SELECT Count()  total_count,
+                 SUM(sal) total_sal
+          FROM   scott.emp
+          WHERE  city = 'NYC') b
 ;
 """,
         dialect="oracle",
