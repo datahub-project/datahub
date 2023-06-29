@@ -17,6 +17,7 @@ import {
     ParentNodesResult,
     EntityPath,
     DataProduct,
+    EntityType,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -70,7 +71,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     }
 
     &&& {
-        margin-right 8px;
+        margin-right: 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
@@ -230,6 +231,22 @@ export default function DefaultPreviewCard({
     previewType,
     paths,
 }: Props) {
+    // eslint-disable-next-line no-param-reassign
+    topUsers = [];
+    topUsers.push({
+        type: EntityType.CorpUser,
+        urn: 'something',
+        properties: {
+            active: true,
+            fullName: 'yosh',
+            displayName: 'yosh display name',
+            firstName: 'yoshf',
+            lastName: 'yoshl',
+            title: 'yosht',
+        },
+        username: 'yoshi',
+        __typename: 'CorpUser',
+    });
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();

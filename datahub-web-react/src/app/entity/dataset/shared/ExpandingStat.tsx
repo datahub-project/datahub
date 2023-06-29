@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; width: string }>`
-    overflow: hidden;
+    overflow: ${(props) => (props.expanded ? 'visible' : 'hidden')};
     white-space: nowrap;
     width: ${(props) => props.width};
     transition: width 250ms ease;

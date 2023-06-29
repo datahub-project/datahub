@@ -9,12 +9,14 @@ type Props = {
 const StatsContainer = styled.div`
     margin-top: 8px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    gap: 5px;
 `;
 
 const StatDivider = styled.div`
-    padding-left: 10px;
-    margin-right: 10px;
+    padding-left: 5px;
+    margin-right: 5px;
     border-right: 1px solid ${ANTD_GRAY[4]};
     height: 21px;
 `;
@@ -22,7 +24,7 @@ const StatDivider = styled.div`
 export const StatsSummary = ({ stats }: Props) => {
     return (
         <>
-            {stats && stats.length > 0 && (
+            {!!stats.length && (
                 <StatsContainer>
                     {stats.map((statView, index) => (
                         <>
