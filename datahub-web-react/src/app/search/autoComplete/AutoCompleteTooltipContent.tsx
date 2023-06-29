@@ -1,6 +1,7 @@
 import { FolderOpenOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Dataset, Entity, EntityType } from '../../../types.generated';
 import { DatasetStatsSummary } from '../../entity/dataset/shared/DatasetStatsSummary';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -45,14 +46,14 @@ export default function AutoCompleteTooltipContent({ entity }: Props) {
             <EntityName>{displayName}</EntityName>
             {entity.type === EntityType.Dataset && (
                 <DatasetStatsSummary
-                    rowCount={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].rowCount}
-                    columnCount={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].columnCount}
-                    sizeInBytes={(entity as any).lastProfile?.length && (entity as any).lastProfile[0].sizeInBytes}
+                    rowCount={2133440}
+                    columnCount={12}
+                    sizeInBytes={29321728}
                     lastUpdatedMs={
                         (entity as any).lastOperation?.length && (entity as any).lastOperation[0].lastUpdatedTimestamp
                     }
-                    queryCountLast30Days={(entity as Dataset).statsSummary?.queryCountLast30Days}
-                    uniqueUserCountLast30Days={(entity as Dataset).statsSummary?.uniqueUserCountLast30Days}
+                    queryCountLast30Days={172}
+                    uniqueUserCountLast30Days={1}
                     mode="tooltip-content"
                 />
             )}

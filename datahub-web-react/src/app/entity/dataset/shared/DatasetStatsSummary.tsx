@@ -70,7 +70,7 @@ export const DatasetStatsSummary = ({
         !!sizeInBytes && (
             <StatText color={displayedColor}>
                 <HddOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <FormattedBytesStat bytes={sizeInBytes} />
+                <FormattedBytesStat bytes={sizeInBytes} disableTooltip={isTooltipMode} />
             </StatText>
         ),
         (!!queryCountLast30Days || !!totalSqlQueries) && (
@@ -83,11 +83,12 @@ export const DatasetStatsSummary = ({
         !!uniqueUserCountLast30Days && (
             <StatText color={displayedColor}>
                 <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
+                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users - high
             </StatText>
         ),
         !!lastUpdatedMs && (
             <Popover
+                open={isTooltipMode ? false : undefined}
                 content={
                     <PopoverContent>
                         Data was last updated in the source platform on{' '}
