@@ -157,11 +157,15 @@ Once you're happy with your changes, simply click 'Done' to save.
    </TabItem>
    <TabItem value="cli" label="CLI" default>
 
-Using the cli as mentioned in the [cli documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
+You can upload and even update recipes using the cli as mentioned in the [cli documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
 An example execution would look something like:
+
 ```bash
 datahub ingest deploy --name "My Test Ingestion Source" --schedule "5 * * * *" --time-zone "UTC" -c recipe.yaml
 ```
+
+This would create a new recipe with the name `My Test Ingestion Source`. Note that to update an existing recipe, it's `urn` id must be passed as a parameter.
+DataHub supports having multiple recipes with the same name so to distinguish them we use the urn for unique identification.
 
    </TabItem>
    <TabItem value="graphql" label="GraphQL" default>

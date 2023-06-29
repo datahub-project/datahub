@@ -6,9 +6,9 @@ import logging
 import os
 import sys
 import tzlocal
-import pytz
+from string import Template
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional
 
 import click
 import click_spinner
@@ -227,10 +227,17 @@ def run(
     required=True,
 )
 @click.option(
+    "--urn",
+    type=str,
+    help="Urn of recipe to update",
+    required=False,
+)
+@click.option(
     "--executor-id",
     type=str,
     default="default",
     help="Executor id to route execution requests to. Do not use this unless you have configured a custom executor.",
+    required=False,
 )
 @click.option(
     "--cli-version",
@@ -256,6 +263,7 @@ def run(
 def deploy(
     name: str,
     config: str,
+    urn: str,
     executor_id: str,
     cli_version: str,
     schedule: str,
@@ -270,62 +278,75 @@ def deploy(
 
     datahub_graph = get_default_graph()
 
-    urns = list(datahub_graph.get_urns_by_filter(
-        entity_types=[IngestionSourceUrn.ENTITY_TYPE],
-        query=name
-    ))
-
-    print(urns)
-
-    if len(urns) > 1:
-        click.echo(f"Found multiple ingestion source urns for {name}: {urns}")
-        exit()
-
-    endpoint = ""
-    input_obj = {}
-    graphql_query = f"mutation {endpoint}({input_obj})"
+    graphql_query_template = Template(
+        """
+        mutation $endpoint ( $variable_types ) {
+            $endpoint ( $input )
+        }""")
 
     pipeline_config = load_config_file(
         config,
-        squirrel_original_config=True,
-        squirrel_field="__raw_config",
         allow_stdin=True,
         resolve_env_vars=False,
     )
 
-    print(pipeline_config)
-
-    if len(urns) == 1:
-        logger.info(f"Found recipe urn {urns[0]} for {name}, will update this recipe.")
-        endpoint = "updateIngestionSource"
-        input_obj = {
-            "urn": urns[0],
-            "input": {
-                "name": name,
-                "type": pipeline_config["source"]["type"],
-                "schedule": {
-                    "interval": schedule,
-                    "timezone": time_zone,
-                },
-                "config": json.dumps(pipeline_config)
+    variables: dict = {
+        "name": name,
+        "type": pipeline_config["source"]["type"],
+        "recipe": json.dumps(pipeline_config),
+        "executorId": executor_id,
+    }
+    graphql_variable_types: dict = {
+        "$name": "String!",
+        "$type": "String!",
+        "$recipe": "String!",
+        "$executorId": "String!",
+    }
+    input_template: dict = {
+        "input": {
+            "name": "$name",
+            "type": "$type",
+            "config": {
+                "recipe": "$recipe",
+                "executorId": "$executorId"
             }
         }
-    else:
-        logger.info(f"No ingestion source urn found for {name}. Will create a new recipe.")
-        endpoint = "createIngestionSource"
-        input_obj = {
-            "types": types,
-            "query": query,
-            "orFilters": orFilters,
-            "batchSize": batch_size,
-            "scrollId": scroll_id,
-        }
+    }
+    graphql_endpoint: str
 
-    exit()
-    #datahub_graph.execute_graphql(graphql_query)
+    if urn:
+        if not datahub_graph.exists(urn):
+            logger.error(f"Could not find recipe for provided urn: {urn}")
+            exit()
+        logger.info(f"Found recipe URN, will update recipe.")
+        graphql_endpoint = "updateIngestionSource"
+        input_template["urn"] = "$urn"
+        graphql_variable_types["$urn"] = "String!"
+        variables["urn"] = urn
+    else:
+        logger.info(f"No URN specified recipe urn, will create a new recipe.")
+        graphql_endpoint = "createIngestionSource"
+
+    if schedule:
+        input_template["input"]["schedule"] = "$schedule"
+        graphql_variable_types["$schedule"] = "UpdateIngestionSourceScheduleInput"
+        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
+
+    if cli_version:
+        input_template["input"]["config"]["version"] = "$version"
+        graphql_variable_types["$version"] = "String"
+        variables["version"] = cli_version
+
+    graphql_query = graphql_query_template.substitute(
+        endpoint=graphql_endpoint,
+        variable_types=json.dumps(graphql_variable_types, sort_keys=True).replace("\"", "")[1:-1],
+        input=json.dumps(input_template, sort_keys=True).replace("\"", "")[1:-1]
+    )
+
+    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for {ingestion_source_urn} to DataHub ({datahub_graph})"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {name} with id: {response[graphql_endpoint]} to DataHub."
     )
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:

@@ -30,7 +30,7 @@ import static org.testng.Assert.*;
 
 public class ListIngestionSourceResolverTest {
 
-  private static final ListIngestionSourcesInput TEST_INPUT = new ListIngestionSourcesInput(0, 20, null);
+  private static final ListIngestionSourcesInput TEST_INPUT = new ListIngestionSourcesInput(0, 20, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {

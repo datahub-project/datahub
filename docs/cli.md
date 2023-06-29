@@ -110,8 +110,10 @@ To schedule a recipe called "test", to run at 5am everyday, London time with the
 datahub ingest deploy --name "test" --schedule "5 * * * *" --time-zone "Europe/London" -c recipe.yaml
 ````
 
-The `name` parameter specifies the recipe name to be uploaded, or if the name already exists, updates an existing recipe.
-**Note**: In case the name contains whitespaces the cli will convert them to underscores (`_`).
+To update an existing recipe please use the `--urn` parameter to specify the id of the recipe to update.
+
+**Note:** Updating a recipe will result in a replacement of the existing options with what was specified in the cli command.
+I.e: Not specifying a schedule in the cli update command will remove the schedule from the recipe to be updated.
 
 ### init
 
