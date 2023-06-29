@@ -351,7 +351,8 @@ class SqlUnderstandingError(Exception):
     pass
 
 
-def _column_level_lineage(
+# TODO: Break this up into smaller functions.
+def _column_level_lineage(  # noqa: C901
     statement: sqlglot.exp.Expression,
     dialect: str,
     input_tables: Dict[_TableName, SchemaInfo],
@@ -394,9 +395,6 @@ def _column_level_lineage(
             table.as_sqlglot_table(),
             column_mapping=normalized_table_schema,
         )
-
-    # TODO: Longer term solution: We'll also need to monkey-patch the column qualifier to use a
-    # case-insensitive fallback, but not do it if there's a real match available.
 
     if use_case_insensitive_cols:
 

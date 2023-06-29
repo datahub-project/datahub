@@ -92,13 +92,13 @@ class ConnectionWrapper:
     def execute(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        logger.debug(f"Executing <{sql}> ({parameters})")
+        # logger.debug(f"Executing <{sql}> ({parameters})")
         return self.conn.execute(sql, parameters)
 
     def executemany(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        logger.debug(f"Executing many <{sql}> ({parameters})")
+        # logger.debug(f"Executing many <{sql}> ({parameters})")
         return self.conn.executemany(sql, parameters)
 
     def close(self) -> None:
