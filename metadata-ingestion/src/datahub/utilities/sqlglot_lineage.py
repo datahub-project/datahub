@@ -145,7 +145,7 @@ class ColumnLineageInfo(BaseModel):
     upstreams: List[ColumnRef]
 
     # Logic for this column, as a SQL expression.
-    logic: Optional[str] = pydantic.Field(exclude=True)
+    logic: Optional[str] = pydantic.Field(default=None, exclude=True)
 
 
 class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
@@ -595,6 +595,7 @@ def _translate_internal_column_lineage(
             )
             for upstream in raw_column_lineage.upstreams
         ],
+        logic=raw_column_lineage.logic,
     )
 
 
