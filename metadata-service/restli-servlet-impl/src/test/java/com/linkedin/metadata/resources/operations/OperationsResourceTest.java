@@ -18,10 +18,10 @@ public class OperationsResourceTest extends TestCase {
     long endTimeMillis = 3000;
     OperationsResource testResource = new OperationsResource(mockTimeseriesAspectService);
     String output = testResource.executeTruncateTimeseriesAspect(entityType, aspectName, endTimeMillis, true, null,
-        null);
+        null, null, null);
     assertTrue(output.contains("This was a dry run"));
     output = testResource.executeTruncateTimeseriesAspect(entityType, aspectName, endTimeMillis, false, null,
-        null);
+        null, null, null);
     assertEquals(TASK_ID, output);
   }
 

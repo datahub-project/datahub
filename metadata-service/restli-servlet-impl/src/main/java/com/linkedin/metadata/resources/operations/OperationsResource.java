@@ -61,6 +61,8 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
   private static final String PARAM_NODE_ID = "nodeId";
   private static final String PARAM_TASK_ID = "taskId";
   private static final String PARAM_TASK = "task";
+  private static final String PARAM_FORCE_DELETE_BY_QUERY = "forceDeleteByQuery";
+  private static final String PARAM_FORCE_REINDEX = "forceReindex";
 
   @Inject
   @Named("entityService")
@@ -180,13 +182,19 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @Nonnull Long endTimeMillis,
       @Nonnull Boolean dryRun,
       @Nullable Integer batchSize,
-      @Nullable Long timeoutSeconds
+      @Nullable Long timeoutSeconds,
+      @Nullable Boolean forceDeleteByQuery,
+      @Nullable Boolean forceReindex
   ) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
         && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.TRUNCATE_TIMESERIES_INDEX_PRIVILEGE),
         List.of(java.util.Optional.empty()))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to truncate timeseries index");
+    }
+
+    if (forceDeleteByQuery != null && forceDeleteByQuery.equals(forceReindex)) {
+      return "please only set forceReindex OR forceDeleteByQuery flags";
     }
 
     // TODO(indy): Add optimization to perform a reindex if many documents will be truncated
@@ -199,6 +207,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
     long totalNum = _timeseriesAspectService.countByFilter(entityType, aspectName, new Filter());
 
     String deleteSummary = String.format("Delete %d out of %d rows (%.2f%%). ", numToDelete, totalNum, ((double) numToDelete) / totalNum * 100);
+    boolean reindex = !(forceDeleteByQuery != null && forceDeleteByQuery) && ((forceReindex != null && forceReindex) ||  numToDelete > (totalNum / 2));
+
+    if (reindex) {
+      deleteSummary += "Reindexing the aspect without the deleted records. ";
+    } else {
+      deleteSummary += "Issuing a delete by query request. ";
+    }
 
     if (dryRun) {
       deleteSummary += "This was a dry run. Run with dryRun = false to execute.";
@@ -217,9 +232,15 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
         options.setTimeoutSeconds(timeoutSeconds);
       }
 
-      String taskId = _timeseriesAspectService.deleteAspectValuesAsync(entityType, aspectName, filter, options);
-      log.info("delete by query request submitted with ID " + taskId);
-      return taskId;
+      if (reindex) {
+        String taskId = _timeseriesAspectService.reindexAsync(entityType, aspectName, filter, options);
+        log.info("reindex request submitted with ID " + taskId);
+        return taskId;
+      } else {
+        String taskId = _timeseriesAspectService.deleteAspectValuesAsync(entityType, aspectName, filter, options);
+        log.info("delete by query request submitted with ID " + taskId);
+        return taskId;
+      }
     }
   }
 
@@ -232,10 +253,12 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       @ActionParam(PARAM_END_TIME_MILLIS) @Nonnull Long endTimeMillis,
       @ActionParam(PARAM_IS_DRY_RUN) @Optional("true") @Nonnull Boolean dryRun,
       @ActionParam(PARAM_BATCH_SIZE) @Optional @Nullable Integer batchSize,
-      @ActionParam(PARAM_TIMEOUT_SECONDS) @Optional @Nullable Long timeoutSeconds
+      @ActionParam(PARAM_TIMEOUT_SECONDS) @Optional @Nullable Long timeoutSeconds,
+      @ActionParam(PARAM_FORCE_DELETE_BY_QUERY) @Optional @Nullable Boolean forceDeleteByQuery,
+      @ActionParam(PARAM_FORCE_REINDEX) @Optional @Nullable Boolean forceReindex
   ) {
     return RestliUtil.toTask(() ->
-        executeTruncateTimeseriesAspect(entityType, aspectName, endTimeMillis, dryRun, batchSize, timeoutSeconds),
+        executeTruncateTimeseriesAspect(entityType, aspectName, endTimeMillis, dryRun, batchSize, timeoutSeconds, forceDeleteByQuery, forceReindex),
         MetricRegistry.name(this.getClass(), "truncateTimeseriesAspect"));
   }
 }
