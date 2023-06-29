@@ -1,3 +1,5 @@
+import sys
+
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
 import collections
@@ -1110,5 +1112,7 @@ class DatahubGEProfiler:
 def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
     if dialect_name.lower() == "postgresql":
         return ["JSON"]
+    elif dialect_name.lower() == "trino" and sys.version_info <= (3, 7):
+        return ["ARRAY"]
 
     return []
