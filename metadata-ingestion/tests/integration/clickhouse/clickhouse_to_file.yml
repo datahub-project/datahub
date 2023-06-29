@@ -6,7 +6,7 @@ source:
     username: clickhouseuser
     password: clickhousepass
     database: clickhousedb
-    host_port: localhost:58123
+    host_port: localhost:28123
     platform_instance: clickhousetestserver
     schema_pattern:
       allow:

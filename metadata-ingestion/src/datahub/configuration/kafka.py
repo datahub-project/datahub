@@ -9,7 +9,7 @@ class _KafkaConnectionConfig(ConfigModel):
     bootstrap: str = "localhost:9092"
 
     # schema registry location
-    schema_registry_url: str = "http://localhost:8081"
+    schema_registry_url: str = "http://localhost:8080/schema-registry/api/"
 
     schema_registry_config: dict = Field(
         default_factory=dict,

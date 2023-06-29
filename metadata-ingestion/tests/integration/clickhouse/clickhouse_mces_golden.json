@@ -5,8 +5,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"clickhousetestserver\", \"database\": \"clickhousedb\"}, \"name\": \"clickhousedb\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "clickhouse",
+                "instance": "clickhousetestserver",
+                "env": "PROD",
+                "database": "clickhousedb"
+            },
+            "name": "clickhousedb"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -19,8 +26,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -33,8 +41,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -47,8 +57,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Database\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -61,8 +74,16 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"clickhouse\", \"instance\": \"clickhousetestserver\", \"database\": \"clickhousedb\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "clickhouse",
+                "instance": "clickhousetestserver",
+                "env": "PROD",
+                "database": "clickhousedb",
+                "schema": "db1"
+            },
+            "name": "db1"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -75,8 +96,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -89,8 +111,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -103,8 +127,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Schema\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -117,8 +144,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:ab016b94aa0d75c5b9205c33260e989c\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -131,8 +159,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -145,8 +174,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -172,11 +211,11 @@
                             "primary_key": "col_Int64",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "10",
                             "total_bytes": "671",
-                            "data_paths": "['/var/lib/clickhouse/store/f12/f12ef1cd-d030-4ce1-aa00-2abe38a0af22/']",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_target_table.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/689/689251e9-d514-4a89-ac7b-14857a8a395a/']",
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/mv_target_table.sql"
                         },
                         "name": "mv_target_table",
                         "description": "This is target table for materialized view",
@@ -285,8 +324,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -299,8 +340,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -313,8 +357,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -340,11 +385,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/938/9383ca3f-c98e-4240-9e0d-0f32939d170b/']",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/1bb/1bb7aa71-5c5e-426b-ba29-a12b800e6dcf/']",
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_data_types.sql"
                         },
                         "name": "test_data_types",
                         "description": "This table has basic types",
@@ -882,8 +927,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -896,8 +943,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -910,8 +960,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -924,8 +975,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)\", \"type\": \"COPY\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -951,11 +1012,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_dict.sql"
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_dict.sql"
                         },
                         "name": "test_dict",
                         "description": "",
@@ -1025,8 +1086,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1039,8 +1102,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1053,8 +1119,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1080,11 +1147,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/f7f/f7f15fe6-10cc-45d6-928e-6eb4ecc7a502/']",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_nested_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/531/531fc424-a69b-4d7c-8b4c-a7dbbc2e919f/']",
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_nested_data_types.sql"
                         },
                         "name": "test_nested_data_types",
                         "description": "This table has nested types",
@@ -1258,8 +1325,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1272,8 +1341,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1286,8 +1358,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1300,8 +1373,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1327,11 +1410,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/f12/f12ef1cd-d030-4ce1-aa00-2abe38a0af22/']",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_with_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/689/689251e9-d514-4a89-ac7b-14857a8a395a/']",
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/mv_with_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1442,8 +1525,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1456,8 +1541,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"View\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1470,8 +1558,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "",
+            "viewLanguage": "SQL"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1484,8 +1575,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1498,8 +1590,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)\", \"type\": \"TRANSFORMED\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1525,11 +1627,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/6f6/6f6a1b0a-8873-48b2-a370-1fbf5c04eea8/']",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/mv_without_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/42b/42b5020e-8007-4b11-b491-f4604a33d2e9/']",
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/mv_without_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1640,8 +1742,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1654,8 +1758,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"View\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1668,8 +1775,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "",
+            "viewLanguage": "SQL"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1682,8 +1792,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:1154d1da73a95376c9f33f47694cf1de\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1696,8 +1807,18 @@
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
-        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)\", \"type\": \"VIEW\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1723,11 +1844,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2022-10-13 04:56:28",
+                            "metadata_modification_time": "2023-05-11 23:34:18",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/1df/1df0ba79-5a9d-4f93-8462-1e7056c3aea5/test_view.sql",
+                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_view.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1786,8 +1907,10 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:clickhouse\", \"instance\": \"urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:clickhouse",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1800,8 +1923,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"View\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1814,8 +1940,11 @@
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
-        "value": "{\"materialized\": false, \"viewLogic\": \"\", \"viewLanguage\": \"SQL\"}",
-        "contentType": "application/json"
+        "json": {
+            "materialized": false,
+            "viewLogic": "",
+            "viewLanguage": "SQL"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

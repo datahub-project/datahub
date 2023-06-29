@@ -40,7 +40,7 @@ dependencies {
 }
 
 bootJar {
-    mainClassName = 'com.linkedin.metadata.kafka.MceConsumerApplication'
+    mainClass = 'com.linkedin.metadata.kafka.MceConsumerApplication'
     archiveFileName = "${project.name}.jar"
 
     // working around the restli error when it tries to open a jar within the spring boot fat jar

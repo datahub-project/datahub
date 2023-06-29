@@ -40,5 +40,30 @@ source:
           platform_instance: sn-2
           env: QA
 
+    # Need admin_api, only ingest workspace that are modified since...
+    modified_since: "2023-02-10T00:00:00.0000000Z"
+
+    ownership:
+        # create powerbi user as datahub corpuser, false will still extract ownership of workspace/ dashboards
+        create_corp_user: false
+        # use email to build user urn instead of powerbi user identifier
+        use_powerbi_email: true
+        # remove email suffix like @acryl.io
+        remove_email_suffix: true
+        # only ingest user with certain authority
+        owner_criteria: ["ReadWriteReshareExplore","Owner","Admin"]
+    # wrap powerbi tables (datahub dataset) under 1 powerbi dataset (datahub container)
+    extract_datasets_to_containers: true
+    # only ingest dataset that are endorsed, like "Certified"
+    filter_dataset_endorsements: 
+      allow:
+        - Certified
+      
+    # extract powerbi dashboards and tiles
+    extract_dashboards: false
+    # extract powerbi dataset table schema
+    extract_dataset_schema: true
+
+
 sink:
   # sink configs

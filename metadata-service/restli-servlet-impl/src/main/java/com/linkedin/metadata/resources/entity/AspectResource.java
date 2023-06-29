@@ -7,6 +7,7 @@ import com.datahub.authorization.ResourceSpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
+import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -14,10 +15,10 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -38,8 +39,6 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
-import java.util.HashMap;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -47,6 +46,7 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
@@ -61,8 +61,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String ACTION_GET_TIMESERIES_ASPECT = "getTimeseriesAspectValues";
   private static final String ACTION_INGEST_PROPOSAL = "ingestProposal";
   private static final String ACTION_GET_COUNT = "getCount";
-  private static final String ACTION_RESTORE_INDICES = "restoreIndices";
-
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ASPECT = "aspect";
   private static final String PARAM_PROPOSAL = "proposal";
@@ -127,8 +125,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @ActionParam(PARAM_LIMIT) @Optional("10000") int limit,
-      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter) throws URISyntaxException {
+      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue, // This field is deprecated.
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sort) throws URISyntaxException {
     log.info(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName, entityName, startTimeMillis, endTimeMillis, limit);
@@ -149,10 +148,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       if (endTimeMillis != null) {
         response.setEndTimeMillis(endTimeMillis);
       }
-      response.setLimit(limit);
+      if (latestValue) {
+        response.setLimit(1);
+      } else {
+        response.setLimit(limit);
+      }
       response.setValues(new EnvelopedAspectArray(
-          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit,
-              latestValue, filter)));
+          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit, filter, sort)));
       return response;
     }, MetricRegistry.name(this.getClass(), "getTimeseriesAspectValues"));
   }
@@ -228,22 +230,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                      @ActionParam("batchSize") @Optional @Nullable Integer batchSize
   ) {
     return RestliUtil.toTask(() -> {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
-          (ResourceSpec) null)) {
-        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
-      }
-      RestoreIndicesArgs args = new RestoreIndicesArgs()
-              .setAspectName(aspectName)
-              .setUrnLike(urnLike)
-              .setUrn(urn)
-              .setStart(start)
-              .setBatchSize(batchSize);
-      Map<String, Object> result = new HashMap<>();
-      result.put("args", args);
-      result.put("result", _entityService.restoreIndices(args, log::info));
-      return result.toString();
+      return Utils.restoreIndices(aspectName, urn, urnLike, start, batchSize, _authorizer, _entityService);
     }, MetricRegistry.name(this.getClass(), "restoreIndices"));
   }
 

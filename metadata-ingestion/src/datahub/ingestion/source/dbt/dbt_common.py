@@ -31,20 +31,22 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
+    ATHENA_SQL_TYPES_MAP,
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
     VERTICA_SQL_TYPES_MAP,
+    resolve_athena_modified_type,
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
     resolve_vertica_modified_type,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -108,11 +110,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.mapping import Constants, OperationProcessor
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -509,6 +506,7 @@ _field_type_mapping = {
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
     **TRINO_SQL_TYPES_MAP,
+    **ATHENA_SQL_TYPES_MAP,
     **VERTICA_SQL_TYPES_MAP,
 }
 
@@ -522,9 +520,11 @@ def get_column_type(
     TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
-        # resolve modified type
+        # resolve a modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
+        elif dbt_adapter == "athena":
+            TypeClass = resolve_athena_modified_type(column_type)
         elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
             # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)
@@ -687,12 +687,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 self.config.owner_extraction_pattern
             )
         # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
+            self, self.config, ctx
         )
 
     def create_test_entity_mcps(
@@ -722,14 +718,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             if self.config.entities_enabled.can_emit_node_type("test"):
-                wu = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=assertion_urn,
                     aspect=DataPlatformInstanceClass(
                         platform=mce_builder.make_data_platform_urn(DBT_PLATFORM)
                     ),
                 ).as_workunit()
-                self.report.report_workunit(wu)
-                yield wu
 
             upstream_urns = get_upstreams(
                 upstreams=node.upstream_nodes,
@@ -742,22 +736,18 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
             for upstream_urn in sorted(upstream_urns):
                 if self.config.entities_enabled.can_emit_node_type("test"):
-                    wu = self._make_assertion_from_test(
+                    yield self._make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
                         upstream_urn,
                     )
-                    self.report.report_workunit(wu)
-                    yield wu
 
                 if node.test_result:
                     if self.config.entities_enabled.can_emit_test_results:
-                        wu = self._make_assertion_result_from_test(
+                        yield self._make_assertion_result_from_test(
                             node, assertion_urn, upstream_urn
                         )
-                        self.report.report_workunit(wu)
-                        yield wu
                     else:
                         logger.debug(
                             f"Skipping test result {node.name} emission since it is turned off."
@@ -883,13 +873,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # return dbt nodes + global custom properties
         raise NotImplementedError()
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_materialize_referenced_tags(
-            auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_status_aspect(self.get_workunits_internal()),
-            )
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            self.stale_entity_removal_handler.workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.write_semantics == "PATCH" and not self.ctx.graph:
@@ -1023,7 +1011,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 sub_type_wu = self._create_subType_wu(node, node_datahub_urn)
                 if sub_type_wu:
                     yield sub_type_wu
-                    self.report.report_workunit(sub_type_wu)
 
             else:
                 # We are creating empty node for platform and only add lineage/keyaspect.
@@ -1048,17 +1035,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         for upstream in upstreams_lineage_class.upstreams:
                             patch_builder.add_upstream_lineage(upstream)
 
-                        lineage_workunits = [
-                            MetadataWorkUnit(
+                        for mcp in patch_builder.build():
+                            yield MetadataWorkUnit(
                                 id=f"upstreamLineage-for-{node_datahub_urn}",
                                 mcp_raw=mcp,
                                 is_primary_source=is_primary_source,
                             )
-                            for mcp in patch_builder.build()
-                        ]
-                        for wu in lineage_workunits:
-                            yield wu
-                            self.report.report_workunit(wu)
                     else:
                         aspects.append(upstreams_lineage_class)
 
@@ -1068,11 +1050,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             if self.config.write_semantics == "PATCH":
                 mce = self.get_patched_mce(mce)
-            wu = MetadataWorkUnit(
+            yield MetadataWorkUnit(
                 id=dataset_snapshot.urn, mce=mce, is_primary_source=is_primary_source
             )
-            self.report.report_workunit(wu)
-            yield wu
 
     def extract_query_tag_aspects(
         self,
@@ -1350,9 +1330,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             return None
 
         subtypes: List[str] = [node.node_type.capitalize()]
+        if node.node_type == "source":
+            # In the siblings association hook, we previously looked for an exact
+            # match of "source" to determine if a node was a source. While we now
+            # also check for a capitalized "Source" subtype, this maintains compatibility
+            # with older GMS versions.
+            subtypes.append("source")
         if node.materialization == "table":
             subtypes.append(DatasetSubTypes.TABLE)
-        elif node.materialization == "view":
+
+        if node.node_type == "model" or node.node_type == "snapshot":
+            # We need to add the view subtype so that the view properties tab shows up in the UI.
             subtypes.append(DatasetSubTypes.VIEW)
 
         return MetadataChangeProposalWrapper(

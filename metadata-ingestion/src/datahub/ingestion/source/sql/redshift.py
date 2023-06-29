@@ -32,9 +32,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.path_spec import PathSpec
 from datahub.ingestion.source.aws.s3_util import strip_s3_prefix
-from datahub.ingestion.source.sql.postgres import PostgresConfig
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.sql.postgres import BasePostgresConfig
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SQLSourceReport,
@@ -124,7 +124,7 @@ class DatasetS3LineageProviderConfigBase(ConfigModel):
 
 
 class RedshiftConfig(
-    PostgresConfig,
+    BasePostgresConfig,
     BaseTimeWindowConfig,
     DatasetLineageProviderConfigBase,
     DatasetS3LineageProviderConfigBase,
@@ -603,13 +603,7 @@ class RedshiftSource(SQLAlchemySource):
                     )
 
                 if lineage_mcp is not None:
-                    lineage_wu = MetadataWorkUnit(
-                        id=f"redshift-{lineage_mcp.entityUrn}-{lineage_mcp.aspectName}",
-                        mcp=lineage_mcp,
-                    )
-                    self.report.report_workunit(lineage_wu)
-
-                    yield lineage_wu
+                    yield lineage_mcp.as_workunit()
 
                 if lineage_properties_aspect:
                     aspects = dataset_snapshot.aspects
@@ -699,10 +693,11 @@ class RedshiftSource(SQLAlchemySource):
         return sources
 
     def get_db_name(self, inspector: Optional[Inspector] = None) -> str:
-        db_name = getattr(self.config, "database")
-        db_alias = getattr(self.config, "database_alias")
+        db_name = self.config.database
+        db_alias = self.config.database_alias
         if db_alias:
             db_name = db_alias
+        assert db_name
         return db_name
 
     def _get_s3_path(self, path: str) -> str:

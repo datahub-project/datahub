@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -11,14 +12,16 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -26,14 +29,26 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 @Slf4j
 @RequiredArgsConstructor
 public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture<String>> {
+
+  static final String PARENT_NODE_INDEX_FIELD_NAME = "parentNode.keyword";
 
   private final EntityClient _entityClient;
   private final EntityService _entityService;
@@ -47,25 +62,29 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
 
     return CompletableFuture.supplyAsync(() -> {
       if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
+        // Ensure there isn't another glossary term with the same name at this level of the glossary
+        validateGlossaryTermName(parentNode, context, input.getName());
         try {
           final GlossaryTermKey key = new GlossaryTermKey();
 
           final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
           key.setName(id);
 
-          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_TERM_ENTITY_NAME), context.getAuthentication())) {
+          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_TERM_ENTITY_NAME), context.getAuthentication())) {
             throw new IllegalArgumentException("This Glossary Term already exists!");
           }
 
-          final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-          proposal.setEntityType(Constants.GLOSSARY_TERM_ENTITY_NAME);
-          proposal.setAspectName(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
-          proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryTermInfo(input)));
-          proposal.setChangeType(ChangeType.UPSERT);
+          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, GLOSSARY_TERM_ENTITY_NAME,
+              GLOSSARY_TERM_INFO_ASPECT_NAME, mapGlossaryTermInfo(input));
 
-          String glossaryTermUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          OwnerUtils.addCreatorAsOwner(context, glossaryTermUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          String glossaryTermUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+          OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+          if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
+            log.warn("Technical owner does not exist, defaulting to None ownership.");
+            ownershipType = OwnershipType.NONE;
+          }
+
+          OwnerUtils.addCreatorAsOwner(context, glossaryTermUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
           return glossaryTermUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryTerm with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
@@ -91,5 +110,51 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
       }
     }
     return result;
+  }
+
+  private Filter buildParentNodeFilter(final Urn parentNodeUrn) {
+    final Map<String, String> criterionMap = new HashMap<>();
+    criterionMap.put(PARENT_NODE_INDEX_FIELD_NAME, parentNodeUrn == null ? null : parentNodeUrn.toString());
+    return QueryUtils.newFilter(criterionMap);
+  }
+
+  private Map<Urn, EntityResponse> getTermsWithSameParent(Urn parentNode, QueryContext context) {
+    try {
+      final Filter filter = buildParentNodeFilter(parentNode);
+      final SearchResult searchResult = _entityClient.filter(
+          GLOSSARY_TERM_ENTITY_NAME,
+          filter,
+          null,
+          0,
+          1000,
+          context.getAuthentication());
+
+      final List<Urn> termUrns = searchResult.getEntities()
+          .stream()
+          .map(SearchEntity::getEntity)
+          .collect(Collectors.toList());
+
+      return _entityClient.batchGetV2(
+          GLOSSARY_TERM_ENTITY_NAME,
+          new HashSet<>(termUrns),
+          Collections.singleton(GLOSSARY_TERM_INFO_ASPECT_NAME),
+          context.getAuthentication());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed fetching Glossary Terms with the same parent", e);
+    }
+  }
+
+  private void validateGlossaryTermName(Urn parentNode, QueryContext context, String name) {
+    Map<Urn, EntityResponse> entities = getTermsWithSameParent(parentNode, context);
+
+    entities.forEach((urn, entityResponse) -> {
+      if (entityResponse.getAspects().containsKey(GLOSSARY_TERM_INFO_ASPECT_NAME)) {
+        DataMap dataMap = entityResponse.getAspects().get(GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data();
+        GlossaryTermInfo termInfo = new GlossaryTermInfo(dataMap);
+        if (termInfo.hasName() && termInfo.getName().equals(name)) {
+          throw new IllegalArgumentException("Glossary Term with this name already exists at this level of the Business Glossary");
+        }
+      }
+    });
   }
 }

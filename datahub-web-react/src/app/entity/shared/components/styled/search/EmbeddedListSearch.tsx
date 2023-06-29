@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import { EntityType, FacetFilterInput, FacetMetadata } from '../../../../../../types.generated';
-import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
+import { FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import { UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { useGetDownloadScrollResultsQuery } from '../../../../../../graphql/scroll.generated';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+import {
+    DownloadSearchResultsParams,
+    DownloadSearchResultsInput,
+    DownloadSearchResults,
+} from '../../../../../search/utils/types';
+import { useEntityContext } from '../../../EntityContext';
 
 const Container = styled.div`
     display: flex;
@@ -73,11 +79,18 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
         error: ApolloError | undefined;
         refetch: (variables: GetSearchResultsParams['variables']) => Promise<SearchResultsInterface | undefined | null>;
+    };
+    useGetDownloadSearchResults?: (params: DownloadSearchResultsParams) => {
+        loading: boolean;
+        error: ApolloError | undefined;
+        searchResults: DownloadSearchResults | undefined | null;
+        refetch: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | undefined | null>;
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
@@ -100,59 +113,56 @@ export const EmbeddedListSearch = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    skipCache,
     useGetSearchResults = useWrappedSearchResults,
+    useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
 }: Props) => {
+    const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
 
-    // Adjust filters based on props
-    const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
-        (filter) => filter.field !== ENTITY_FILTER_NAME,
-    );
-
     const baseFilters = {
         unionType,
-        filters: filtersWithoutEntities,
+        filters,
     };
 
     const finalFilters =
-        (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) ||
-        generateOrFilters(unionType, filtersWithoutEntities);
-
-    const entityFilters: Array<EntityType> = filters
-        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
+        (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) || generateOrFilters(unionType, filters);
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
-    const { refetch: refetchForDownload } = useGetDownloadScrollResultsQuery({
+    // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
+    // download the correct results given the current context.
+    // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
+    // TODO: Revisit this pattern -- what can we push down?
+    const { refetch: refetchForDownload } = useGetDownloadSearchResults({
         variables: {
             input: {
-                types: entityFilters,
+                types: [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                orFilters: generateOrFilters(unionType, filters),
+                scrollId: null,
             },
         },
         skip: true,
     });
 
-    const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetchForDownload(variables).then((res) => res.data.scrollAcrossEntities);
-    };
-
-    const searchInput = {
-        types: entityFilters,
+    let searchInput: SearchAcrossEntitiesInput = {
+        types: [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
     };
+    if (skipCache) {
+        searchInput = { ...searchInput, searchFlags: { skipCache: true } };
+    }
 
     const { data, loading, error, refetch } = useGetSearchResults({
         variables: {
@@ -168,6 +178,16 @@ export const EmbeddedListSearch = ({
             resetShouldRefetch();
         }
     });
+
+    useEffect(() => {
+        if (shouldRefetchEmbeddedListSearch) {
+            refetch({
+                input: searchInput,
+            });
+            setShouldRefetchEmbeddedListSearch?.(false);
+        }
+    });
+
     const searchResultEntities =
         data?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) || [];
     const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
@@ -228,8 +248,7 @@ export const EmbeddedListSearch = ({
                 onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
                 placeholderText={placeholderText}
                 onToggleFilters={onToggleFilters}
-                callSearchOnVariables={callSearchOnVariables}
-                entityFilters={entityFilters}
+                downloadSearchResults={(input) => refetchForDownload(input)}
                 filters={finalFilters}
                 query={finalQuery}
                 isSelectMode={isSelectMode}
@@ -237,7 +256,7 @@ export const EmbeddedListSearch = ({
                 setIsSelectMode={setIsSelectMode}
                 selectedEntities={selectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
-                refetch={refetch as any}
+                refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}
                 searchBarInputStyle={searchBarInputStyle}
             />

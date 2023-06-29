@@ -12,18 +12,15 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    OauthConfiguration,
-)
+from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
 )
-from datahub.ingestion.source.sql.oauth_generator import OauthTokenGenerator
+from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
 from datahub.ingestion.source.sql.sql_config import (
     SQLAlchemyConfig,
     make_sqlalchemy_uri,
@@ -46,59 +43,6 @@ VALID_AUTH_TYPES: Dict[str, str] = {
 }
 
 SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
-
-
-class SnowflakeProvisionRoleConfig(ConfigModel):
-    enabled: bool = pydantic.Field(
-        default=False,
-        description="Whether provisioning of Snowflake role (used for ingestion) is enabled or not.",
-    )
-
-    # Can be used by account admin to test what sql statements will be run
-    dry_run: bool = pydantic.Field(
-        default=False,
-        description="If provision_role is enabled, whether to dry run the sql commands for system admins to see what sql grant commands would be run without actually running the grant commands.",
-    )
-
-    # Setting this to True is helpful in case you want a clean role without any extra privileges
-    # Not set to True by default because multiple parallel
-    #   snowflake ingestions can be dependent on single role
-    drop_role_if_exists: bool = pydantic.Field(
-        default=False,
-        description="Useful during testing to ensure you have a clean slate role. Not recommended for production use cases.",
-    )
-
-    # When Account admin is testing they might not want to actually do the ingestion
-    # Set this to False in case the account admin would want to
-    #   create role
-    #   grant role to user in main config
-    #   run ingestion as the user in main config
-    run_ingestion: bool = pydantic.Field(
-        default=False,
-        description="If system admins wish to skip actual ingestion of metadata during testing of the provisioning of role.",
-    )
-
-    admin_role: Optional[str] = pydantic.Field(
-        default="accountadmin",
-        description="The Snowflake role of admin user used for provisioning of the role specified by role config. System admins can audit the open source code and decide to use a different role.",
-    )
-
-    admin_username: str = pydantic.Field(
-        description="The username to be used for provisioning of role."
-    )
-
-    admin_password: Optional[pydantic.SecretStr] = pydantic.Field(
-        default=None,
-        exclude=True,
-        description="The password to be used for provisioning of role.",
-    )
-
-    @pydantic.validator("admin_username", always=True)
-    def username_not_empty(cls, v, values, **kwargs):
-        v_str: str = str(v)
-        if not v_str.strip():
-            raise ValueError("username is empty")
-        return v
 
 
 class BaseSnowflakeConfig(BaseTimeWindowConfig):
@@ -126,13 +70,13 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         description="Password for your private key. Required if using key pair authentication with encrypted private key.",
     )
 
-    oauth_config: Optional[OauthConfiguration] = pydantic.Field(
+    oauth_config: Optional[OAuthConfiguration] = pydantic.Field(
         default=None,
         description="oauth configuration - https://docs.snowflake.com/en/user-guide/python-connector-example.html#connecting-with-oauth",
     )
     authentication_type: str = pydantic.Field(
         default="DEFAULT_AUTHENTICATOR",
-        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
+        description='The type of authenticator to use when connecting to Snowflake. Supports "DEFAULT_AUTHENTICATOR", "OAUTH_AUTHENTICATOR", "EXTERNAL_BROWSER_AUTHENTICATOR" and "KEY_PAIR_AUTHENTICATOR".',
     )
     account_id: str = pydantic.Field(
         description="Snowflake account identifier. e.g. xy12345,  xy12345.us-east-2.aws, xy12345.us-central1.gcp, xy12345.central-us.azure, xy12345.us-west-2.privatelink. Refer [Account Identifiers](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#format-2-legacy-account-locator-in-a-region) for more details.",
@@ -153,10 +97,6 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         default=None,
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
-    )
-    check_role_grants: bool = pydantic.Field(
-        default=False,
-        description="If set to True then checks role grants at the beginning of the ingestion run. To be used for debugging purposes. If you think everything is working fine then set it to False. In some cases this can take long depending on how many roles you might have.",
     )
 
     def get_account(self) -> str:
@@ -198,48 +138,36 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
                     f"At least one should be set when using {v} authentication"
                 )
         elif v == "OAUTH_AUTHENTICATOR":
-            if values.get("oauth_config") is None:
-                raise ValueError(
-                    f"'oauth_config' is none but should be set when using {v} authentication"
-                )
-            if values.get("oauth_config").provider is None:
-                raise ValueError(
-                    f"'oauth_config.provider' is none "
-                    f"but should be set when using {v} authentication"
-                )
-            if values.get("oauth_config").client_id is None:
-                raise ValueError(
-                    f"'oauth_config.client_id' is none "
-                    f"but should be set when using {v} authentication"
-                )
-            if values.get("oauth_config").scopes is None:
-                raise ValueError(
-                    f"'oauth_config.scopes' was none "
-                    f"but should be set when using {v} authentication"
-                )
-            if values.get("oauth_config").authority_url is None:
-                raise ValueError(
-                    f"'oauth_config.authority_url' was none "
-                    f"but should be set when using {v} authentication"
-                )
-            if values.get("oauth_config").use_certificate is True:
-                if values.get("oauth_config").encoded_oauth_private_key is None:
-                    raise ValueError(
-                        "'base64_encoded_oauth_private_key' was none "
-                        "but should be set when using certificate for oauth_config"
-                    )
-                if values.get("oauth").encoded_oauth_public_key is None:
-                    raise ValueError(
-                        "'base64_encoded_oauth_public_key' was none"
-                        "but should be set when using use_certificate true for oauth_config"
-                    )
-            elif values.get("oauth_config").client_secret is None:
-                raise ValueError(
-                    "'oauth_config.client_secret' was none "
-                    "but should be set when using use_certificate false for oauth_config"
-                )
+            cls._check_oauth_config(values.get("oauth_config"))
         logger.info(f"using authenticator type '{v}'")
         return v
+
+    @staticmethod
+    def _check_oauth_config(oauth_config: Optional[OAuthConfiguration]) -> None:
+        if oauth_config is None:
+            raise ValueError(
+                "'oauth_config' is none but should be set when using OAUTH_AUTHENTICATOR authentication"
+            )
+        if oauth_config.use_certificate is True:
+            if oauth_config.provider == OAuthIdentityProvider.OKTA.value:
+                raise ValueError(
+                    "Certificate authentication is not supported for Okta."
+                )
+            if oauth_config.encoded_oauth_private_key is None:
+                raise ValueError(
+                    "'base64_encoded_oauth_private_key' was none "
+                    "but should be set when using certificate for oauth_config"
+                )
+            if oauth_config.encoded_oauth_public_key is None:
+                raise ValueError(
+                    "'base64_encoded_oauth_public_key' was none"
+                    "but should be set when using use_certificate true for oauth_config"
+                )
+        elif oauth_config.client_secret is None:
+            raise ValueError(
+                "'oauth_config.client_secret' was none "
+                "but should be set when using use_certificate false for oauth_config"
+            )
 
     @pydantic.validator("include_view_lineage")
     def validate_include_view_lineage(cls, v, values):
@@ -338,7 +266,6 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )
 
-    provision_role: Optional[SnowflakeProvisionRoleConfig] = None
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
 
@@ -359,14 +286,16 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
         self.options["connect_args"] = options_connect_args
         return self.options
 
-    def get_oauth_connection(self):
+    def get_oauth_connection(self) -> snowflake.connector.SnowflakeConnection:
         assert (
             self.oauth_config
         ), "oauth_config should be provided if using oauth based authentication"
-        generator = OauthTokenGenerator(
-            self.oauth_config.client_id,
-            self.oauth_config.authority_url,
-            self.oauth_config.provider,
+        generator = OAuthTokenGenerator(
+            client_id=self.oauth_config.client_id,
+            authority_url=self.oauth_config.authority_url,
+            provider=self.oauth_config.provider,
+            username=self.username,
+            password=self.password,
         )
         if self.oauth_config.use_certificate:
             response = generator.get_token_with_certificate(
@@ -375,11 +304,18 @@ class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
                 scopes=self.oauth_config.scopes,
             )
         else:
+            assert self.oauth_config.client_secret
             response = generator.get_token_with_secret(
-                secret=str(self.oauth_config.client_secret),
+                secret=str(self.oauth_config.client_secret.get_secret_value()),
                 scopes=self.oauth_config.scopes,
             )
-        token = response["access_token"]
+        try:
+            token = response["access_token"]
+        except KeyError:
+            raise ValueError(
+                f"access_token not found in response {response}. "
+                "Please check your OAuth configuration."
+            )
         connect_args = self.get_options()["connect_args"]
         return snowflake.connector.connect(
             user=self.username,

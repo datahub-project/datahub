@@ -3,7 +3,7 @@
 version: '3.8'
 services:
   kafka-rest-proxy:
-    image: confluentinc/cp-kafka-rest:7.2.2
+    image: confluentinc/cp-kafka-rest:7.4.0
     env_file: kafka-rest-proxy/env/docker.env
     hostname: kafka-rest-proxy
     container_name: kafka-rest-proxy
@@ -24,7 +24,7 @@ services:
     depends_on:
       - zookeeper
       - broker
-      - schema-registry
+      - schema-registry # -datahub-gms
       - kafka-rest-proxy
 
   kibana:

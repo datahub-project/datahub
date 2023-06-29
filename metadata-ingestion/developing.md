@@ -98,6 +98,11 @@ flake8 src/ tests/
 mypy src/ tests/
 ```
 
+or you can run from root of the repository
+```shell
+./gradlew :metadata-ingestion:lintFix
+```
+
 Some other notes:
 
 - Prefer mixin classes over tall inheritance hierarchies.

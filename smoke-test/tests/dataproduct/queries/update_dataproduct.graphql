@@ -1,0 +1,9 @@
+mutation($urn: String!, $name: String!, $description: String) {
+  updateDataProduct(urn: $urn, input: { name: $name, description:$description }) {
+    urn
+    type
+    properties {
+      name
+    }
+  }
+}

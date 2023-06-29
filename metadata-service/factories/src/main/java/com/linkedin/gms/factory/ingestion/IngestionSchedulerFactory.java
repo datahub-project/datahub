@@ -30,6 +30,7 @@ public class IngestionSchedulerFactory {
   private RestliEntityClient _entityClient;
 
   @Autowired
+  @Qualifier("configurationProvider")
   private ConfigurationProvider _configProvider;
 
   @Value("${ingestion.scheduler.delayIntervalSeconds:45}") // Boot up ingestion source cache after waiting 45 seconds for startup.

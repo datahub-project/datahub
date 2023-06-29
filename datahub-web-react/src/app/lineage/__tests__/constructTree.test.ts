@@ -55,6 +55,7 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -105,6 +106,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,
@@ -157,6 +159,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,
@@ -252,6 +255,7 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: EntityType.Dataset },
@@ -281,6 +285,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,
@@ -368,6 +373,7 @@ describe('constructTree', () => {
             (acc, entry) =>
                 extendAsyncEntities(
                     {},
+                    {},
                     acc,
                     testEntityRegistry,
                     { entity: entry.entity, type: entry.entity.type },
@@ -421,6 +427,7 @@ describe('constructTree', () => {
         const mockFetchedEntities = fetchedEntities.reduce(
             (acc, entry) =>
                 extendAsyncEntities(
+                    {},
                     {},
                     acc,
                     testEntityRegistry,

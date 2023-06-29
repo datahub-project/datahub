@@ -4,13 +4,14 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import ConnectionError
+from sqllineage.runner import LineageRunner
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -45,14 +46,13 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source import tableau_constant
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -69,6 +69,7 @@ from datahub.ingestion.source.tableau_common import (
     clean_query,
     custom_sql_graphql_query,
     dashboard_graphql_query,
+    database_tables_graphql_query,
     embedded_datasource_graphql_query,
     get_unique_custom_sql,
     make_table_urn,
@@ -119,13 +120,10 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     SubTypesClass,
+    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -316,13 +314,28 @@ class TableauConfig(
     )
 
     ingest_embed_url: Optional[bool] = Field(
-        default=True,
+        default=False,
         description="Ingest a URL to render an embedded Preview of assets within Tableau.",
+    )
+
+    ingest_external_links_for_dashboards: Optional[bool] = Field(
+        default=True,
+        description="Ingest a URL to link out to from dashboards.",
+    )
+
+    ingest_external_links_for_charts: Optional[bool] = Field(
+        default=True,
+        description="Ingest a URL to link out to from charts.",
     )
 
     extract_project_hierarchy: bool = Field(
         default=True,
         description="Whether to extract entire project hierarchy for nested projects.",
+    )
+
+    extract_lineage_from_unsupported_custom_sql_queries: bool = Field(
+        default=False,
+        description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -364,7 +377,38 @@ class TableauProject:
     name: str
     description: str
     parent_id: Optional[str]
+    parent_name: Optional[str]  # Name of parent project
     path: List[str]
+
+
+@dataclass
+class DatabaseTable:
+    """
+    Corresponds to unique database table identified by DataHub.
+
+    It is possible for logically table to be represented by different instances of [databaseTable]
+    (https://help.tableau.com/current/api/metadata_api/en-us/reference/databasetable.doc.html)
+    if Tableau can not identify them as same table (e.g. in Custom SQLs). Assuming that, all such
+    instances will generate same URN in DataHub, this class captures group all databaseTable instances,
+    that the URN represents - all browse paths and id of most informative (with columns) instance.
+
+    """
+
+    urn: str
+    id: str
+    num_cols: Optional[int]
+
+    paths: Set[str]  # maintains all browse paths encountered for this table
+
+    def update_table(
+        self, id: str, num_tbl_cols: Optional[int], path: Optional[str]
+    ) -> None:
+        if path and path not in self.paths:
+            self.paths.add(path)
+        # the new instance of table has columns information, prefer its id.
+        if not self.num_cols and num_tbl_cols:
+            self.id = id
+            self.num_cols = num_tbl_cols
 
 
 @platform_name("Tableau")
@@ -385,14 +429,7 @@ class TableauProject:
 @capability(SourceCapability.TAGS, "Requires recipe configuration")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class TableauSource(StatefulIngestionSourceBase):
-    config: TableauConfig
-    report: StaleEntityRemovalSourceReport
     platform = "tableau"
-    server: Optional[Server]
-    upstream_tables: Dict[str, Tuple[Any, Optional[str], bool]] = {}
-    tableau_stat_registry: Dict[str, UsageStat] = {}
-    tableau_project_registry: Dict[str, TableauProject] = {}
-    datasource_project_map: Dict[str, str] = {}
 
     def __hash__(self):
         return id(self)
@@ -404,13 +441,14 @@ class TableauSource(StatefulIngestionSourceBase):
     ):
         super().__init__(config, ctx)
 
-        self.config = config
-        self.report = StaleEntityRemovalSourceReport()
-        self.server = None
-        self.upstream_tables = {}
-        self.tableau_stat_registry = {}
-        self.tableau_project_registry = {}
-        self.datasource_project_map = {}
+        self.config: TableauConfig = config
+        self.report: StaleEntityRemovalSourceReport = StaleEntityRemovalSourceReport()
+        self.server: Optional[Server] = None
+        self.database_tables: Dict[str, DatabaseTable] = {}
+        self.tableau_stat_registry: Dict[str, UsageStat] = {}
+        self.tableau_project_registry: Dict[str, TableauProject] = {}
+        self.workbook_project_map: Dict[str, str] = {}
+        self.datasource_project_map: Dict[str, str] = {}
 
         # This list keeps track of sheets in workbooks so that we retrieve those
         # when emitting sheets.
@@ -427,15 +465,6 @@ class TableauSource(StatefulIngestionSourceBase):
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self._authenticate()
 
@@ -475,9 +504,17 @@ class TableauSource(StatefulIngestionSourceBase):
                     id=project.id,
                     name=project.name,
                     parent_id=project.parent_id,
+                    parent_name=None,
                     description=project.description,
                     path=[],
                 )
+            # Set parent project name
+            for project_id, project in all_project_map.items():
+                if (
+                    project.parent_id is not None
+                    and project.parent_id in all_project_map
+                ):
+                    project.parent_name = all_project_map[project.parent_id].name
 
         def set_project_path():
             def form_path(project_id: str) -> List[str]:
@@ -567,6 +604,19 @@ class TableauSource(StatefulIngestionSourceBase):
                 continue
             self.datasource_project_map[ds.id] = ds.project_id
 
+    def _init_workbook_registry(self) -> None:
+        if self.server is None:
+            return
+
+        for wb in TSC.Pager(self.server.workbooks):
+            if wb.project_id not in self.tableau_project_registry:
+                logger.debug(
+                    f"project id ({wb.project_id}) of workbook {wb.name} is not present in project "
+                    f"registry"
+                )
+                continue
+            self.workbook_project_map[wb.id] = wb.project_id
+
     def _populate_projects_registry(self):
         if self.server is None:
             return
@@ -577,11 +627,15 @@ class TableauSource(StatefulIngestionSourceBase):
 
         self._init_tableau_project_registry(all_project_map)
         self._init_datasource_registry()
+        self._init_workbook_registry()
 
         logger.debug(f"All site projects {all_project_map}")
         logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
         logger.debug(
             f"Tableau data-sources {self.datasource_project_map}",
+        )
+        logger.debug(
+            f"Tableau workbooks {self.workbook_project_map}",
         )
 
     def _authenticate(self):
@@ -715,18 +769,16 @@ class TableauSource(StatefulIngestionSourceBase):
                 # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
                 # if multiple project has name C. Ideal solution is to use projectLuidWithin to avoid duplicate project,
                 # however Tableau supports projectLuidWithin in Tableau Cloud June 2022 / Server 2022.3 and later.
-                if (
-                    workbook.get(tableau_constant.PROJECT_LUID)
-                    not in self.tableau_project_registry.keys()
-                ):
+                project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
+                if project_luid not in self.tableau_project_registry.keys():
                     wrk_name: Optional[str] = workbook.get(tableau_constant.NAME)
                     wrk_id: Optional[str] = workbook.get(tableau_constant.ID)
                     prj_name: Optional[str] = workbook.get(
                         tableau_constant.PROJECT_NAME
                     )
-                    prj_id: Optional[str] = workbook.get(tableau_constant.PROJECT_LUID)
+
                     logger.debug(
-                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({prj_id}) not "
+                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({project_luid}) not "
                         f"present in project registry"
                     )
                     continue
@@ -895,7 +947,10 @@ class TableauSource(StatefulIngestionSourceBase):
         for table in tables:
             # skip upstream tables when there is no column info when retrieving datasource
             # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
-            if not is_custom_sql and not table.get(tableau_constant.COLUMNS):
+            num_tbl_cols: Optional[int] = table.get(
+                tableau_constant.COLUMNS_CONNECTION
+            ) and table[tableau_constant.COLUMNS_CONNECTION].get("totalCount")
+            if not is_custom_sql and not num_tbl_cols:
                 logger.debug(
                     f"Skipping upstream table with id {table[tableau_constant.ID]}, no columns: {table}"
                 )
@@ -951,15 +1006,22 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             upstream_tables.append(upstream_table)
 
-            table_path = None
+            table_path: Optional[str] = None
             if browse_path and datasource_name:
                 table_path = f"{browse_path}/{datasource_name}"
 
-            self.upstream_tables[table_urn] = (
-                table.get(tableau_constant.COLUMNS, []),
-                table_path,
-                table.get(tableau_constant.IS_EMBEDDED) or False,
-            )
+            if table_urn not in self.database_tables:
+                self.database_tables[table_urn] = DatabaseTable(
+                    urn=table_urn,
+                    id=table[tableau_constant.ID],
+                    num_cols=num_tbl_cols,
+                    paths=set([table_path]) if table_path else set(),
+                )
+            else:
+                self.database_tables[table_urn].update_table(
+                    table[tableau_constant.ID], num_tbl_cols, table_path
+                )
+
         return upstream_tables, table_id_to_urn
 
     def get_upstream_columns_of_fields_in_datasource(
@@ -1130,21 +1192,26 @@ class TableauSource(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Adding datasource {datasource_name}({datasource.get('id')}) to container"
                     )
-                    workunits = add_entity_to_container(
+                    yield from add_entity_to_container(
                         self.gen_workbook_key(datasource[tableau_constant.WORKBOOK]),
                         tableau_constant.DATASET,
                         dataset_snapshot.urn,
                     )
-                    for wu in workunits:
-                        self.report.report_workunit(wu)
-                        yield wu
                 project = self._get_project_browse_path_name(datasource)
 
-                # lineage from custom sql -> datasets/tables #
                 tables = csql.get(tableau_constant.TABLES, [])
-                yield from self._create_lineage_to_upstream_tables(
-                    csql_urn, tables, datasource
-                )
+
+                if tables:
+                    # lineage from custom sql -> datasets/tables #
+                    yield from self._create_lineage_to_upstream_tables(
+                        csql_urn, tables, datasource
+                    )
+                elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
+                    # custom sql tables may contain unsupported sql, causing incomplete lineage
+                    # we extract the lineage from the raw queries
+                    yield from self._create_lineage_from_unsupported_csql(
+                        csql_urn, csql
+                    )
 
             #  Schema Metadata
             columns = csql.get(tableau_constant.COLUMNS, [])
@@ -1237,14 +1304,23 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return None
 
-    def _get_embedded_datasource_project_luid(self, ds):
-        if (
-            ds.get(tableau_constant.WORKBOOK)
-            and ds.get(tableau_constant.WORKBOOK).get(tableau_constant.PROJECT_LUID)
-            and ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
-            in self.tableau_project_registry
+    def _get_workbook_project_luid(self, wb):
+        if wb.get(tableau_constant.LUID) and self.workbook_project_map.get(
+            wb[tableau_constant.LUID]
         ):
-            return ds[tableau_constant.WORKBOOK][tableau_constant.PROJECT_LUID]
+            return self.workbook_project_map[wb[tableau_constant.LUID]]
+
+        logger.debug(f"workbook {wb.get(tableau_constant.NAME)} project_luid not found")
+
+        return None
+
+    def _get_embedded_datasource_project_luid(self, ds):
+        if ds.get(tableau_constant.WORKBOOK):
+            project_luid: Optional[str] = self._get_workbook_project_luid(
+                ds.get(tableau_constant.WORKBOOK)
+            )
+            if project_luid and project_luid in self.tableau_project_registry:
+                return project_luid
 
         logger.debug(
             f"embedded datasource {ds.get(tableau_constant.NAME)} project_luid not found"
@@ -1320,6 +1396,53 @@ class TableauSource(StatefulIngestionSourceBase):
                 aspect=upstream_lineage,
             )
 
+    def _create_lineage_from_unsupported_csql(
+        self, csql_urn: str, csql: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        database = csql.get(tableau_constant.DATABASE) or {}
+        if (
+            csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
+            and tableau_constant.NAME in database
+            and tableau_constant.CONNECTION_TYPE in database
+        ):
+            upstream_tables = []
+            query = csql.get(tableau_constant.QUERY)
+            parser = LineageRunner(query)
+
+            try:
+                for table in parser.source_tables:
+                    split_table = str(table).split(".")
+                    if len(split_table) == 2:
+                        datset = make_table_urn(
+                            env=self.config.env,
+                            upstream_db=database.get(tableau_constant.NAME),
+                            connection_type=database.get(
+                                tableau_constant.CONNECTION_TYPE, ""
+                            ),
+                            schema=split_table[0],
+                            full_name=split_table[1],
+                            platform_instance_map=self.config.platform_instance_map,
+                            lineage_overrides=self.config.lineage_overrides,
+                        )
+                        upstream_tables.append(
+                            UpstreamClass(
+                                type=DatasetLineageType.TRANSFORMED, dataset=datset
+                            )
+                        )
+            except Exception as e:
+                self.report.report_warning(
+                    key="csql-lineage",
+                    reason=f"Unable to retrieve lineage from query. "
+                    f"Query: {query} "
+                    f"Reason: {str(e)} ",
+                )
+            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+            yield self.get_metadata_change_proposal(
+                csql_urn,
+                aspect_name=tableau_constant.UPSTREAM_LINEAGE,
+                aspect=upstream_lineage,
+            )
+
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
     ) -> Optional[SchemaMetadata]:
@@ -1353,10 +1476,7 @@ class TableauSource(StatefulIngestionSourceBase):
         self, snap_shot: Union["DatasetSnapshot", "DashboardSnapshot", "ChartSnapshot"]
     ) -> MetadataWorkUnit:
         mce = MetadataChangeEvent(proposedSnapshot=snap_shot)
-        work_unit = MetadataWorkUnit(id=snap_shot.urn, mce=mce)
-        self.report.report_workunit(work_unit)
-
-        return work_unit
+        return MetadataWorkUnit(id=snap_shot.urn, mce=mce)
 
     def get_metadata_change_proposal(
         self,
@@ -1364,20 +1484,13 @@ class TableauSource(StatefulIngestionSourceBase):
         aspect_name: str,
         aspect: Union["UpstreamLineage", "SubTypesClass"],
     ) -> MetadataWorkUnit:
-        mcp = MetadataChangeProposalWrapper(
+        return MetadataChangeProposalWrapper(
             entityType=tableau_constant.DATASET,
             changeType=ChangeTypeClass.UPSERT,
             entityUrn=urn,
             aspectName=aspect_name,
             aspect=aspect,
-        )
-        mcp_workunit = MetadataWorkUnit(
-            id=f"tableau-{mcp.entityUrn}-{mcp.aspectName}",
-            mcp=mcp,
-            treat_errors_as_warnings=True,
-        )
-        self.report.report_workunit(mcp_workunit)
-        return mcp_workunit
+        ).as_workunit()
 
     def emit_datasource(
         self,
@@ -1509,28 +1622,22 @@ class TableauSource(StatefulIngestionSourceBase):
         if (
             is_embedded_ds and workbook is not None
         ):  # It is embedded then parent is container is workbook
-            workunits = add_entity_to_container(
+            yield from add_entity_to_container(
                 self.gen_workbook_key(workbook),
                 tableau_constant.DATASET,
                 dataset_snapshot.urn,
             )
-            for wu in workunits:
-                self.report.report_workunit(wu)
-                yield wu
         elif (
             datasource.get(tableau_constant.LUID)
             and datasource[tableau_constant.LUID] in self.datasource_project_map.keys()
         ):  # It is published datasource and hence parent container is project
-            workunits = add_entity_to_container(
+            yield from add_entity_to_container(
                 self.gen_project_key(
                     self.datasource_project_map[datasource[tableau_constant.LUID]]
                 ),
                 tableau_constant.DATASET,
                 dataset_snapshot.urn,
             )
-            for wu in workunits:
-                self.report.report_workunit(wu)
-                yield wu
         else:
             logger.warning(
                 f"Parent container not set for datasource {datasource[tableau_constant.ID]}"
@@ -1547,63 +1654,82 @@ class TableauSource(StatefulIngestionSourceBase):
             yield from self.emit_datasource(datasource)
 
     def emit_upstream_tables(self) -> Iterable[MetadataWorkUnit]:
-        for (
-            table_urn,
-            (columns, browse_path, is_embedded),
-        ) in self.upstream_tables.items():
-            if not is_embedded and not self.config.ingest_tables_external:
-                logger.debug(
-                    f"Skipping external table {table_urn} as ingest_tables_external is set to False"
-                )
-                continue
+        database_table_id_to_urn_map: Dict[str, str] = dict()
+        for urn, tbl in self.database_tables.items():
+            database_table_id_to_urn_map[tbl.id] = urn
+        tables_filter = f"{tableau_constant.ID_WITH_IN}: {json.dumps(list(database_table_id_to_urn_map.keys()))}"
 
-            dataset_snapshot = DatasetSnapshot(
-                urn=table_urn,
-                aspects=[],
+        for table in self.get_connection_objects(
+            database_tables_graphql_query,
+            tableau_constant.DATABASE_TABLES_CONNECTION,
+            tables_filter,
+        ):
+            yield from self.emit_table(table, database_table_id_to_urn_map)
+
+    def emit_table(
+        self, table: dict, database_table_id_to_urn_map: Dict[str, str]
+    ) -> Iterable[MetadataWorkUnit]:
+        database_table = self.database_tables[
+            database_table_id_to_urn_map[table[tableau_constant.ID]]
+        ]
+        columns = table.get(tableau_constant.COLUMNS, [])
+        is_embedded = table.get(tableau_constant.IS_EMBEDDED) or False
+        if not is_embedded and not self.config.ingest_tables_external:
+            logger.debug(
+                f"Skipping external table {database_table.urn} as ingest_tables_external is set to False"
             )
-            if browse_path:
-                # Browse path
-                browse_paths = BrowsePathsClass(
-                    paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
-                )
-                dataset_snapshot.aspects.append(browse_paths)
-            else:
-                logger.debug(f"Browse path not set for table {table_urn}")
-            schema_metadata = None
-            if columns:
-                fields = []
-                for field in columns:
-                    if field.get(tableau_constant.NAME) is None:
-                        logger.warning(
-                            f"Skipping field {field[tableau_constant.ID]} from schema since its name is none"
-                        )
-                        continue
-                    nativeDataType = field.get(
-                        tableau_constant.REMOTE_TYPE, tableau_constant.UNKNOWN
+            return
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=database_table.urn,
+            aspects=[],
+        )
+        if database_table.paths:
+            # Browse path
+            browse_paths = BrowsePathsClass(
+                paths=[
+                    f"/{self.config.env.lower()}/{self.platform}/{path}"
+                    for path in database_table.paths
+                ]
+            )
+            dataset_snapshot.aspects.append(browse_paths)
+        else:
+            logger.debug(f"Browse path not set for table {database_table.urn}")
+        schema_metadata = None
+        if columns:
+            fields = []
+            for field in columns:
+                if field.get(tableau_constant.NAME) is None:
+                    logger.warning(
+                        f"Skipping field {field[tableau_constant.ID]} from schema since its name is none"
                     )
-                    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
-
-                    schema_field = SchemaField(
-                        fieldPath=field[tableau_constant.NAME],
-                        type=SchemaFieldDataType(type=TypeClass()),
-                        description="",
-                        nativeDataType=nativeDataType,
-                    )
-
-                    fields.append(schema_field)
-
-                schema_metadata = SchemaMetadata(
-                    schemaName="test",
-                    platform=f"urn:li:dataPlatform:{self.platform}",
-                    version=0,
-                    fields=fields,
-                    hash="",
-                    platformSchema=OtherSchema(rawSchema=""),
+                    continue
+                nativeDataType = field.get(
+                    tableau_constant.REMOTE_TYPE, tableau_constant.UNKNOWN
                 )
-            if schema_metadata is not None:
-                dataset_snapshot.aspects.append(schema_metadata)
+                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
 
-            yield self.get_metadata_change_event(dataset_snapshot)
+                schema_field = SchemaField(
+                    fieldPath=field[tableau_constant.NAME],
+                    type=SchemaFieldDataType(type=TypeClass()),
+                    description="",
+                    nativeDataType=nativeDataType,
+                )
+
+                fields.append(schema_field)
+
+            schema_metadata = SchemaMetadata(
+                schemaName="test",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=fields,
+                hash="",
+                platformSchema=OtherSchema(rawSchema=""),
+            )
+        if schema_metadata is not None:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        yield self.get_metadata_change_event(dataset_snapshot)
 
     def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
         sheet_upstream_datasources = set()
@@ -1726,7 +1852,9 @@ class TableauSource(StatefulIngestionSourceBase):
             description="",
             title=sheet.get(tableau_constant.NAME, ""),
             lastModified=last_modified,
-            externalUrl=sheet_external_url,
+            externalUrl=sheet_external_url
+            if self.config.ingest_external_links_for_charts
+            else None,
             inputs=sorted(datasource_urn),
             customProperties={
                 tableau_constant.LUID: sheet.get(tableau_constant.LUID) or ""
@@ -1738,18 +1866,19 @@ class TableauSource(StatefulIngestionSourceBase):
         if self.config.extract_usage_stats:
             wu = self._get_chart_stat_wu(sheet, sheet_urn)
             if wu is not None:
-                self.report.report_workunit(wu)
                 yield wu
+
+        project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
 
         if (
             workbook is not None
-            and workbook.get(tableau_constant.PROJECT_LUID)
-            and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
+            and project_luid
+            and project_luid in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
+                    f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
                     f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
@@ -1782,25 +1911,19 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
             )
         if workbook is not None:
-            workunits = add_entity_to_container(
+            yield from add_entity_to_container(
                 self.gen_workbook_key(workbook),
                 tableau_constant.CHART,
                 chart_snapshot.urn,
             )
 
-        for wu in workunits:
-            self.report.report_workunit(wu)
-            yield wu
-
         if input_fields:
-            wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=sheet_urn,
                 aspect=InputFields(
                     fields=sorted(input_fields, key=lambda x: x.schemaFieldUrn)
                 ),
             ).as_workunit()
-            self.report.report_workunit(wu)
-            yield wu
 
     def _project_luid_to_browse_path_name(self, project_luid: str) -> str:
         assert project_luid
@@ -1875,12 +1998,9 @@ class TableauSource(StatefulIngestionSourceBase):
             else None
         )
         parent_key = None
-        if (
-            workbook.get(tableau_constant.PROJECT_LUID)
-            and workbook[tableau_constant.PROJECT_LUID]
-            in self.tableau_project_registry.keys()
-        ):
-            parent_key = self.gen_project_key(workbook[tableau_constant.PROJECT_LUID])
+        project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
+        if project_luid and project_luid in self.tableau_project_registry.keys():
+            parent_key = self.gen_project_key(project_luid)
         else:
             workbook_id: Optional[str] = workbook.get(tableau_constant.ID)
             workbook_name: Optional[str] = workbook.get(tableau_constant.NAME)
@@ -1888,7 +2008,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
             )
 
-        container_workunits = gen_containers(
+        yield from gen_containers(
             container_key=workbook_container_key,
             name=workbook.get(tableau_constant.NAME, ""),
             parent_container_key=parent_key,
@@ -1898,10 +2018,6 @@ class TableauSource(StatefulIngestionSourceBase):
             external_url=workbook_external_url,
             tags=tag_list_str,
         )
-
-        for wu in container_workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def gen_workbook_key(self, workbook: Dict) -> WorkbookKey:
         return WorkbookKey(
@@ -2034,7 +2150,9 @@ class TableauSource(StatefulIngestionSourceBase):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=dashboard_external_url,
+            dashboardUrl=dashboard_external_url
+            if self.config.ingest_external_links_for_dashboards
+            else None,
             customProperties={
                 tableau_constant.LUID: dashboard.get(tableau_constant.LUID) or ""
             },
@@ -2054,18 +2172,18 @@ class TableauSource(StatefulIngestionSourceBase):
             # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit
             wu = self._get_dashboard_stat_wu(dashboard, dashboard_urn)
             if wu is not None:
-                self.report.report_workunit(wu)
                 yield wu
 
+        project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
         if (
             workbook is not None
-            and workbook.get(tableau_constant.PROJECT_LUID)
-            and workbook[tableau_constant.PROJECT_LUID] in self.tableau_project_registry
+            and project_luid
+            and project_luid in self.tableau_project_registry
             and workbook.get(tableau_constant.NAME)
         ):
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(workbook[tableau_constant.PROJECT_LUID])}"
+                    f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
                     f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
@@ -2104,14 +2222,11 @@ class TableauSource(StatefulIngestionSourceBase):
             )
 
         if workbook is not None:
-            workunits = add_entity_to_container(
+            yield from add_entity_to_container(
                 self.gen_workbook_key(workbook),
                 tableau_constant.DASHBOARD,
                 dashboard_snapshot.urn,
             )
-        for wu in workunits:
-            self.report.report_workunit(wu)
-            yield wu
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = f"{tableau_constant.ID_WITH_IN}: {json.dumps(self.embedded_datasource_ids_being_used)}"
@@ -2192,15 +2307,9 @@ class TableauSource(StatefulIngestionSourceBase):
         config = TableauConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
-
     def emit_project_containers(self) -> Iterable[MetadataWorkUnit]:
         for _id, project in self.tableau_project_registry.items():
-            project_workunits = gen_containers(
+            yield from gen_containers(
                 container_key=self.gen_project_key(_id),
                 name=project.name,
                 description=project.description,
@@ -2209,9 +2318,26 @@ class TableauSource(StatefulIngestionSourceBase):
                 if project.parent_id
                 else None,
             )
-            for wu in project_workunits:
-                self.report.report_workunit(wu)
-                yield wu
+            if (
+                project.parent_id is not None
+                and project.parent_id not in self.tableau_project_registry
+            ):
+                # Parent project got skipped because of project_pattern.
+                # Let's ingest its container name property to show parent container name on DataHub Portal, otherwise
+                # DataHub Portal will show parent container URN
+                yield from gen_containers(
+                    container_key=self.gen_project_key(project.parent_id),
+                    name=cast(str, project.parent_name),
+                    sub_types=[tableau_constant.PROJECT],
+                )
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.server is None or not self.server.is_signed_in():
@@ -2234,7 +2360,8 @@ class TableauSource(StatefulIngestionSourceBase):
                 yield from self.emit_published_datasources()
             if self.custom_sql_ids_being_used:
                 yield from self.emit_custom_sql_datasources()
-            yield from self.emit_upstream_tables()
+            if self.database_tables:
+                yield from self.emit_upstream_tables()
         except MetadataQueryException as md_exception:
             self.report.report_failure(
                 key="tableau-metadata",

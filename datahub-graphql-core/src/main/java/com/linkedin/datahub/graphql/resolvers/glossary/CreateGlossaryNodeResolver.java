@@ -12,13 +12,10 @@ import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryNodeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -30,6 +27,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -53,19 +54,22 @@ public class CreateGlossaryNodeResolver implements DataFetcher<CompletableFuture
           final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
           key.setName(id);
 
-          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.GLOSSARY_NODE_ENTITY_NAME), context.getAuthentication())) {
+          if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, GLOSSARY_NODE_ENTITY_NAME), context.getAuthentication())) {
             throw new IllegalArgumentException("This Glossary Node already exists!");
           }
 
-          final MetadataChangeProposal proposal = new MetadataChangeProposal();
-          proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-          proposal.setEntityType(Constants.GLOSSARY_NODE_ENTITY_NAME);
-          proposal.setAspectName(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME);
-          proposal.setAspect(GenericRecordUtils.serializeAspect(mapGlossaryNodeInfo(input)));
-          proposal.setChangeType(ChangeType.UPSERT);
+          final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, GLOSSARY_NODE_ENTITY_NAME,
+              GLOSSARY_NODE_INFO_ASPECT_NAME, mapGlossaryNodeInfo(input));
 
-          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-          OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+          String glossaryNodeUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+
+          OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+          if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
+            log.warn("Technical owner does not exist, defaulting to None ownership.");
+            ownershipType = OwnershipType.NONE;
+          }
+
+          OwnerUtils.addCreatorAsOwner(context, glossaryNodeUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
           return glossaryNodeUrn;
         } catch (Exception e) {
           log.error("Failed to create GlossaryNode with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());

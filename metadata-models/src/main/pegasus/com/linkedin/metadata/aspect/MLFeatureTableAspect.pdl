@@ -7,6 +7,7 @@ import com.linkedin.common.Status
 import com.linkedin.ml.metadata.MLFeatureTableProperties
 import com.linkedin.common.Deprecation
 import com.linkedin.common.BrowsePaths
+import com.linkedin.common.BrowsePathsV2
 import com.linkedin.common.GlobalTags
 import com.linkedin.common.DataPlatformInstance
 
@@ -22,5 +23,6 @@ typeref MLFeatureTableAspect = union[
   Deprecation,
   BrowsePaths,
   GlobalTags,
-  DataPlatformInstance
+  DataPlatformInstance,
+  BrowsePathsV2
 ]

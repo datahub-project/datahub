@@ -81,7 +81,7 @@ def test_file_dict() -> None:
 
     # Test close.
     cache.close()
-    with pytest.raises(Exception):
+    with pytest.raises(AttributeError):
         cache["a"] = 1
 
 

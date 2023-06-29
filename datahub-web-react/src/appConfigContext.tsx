@@ -37,6 +37,11 @@ export const DEFAULT_APP_CONFIG = {
     viewsConfig: {
         enabled: false,
     },
+    featureFlags: {
+        readOnlyModeEnabled: false,
+        showSearchFiltersV2: true,
+        showBrowseV2: true,
+    },
 };
 
 export const AppConfigContext = React.createContext<{

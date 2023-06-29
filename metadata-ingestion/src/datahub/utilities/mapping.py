@@ -52,6 +52,8 @@ class Constants:
     GROUP_OWNER = "group"
     OPERAND_DATATYPE_SUPPORTED = [int, bool, str, float]
     TAG_PARTITION_KEY = "PARTITION_KEY"
+    TAG_DIST_KEY = "DIST_KEY"
+    TAG_SORT_KEY = "SORT_KEY"
     SEPARATOR = "separator"
 
 

@@ -49,7 +49,6 @@ public class AllEntitiesSearchAggregator {
   private final SearchRanker _searchRanker;
   private final EntityDocCountCache _entityDocCountCache;
   private final CachingEntitySearchService _cachingEntitySearchService;
-  private final int _maxAggregationValueCount;
 
   public AllEntitiesSearchAggregator(
       EntityRegistry entityRegistry,
@@ -61,13 +60,12 @@ public class AllEntitiesSearchAggregator {
     _searchRanker = Objects.requireNonNull(searchRanker);
     _cachingEntitySearchService = Objects.requireNonNull(cachingEntitySearchService);
     _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, entityDocCountCacheConfiguration);
-    _maxAggregationValueCount = DEFAULT_MAX_AGGREGATION_VALUES; // TODO: Make this externally configurable
   }
 
   @Nonnull
   @WithSpan
   public SearchResult search(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     // 1. Get entities to query for (Do not query entities without a single document)
     List<String> nonEmptyEntities;
     List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
@@ -91,7 +89,7 @@ public class AllEntitiesSearchAggregator {
     // 2. Get search results for each entity
     Map<String, SearchResult> searchResults =
         getSearchResultsForEachEntity(nonEmptyEntities, input, postFilters, sortCriterion, queryFrom, querySize,
-            searchFlags);
+            searchFlags, facets);
 
     if (searchResults.isEmpty()) {
       return getEmptySearchResult(from, size);
@@ -122,14 +120,27 @@ public class AllEntitiesSearchAggregator {
       });
     }
 
+    int maxAggValues = searchFlags != null ? searchFlags.getMaxAggValues() : DEFAULT_MAX_AGGREGATION_VALUES;
+
     // Trim the aggregations / filters after merging.
-    Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
+    Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations, maxAggValues);
 
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
-    finalAggregations.put("entity", new AggregationMetadata().setName("entity")
-        .setDisplayName("Type")
-        .setAggregations(new LongMap(numResultsPerEntity))
-        .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+    if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
+      finalAggregations.put("_entityType", new AggregationMetadata().setName("_entityType")
+          .setDisplayName("Type")
+          .setAggregations(new LongMap(numResultsPerEntity))
+          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+
+      // DEPRECATED
+      // This is the legacy version of `_entityType`-- it operates as a special case and does not support ORs, Unions, etc.
+      // We will still provide it for backwards compatibility but when sending filters to the backend use the new
+      // filter name `_entityType` that we provide above. This is just provided to prevent a breaking change for old clients.
+      finalAggregations.put("entity", new AggregationMetadata().setName("entity")
+          .setDisplayName("Type")
+          .setAggregations(new LongMap(numResultsPerEntity))
+          .setFilterValues(new FilterValueArray(SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+    }
 
     // 4. Rank results across entities
     List<SearchEntity> rankedResult = _searchRanker.rank(matchedResults);
@@ -155,12 +166,12 @@ public class AllEntitiesSearchAggregator {
   @WithSpan
   private Map<String, SearchResult> getSearchResultsForEachEntity(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, int queryFrom, int querySize,
-      @Nullable SearchFlags searchFlags) {
+      @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     Map<String, SearchResult> searchResults;
     // Query the entity search service for all entities asynchronously
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
-          _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags)))
+          _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags, facets)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
@@ -170,7 +181,7 @@ public class AllEntitiesSearchAggregator {
   /**
    * Simply trims the total aggregation values that are returned to the client based on the SearchFlags which are set
    */
-  private Map<String, AggregationMetadata> trimMergedAggregations(Map<String, AggregationMetadata> aggregations) {
+  private Map<String, AggregationMetadata> trimMergedAggregations(Map<String, AggregationMetadata> aggregations, int maxAggValues) {
     return aggregations.entrySet().stream().map(
         entry -> Pair.of(entry.getKey(), new AggregationMetadata()
             .setName(entry.getValue().getName())
@@ -178,7 +189,7 @@ public class AllEntitiesSearchAggregator {
             .setAggregations(
                 entry.getValue().getAggregations())
             .setFilterValues(
-                trimFilterValues(entry.getValue().getFilterValues()))
+                trimFilterValues(entry.getValue().getFilterValues(), maxAggValues))
         )
     ).collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
@@ -186,12 +197,12 @@ public class AllEntitiesSearchAggregator {
   /**
    * Selects the top N filter values AFTER they've been fully merged.
    */
-  private FilterValueArray trimFilterValues(FilterValueArray original) {
-    if (original.size() > _maxAggregationValueCount) {
+  private FilterValueArray trimFilterValues(FilterValueArray original, int maxAggValues) {
+    if (original.size() > maxAggValues) {
       // sort so that values that appear in the filter appear first
       original.sort(Comparator.comparingInt(val -> val.hasFiltered() && val.isFiltered() ? 0 : 1));
       return new FilterValueArray(
-          original.subList(0, _maxAggregationValueCount)
+          original.subList(0, maxAggValues)
       );
     }
     return original;

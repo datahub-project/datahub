@@ -33,7 +33,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    * Click **Create**
 
   <p align="center">
-    <img width="70%" alt="Tableau Username Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-username-secret.png"/>
+    <img width="70%" alt="Tableau Username Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-username-secret.png"/>
   </p>
 
 4. Create a `password` secret
@@ -46,7 +46,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    * Click **Create**
 
   <p align="center">
-    <img width="70%" alt="Tableau Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-user-password-secret.png"/>
+    <img width="70%" alt="Tableau Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-user-password-secret.png"/>
   </p>
 
 ## Configure Recipe
@@ -60,7 +60,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 6. Select Tableau
 
 <p align="center">
-  <img width="70%" alt="Select Tableau from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-new-ingestion-source.png"/>
+  <img width="70%" alt="Select Tableau from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-new-ingestion-source.png"/>
 </p>
 
 7.  Fill in the Tableau Recipe form:
@@ -73,18 +73,20 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
     c. **Password:** Use the TABLEAU_PASSWORD secret (e.g., "${TABLEAU_PASSWORD}").   
 
-To filter for specific site and project, use the `site` and `project_pattern` fields.
+    d. **Site**: Required only if using tableau cloud/ tableau online
+    
+
+To filter specific project, use `project_pattern` fields.
 
     config:
          ...
-         site: "ProductionSalesSite"
          project_pattern:
             allow:
               - "SalesProject"
 
 Your recipe should look something like this:
 <p align="center">
-  <img width="70%" alt="tableau recipe in form format" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-recipe.png"/>
+  <img width="70%" alt="tableau recipe in form format" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-recipe.png"/>
 </p>
 
 Click **Next** when you're done.
@@ -110,13 +112,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 11. Name your ingestion source, then click **Save and Run**
 <p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-ingestion-save-and-run.png"/>
+  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-save-and-run.png"/>
 </p>  
 
 You will now find your new ingestion source running
 
 <p align="center">
-  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-ingestion-running.png"/>
+  <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-running.png"/>
 </p>  
 
 ## Validate Ingestion Runs
@@ -124,25 +126,25 @@ You will now find your new ingestion source running
 12. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
-  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-ingestion-succeeded.png"/>
+  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-succeeded.png"/>
 </p>  
 
 13. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
 <p align="center">
-  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-ingestion-history.png"/>
+  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-history.png"/>
 </p>
 
 14. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-ingestion-run-detail.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-run-detail.png"/>
 </p>  
 
 15. Pick an entity from the list to manually validate if it contains the detail you expected  
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets-fork/main/imgs/guides/tableau/tableau-ingestion-assets.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/tableau/tableau-ingestion-assets.png"/>
 </p>  
 
 **Congratulations!** You've successfully set up Tableau as an ingestion source for DataHub!

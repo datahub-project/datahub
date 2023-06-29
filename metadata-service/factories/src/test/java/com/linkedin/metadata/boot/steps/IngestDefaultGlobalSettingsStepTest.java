@@ -84,7 +84,7 @@ public class IngestDefaultGlobalSettingsStepTest {
     Assert.assertThrows(RuntimeException.class, step::execute);
 
     // Verify no interactions
-    verifyZeroInteractions(entityService);
+    verifyNoInteractions(entityService);
   }
 
   @Test
@@ -99,7 +99,7 @@ public class IngestDefaultGlobalSettingsStepTest {
     Assert.assertThrows(RuntimeException.class, step::execute);
 
     // Verify no interactions
-    verifyZeroInteractions(entityService);
+    verifyNoInteractions(entityService);
   }
 
   private static void configureEntityServiceMock(final EntityService mockService, final GlobalSettingsInfo settingsInfo) {

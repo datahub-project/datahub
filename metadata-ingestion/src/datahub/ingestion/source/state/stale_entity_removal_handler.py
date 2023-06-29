@@ -1,25 +1,17 @@
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import (
-    Dict,
-    Generic,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    cast,
-)
+from functools import partial
+from typing import Dict, Iterable, Optional, Set, Type, cast
 
 import pydantic
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
+from datahub.ingestion.api.source_helpers import auto_stale_entity_removal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
@@ -30,6 +22,7 @@ from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
 from datahub.metadata.schema_classes import StatusClass
+from datahub.utilities.lossy_collections import LossyList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -54,108 +47,32 @@ class StatefulStaleMetadataRemovalConfig(StatefulIngestionConfig):
 
 @dataclass
 class StaleEntityRemovalSourceReport(StatefulIngestionReport):
-    soft_deleted_stale_entities: List[str] = field(default_factory=list)
+    soft_deleted_stale_entities: LossyList[str] = field(default_factory=LossyList)
 
     def report_stale_entity_soft_deleted(self, urn: str) -> None:
         self.soft_deleted_stale_entities.append(urn)
 
 
-Derived = TypeVar("Derived", bound=CheckpointStateBase)
-
-
-class StaleEntityCheckpointStateBase(CheckpointStateBase, ABC, Generic[Derived]):
-    """
-    Defines the abstract interface for the checkpoint states that are used for stale entity removal.
-    Examples include sql_common state for tracking table and & view urns,
-    dbt that tracks node & assertion urns, kafka state tracking topic urns.
-    """
-
-    @classmethod
-    @abstractmethod
-    def get_supported_types(cls) -> List[str]:
-        pass
-
-    @abstractmethod
-    def add_checkpoint_urn(self, type: str, urn: str) -> None:
-        """
-        Adds an urn into the list used for tracking the type.
-        :param type: The type of the urn such as a 'table', 'view',
-         'node', 'topic', 'assertion' that the concrete sub-class understands.
-        :param urn: The urn string
-        :return: None.
-        """
-        pass
-
-    @abstractmethod
-    def get_urns_not_in(
-        self, type: str, other_checkpoint_state: Derived
-    ) -> Iterable[str]:
-        """
-        Gets the urns present in this checkpoint but not the other_checkpoint for the given type.
-        :param type: The type of the urn such as a 'table', 'view',
-         'node', 'topic', 'assertion' that the concrete sub-class understands.
-        :param other_checkpoint_state: the checkpoint state to compute the urn set difference against.
-        :return: an iterable to the set of urns present in this checkpoing state but not in the other_checkpoint.
-        """
-        pass
-
-    @abstractmethod
-    def get_percent_entities_changed(self, old_checkpoint_state: Derived) -> float:
-        """
-        Returns the percentage of entities that have changed relative to `old_checkpoint_state`.
-        :param old_checkpoint_state: the old checkpoint state to compute the relative change percent against.
-        :return: (1-|intersection(self, old_checkpoint_state)| / |old_checkpoint_state|) * 100.0
-        """
-        pass
-
-    @staticmethod
-    def compute_percent_entities_changed(
-        new_old_entity_list: List[Tuple[List[str], List[str]]]
-    ) -> float:
-        old_count_all = 0
-        overlap_count_all = 0
-        for new_entities, old_entities in new_old_entity_list:
-            (
-                overlap_count,
-                old_count,
-                _,
-            ) = StaleEntityCheckpointStateBase.get_entity_overlap_and_cardinalities(
-                new_entities=new_entities, old_entities=old_entities
-            )
-            overlap_count_all += overlap_count
-            old_count_all += old_count
-        if old_count_all:
-            return (1 - overlap_count_all / old_count_all) * 100.0
-        return 0.0
-
-    @staticmethod
-    def get_entity_overlap_and_cardinalities(
-        new_entities: List[str], old_entities: List[str]
-    ) -> Tuple[int, int, int]:
-        new_set = set(new_entities)
-        old_set = set(old_entities)
-        return len(new_set.intersection(old_set)), len(old_set), len(new_set)
-
-
 class StaleEntityRemovalHandler(
-    StatefulIngestionUsecaseHandlerBase[StaleEntityCheckpointStateBase]
+    StatefulIngestionUsecaseHandlerBase["GenericCheckpointState"]
 ):
     """
     The stateful ingestion helper class that handles stale entity removal.
     This contains the generic logic for all sources that need to support stale entity removal for all the states
-    derived from StaleEntityCheckpointStateBase. This uses the template method pattern on CRTP based derived state
-    class hierarchies.
+    derived from GenericCheckpointState.
     """
 
     def __init__(
         self,
         source: StatefulIngestionSourceBase,
         config: StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
-        state_type_class: Type[StaleEntityCheckpointStateBase],
+        state_type_class: Type["GenericCheckpointState"],
         pipeline_name: Optional[str],
         run_id: str,
     ):
         self.source = source
+        self.state_provider = source.state_provider
+
         self.state_type_class = state_type_class
         self.pipeline_name = pipeline_name
         self.run_id = run_id
@@ -165,7 +82,7 @@ class StaleEntityRemovalHandler(
         self.checkpointing_enabled: bool = (
             True
             if (
-                source.is_stateful_ingestion_configured()
+                self.state_provider.is_stateful_ingestion_configured()
                 and self.stateful_ingestion_config
                 and self.stateful_ingestion_config.remove_stale_metadata
             )
@@ -173,10 +90,26 @@ class StaleEntityRemovalHandler(
         )
         self._job_id = self._init_job_id()
         self._urns_to_skip: Set[str] = set()
-        self.source.register_stateful_ingestion_usecase_handler(self)
+        self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
     @classmethod
-    def compute_job_id(cls, platform: Optional[str]) -> JobId:
+    def create(
+        cls,
+        source: StatefulIngestionSourceBase,
+        config: StatefulIngestionConfigBase,
+        ctx: PipelineContext,
+        state_type_class: Type["GenericCheckpointState"] = GenericCheckpointState,
+    ) -> "StaleEntityRemovalHandler":
+        return cls(source, config, state_type_class, ctx.pipeline_name, ctx.run_id)
+
+    @property
+    def workunit_processor(self):
+        return partial(auto_stale_entity_removal, self)
+
+    @classmethod
+    def compute_job_id(
+        cls, platform: Optional[str], unique_id: Optional[str] = None
+    ) -> JobId:
         # Handle backward-compatibility for existing sources.
         backward_comp_platform_to_job_name: Dict[str, str] = {
             "bigquery": "ingest_from_bigquery_source",
@@ -191,11 +124,19 @@ class StaleEntityRemovalHandler(
 
         # Default name for everything else
         job_name_suffix = "stale_entity_removal"
-        return JobId(f"{platform}_{job_name_suffix}" if platform else job_name_suffix)
+        # Used with set_job_id when creating multiple checkpoints in one recipe source
+        # Because job_id is used as dictionary key when committing checkpoint, we have to set a new job_id
+        # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
+        unique_suffix = f"_{unique_id}" if unique_id else ""
+        return JobId(
+            f"{platform}_{job_name_suffix}{unique_suffix}"
+            if platform
+            else job_name_suffix
+        )
 
-    def _init_job_id(self) -> JobId:
+    def _init_job_id(self, unique_id: Optional[str] = None) -> JobId:
         platform: Optional[str] = getattr(self.source, "platform", "default")
-        return self.compute_job_id(platform)
+        return self.compute_job_id(platform, unique_id)
 
     def _ignore_old_state(self) -> bool:
         if (
@@ -217,6 +158,9 @@ class StaleEntityRemovalHandler(
     def job_id(self) -> JobId:
         return self._job_id
 
+    def set_job_id(self, unique_id):
+        self._job_id = self._init_job_id(unique_id)
+
     def is_checkpointing_enabled(self) -> bool:
         return self.checkpointing_enabled
 
@@ -232,7 +176,7 @@ class StaleEntityRemovalHandler(
             )
         return None
 
-    def _create_soft_delete_workunit(self, urn: str, type: str) -> MetadataWorkUnit:
+    def _create_soft_delete_workunit(self, urn: str) -> MetadataWorkUnit:
         logger.info(f"Soft-deleting stale entity - {urn}")
         mcp = MetadataChangeProposalWrapper(
             entityUrn=urn,
@@ -264,26 +208,23 @@ class StaleEntityRemovalHandler(
         if not self.is_checkpointing_enabled() or self._ignore_old_state():
             return
         logger.debug("Checking for stale entity removal.")
-        last_checkpoint: Optional[Checkpoint] = self.source.get_last_checkpoint(
+        last_checkpoint = self.state_provider.get_last_checkpoint(
             self.job_id, self.state_type_class
         )
         if not last_checkpoint:
             return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
         # Get the underlying states
-        last_checkpoint_state = cast(
-            StaleEntityCheckpointStateBase, last_checkpoint.state
-        )
-        cur_checkpoint_state = cast(
-            StaleEntityCheckpointStateBase, cur_checkpoint.state
-        )
+        last_checkpoint_state: GenericCheckpointState = last_checkpoint.state
+        cur_checkpoint_state = cast(GenericCheckpointState, cur_checkpoint.state)
+
+        assert self.stateful_ingestion_config
 
         # Check if the entity delta is below the fail-safe threshold.
         entity_difference_percent = cur_checkpoint_state.get_percent_entities_changed(
             last_checkpoint_state
         )
-        assert self.stateful_ingestion_config
         if (
             entity_difference_percent
             > self.stateful_ingestion_config.fail_safe_threshold
@@ -294,29 +235,47 @@ class StaleEntityRemovalHandler(
         ):
             # Log the failure. This would prevent the current state from getting committed.
             self.source.get_report().report_failure(
-                "Stateful Ingestion",
+                "stale-entity-removal",
                 f"Will not soft-delete entities, since we'd be deleting {entity_difference_percent:.1f}% of the existing entities. "
                 f"To force a deletion, increase the value of 'stateful_ingestion.fail_safe_threshold' (currently {self.stateful_ingestion_config.fail_safe_threshold})",
             )
-            # Bail so that we don't emit the stale entity removal workunits.
+            return
+
+        if self.source.get_report().events_produced == 0:
+            # SUBTLE: By reporting this as a failure here, we also ensure that the
+            # new (empty) state doesn't get committed.
+            # TODO: Move back to using fail_safe_threshold once we're confident that we've squashed all the bugs.
+            self.source.get_report().report_failure(
+                "stale-entity-removal",
+                "Skipping stale entity soft-deletion because the source produced no events. "
+                "This is a fail-safe mechanism to prevent accidental deletion of all entities.",
+            )
+            return
+
+        # If the source already had a failure, skip soft-deletion.
+        # TODO: Eventually, switch this to check if anything in the pipeline had a failure so far.
+        if self.source.get_report().failures:
+            self.source.get_report().report_warning(
+                "stale-entity-removal",
+                "Skipping stale entity soft-deletion since source already had failures.",
+            )
             return
 
         # Everything looks good, emit the soft-deletion workunits
-        for type in self.state_type_class.get_supported_types():
-            for urn in last_checkpoint_state.get_urns_not_in(
-                type=type, other_checkpoint_state=cur_checkpoint_state
-            ):
-                if urn in self._urns_to_skip:
-                    logger.debug(
-                        f"Not soft-deleting entity {urn} since it is in urns_to_skip"
-                    )
-                    continue
-                yield self._create_soft_delete_workunit(urn, type)
+        for urn in last_checkpoint_state.get_urns_not_in(
+            type="*", other_checkpoint_state=cur_checkpoint_state
+        ):
+            if urn in self._urns_to_skip:
+                logger.debug(
+                    f"Not soft-deleting entity {urn} since it is in urns_to_skip"
+                )
+                continue
+            yield self._create_soft_delete_workunit(urn)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:
         if not self.is_checkpointing_enabled() or self._ignore_new_state():
             return
-        cur_checkpoint = self.source.get_current_checkpoint(self.job_id)
+        cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
-        cur_state = cast(StaleEntityCheckpointStateBase, cur_checkpoint.state)
+        cur_state = cast(GenericCheckpointState, cur_checkpoint.state)
         cur_state.add_checkpoint_urn(type=type, urn=urn)

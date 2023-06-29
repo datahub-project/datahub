@@ -1,15 +1,17 @@
 import json
 import time
 from datetime import datetime
-from typing import List, Optional, cast
+from typing import Any, Dict, List, Optional, cast
 from unittest import mock
 
+import pytest
 from freezegun import freeze_time
 from looker_sdk.rtl import transport
 from looker_sdk.rtl.transport import TransportOptions
 from looker_sdk.sdk.api40.models import (
     Dashboard,
     DashboardElement,
+    Look,
     LookmlModelExplore,
     LookmlModelExploreField,
     LookmlModelExploreFieldset,
@@ -20,24 +22,48 @@ from looker_sdk.sdk.api40.models import (
     WriteQuery,
 )
 
-from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.run.pipeline import Pipeline, PipelineInitError
 from datahub.ingestion.source.looker import looker_usage
+from datahub.ingestion.source.looker.looker_lib_wrapper import (
+    LookerAPI,
+    LookerAPIConfig,
+)
 from datahub.ingestion.source.looker.looker_query_model import (
     HistoryViewField,
     LookViewField,
     UserViewField,
 )
-from datahub.ingestion.source.looker.looker_source import LookerDashboardSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
+
+def get_default_recipe(output_file_path: str) -> Dict[Any, Any]:
+    return {
+        "run_id": "looker-test",
+        "source": {
+            "type": "looker",
+            "config": {
+                "base_url": "https://looker.company.com",
+                "client_id": "foo",
+                "client_secret": "bar",
+                "extract_usage_history": False,
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": output_file_path,
+            },
+        },
+    }
 
 
 @freeze_time(FROZEN_TIME)
@@ -73,6 +99,74 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
         pipeline.run()
         pipeline.raise_from_status()
         mce_out_file = "golden_test_ingest.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+
+def setup_mock_external_project_view_explore(mocked_client):
+    mock_model = mock.MagicMock(project_name="lkml_samples")
+    mocked_client.lookml_model.return_value = mock_model
+    mocked_client.lookml_model_explore.return_value = LookmlModelExplore(
+        id="1",
+        name="my_explore_name",
+        label="My Explore View",
+        description="lorem ipsum",
+        view_name="faa_flights",
+        project_name="looker_hub",
+        fields=LookmlModelExploreFieldset(
+            dimensions=[
+                LookmlModelExploreField(
+                    name="dim1",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
+                    view="faa_flights",
+                    source_file="imported_projects/datahub-demo/views/datahub-demo/datasets/faa_flights.view.lkml",
+                )
+            ]
+        ),
+        source_file="test_source_file.lkml",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_looker_ingest_external_project_view(pytestconfig, tmp_path, mock_time):
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_external_project_view_explore(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/looker_mces.json",
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_out_file = "golden_test_external_project_view_mces.json"
 
         mce_helpers.check_golden_file(
             pytestconfig,
@@ -205,6 +299,39 @@ def setup_mock_dashboard(mocked_client):
             )
         ],
     )
+
+
+def setup_mock_look(mocked_client):
+    mocked_client.all_looks.return_value = [
+        Look(
+            id="1",
+            title="Outer Look",
+            description="I am not part of any Dashboard",
+            query_id="1",
+        )
+    ]
+
+    mocked_client.query.return_value = Query(
+        id="1",
+        view="sales_explore",
+        model="sales_model",
+        fields=[
+            "sales.profit",
+        ],
+        dynamic_fields=None,
+        filters=None,
+    )
+
+
+def setup_mock_soft_deleted_look(mocked_client):
+    mocked_client.search_looks.return_value = [
+        Look(
+            id="2",
+            title="Soft Deleted",
+            description="I am not part of any Dashboard",
+            query_id="1",
+        )
+    ]
 
 
 def setup_mock_dashboard_multiple_charts(mocked_client):
@@ -721,10 +848,88 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
 
 
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    dbt_source = cast(LookerDashboardSource, pipeline.source)
-    return dbt_source.get_current_checkpoint(
-        dbt_source.stale_entity_removal_handler.job_id
-    )
+@freeze_time(FROZEN_TIME)
+def test_independent_look_ingestion_config(pytestconfig, tmp_path, mock_time):
+    """
+    if extract_independent_looks is enabled then stateful_ingestion.enabled should also be enabled
+    """
+    new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/output")
+    new_recipe["source"]["config"]["extract_independent_looks"] = True
+
+    with pytest.raises(
+        expected_exception=PipelineInitError,
+        match="stateful_ingestion.enabled should be set to true",
+    ):
+        # Config error should get raise
+        Pipeline.create(new_recipe)
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_looks_ingest(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    mocked_client = mock.MagicMock()
+    new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
+    new_recipe["source"]["config"]["extract_independent_looks"] = True
+    new_recipe["source"]["config"]["stateful_ingestion"] = {
+        "enabled": True,
+        "state_provider": {
+            "type": "datahub",
+            "config": {"datahub_api": {"server": GMS_SERVER}},
+        },
+    }
+    new_recipe["pipeline_name"] = "execution-1"
+
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_explore(mocked_client)
+        setup_mock_look(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+
+        pipeline = Pipeline.create(new_recipe)
+        pipeline.run()
+        pipeline.raise_from_status()
+        mce_out_file = "golden_test_independent_look_ingest.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=tmp_path / "looker_mces.json",
+            golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+
+@freeze_time(FROZEN_TIME)
+def test_independent_soft_deleted_looks(
+    pytestconfig,
+    tmp_path,
+    mock_time,
+):
+    mocked_client = mock.MagicMock()
+
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+
+        mock_sdk.return_value = mocked_client
+        setup_mock_look(mocked_client)
+        setup_mock_soft_deleted_look(mocked_client)
+        looker_api = LookerAPI(
+            config=LookerAPIConfig(
+                base_url="https://fake.com",
+                client_id="foo",
+                client_secret="bar",
+            )
+        )
+        looks: List[Look] = looker_api.all_looks(
+            fields=["id"],
+            soft_deleted=True,
+        )
+
+        assert len(looks) == 2
+        assert looks[0].title == "Outer Look"
+        assert looks[1].title == "Soft Deleted"

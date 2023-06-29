@@ -18,7 +18,6 @@ group = CorpGroup(
         str(CorpuserUrn.create_from_id("bar@acryl.io")),
         str(CorpuserUrn.create_from_id("joe@acryl.io")),
     ],
-    groups=[],
     display_name="Foo Group",
     email=group_email,
     description="Software engineering team",

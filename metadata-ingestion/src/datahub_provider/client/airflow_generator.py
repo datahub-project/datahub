@@ -78,9 +78,7 @@ class AirflowGenerator:
                 x for x in dag.parent_dag.task_dict.values() if x.subdag is not None
             ]
             matched_subdags = [
-                x
-                for x in subdags
-                if getattr(getattr(x, "subdag"), "dag_id") == dag.dag_id
+                x for x in subdags if x.subdag and x.subdag.dag_id == dag.dag_id
             ]
 
             # id of the task containing the subdag
@@ -148,7 +146,7 @@ class AirflowGenerator:
         orchestrator = "airflow"
         description = f"{dag.description}\n\n{dag.doc_md or ''}"
         data_flow = DataFlow(
-            cluster=cluster, id=id, orchestrator=orchestrator, description=description
+            env=cluster, id=id, orchestrator=orchestrator, description=description
         )
 
         flow_property_bag: Dict[str, str] = {}

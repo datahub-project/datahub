@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set
 
 from snowflake.connector import SnowflakeConnection
 
@@ -13,7 +13,6 @@ from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
-    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
@@ -78,12 +77,17 @@ class SnowflakeLineageExtractor(
     Edition Note - Snowflake Standard Edition does not have Access History Feature. So it does not support lineage extraction for edges 3, 4, 5 mentioned above.
     """
 
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        dataset_urn_builder: Callable[[str], str],
+    ) -> None:
         self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
-        self.platform = "snowflake"
         self.report = report
         self.logger = logger
+        self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
 
     def get_workunits(
@@ -93,35 +97,33 @@ class SnowflakeLineageExtractor(
         if self.connection is None:
             return
 
-        self._populate_external_lineage_map()
+        self._populate_external_lineage_map(discovered_tables)
 
         if self.config.include_view_lineage:
             if len(discovered_views) > 0:
                 yield from self.get_view_upstream_workunits(discovered_views)
-                logger.info(
-                    f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
-                )
             else:
                 logger.info("No views found. Skipping View Lineage Extraction.")
 
         yield from self.get_table_upstream_workunits(discovered_tables)
+
+        if self._external_lineage_map:  # Some external lineage is yet to be emitted
+            yield from self.get_table_external_upstream_workunits(discovered_tables)
+
+    def get_table_external_upstream_workunits(
+        self, discovered_tables: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        for (
+            dataset_name,
+            external_lineage,
+        ) in self._external_lineage_map.items():
+            upstreams = self.get_external_upstreams(external_lineage)
+            if upstreams:
+                self.report.num_tables_with_external_upstreams_only += 1
+                yield self._create_upstream_lineage_workunit(dataset_name, upstreams)
         logger.info(
-            f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
+            f"Only upstream external lineage detected for {self.report.num_tables_with_external_upstreams_only} tables.",
         )
-
-        yield from self.get_table_external_upstream_workunits()
-
-    def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
-        if self._external_lineage_map:
-            for (
-                dataset_name,
-                external_lineage,
-            ) in self._external_lineage_map.items():
-                upstreams = self.get_external_upstreams(external_lineage)
-                if upstreams:
-                    yield self._create_upstream_lineage_workunit(
-                        dataset_name, upstreams
-                    )
 
     def get_table_upstream_workunits(
         self, discovered_tables: List[str]
@@ -142,9 +144,12 @@ class SnowflakeLineageExtractor(
             yield from self._build_upstream_lineage_workunits_from_query_result(
                 discovered_tables, results
             )
+            logger.info(
+                f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
+            )
 
     def _build_upstream_lineage_workunits_from_query_result(
-        self, discovered_assets, results, report_upstream_for_view=False
+        self, discovered_assets, results, upstream_for_view=False
     ):
         for db_row in results:
             dataset_name = self.get_dataset_identifier_from_qualified_name(
@@ -157,7 +162,7 @@ class SnowflakeLineageExtractor(
                 fine_upstreams,
             ) = self.get_upstreams_from_query_result_row(dataset_name, db_row)
             if upstreams:
-                if report_upstream_for_view:
+                if upstream_for_view:
                     self.report.num_views_with_upstreams += 1
                 else:
                     self.report.num_tables_with_upstreams += 1
@@ -179,18 +184,15 @@ class SnowflakeLineageExtractor(
             return
 
         yield from self._build_upstream_lineage_workunits_from_query_result(
-            discovered_views, results, report_upstream_for_view=True
+            discovered_views, results, upstream_for_view=True
+        )
+        logger.info(
+            f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
         )
 
     def _create_upstream_lineage_workunit(
         self, dataset_name, upstreams, fine_upstreams=[]
     ):
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
         logger.debug(
             f"Upstream lineage of '{dataset_name}': {[u.dataset for u in upstreams]}"
         )
@@ -206,7 +208,7 @@ class SnowflakeLineageExtractor(
             or None,
         )
         return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=upstream_lineage
+            entityUrn=self.dataset_urn_builder(dataset_name), aspect=upstream_lineage
         ).as_workunit()
 
     def get_upstreams_from_query_result_row(self, dataset_name, db_row):
@@ -223,14 +225,9 @@ class SnowflakeLineageExtractor(
             and "UPSTREAM_COLUMNS" in db_row
             and db_row["UPSTREAM_COLUMNS"] is not None
         ):
-            dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
             fine_upstreams = self.map_query_result_fine_upstreams(
-                dataset_urn, json.loads(db_row["UPSTREAM_COLUMNS"])
+                self.dataset_urn_builder(dataset_name),
+                json.loads(db_row["UPSTREAM_COLUMNS"]),
             )
 
         # Populate the external-table-lineage(s3->snowflake), if present
@@ -240,21 +237,20 @@ class SnowflakeLineageExtractor(
 
         return upstreams, fine_upstreams
 
-    def _populate_external_lineage_map(self) -> None:
+    def _populate_external_lineage_map(self, discovered_tables: List[str]) -> None:
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
-            if self.report.edition == SnowflakeEdition.STANDARD:
-                logger.info(
-                    "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
-                )  # See Edition Note above for why
-            else:
-                self._populate_external_lineage_from_access_history()
-
-            self._populate_external_lineage_from_show_query()
-
+            self._populate_external_lineage_from_copy_history(discovered_tables)
             logger.info(
-                f"Found {self.report.num_external_table_edges_scanned} external lineage edges."
+                "Done populating external lineage from copy history."
+                f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
+            )
+
+            self._populate_external_lineage_from_show_query(discovered_tables)
+            logger.info(
+                "Done populating external lineage from show external tables."
+                f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
             self.report.external_lineage_queries_secs = timer.elapsed_seconds()
@@ -263,7 +259,7 @@ class SnowflakeLineageExtractor(
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(self):
+    def _populate_external_lineage_from_show_query(self, discovered_tables):
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
             for db_row in self.query(external_tables_query):
@@ -271,9 +267,7 @@ class SnowflakeLineageExtractor(
                     db_row["name"], db_row["schema_name"], db_row["database_name"]
                 )
 
-                if not self._is_dataset_pattern_allowed(
-                    key, SnowflakeObjectDomain.TABLE
-                ):
+                if key not in discovered_tables:
                     continue
                 self._external_lineage_map[key].add(db_row["location"])
                 logger.debug(
@@ -287,19 +281,24 @@ class SnowflakeLineageExtractor(
                 f"Populating external table lineage from Snowflake failed due to error {e}.",
             )
 
-    # Handles the case where a table is populated from an external location via copy.
+    # Handles the case where a table is populated from an external stage/s3 location via copy.
+    # Eg: copy into category_english from @external_s3_stage;
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-    def _populate_external_lineage_from_access_history(self):
-        query: str = SnowflakeQuery.external_table_lineage_history(
+    # NOTE: Snowflake does not log this information to the access_history table.
+    def _populate_external_lineage_from_copy_history(
+        self, discovered_tables: List[str]
+    ) -> None:
+        query: str = SnowflakeQuery.copy_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
         try:
             for db_row in self.query(query):
-                self._process_external_lineage_result_row(db_row)
+                self._process_external_lineage_result_row(db_row, discovered_tables)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = "Failed to get external lineage. Please grant imported privileges on SNOWFLAKE database. "
@@ -311,12 +310,12 @@ class SnowflakeLineageExtractor(
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
 
-    def _process_external_lineage_result_row(self, db_row):
+    def _process_external_lineage_result_row(self, db_row, discovered_tables):
         # key is the down-stream table name
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
         )
-        if not self._is_dataset_pattern_allowed(key, SnowflakeObjectDomain.TABLE):
+        if key not in discovered_tables:
             return
 
         if db_row["UPSTREAM_LOCATIONS"] is not None:
@@ -337,6 +336,7 @@ class SnowflakeLineageExtractor(
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            upstreams_deny_pattern=self.config.temporary_tables_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
         )
@@ -371,16 +371,11 @@ class SnowflakeLineageExtractor(
             upstream_table["upstream_object_name"]
         )
         if upstream_name and self._is_dataset_pattern_allowed(
-            upstream_name, upstream_table["upstream_object_domain"]
+            upstream_name, upstream_table["upstream_object_domain"], is_upstream=True
         ):
             upstreams.append(
                 UpstreamClass(
-                    dataset=builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        upstream_name,
-                        self.config.platform_instance,
-                        self.config.env,
-                    ),
+                    dataset=self.dataset_urn_builder(upstream_name),
                     type=DatasetLineageTypeClass.TRANSFORMED,
                 )
             )
@@ -483,21 +478,17 @@ class SnowflakeLineageExtractor(
                 upstream_col.objectName
                 and upstream_col.columnName
                 and self._is_dataset_pattern_allowed(
-                    upstream_col.objectName, upstream_col.objectDomain
+                    upstream_col.objectName,
+                    upstream_col.objectDomain,
+                    is_upstream=True,
                 )
             ):
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_col.objectName
                 )
-                upstream_dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    upstream_dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
                 column_upstreams.append(
                     builder.make_schema_field_urn(
-                        upstream_dataset_urn,
+                        self.dataset_urn_builder(upstream_dataset_name),
                         self.snowflake_identifier(upstream_col.columnName),
                     )
                 )

@@ -14,6 +14,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
+    AbstractIdentifierAccessor,
     DataAccessFunctionDetail,
     IdentifierAccessor,
 )
@@ -519,6 +520,48 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         ]
 
 
+class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
+    def create_dataplatform_tables(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> List[DataPlatformTable]:
+        logger.debug(
+            f"Processing Databrick data-access function detail {data_access_func_detail}"
+        )
+        value_dict = {}
+        temp_accessor: Optional[
+            Union[IdentifierAccessor, AbstractIdentifierAccessor]
+        ] = data_access_func_detail.identifier_accessor
+        while temp_accessor:
+            if isinstance(temp_accessor, IdentifierAccessor):
+                value_dict[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+                if temp_accessor.next is not None:
+                    temp_accessor = temp_accessor.next
+                else:
+                    break
+            else:
+                logger.debug(
+                    "expecting instance to be IdentifierAccessor, please check if parsing is done properly"
+                )
+                return []
+
+        db_name: str = value_dict["Database"]
+        schema_name: str = value_dict["Schema"]
+        table_name: str = value_dict["Table"]
+        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+
+        return [
+            DataPlatformTable(
+                name=table_name,
+                full_name=f"{db_name}.{schema_name}.{table_name}",
+                datasource_server=server if server else "",
+                data_platform_pair=self.get_platform_pair(),
+            )
+        ]
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.DATABRICK_SQL.value
+
+
 class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
     def get_datasource_server(
         self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail
@@ -711,11 +754,17 @@ class FunctionName(Enum):
     ORACLE_DATA_ACCESS = "Oracle.Database"
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
+    DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
 
 
 class SupportedResolver(Enum):
+    DATABRICK_QUERY = (
+        DatabrickDataPlatformTableCreator,
+        FunctionName.DATABRICK_DATA_ACCESS,
+    )
+
     POSTGRES_SQL = (
         PostgresDataPlatformTableCreator,
         FunctionName.POSTGRESQL_DATA_ACCESS,

@@ -28,6 +28,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     Source,
     SourceCapability,
     SourceReport,
@@ -35,7 +36,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.glossary.classification_mixin import ClassificationMixin
+from datahub.ingestion.glossary.classification_mixin import ClassificationHandler
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -93,9 +94,6 @@ from datahub.ingestion.source.state.profiling_state_handler import ProfilingHand
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantRunSkipHandler,
 )
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -130,12 +128,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -201,7 +195,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 )
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, can be disabled via configuration `include_usage_stats",
+    "Enabled by default, can be disabled via configuration `include_usage_stats`",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -214,7 +208,6 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     supported=True,
 )
 class SnowflakeV2Source(
-    ClassificationMixin,
     SnowflakeQueryMixin,
     SnowflakeConnectionMixin,
     SnowflakeCommonMixin,
@@ -228,15 +221,6 @@ class SnowflakeV2Source(
         self.logger = logger
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self.redundant_run_skip_handler = RedundantRunSkipHandler(
             source=self,
@@ -261,14 +245,17 @@ class SnowflakeV2Source(
             # For lineage
             if self.config.use_legacy_lineage_method:
                 self.lineage_extractor = SnowflakeLineageLegacyExtractor(
-                    config, self.report
+                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
                 )
             else:
-                self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
+                self.lineage_extractor = SnowflakeLineageExtractor(
+                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                )
 
         if config.include_usage_stats or config.include_operational_stats:
-            # For usage stats
-            self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
+            self.usage_extractor = SnowflakeUsageExtractor(
+                config, self.report, dataset_urn_builder=self.gen_dataset_urn
+            )
 
         self.tag_extractor = SnowflakeTagExtractor(
             config, self.data_dictionary, self.report
@@ -289,8 +276,10 @@ class SnowflakeV2Source(
                 config, self.report, self.profiling_state_handler
             )
 
-        if self.is_classification_enabled():
-            self.classifiers = self.get_classifiers()
+        if self.config.classification.enabled:
+            self.classification_handler = ClassificationHandler(
+                self.config, self.report
+            )
 
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
@@ -326,8 +315,8 @@ class SnowflakeV2Source(
             else:
                 test_report.internal_failure = True
                 test_report.internal_failure_reason = f"{e}"
-        finally:
-            return test_report
+
+        return test_report
 
     @staticmethod
     def check_capabilities(
@@ -479,6 +468,14 @@ class SnowflakeV2Source(
 
         return _report
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
 
@@ -531,12 +528,20 @@ class SnowflakeV2Source(
             for db in databases
             for schema in db.schemas
             for table_name in schema.tables
+            if self._is_dataset_pattern_allowed(
+                self.get_dataset_identifier(table_name, schema.name, db.name),
+                SnowflakeObjectDomain.TABLE,
+            )
         ]
         discovered_views: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.views
+            if self._is_dataset_pattern_allowed(
+                self.get_dataset_identifier(table_name, schema.name, db.name),
+                SnowflakeObjectDomain.VIEW,
+            )
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
@@ -574,16 +579,7 @@ class SnowflakeV2Source(
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
 
-            yield from self.usage_extractor.get_workunits(discovered_datasets)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_workunit_reporter(
-                self.report,
-                auto_status_aspect(self.get_workunits_internal()),
-            ),
-        )
+            yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
@@ -860,7 +856,13 @@ class SnowflakeV2Source(
     def fetch_sample_data_for_classification(
         self, table, schema_name, db_name, dataset_name
     ):
-        if table.columns and self.is_classification_enabled_for_table(dataset_name):
+        if (
+            table.columns
+            and self.config.classification.enabled
+            and self.classification_handler.is_classification_enabled_for_table(
+                dataset_name
+            )
+        ):
             try:
                 table.sample_data = self.get_sample_values_for_table(
                     table.name, schema_name, db_name
@@ -977,6 +979,14 @@ class SnowflakeV2Source(
 
         yield from self.gen_tag_workunits(tag)
 
+    def gen_dataset_urn(self, dataset_identifier: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_identifier,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
     def gen_dataset_workunits(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
@@ -984,12 +994,7 @@ class SnowflakeV2Source(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
+        dataset_urn = self.gen_dataset_urn(dataset_name)
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(
@@ -1198,17 +1203,20 @@ class SnowflakeV2Source(
         return foreign_keys
 
     def classify_snowflake_table(self, table, dataset_name, schema_metadata):
-        if isinstance(
-            table, SnowflakeTable
-        ) and self.is_classification_enabled_for_table(dataset_name):
+        if (
+            isinstance(table, SnowflakeTable)
+            and self.config.classification.enabled
+            and self.classification_handler.is_classification_enabled_for_table(
+                dataset_name
+            )
+        ):
             if table.sample_data is not None:
                 table.sample_data.columns = [
                     self.snowflake_identifier(col) for col in table.sample_data.columns
                 ]
-            logger.debug(f"Classifying Table {dataset_name}")
 
             try:
-                self.classify_schema_fields(
+                self.classification_handler.classify_schema_fields(
                     dataset_name,
                     schema_metadata,
                     table.sample_data.to_dict(orient="list")
@@ -1378,7 +1386,6 @@ class SnowflakeV2Source(
         if not self.report.ignore_start_time_lineage:
             self.report.lineage_start_time = self.config.start_time
         self.report.lineage_end_time = self.config.end_time
-        self.report.check_role_grants = self.config.check_role_grants
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
@@ -1418,19 +1425,30 @@ class SnowflakeV2Source(
 
     # Ideally we do not want null values in sample data for a column.
     # However that would require separate query per column and
-    # that would be expensive, hence not done.
+    # that would be expensive, hence not done. To compensale for possibility
+    # of some null values in collected sample, we fetch extra (20% more)
+    # rows than configured sample_size.
     def get_sample_values_for_table(self, table_name, schema_name, db_name):
         # Create a cursor object.
-        cur = self.get_connection().cursor()
-        NUM_SAMPLED_ROWS = 1000
-        # Execute a statement that will generate a result set.
-        sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({NUM_SAMPLED_ROWS} rows);'
+        logger.debug(
+            f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
+        )
 
-        cur.execute(sql)
-        # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+        actual_sample_size = self.config.classification.sample_size * 1.2
+        with PerfTimer() as timer:
+            cur = self.get_connection().cursor()
+            # Execute a statement that will generate a result set.
+            sql = f'select * from "{db_name}"."{schema_name}"."{table_name}" sample ({actual_sample_size} rows);'
 
-        dat = cur.fetchall()
-        df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+            cur.execute(sql)
+            # Fetch the result set from the cursor and deliver it as the Pandas DataFrame.
+
+            dat = cur.fetchall()
+            df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
+            time_taken = timer.elapsed_seconds()
+            logger.debug(
+                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name}; took {time_taken:.3f} seconds"
+            )
 
         return df
 

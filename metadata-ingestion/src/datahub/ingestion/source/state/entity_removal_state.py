@@ -1,11 +1,9 @@
-from typing import Any, Dict, Iterable, List, Type
+from typing import Any, Dict, Iterable, List, Tuple, Type
 
 import pydantic
 
 from datahub.emitter.mce_builder import make_assertion_urn, make_container_urn
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityCheckpointStateBase,
-)
+from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
 from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.urn import guess_entity_type
@@ -56,7 +54,7 @@ def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
     return pydantic.root_validator(pre=True, allow_reuse=True)(_validate_field_rename)
 
 
-class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointState"]):
+class GenericCheckpointState(CheckpointStateBase):
     urns: List[str] = pydantic.Field(default_factory=list)
 
     # We store a bit of extra internal-only state so that we can keep the urns list deduplicated.
@@ -85,11 +83,15 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
         self.urns = deduplicate_list(self.urns)
         self._urns_set = set(self.urns)
 
-    @classmethod
-    def get_supported_types(cls) -> List[str]:
-        return ["*"]
-
     def add_checkpoint_urn(self, type: str, urn: str) -> None:
+        """
+        Adds an urn into the list used for tracking the type.
+
+        :param type: Deprecated parameter, has no effect.
+        :param urn: The urn string
+        """
+
+        # TODO: Deprecate the `type` parameter and remove it.
         if urn not in self._urns_set:
             self.urns.append(urn)
             self._urns_set.add(urn)
@@ -97,9 +99,18 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
     def get_urns_not_in(
         self, type: str, other_checkpoint_state: "GenericCheckpointState"
     ) -> Iterable[str]:
+        """
+        Gets the urns present in this checkpoint but not the other_checkpoint for the given type.
+
+        :param type: Deprecated. Set to "*".
+        :param other_checkpoint_state: the checkpoint state to compute the urn set difference against.
+        :return: an iterable to the set of urns present in this checkpoint state but not in the other_checkpoint.
+        """
+
         diff = set(self.urns) - set(other_checkpoint_state.urns)
 
         # To maintain backwards compatibility, we provide this filtering mechanism.
+        # TODO: Deprecate the `type` parameter and remove it.
         if type == "*":
             yield from diff
         elif type == "topic":
@@ -110,6 +121,32 @@ class GenericCheckpointState(StaleEntityCheckpointStateBase["GenericCheckpointSt
     def get_percent_entities_changed(
         self, old_checkpoint_state: "GenericCheckpointState"
     ) -> float:
-        return StaleEntityCheckpointStateBase.compute_percent_entities_changed(
-            [(self.urns, old_checkpoint_state.urns)]
+        """
+        Returns the percentage of entities that have changed relative to `old_checkpoint_state`.
+
+        :param old_checkpoint_state: the old checkpoint state to compute the relative change percent against.
+        :return: (1-|intersection(self, old_checkpoint_state)| / |old_checkpoint_state|) * 100.0
+        """
+        return compute_percent_entities_changed(
+            new_entities=self.urns, old_entities=old_checkpoint_state.urns
         )
+
+
+def compute_percent_entities_changed(
+    new_entities: List[str], old_entities: List[str]
+) -> float:
+    (overlap_count, old_count, _,) = _get_entity_overlap_and_cardinalities(
+        new_entities=new_entities, old_entities=old_entities
+    )
+
+    if old_count:
+        return (1 - overlap_count / old_count) * 100.0
+    return 0.0
+
+
+def _get_entity_overlap_and_cardinalities(
+    new_entities: List[str], old_entities: List[str]
+) -> Tuple[int, int, int]:
+    new_set = set(new_entities)
+    old_set = set(old_entities)
+    return len(new_set.intersection(old_set)), len(old_set), len(new_set)

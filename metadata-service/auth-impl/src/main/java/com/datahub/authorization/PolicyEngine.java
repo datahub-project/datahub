@@ -64,14 +64,17 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> resource) {
 
     final PolicyEvaluationContext context = new PolicyEvaluationContext();
+    log.debug("Evaluating policy {}", policy.getDisplayName());
 
     // If the privilege is not in scope, deny the request.
     if (!isPrivilegeMatch(privilege, policy.getPrivileges(), context)) {
+      log.debug("Policy denied based on irrelevant privileges {} for {}", policy.getPrivileges(), privilege);
       return PolicyEvaluationResult.DENIED;
     }
 
     // If policy is not applicable, deny the request
     if (!isPolicyApplicable(policy, actor, resource, context)) {
+      log.debug("Policy does not applicable for actor {} and resource {}", actor, resource);
       return PolicyEvaluationResult.DENIED;
     }
 
@@ -193,6 +196,7 @@ public class PolicyEngine {
     }
     if (!requestResource.isPresent()) {
       // Resource filter present in policy, but no resource spec provided.
+      log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }
     final PolicyMatchFilter filter = getFilter(policyResourceFilter);

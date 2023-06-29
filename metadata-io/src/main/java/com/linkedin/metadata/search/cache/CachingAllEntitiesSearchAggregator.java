@@ -9,7 +9,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.javatuples.Quintet;
+import org.javatuples.Sextet;
 import org.springframework.cache.CacheManager;
 
 import static com.datahub.util.RecordUtils.*;
@@ -25,12 +25,12 @@ public class CachingAllEntitiesSearchAggregator {
   private final boolean enableCache;
 
   public SearchResult getSearchResults(List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     return new CacheableSearcher<>(cacheManager.getCache(ALL_ENTITIES_SEARCH_AGGREGATOR_CACHE_NAME), batchSize,
         querySize -> aggregator.search(entities, input, postFilters, sortCriterion, querySize.getFrom(),
-            querySize.getSize(), searchFlags),
-        querySize -> Quintet.with(entities, input, postFilters != null ? toJsonString(postFilters) : null,
-            sortCriterion != null ? toJsonString(sortCriterion) : null, querySize), searchFlags, enableCache)
+            querySize.getSize(), searchFlags, facets),
+        querySize -> Sextet.with(entities, input, postFilters != null ? toJsonString(postFilters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null, facets, querySize), searchFlags, enableCache)
         .getSearchResults(from, size);
   }
 }

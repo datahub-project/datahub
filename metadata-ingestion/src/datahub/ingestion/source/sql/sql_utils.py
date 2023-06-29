@@ -1,5 +1,4 @@
-# TODO: Remove to common
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
@@ -16,9 +15,10 @@ from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu,
     gen_containers,
 )
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
@@ -34,7 +34,8 @@ def gen_schema_key(
         schema=schema,
         platform=platform,
         instance=platform_instance,
-        backcompat_instance_for_guid=env,
+        env=env,
+        backcompat_env_as_instance=True,
     )
 
 
@@ -45,7 +46,8 @@ def gen_database_key(
         database=database,
         platform=platform,
         instance=platform_instance,
-        backcompat_instance_for_guid=env,
+        env=env,
+        backcompat_env_as_instance=True,
     )
 
 
@@ -57,7 +59,6 @@ def gen_schema_container(
     schema_container_key: PlatformKey,
     domain_registry: Optional[DomainRegistry] = None,
     domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
-    report: Optional[SourceReport] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -77,7 +78,7 @@ def gen_schema_container(
             domain_registry=domain_registry,
         )
 
-    container_workunits = gen_containers(
+    yield from gen_containers(
         container_key=schema_container_key,
         name=name if name else schema,
         sub_types=sub_types,
@@ -92,11 +93,6 @@ def gen_schema_container(
         qualified_name=qualified_name,
         extra_properties=extra_properties,
     )
-
-    for wu in container_workunits:
-        if report:
-            report.report_workunit(wu)
-        yield wu
 
 
 def gen_domain_urn(
@@ -121,7 +117,6 @@ def gen_database_container(
     sub_types: List[str],
     domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     domain_registry: Optional[DomainRegistry] = None,
-    report: Optional[SourceReport] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
     owner_urn: Optional[str] = None,
@@ -139,7 +134,7 @@ def gen_database_container(
             database, domain_config=domain_config, domain_registry=domain_registry
         )
 
-    container_workunits = gen_containers(
+    yield from gen_containers(
         container_key=database_container_key,
         name=name if name else database,
         sub_types=sub_types,
@@ -154,25 +149,15 @@ def gen_database_container(
         extra_properties=extra_properties,
     )
 
-    for wu in container_workunits:
-        if report:
-            report.report_workunit(wu)
-        yield wu
-
 
 def add_table_to_schema_container(
     dataset_urn: str,
     parent_container_key: PlatformKey,
-    report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    container_workunits = add_dataset_to_container(
+    yield from add_dataset_to_container(
         container_key=parent_container_key,
         dataset_urn=dataset_urn,
     )
-    for wu in container_workunits:
-        if report:
-            report.report_workunit(wu)
-        yield wu
 
 
 def get_domain_wu(
@@ -180,18 +165,13 @@ def get_domain_wu(
     entity_urn: str,
     domain_config: Dict[str, AllowDenyPattern],
     domain_registry: DomainRegistry,
-    report: Optional[SourceReport] = None,
 ) -> Iterable[MetadataWorkUnit]:
     domain_urn = gen_domain_urn(dataset_name, domain_config, domain_registry)
     if domain_urn:
-        wus = add_domain_to_entity_wu(
+        yield from add_domain_to_entity_wu(
             entity_urn=entity_urn,
             domain_urn=domain_urn,
         )
-        for wu in wus:
-            if report:
-                report.report_workunit(wu)
-            yield wu
 
 
 def get_dataplatform_instance_aspect(
@@ -210,3 +190,36 @@ def get_dataplatform_instance_aspect(
         ).as_workunit()
     else:
         return None
+
+
+def gen_lineage(
+    dataset_urn: str,
+    lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
+    incremental_lineage: bool = True,
+) -> Iterable[MetadataWorkUnit]:
+    if lineage_info is None:
+        return
+
+    upstream_lineage, upstream_column_props = lineage_info
+    if upstream_lineage is not None:
+        if incremental_lineage:
+            patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(urn=dataset_urn)
+            for upstream in upstream_lineage.upstreams:
+                patch_builder.add_upstream_lineage(upstream)
+
+            lineage_workunits = [
+                MetadataWorkUnit(
+                    id=f"upstreamLineage-for-{dataset_urn}",
+                    mcp_raw=mcp,
+                )
+                for mcp in patch_builder.build()
+            ]
+        else:
+            lineage_workunits = [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
+            ]
+
+        for wu in lineage_workunits:
+            yield wu

@@ -228,7 +228,10 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
             default_query_results,
             [
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-                    1654499820000, 1654586220000, False, True
+                    start_time_millis=1654499820000,
+                    end_time_millis=1654586220000,
+                    include_view_lineage=False,
+                    include_column_lineage=True,
                 )
             ],
             "Database 'SNOWFLAKE' does not exist or not authorized.",

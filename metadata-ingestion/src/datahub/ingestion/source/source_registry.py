@@ -14,6 +14,7 @@ source_registry.register_alias(
     lambda: warnings.warn(
         "source type snowflake-beta is deprecated, use snowflake instead",
         ConfigurationWarning,
+        stacklevel=3,
     ),
 )
 source_registry.register_alias(
@@ -22,6 +23,17 @@ source_registry.register_alias(
     lambda: warnings.warn(
         "source type bigquery-beta is deprecated, use bigquery instead",
         ConfigurationWarning,
+        stacklevel=3,
+    ),
+)
+
+source_registry.register_alias(
+    "redshift-usage",
+    "redshift-usage-legacy",
+    lambda: warnings.warn(
+        "source type redshift-usage is deprecated, use redshift source instead as usage was merged into the main source",
+        ConfigurationWarning,
+        stacklevel=3,
     ),
 )
 

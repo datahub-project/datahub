@@ -59,7 +59,7 @@ public class BatchRemoveOwnersResolverTest {
     BatchRemoveOwnersInput input = new BatchRemoveOwnersInput(ImmutableList.of(
         TEST_OWNER_URN_1,
         TEST_OWNER_URN_2
-    ), ImmutableList.of(
+    ), null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -105,7 +105,7 @@ public class BatchRemoveOwnersResolverTest {
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     BatchRemoveOwnersInput input = new BatchRemoveOwnersInput(ImmutableList.of(TEST_OWNER_URN_1, TEST_OWNER_URN_2
-    ), ImmutableList.of(
+    ), null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -140,7 +140,7 @@ public class BatchRemoveOwnersResolverTest {
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     BatchRemoveOwnersInput input = new BatchRemoveOwnersInput(ImmutableList.of(TEST_OWNER_URN_1, TEST_OWNER_URN_2
-    ), ImmutableList.of(
+    ), null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -159,7 +159,7 @@ public class BatchRemoveOwnersResolverTest {
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     BatchRemoveOwnersInput input = new BatchRemoveOwnersInput(ImmutableList.of(TEST_OWNER_URN_1, TEST_OWNER_URN_2
-    ), ImmutableList.of(
+    ), null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
@@ -184,7 +184,7 @@ public class BatchRemoveOwnersResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     BatchRemoveOwnersInput input = new BatchRemoveOwnersInput(ImmutableList.of(TEST_OWNER_URN_1, TEST_OWNER_URN_2
-    ), ImmutableList.of(
+    ), null, ImmutableList.of(
         new ResourceRefInput(TEST_ENTITY_URN_1, null, null),
         new ResourceRefInput(TEST_ENTITY_URN_2, null, null)));
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);

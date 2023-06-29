@@ -2,10 +2,12 @@ package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -76,6 +78,27 @@ public interface EntitySearchService {
                       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags);
 
   /**
+   * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
+   * search hits and not the aggregation results.
+   *
+   * Safe for non-structured, user input, queries with an attempt to provide some advanced features
+   * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
+   *
+   * @param entityName name of the entity
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search hits
+   * @param sortCriterion {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param searchFlags flags controlling search options
+   * @param facets list of facets we want aggregations for
+   * @return a {@link com.linkedin.metadata.dao.SearchResult} that contains a list of matched documents and related search result metadata
+   */
+  @Nonnull
+  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+      @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets);
+
+  /**
    * Gets a list of documents after applying the input filters.
    *
    * @param entityName name of the entity
@@ -131,6 +154,19 @@ public interface EntitySearchService {
   @Nonnull
   BrowseResult browse(@Nonnull String entityName, @Nonnull String path, @Nullable Filter requestParams, int from,
       int size);
+
+  /**
+   * Gets browse snapshot of a given path
+   *
+   * @param entityName entity being browsed
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   */
+  @Nonnull
+  public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter, @Nonnull String input, int start, int count);
 
   /**
    * Gets a list of paths for a given urn.

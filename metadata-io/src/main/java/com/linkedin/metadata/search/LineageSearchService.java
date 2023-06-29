@@ -29,6 +29,7 @@ import com.linkedin.metadata.search.utils.SearchUtils;
 import io.opentelemetry.extension.annotations.WithSpan;
 
 import java.net.URISyntaxException;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -122,8 +123,8 @@ public class LineageSearchService {
     }
 
     // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey = EntityLineageResultCacheKey.from(sourceUrn, direction, startTimeMillis,
-            endTimeMillis, maxHops);
+    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis,
+            endTimeMillis, maxHops, ChronoUnit.DAYS);
     CachedEntityLineageResult cachedLineageResult = null;
 
     if (cacheEnabled) {
@@ -569,8 +570,8 @@ public class LineageSearchService {
       @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis, @Nonnull SearchFlags searchFlags) {
     // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey =
-        new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis, endTimeMillis, maxHops);
+    final EntityLineageResultCacheKey cacheKey = new EntityLineageResultCacheKey(sourceUrn, direction, startTimeMillis,
+        endTimeMillis, maxHops, ChronoUnit.DAYS);
     CachedEntityLineageResult cachedLineageResult = cacheEnabled
         ? cache.get(cacheKey, CachedEntityLineageResult.class) : null;
     EntityLineageResult lineageResult;

@@ -14,8 +14,14 @@ public enum DataHubUsageEventType {
   SEARCH_RESULTS_VIEW_EVENT("SearchResultsViewEvent"),
   SEARCH_RESULT_CLICK_EVENT("SearchResultClickEvent"),
   ENTITY_SEARCH_RESULT_CLICK_EVENT("EntitySearchResultClickEvent"),
+  SEARCH_FILTERS_CLEAR_ALL_EVENT("SearchFiltersClearAllEvent"),
+  SEARCH_FILTERS_SHOW_MORE_EVENT("SearchFiltersShowMoreEvent"),
   BROWSE_RESULT_CLICK_EVENT("BrowseResultClickEvent"),
   HOME_PAGE_BROWSE_RESULT_CLICK_EVENT("HomePageBrowseResultClickEvent"),
+  BROWSE_V2_TOGGLE_SIDEBAR_EVENT("BrowseV2ToggleSidebarEvent"),
+  BROWSE_V2_TOGGLE_NODE_EVENT("BrowseV2ToggleNodeEvent"),
+  BROWSE_V2_SELECT_NODE_EVENT("BrowseV2SelectNodeEvent"),
+  BROWSE_V2_ENTITY_LINK_CLICK_EVENT("BrowseV2EntityLinkClickEvent"),
   ENTITY_VIEW_EVENT("EntityViewEvent"),
   ENTITY_SECTION_VIEW_EVENT("EntitySectionViewEvent"),
   ENTITY_ACTION_EVENT("EntityActionEvent"),
@@ -24,6 +30,8 @@ public enum DataHubUsageEventType {
   RECOMMENDATION_CLICK_EVENT("RecommendationClickEvent"),
   HOME_PAGE_RECOMMENDATION_CLICK_EVENT("HomePageRecommendationClickEvent"),
   HOME_PAGE_EXPLORE_ALL_CLICK_EVENT("HomePageExploreAllClickEvent"),
+  SEARCH_BAR_EXPLORE_ALL_CLICK_EVENT("SearchBarExploreAllClickEvent"),
+  SEARCH_RESULTS_EXPLORE_ALL_CLICK_EVENT("SearchResultsExploreAllClickEvent"),
   SEARCH_ACROSS_LINEAGE_EVENT("SearchAcrossLineageEvent"),
   SEARCH_ACROSS_LINEAGE_RESULTS_VIEW_EVENT("SearchAcrossLineageResultsViewEvent"),
   DOWNLOAD_AS_CSV_EVENT("DownloadAsCsvEvent"),
@@ -63,7 +71,10 @@ public enum DataHubUsageEventType {
   UPDATE_QUERY_EVENT("UpdateQueryEvent"),
   SELECT_AUTO_COMPLETE_OPTION("SelectAutoCompleteOption"),
   SELECT_QUICK_FILTER_EVENT("SelectQuickFilterEvent"),
-  DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent");
+  DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent"),
+  EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
+  EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
+  EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent");
 
   private final String type;
 

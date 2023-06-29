@@ -12,12 +12,12 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -30,7 +30,6 @@ import org.springframework.stereotype.Component;
 // We don't disable this on GMS since we want GMS to also wait until the system is ready to read in case of
 // backwards incompatible query logic dependent on system updates.
 @Component("dataHubUpgradeKafkaListener")
-@RequiredArgsConstructor
 @Slf4j
 @EnableKafka
 public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, BootstrapDependency {
@@ -56,6 +55,15 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
 
   private final static AtomicBoolean IS_UPDATED = new AtomicBoolean(false);
 
+  public DataHubUpgradeKafkaListener(KafkaListenerEndpointRegistry registry,
+                                     @Qualifier("duheKafkaConsumerFactory") DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory,
+                                     GitVersion gitVersion,
+                                     ConfigurationProvider configurationProvider) {
+    this.registry = registry;
+    this._defaultKafkaConsumerFactory = defaultKafkaConsumerFactory;
+    this._gitVersion = gitVersion;
+    this._configurationProvider = configurationProvider;
+  }
 
   // Constructs a consumer to read determine final offset to assign, prevents re-reading whole topic to get the latest version
   @Override
@@ -73,7 +81,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
     }
   }
 
-  @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "kafkaEventConsumer", concurrency = "1")
+  @KafkaListener(id = CONSUMER_GROUP, topics = {TOPIC_NAME}, containerFactory = "duheKafkaEventConsumer", concurrency = "1")
   public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     final GenericRecord record = consumerRecord.value();
     final String expectedVersion = String.format("%s-%s", _gitVersion.getVersion(), revision);
@@ -83,6 +91,9 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       event = EventUtils.avroToPegasusDUHE(record);
       log.info("Latest system update version: {}", event.getVersion());
       if (expectedVersion.equals(event.getVersion())) {
+        IS_UPDATED.getAndSet(true);
+      } else if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+        log.warn("Wait for system update is disabled. Proceeding with startup.");
         IS_UPDATED.getAndSet(true);
       } else {
         log.warn("System version is not up to date: {}. Waiting for datahub-upgrade to complete...", expectedVersion);

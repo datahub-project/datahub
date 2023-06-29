@@ -20,13 +20,15 @@ def get_long_description():
 base_requirements = {
     # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
     "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
-    "typing_extensions>=3.10.0.2 ;  python_version >= '3.8'",
+    "typing_extensions>=3.10.0.2,<4.6.0 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    "pydantic>=1.5.1,!=1.10.3",
+    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
+    "pydantic>=1.5.1,!=1.10.3,<2",
     "mixpanel>=4.9.0",
+    "sentry-sdk",
 }
 
 framework_common = {
@@ -56,6 +58,7 @@ framework_common = {
     "requests_file",
     "jsonref",
     "jsonschema",
+    "ruamel.yaml",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -121,7 +124,14 @@ sql_common = {
     "greenlet",
 }
 
-sqllineage_lib = "sqllineage==1.3.6"
+sqllineage_lib = {
+    "sqllineage==1.3.6",
+    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
+    # As per https://github.com/reata/sqllineage/issues/361
+    # and https://github.com/reata/sqllineage/pull/360
+    # sqllineage has compat issues with sqlparse 0.4.4.
+    "sqlparse==0.4.3",
+}
 
 aws_common = {
     # AWS Python SDK
@@ -144,7 +154,7 @@ looker_common = {
     # See https://github.com/joshtemple/lkml/issues/73.
     "lkml>=1.3.0b5",
     "sql-metadata==2.2.2",
-    sqllineage_lib,
+    *sqllineage_lib,
     "GitPython>2",
 }
 
@@ -165,7 +175,7 @@ redshift_common = {
     "sqlalchemy-redshift",
     "psycopg2-binary",
     "GeoAlchemy2",
-    sqllineage_lib,
+    *sqllineage_lib,
     *path_spec_common,
 }
 
@@ -180,12 +190,11 @@ snowflake_common = {
     # because it may break Airflow users that need SQLAlchemy 1.3.x.
     "SQLAlchemy<1.4.42",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
-    # Cannot upgrade to 3.0.0 because of dependency on pyarrow>=10.0.1, conflicts with feast
-    "snowflake-connector-python!=2.8.2, <3.0.0",
+    "snowflake-connector-python!=2.8.2",
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.6",
+    "acryl-datahub-classify==0.0.8",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -206,6 +215,7 @@ iceberg_common = {
 
 s3_base = {
     *aws_common,
+    "more-itertools>=8.12.0",
     "parse>=1.19.0",
     "pyarrow>=6.0.1",
     "tableschema>=1.20.2",
@@ -232,8 +242,11 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli==0.17.3",
+databricks = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    "databricks-sdk>=0.1.1, <0.1.11",
+    "pyspark",
+    "requests",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -255,7 +268,7 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "great-expectations": sql_common | {sqllineage_lib},
+    "great-expectations": sql_common | sqllineage_lib,
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -263,15 +276,15 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
-        sqllineage_lib,
+        *sqllineage_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
-        "google-cloud-datacatalog-lineage==0.2.0",
+        "google-cloud-datacatalog-lineage==0.2.2",
     },
     "bigquery-beta": sql_common
     | bigquery_common
     | {
-        sqllineage_lib,
+        *sqllineage_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
@@ -289,7 +302,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
     "feast": {
-        "feast~=0.29.0",
+        "feast~=0.31.1",
         "flask-openid>=1.3.0",
         # typeguard 3.x, released on 2023-03-14, seems to cause issues with Feast.
         "typeguard<3",
@@ -321,8 +334,8 @@ plugins: Dict[str, Set[str]] = {
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
     "lookml": looker_common,
-    "metabase": {"requests", sqllineage_lib},
-    "mode": {"requests", sqllineage_lib, "tenacity>=8.0.1"},
+    "metabase": {"requests"} | sqllineage_lib,
+    "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
@@ -336,10 +349,12 @@ plugins: Dict[str, Set[str]] = {
     "presto-on-hive": sql_common
     | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata", sqllineage_lib},
-    "redshift": sql_common | redshift_common,
-    "redshift-usage": sql_common | usage_common | redshift_common,
+    "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
+    "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
+    "redshift-legacy": sql_common | redshift_common,
+    "redshift-usage-legacy": sql_common | usage_common | redshift_common,
     "s3": {*s3_base, *data_lake_profiling},
+    "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common,
@@ -353,14 +368,14 @@ plugins: Dict[str, Set[str]] = {
         "great_expectations",
         "greenlet",
     },
-    "tableau": {"tableauserverclient>=0.17.0"},
+    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
-    "nifi": {"requests", "packaging"},
+    "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | {"requests"},
+    "unity-catalog": databricks | sqllineage_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -407,8 +422,10 @@ base_dev_requirements = {
     # We should make an effort to keep it up to date.
     "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=3.8.3",
+    "faker>=18.4.0",
+    "flake8>=3.8.3",  # DEPRECATION: Once we drop Python 3.7, we can pin to 6.x.
     "flake8-tidy-imports>=4.3.0",
+    "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -451,7 +468,8 @@ base_dev_requirements = {
             "presto",
             "redash",
             "redshift",
-            "redshift-usage",
+            "redshift-legacy",
+            "redshift-usage-legacy",
             "s3",
             "snowflake",
             "tableau",
@@ -461,7 +479,8 @@ base_dev_requirements = {
             "powerbi",
             "powerbi-report-server",
             "salesforce",
-            "unity-catalog"
+            "unity-catalog",
+            "nifi"
             # airflow is added below
         ]
         if plugin
@@ -540,8 +559,9 @@ entry_points = {
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
         "postgres = datahub.ingestion.source.sql.postgres:PostgresSource",
         "redash = datahub.ingestion.source.redash:RedashSource",
-        "redshift = datahub.ingestion.source.sql.redshift:RedshiftSource",
-        "redshift-usage = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
+        "redshift = datahub.ingestion.source.redshift.redshift:RedshiftSource",
+        "redshift-legacy = datahub.ingestion.source.sql.redshift:RedshiftSource",
+        "redshift-usage-legacy = datahub.ingestion.source.usage.redshift_usage:RedshiftUsageSource",
         "snowflake = datahub.ingestion.source.snowflake.snowflake_v2:SnowflakeV2Source",
         "superset = datahub.ingestion.source.superset:SupersetSource",
         "tableau = datahub.ingestion.source.tableau:TableauSource",
@@ -560,6 +580,7 @@ entry_points = {
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
+        "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

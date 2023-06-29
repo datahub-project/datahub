@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -9,6 +10,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
@@ -18,6 +20,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -38,6 +41,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -58,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -93,6 +98,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected final EntityRegistry _testEntityRegistry =
         new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
     protected EventProducer _mockProducer;
+    protected UpdateIndicesService _mockUpdateIndicesService;
 
     protected EntityServiceTest() throws EntityRegistryException {
     }
@@ -1148,6 +1154,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     protected <T extends RecordTemplate> T simulatePullFromDB(T aspect, Class<T> clazz) throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     }
     
@@ -1190,6 +1199,126 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         }
     }
 
+    @Test
+    public void testValidateUrn() throws Exception {
+        // Valid URN
+        Urn validTestUrn = new Urn("li", "corpuser", new TupleKey("testKey"));
+        _entityService.validateUrn(validTestUrn);
+
+        // URN with trailing whitespace
+        Urn testUrnWithTrailingWhitespace = new Urn("li", "corpuser", new TupleKey("testKey   "));
+        try {
+            _entityService.validateUrn(testUrnWithTrailingWhitespace);
+            Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
+        }
+
+        // Urn purely too long
+        String stringTooLong = "a".repeat(510);
+
+        Urn testUrnTooLong = new Urn("li", "corpuser", new TupleKey(stringTooLong));
+        try {
+            _entityService.validateUrn(testUrnTooLong);
+            Assert.fail("Should have raised IllegalArgumentException for URN too long");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
+        }
+
+        // Urn too long when URL encoded
+        StringBuilder buildStringTooLongWhenEncoded = new StringBuilder();
+        StringBuilder buildStringSameLengthWhenEncoded = new StringBuilder();
+        for (int i = 0; i < 200; i++) {
+            buildStringTooLongWhenEncoded.append('>');
+            buildStringSameLengthWhenEncoded.append('a');
+        }
+        Urn testUrnTooLongWhenEncoded = new Urn("li", "corpUser", new TupleKey(buildStringTooLongWhenEncoded.toString()));
+        Urn testUrnSameLengthWhenEncoded = new Urn("li", "corpUser", new TupleKey(buildStringSameLengthWhenEncoded.toString()));
+        // Same length when encoded should be allowed, the encoded one should not be
+        _entityService.validateUrn(testUrnSameLengthWhenEncoded);
+        try {
+            _entityService.validateUrn(testUrnTooLongWhenEncoded);
+            Assert.fail("Should have raised IllegalArgumentException for URN too long");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
+        }
+
+        // Urn containing disallowed character
+        Urn testUrnSpecialCharValid = new Urn("li", "corpUser", new TupleKey("bob␇"));
+        Urn testUrnSpecialCharInvalid = new Urn("li", "corpUser", new TupleKey("bob␟"));
+        _entityService.validateUrn(testUrnSpecialCharValid);
+        try {
+            _entityService.validateUrn(testUrnSpecialCharInvalid);
+            Assert.fail("Should have raised IllegalArgumentException for URN containing the illegal char");
+        } catch (IllegalArgumentException e) {
+            assertEquals(e.getMessage(), "Error: URN cannot contain ␟ character");
+        }
+
+        Urn urnWithMismatchedParens = new Urn("li", "corpuser", new TupleKey("test(Key"));
+        try {
+            _entityService.validateUrn(urnWithMismatchedParens);
+            Assert.fail("Should have raised IllegalArgumentException for URN with mismatched parens");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("mismatched paren nesting"));
+        }
+
+        Urn invalidType = new Urn("li", "fakeMadeUpType", new TupleKey("testKey"));
+        try {
+            _entityService.validateUrn(invalidType);
+            Assert.fail("Should have raised IllegalArgumentException for URN with non-existent entity type");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("Failed to find entity with name fakeMadeUpType"));
+        }
+
+        Urn validFabricType = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD"));
+        _entityService.validateUrn(validFabricType);
+
+        Urn invalidFabricType = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "prod"));
+        try {
+            _entityService.validateUrn(invalidFabricType);
+            Assert.fail("Should have raised IllegalArgumentException for URN with invalid fabric type");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains(invalidFabricType.toString()));
+        }
+
+        Urn urnEndingInComma = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD", ""));
+        try {
+            _entityService.validateUrn(urnEndingInComma);
+            Assert.fail("Should have raised IllegalArgumentException for URN ending in comma");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains(urnEndingInComma.toString()));
+        }
+
+    }
+
+    @Test
+    public void testUIPreProcessedProposal() throws Exception {
+        Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+        EditableDatasetProperties datasetProperties = new EditableDatasetProperties();
+        datasetProperties.setDescription("Foo Bar");
+        MetadataChangeProposal gmce = new MetadataChangeProposal();
+        gmce.setEntityUrn(entityUrn);
+        gmce.setChangeType(ChangeType.UPSERT);
+        gmce.setEntityType("dataset");
+        gmce.setAspectName("editableDatasetProperties");
+        SystemMetadata systemMetadata = new SystemMetadata();
+        StringMap properties = new StringMap();
+        properties.put(APP_SOURCE, UI_SOURCE);
+        systemMetadata.setProperties(properties);
+        gmce.setSystemMetadata(systemMetadata);
+        JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
+        byte[] datasetPropertiesSerialized = dataTemplateCodec.dataTemplateToBytes(datasetProperties);
+        GenericAspect genericAspect = new GenericAspect();
+        genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
+        genericAspect.setContentType("application/json");
+        gmce.setAspect(genericAspect);
+        _entityService.ingestProposal(gmce, TEST_AUDIT_STAMP, false);
+        ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
+        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
+            Mockito.any(), captor.capture());
+        assertEquals(UI_SOURCE, captor.getValue().getSystemMetadata().getProperties().get(APP_SOURCE));
+    }
+
     @Nonnull
     protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email) throws Exception {
         CorpuserUrn corpuserUrn = CorpuserUrn.createFromUrn(entityUrn);
@@ -1209,6 +1338,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         throws Exception {
         final ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+        objectMapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+            .maxStringLength(maxSize).build());
         RecordTemplate recordTemplate = RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
         return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
     }

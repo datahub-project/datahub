@@ -50,7 +50,6 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregation,
             ]
         ],
         write_callback: WriteCallback,
