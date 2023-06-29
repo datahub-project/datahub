@@ -956,7 +956,11 @@ class VerticaSource(SQLAlchemySource):
         return None
 
     def _get_upstream_lineage_info_projection(
-        self, dataset_urn: str, inspector: VerticaInspector, projection:str, schema: str
+        self,
+        dataset_urn: str,
+        inspector: VerticaInspector,
+        projection: str,
+        schema: str,
     ) -> Optional[_Aspect]:
         dataset_key = dataset_urn_to_key(dataset_urn)
         if dataset_key is None:
