@@ -11,7 +11,7 @@
                 "env": "PROD",
                 "database": "vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "162 GB",
+                "cluster_size": "130 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },
@@ -208,7 +208,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.976722+00:00",
+                            "create_time": "2023-06-29 10:41:23.570193+00:00",
                             "table_size": "2119 KB"
                         },
                         "name": "customer_dimension",
@@ -589,7 +589,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.987208+00:00",
+                            "create_time": "2023-06-29 10:41:23.580757+00:00",
                             "table_size": "138 KB"
                         },
                         "name": "date_dimension",
@@ -970,7 +970,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.993816+00:00",
+                            "create_time": "2023-06-29 10:41:23.587602+00:00",
                             "table_size": "327 KB"
                         },
                         "name": "employee_dimension",
@@ -1312,7 +1312,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.004259+00:00",
+                            "create_time": "2023-06-29 10:41:23.597189+00:00",
                             "table_size": "2566 KB"
                         },
                         "name": "inventory_fact",
@@ -1498,7 +1498,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.980437+00:00",
+                            "create_time": "2023-06-29 10:41:23.573959+00:00",
                             "table_size": "19 KB"
                         },
                         "name": "product_dimension",
@@ -1879,7 +1879,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.983846+00:00",
+                            "create_time": "2023-06-29 10:41:23.577351+00:00",
                             "table_size": "3 KB"
                         },
                         "name": "promotion_dimension",
@@ -2143,7 +2143,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.997042+00:00",
+                            "create_time": "2023-06-29 10:41:23.590921+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "shipping_dimension",
@@ -2303,7 +2303,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:39.990530+00:00",
+                            "create_time": "2023-06-29 10:41:23.584194+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "vendor_dimension",
@@ -2515,7 +2515,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:50:09.294631+00:00",
+                            "create_time": "2023-06-29 10:41:51.793154+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "vmart_load_success",
@@ -2636,7 +2636,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.000130+00:00",
+                            "create_time": "2023-06-29 10:41:23.594040+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "warehouse_dimension",
@@ -3570,6 +3570,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.product_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.product_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -3840,6 +3864,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -4048,6 +4096,30 @@
         "json": {
             "typeNames": [
                 "Projections"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
             ]
         }
     },
@@ -4445,6 +4517,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.customer_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.customer_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -4793,6 +4889,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -4985,6 +5105,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -5141,6 +5285,30 @@
         "json": {
             "typeNames": [
                 "Projections"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
             ]
         }
     },
@@ -5342,6 +5510,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.inventory_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.inventory_fact,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:342b43fc61f85b16580be55c11e89787",
     "changeType": "UPSERT",
@@ -5479,7 +5671,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.011550+00:00",
+                            "create_time": "2023-06-29 10:41:23.604361+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "store_dimension",
@@ -5821,7 +6013,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.022901+00:00",
+                            "create_time": "2023-06-29 10:41:23.615630+00:00",
                             "table_size": "8648 KB"
                         },
                         "name": "store_orders_fact",
@@ -6176,7 +6368,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.014951+00:00",
+                            "create_time": "2023-06-29 10:41:23.607859+00:00",
                             "table_size": "225089 KB"
                         },
                         "name": "store_sales_fact",
@@ -7162,6 +7354,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_orders_fact_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -7522,6 +7738,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_orders_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_orders_fact,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
     "changeType": "UPSERT",
@@ -7659,7 +7899,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.033449+00:00",
+                            "create_time": "2023-06-29 10:41:23.626223+00:00",
                             "table_size": "6 KB"
                         },
                         "name": "call_center_dimension",
@@ -7923,7 +8163,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.030191+00:00",
+                            "create_time": "2023-06-29 10:41:23.623032+00:00",
                             "table_size": "9 KB"
                         },
                         "name": "online_page_dimension",
@@ -8109,7 +8349,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-28 11:49:40.036947+00:00",
+                            "create_time": "2023-06-29 10:41:23.629569+00:00",
                             "table_size": "182385 KB"
                         },
                         "name": "online_sales_fact",
@@ -8913,6 +9153,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.call_center_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.call_center_dimension,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -9277,6 +9541,30 @@
         "json": {
             "typeNames": [
                 "Projections"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact,PROD)",
+                    "type": "TRANSFORMED"
+                }
             ]
         }
     },
