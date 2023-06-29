@@ -33,7 +33,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
-    PlatformKey,
+    ContainerKey,
     add_entity_to_container,
     gen_containers,
 )
@@ -347,11 +347,11 @@ class TableauConfig(
         return values
 
 
-class WorkbookKey(PlatformKey):
+class WorkbookKey(ContainerKey):
     workbook_id: str
 
 
-class ProjectKey(PlatformKey):
+class ProjectKey(ContainerKey):
     project_id: str
 
 

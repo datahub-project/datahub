@@ -19,7 +19,7 @@ from datahub.emitter.mce_builder import (
     set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey
+from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -412,7 +412,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn, aspect=aspect
         ).as_workunit()
 
-    def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
+    def gen_dataset_key(self, db_name: str, schema: str) -> ContainerKey:
         return BigQueryDatasetKey(
             project_id=db_name,
             dataset_id=schema,
@@ -422,7 +422,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             backcompat_env_as_instance=True,
         )
 
-    def gen_project_id_key(self, database: str) -> PlatformKey:
+    def gen_project_id_key(self, database: str) -> ContainerKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
