@@ -442,7 +442,12 @@ def _column_level_lineage(  # noqa: C901
         "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
     )
     try:
-        logger.debug("Schema: %s", sqlglot_db_schema.mapping)
+        # Second time running qualify, this time with:
+        # - the select instead of the full outer statement
+        # - schema info
+        # - column qualification enabled
+
+        # logger.debug("Schema: %s", sqlglot_db_schema.mapping)
         statement = sqlglot.optimizer.qualify.qualify(
             statement,
             dialect=dialect,
