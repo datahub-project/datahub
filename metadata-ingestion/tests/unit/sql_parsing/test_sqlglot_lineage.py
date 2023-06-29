@@ -1,6 +1,7 @@
 import pathlib
 
 import pytest
+from traitlets import default
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
@@ -418,6 +419,61 @@ FROM `bq-proj.dataset.table_2023*`
             },
         },
         expected_file=RESOURCE_DIR / "test_bigquery_from_sharded_table_wildcard.json",
+    )
+
+
+def test_snowflake_default_normalization():
+    assert_sql_result(
+        """
+create table active_customer_ltv as (
+
+with active_customers as (
+  select * from customer_last_purchase_date
+  where
+    last_purchase_date >= current_date - interval '90 days'
+)
+
+, purchases as (
+  select * from ecommerce.purchases
+)
+
+select
+  active_customers.user_fk
+  , active_customers.email
+  , active_customers.last_purchase_date
+  , sum(purchases.purchase_amount) as lifetime_purchase_amount
+  , count(distinct(purchases.pk)) as lifetime_purchase_count
+  , sum(purchases.purchase_amount) / count(distinct(purchases.pk)) as average_purchase_amount
+from
+  active_customers
+join
+  purchases
+  on active_customers.user_fk = purchases.user_fk
+group by 1,2,3
+
+)
+""",
+        dialect="snowflake",
+        default_db="long_tail_companions",
+        default_schema="analytics",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)": {
+                "pk": "NUMBER(38,0)",
+                "USER_FK": "NUMBER(38,0)",
+                "status": "VARCHAR(16777216)",
+                "purchase_amount": "NUMBER(10,2)",
+                "tax_AMOUNT": "NUMBER(10,2)",
+                "TOTAL_AMOUNT": "NUMBER(10,2)",
+                "CREATED_AT": "TIMESTAMP_NTZ",
+                "UPDATED_AT": "TIMESTAMP_NTZ",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)": {
+                "USER_FK": "NUMBER(38,0)",
+                "EMAIL": "VARCHAR(16777216)",
+                "LAST_PURCHASE_DATE": "DATE",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_default_normalization.json",
     )
 
 

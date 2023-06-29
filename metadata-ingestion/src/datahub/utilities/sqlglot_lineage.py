@@ -5,7 +5,7 @@ import itertools
 import logging
 import pathlib
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import pydantic
 import pydantic.dataclasses
@@ -342,6 +342,15 @@ class SchemaResolver:
     # TODO add a method to load all from graphql
 
 
+_SupportedColumnLineageTypes = Union[
+    # Note that Select and Union inherit from Subqueryable.
+    sqlglot.exp.Subqueryable,
+    # For actual subqueries, the statement type might also be DerivedTable.
+    sqlglot.exp.DerivedTable,
+]
+_SupportedColumnLineageTypesTuple = (sqlglot.exp.Subqueryable, sqlglot.exp.DerivedTable)
+
+
 class UnsupportedStatementTypeError(TypeError):
     pass
 
@@ -357,7 +366,17 @@ def _column_level_lineage(  # noqa: C901
     dialect: str,
     input_tables: Dict[_TableName, SchemaInfo],
     output_table: Optional[_TableName],
+    default_db: Optional[str],
+    default_schema: Optional[str],
 ) -> List[_ColumnLineageInfo]:
+    if not isinstance(
+        statement,
+        _SupportedColumnLineageTypesTuple,
+    ):
+        raise UnsupportedStatementTypeError(
+            f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
+        )
+
     use_case_insensitive_cols = dialect in {
         # Column identifiers are case-insensitive in BigQuery, so we need to
         # do a normalization step beforehand to make sure it's resolved correctly.
@@ -406,48 +425,45 @@ def _column_level_lineage(  # noqa: C901
 
             return node
 
-        logger.debug(
-            "Prior to case normalization sql %s",
-            statement.sql(pretty=True, dialect=dialect),
-        )
+        # logger.debug(
+        #     "Prior to case normalization sql %s",
+        #     statement.sql(pretty=True, dialect=dialect),
+        # )
         statement = statement.transform(
             _sqlglot_force_column_normalizer, dialect, copy=False
         )
+        # logger.debug(
+        #     "Sql after casing normalization %s",
+        #     statement.sql(pretty=True, dialect=dialect),
+        # )
 
     # Optimize the statement + qualify column references.
     logger.debug(
         "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
     )
     try:
+        logger.debug("Schema: %s", sqlglot_db_schema.mapping)
         statement = sqlglot.optimizer.qualify.qualify(
             statement,
             dialect=dialect,
             schema=sqlglot_db_schema,
             validate_qualify_columns=False,
             identify=True,
+            # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
+            catalog=default_db,
+            db=default_schema,
         )
-    except sqlglot.errors.OptimizeError as e:
+    except (sqlglot.errors.OptimizeError, ValueError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to map columns to their source tables; likely missing/outdated table schema info: {e}"
         ) from e
     logger.debug("Qualified sql %s", statement.sql(pretty=True, dialect=dialect))
 
-    if not isinstance(
-        statement,
-        (
-            # Note that Select and Union inherit from Subqueryable.
-            sqlglot.exp.Subqueryable,
-            # For actual subqueries, the statement type might also be DerivedTable.
-            sqlglot.exp.DerivedTable,
-        ),
-    ):
-        raise UnsupportedStatementTypeError(
-            f"Can only generate column-level lineage for select-like inner statements, not {type(statement)}"
-        )
-
     column_lineage = []
 
     try:
+        assert isinstance(statement, _SupportedColumnLineageTypesTuple)
+
         # List output columns.
         output_columns = [
             (select_col.alias_or_name, select_col) for select_col in statement.selects
@@ -529,7 +545,7 @@ def _column_level_lineage(  # noqa: C901
             )
 
         # TODO: Also extract referenced columns (e.g. non-SELECT lineage)
-    except sqlglot.errors.OptimizeError as e:
+    except (sqlglot.errors.OptimizeError, ValueError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
         ) from e
@@ -609,14 +625,21 @@ def sqlglot_lineage(
     # TODO: convert datahub platform names to sqlglot dialect
     dialect = platform
 
-    logger.debug("Original sql statement: %s", sql)
+    if dialect == "snowflake":
+        # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
+        if default_db:
+            default_db = default_db.upper()
+        if default_schema:
+            default_schema = default_schema.upper()
+
+    logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = _parse_statement(sql, dialect=dialect)
 
     original_statement = statement.copy()
-    logger.debug(
-        "Formatted sql statement: %s",
-        original_statement.sql(pretty=True, dialect=dialect),
-    )
+    # logger.debug(
+    #     "Formatted sql statement: %s",
+    #     original_statement.sql(pretty=True, dialect=dialect),
+    # )
 
     # Make sure the tables are resolved with the default db / schema.
     # This only works for Unionable statements. For other types of statements,
@@ -658,9 +681,12 @@ def sqlglot_lineage(
 
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
-        table_name_urn_mapping[table] = urn
+        table_name_urn_mapping[qualified_table] = urn
         if is_input and schema_info:
-            table_name_schema_mapping[table] = schema_info
+            table_name_schema_mapping[qualified_table] = schema_info
+
+        # Also include the original, non-qualified table name in the urn mapping.
+        table_name_urn_mapping[table] = urn
 
     debug_info = SqlParsingDebugInfo(
         confidence=0.9 if len(tables) == len(table_name_schema_mapping)
@@ -685,6 +711,8 @@ def sqlglot_lineage(
             dialect=dialect,
             input_tables=table_name_schema_mapping,
             output_table=downstream_table,
+            default_db=default_db,
+            default_schema=default_schema,
         )
     except UnsupportedStatementTypeError as e:
         # Inject details about the outer statement type too.
