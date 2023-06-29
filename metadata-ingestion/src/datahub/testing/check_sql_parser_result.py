@@ -30,10 +30,17 @@ def assert_sql_result_with_resolver(
         **kwargs,
     )
 
+    txt = res.json(indent=4)
     if UPDATE_FILES:
-        txt = res.json(indent=4)
         expected_file.write_text(txt)
         return
+
+    if not expected_file.exists():
+        expected_file.write_text(txt)
+        raise AssertionError(
+            f"Expected file {expected_file} does not exist. "
+            "Created it with the expected output. Please verify it."
+        )
 
     expected = SqlParsingResult.parse_raw(expected_file.read_text())
 

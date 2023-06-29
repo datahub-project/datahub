@@ -362,3 +362,26 @@ JOIN cte2 USING (join_key)
         },
         expected_file=RESOURCE_DIR / "test_bigquery_create_view_with_cte.json",
     )
+
+
+def test_bigquery_nested_subqueries():
+    assert_sql_result(
+        """
+SELECT *
+FROM (
+    SELECT *
+    FROM (
+        SELECT *
+        FROM `bq-proj`.dataset.table1
+    )
+)
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.table1,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_nested_subqueries.json",
+    )
