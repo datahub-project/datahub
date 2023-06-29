@@ -37,7 +37,6 @@ from datahub.metadata.schema_classes import (
     DataHubIngestionSourceScheduleClass as IngestionSourceSchedule
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.utilities.urns.ingestion_source_urn import IngestionSourceUrn
 
 logger = logging.getLogger(__name__)
 
