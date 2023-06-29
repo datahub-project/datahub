@@ -342,6 +342,8 @@ class SchemaResolver:
     # TODO add a method to load all from graphql
 
 
+# TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
+# single type. See https://peps.python.org/pep-0604/#isinstance-and-issubclass.
 _SupportedColumnLineageTypes = Union[
     # Note that Select and Union inherit from Subqueryable.
     sqlglot.exp.Subqueryable,
