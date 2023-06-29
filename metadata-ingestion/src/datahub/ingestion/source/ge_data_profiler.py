@@ -1,5 +1,3 @@
-import sys
-
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
 
 import collections
@@ -8,6 +6,7 @@ import contextlib
 import dataclasses
 import functools
 import logging
+import sys
 import threading
 import traceback
 import unittest.mock
