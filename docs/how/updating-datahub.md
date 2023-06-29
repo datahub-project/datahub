@@ -15,6 +15,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- #8198: In the Python SDK, the `PlatformKey` class has been renamed to `ContainerKey`.
+
 ### Other notable Changes
 
 ## 0.10.4
