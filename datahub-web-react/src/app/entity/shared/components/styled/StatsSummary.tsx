@@ -7,33 +7,43 @@ type Props = {
 };
 
 const StatsContainer = styled.div`
-    margin-top: 8px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 5px;
+    position: relative;
 `;
 
-const StatDivider = styled.div`
-    padding-left: 5px;
-    margin-right: 5px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
-    height: 21px;
+const StatsLeftBorderHider = styled.div`
+    position: absolute;
+    left: -10px;
+    border: 2px solid red;
+    z-index: 1;
+    height: 100%;
+`;
+
+const StatsListContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+    margin-left: -10px;
+`;
+
+const StatContainer = styled.div`
+    /* Flex needed so the child stats can animate */
+    display: flex;
+    padding-left: 10px;
+    border-left: 1px solid ${ANTD_GRAY[4]};
 `;
 
 export const StatsSummary = ({ stats }: Props) => {
     return (
-        <>
+        <StatsContainer>
+            <StatsLeftBorderHider />
             {!!stats.length && (
-                <StatsContainer>
-                    {stats.map((statView, index) => (
-                        <>
-                            {statView}
-                            {index < stats.length - 1 && <StatDivider />}
-                        </>
+                <StatsListContainer>
+                    {stats.map((statView) => (
+                        <StatContainer>{statView}</StatContainer>
                     ))}
-                </StatsContainer>
+                </StatsListContainer>
             )}
-        </>
+        </StatsContainer>
     );
 };
