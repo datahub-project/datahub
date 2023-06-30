@@ -45,7 +45,6 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
-    ForeignKeyConstraintClass,
     SubTypesClass,
     UpstreamClass,
     ViewPropertiesClass,
@@ -299,22 +298,11 @@ class VerticaSource(SQLAlchemySource):
                         )
 
                         if lineage_info is not None:
-                            upstream_lineage = lineage_info
-
-                            lineage_mcpw = MetadataChangeProposalWrapper(
-                                entityType="dataset",
-                                changeType=ChangeTypeClass.UPSERT,
+                            # upstream_column_props = []
+                            yield MetadataChangeProposalWrapper(
                                 entityUrn=dataset_snapshot.urn,
-                                aspectName="upstreamLineage",
-                                aspect=upstream_lineage,
-                            )
-
-                            lineage_wu = MetadataWorkUnit(
-                                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                                mcp=lineage_mcpw,
-                            )
-                            self.report.report_workunit(lineage_wu)
-                            yield lineage_wu
+                                aspect=lineage_info,
+                            ).as_workunit()
 
                     except Exception as e:
                         logger.warning(
@@ -514,23 +502,9 @@ class VerticaSource(SQLAlchemySource):
                         )
 
                         if lineage_info is not None:
-                            upstream_lineage = lineage_info
-
-                            lineage_mcpw = MetadataChangeProposalWrapper(
-                                entityType="dataset",
-                                changeType=ChangeTypeClass.UPSERT,
-                                entityUrn=dataset_snapshot.urn,
-                                aspectName="upstreamLineage",
-                                aspect=upstream_lineage,
-                            )
-
-                            lineage_wu = MetadataWorkUnit(
-                                id=f"{self.platform}-{lineage_mcpw.entityUrn}-{lineage_mcpw.aspectName}",
-                                mcp=lineage_mcpw,
-                            )
-
-                            self.report.report_workunit(lineage_wu)
-                            yield lineage_wu
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=dataset_snapshot.urn, aspect=lineage_info
+                            ).as_workunit()
 
                     except Exception as e:
                         logger.warning(
@@ -569,19 +543,6 @@ class VerticaSource(SQLAlchemySource):
             customProperties=properties,
         )
         dataset_snapshot.aspects.append(dataset_properties)
-
-        if location_urn:
-            external_upstream_table = UpstreamClass(
-                dataset=location_urn,
-                type=DatasetLineageTypeClass.COPY,
-            )
-            yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
-                entityUrn=dataset_snapshot.urn,
-                aspectName="upstreamLineage",
-                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            ).as_workunit()
 
         projection_owner = inspector.get_projection_owner(projection, schema)
         yield from add_owner_to_entity_wu(
@@ -638,6 +599,9 @@ class VerticaSource(SQLAlchemySource):
         """Function is used for collecting profiling related information for every projections
             inside an schema.
 
+            We have extended original loop_profiler_requests and added functionality for projection
+            profiling . All the logics are same only change is we have ran the loop to get projection name from inspector.get_projection_name .
+
         Args: schema: schema name
 
         """
@@ -646,6 +610,7 @@ class VerticaSource(SQLAlchemySource):
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
         yield from super().loop_profiler_requests(inspector, schema, sql_config)
+
         for projection in inspector.get_projection_names(schema):
             dataset_name = self.get_identifier(
                 schema=schema, entity=projection, inspector=inspector
@@ -740,70 +705,13 @@ class VerticaSource(SQLAlchemySource):
                     self.report.report_dropped(dataset_name)
                     continue
                 try:
-                    columns: List[Dict[Any, Any]] = []
-                    dataset_urn = make_dataset_urn_with_platform_instance(
-                        self.platform,
+                    yield from self._process_models(
                         dataset_name,
-                        self.config.platform_instance,
-                        self.config.env,
+                        inspector,
+                        schema,
+                        models,
+                        sql_config,
                     )
-                    dataset_snapshot = DatasetSnapshot(
-                        urn=dataset_urn,
-                        aspects=[StatusClass(removed=False)],
-                    )
-                    description, properties, location = self.get_model_properties(
-                        inspector, schema, models
-                    )
-
-                    dataset_properties = DatasetPropertiesClass(
-                        name=models,
-                        description=description,
-                        customProperties=properties,
-                    )
-
-                    dataset_snapshot.aspects.append(dataset_properties)
-                    pk_constraints: dict = {}
-                    foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
-                    schema_fields = self.get_schema_fields(dataset_name, columns)
-
-                    schema_metadata = get_schema_metadata(
-                        self.report,
-                        dataset_name,
-                        self.platform,
-                        columns,
-                        pk_constraints,
-                        foreign_keys,
-                        schema_fields,
-                    )
-
-                    dataset_snapshot.aspects.append(schema_metadata)
-                    db_name = self.get_db_name(inspector)
-
-                    yield from self.add_table_to_schema_container(
-                        dataset_urn, db_name, schema
-                    )
-                    mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                    yield SqlWorkUnit(id=dataset_name, mce=mce)
-                    dpi_aspect = self.get_dataplatform_instance_aspect(
-                        dataset_urn=dataset_urn
-                    )
-                    if dpi_aspect:
-                        yield dpi_aspect
-                    yield MetadataChangeProposalWrapper(
-                        entityType="dataset",
-                        changeType=ChangeTypeClass.UPSERT,
-                        entityUrn=dataset_urn,
-                        aspectName="subTypes",
-                        aspect=SubTypesClass(typeNames=["ML Models"]),
-                    ).as_workunit()
-                    if self.config.domain:
-                        assert self.domain_registry
-                        yield from get_domain_wu(
-                            dataset_name=dataset_name,
-                            entity_urn=dataset_urn,
-                            domain_config=self.config.domain,
-                            domain_registry=self.domain_registry,
-                        )
                 except Exception as error:
                     logger.warning(
                         f"Unable to ingest {schema}.{models} due to an exception. %s {traceback.format_exc()}"
@@ -813,6 +721,80 @@ class VerticaSource(SQLAlchemySource):
                     )
         except Exception as error:
             self.report.report_failure(f"{schema}", f"Model error: {error}")
+
+    def _process_models(
+        self,
+        dataset_name: str,
+        inspector: VerticaInspector,
+        schema: str,
+        table: str,
+        sql_config: SQLAlchemyConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        To fetch ml models related information of ml_model from vertica db
+        Args:
+            dataset_name (str): dataset name
+            inspector (Inspector): inspector obj from reflection
+            schema (str): schema name entity
+            table (str): name of ml model
+            sql_config (SQLAlchemyConfig)
+
+        Returns:
+            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
+        """
+        columns: List[Dict[Any, Any]] = []
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            self.platform,
+            dataset_name,
+            self.config.platform_instance,
+            self.config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],
+        )
+        description, properties, location = self.get_model_properties(
+            inspector, schema, table
+        )
+
+        dataset_properties = DatasetPropertiesClass(
+            name=table,
+            description=description,
+            customProperties=properties,
+        )
+        dataset_snapshot.aspects.append(dataset_properties)
+
+        schema_fields = self.get_schema_fields(dataset_name, columns)
+
+        schema_metadata = get_schema_metadata(
+            self.report,
+            dataset_name,
+            self.platform,
+            columns,
+            schema_fields, # type: ignore 
+        )
+
+        dataset_snapshot.aspects.append(schema_metadata)
+        db_name = self.get_db_name(inspector)
+
+        yield from self.add_table_to_schema_container(dataset_urn, db_name, schema)
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
+        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
+        if dpi_aspect:
+            yield dpi_aspect
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=["ML Models"]),
+        ).as_workunit()
+        if self.config.domain:
+            assert self.domain_registry
+            yield from get_domain_wu(
+                dataset_name=dataset_name,
+                entity_urn=dataset_urn,
+                domain_config=self.config.domain,
+                domain_registry=self.domain_registry,
+            )
 
     def get_view_properties(
         self, inspector: VerticaInspector, schema: str, table: str
