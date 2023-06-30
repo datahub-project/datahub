@@ -423,11 +423,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self, scheme: str, where_clause_suffix: str
     ) -> Dict[str, Dict[str, str]]:
         statement: str = (
-            PrestoOnHiveSource._HIVE_PROPERTIES_MYSQL_SQL_STATEMENT.format(
+            PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in scheme
-            else PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
+            else PrestoOnHiveSource._HIVE_PROPERTIES_MYSQL_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
