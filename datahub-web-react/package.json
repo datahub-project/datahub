@@ -44,7 +44,7 @@
         "craco-antd": "^2.0.0",
         "craco-babel-loader": "^1.0.4",
         "cronstrue": "^1.122.0",
-        "d3-scale": "^3.3.0",
+        "d3-scale": "^4.0.2",
         "dayjs": "^1.11.7",
         "deepmerge": "^4.2.2",
         "diff": "^5.0.0",
