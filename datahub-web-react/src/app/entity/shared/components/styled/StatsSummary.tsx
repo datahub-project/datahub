@@ -7,15 +7,7 @@ type Props = {
 };
 
 const StatsContainer = styled.div`
-    position: relative;
-`;
-
-const StatsLeftBorderHider = styled.div`
-    position: absolute;
-    left: -10px;
-    border: 2px solid red;
-    z-index: 1;
-    height: 100%;
+    overflow: hidden;
 `;
 
 const StatsListContainer = styled.div`
@@ -36,7 +28,6 @@ const StatContainer = styled.div`
 export const StatsSummary = ({ stats }: Props) => {
     return (
         <StatsContainer>
-            <StatsLeftBorderHider />
             {!!stats.length && (
                 <StatsListContainer>
                     {stats.map((statView) => (
