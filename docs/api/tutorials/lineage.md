@@ -171,6 +171,8 @@ mutation searchAcrossLineage {
 }
 ```
 
+This example shows using lineage degrees as a filter, but additional search filters can be included here as well. 
+
 </TabItem>
 <TabItem value="curl" label="Curl">
 

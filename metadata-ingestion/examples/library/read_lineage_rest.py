@@ -23,7 +23,7 @@ mutation searchAcrossLineage {
               field: "degree"
               values: ["1", "2", "3+"]
             }
-          ]
+          ]                                     # Additional search filters can be included here as well
         }
       ]
     }
