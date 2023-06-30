@@ -45,6 +45,11 @@ dependencies {
   implementation(externalDependency.pac4j) {
     exclude group: "net.minidev", module: "json-smart"
     exclude group: "com.nimbusds", module: "nimbus-jose-jwt"
+
+  }
+
+  compile(externalDependency.pac4jCore){
+    exclude group: "org.pac4j", module: "pac4j-core"
   }
 
   implementation 'com.nimbusds:nimbus-jose-jwt:8.18'

@@ -21,6 +21,9 @@ dependencies {
   implementation (externalDependency.hazelcast) {
     exclude group: 'org.json', module: 'json'
   }
+  compile('org.glassfish.jersey.core:jersey-common:2.34') {
+    exclude group: 'org.glassfish.jersey.core', module: 'jersey-common'
+  }
   compile externalDependency.hazelcastSpring
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
@@ -46,13 +49,14 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
   testCompile externalDependency.hazelcastTest
-  implementation externalDependency.jline
   implementation externalDependency.common
+  compile('org.glassfish.jersey.core:jersey-common:2.34') {
+    exclude group: 'org.glassfish.jersey.core', module: 'jersey-common'
+  }
 }
 
 configurations.all{
   exclude group: "commons-io", module:"commons-io"
-  exclude group: "jline", module:"jline"
 }
 
 processResources.configure {

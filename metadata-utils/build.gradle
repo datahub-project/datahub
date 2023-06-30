@@ -25,7 +25,9 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile project(':test-models')
-
+  compile('jline:jline:2.11') {
+    exclude group: 'jline', module: 'jline'
+  }
   constraints {
       implementation(externalDependency.log4jCore) {
           because("previous versions are vulnerable to CVE-2021-45105")

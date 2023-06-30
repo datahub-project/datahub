@@ -11,7 +11,7 @@ buildscript {
   ext.elasticsearchVersion = '7.10.2'
   // TODO: Change to final release version once it's out ETA Mid-April
   ext.jacksonVersion = '2.15.0-rc2'
-  ext.jettyVersion = '9.4.46.v20220331'
+  ext.jettyVersion = '10.0.14'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
@@ -95,7 +95,7 @@ project.ext.externalDependency = [
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
-    'guava': 'com.google.guava:guava:27.0.1-jre',
+    'guava': 'com.google.guava:guava:32.0.1-jre',
     'h2': 'com.h2database:h2:2.1.214',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -150,7 +150,7 @@ project.ext.externalDependency = [
     'mockitoInline': 'org.mockito:mockito-inline:3.0.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
-    'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
+    'mysqlConnector': 'mysql:mysql-connector-java:8.0.28',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
@@ -209,8 +209,8 @@ project.ext.externalDependency = [
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'common': 'commons-io:commons-io:2.7',
-    'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
+    'pac4jCore': 'org.pac4j:pac4j-core:5.2.0'
     
 ]
 
