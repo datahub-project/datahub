@@ -21,8 +21,9 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types
 import SearchFilters from './filters/SearchFilters';
 import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
-import { useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
+import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
 import useFilterMode from './filters/useFilterMode';
+import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
 
 /**
  * A search results page.
@@ -30,6 +31,7 @@ import useFilterMode from './filters/useFilterMode';
 export const SearchPage = () => {
     const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
     const showSearchFiltersV2 = useIsSearchV2();
+    const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
@@ -166,6 +168,12 @@ export const SearchPage = () => {
             setSelectedEntities([]);
         }
     }, [isSelectMode]);
+
+    // Render new search filters v2 onboarding step if the feature flag is on
+    useUpdateEducationStepIdsAllowlist(showSearchFiltersV2, SEARCH_RESULTS_FILTERS_V2_INTRO);
+
+    // Render new browse v2 onboarding step if the feature flag is on
+    useUpdateEducationStepIdsAllowlist(showBrowseV2, SEARCH_RESULTS_BROWSE_SIDEBAR_ID);
 
     return (
         <>

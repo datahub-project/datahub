@@ -241,17 +241,16 @@ class SnowflakeLineageExtractor(
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
-            if self.report.edition == SnowflakeEdition.STANDARD:
-                logger.info(
-                    "Snowflake Account is Standard Edition. External Lineage Feature via Access History is not supported."
-                )  # See Edition Note above for why
-            else:
-                self._populate_external_lineage_from_access_history(discovered_tables)
+            self._populate_external_lineage_from_copy_history(discovered_tables)
+            logger.info(
+                "Done populating external lineage from copy history."
+                f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
+            )
 
             self._populate_external_lineage_from_show_query(discovered_tables)
-
             logger.info(
-                f"Found {self.report.num_external_table_edges_scanned} external lineage edges."
+                "Done populating external lineage from show external tables."
+                f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
             )
 
             self.report.external_lineage_queries_secs = timer.elapsed_seconds()
@@ -282,16 +281,19 @@ class SnowflakeLineageExtractor(
                 f"Populating external table lineage from Snowflake failed due to error {e}.",
             )
 
-    # Handles the case where a table is populated from an external location via copy.
+    # Handles the case where a table is populated from an external stage/s3 location via copy.
+    # Eg: copy into category_english from @external_s3_stage;
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
-    def _populate_external_lineage_from_access_history(
+    # NOTE: Snowflake does not log this information to the access_history table.
+    def _populate_external_lineage_from_copy_history(
         self, discovered_tables: List[str]
     ) -> None:
-        query: str = SnowflakeQuery.external_table_lineage_history(
+        query: str = SnowflakeQuery.copy_lineage_history(
             start_time_millis=int(self.config.start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
         try:
@@ -334,7 +336,7 @@ class SnowflakeLineageExtractor(
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
-            upstreams_deny_pattern=self.config.upstreams_deny_pattern,
+            upstreams_deny_pattern=self.config.temporary_tables_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
         )

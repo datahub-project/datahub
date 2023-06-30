@@ -79,7 +79,7 @@ public class DashboardMapper implements ModelMapper<EntityResponse, Dashboard> {
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dashboard, dataMap) ->
-            dashboard.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            dashboard.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dashboard, dataMap) ->
             dashboard.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
         mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
