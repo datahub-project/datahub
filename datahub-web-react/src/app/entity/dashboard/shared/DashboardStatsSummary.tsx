@@ -34,14 +34,7 @@ export const DashboardStatsSummary = ({
         !!chartCount && <ChartCountStat color={color} chartCount={chartCount} />,
         !!viewCount && <ViewCountStat color={color} viewCount={viewCount} />,
         !!uniqueUserCountLast30Days && <UserCountStat color={color} userCount={uniqueUserCountLast30Days} />,
-        !!lastUpdatedMs && (
-            <LastUpdatedStat
-                color={color}
-                entityLabel="dashboard"
-                lastUpdatedMs={lastUpdatedMs}
-                createdMs={createdMs}
-            />
-        ),
+        !!lastUpdatedMs && <LastUpdatedStat color={color} lastUpdatedMs={lastUpdatedMs} createdMs={createdMs} />,
     ].filter(Boolean);
 
     return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;

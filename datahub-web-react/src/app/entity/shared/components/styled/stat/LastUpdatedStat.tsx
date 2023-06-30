@@ -1,41 +1,41 @@
-import { Popover, Tooltip } from 'antd';
+import { Popover } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ClockCircleOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined } from '@ant-design/icons';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
 import StatText from './StatText';
 
 type Props = {
     color: string;
-    entityLabel: 'chart' | 'dashboard';
+    disabled?: boolean;
     lastUpdatedMs: number;
     createdMs?: number | null;
 };
 
-const HelpIcon = styled(QuestionCircleOutlined)<{ color: string }>`
-    color: ${(props) => props.color};
-    padding-left: 4px;
+const PopoverContent = styled.div`
+    max-width: 300px;
 `;
 
-const LastUpdatedStat = ({ color, entityLabel, lastUpdatedMs, createdMs }: Props) => {
+const LastUpdatedStat = ({ color, disabled = false, lastUpdatedMs, createdMs }: Props) => {
     return (
         <Popover
+            open={disabled ? false : undefined}
             mouseEnterDelay={0.5}
             content={
-                <>
-                    {createdMs && <div>Created on {toLocalDateTimeString(createdMs)}.</div>}
-                    <div>
-                        Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                        <Tooltip title={`The time at which the ${entityLabel} was last changed in the source platform`}>
-                            <HelpIcon color={color} />
-                        </Tooltip>
-                    </div>
-                </>
+                <PopoverContent>
+                    Changed <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
+                    {createdMs && (
+                        <>
+                            <br />
+                            Created on <strong>{toLocalDateTimeString(createdMs)}</strong>
+                        </>
+                    )}
+                </PopoverContent>
             }
         >
             <StatText color={color}>
                 <ClockCircleOutlined style={{ marginRight: 8, color }} />
-                Changed {toRelativeTimeString(lastUpdatedMs)}
+                Updated {toRelativeTimeString(lastUpdatedMs)}
             </StatText>
         </Popover>
     );

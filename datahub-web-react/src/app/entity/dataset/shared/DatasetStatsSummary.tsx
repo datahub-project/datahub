@@ -1,20 +1,12 @@
 /* eslint-disable no-param-reassign */
 import React from 'react';
-import styled from 'styled-components/macro';
-import { Popover } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
 import RowCountStat from '../../shared/components/styled/stat/RowCountStat';
 import ByteCountStat from '../../shared/components/styled/stat/ByteCountStat';
 import QueryCountStat from '../../shared/components/styled/stat/QueryCountStat';
 import UserCountStat from '../../shared/components/styled/stat/UserCountStat';
-import StatText from '../../shared/components/styled/stat/StatText';
-
-const PopoverContent = styled.div`
-    max-width: 300px;
-`;
+import LastUpdatedStat from '../../shared/components/styled/stat/LastUpdatedStat';
 
 type Props = {
     rowCount?: number | null;
@@ -72,24 +64,8 @@ export const DatasetStatsSummary = ({
         !!uniqueUserCountLast30Days && (
             <UserCountStat color={displayedColor} disabled={isTooltipMode} userCount={uniqueUserCountLast30Days} />
         ),
-        // todo - consolidate this with the LastUpdatedStat
-        // it's weird having a tooltip embedded in a popover
         !!lastUpdatedMs && (
-            <Popover
-                open={isTooltipMode ? false : undefined}
-                mouseEnterDelay={0.5}
-                content={
-                    <PopoverContent>
-                        Data was last updated in the source platform on{' '}
-                        <strong>{toLocalDateTimeString(lastUpdatedMs)}</strong>
-                    </PopoverContent>
-                }
-            >
-                <StatText color={displayedColor}>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Updated {toRelativeTimeString(lastUpdatedMs)}
-                </StatText>
-            </Popover>
+            <LastUpdatedStat color={displayedColor} disabled={isTooltipMode} lastUpdatedMs={lastUpdatedMs} />
         ),
     ].filter(Boolean);
 
