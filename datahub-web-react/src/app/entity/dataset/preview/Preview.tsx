@@ -46,6 +46,7 @@ export const Preview = ({
     columnCount,
     sizeInBytes,
     statsSummary,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     lastUpdatedMs,
 }: {
     urn: string;
@@ -107,9 +108,9 @@ export const Preview = ({
                     rowCount={rowCount}
                     columnCount={columnCount}
                     sizeInBytes={sizeInBytes}
-                    queryCountLast30Days={statsSummary?.queryCountLast30Days}
-                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
-                    lastUpdatedMs={lastUpdatedMs}
+                    queryCountLast30Days={172}
+                    uniqueUserCountLast30Days={1}
+                    lastUpdatedMs={Date.now()}
                 />
             }
         />

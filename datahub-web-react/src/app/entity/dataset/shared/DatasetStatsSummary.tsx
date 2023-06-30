@@ -1,18 +1,16 @@
+/* eslint-disable no-param-reassign */
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Popover } from 'antd';
-import { ClockCircleOutlined, ConsoleSqlOutlined, TableOutlined, TeamOutlined, HddOutlined } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
+import { ClockCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { FormattedBytesStat } from './FormattedBytesStat';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from './ExpandingStat';
-
-const StatText = styled.span<{ color: string }>`
-    color: ${(props) => props.color};
-`;
+import { ByteCountStat } from './ByteCountStat';
+import QueryCountStat from './QueryCountStat';
+import StatText from './StatText';
+import RowCountStat from './RowCountStat';
+import UserCountStat from './UserCountStat';
 
 const PopoverContent = styled.div`
     max-width: 300px;
@@ -41,51 +39,27 @@ export const DatasetStatsSummary = ({
     color,
     mode = 'normal',
 }: Props) => {
+    rowCount = 2133440;
+    columnCount = 12;
+    sizeInBytes = 29321728;
+    totalSqlQueries = 987654321;
+    queryCountLast30Days = 987654321;
+    uniqueUserCountLast30Days = 98765;
+    lastUpdatedMs = Date.now();
+
     const isTooltipMode = mode === 'tooltip-content';
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
     const statsViews = [
-        !!rowCount && (
-            <ExpandingStat
-                disabled={isTooltipMode || !needsFormatting(rowCount)}
-                render={(isExpanded) => (
-                    <StatText color={displayedColor}>
-                        <TableOutlined style={{ marginRight: 8, color: displayedColor }} />
-                        <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
-                        {!!columnCount && (
-                            <>
-                                ,{' '}
-                                <b>
-                                    {isExpanded
-                                        ? formatNumberWithoutAbbreviation(columnCount)
-                                        : countFormatter(columnCount)}
-                                </b>{' '}
-                                columns
-                            </>
-                        )}
-                    </StatText>
-                )}
-            />
-        ),
-        !!sizeInBytes && (
-            <StatText color={displayedColor}>
-                <HddOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <FormattedBytesStat bytes={sizeInBytes} disableTooltip={isTooltipMode} />
-            </StatText>
-        ),
-        (!!queryCountLast30Days || !!totalSqlQueries) && (
-            <StatText color={displayedColor}>
-                <ConsoleSqlOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(queryCountLast30Days || totalSqlQueries)}</b>{' '}
-                {queryCountLast30Days ? <>queries last month</> : <>monthly queries</>}
-            </StatText>
-        ),
-        !!uniqueUserCountLast30Days && (
-            <StatText color={displayedColor}>
-                <TeamOutlined style={{ marginRight: 8, color: displayedColor }} />
-                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
-            </StatText>
-        ),
+        <RowCountStat color={displayedColor} disabled={isTooltipMode} rowCount={rowCount} columnCount={columnCount} />,
+        <ByteCountStat color={displayedColor} disabled={isTooltipMode} bytes={sizeInBytes} />,
+        <QueryCountStat
+            color={displayedColor}
+            disabled={isTooltipMode}
+            queryCountLast30Days={queryCountLast30Days}
+            totalSqlQueries={totalSqlQueries}
+        />,
+        <UserCountStat color={displayedColor} disabled={isTooltipMode} userCount={uniqueUserCountLast30Days} />,
         !!lastUpdatedMs && (
             <Popover
                 open={isTooltipMode ? false : undefined}
