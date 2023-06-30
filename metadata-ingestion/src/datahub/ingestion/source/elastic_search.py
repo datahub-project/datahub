@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
@@ -45,6 +46,7 @@ from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     BytesTypeClass,
     DataPlatformInstanceClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     DateTypeClass,
     NullTypeClass,
@@ -455,6 +457,22 @@ class ElasticsearchSource(Source):
                     instance=make_dataplatform_instance_urn(
                         self.platform, self.source_config.platform_instance
                     ),
+                ),
+            )
+        cat_response = self.client.cat.indices(
+            index=index, params={"format": "json", "bytes": "b"}
+        )
+        if len(cat_response) == 1:
+            index_res = cat_response[0]
+            docs_count = int(index_res["docs.count"])
+            size = int(index_res["store.size"])
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetProfileClass(
+                    timestampMillis=int(time.time() * 1000),
+                    rowCount=docs_count,
+                    columnCount=len(schema_fields),
+                    sizeInBytes=size,
                 ),
             )
 
