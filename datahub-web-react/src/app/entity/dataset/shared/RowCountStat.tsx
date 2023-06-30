@@ -8,13 +8,11 @@ import StatText from './StatText';
 type Props = {
     color: string;
     disabled: boolean;
-    rowCount?: number | null;
+    rowCount: number;
     columnCount?: number | null;
 };
 
 const RowCountStat = ({ color, disabled, rowCount, columnCount }: Props) => {
-    if (!rowCount) return null;
-
     return (
         <ExpandingStat
             disabled={disabled || !needsFormatting(rowCount)}

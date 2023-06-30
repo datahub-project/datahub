@@ -8,23 +8,21 @@ import StatText from './StatText';
 type Props = {
     color: string;
     disabled: boolean;
-    bytes?: number | null;
+    sizeInBytes: number;
 };
 
-export const ByteCountStat = ({ color, disabled, bytes }: Props) => {
-    if (!bytes) return null;
-
-    const formattedBytes = formatBytes(bytes);
+export const ByteCountStat = ({ color, disabled, sizeInBytes }: Props) => {
+    const formattedBytes = formatBytes(sizeInBytes);
 
     return (
         <ExpandingStat
-            disabled={disabled || !needsFormatting(bytes)}
+            disabled={disabled || !needsFormatting(sizeInBytes)}
             render={(isExpanded) => (
                 <StatText color={color}>
                     <HddOutlined style={{ marginRight: 8, color }} />
                     {isExpanded ? (
                         <>
-                            <b>{formatNumberWithoutAbbreviation(bytes)}</b> Bytes
+                            <b>{formatNumberWithoutAbbreviation(sizeInBytes)}</b> Bytes
                         </>
                     ) : (
                         <>

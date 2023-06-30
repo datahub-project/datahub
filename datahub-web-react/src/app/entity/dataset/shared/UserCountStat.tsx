@@ -8,12 +8,10 @@ import StatText from './StatText';
 type Props = {
     color: string;
     disabled: boolean;
-    userCount?: number | null;
+    userCount: number;
 };
 
 const UserCountStat = ({ color, disabled, userCount }: Props) => {
-    if (!userCount) return null;
-
     return (
         <ExpandingStat
             disabled={disabled || !needsFormatting(userCount)}

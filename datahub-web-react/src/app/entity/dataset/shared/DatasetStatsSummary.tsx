@@ -51,15 +51,26 @@ export const DatasetStatsSummary = ({
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
     const statsViews = [
-        <RowCountStat color={displayedColor} disabled={isTooltipMode} rowCount={rowCount} columnCount={columnCount} />,
-        <ByteCountStat color={displayedColor} disabled={isTooltipMode} bytes={sizeInBytes} />,
-        <QueryCountStat
-            color={displayedColor}
-            disabled={isTooltipMode}
-            queryCountLast30Days={queryCountLast30Days}
-            totalSqlQueries={totalSqlQueries}
-        />,
-        <UserCountStat color={displayedColor} disabled={isTooltipMode} userCount={uniqueUserCountLast30Days} />,
+        !!rowCount && (
+            <RowCountStat
+                color={displayedColor}
+                disabled={isTooltipMode}
+                rowCount={rowCount}
+                columnCount={columnCount}
+            />
+        ),
+        !!sizeInBytes && <ByteCountStat color={displayedColor} disabled={isTooltipMode} sizeInBytes={sizeInBytes} />,
+        (!!queryCountLast30Days || !!totalSqlQueries) && (
+            <QueryCountStat
+                color={displayedColor}
+                disabled={isTooltipMode}
+                queryCountLast30Days={queryCountLast30Days}
+                totalSqlQueries={totalSqlQueries}
+            />
+        ),
+        !!uniqueUserCountLast30Days && (
+            <UserCountStat color={displayedColor} disabled={isTooltipMode} userCount={uniqueUserCountLast30Days} />
+        ),
         !!lastUpdatedMs && (
             <Popover
                 open={isTooltipMode ? false : undefined}
@@ -76,7 +87,7 @@ export const DatasetStatsSummary = ({
                 </StatText>
             </Popover>
         ),
-    ].filter((stat) => stat);
+    ].filter(Boolean);
 
     return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;
 };
