@@ -8,9 +8,6 @@ type Props = {
 
 const StatsContainer = styled.div`
     overflow: hidden;
-`;
-
-const StatsListContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -28,13 +25,9 @@ const StatContainer = styled.div`
 export const StatsSummary = ({ stats }: Props) => {
     return (
         <StatsContainer>
-            {!!stats.length && (
-                <StatsListContainer>
-                    {stats.map((statView) => (
-                        <StatContainer>{statView}</StatContainer>
-                    ))}
-                </StatsListContainer>
-            )}
+            {stats.map((statView) => (
+                <StatContainer>{statView}</StatContainer>
+            ))}
         </StatsContainer>
     );
 };

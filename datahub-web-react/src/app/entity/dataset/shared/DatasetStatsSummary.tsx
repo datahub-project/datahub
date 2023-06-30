@@ -6,11 +6,11 @@ import { ClockCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../shared/constants';
 import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { ByteCountStat } from './ByteCountStat';
-import QueryCountStat from './QueryCountStat';
-import StatText from './StatText';
-import RowCountStat from './RowCountStat';
-import UserCountStat from './UserCountStat';
+import RowCountStat from '../../shared/components/styled/stat/RowCountStat';
+import ByteCountStat from '../../shared/components/styled/stat/ByteCountStat';
+import QueryCountStat from '../../shared/components/styled/stat/QueryCountStat';
+import UserCountStat from '../../shared/components/styled/stat/UserCountStat';
+import StatText from '../../shared/components/styled/stat/StatText';
 
 const PopoverContent = styled.div`
     max-width: 300px;
@@ -39,6 +39,7 @@ export const DatasetStatsSummary = ({
     color,
     mode = 'normal',
 }: Props) => {
+    // todo - remove
     rowCount = 2133440;
     columnCount = 12;
     sizeInBytes = 29321728;
@@ -71,9 +72,12 @@ export const DatasetStatsSummary = ({
         !!uniqueUserCountLast30Days && (
             <UserCountStat color={displayedColor} disabled={isTooltipMode} userCount={uniqueUserCountLast30Days} />
         ),
+        // todo - consolidate this with the LastUpdatedStat
+        // it's weird having a tooltip embedded in a popover
         !!lastUpdatedMs && (
             <Popover
                 open={isTooltipMode ? false : undefined}
+                mouseEnterDelay={0.5}
                 content={
                     <PopoverContent>
                         Data was last updated in the source platform on{' '}

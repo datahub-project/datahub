@@ -8,7 +8,7 @@ const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolea
     transition: width 250ms ease;
 `;
 
-const ExpandingStat = ({
+const HorizontalExpander = ({
     disabled = false,
     render,
 }: {
@@ -45,4 +45,4 @@ const ExpandingStat = ({
     );
 };
 
-export default ExpandingStat;
+export default HorizontalExpander;

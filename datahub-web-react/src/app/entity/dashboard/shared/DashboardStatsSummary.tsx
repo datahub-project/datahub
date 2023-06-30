@@ -1,22 +1,11 @@
+/* eslint-disable no-param-reassign */
 import React from 'react';
-import styled from 'styled-components';
-import { Popover, Tooltip } from 'antd';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
 import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from '../../dataset/shared/ExpandingStat';
-
-const StatText = styled.span`
-    color: ${ANTD_GRAY[8]};
-`;
-
-const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
-    padding-left: 4px;
-`;
+import ChartCountStat from '../../shared/components/styled/stat/ChartCountStat';
+import ViewCountStat from '../../shared/components/styled/stat/ViewCountStat';
+import UserCountStat from '../../shared/components/styled/stat/UserCountStat';
+import LastUpdatedStat from '../../shared/components/styled/stat/LastUpdatedStat';
 
 type Props = {
     chartCount?: number | null;
@@ -33,55 +22,27 @@ export const DashboardStatsSummary = ({
     lastUpdatedMs,
     createdMs,
 }: Props) => {
+    chartCount = 2133440;
+    viewCount = 987654321;
+    uniqueUserCountLast30Days = 98765;
+    lastUpdatedMs = Date.now();
+    createdMs = Date.now();
+
+    const color = ANTD_GRAY[7];
+
     const statsViews = [
-        (!!chartCount && (
-            <ExpandingStat
-                disabled={!needsFormatting(chartCount)}
-                render={(isExpanded) => (
-                    <StatText color={ANTD_GRAY[8]}>
-                        <b>{isExpanded ? formatNumberWithoutAbbreviation(chartCount) : countFormatter(chartCount)}</b>{' '}
-                        charts
-                    </StatText>
-                )}
+        !!chartCount && <ChartCountStat color={color} chartCount={chartCount} />,
+        !!viewCount && <ViewCountStat color={color} viewCount={viewCount} />,
+        !!uniqueUserCountLast30Days && <UserCountStat color={color} userCount={uniqueUserCountLast30Days} />,
+        !!lastUpdatedMs && (
+            <LastUpdatedStat
+                color={color}
+                entityLabel="dashboard"
+                lastUpdatedMs={lastUpdatedMs}
+                createdMs={createdMs}
             />
-        )) ||
-            undefined,
-        (!!viewCount && (
-            <StatText>
-                <EyeOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                <b>{formatNumberWithoutAbbreviation(viewCount)}</b> views
-            </StatText>
-        )) ||
-            undefined,
-        (!!uniqueUserCountLast30Days && (
-            <StatText>
-                <TeamOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
-            </StatText>
-        )) ||
-            undefined,
-        (!!lastUpdatedMs && (
-            <Popover
-                content={
-                    <>
-                        {createdMs && <div>Created on {toLocalDateTimeString(createdMs)}.</div>}
-                        <div>
-                            Changed on {toLocalDateTimeString(lastUpdatedMs)}.{' '}
-                            <Tooltip title="The time at which the dashboard was last changed in the source platform">
-                                <HelpIcon />
-                            </Tooltip>
-                        </div>
-                    </>
-                }
-            >
-                <StatText>
-                    <ClockCircleOutlined style={{ marginRight: 8, color: ANTD_GRAY[7] }} />
-                    Changed {toRelativeTimeString(lastUpdatedMs)}
-                </StatText>
-            </Popover>
-        )) ||
-            undefined,
-    ].filter((stat) => stat !== undefined);
+        ),
+    ].filter(Boolean);
 
     return <>{statsViews.length > 0 && <StatsSummary stats={statsViews} />}</>;
 };

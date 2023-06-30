@@ -1,9 +1,9 @@
 import React from 'react';
 import { TableOutlined } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from './ExpandingStat';
 import StatText from './StatText';
+import HorizontalExpander from '../../../../../shared/HorizontalExpander';
+import { countFormatter, needsFormatting } from '../../../../../../utils/formatter';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 
 type Props = {
     color: string;
@@ -14,15 +14,12 @@ type Props = {
 
 const RowCountStat = ({ color, disabled, rowCount, columnCount }: Props) => {
     return (
-        <ExpandingStat
+        <HorizontalExpander
             disabled={disabled || !needsFormatting(rowCount)}
             render={(isExpanded) => (
                 <StatText color={color}>
                     <TableOutlined style={{ marginRight: 8, color }} />
-                    <b>
-                        {isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount as number)}
-                    </b>{' '}
-                    rows
+                    <b>{isExpanded ? formatNumberWithoutAbbreviation(rowCount) : countFormatter(rowCount)}</b> rows
                     {!!columnCount && (
                         <>
                             ,{' '}

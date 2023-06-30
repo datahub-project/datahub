@@ -1,9 +1,9 @@
 import React from 'react';
 import { HddOutlined } from '@ant-design/icons';
-import { formatBytes, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import ExpandingStat from './ExpandingStat';
-import { needsFormatting } from '../../../../utils/formatter';
 import StatText from './StatText';
+import { formatBytes, formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
+import { needsFormatting } from '../../../../../../utils/formatter';
+import HorizontalExpander from '../../../../../shared/HorizontalExpander';
 
 type Props = {
     color: string;
@@ -11,11 +11,11 @@ type Props = {
     sizeInBytes: number;
 };
 
-export const ByteCountStat = ({ color, disabled, sizeInBytes }: Props) => {
+const ByteCountStat = ({ color, disabled, sizeInBytes }: Props) => {
     const formattedBytes = formatBytes(sizeInBytes);
 
     return (
-        <ExpandingStat
+        <HorizontalExpander
             disabled={disabled || !needsFormatting(sizeInBytes)}
             render={(isExpanded) => (
                 <StatText color={color}>

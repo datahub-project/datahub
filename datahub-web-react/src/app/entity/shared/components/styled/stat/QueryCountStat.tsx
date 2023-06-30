@@ -1,9 +1,9 @@
 import React from 'react';
 import { ConsoleSqlOutlined } from '@ant-design/icons';
-import { formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from './ExpandingStat';
 import StatText from './StatText';
+import HorizontalExpander from '../../../../../shared/HorizontalExpander';
+import { countFormatter, needsFormatting } from '../../../../../../utils/formatter';
+import { formatNumberWithoutAbbreviation } from '../../../../../shared/formatNumber';
 
 type Props = {
     color: string;
@@ -18,7 +18,7 @@ const QueryCountStat = ({ color, disabled, totalSqlQueries, queryCountLast30Days
     if (!queryCount) return null;
 
     return (
-        <ExpandingStat
+        <HorizontalExpander
             disabled={disabled || !needsFormatting(queryCount)}
             render={(isExpanded) => (
                 <StatText color={color}>
