@@ -9,6 +9,12 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
@@ -69,17 +75,39 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   }
 
   private String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId)
-      throws Exception {
+          throws Exception {
+
+    // Condition: has `browsePaths` AND does NOT have `browsePathV2`
+    Criterion missingBrowsePathV2 = new Criterion();
+    missingBrowsePathV2.setCondition(Condition.IS_NULL);
+    missingBrowsePathV2.setField("browsePathV2");
+    // Excludes entities without browsePaths
+    Criterion hasBrowsePathV1 = new Criterion();
+    hasBrowsePathV1.setCondition(Condition.EXISTS);
+    hasBrowsePathV1.setField("browsePaths");
+
+    CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(missingBrowsePathV2);
+    criterionArray.add(hasBrowsePathV1);
+
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    conjunctiveCriterion.setAnd(criterionArray);
+
+    ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
+    conjunctiveCriterionArray.add(conjunctiveCriterion);
+
+    Filter filter = new Filter();
+    filter.setOr(conjunctiveCriterionArray);
 
     final ScrollResult scrollResult = _searchService.scrollAcrossEntities(
-        ImmutableList.of(entityType),
-        "*",
-        null,
-        null,
-        scrollId,
-        "5m",
-        BATCH_SIZE,
-        null
+            ImmutableList.of(entityType),
+            "*",
+            filter,
+            null,
+            scrollId,
+            "5m",
+            BATCH_SIZE,
+            null
     );
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
