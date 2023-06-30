@@ -8,13 +8,13 @@ type Props = {
 
 const StatsContainer = styled.div`
     overflow: hidden;
+    margin-top: 8px;
 `;
 
 const StatsListContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-top: 8px;
     margin-left: -10px;
 `;
 
