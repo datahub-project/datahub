@@ -1,3 +1,0 @@
-services:
-  mysql:
-    image: mariadb:10.5.8
