@@ -317,21 +317,25 @@ def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str) -> None:
 
 
 def test_extract_dataset_tags(mock_time):
-    in_urn = "urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.part1-part2-part3_part4,PROD)"
     _test_extract_tags(
-        in_urn=in_urn,
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.part1-part2-part3_part4,PROD)",
         regex_str="(.*)",
-        out_tag="clusterid.part1-part2-part3_part4",
+        out_tag="urn:li:tag:clusterid.part1-part2-part3_part4",
     )
     _test_extract_tags(
         in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.USA-ops-team_table1,PROD)",
         regex_str=".([^._]*)_",
-        out_tag="USA-ops-team",
+        out_tag="urn:li:tag:USA-ops-team",
     )
     _test_extract_tags(
         in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.Canada-marketing_table1,PROD)",
         regex_str=".([^._]*)_",
-        out_tag="Canada-marketing",
+        out_tag="urn:li:tag:Canada-marketing",
+    )
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:elasticsearch,abcdef-prefix_datahub_usage_event-000027,PROD)",
+        regex_str="([^._]*)_",
+        out_tag="urn:li:tag:abcdef-prefix",
     )
 
 

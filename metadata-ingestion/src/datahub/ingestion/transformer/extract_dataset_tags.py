@@ -16,7 +16,7 @@ class ExtractTagsOption(Enum):
 
 class ExtractDatasetTagsConfig(TransformerSemanticsConfigModel):
     extract_tags_from: ExtractTagsOption = ExtractTagsOption.URN
-    extract_tags_regex: str = ".*"
+    extract_tags_regex: str
 
 
 class ExtractDatasetTags(DatasetTagsTransformer):
@@ -38,7 +38,8 @@ class ExtractDatasetTags(DatasetTagsTransformer):
             match = re.search(self.config.extract_tags_regex, urn.get_dataset_name())
             if match:
                 captured_group = match.group(1)
-                return [TagAssociationClass(tag=captured_group)]
+                tag = f"urn:li:tag:{captured_group}"
+                return [TagAssociationClass(tag=tag)]
             return []
         else:
             raise NotImplementedError()

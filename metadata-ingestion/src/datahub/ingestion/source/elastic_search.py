@@ -10,7 +10,11 @@ from elasticsearch import Elasticsearch
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    ConfigurationError,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -193,6 +197,13 @@ class ElasticsearchSourceReport(SourceReport):
         self.filtered.append(index)
 
 
+class ElasticProfiling(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description="Whether to enable profiling for the elastic search source.",
+    )
+
+
 class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."
@@ -249,6 +260,10 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     index_template_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(allow=[".*"], deny=["^_.*"]),
         description="The regex patterns for filtering index templates to ingest.",
+    )
+
+    profiling: ElasticProfiling = Field(
+        default_factory=ElasticProfiling,
     )
 
     @validator("host")
