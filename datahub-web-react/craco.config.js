@@ -68,4 +68,15 @@ module.exports = {
             },
         },
     ],
+    jest: {
+        configure: {
+            moduleNameMapper: {
+                '^d3-interpolate-path': `d3-interpolate-path/build/d3-interpolate-path`,
+                '^d3-(.*)$': `d3-$1/dist/d3-$1`,
+                '^lib0/((?!dist).*)$': 'lib0/dist/$1.cjs',
+                '^y-protocols/(.*)$': 'y-protocols/dist/$1.cjs',
+                '\\.(css|less)$': '<rootDir>/src/__mocks__/styleMock.js',
+            },
+        },
+    },
 };
