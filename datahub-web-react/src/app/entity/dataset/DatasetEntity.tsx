@@ -293,9 +293,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
-                rowCount={2133440}
-                columnCount={12}
-                sizeInBytes={29321728}
+                rowCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].rowCount}
+                columnCount={(data as any).lastProfile?.length && (data as any).lastProfile[0].columnCount}
+                sizeInBytes={(data as any).lastProfile?.length && (data as any).lastProfile[0].sizeInBytes}
                 lastUpdatedMs={
                     (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
                 }
