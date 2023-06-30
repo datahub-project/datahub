@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 import React from 'react';
 import { ANTD_GRAY } from '../../shared/constants';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
@@ -22,12 +21,6 @@ export const ChartStatsSummary = ({
     lastUpdatedMs,
     createdMs,
 }: Props) => {
-    chartCount = 2133440;
-    viewCount = 987654321;
-    uniqueUserCountLast30Days = 98765;
-    lastUpdatedMs = Date.now();
-    createdMs = Date.now();
-
     const color = ANTD_GRAY[7];
 
     const statsViews = [

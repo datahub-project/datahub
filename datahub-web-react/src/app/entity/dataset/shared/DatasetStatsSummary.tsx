@@ -1,4 +1,3 @@
-/* eslint-disable no-param-reassign */
 import React from 'react';
 import { ANTD_GRAY } from '../../shared/constants';
 import { StatsSummary } from '../../shared/components/styled/StatsSummary';
@@ -31,15 +30,6 @@ export const DatasetStatsSummary = ({
     color,
     mode = 'normal',
 }: Props) => {
-    // todo - remove
-    rowCount = 2133440;
-    columnCount = 12;
-    sizeInBytes = 29321728;
-    totalSqlQueries = 987654321;
-    queryCountLast30Days = 987654321;
-    uniqueUserCountLast30Days = 98765;
-    lastUpdatedMs = Date.now();
-
     const isTooltipMode = mode === 'tooltip-content';
     const displayedColor = isTooltipMode ? '' : color ?? ANTD_GRAY[7];
 
