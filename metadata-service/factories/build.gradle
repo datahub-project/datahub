@@ -54,9 +54,6 @@ dependencies {
   compile('org.glassfish.jersey.core:jersey-common:2.34') {
     exclude group: 'org.glassfish.jersey.core', module: 'jersey-common'
   }
-  compile ('com.google.guava:guava:32.0.1-jre'){
-    exclude group: 'com.google.guava', module: 'guava'
-  }
 }
 
 configurations.all{
