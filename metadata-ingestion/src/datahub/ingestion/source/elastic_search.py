@@ -13,7 +13,6 @@ from pydantic.fields import Field
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
-    ConfigurationError,
 )
 from datahub.configuration.source_common import (
     EnvConfigMixin,
