@@ -31,5 +31,8 @@ public class OperationsResourceTest extends TestCase {
     assertTrue(OperationsResource.isTaskIdValid("aB1cdEf2GHIJKLMnoPQr3S:123456"));
     assertFalse(OperationsResource.isTaskIdValid("123456:aB1cdEf2GHIJKLMnoPQr3S"));
     assertFalse(OperationsResource.isTaskIdValid(":123"));
+    // node can have a - in it
+    assertTrue(OperationsResource.isTaskIdValid("qhxGdzytQS-pQek8CwBCZg:54654"));
+    assertTrue(OperationsResource.isTaskIdValid("qhxGdzytQSpQek8CwBCZg_:54654"));
   }
 }
