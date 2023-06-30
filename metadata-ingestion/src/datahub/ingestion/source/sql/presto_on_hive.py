@@ -279,7 +279,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     FROM "TABLE_PARAMS" tp
     JOIN "TBLS" t on t."TBL_ID" = tp."TBL_ID"
     JOIN "DBS" d on d."DB_ID" = t."DB_ID"
-    WHERE 1
+    WHERE 1 = 1
     {where_clause_suffix}
     ORDER BY tp."TBL_ID" desc;
     """
