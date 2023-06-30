@@ -771,7 +771,7 @@ class VerticaSource(SQLAlchemySource):
             dataset_name,
             self.platform,
             columns,
-            schema_fields, # type: ignore 
+            schema_fields,  # type: ignore
         )
 
         dataset_snapshot.aspects.append(schema_metadata)
