@@ -528,6 +528,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # add table properties
             properties: Dict[str, str] = properties_cache.get(dataset_name, {})
+            properties["table_type"] = str(columns[-1]["table_type"]) or ""
+            properties["table_location"] = str(columns[-1]["table_location"]) or ""
+            properties["create_date"] = str(columns[-1]["create_date"]) or ""
 
             par_columns: str = ", ".join(
                 [c["col_name"] for c in columns if c["is_partition_col"]]
@@ -536,7 +539,6 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 properties["partitioned_columns"] = par_columns
 
             table_description = properties.get("comment", "")
-
             yield from self.add_hive_dataset_to_container(
                 dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
