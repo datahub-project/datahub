@@ -1,5 +1,5 @@
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
-import { EntityType } from '../../../types.generated';
+import { AndFilterInput, EntityType } from '../../../types.generated';
 import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
@@ -8,10 +8,14 @@ import { useSidebarFilters } from './useSidebarFilters';
 
 type Props = {
     facets: string[];
+    types?: EntityType[];
+    orFilters?: AndFilterInput[];
+    viewUrn?: string;
+    query?: string;
     skip: boolean;
 };
 
-const useAggregationsQuery = ({ facets, skip }: Props) => {
+const useAggregationsQuery = ({ facets, types, orFilters, viewUrn, query, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
 
@@ -20,22 +24,27 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         previousData,
         loading,
         error,
+        refetch,
     } = useAggregateAcrossEntitiesQuery({
         skip,
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                types: sidebarFilters.entityFilters,
+                types: types ?? sidebarFilters.entityFilters,
                 facets,
-                orFilters: sidebarFilters.orFilters,
-                viewUrn: sidebarFilters.viewUrn,
-                query: sidebarFilters.query,
+                orFilters: orFilters ?? sidebarFilters.orFilters,
+                viewUrn: viewUrn ?? sidebarFilters.viewUrn,
+                query: query ?? sidebarFilters.query,
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_VALUES,
                 },
             },
         },
     });
+
+    const retry = () => {
+        if (refetch) refetch();
+    };
 
     // This approach of falling back to previousData is needed to avoid a full re-mount of the sidebar entities
     const data = error ? null : newData ?? previousData;
@@ -74,6 +83,7 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         entityAggregations,
         environmentAggregations,
         platformAggregations,
+        retry,
     } as const;
 };
 
