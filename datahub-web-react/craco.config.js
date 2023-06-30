@@ -30,18 +30,10 @@ module.exports = {
                     },
                 },
             })),
-            resolve: {
-                fallback: {
-                    fs: false,
-                },
-            },
-            ignoreWarnings: [
-                // Ignore webpack 5's missing source map warnings from node_modules
-                {
-                    module: /node_modules/,
-                    message: /source-map-loader/,
-                },
-            ],
+            // Webpack 5 no longer automatically pollyfill core Node.js modules
+            resolve: { fallback: { fs: false } },
+            // Ignore Webpack 5's missing source map warnings from node_modules
+            ignoreWarnings: [{ module: /node_modules/, message: /source-map-loader/ }],
         },
         plugins: {
             add: [
@@ -70,6 +62,7 @@ module.exports = {
     ],
     jest: {
         configure: {
+            // Use dist files instead of source files
             moduleNameMapper: {
                 '^d3-interpolate-path': `d3-interpolate-path/build/d3-interpolate-path`,
                 '^d3-(.*)$': `d3-$1/dist/d3-$1`,
