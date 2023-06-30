@@ -36,7 +36,6 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
     }
   }
 
-  @Override
   public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
       throws Exception {
     return _indexBuilder.reindexInPlaceAsync(index, filterQuery, options);

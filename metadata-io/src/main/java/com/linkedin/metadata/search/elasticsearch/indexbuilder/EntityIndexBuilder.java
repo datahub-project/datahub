@@ -1,16 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
-import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.index.query.QueryBuilder;
 
 
 @Slf4j
@@ -27,12 +24,6 @@ public class EntityIndexBuilder implements ElasticSearchIndexed {
     for (ReindexConfig config : getReindexConfigs()) {
       indexBuilder.buildIndex(config);
     }
-  }
-
-  @Override
-  public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
-      throws Exception {
-    return indexBuilder.reindexInPlaceAsync(index, filterQuery, options);
   }
 
   @Override

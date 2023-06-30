@@ -18,7 +18,6 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
 
-import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,7 +27,6 @@ import javax.annotation.Nullable;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.index.query.QueryBuilder;
 
 
 @Slf4j
@@ -44,12 +42,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public void configure() {
     indexBuilders.reindexAll();
-  }
-
-  @Override
-  public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
-      throws Exception {
-    return indexBuilders.reindexAsync(index, filterQuery, options);
   }
 
   @Override

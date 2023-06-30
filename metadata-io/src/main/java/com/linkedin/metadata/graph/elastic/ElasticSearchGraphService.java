@@ -26,7 +26,6 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
-import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
@@ -47,7 +46,6 @@ import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 
 
@@ -326,12 +324,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  @Override
-  public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
-      throws Exception {
-    return _indexBuilder.reindexInPlaceAsync(index, filterQuery, options);
   }
 
   @Override
