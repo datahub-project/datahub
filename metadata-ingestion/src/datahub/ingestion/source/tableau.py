@@ -318,6 +318,16 @@ class TableauConfig(
         description="Ingest a URL to render an embedded Preview of assets within Tableau.",
     )
 
+    ingest_external_links_for_dashboards: Optional[bool] = Field(
+        default=True,
+        description="Ingest a URL to link out to from dashboards.",
+    )
+
+    ingest_external_links_for_charts: Optional[bool] = Field(
+        default=True,
+        description="Ingest a URL to link out to from charts.",
+    )
+
     extract_project_hierarchy: bool = Field(
         default=True,
         description="Whether to extract entire project hierarchy for nested projects.",
@@ -1842,7 +1852,9 @@ class TableauSource(StatefulIngestionSourceBase):
             description="",
             title=sheet.get(tableau_constant.NAME, ""),
             lastModified=last_modified,
-            externalUrl=sheet_external_url,
+            externalUrl=sheet_external_url
+            if self.config.ingest_external_links_for_charts
+            else None,
             inputs=sorted(datasource_urn),
             customProperties={
                 tableau_constant.LUID: sheet.get(tableau_constant.LUID) or ""
@@ -2138,7 +2150,9 @@ class TableauSource(StatefulIngestionSourceBase):
             title=title,
             charts=chart_urns,
             lastModified=last_modified,
-            dashboardUrl=dashboard_external_url,
+            dashboardUrl=dashboard_external_url
+            if self.config.ingest_external_links_for_dashboards
+            else None,
             customProperties={
                 tableau_constant.LUID: dashboard.get(tableau_constant.LUID) or ""
             },

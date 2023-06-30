@@ -669,7 +669,7 @@ class LookerExplore:
                                         measure_field.source_file
                                     ),
                                     view_name=LookerUtil.extract_view_name_from_lookml_model_explore_field(
-                                        dim_field
+                                        measure_field
                                     ),
                                     is_primary_key=measure_field.primary_key
                                     if measure_field.primary_key

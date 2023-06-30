@@ -9,7 +9,7 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.javatuples.Quintet;
+import org.javatuples.Sextet;
 import org.springframework.cache.CacheManager;
 
 import static com.datahub.util.RecordUtils.*;
@@ -29,8 +29,8 @@ public class CachingAllEntitiesSearchAggregator {
     return new CacheableSearcher<>(cacheManager.getCache(ALL_ENTITIES_SEARCH_AGGREGATOR_CACHE_NAME), batchSize,
         querySize -> aggregator.search(entities, input, postFilters, sortCriterion, querySize.getFrom(),
             querySize.getSize(), searchFlags, facets),
-        querySize -> Quintet.with(entities, input, postFilters != null ? toJsonString(postFilters) : null,
-            sortCriterion != null ? toJsonString(sortCriterion) : null, querySize), searchFlags, enableCache)
+        querySize -> Sextet.with(entities, input, postFilters != null ? toJsonString(postFilters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null, facets, querySize), searchFlags, enableCache)
         .getSearchResults(from, size);
   }
 }
