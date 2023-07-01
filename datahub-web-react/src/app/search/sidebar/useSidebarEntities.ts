@@ -18,9 +18,8 @@ const useSidebarEntities = ({ skip }: Props) => {
 
     const { error: baseError, entityAggregations: baseEntityAggregations } = useAggregationsQuery({
         skip,
-        query: '*',
-        orFilters: [],
         facets: [ENTITY_FILTER_NAME],
+        excludeFilters: true,
     });
 
     const result = useMemo(() => {

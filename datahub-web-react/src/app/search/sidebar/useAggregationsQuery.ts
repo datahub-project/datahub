@@ -1,5 +1,5 @@
 import { useAggregateAcrossEntitiesQuery } from '../../../graphql/search.generated';
-import { AndFilterInput, EntityType } from '../../../types.generated';
+import { EntityType } from '../../../types.generated';
 import { GLOSSARY_ENTITY_TYPES } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ENTITY_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
@@ -8,14 +8,11 @@ import { useSidebarFilters } from './useSidebarFilters';
 
 type Props = {
     facets: string[];
-    types?: EntityType[];
-    orFilters?: AndFilterInput[];
-    viewUrn?: string;
-    query?: string;
     skip: boolean;
+    excludeFilters?: boolean;
 };
 
-const useAggregationsQuery = ({ facets, types, orFilters, viewUrn, query, skip }: Props) => {
+const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
 
@@ -30,11 +27,11 @@ const useAggregationsQuery = ({ facets, types, orFilters, viewUrn, query, skip }
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                types: types ?? sidebarFilters.entityFilters,
+                ...(excludeFilters ? {} : { types: sidebarFilters.entityFilters }),
                 facets,
-                orFilters: orFilters ?? sidebarFilters.orFilters,
-                viewUrn: viewUrn ?? sidebarFilters.viewUrn,
-                query: query ?? sidebarFilters.query,
+                ...(excludeFilters ? {} : { orFilters: sidebarFilters.orFilters }),
+                ...(excludeFilters ? {} : { viewUrn: sidebarFilters.viewUrn }),
+                query: excludeFilters ? '*' : sidebarFilters.query,
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_VALUES,
                 },
