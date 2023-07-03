@@ -264,7 +264,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     ORDER by tbl_id desc, col_sort_order asc;
     """
 
-    _HIVE_PROPERTIES_MYSQL_SQL_STATEMENT = """
+    _HIVE_PROPERTIES_SQL_STATEMENT = """
     SELECT d.NAME as schema_name, t.TBL_NAME as table_name, tp.PARAM_KEY, tp.PARAM_VALUE
     FROM TABLE_PARAMS tp
     JOIN TBLS t on t.TBL_ID = tp.TBL_ID
@@ -427,7 +427,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 where_clause_suffix=where_clause_suffix
             )
             if "postgresql" in scheme
-            else PrestoOnHiveSource._HIVE_PROPERTIES_MYSQL_SQL_STATEMENT.format(
+            else PrestoOnHiveSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
             )
         )
@@ -435,11 +435,10 @@ class PrestoOnHiveSource(SQLAlchemySource):
         table_properties: Dict[str, Dict[str, str]] = {}
         for row in iter_res:
             dataset_name = f"{row['schema_name']}.{row['table_name']}"
-            if dataset_name not in table_properties:
-                table_properties[dataset_name] = {}
-            table_properties[dataset_name].update(
-                {row["PARAM_KEY"]: row["PARAM_VALUE"]}
-            )
+            if row["PARAM_KEY"] and row["PARAM_VALUE"]:
+                table_properties.setdefault(dataset_name, {})[row["PARAM_KEY"]] = row[
+                    "PARAM_VALUE"
+                ]
 
         return table_properties
 
@@ -528,9 +527,9 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
             # add table properties
             properties: Dict[str, str] = properties_cache.get(dataset_name, {})
-            properties["table_type"] = str(columns[-1]["table_type"]) or ""
-            properties["table_location"] = str(columns[-1]["table_location"]) or ""
-            properties["create_date"] = str(columns[-1]["create_date"]) or ""
+            properties["table_type"] = str(columns[-1]["table_type"] or "")
+            properties["table_location"] = str(columns[-1]["table_location"] or "")
+            properties["create_date"] = str(columns[-1]["create_date"] or "")
 
             par_columns: str = ", ".join(
                 [c["col_name"] for c in columns if c["is_partition_col"]]
@@ -538,7 +537,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             if par_columns != "":
                 properties["partitioned_columns"] = par_columns
 
-            table_description = properties.get("comment", "")
+            table_description = properties.get("comment")
             yield from self.add_hive_dataset_to_container(
                 dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
@@ -549,9 +548,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
                     urn=dataset_snapshot.urn
                 )
-                patch_builder.set_display_name(key.table).set_description(
-                    description=table_description
-                )
+                patch_builder.set_display_name(key.table)
+
+                if table_description:
+                    patch_builder.set_description(description=table_description)
+
                 for prop, value in properties.items():
                     patch_builder.add_custom_property(key=prop, value=value)
                 yield from [
