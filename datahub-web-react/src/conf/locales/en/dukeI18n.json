@@ -1,0 +1,1394 @@
+{
+  "validation": {
+    "invalidCount": "Invalid Count",
+    "rowCount": "Row Count",
+    "evaluations": "Evaluations",
+    "viewLogic": "View Logic",
+    "testResults": "Test Results",
+    "testResultsSummaryTitle": "This status is based on the most recent run of each test.",
+    "testResultsSummarySubtitle": "{{passingNbr}} passing tests, {{failingNbr}} failing tests",
+    "assertionResultsSummaryTitle": "This status is based on the most recent run of each assertion.",
+    "assertionResultsSummarySubtitle": "{{successNbr}} successful assertions, {{failNbr}} failed assertions",
+    "noAssertionFound": "No Assertions Found",
+    "lastEvaluatedOn": "Last evaluated on",
+    "noEvaluations": "No Evaluations",
+    "removeAssertionSuccess": "Removed assertion.",
+    "removeAssertionFailed": "Failed to remove assertion",
+    "deleteModal": {
+      "title": "Confirm Assertion Removal",
+      "content": "Are you sure you want to remove this assertion from the dataset?"
+    },
+    "assertionSummaryMessage": {
+      "noAssertionsHaveRun": "No assertions have run",
+      "allAssertionsHavePassed": "All assertions have passed",
+      "allAssertionsHaveFailed": "All assertions have failed",
+      "someAssertionsHaveFailed": "Some assertions have failed"
+    },
+    "testSummaryMessage": {
+      "noTestsHaveRun": "No tests have run",
+      "allTestsArePassing": "All tests are passing",
+      "allTestsAreFailing": "All tests are failing",
+      "someTestsAreFailing": "Some tests are failing"
+    }
+  },
+  "activityManager": {
+    "searchLabel": "You search for : ",
+    "openEntityLabel": "You inspected : "
+  },
+  "glossary": {
+    "loadingGlossary": "Loading Glossary",
+    "loadingGlossaryError": "Failed to load glossary! An unexpected error occurred."
+  },
+  "dukeLicence": {
+    "licenceTitle": "Licence",
+    "licenceSubtitle": "Duke Licence details",
+    "dukeVersionTitle": "Duke Version",
+    "version": "Version",
+    "nbrOfAdmin": "Number of administrators",
+    "nbrOfAnalyst": "Number of analyst",
+    "nbrOfLicence": "Number of licence",
+    "licenceStartDate": "Licence start date",
+    "licenceEndDate": "Licence end date",
+    "isActiveTrue": "Active",
+    "isActiveFalse": "Inactive",
+    "dukeLicenceDetailTitle": "Licence details",
+    "complementaryInfoTitle": "Complementary information",
+    "complementaryInfoSubtitle": "Version, copyright and other information on your Duke application.",
+    "updateLicenceStatusFailed": "Licence update fail : .",
+    "updateLicenceStatusSuccess": "Licence updated.",
+    "dukeLicenceUserTitle": "Licence users",
+    "failedToLoadLicence": "Failed to load licence.",
+    "failedToLoadAdmins": "Failed to load administrators.",
+    "failedToLoadUsers": "Failed to load analysts."
+  },
+  "webchat": {
+    "connectionLoading": "Please wait, connection loading.",
+    "conversationRemoveFailed": "Delete conversation failed : ",
+    "conversationRemoveSuccess": "Conversation deleted!",
+    "tooltip": {
+      "reduceChat": "Reduce chat",
+      "startNewConv": "Start a new conversation",
+      "openHistoryConv": "Open a previous conversation",
+      "changeConversationName": "Rename conversation",
+      "loadConversation": "Load conversation",
+      "deleteConversation": "Delete conversation",
+      "backToMenu": "Back to menu"
+    },
+    "conversationHistoryModal": {
+      "title": "Conversation history",
+      "fromHistoricalConversationDate": "Imported from conversation at {{historicalConversationDate}}.",
+      "fromConversationDate": "Conversation created at {{localeConversationDate}}.",
+      "noConversation": "No conversation saved."
+    },
+    "uploadFileModal": {
+      "title": "Upload a file",
+      "titleResponse": "Chart identification",
+      "text": "Click or drag file to this area to upload",
+      "hint": "Support JPEG, BMP, GIF, PNG and PDF",
+      "drawButton": "Draw the chart",
+      "cleanDraw": "Clean",
+      "importDraw": "Import",
+      "probability": "Probability",
+      "chartClass" : "Chart class"
+    }
+  },
+  "ingestionPage": {
+    "title": "Manage Ingestion",
+    "description": "Create, schedule, and run Duke ingestion pipelines.",
+    "notScheduled": "Not scheduled",
+    "summary": {
+      "title": "Ingested Assets",
+      "description": "The following asset types were ingested during this run.",
+      "descriptionEmpty": "No assets were ingested."
+    },
+    "ingestionStatus": {
+      "ingestionIsRunning": "Ingestion is running",
+      "ingestionSuccessfullyCompleted": "Ingestion successfully completed",
+      "ingestionCompletedWithErrors": "Ingestion completed with errors",
+      "ingestionWasCancelled": "Ingestion was cancelled",
+      "ingestionWasRolledBack": "Ingestion was rolled back",
+      "ingestionIsInTheProcessOfRollingBack": "Ingestion is in the process of rolling back",
+      "ingestionRollbackFailed": "Ingestion rollback failed",
+      "ingestionStatusNotRecognized": "Ingestion status not recognized"
+    },
+    "ingestion": {
+      "loadDetailFailed": "Failed to load execution details",
+      "viewLogFromRun": "View logs that were collected during the ingestion run.",
+      "viewIngestedAssets": "View Ingested Assets",
+      "viewIngestionRecipe": "View Ingestion Recipe",
+      "ingestionLoadFailed": "Failed to load ingestion executions!",
+      "execCancelFailed": "Failed to cancel execution",
+      "execCancelSuccess": "Successfully submitted cancellation request!",
+      "lastSynchronized": "Last Synchronized",
+      "lastSynchronizedText": "This {{displayedEntityType}} was last synchronized",
+      "lastSynchronizedDescription": "This represents the time that the entity was last synchronized with",
+      "theSourcePlatform": "the source platform",
+      "synchronizedOn": "Synchronized on",
+      "ingestionUpdateSuccess": "Successfully updated ingestion source!",
+      "ingestionUpdateFailed": "Failed to update ingestion source!:",
+      "ingestionCreateSuccess": "Successfully created ingestion source!",
+      "ingestionCreateFailed": "Failed to create ingestion source!: ",
+      "ingestionExecSuccess": "Successfully submitted ingestion execution request!",
+      "ingestionExecFailed": "Failed to submit ingestion execution request!:",
+      "ingestionRemoveSuccess": "Removed ingestion source.",
+      "ingestionRemoveFailed": "Failed to remove ingestion source:",
+      "ingestionSourceLoadFailed": "Failed to load ingestion sources! ",
+      "editIngestionSource": "Edit Ingestion Source",
+      "newIngestionSource": "New Ingestion Source",
+      "createSource": "Create new source",
+      "noSource": "No Ingestion Sources!",
+      "cancelExecFailed": "Failed to cancel execution!:",
+      "cancelExecSuccess": "Successfully submitted cancellation request!",
+      "manualExec": "Manual Execution",
+      "scheduledExec": "Scheduled Execution",
+      "cliExec": "CLI Execution",
+      "execLoadFailed": "Failed to load executions :(",
+      "execLoadDetailFailed": "Failed to load executions details :(",
+      "noExec": "No Executions found!",
+      "ingestionTable": {
+        "type": "Type",
+        "name": "Name",
+        "schedule": "Schedule",
+        "execCount": "Execution Count",
+        "lastExecTime": "Last Execution",
+        "lastExecStatus": "Last Status",
+        "sourceFromCLI": "This source is ingested from the command-line interface (CLI)",
+        "copySourceURN": "Copy Ingestion Source URN"
+      },
+      "ingestionSourceExecTable": {
+        "requestedAt": "Requested At",
+        "executedAt": "Started At",
+        "duration": "Duration (s)",
+        "status": "Status",
+        "source": "Source",
+        "copyUrn": "Copy Execution Request URN"
+      },
+      "ingestionStep": {
+        "SELECT_TEMPLATE": "Choose Type",
+        "DEFINE_RECIPE": "Configure Recipe",
+        "CREATE_SCHEDULE": "Schedule Execution",
+        "NAME_SOURCE": "Finish up"
+      },
+      "confirmExecModal": {
+        "title": "Confirm Ingestion Source Removal",
+        "content": "Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs."
+      },
+      "cancelExecModal": {
+        "title": "Confirm Cancel",
+        "content": "Cancelling a running execution will NOT remove any data that has already been ingested. You can use the Duke CLI to rollback this ingestion run."
+      },
+      "execDetailModal": {
+        "title": "Execution Details",
+        "noOutput": "No output found.",
+        "capturedOutput": "Captured Output"
+      },
+      "createIngestionModal": {
+        "lookerDoesntWorkYet": "LookML ingestion cannot currently be performed via UI-based ingestion. This is a known problem the DataHub team is working to solve !",
+        "nameDescription": "Give this ingestion source a name.",
+        "namePlaceholder": "My Source #2",
+        "executorIdTitle": "Executor Id",
+        "executorIdDescription": "Provide the executor id to route execution requests to. The built-in Duke executor id is 'default'. Do not change this unless you have configured a custom executor.",
+        "cliVersionTitle": "CLI Version",
+        "cliVersionDescription": "Advanced: Provide a custom CLI version to use for ingestion.",
+        "invalidYAML": "Found invalid YAML. Please check your recipe configuration.",
+        "configureRecipeTitle": "Configure {{sourceDisplayName}} Recipe",
+        "configureRecipeDescription": "For more information about how to configure a recipe, see the source docs of ",
+        "createTitle": "Create an Execution Schedule",
+        "createDescription": "Configure your ingestion source to run on a schedule.",
+        "scheduleTitle": "Schedule",
+        "scheduleDescription": "Provide a custom cron schedule.",
+        "invalidCRONwarning": "Invalid cron schedule. Cron must be of UNIX form:",
+        "CRONformat": "minute, hour, day, month, day of week",
+        "timezoneTitle": "Timezone",
+        "timezoneDescription": "Select the timezone to run the cron schedule in."
+      },
+      "executeIngestionModal": {
+        "title": "Confirm Source Execution",
+        "content": "Click 'Execute' to run this ingestion source."
+      },
+      "rollbackModal": {
+        "title": "Confirm Rollback",
+        "content_html": "Rolling back this ingestion run will remove any new data ingested during the run. This may exclude data that was previously extracted, but did not change during this run. <br/> <br/> Are you sure you want to continue?",
+        "loading": "Requesting rollback...",
+        "success": "Successfully requested ingestion rollback",
+        "error": "Error requesting ingestion rollback"
+      }
+    },
+    "secret": {
+      "removeSecretSuccess": "Removed secret.",
+      "removeSecretFailed": "Failed to remove secret:",
+      "createSecretSuccess": "Successfully created Secret!",
+      "createSecretFailed": "Failed to create Secret!:",
+      "loadSecretFailed": "Failed to load secrets!",
+      "createSecret": "Create new secret",
+      "noSecretFound": "No Secrets found!",
+      "deleteSecretModal": {
+        "title": "Confirm Secret Removal",
+        "content": "Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
+      },
+      "secretTable": {
+        "name": "Name",
+        "description": "Description",
+        "noDescription": "No description"
+      },
+      "secretBuilderModal": {
+        "title": "Create a new Secret",
+        "nameTitle": "Name",
+        "nameDescription": "Give your secret a name. This is what you'll use to reference the secret from your recipes.",
+        "namePlaceholder": "A name for your secret",
+        "valueTitle": "Value",
+        "valueDescription": "The value of your secret, which will be encrypted and stored securely within Duke.",
+        "valuePlaceholder": "The value of your secret",
+        "descriptionTitle": "Description",
+        "descriptionDescription": "An optional description to help keep track of your secret.",
+        "descriptionPlaceholder": "The description of your secret"
+      }
+    }
+  },
+  "domainPage": {
+    "domainPageDescription": "View your Duke Domains. Take administrative actions.",
+    "createDomainFailed": "Failed to create Domain!:",
+    "createDomainSuccess": "Created domain!",
+    "loadingDomainFailed": "Failed to load domains: ",
+    "newDomain": "New Domain",
+    "noDomain": "No Domains!",
+    "nbrOfEntityInDomain": "There are {{nbr}} entities in this domain.",
+    "createDomainModal": {
+      "title": "Create new Domain",
+      "nameTitle": "Name",
+      "nameDescription": "Give your new Domain a name.",
+      "namePlaceholder": "A name for your domain",
+      "descriptionTitle": "Description",
+      "descriptionDescription": "An optional description for your new domain. You can change this later.",
+      "descriptionPlaceholder": "A description for your domain",
+      "domainIdTitle": "Domain Id",
+      "domainIdDescription": "By default, a random UUID will be generated to uniquely identify this domain. If you'd like to provide a custom id instead to more easily keep track of this domain, you may provide it here. Be careful, you cannot easily change the domain id after creation.",
+      "domainIdPlaceholder": "id-12345",
+      "domainNameRequiredMessage": "Enter a Domain name."
+    }
+  },
+  "unauthorized": {
+    "title": "Unauthorized",
+    "content": "Sorry, you are not authorized to access this page."
+  },
+  "common": {
+    "action": "Action",
+    "reset": "Reset",
+    "import": "Import",
+    "edited": "edited",
+    "actual": "Actual",
+    "show": "Show",
+    "assertions": "Assertions",
+    "tests": "Tests",
+    "or": "Or",
+    "viewAll": "View all",
+    "total": "Total",
+    "degreeofDependencies": "Degree of Dependencies",
+    "run": "Run",
+    "connection": "Connection",
+    "form": "Form",
+    "saveNRun": "Save and Run",
+    "logs": "Logs",
+    "hide": "Hide",
+    "showMore": "Show more",
+    "rollback": "Rollback",
+    "Matches": "Matches",
+    "by": "By",
+    "contents": "Contents",
+    "glossaryTerm": "Glossary Term",
+    "deprecation": "Deprecation",
+    "selected": "Selected",
+    "consumes": "Consumes",
+    "queriesLastMonth": "Queries last month",
+    "changed": "Changed",
+    "changedOn": "Changed on",
+    "createdOn": "Created on",
+    "backToHome": "Back to Home",
+    "outside": "Outside",
+    "fields": "Fields",
+    "default": "Default",
+    "ok": "Ok",
+    "reads": "Reads",
+    "writes": "Writes",
+    "time": "Time",
+    "running": "Running",
+    "succeeded": "Succeeded",
+    "passed": "Passed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "upForRetry": "Up for Retry",
+    "rolledBack": "Rolled Back",
+    "rollingBack": "Rolling Back",
+    "rollbackFailed": "Rollback Failed",
+    "note": "Note",
+    "parent": "Parent",
+    "optional": "Optional",
+    "created": "Created",
+    "move": "Move",
+    "moveTo": "Move to",
+    "glossary": "Glossary",
+    "govern": "Govern",
+    "chartType": "Chart type",
+    "container": "Container",
+    "ownedBy": "Owned by",
+    "environment": "Environment",
+    "subType": "Subtype",
+    "tag": "Tag",
+    "controls": "Controls",
+    "reportedAt": "Reported at",
+    "here": "Here",
+    "normal": "Normal",
+    "blame": "Blame",
+    "deprecated": "Deprecated",
+    "copyUrl": "Copy URL",
+    "urlCopied": "Copied URL",
+    "view": "View",
+    "domain": "Domain",
+    "failedToSaveChanges": "Failed to save changes !",
+    "changesSaved": "Changes saved.",
+    "downloadAs": "Download as...",
+    "downloading": "Downloading",
+    "download": "Download",
+    "metadata": "Metadata",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "actors": "Actors",
+    "assets": "Assets",
+    "runs": "Runs",
+    "validation": "Validation",
+    "operations": "Operations",
+    "none": "None",
+    "of": "Of",
+    "skip": "Skip",
+    "next": "Next",
+    "previous": "Précédent",
+    "done": "Done",
+    "refresh": "Refresh",
+    "execute": "Execute",
+    "entities": "Entities",
+    "advanced": "Advanced",
+    "inherits": "Inherits",
+    "inputs": "Inputs",
+    "outputs": "Outputs",
+    "charts": "Charts",
+    "tasks": "Tasks",
+    "task": "Task",
+    "pipeline": "Pipeline",
+    "queries": "Queries",
+    "lineage": "Lineage",
+    "sources": "Sources",
+    "feature": "Feature",
+    "owner": "Owner",
+    "owners": "Owners",
+    "summary": "Summary",
+    "back": "Back",
+    "noData": "No data",
+    "usage": "Usage",
+    "add": "Add",
+    "delete": "Delete",
+    "language": "Language",
+    "readLess": "Read Less",
+    "readMore": "Read More",
+    "update": "Update",
+    "updated": "Updated",
+    "save": "Save",
+    "removed": "Removed",
+    "remove": "Remove",
+    "createdAt": "Date Added",
+    "author": "Author",
+    "fullName": "Full name",
+    "role": "Role",
+    "roles": "Roles",
+    "policies": "Policies",
+    "value": "Value",
+    "properties": "Properties",
+    "updatedSuccess": "Updated!",
+    "updateFailed": "Update Failed!",
+    "updating": "Updating",
+    "deleting": "Deleting",
+    "removing": "Removing",
+    "about": "About",
+    "details": "Details",
+    "createdBy": "Created by",
+    "appliedTo": "Applied to",
+    "create": "Create",
+    "yes": "Yes",
+    "close": "Close",
+    "loading": "Loading",
+    "false": "False",
+    "true": "True",
+    "all": "All",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "filters": "Filters",
+    "less": "Less",
+    "more": "More",
+    "type": "Type",
+    "description": "Description",
+    "resource": "Resource",
+    "allWithName": "All {{allName}}",
+    "state": "State",
+    "users": "Users",
+    "group": "Group",
+    "groups": "Groups",
+    "members": "Members",
+    "deleteWithName": "Delete {{deleteName}}",
+    "detailsOf": "{{detailName}} details",
+    "upstream": "Upstream",
+    "downstream": "Downstream",
+    "contains": "Contains",
+    "partOf": "Part of",
+    "saving": "Saving",
+    "latest": "Latest",
+    "unknown": "Unknown",
+    "min": "Min",
+    "max": "Max",
+    "mean": "Mean",
+    "median": "Median",
+    "nullCount": "Null Count",
+    "nullPercent": "Null %",
+    "distinctCount": "Distinct Count",
+    "distinctPercent": "Distinct %",
+    "stdDev": "Std. Dev",
+    "sampleValues": "Sample Values",
+    "name": "Name",
+    "date": "Date",
+    "stats": "Stats",
+    "submit": "Submit",
+    "models": "Models",
+    "platform": "Platform",
+    "viewSource": "View source",
+    "schema": "Schema",
+    "document": "Document",
+    "documentation": "Documentation",
+    "tabular": "Tabular",
+    "raw": "Raw",
+    "key": "Key",
+    "version": "Version",
+    "topSearchResults": "Top Search Results",
+    "duration": {
+      "oneHour": "1 hour",
+      "oneDay": "1 day",
+      "oneMonth": "1 month",
+      "threeMonth": "3 month",
+      "sixMonth": "6 month"
+    }
+  },
+  "chart": {
+    "onAContainedChart": "On a contained Chart",
+    "barSampleChart": "Bar Sample"
+  },
+  "analytics": {
+    "perDayFor": "{{item}} per day",
+    "segmentNumber": "Segment {{number}}",
+    "overTimeFor": "{{item}} over time",
+    "loadingHighlights": "Loading Highlights...",
+    "highlightsLoadFailed": "Highlights failed to load",
+    "loadingDomains": "Loading Domains...",
+    "domainLoadFailed": "Domains failed to load",
+    "loadingCharts": "Loading Charts...",
+    "chartLoadFailed": "Charts failed to load"
+  },
+  "login": {
+    "loggingIn": "Logging in",
+    "loginWelcomePhrase": "Connecting you to the data that matters",
+    "loginFailed": "Failed to log in!",
+    "usernameRequired": "Please input your username!",
+    "usernamePlaceholder": "Username",
+    "passwordPlaceholder": "Password",
+    "loginButton": "Log In"
+  },
+  "errorPage": {
+    "somethingWentWrong": "Something went wrong.",
+    "unexpectedError": "An unexpected error occurred. Please try again later, or reach out to your administrator"
+  },
+  "entityPage": {
+    "closeColumnHistory": "Close column history",
+    "viewColumnHistory": "View column history",
+    "addAssetsToDomain": "Add assets to Domain",
+    "addGlossaryTermToAssets": "Add Glossary Term to assets",
+    "addToAssets": "Add to Assets",
+    "recentProfiles": "Recent Profiles",
+    "removeFromDomainConfirmTitle": "If you continue, Domain will be removed for the selected assets.",
+    "removeFromDomainConfirmContent": "Are you sure you want to unset Domain for these assets?",
+    "unsetDomain": "Unset Domain",
+    "removeFromDomainFailed": "Failed to remove assets from Domain",
+    "confirmDeleteDescription": "Are you sure you want to mark these assets as deleted? This will hide the assets from future Duke searches. If the assets are re-ingested from an external data platform, they will be restored.",
+    "markAsDeleted": "Mark as deleted",
+    "deleteAssetsSuccess": "Deleted assets!",
+    "deleteAssetsFailed": "Failed to delete assets",
+    "dataChangeTime": "The time at which the data was last changed in the source platform",
+    "chartChangeTime": "The time at which the chart was last changed in the source platform",
+    "dashboardChangeTime": "The time at which the dashboard was last changed in the source platform",
+    "uniqueUsers": "Unique users",
+    "cannotEditOutsideGroup": "Membership for this group cannot be edited in Duke as it synced with {{externalGroupType}}.",
+    "cantDeleteWithChildEntity": "Can't delete {{entityName}} with child entities.",
+    "viewTaskRunDetails": "View task run details",
+    "runId": "Run ID",
+    "fetchingRuns": "Fetching runs",
+    "createFailed": "Failed to create",
+    "updateDeprecationSuccess": "Deprecation Updated",
+    "updateDeprecationFailed": "Failed to update Deprecation",
+    "viewPriorBlame": "View blame prior to this version",
+    "versionBlameInfo": "Semantic versions for this view were computed using Technical Schema. You can find more info about how we compute versions",
+    "deprecationSuccess": "Deprecation Updated",
+    "deprecationFailed": "Failed to update Deprecation",
+    "noAdditionalDetails": "No additional details",
+    "copyUrnTitle": "Copy URN. An URN uniquely identifies an entity on Duke.",
+    "markAsDeprecated": "Mark as deprecated",
+    "markAsDeprecatedConfirm": "Confirm Mark as undeprecated",
+    "markAsDeprecatedConfirmContent": "Are you sure you want to mark these assets as undeprecated?",
+    "markAsUndeprecated": "Mark as un-deprecated",
+    "undeprecationSuccess": "Marked assets as undeprecated!",
+    "undeprecationFailed": "Failed to mark assets as undeprecated",
+    "viewIn": "View in",
+    "entityNotDiscoverable": "This entity is not discoverable via search or lineage graph. Contact your Duke admin for more information.",
+    "filterDomainEntityPlaceholder": "Filter domain entities...",
+    "updateDomainSuccess": "Updated Domain!",
+    "updateDomainFailed": "Failed to set Domain:",
+    "setDomain": "Set domain",
+    "removeDomainSuccess": "Removed Domain.",
+    "removeDomainFailed": "Failed to remove domain:",
+    "viewDefinition": "View definition",
+    "relatedEntity": "Related Entities",
+    "relatedGlossaryTerms": "Related Terms",
+    "columnsAdded": "{{number}} columns were added",
+    "columnAdded": "{{number}} column was added",
+    "columnsRemoved": "{{number}} columns were removed",
+    "columnRemoved": "{{number}} column was removed",
+    "columnsUpdated": "{{number}} columns were updated",
+    "columnUpdated": "{{number}} column was updated",
+    "addALink": "Add a link",
+    "datasetDocumentationDescription": "Keep track of documentation about this Dataset.",
+    "noSchema": "No Schema",
+    "addMembers": "Add Members",
+    "trainingMetrics": "Training Metrics",
+    "hyperParameters": "Hyper Parameters",
+    "viewGraph": "View Graph",
+    "markdownSupported": "markdown supported",
+    "addAnOwner": "Add an owner",
+    "pleaseMaintainAtLeastNumberOwner_html": "Please maintain at least <b>{{number}}</b> owners.",
+    "addDescription": "Add description",
+    "updateDescription": "Update description",
+    "labelForLinkPlaceholder": "A short label for this link",
+    "linkAdded": "Link Added",
+    "linkAddFailed": "Failed to add link:",
+    "addLinkErrorNoUser": "Error adding link: no user",
+    "groupMemberRemoveFailed": "Failed to remove group member! :",
+    "groupRemoveSuccess": "Removed group member!",
+    "ownerRemoved": "Owner Removed",
+    "ownersRemoved": "Owners Removed",
+    "ownerRemoveFailed": "Failed to remove owner",
+    "ownersRemoveFailed": "Failed to remove owners",
+    "moreStat": "More stats &gt;",
+    "entityFailedToLoadForUrn": "Entity failed to load for urn {{urn}}",
+    "noSampleQueries": "No Sample Queries",
+    "foreignKeyTo": "Foreign key to ",
+    "field": "Field",
+    "tags": "Tags",
+    "terms": "Terms",
+    "usage": "Usage",
+    "description": "Description",
+    "showingProfileFromAt": "Showing profile from {{from}} at {{at}}",
+    "rowCount": "Row Count",
+    "columnCount": "Column Count",
+    "rowCountOverTime": "Row Count Over Time",
+    "columnCountOverTime": "Column Count Over Time",
+    "nullCountOverTime": "Null Count Over Time",
+    "nullPercentageOverTime": "Null Percentage Over Time",
+    "distinctCountOverTime": "Distinct Count Over Time",
+    "distinctPercentageOverTime": "Distinct Percentage Over Time",
+    "statsDorColumn": "Stats for column ",
+    "profilingForPast": "Profiling history for past ",
+    "columnStats": "Column Stats",
+    "latestStats": "Latest Stats",
+    "viewingProfilingHistoryForThePast": "Viewing profiling history for the past",
+    "historicalTableStats": "Historical Table Stats",
+    "historicalColumnStats": "Historical Column Stats",
+    "unrecognizedLookbackWindowSize": "Unrecognized lookback window size {{text}} provided`",
+    "rows": "Rows",
+    "viewingStatsForColumn": "Viewing stats for column",
+    "columns": "Columns",
+    "rowCountUnknown": "Row Count Unknown",
+    "columnCountUnknown": "Column Count Unknown",
+    "monthlyQueries": "Monthly Queries",
+    "topUsers": "Top Users",
+    "tableStats": "Table Stats",
+    "profilingRuns": "Profiling Runs",
+    "historical": "Historical",
+    "datasetLogic": "Logic",
+    "datasetLanguage": "Language",
+    "datasetMaterialized": "Materialized",
+    "descriptionUpdated": "Description Updated",
+    "descriptionUpdateFailed": "Failed to update description:",
+    "linkRemoved": "Link removed",
+    "linkRemoveError": "Error removing link:",
+    "addDocumentation": "Add documentation",
+    "noDocumentationAddedYet": "No documentation added yet.",
+    "foundNbrIn": "Found in {{number}}",
+    "foundNbrInput": "Found {{number}} input",
+    "noEntities": "No entities",
+    "failedToLoad": "Entity failed to load",
+    "groupMembership": "Group Membership",
+    "ownerAdded": "Owner added.",
+    "ownersAdded": "Owner added.",
+    "ownerAddFailed": "Failed to add owner",
+    "ownersAddFailed": "Failed to add owners",
+    "groupMembersAddFailed": "Failed to add group member(s)!:",
+    "groupMembersAddSuccess": "Group member(s) added!",
+    "addOwners": "Add owners",
+    "entityFarFromEntityName": "This entity is a {{number}} degree connection to {{entityDataName}}",
+    "entityFarFromSource": "This entity is a {{number}} degree connection to the source entity",
+    "decommissionDate": "Decommission Date",
+    "observation": {
+      "lastObservedOn": "Last observed on {{dateStr}}.",
+      "firstReportedOn": "First reported on {{dateStr}}.",
+      "lastObserved": "Last observed {{timeStr}}.",
+      "reported": "Reported {{timeStr}}."
+    },
+    "testResult": {
+      "noEvaluations": "No evaluations",
+      "noDescription": "No description",
+      "noTestsFound": "No tests found"
+    },
+    "removeEntityModal": {
+      "content": "Are you sure you want to remove this {{entityName}}?"
+    },
+    "addDeprecationDetailModal": {
+      "title": "Add Deprecation Details"
+    },
+    "setDomainModal": {
+      "title": "Set Domain",
+      "selectDomainPlaceholder": "Search for Domains..."
+    },
+    "removeDomainModal": {
+      "title": "Confirm Domain Removal",
+      "content": "Are you sure you want to remove this domain?"
+    },
+    "removeGroupMemberModal": {
+      "title": "Confirm Group Member Removal",
+      "content": "Are you sure you want to remove this user from the group?"
+    },
+    "addLinkModal": {
+      "title": "Add Link"
+    },
+    "addOwnerModal": {
+      "title": "Add owners",
+      "chooseAnOwnerType": "Choose an owner type"
+    },
+    "removeOwnerModal": {
+      "title": "Do you want to remove {{name}}?",
+      "content": "Are you sure you want to remove {{name}} as an owner?"
+    },
+    "addGroupMembersModal": {
+      "title": "Add group members",
+      "content": ""
+    },
+    "userProfile": {
+      "askMeAbout": "Ask me about",
+      "teams": "Teams"
+    }
+  },
+  "homePage": {
+    "searchbarMessage": "Search Datasets, People, & more...",
+    "myAccount": "My account",
+    "welcomeBack": "Welcome Back",
+    "licenceEndSoon": "Warning, tour licence expire the {{licenceEndDateStr}}.",
+    "exploreYourMetadata": "Explore your Metadata",
+    "trySearchingFor": "Try searching for",
+    "noMetadataFound": "No Metadata Found",
+    "connectYourDataSource": "Connect your data sources",
+    "changeLanguageModal": {
+      "title": "Change Language"
+    }
+  },
+  "identity": {
+    "yourProfile": "Your Profile",
+    "makeOwner": "Make Owner",
+    "removeFromGroup": "Remove From Group",
+    "noMemberYet": "No members yet.",
+    "noGroupOwnerYet": "No group owners added yet.",
+    "slackChannel": "Slack Channel",
+    "filterEntityPlaceholder": "Filter entities...",
+    "updateUserFailed": "Failed to Save changes!:",
+    "updateUserSuccess": "Changes saved.",
+    "editProfile": "Edit profile",
+    "editGroup": "Edit group",
+    "createUser": "Create new user",
+    "createUserFailed": "Failed to create user!:",
+    "updateUserPasswordModal": {
+      "updateFailed": "Password update failed for {{username}}",
+      "updateSuccess": "Password update success",
+      "title": "Update password",
+      "usernameLabel": "Username",
+      "usernameDescription": "You will change the password for ",
+      "actualPasswordLabel": "Actual password",
+      "actualPasswordDescription": "Give your actual password",
+      "actualPasswordPlaceholder": "Your actual password",
+      "newPasswordLabel": "New password",
+      "newPasswordDescription": "Choose a new password",
+      "newPasswordPlaceholder": "New password",
+      "newPasswordBisDescription": "Confirm the new password",
+      "newPasswordBisPlaceholder": "New password again",
+      "passwordDontMatch": "The two passwords that you entered do not match!",
+      "button": "Change password"
+    },
+    "createUserModal": {
+      "title": "Create a new user",
+      "displayNameLabel": "ID",
+      "displayNameDescription": "Give an ID to the user",
+      "displayNamePlaceholder": "ID",
+      "fullNameLabel": "Full name",
+      "fullNameDescription": "Give the full name of the user",
+      "fullNamePlaceholder": "Ex: Bruno Côme",
+      "emailLabel": "Email",
+      "emailDescription": "Give the email of the user",
+      "emailPlaceholder": "Ex: bruno@example.com",
+      "titleLabel": "Title",
+      "titleDescription": "Give an optional title to the user",
+      "titlePlaceholder": "Ex: Senior Analyst"
+    },
+    "createGroupFailed": "Failed to create group!:",
+    "createGroupModal": {
+      "title": "Create new group",
+      "nameGroupDescription": "Give your new group a name.",
+      "nameGroupPlaceholder": "A name for your group",
+      "descriptionDescription": "An optional description for your new group.",
+      "descriptionPlaceholder": "A description for your group",
+      "groupIdTitle": "Group ID",
+      "groupIdDescription": "By default, a random UUID will be generated to uniquely identify this group. If you'd like to provide a custom id instead to more easily keep track of this group, you may provide it here. Be careful, you cannot easily change the group id after creation.",
+      "groupIdPlaceholder": "product_engineering",
+      "groupNameRequiredMessage": "Enter a Group name."
+    },
+    "createGroup": "Create group",
+    "createGroupSuccess": "Created group!",
+    "createUserSuccess": "Created User!",
+    "noGroups": "No Groups!",
+    "failedToLoadGroup": "Failed to load group :(",
+    "failedToLoadGroups": "Failed to load groups :(",
+    "failedToLoadUsers": "Failed to load users :(",
+    "noUsers": "No Users!",
+    "userHasLoggedIn": "The user has logged in.",
+    "manageUsersNGroups": "Manage Users & Groups",
+    "manageUsersNGroupsDescription": "View your Duke users & groups. Take administrative actions.",
+    "removeUserSuccess": "Removed user.",
+    "removeUserFailed": "Failed to remove user: ",
+    "removeUserModal": {
+      "title": "Confirm User Removal",
+      "content": "Are you sure you want to remove this user? Note that if you have SSO auto provisioning enabled, this user will be created when they log in again."
+    },
+    "removeGroupSuccess": "Removed group.",
+    "removeGroupFailed": "Failed to remove group: ",
+    "removeGroupModal": {
+      "title": "Confirm Group Removal",
+      "content": "Are you sure you want to remove this group?"
+    },
+    "tab": {
+      "Users": "Users",
+      "Groups": "Groups"
+    },
+    "editProfileModal": {
+      "title": "Edit Profile",
+      "editFailed": "Failed to Save changes!:",
+      "editSuccess": "Changes saved.",
+      "nameRequiredError": "Enter a display name.",
+      "namePlaceholder": "John Smith",
+      "titleTitle": "Title/Role",
+      "titlePlaceholder": "Data Analyst",
+      "imageTitle": "Image URL",
+      "imageWarningInvalidURL": "not valid url",
+      "teamTitle": "Team",
+      "teamPlaceholder": "Product Engineering",
+      "emailTitle": "Email",
+      "emailRequired": "Enter your email",
+      "emailNotValid": "Please enter valid email",
+      "emailPlaceholder": "john.smith@example.com",
+      "slackTitle": "Slack",
+      "slackPlaceholder": "john_smith",
+      "phoneTitle": "Phone",
+      "phoneInvalid": "not valid phone number",
+      "phonePlaceholder": "444-999-9999"
+    }
+  },
+  "lineage": {
+    "showFullTitlesLabel": "Full Titles",
+    "hiddenDependencyLabel": "{{nbr}} hidden {{direction}} dependency",
+    "hiddenDependenciesLabel": "{{nbr}} hidden {{direction}} dependencies",
+    "failedToLoadEntity": "Entity failed to load",
+    "visualizeLineage": "Visualize Lineage",
+    "directDependencies": "Direct Dependencies",
+    "impactAnalysis": "Impact Analysis",
+    "compressLineage": "Compress Lineage",
+    "compressLineageDescription": "Collapses related entities into a single lineage node"
+  },
+  "roles": {
+    "appliesToRoles": "Applies to Roles",
+    "assignRoleToUser": "Assign {{roleName}} role to users",
+    "assignRoleSuccess": "Assigned Role to users",
+    "assignRoleDetailSuccess": "Assigned role {{roleName}} to user {{username}}!",
+    "assignRoleFailed": "Failed to assign Role to users",
+    "assignRoleDetailFailed": "Failed to assign role {{roleName} to {{username}}",
+    "addUsers": "Add users",
+    "associatedPolicies": "Associated Policies",
+    "noRoles": "No Roles!",
+    "loadRolesFailed": "Failed to load roles",
+    "assignRoleToUserConfirmMessage": "Would you like to assign the role {{roleName}} to {{username}}?"
+  },
+  "policies": {
+    "managePermission": "Manage Permissions",
+    "managePermissionDescription": "View your Duke permissions. Take administrative actions.",
+    "allOwners": "All owners",
+    "allUsers": "All users",
+    "allGroups": "All groups",
+    "applyTo": "Applies to",
+    "editAPolicy": "Edit a Policy",
+    "createAPolicy": "Create a new Policy",
+    "assignUsersNGroup": "Assign Users & Groups",
+    "configurePrivileges": "Configure Privileges",
+    "newPolicyButton": "New Policy",
+    "managePolicies": "Manage Policies",
+    "managePoliciesDescription": "Manage access for Duke Users & Groups using Policies.",
+    "saveSuccess": "Successfully saved policy.",
+    "failedToLoad": "Failed to load policies",
+    "failedToUpdate": "Failed to update policies",
+    "deleteConfirm": "Are you sure you want to remove policy?",
+    "groupsDescription": "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.",
+    "usersDescription": "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.",
+    "appliesTo": "Applies to",
+    "appliesToDescription": "Select the users & groups that this policy should apply to.",
+    "appliesToText": "Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked as owners of a MetadShowata Asset, either directly or indirectly via a Group, will have the selected privileges.",
+    "choosePolicyType": "Choose Policy Type",
+    "applyToGroup": "Applies to Groups",
+    "applyToUser": "Applies to users",
+    "applyToOwner": "Applies to Owners",
+    "assetType": "Asset type",
+    "asset": "Asset",
+    "yourPolicyName": "Your policy name",
+    "yourPolicyNameDescription": "A name for your new policy.",
+    "yourPolicyDescription": "Your policy description",
+    "policyTypeDescriptionTitle": "The type of policy you would like to create.",
+    "policyTypeDescription_html": "The <b>Platform</b> policy type allows you to assign top-level Duke Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.<br/><br/>The <b>Metadata</b> policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets, Charts, Dashboards, & more.",
+    "typePlatform": "Platform",
+    "typeData": "Metadata",
+    "optionalDescriptionText": "An optional description for your new policy.",
+    "resourceType": "Resource Type",
+    "privileges": "Privileges",
+    "privilegeSetSelectTitle": "Select a set of privileges to permit.",
+    "resourceSelectTitle_html": "Select the specific type of resource this policy should apply to. If <b>none</b> is selected, policy is applied to <b>all</b> types of resources.",
+    "specificResourceSearchTitle_html": "Search for specific resources the policy should apply to, or select <b>All</b> to apply the policy to <b>all</b> resources of the given type.",
+    "resourceSelectPlaceholder": "Apply to ALL resource types by default. Select types to apply to specific types of entities.",
+    "specificResourcesSearchPlaceholder": "Apply to ALL resources by default. Select specific resources to apply to.",
+    "domainSelectSearchTitle_html": "Search for domains the policy should apply to. If <b>none</b> is selected, policy is applied to <b>all</b> resources in all domains.",
+    "domainSelectSearchPlaceholder": "Apply to ALL domains by default. Select domains to apply to specific domains.",
+    "NoIngestionSources": "No Ingestion Sources !",
+    "NoPolicies": "No Policies !",
+    "policyBuilder": {
+      "exitPolicyEditor": "Exit Policy Editor",
+      "exitEditorConfirm": "Are you sure you want to exit policy editor? All changes will be lost"
+    }
+  },
+  "recommendation": {
+    "error": {
+      "failedToFindRenderFor": "Failed to find renderer corresponding to renderType {{module.renderType}}"
+    }
+  },
+  "crud": {
+    "adding": "Adding",
+    "Updating": "Updating",
+    "add": "Add {{addingName}}",
+    "remove": "Remove {{removingName}}",
+    "added": "Added {{addedName}}",
+    "deleted": "Deleted {{deletedName}}",
+    "confirmDelete": "Confirm Delete",
+    "removed": "Removed {{removedName}}",
+    "moved": "Moved {{moved name}}"
+  },
+  "search": {
+    "searchContainerEntityPlaceholder": "Filter container entities...",
+    "searchIngestionSourcePlaceholder": "Search ingestion sources...",
+    "searchGlossaryTermPlaceholder": "Search for Glossary Terms...",
+    "showingResults_html": "Showing <b>{{visibleResults}}</b> of <b>{{totalResults}}</b> results",
+    "searchRolePlaceholder": "Search roles",
+    "searchFor": "Search for",
+    "selectDatePlaceholder": "Select date",
+    "addNotePlaceholder": "Add note",
+    "searchSecrets": "Chercher secrets",
+    "searchSources": "Search sources",
+    "enterANamePlaceholder": "Enter a name",
+    "searchGlossary": "Search Glossary",
+    "searchDomains": "Search domains",
+    "searchPolicies": "Search policies",
+    "searchUsers": "Search users",
+    "searchGroups": "Search groups",
+    "searchingForRelatedEntities": "Searching for related entities...",
+    "searchEntitiesPlaceholder": "Search entities...",
+    "searchCompleteFailed": "Failed to complete search:",
+    "urlPlaceholder": "Enter an URL",
+    "descriptionPlaceholder": "Enter a description",
+    "fieldRequiredFor": "Please provide a {{name}}!`",
+    "userPlaceholder": "Search for users...",
+    "typePlaceholder": "Select a type",
+    "typeRequired": "Please select a type!",
+    "rolePlaceholder": "Select a role",
+    "roleRequired": "Please select a role!",
+    "labelRequired": "A label is required.",
+    "urlRequired": "A URL is required.",
+    "validUrlRequired": "This field must be a valid url.",
+    "userOrGroupTitle": "Find a user or group",
+    "userOrGroupPlaceholder": "Search for users or groups...",
+    "validLdapWarning": "Please provide a valid LDAP!",
+    "ldapPlaceholder": "Search an LDAP",
+    "groupsPlaceholder": "Search for groups...",
+    "usersPlaceholder": "Search for users...",
+    "typeToSearch": "Type to search",
+    "findA": "Find a {{findName}}",
+    "more": "More you may be interested in",
+    "noResultFoundFor": "No results found for {{query}}",
+    "searchFailedFor": "Search failed to load for query {{query}}",
+    "exploreYourMetadata": "Explore your metadata",
+    "exploreForEntity": "View all results for",
+    "seeAllEntityResult_html": "See all <b>{{collectionName}}</b> results",
+    "schemaPlaceholder": "Search in schema...",
+    "searchBarAutocomplete": {
+      "TopTag": "Top Tags",
+      "Domains": "Domains",
+      "HighUsageEntities": "Most Popular",
+      "RecentSearches": "Recent Searches",
+      "RecentlyViewedEntities": "Recently Viewed",
+      "Platforms": "Platforms",
+      "TopTerms": "Top Glossary Terms"
+    },
+    "selection": {
+      "exit": "Exit Selection",
+      "exitContent": "Are you sure you want to exit? {{nbrSelected}} selection(s) will be cleared.",
+      "actionNotSupportedForSelection": "This action is not supported for the selected types."
+    },
+    "searchbarMode": {
+      "search": "Search",
+      "talkToBot": "Chat with Duke"
+    },
+    "filter": {
+      "entity": "Type",
+      "platform": "Platform",
+      "subType": "Sub Type",
+      "domain": "Domain",
+      "tags": "Tag",
+      "glossaryTerm": "Glossary Term",
+      "owners": "Owned By",
+      "origin": "Environment"
+    },
+    "recommendation": {
+      "ENTITY_NAME_LIST": "Top Entity",
+      "PLATFORM_SEARCH_LIST": "Top Platform",
+      "TAG_SEARCH_LIST": "Top Tag",
+      "SEARCH_QUERY_LIST": "Top Query",
+      "GLOSSARY_TERM_SEARCH_LIST": "Top Glossary Term",
+      "DOMAIN_SEARCH_LIST": "Top Domain",
+      "RecentlyViewedEntities": "Recently Viewed",
+      "HighUsageEntities": "Most Popular"
+    }
+  },
+  "error": {
+    "addError": "Failed to add",
+    "removeError": "Failed to remove",
+    "deleteError": "Failed to delete",
+    "moveError": "Failed to move",
+    "pageNotFound": "The page your requested was not found"
+  },
+  "menuLink": {
+    "exploreYourData": "Explore",
+    "Home": "Home",
+    "Analytics": "Analytics",
+    "Policies": "Policies",
+    "Settings": "Settings",
+    "settingsSubtitle": "Manage your Duke settings.",
+    "Domain": "Domains",
+    "Ingestion": "Ingestion"
+  },
+  "user": {
+    "logout": "Logout",
+    "resetUserPassword": "Reset user password",
+    "error": {
+      "noUserConnected": "Could not find logged in user.",
+      "noUserInCache": "Could not fetch logged in user from cache."
+    }
+  },
+  "token": {
+    "tokenBaseAuthDisabled": "Token based authentication is currently disabled. Contact your Duke administrator to enable this feature.",
+    "bearer": "Bearer",
+    "authorization": "Authorization",
+    "tokenTitle": "Access token",
+    "tokenSubtitle": "Manage Access Tokens for use with Duke APIs.",
+    "personalAccessTokenTitle": "Personal Access Tokens",
+    "personalAccessTokenDescription": "Personal Access Tokens allow you to make programmatic requests to Duke's APIs. They inherit your privileges and have a finite lifespan. Do not share Personal Access Tokens. Once generated, they cannot easily be revoked.",
+    "expiresIn": "Expires in",
+    "generateNewPersonalAccessToken_html": "Generate a new <b>Personal Access Token</b>",
+    "tokenExpire_html": "This token will expire in <b>{{expiresInText}}</b>.",
+    "useTokenPart1": "To use the token, provide it as a ",
+    "useTokenPart2": " token in the ",
+    "useTokenPart3": " header when making API requests:",
+    "generatePAT": "Generate Personal Access Token",
+    "error": {
+      "canGeneratePersonalAccessToken": "Looks like you are not authorized to generate Personal Access Tokens. If you think this is incorrect, please contact your Duke administrator.",
+      "personalTokenGenerationFailed": "Failed to generate token. Please contact your Duke administrator."
+    }
+  },
+  "tagTerm": {
+    "noTermsOrTermGroups": "No Terms or Term Groups",
+    "addTags": "Add Tags",
+    "addTerms": "Add Terms",
+    "addTerm": "Add Term",
+    "addTermGroup": "Add Term Group",
+    "colorSavedSuccess": "Color saved",
+    "colorSavedFailed": "Failed to save tag color",
+    "removeTags": "Remove Tags",
+    "removeTerm": "Remove Term",
+    "emptyGlossary": "Empty Glossary",
+    "emptyGlossaryDescription": "Create Terms and Term Groups to organize data assets using a shared vocabulary.",
+    "tagTermModal": {
+      "createTag": {
+        "inputDescriptionPlaceholder": "Add a description for your new tag...",
+        "errorCreateAndAdd": "Failed to create & add tag"
+      },
+      "removeTag": {
+        "title": "Do you want to remove {{tagName}} tag?",
+        "content": "Are you sure you want to remove the {{tagName}} tag? ",
+        "success": "Removed Tag!",
+        "error": "Failed to remove tag"
+      },
+      "removeTerm": {
+        "title": "Do you want to remove {{termName}} term?",
+        "content": "Are you sure you want to remove the {{termName}} term? ",
+        "success": "Removed Term!",
+        "error": "Failed to remove term"
+      }
+    }
+  },
+  "settings": {
+    "access": "Access",
+    "developer": "Developer",
+    "accessTokens": "Access Tokens",
+    "usersNGroup": "users & Group",
+    "preferences": "Preferences",
+    "updateSettingSuccess": "Setting updated!",
+    "appearance": {
+      "title": "Appearance",
+      "titleDescription": "Manage your appearance settings.",
+      "simplifiedHomepage": "Show simplified homepage",
+      "simplifiedHomepageDescription": "Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and Glossary Terms"
+    }
+  },
+  "ownerType": {
+    "TECHNICAL_OWNER": {
+      "name": "Technical Owner",
+      "description": "Involved in the production, maintenance, or distribution of the asset."
+    },
+    "BUSINESS_OWNER": {
+      "name": "Business Owner",
+      "description": "Principle stakeholders or domain experts associated with the asset."
+    },
+    "DATA_STEWARD": {
+      "name": "Data Steward",
+      "description": "Involved in governance of the asset."
+    },
+    "NONE": {
+      "name": "None",
+      "description": "No ownership type specified."
+    }
+  },
+  "LOOKBACK_WINDOWS": {
+    "DAY": "1 day",
+    "WEEK": "1 week",
+    "MONTH": "1 month",
+    "QUARTER": "3 months",
+    "YEAR": "1 year"
+  },
+  "EMPTY_MESSAGES": {
+    "documentation": {
+      "title": "No documentation yet",
+      "description": "Share your knowledge by adding documentation and links to helpful resources."
+    },
+    "tags": {
+      "title": "No tags added yet",
+      "description": "Tag entities to help make them more discoverable and call out their most important attributes."
+    },
+    "terms": {
+      "title": "No terms added yet",
+      "description": "Apply glossary terms to entities to classify their data."
+    },
+    "owners": {
+      "title": "No owners added yet",
+      "description": "Adding owners helps you keep track of who is responsible for this data."
+    },
+    "properties": {
+      "title": "No properties",
+      "description": "Properties will appear here if they exist in your data source."
+    },
+    "queries": {
+      "title": "No queries",
+      "description": "Recent queries made to this dataset will appear here."
+    },
+    "domain": {
+      "title": "No domain set",
+      "description": "Group related entities based on your organizational structure using by adding them to a Domain."
+    }
+  },
+  "entity": {
+    "DOMAIN": {
+      "singular": "Domain",
+      "plural": "Domains"
+    },
+    "DATASET": {
+      "singular": "Dataset",
+      "plural": "Datasets"
+    },
+    "CORP_USER": {
+      "singular": "Corp User",
+      "plural": "Corp Users"
+    },
+    "CORP_GROUP": {
+      "singular": "Corp Group",
+      "plural": "Corp Groups"
+    },
+    "DATA_PLATFORM": {
+      "singular": "Data Platform",
+      "plural": "Data Platforms"
+    },
+    "DASHBOARD": {
+      "singular": "Dashboard",
+      "plural": "Dashboards"
+    },
+    "CHART": {
+      "singular": "Chart",
+      "plural": "Charts"
+    },
+    "DATA_FLOW": {
+      "singular": "Data Flow",
+      "plural": "Data Flows"
+    },
+    "DATA_JOB": {
+      "singular": "Data Job",
+      "plural": "Data Jobs"
+    },
+    "TAG": {
+      "singular": "Tag",
+      "plural": "Tags"
+    },
+    "GLOSSARY_TERM": {
+      "singular": "Glossary Term",
+      "plural": "Glossary Terms"
+    },
+    "GLOSSARY_NODE": {
+      "singular": "Term Group",
+      "plural": "Term Groups"
+    },
+    "CONTAINER": {
+      "singular": "Container",
+      "plural": "Containers"
+    },
+    "MLMODEL": {
+      "singular": "Mlmodel",
+      "plural": "Mlmodels"
+    },
+    "MLMODEL_GROUP": {
+      "singular": "Mlmodel Group",
+      "plural": "Mlmodel Groups"
+    },
+    "MLFEATURE_TABLE": {
+      "singular": "Mlfeature Table",
+      "plural": "Mlfeature Tables"
+    },
+    "MLFEATURE": {
+      "singular": "Mlfeature",
+      "plural": "Mlfeatures"
+    },
+    "MLPRIMARY_KEY": {
+      "singular": "Mlprimary Key",
+      "plural": "Mlprimary Keys"
+    }
+  },
+  "entitySubtype": {
+    "custom sql": {
+      "singular": "Custom SQL",
+      "plural": "Custom SQL"
+    },
+    "workbook": {
+      "singular": "Workbook",
+      "plural": "Workbooks"
+    },
+    "embedded data source": {
+      "singular": "Embedded Data Source",
+      "plural": "Embedded Data Sources"
+    },
+    "published data source": {
+      "singular": "Published Data Source",
+      "plural": "Published Data Sources"
+    },
+    "topic": {
+      "singular": "Topic",
+      "plural": "Topics"
+    },
+    "table": {
+      "singular": "Table",
+      "plural": "Tables"
+    },
+    "view": {
+      "singular": "View",
+      "plural": "Views"
+    },
+    "model": {
+      "singular": "Model",
+      "plural": "Models"
+    },
+    "explore": {
+      "singular": "Explore",
+      "plural": "Explores"
+    },
+    "index": {
+      "singular": "Index",
+      "plural": "Index"
+    },
+    "datastream": {
+      "singular": "DataStream",
+      "plural": "DataStreams"
+    },
+    "entity": {
+      "singular": "Entity",
+      "plural": "Entities"
+    },
+    "schema": {
+      "singular": "Schema",
+      "plural": "Schemas"
+    },
+    "database": {
+      "singular": "Database",
+      "plural": "Databases"
+    }
+  },
+  "form": {
+    "validateMessages": {
+      "default": "Validation error on field '${name}'",
+      "required": "'${name}' is required",
+      "enum": "'${name}' must be one of [${enum}]",
+      "whitespace": "'${name}' cannot be empty",
+      "date": {
+        "format": "'${name}' is invalid for format date",
+        "parse": "'${name}' could not be parsed as date",
+        "invalid": "'${name}' is invalid date"
+      },
+      "types": {
+        "string": "'${name}' is not a valid ${type}",
+        "method": "'${name}' is not a valid ${type}",
+        "array": "'${name}' is not a valid ${type}",
+        "object": "'${name}' is not a valid ${type}",
+        "number": "'${name}' is not a valid ${type}",
+        "date": "'${name}' is not a valid ${type}",
+        "boolean": "'${name}' is not a valid ${type}",
+        "integer": "'${name}' is not a valid ${type}",
+        "float": "'${name}' is not a valid ${type}",
+        "regexp": "'${name}' is not a valid ${type}",
+        "email": "'${name}' is not a valid ${type}",
+        "url": "'${name}' is not a valid ${type}",
+        "hex": "'${name}' is not a valid ${type}"
+      },
+      "string": {
+        "len": "'${name}' must be exactly ${len} characters",
+        "min": "'${name}' must be at least ${min} characters",
+        "max": "'${name}' cannot be longer than ${max} characters",
+        "range": "'${name}' must be between ${min} and ${max} characters"
+      },
+      "number": {
+        "len": "'${name}' must equal ${len}",
+        "min": "'${name}' cannot be less than ${min}",
+        "max": "'${name}' cannot be greater than ${max}",
+        "range": "'${name}' must be between ${min} and ${max}"
+      },
+      "array": {
+        "len": "'${name}' must be exactly ${len} in length",
+        "min": "'${name}' cannot be less than ${min} in length",
+        "max": "'${name}' cannot be greater than ${max} in length",
+        "range": "'${name}' must be between ${min} and ${max} in length"
+      },
+      "pattern": {
+        "mismatch": "'${name}' does not match pattern ${pattern}"
+      }
+    }
+  },
+  "reactCron": {
+    "everyText": "every",
+    "emptyMonths": "every month",
+    "emptyMonthDays": "every day of the month",
+    "emptyMonthDaysShort": "day of the month",
+    "emptyWeekDays": "every day of the week",
+    "emptyWeekDaysShort": "day of the week",
+    "emptyHours": "every hour",
+    "emptyMinutes": "every minute",
+    "emptyMinutesForHourPeriod": "every",
+    "yearOption": "year",
+    "monthOption": "month",
+    "weekOption": "week",
+    "dayOption": "day",
+    "hourOption": "hour",
+    "minuteOption": "minute",
+    "rebootOption": "reboot",
+    "prefixPeriod": "Every",
+    "prefixMonths": "in",
+    "prefixMonthDays": "on",
+    "prefixWeekDays": "on",
+    "prefixWeekDaysForMonthAndYearPeriod": "and",
+    "prefixHours": "at",
+    "prefixMinutes": ":",
+    "prefixMinutesForHourPeriod": "at",
+    "suffixMinutesForHourPeriod": "minute(s)",
+    "errorInvalidCron": "Invalid cron expression",
+    "clearButtonText": "Clear",
+    "weekDays": [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday"
+    ],
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ],
+    "altWeekDays": [
+      "SUN",
+      "MON",
+      "TUE",
+      "WED",
+      "THU",
+      "FRI",
+      "SAT"
+    ],
+    "altMonths": [
+      "JAN",
+      "FEB",
+      "MAR",
+      "APR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AUG",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DEC"
+    ]
+  }
+}

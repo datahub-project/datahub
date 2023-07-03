@@ -1,0 +1,1394 @@
+{
+  "validation": {
+    "invalidCount": "Compte Invalide",
+    "rowCount": "Nombre de Ligne",
+    "evaluations": "Evaluations",
+    "viewLogic": "Voir Logique",
+    "testResults": "Résultats de test",
+    "testResultsSummaryTitle": "Ce statut est basé sur le run le plus récent de chaque test.",
+    "testResultsSummarySubtitle": "{{passingNbr}} tests passés, {{failingNbr}} tests échoués",
+    "assertionResultsSummaryTitle": "Ce statut est basé sur le run le plus récent de chaque assertion.",
+    "assertionResultsSummarySubtitle": "{{successNbr}} assertions vraies, {{failNbr}} assertions fausses",
+    "noAssertionFound": "Aucune assertion trouvée",
+    "lastEvaluatedOn": "Evalué le",
+    "noEvaluations": "Aucune évaluation",
+    "removeAssertionSuccess": "Assertion supprimée.",
+    "removeAssertionFailed": "Echec de a suppression de l'assertion",
+    "deleteModal": {
+      "title": "Confirmez vous la suppression de l'assertion ?",
+      "content": "Etes-vous sîr de vouloir supprimer cette assertion ?"
+    },
+    "assertionSummaryMessage": {
+      "noAssertionsHaveRun": "Aucun assertion n'a été évaluée",
+      "allAssertionsHavePassed": "Toutes les assertions sont vraies",
+      "allAssertionsHaveFailed": "Toutes les assertions sont fausses.",
+      "someAssertionsHaveFailed": "Certaines assertions sont fausses."
+    },
+    "testSummaryMessage": {
+      "noTestsHaveRun": "Aucun test n'a été évalué",
+      "allTestsArePassing": "Tous les tests sont passés",
+      "allTestsAreFailing": "Tous les tests ont échoués",
+      "someTestsAreFailing": "Certains tests ont échoués"
+    }
+  },
+  "activityManager": {
+    "searchLabel": "Vous avez cherché : ",
+    "openEntityLabel": "Vous avec inspecté : "
+  },
+  "glossary": {
+    "loadingGlossary": "Chargement du Glossaire",
+    "loadingGlossaryError": "Echec du chargement du Glossaire !"
+  },
+  "dukeLicence": {
+    "licenceTitle": "Licence",
+    "licenceSubtitle": "Détails de votre licence Duke",
+    "dukeVersionTitle": "Version de Duke",
+    "version": "Version",
+    "nbrOfAdmin": "Nombre d'administrateur",
+    "nbrOfAnalyst": "Nombre d'analyste",
+    "nbrOfLicence": "Nombre de licence",
+    "licenceStartDate": "Début de la licence",
+    "licenceEndDate": "Fin de la licence",
+    "isActiveTrue": "Active",
+    "isActiveFalse": "Inactive",
+    "dukeLicenceDetailTitle": "Détails de la licence",
+    "complementaryInfoTitle": "Informations complémentaires",
+    "complementaryInfoSubtitle": "Version, copyright et autres informations sur votre application Duke.",
+    "updateLicenceStatusFailed": "Echec de la mise à jour du status de la licence : ",
+    "updateLicenceStatusSuccess": "Status de la Licence mis à jour.",
+    "dukeLicenceUserTitle": "Utilisateurs de la licence",
+    "failedToLoadLicence": "Echec du chargement de la licence.",
+    "failedToLoadAdmins": "Echec du chargement des administrateurs.",
+    "failedToLoadUsers": "Echec du chargement des analystes."
+  },
+  "webchat": {
+    "connectionLoading": "Veuillez patienter, connexion en cours.",
+    "conversationRemoveFailed": "Echec de la suppression de la conversation : ",
+    "conversationRemoveSuccess": "Conversation Supprimée !",
+    "tooltip": {
+      "reduceChat": "Réduire chat",
+      "startNewConv": "Démarrer une nouvelle conversation",
+      "openHistoryConv": "Ouvrir une ancienne conversation",
+      "changeConversationName": "Renommer la conversation",
+      "loadConversation": "Reprendre la conversation",
+      "deleteConversation": "Supprimer la conversation",
+      "backToMenu": "Revenir au menu"
+    },
+    "conversationHistoryModal": {
+      "title": "Historique des conversations",
+      "fromHistoricalConversationDate": "Importé depuis une conversation du {{historicalConversationDate}}.",
+      "fromConversationDate": "Conversation créée le {{localeConversationDate}}.",
+      "noConversation": "Aucune conversation sauvegardée."
+    },
+    "uploadFileModal": {
+      "title": "Importer un fichier",
+      "titleResponse": "Identification du graphique",
+      "text": "Cliquez ou déposer un fichier dans cette zone pour l'importer",
+      "hint": "Supporte le JPEG, BMP, GIF, PNG et PDF",
+      "drawButton": "Dessiner le graphique",
+      "cleanDraw": "Effacer",
+      "importDraw": "Importer",
+      "probability": "Probabilité",
+      "chartClass": "Classe du graphique"
+    }
+  },
+  "ingestionPage": {
+    "title": "Ingestion",
+    "description": "Créer,  planifier et lancer vos pipelines d'ingestion.",
+    "notScheduled": "Non programmé",
+    "summary": {
+      "title": "Assets Ingérées",
+      "description": "Les types d'asset suivant ont été ingérés pendant ce run.",
+      "descriptionEmpty": "Aucun assets ingéré dans ce run."
+    },
+    "ingestionStatus": {
+      "ingestionIsRunning": "Ingestion en cours",
+      "ingestionSuccessfullyCompleted": "Ingestion complétée avec succès",
+      "ingestionCompletedWithErrors": "Ingestion complétée avec erreurs",
+      "ingestionWasCancelled": "Ingestion annulée",
+      "ingestionWasRolledBack": "Retour en arrière sur l'ingestion.",
+      "ingestionIsInTheProcessOfRollingBack": "Ingestion en cours de retour arrière",
+      "ingestionRollbackFailed": "Echec du retour arrière de l'ingestion",
+      "ingestionStatusNotRecognized": "Status de l'ingestion inconnu"
+    },
+    "ingestion": {
+      "loadDetailFailed": "Echec du chargement des détails de l'ingestion",
+      "viewLogFromRun": "Voir les logs collectés pendant l'ingestion.",
+      "viewIngestedAssets": "Voir les Assets ingérées",
+      "viewIngestionRecipe": "Voir la Recette d'Ingestion",
+      "ingestionLoadFailed": "Echec de l'execution de l'ingestion !",
+      "execCancelFailed": "Echec de l'annulation",
+      "execCancelSuccess": "Demande d'annulation envoyée !",
+      "lastSynchronized": "Dernière Synchro",
+      "lastSynchronizedText": "La dernière synchro de {{displayedEntityType}}",
+      "lastSynchronizedDescription": "L'heure del a dernière syncrhonisation de l'entité avec",
+      "theSourcePlatform": "la plate-forme source",
+      "synchronizedOn": "Synchronisé le",
+      "ingestionUpdateSuccess": "Source d'ingestion mise à jour !",
+      "ingestionUpdateFailed": "Echec de la mise à jour de la sourec d'ingestion !:",
+      "ingestionCreateSuccess": "Source d'ingestion créée !",
+      "ingestionCreateFailed": "Echec de la création de source d'ingestion !: ",
+      "ingestionExecSuccess": "Ingestion exécutée !",
+      "ingestionExecFailed": "Echec de l'exécution de l'ingestion !:",
+      "ingestionRemoveSuccess": "Source d'ingestion supprimée.",
+      "ingestionRemoveFailed": "Echec de la suppression de source d'ingestion :",
+      "ingestionSourceLoadFailed": "Echec du chargement des sources d'ingestion: ",
+      "editIngestionSource": "Modifier source d'ingestion",
+      "newIngestionSource": "Nouvelle source d'ingestion",
+      "createSource": "Créer une nouvelle source",
+      "noSource": "Aucune source d'ingestion !",
+      "cancelExecFailed": "Echec de l'annulation de l'exécution.",
+      "cancelExecSuccess": "Annulation effectué !",
+      "manualExec": "Exécution manuelle",
+      "scheduledExec": "Exécution planifiée",
+      "cliExec": "Exécution CLI",
+      "execLoadFailed": "Echec du chargement des exécutions :(",
+      "execLoadDetailFailed": "Echec du chargement des détails de l'exécution :(",
+      "noExec": "Aucune exécution",
+      "ingestionTable": {
+        "type": "Type",
+        "name": "Nom",
+        "schedule": "Planning",
+        "execCount": "Nombre d'exécution",
+        "lastExecTime": "Dernière exécution",
+        "lastExecStatus": "Dernier status",
+        "sourceFromCLI": "Cette source a été ingéré depuis l'interface en ligne de commande (CLI)",
+        "copySourceURN": "Copier l'URN de la source d'ingestion"
+      },
+      "ingestionSourceExecTable": {
+        "requestedAt": "Demandé à",
+        "executedAt": "Commencé à",
+        "duration": "Durée (s)",
+        "status": "Status",
+        "source": "Source",
+        "copyUrn": "Copier l'URN de la rêquete d'éxecution"
+      },
+      "ingestionStep": {
+        "SELECT_TEMPLATE": "Choisir Type",
+        "DEFINE_RECIPE": "Configurer Recette",
+        "CREATE_SCHEDULE": "Planifier Exécution",
+        "NAME_SOURCE": "Nommer"
+      },
+      "confirmExecModal": {
+        "title": "Confirmation de suppression de source d'ingestion",
+        "content": "Êtes vous sûr(e) de vouloir supprimer cette source d'ingestion ? La suppression annulera toute ingestion planifiée en cours."
+      },
+      "cancelExecModal": {
+        "title": "Confirmation de l'annulation",
+        "content": "Annuler une exécution en cours ne supprimera pas les données déjà ingéré. Vous pouvez utiliser le CLI de Duke pour annuler cette exécution d'ingestion."
+      },
+      "execDetailModal": {
+        "title": "Détail de l'exécution",
+        "noOutput": "Aucun output",
+        "capturedOutput": "Output Capturé"
+      },
+      "createIngestionModal": {
+        "lookerDoesntWorkYet": "L'ingestion de LookML ingestion ne peut pas être faite par l'interface actuellement. C'est un problème connu de l'équipe Duke qui travaille à une solution !",
+        "nameDescription": "Donnez un nom à cette source d'ingestion.",
+        "namePlaceholder": "Ma Source #2",
+        "executorIdTitle": "Id d'executant",
+        "executorIdDescription": "Donnez un ID d'executant pour y router des requêtes d'execution. Par defaut l'id sera 'default', ne modifier pas ce champs à moins que vous n'ayez configuré des executants personnalisés.",
+        "cliVersionTitle": "Version CLI",
+        "cliVersionDescription": "Avancé : Fournissez une version de CLI à utiliser pour l'ingestion.",
+        "invalidYAML": "YAML invalide détecté. Merci de vérifier la configuration de votre recette.",
+        "configureRecipeTitle": "Configurer la recette {{sourceDisplayName}}",
+        "configureRecipeDescription": "Pour plus d'information sur la façon de configurer la recette, voir la docs de ",
+        "createTitle": "Créer un planning d'exécution",
+        "createDescription": "Configurer une fréquence à laquelle l'ingestion s'exécutera.",
+        "scheduleTitle": "Planning",
+        "scheduleDescription": "Saississez un planning CRON",
+        "invalidCRONwarning": "CRON invalide, il doit être au format UNIX :",
+        "CRONformat": "minute, heure, jour, mois, jour de la semaine",
+        "timezoneTitle": "Fuseau horaire",
+        "timezoneDescription": "Selectionnez le fuseau horaire du planning CRON."
+      },
+      "executeIngestionModal": {
+        "title": "Confirmer le lancement de l'ingestion ",
+        "content": "Appuyer sur 'Executer' pour lancer l'ingestion de cette source."
+      },
+      "rollbackModal": {
+        "title": "Confirmer le Rollback",
+        "content_html": "Faire revenir en arrière cette ingestion va supprimer toute nouvelle données ingérée pendant le run. Cela peut écarter les données qui ont été extraites précédemment mais qui n'ont pas changé pendant ce run. <br/> <br/> Etes vous sûr(e) de vouloir continuer ?",
+        "loading": "Demande de rollback en cours...",
+        "success": "Demande de rollback envoyée",
+        "error": "Echec de la demande de rollback"
+      }
+    },
+    "secret": {
+      "removeSecretSuccess": "Secret supprimé.",
+      "removeSecretFailed": "Echec de la suppression de secret:",
+      "createSecretSuccess": "Secret créé !",
+      "createSecretFailed": "Echec de la création de secret !:",
+      "loadSecretFailed": "Echec du chargement des secrets !",
+      "createSecret": "Créer un nouveau secret",
+      "noSecretFound": "Aucun secret !",
+      "deleteSecretModal": {
+        "title": "Confirmation de suppression de Secret",
+        "content": "Êtes-vous sûr(e) de vouloir supprimer ce Secret ? Les sources d'ingestion qui l'utilisent pourraient ne plus fonctionner correctement."
+      },
+      "secretTable": {
+        "name": "Nom",
+        "description": "Description",
+        "noDescription": "Aucune description"
+      },
+      "secretBuilderModal": {
+        "title": "Créer un nouveau Secret",
+        "nameTitle": "Nom",
+        "nameDescription": "Donnez un nom à votre Secret. Vous l'utiliserez pour l'utiliser comme référence dans vos recettes.",
+        "namePlaceholder": "Nom de Secret",
+        "valueTitle": "Valeur",
+        "valueDescription": "La valeur de votre Secret qui sera encryptée et stockée en toute sécurité dans Duke.",
+        "valuePlaceholder": "Valeur de Secret",
+        "descriptionTitle": "Description",
+        "descriptionDescription": "Une description facultative pour garder un suivi de votre Secret.",
+        "descriptionPlaceholder": "Description de Secret"
+      }
+    }
+  },
+  "domainPage": {
+    "domainPageDescription": "Voir vos domaines Duke. Faites des actions administratives.",
+    "createDomainFailed": "Echec de la creation du domaine!:",
+    "createDomainSuccess": "Domaine créé!",
+    "loadingDomainFailed": "Echec du chargement des domaines: ",
+    "newDomain": "Nouveau Domaine",
+    "noDomain": "Aucun Domaine!",
+    "nbrOfEntityInDomain": "Il y a {{nbr}} entités dans ce domaine.",
+    "createDomainModal": {
+      "title": "Créer un nouveau domaine",
+      "nameTitle": "Nom",
+      "nameDescription": "Donnez un nom à votre nouveau domaine",
+      "namePlaceholder": "Nom de domaine",
+      "descriptionTitle": "Description",
+      "descriptionDescription": "Une description facultative pour votre nouveau domaine. Peut être modifiée plus tard.",
+      "descriptionPlaceholder": "Description du domaine",
+      "domainIdTitle": "Id de domain",
+      "domainIdDescription": "Par défaut, un UUID aléatoire sera généré pour identifier ce domaine. Si vous voulez fournir un id personnalisé à la place pour suivre plus facilement ce domaine, Vous pouvez le saisir ici. Soyez prudent, vous ne pourrez pas le changer facilement après la création.",
+      "domainIdPlaceholder": "id-12345",
+      "domainNameRequiredMessage": "Entrer un nom de Domaine."
+    }
+  },
+  "unauthorized": {
+    "title": "Vous n'avez pas les droits",
+    "content": "Désolé, n'avez pas les droits pour accéder à cette page."
+  },
+  "common": {
+    "action": "Action",
+    "reset": "Réinitialiser",
+    "import": "Importer",
+    "edited": "édité",
+    "actual": "Actuel",
+    "show": "Montrer",
+    "assertions": "Assertions",
+    "tests": "Tests",
+    "or": "Ou",
+    "viewAll": "Voir tout",
+    "total": "Total",
+    "degreeofDependencies": "Degrée de dépendances",
+    "run": "Run",
+    "connection": "Connexion",
+    "form": "Formulaire",
+    "saveNRun": "Sauvergarder et lancer",
+    "logs": "Logs",
+    "hide": "Cacher",
+    "showMore": "Montrer plus",
+    "rollback": "Rollback",
+    "Matches": "Correspond à",
+    "by": "Par",
+    "contents": "Contenu",
+    "glossaryTerm": "Terme du Glossaire",
+    "deprecation": "Obsolescence",
+    "selected": "Sélectionné(s)",
+    "consumes": "Consume",
+    "queriesLastMonth": "Requêtes le mois dernier",
+    "changed": "Changé",
+    "changedOn": "Changé le",
+    "createdOn": "Créé le",
+    "backToHome": "Retour à l'accueil",
+    "outside": "Hors",
+    "fields": "Champs",
+    "default": "Défaut",
+    "ok": "Ok",
+    "reads": "Lectures",
+    "writes": "Ecritures",
+    "time": "Heure",
+    "running": "En cours",
+    "succeeded": "Terminé",
+    "passed": "Passé",
+    "failed": "Echoué",
+    "cancelled": "Annulé",
+    "upForRetry": "Réessayer",
+    "rolledBack": "Annulé",
+    "rollingBack": "En cours d'annulation",
+    "rollbackFailed": "Annulation échoué",
+    "note": "Note",
+    "parent": "Parent",
+    "optional": "Optionnel",
+    "created": "Créé",
+    "move": "Déplacer",
+    "moveTo": "Déplacer vers",
+    "glossary": "Glossaire",
+    "govern": "Gouvernance",
+    "chartType": "Type de graphique",
+    "container": "Conteneur",
+    "ownedBy": "Propriétaire",
+    "environment": "Environnement",
+    "subType": "Sous type",
+    "tag": "Tag",
+    "controls": "Contrôles",
+    "reportedAt": "Reporté à",
+    "here": "Ici",
+    "normal": "Normal",
+    "blame": "Blâme",
+    "deprecated": "Obsolète",
+    "copyUrl": "Copier URL",
+    "urlCopied": "URL copiée",
+    "view": "Voir",
+    "domain": "Domaine",
+    "failedToSaveChanges": "Echec de la modification !",
+    "changesSaved": "Modifications sauvées.",
+    "downloadAs": "Télécharger comme...",
+    "downloading": "Téléchargement",
+    "download": "Télécharger",
+    "metadata": "Metadata",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "activate": "Activer",
+    "deactivate": "Désactiver",
+    "actors": "Acteurs",
+    "assets": "Assets",
+    "runs": "Runs",
+    "validation": "Validation",
+    "operations": "Opérations",
+    "none": "Aucun",
+    "of": "De",
+    "skip": "Passer",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "done": "Finir",
+    "refresh": "Actualiser",
+    "execute": "Executer",
+    "entities": "Entités",
+    "advanced": "Avancé",
+    "inherits": "Hérite de ",
+    "inputs": "Inputs",
+    "outputs": "Outputs",
+    "charts": "Graphiques",
+    "tasks": "Tâches",
+    "task": "Tâche",
+    "pipeline": "Pipeline",
+    "queries": "Requêtes",
+    "lineage": "Lineage",
+    "sources": "Sources",
+    "feature": "Feature",
+    "owner": "Propriétaire",
+    "owners": "Propriétaires",
+    "summary": "Résumé",
+    "back": "Retour",
+    "noData": "Aucune donnée",
+    "usage": "Usage",
+    "add": "Ajouter",
+    "delete": "Supprimer",
+    "language": "Langage",
+    "readLess": "Lire moins",
+    "readMore": "Lire plus",
+    "update": "Mettre à jour",
+    "updated": "Mis à jour",
+    "removed": "Retiré",
+    "save": "Sauvegarder",
+    "remove": "Retirer",
+    "createdAt": "Date d'ajout",
+    "author": "Auteur",
+    "fullName": "Nom complet",
+    "role": "Rôle",
+    "roles": "Rôles",
+    "policies": "Stratégies",
+    "value": "Valeur",
+    "properties": "Propriétés",
+    "updatedSuccess": "Mise à jour effectuée !",
+    "updateFailed": "Echec de la mise à jour !",
+    "updating": "En cours de mise à jour",
+    "deleting": "En cours de suppression",
+    "removing": "En cours de retrait",
+    "about": "A propos",
+    "details": "Détails",
+    "createdBy": "Créé par",
+    "appliedTo": "Appliqué à",
+    "create": "Créer",
+    "yes": "Oui",
+    "close": "Fermer",
+    "loading": "Chargement",
+    "false": "Faux",
+    "true": "Vrai",
+    "all": "Tous",
+    "cancel": "Annuler",
+    "edit": "Editer",
+    "filters": "Filtres",
+    "less": "Moins",
+    "more": "Plus",
+    "type": "Type",
+    "description": "Description",
+    "resource": "Ressource",
+    "allWithName": "Tous les {{allName}}",
+    "state": "Etat",
+    "users": "Utilisateurs",
+    "group": "Groupe",
+    "groups": "Groupes",
+    "members": "Membres",
+    "deleteWithName": "Supprimer {{deleteName}}",
+    "detailsOf": "Details de {{detailName}}",
+    "upstream": "Upstream",
+    "downstream": "Downstream",
+    "contains": "Contient",
+    "partOf": "Partie de",
+    "saving": "Sauvegarde en cours",
+    "latest": "Dernier",
+    "unknown": "Inconnu",
+    "min": "Min",
+    "max": "Max",
+    "mean": "Moyenne",
+    "median": "Mediane",
+    "nullCount": "Nombre de Null",
+    "nullPercent": "% de Null",
+    "distinctCount": "Nombre de Distinct",
+    "distinctPercent": "% de Distinct",
+    "stdDev": "Std. Dev",
+    "sampleValues": "Exemple de valeur",
+    "name": "Nom",
+    "date": "Date",
+    "stats": "Stats",
+    "submit": "Soumettre",
+    "models": "Modèles",
+    "platform": "Plateforme",
+    "viewSource": "Voir source",
+    "schema": "Schema",
+    "document": "Document",
+    "documentation": "Documentation",
+    "tabular": "Tabulaire",
+    "raw": "Brut",
+    "key": "Clef",
+    "version": "Version",
+    "topSearchResults": "Top recherche",
+    "duration": {
+      "oneHour": "1 heure",
+      "oneDay": "1 jour",
+      "oneMonth": "1 mois",
+      "threeMonth": "3 mois",
+      "sixMonth": "6 mois"
+    }
+  },
+  "chart": {
+    "onAContainedChart": "Dans un graphique contenu",
+    "barSampleChart": "Bar Sample"
+  },
+  "analytics": {
+    "perDayFor": "{{item}} par jour",
+    "segmentNumber": "Segment {{number}}",
+    "overTimeFor": "{{item}} dans le temps",
+    "loadingHighlights": "Highlights en cours de chargement...",
+    "highlightsLoadFailed": "Echec chargement des Highlights",
+    "loadingDomains": "Domaines en cours de chargement...",
+    "domainLoadFailed": "Echec chargement des Domaines",
+    "loadingCharts": "Graphique en cours de chargement...",
+    "chartLoadFailed": "Echec chargement des graphique"
+  },
+  "login": {
+    "loggingIn": "Se connecter",
+    "loginWelcomePhrase": "Connectez vous aux données qui comptent !",
+    "loginFailed": "Echec de l'authentification !",
+    "usernameRequired": "Nom d'utilisateur requis !",
+    "usernamePlaceholder": "Nom d'utilisateur",
+    "passwordPlaceholder": "Mot de passe",
+    "loginButton": "Se connecter"
+  },
+  "errorPage": {
+    "somethingWentWrong": "Il y a eu un problème.",
+    "unexpectedError": "Une erreur imprévue est arrivée. Merci d'essayer plus tard, ou de contacter votre administrateur de Duke."
+  },
+  "entityPage": {
+    "closeColumnHistory": "Fermer la colonne Historique",
+    "viewColumnHistory": "Voir la colonne Historique",
+    "addAssetsToDomain": "Ajouter Assets au Domaine",
+    "addGlossaryTermToAssets": "Ajouter Terme aux Assets",
+    "addToAssets": "Ajouter aux Assets",
+    "recentProfiles": "Historique Récent",
+    "removeFromDomainConfirmTitle": "Si vous continuez, les assets selectionnés seront retirés du Domaine.",
+    "removeFromDomainConfirmContent": "Etes-vous sûr(e) de vouloir retirer ces assets du Doamine ?",
+    "unsetDomain": "Retirer ddu Domaine",
+    "removeFromDomainFailed": "Echec du retrait du Domaine",
+    "confirmDeleteDescription": "Etes-vous sûr(e) de vouloir marquer ces assets comme supprimés ? Il seront cachés dans vos futures recherches sur Duke. If the assets are re-ingested from an external data platform, they will be restored.",
+    "markAsDeleted": "Marqué comme supprimé",
+    "deleteAssetsSuccess": "Assets supprimés !",
+    "deleteAssetsFailed": "Echec de la suppression d'assets",
+    "dataChangeTime": "L'heure à laquelle la donnée a été modifiée pour la dernière fois par la plate-forme source",
+    "chartChangeTime": "L'heure à laquelle le graphique a été modifié pour la dernière fois par la plate-forme source",
+    "dashboardChangeTime": "L'heure à laquelle le tableau de bord a été modifié pour la dernière fois par la plate-forme source",
+    "uniqueUsers": "Utiisateurs unique",
+    "cannotEditOutsideGroup": "Les membres de ce groupe ne peuvent pas être modifiés dans Duke car il est synchronisé avec {{externalGroupType}}.",
+    "cantDeleteWithChildEntity": "Ne peux supprimer de {{entityName}} avec des entités enfants.",
+    "viewTaskRunDetails": "Voir détail du run",
+    "runId": "Run ID",
+    "fetchingRuns": "Récupération des runs",
+    "createFailed": "Echec de la création",
+    "updateDeprecationSuccess": "Obsolescence mise à jour",
+    "updateDeprecationFailed": "Echec de la mise à jour de l'obsolescence",
+    "viewPriorBlame": "Voir blame avant cette version",
+    "versionBlameInfo": "Les versions semantiques pour cette vue ont été calculé selon un schéma technique.",
+    "deprecationSuccess": "Rendu obsolète",
+    "deprecationFailed": "Echec de l'obsolescence",
+    "noAdditionalDetails": "Pas de détails supplémentaires",
+    "copyUrnTitle": "Copier URN. Une URN identifie une entité Duke.",
+    "markAsDeprecated": "Marquer comme obsolète",
+    "markAsUndeprecated": "Marquer comme non-obsolète",
+    "markAsDeprecatedConfirm": "Confirmez marquage comme non-obsolète",
+    "markAsDeprecatedConfirmContent": "Etes-vous sûr(e) de vouoir marquer ces assets comme non-obsolètes ?",
+    "undeprecationSuccess": "Assets marqué comme non-obsolète !",
+    "undeprecationFailed": "Echec du marquage en non-obsolète",
+    "viewIn": "Voir dans",
+    "entityNotDiscoverable": "Cette entité ne peux pas être recherchée. Contacter votre administrateur Duke pour plus d'informations.",
+    "filterDomainEntityPlaceholder": "Filtrer par domaine...",
+    "updateDomainSuccess": "Domaine mis à jour!",
+    "updateDomainFailed": "Echec de l'ajout au domaine:",
+    "setDomain": "Ajouter à un domaine",
+    "removeDomainSuccess": "Retiré du Domaine.",
+    "removeDomainFailed": "Echec du retrait du domaine:",
+    "viewDefinition": "Voir la définition",
+    "relatedEntity": "Entités reliées",
+    "relatedGlossaryTerms": "Termes reliés",
+    "columnsAdded": "{{number}} colonnes ont été ajoutées",
+    "columnAdded": "{{number}} colonne a été ajouté",
+    "columnsRemoved": "{{number}} colonnes ont été supprimées",
+    "columnRemoved": "{{number}} colonne a été supprimée",
+    "columnsUpdated": "{{number}} colonnes ont été mises à jour",
+    "columnUpdated": "{{number}} colonne a été mise à jour",
+    "addALink": "Ajouter un lien",
+    "datasetDocumentationDescription": "Gardez une trace de la documentation sur ce jeu de donnée.",
+    "noSchema": "Aucun Schema",
+    "addMembers": "Ajouter Membres",
+    "trainingMetrics": "Mesures d'entrainement",
+    "hyperParameters": "Hyper Parametres",
+    "viewGraph": "Voir Graph",
+    "markdownSupported": "markdown supporté",
+    "addAnOwner": "Ajouter un propriétaire",
+    "pleaseMaintainAtLeastNumberOwner_html": "Au moins <strong>{{number}}</strong> propriétaire(s) nécessaire(s).",
+    "addDescription": "Ajouter description",
+    "updateDescription": "Mise à jour description",
+    "labelForLinkPlaceholder": "Un label court pour ce lien",
+    "linkAdded": "Lien ajouté",
+    "linkAddFailed": "Echec de l'ajout de lien:",
+    "addLinkErrorNoUser": "Echec de l'ajout du lien : aucun utilisateur",
+    "groupMemberRemoveFailed": "Echec lors du retrait du membre du groupe ! :",
+    "groupRemoveSuccess": "Membre retiré du groupe !",
+    "ownerRemoved": "Propiétaire retiré",
+    "ownersRemoved": "Propiétaires retirés",
+    "ownerRemoveFailed": "Echec du retrait de propriétaire",
+    "ownersRemoveFailed": "Echec du retrait de propriétaires",
+    "moreStat": "Plus de stats &gt;",
+    "entityFailedToLoadForUrn": "Echec du chargement de l'entité depuis l'urn {{urn}}",
+    "noSampleQueries": "Pas de requêtes d'exemple",
+    "foreignKeyTo": "Clef étrangère pour ",
+    "field": "Champ",
+    "tags": "Tags",
+    "terms": "Termes",
+    "usage": "Usage",
+    "description": "Description",
+    "showingProfileFromAt": "Profile de {{from}} à {{at}}",
+    "rowCount": "Compte par ligne",
+    "columnCount": "Compte par colonne",
+    "rowCountOverTime": "Compte par ligne dans le temps",
+    "columnCountOverTime": "Compte par colonne dans le temps",
+    "nullCountOverTime": "Compte Null dans le temps",
+    "nullPercentageOverTime": "Pourcentage Null dans le temps",
+    "distinctCountOverTime": "Compte distinct dans le temps",
+    "distinctPercentageOverTime": "Compte pourcentage distinct dans le temps",
+    "statsDorColumn": "Stats pour la colonne ",
+    "profilingForPast": "Historique sur le passé ",
+    "columnStats": "Stats de colonne",
+    "latestStats": "Dernières Stats",
+    "viewingProfilingHistoryForThePast": "Voir l'historique sur le passé",
+    "historicalTableStats": "Table de stats historique",
+    "historicalColumnStats": "Colonne de stats historique",
+    "unrecognizedLookbackWindowSize": "Taille de fenetre Lookback non reconnu : {{text}}`",
+    "rows": "Lignes",
+    "viewingStatsForColumn": "Voir les stats de colonne",
+    "columns": "Colonne",
+    "rowCountUnknown": "Nombre de ligne inconnu",
+    "columnCountUnknown": "Nombre de colonne inconnu",
+    "monthlyQueries": "Requêtes mensuelles",
+    "topUsers": "Top Utilisateurs",
+    "tableStats": "Table Stats",
+    "profilingRuns": "Historique Runs",
+    "historical": "Historique",
+    "datasetLogic": "Logique",
+    "datasetLanguage": "Langage",
+    "datasetMaterialized": "Materialisé",
+    "descriptionUpdated": "Description mise à jour",
+    "descriptionUpdateFailed": "Echec de a MàJ description:",
+    "linkRemoved": "Lien supprimé",
+    "linkRemoveError": "Echec de la suppression du lien:",
+    "addDocumentation": "Ajout doc.",
+    "noDocumentationAddedYet": "Aucune documentation pour le moment.",
+    "foundNbrIn": "Trouvé dans {{number}}",
+    "foundNbrInput": "Trouvé {{number}} entrée(s)",
+    "noEntities": "Aucune entité",
+    "failedToLoad": "Echec du chargement de l'entité",
+    "groupMembership": "Appartenance au groupe",
+    "ownerAdded": "Propriétaire ajouté.",
+    "ownersAdded": "Propriétaires ajoutés.",
+    "ownerAddFailed": "Echec de l'ajout de propriétaire",
+    "ownersAddFailed": "Echec de l'ajout de propriétaires",
+    "groupMembersAddFailed": "Echec de l'ajout du membre(s) au groupe !:",
+    "groupMembersAddSuccess": "Membre(s) ajouté(s) au groupe !",
+    "addOwners": "Ajouter propriétaires",
+    "entityFarFromEntityName": "Cette entité est à {{number}} connection(s) de {{entityDataName}}",
+    "entityFarFromSource": "Cette entité est à {{number}} connection(s) de l'entité source",
+    "decommissionDate": "Date d'obsolecence",
+    "observation": {
+      "lastObservedOn": "Dernière observation le {{dateStr}}.",
+      "firstReportedOn": "Premier report le {{dateStr}}.",
+      "lastObserved": "Dernière observation {{timeStr}}.",
+      "reported": "Reporté {{timeStr}}."
+    },
+    "testResult": {
+      "noEvaluations": "Pas d'évaluations",
+      "noDescription": "Pas de description",
+      "noTestsFound": "Aucun tests trouvés"
+    },
+    "removeEntityModal": {
+      "content": "Etes vous sûr(e) de vouloir supprimer ce {{entityName}} ?"
+    },
+    "addDeprecationDetailModal": {
+      "title": "Ajout détails de l'obsolescence"
+    },
+    "setDomainModal": {
+      "title": "Ajouter à un Domaine",
+      "selectDomainPlaceholder": "Chercher un Domaine..."
+    },
+    "removeDomainModal": {
+      "title": "Confirmez le retrait du domaine",
+      "content": "Etes vous sûr de vouloir le retirer du domaine ?"
+    },
+    "removeGroupMemberModal": {
+      "title": "Confirmation de retrait du groupe",
+      "content": "Etes vous sûr(e) de vouloir retirer cet utilisateur du groupe ?"
+    },
+    "addLinkModal": {
+      "title": "Ajouter un lien"
+    },
+    "addOwnerModal": {
+      "title": "Ajouter des propriétaires",
+      "chooseAnOwnerType": "Choisissez un type de propriétaire"
+    },
+    "removeOwnerModal": {
+      "title": "Voulez-vous retirer {{name}} ?",
+      "content": "Etes-vous sûr(e) de vouloir retirer {{name}} des propriétaires ?"
+    },
+    "addGroupMembersModal": {
+      "title": "Ajouter des membres au groupe",
+      "content": ""
+    },
+    "userProfile": {
+      "askMeAbout": "Demandez moi",
+      "teams": "Equipes"
+    }
+  },
+  "homePage": {
+    "searchbarMessage": "Cherchez des jeux de données, des gens, & plus...",
+    "myAccount": "Mon compte",
+    "welcomeBack": "Bienvenu(e)",
+    "licenceEndSoon": "Attention, votre licence expire le {{licenceEndDateStr}}.",
+    "exploreYourMetadata": "Explorez vos Metadata",
+    "trySearchingFor": "Cherchez !",
+    "noMetadataFound": "Aucune Metadata",
+    "connectYourDataSource": "Connectez vos sources de données",
+    "changeLanguageModal": {
+      "title": "Changer de langue"
+    }
+  },
+  "identity": {
+    "yourProfile": "Votre Profil",
+    "makeOwner": "Rendre propriétaire",
+    "removeFromGroup": "Retirer du groupe",
+    "noMemberYet": "Pas encore de membre.",
+    "noGroupOwnerYet": "Pas de propriétaire.",
+    "slackChannel": "Canal Slack",
+    "filterEntityPlaceholder": "Filtrer entités...",
+    "updateUserFailed": "Echec de la mise à jour !:",
+    "updateUserSuccess": "Mise à jour effectuée",
+    "editProfile": "Editer le profil",
+    "editGroup": "Editer le groupe",
+    "createUser": "Créer utilisateur",
+    "createUserFailed": "Echec de la création d'utilisateur !:",
+    "updateUserPasswordModal": {
+      "updateFailed": "Echec de la mise à jour du mot de passe pour {{username}}",
+      "updateSuccess": "Mot de passe mis à jour",
+      "title": "Modifier le mot de passe",
+      "usernameLabel": "Nom d'utilisateur",
+      "usernameDescription": "Vous allez changer le mot de passe de ",
+      "actualPasswordLabel": "Mot de passe actuel",
+      "actualPasswordDescription": "Saisissez votre mot de passe actuel",
+      "actualPasswordPlaceholder": "Mot de passe actuel",
+      "newPasswordLabel": "Nouveau mot de passe",
+      "newPasswordDescription": "Saisissez le nouveau mot de passe",
+      "newPasswordPlaceholder": "Nouveau mot de passe",
+      "newPasswordBisDescription": "Confirmez le nouveau mot de passe",
+      "newPasswordBisPlaceholder": "Nouveau mot de passe, encore",
+      "passwordDontMatch": "Les deux mots de passe sont différents",
+      "button": "Changer le mot de passe"
+    },
+    "createUserModal": {
+      "title": "Créer un nouvel utilisateur",
+      "displayNameLabel": "Identifiant",
+      "displayNameDescription": "Donnez un identifiant à l'utilisateur",
+      "displayNamePlaceholder": "Ex: Bcome",
+      "fullNameLabel": "Nom complet",
+      "fullNameDescription": "Donnez le nom complet de l'utilisateur",
+      "fullNamePlaceholder": "Ex: Bruno Côme",
+      "emailLabel": "Mail",
+      "emailDescription": "Donnez le mail de l'utilisateur",
+      "emailPlaceholder": "Ex: bruno@exemple.com",
+      "titleLabel": "Titre",
+      "titleDescription": "Donnez un titre facultatif à l'utilisateur",
+      "titlePlaceholder": "Ex: Analyste Sénior"
+    },
+    "createGroupFailed": "Echec de la création de groupe !:",
+    "createGroupModal": {
+      "title": "Créer un nouveau groupe",
+      "nameGroupDescription": "Donnez un nom à votre groupe.",
+      "nameGroupPlaceholder": "Nom de groupe",
+      "descriptionDescription": "Une description facultative de votre nouveau groupe.",
+      "descriptionPlaceholder": "Description du groupe",
+      "groupIdTitle": "ID du groupe",
+      "groupIdDescription": "Par defaut un ID aléatoire sera généré pour identifier ce groupe de facon unique. Si vous souhaitez personnaliser l'ID du groupe, vous pouvez le faire ici. Attention toutefois, il sera très compliqué de modifier cet ID par la suite.",
+      "groupIdPlaceholder": "product_engineering",
+      "groupNameRequiredMessage": "Entrer un nom de Groupe."
+    },
+    "createGroup": "Créer groupe",
+    "createGroupSuccess": "Groupe créé !",
+    "createUserSuccess": "Utilisateur créé !",
+    "noGroups": "Aucun groupe !",
+    "failedToLoadGroup": "Echec du chargement du groupe :(",
+    "failedToLoadGroups": "Echec du chargement des groupes :(",
+    "failedToLoadUsers": "Echec du chargement des utilisateurs :(",
+    "noUsers": "Aucun utilisateur !",
+    "userHasLoggedIn": "L'utilisateur s'est connecté",
+    "manageUsersNGroups": "Gérer Utilisateurs et Groupes",
+    "manageUsersNGroupsDescription": "Voir vos utilisateurs et groupes. Faites vos actions administratives.",
+    "removeUserSuccess": "Utilisateur supprimé.",
+    "removeUserFailed": "Echec de a suppression de l'utilisateur: ",
+    "removeUserModal": {
+      "title": "Confirmez la suppression de l'utilisateur",
+      "content": "Etes vous sûr(e) de vouloir supprimer cet utilisateur ? (Si vous avez un SSO qui fourni automatiquement les utilisateurs, alors il sera recréer à sa prochaine connection.)"
+    },
+    "removeGroupSuccess": "Groupe supprimé.",
+    "removeGroupFailed": "Echec de la suppression du groupe: ",
+    "removeGroupModal": {
+      "title": "Confirmez la suppression du groupe",
+      "content": "Etes-vous sûr(e) de vouloir supprimer ce groupe ?"
+    },
+    "tab": {
+      "Users": "Utilisateurs",
+      "Groups": "Groupes"
+    },
+    "editProfileModal": {
+      "title": "Editer Profil",
+      "editFailed": "Echec de la mise à jour !:",
+      "editSuccess": "Modifications sauvegardées",
+      "nameRequiredError": "Entrer un nom d'affichage",
+      "namePlaceholder": "John Smith",
+      "titleTitle": "Titre / Rôle",
+      "titlePlaceholder": "Analyste de données",
+      "imageTitle": "Image (URL)",
+      "imageWarningInvalidURL": "URL invalide",
+      "teamTitle": "Equipe",
+      "teamPlaceholder": "Analyste Produit",
+      "emailTitle": "Email",
+      "emailRequired": "Saisissez votre email",
+      "emailNotValid": "Saisissez un email valide",
+      "emailPlaceholder": "john.smith@exemple.com",
+      "slackTitle": "Slack",
+      "slackPlaceholder": "john_smith",
+      "phoneTitle": "Téléphone",
+      "phoneInvalid": "Numéro de téléphone invalide",
+      "phonePlaceholder": "444-999-9999"
+    }
+  },
+  "lineage": {
+    "showFullTitlesLabel": "Titres entier",
+    "hiddenDependencyLabel": "{{nbr}} dépendance {{direction}} cachée",
+    "hiddenDependenciesLabel": "{{nbr}} dépendances {{direction}} cachées",
+    "failedToLoadEntity": "Echec du chargement de l'entité",
+    "visualizeLineage": "Voir lineage",
+    "directDependencies": "Dépendances directes",
+    "impactAnalysis": "Analyse d'impact",
+    "compressLineage": "Compresser le Lineage",
+    "compressLineageDescription": "Compresser les entités reliés en un seul noeud de lineage"
+  },
+  "roles": {
+    "appliesToRoles": "S'applique aux Rôles",
+    "assignRoleToUser": "Assigner le rôle {{roleName}} à des utilisateurs",
+    "assignRoleSuccess": "Rôle assigné",
+    "assignRoleDetailSuccess": "Rôle {{roleName}} assigné à {{username}} !",
+    "assignRoleFailed": "Echec de l'assignation de rôle ",
+    "assignRoleDetailFailed": "Echec de l'assignation du rôle {{roleName}} à {{username}}",
+    "addUsers": "Ajouter utilisateurs",
+    "associatedPolicies": "Stratégies Associées",
+    "noRoles": "Aucun Rôles !",
+    "loadRolesFailed": "Echec du chargement des rôles.",
+    "assignRoleToUserConfirmMessage": "Voulez-vous assigner le rôle {{roleName}} à {{username}} ?"
+  },
+  "policies": {
+    "managePermission": "Gérer Stratégies",
+    "managePermissionDescription": "Gérer vos Stratégie. Faites des actions administratives.",
+    "allOwners": "Tous propriétaire",
+    "allUsers": "Tous",
+    "allGroups": "Tout groupe",
+    "applyTo": "S'applique à",
+    "editAPolicy": "Modifier une stratégie",
+    "createAPolicy": "Créer une nouvelle stratégie",
+    "assignUsersNGroup": "Assigner Utilisateurs & Groupes",
+    "configurePrivileges": "Configurer Privilèges",
+    "newPolicyButton": "Nouvelle Strategie",
+    "managePolicies": "Gérer Stratégies",
+    "managePoliciesDescription": "Gérer les privilèges d'accès pour les utilisateurs et groupes Duke en utilisant des stratégies.",
+    "saveSuccess": "Stratégie sauvegardée.",
+    "failedToLoad": "Echec du chargement des stratégies.",
+    "failedToUpdate": "Echec de la mise à jour des stratégies.",
+    "deleteConfirm": "Etes-vous sûr(e) de vouloir supprimer la stratégie ?",
+    "groupsDescription": "Spécifier des groupes auxquels appliquer cette stratégie.",
+    "usersDescription": "Spécifier des utilisateurs auxquels appliquer cette stratégie.",
+    "appliesTo": "S'applique à",
+    "appliesToDescription": "Selectionner les utilisateurs et groupes pour cette stratégie.",
+    "appliesToText": "Cette stratégie doit-elle s'appliquer aux propriétaires de la Metadata ? Si oui, Ceux qui sont propriétaires de la Metadata, directement ou indirectement par un Groupe, auront les privilèges.",
+    "choosePolicyType": "Type de stratégie",
+    "applyToGroup": "S'applique aux groupes",
+    "applyToUser": "S'applique aux utilisateurs",
+    "applyToOwner": "S'applique aux propriétaires",
+    "assetType": "Type d'asset",
+    "asset": "Asset",
+    "yourPolicyName": "Nom de la stratégie",
+    "yourPolicyNameDescription": "Un nom pour votre stratégie.",
+    "yourPolicyDescription": "Description de la stratégie",
+    "policyTypeDescriptionTitle": "Le type de la stratégie que vous souhaitez créer.",
+    "policyTypeDescription_html": "Le type de stratégie <strong> Platforme </strong> vous permet d'assigner des privilèges au utilisateur de la plateforme Duke. Ce qui inclut la gestions des groupes et utilisateurs, la création de stratégies, les dashboard analytiques et plus encore.<br/><br/>Le type de stratégie <strong>Metadata</strong> vous permet d'affecter des privilèges aux utilisateurs. Ce qui inclut la possibilité de manipuler la metadata comme la propriété, les tags, la documentation associée aux Jeux de donnée, Graphique, Tableaux de bord et autre.",
+    "typePlatform": "Plateforme",
+    "typeData": "Metadata",
+    "optionalDescriptionText": "Description facultative.",
+    "resourceType": "Type de ressource",
+    "privileges": "Privilèges",
+    "privilegeSetSelectTitle": "Selectionnez un ensemble de privilèges.",
+    "resourceSelectTitle_html": "Sélectionnez le type de ressource auquel appliquer cette stratégie. Si <strong>aucun type</strong> n'est sélectionné, la stratégie s'appliquera à <strong>tout</strong> les types de ressource.",
+    "specificResourceSearchTitle_html": "Cherchez les ressources auxquels s'applique la stratégie, ou sélectionner <strong>Tout</strong> pour appliquer la stratégie à <strong>toutes</strong> ressources du type sélectionné.",
+    "resourceSelectPlaceholder": "Par défaut, s'applique à TOUT les types de ressources. Sélectionner pour appliquer à des types d'entités spécifiques.",
+    "specificResourcesSearchPlaceholder": "Par défaut, s'applique à TOUTES les ressources. Sélectionner pour appliquer à des ressources spécifiques.",
+    "domainSelectSearchTitle_html": "Cherchez les domaines auxquels s'applique la stratégie. Si <strong>aucun domaine</strong> n'est sélectionné, la stratégie s'appliquera à <strong>tout</strong> les domaines.",
+    "domainSelectSearchPlaceholder": "Par défaut, s'applique à TOUT les domaines. Sélectionner pour appliquer à des domaines spécifiques.",
+    "NoIngestionSources": "Pas de sources d'ingestion !",
+    "NoPolicies": "Pas de stratégies !",
+    "policyBuilder": {
+      "exitPolicyEditor": "Sortir de l'éditeur de stratégie",
+      "exitEditorConfirm": "Etes vous sûr(e) de vouloir quitter l'éditeur de stratégies ? Toutes modifications seront perdues."
+    }
+  },
+  "recommendation": {
+    "error": {
+      "failedToFindRenderFor": "Echec de l'affichage pour le renderType {{module.renderType}}"
+    }
+  },
+  "crud": {
+    "adding": "Ajout en cours",
+    "Updating": "Mise à jour en cours",
+    "add": "Ajouter {{addingName}}",
+    "remove": "Retirer {{removingName}}",
+    "added": "{{addedName}} ajouté(e)",
+    "deleted": "{{deletedName}} supprimé(e)",
+    "confirmDelete": "Confirmer Suppression",
+    "removed": "{{removedName}} retiré",
+    "moved": "{{moved name}} déplacé(e)"
+  },
+  "search": {
+    "searchContainerEntityPlaceholder": "Filtrer les entités du conteneur...",
+    "searchIngestionSourcePlaceholder": "Chercher Sources d'ingestion...",
+    "searchGlossaryTermPlaceholder": "Chercher Termes du Glossaire...",
+    "showingResults_html": "Affichage de <b>{{visibleResults}}</b> résultats sur <b>{{totalResults}}</b>",
+    "searchRolePlaceholder": "Chercher rôles",
+    "searchFor": "Chercher",
+    "selectDatePlaceholder": "Choisir date",
+    "addNotePlaceholder": "Ajouter note",
+    "searchSecrets": "Chercher secrets",
+    "searchSources": "Chercher sources",
+    "enterANamePlaceholder": "Saisissez un nom",
+    "searchGlossary": "Explorer glossaire",
+    "searchDomains": "Chercher domaines",
+    "searchPolicies": "Chercher stratégies",
+    "searchUsers": "Chercher utilisateurs",
+    "searchGroups": "Chercher groupes",
+    "searchingForRelatedEntities": "Cherche des entités liées...",
+    "searchEntitiesPlaceholder": "Cherchez une entité...",
+    "searchCompleteFailed": "Echec de l'autocomplétion de la recherche:",
+    "urlPlaceholder": "Entrez une URL",
+    "descriptionPlaceholder": "Entrez une description",
+    "fieldRequiredFor": "Entrez un {{name}}!`",
+    "userPlaceholder": "Cherchez utilisateurs...",
+    "typePlaceholder": "Selectionnez un type",
+    "typeRequired": "Un type est nécessaire !",
+    "rolePlaceholder": "Selectionnez un rôle",
+    "roleRequired": "Un rôle est nécessaire !",
+    "labelRequired": "Un label est nécessaire !",
+    "urlRequired": "Une URL est nécessaire !",
+    "validUrlRequired": "URL invalide !",
+    "userOrGroupTitle": "Trouver utilisateur ou groupe",
+    "userOrGroupPlaceholder": "Cherchez utilisateurs ou groupes...",
+    "validLdapWarning": "LDAP invalide!",
+    "ldapPlaceholder": "Cherchez un LDAP",
+    "groupsPlaceholder": "Cherchez groupes...",
+    "usersPlaceholder": "Cherchez utilisateurs...",
+    "typeToSearch": "Cherchez type",
+    "findA": "Cherchez {{findName}}",
+    "more": "Qui peut vous intéresser",
+    "noResultFoundFor": "Aucun résultats pour {{query}}",
+    "searchFailedFor": "Echec du chargement pou {{query}}",
+    "exploreYourMetadata": "Explorez vos metadata",
+    "exploreForEntity": "Voir les résultats pour",
+    "seeAllEntityResult_html": "Voir tout les résultats pour <strong>{{collectionName}}</strong>",
+    "schemaPlaceholder": "Cherchez dans le schéma...",
+    "searchBarAutocomplete": {
+      "TopTag": "Top Tags",
+      "Domains": "Domaines",
+      "HighUsageEntities": "Populaire",
+      "RecentSearches": "Cherché récemment",
+      "RecentlyViewedEntities": "Vue récemment",
+      "Platforms": "Platformes",
+      "TopTerms": "Top Terme du Glossaire"
+    },
+    "selection": {
+      "exit": "Quitter la selection",
+      "exitContent": "Etes vous sûr(e) de vouloir quitter ? {{nbrSelected}} sélection(s) seront annulées.",
+      "actionNotSupportedForSelection": "Cette action n'est pas valide pour le(s) type(s) selectionné(s)."
+    },
+    "searchbarMode": {
+      "search": "Recherche",
+      "talkToBot": "Discuter avec Duke"
+    },
+    "filter": {
+      "entity": "Type",
+      "platform": "Platforme",
+      "subType": "Sous type",
+      "domain": "Domaine",
+      "tags": "Tag",
+      "glossaryTerm": "Terme du Glossaire",
+      "owners": "Possédé Par",
+      "origin": "Environnement"
+    },
+    "recommendation": {
+      "ENTITY_NAME_LIST": "Top",
+      "PLATFORM_SEARCH_LIST": "Top Plateforme",
+      "TAG_SEARCH_LIST": "Top Tag",
+      "SEARCH_QUERY_LIST": "Top Query",
+      "GLOSSARY_TERM_SEARCH_LIST": "Top Terme du Glossaire",
+      "DOMAIN_SEARCH_LIST": "Top Domaine",
+      "RecentlyViewedEntities": "Vue récemment",
+      "HighUsageEntities": "Populaire"
+    }
+  },
+  "error": {
+    "addError": "Echec de l'ajout",
+    "deleteError": "Echec de la suppression",
+    "removeError": "Echec  du retrait",
+    "moveError": "Echec du déplacement",
+    "pageNotFound": "La page demandée est introuvable"
+  },
+  "menuLink": {
+    "exploreYourData": "Explorer",
+    "Home": "Accueil",
+    "Analytics": "Analytique",
+    "Policies": "Stratégie",
+    "Settings": "Paramètre",
+    "settingsSubtitle": "Gérer les paramètres de Duke",
+    "Domain": "Domaine",
+    "Ingestion": "Ingestion"
+  },
+  "user": {
+    "logout": "Se déconnecter",
+    "resetUserPassword": "Réinitialiser mot de passe utilisateur",
+    "error": {
+      "noUserConnected": "Impossible de trouver l'utilisateur connecté.",
+      "noUserInCache": "Impossible de charger l'utilisateur connecté depuis le cache"
+    }
+  },
+  "token": {
+    "tokenBaseAuthDisabled": "L'authentication par Jeton d'accès est actuellement désactivée. Contactez votre administrateur Duke pour activer cette fonctionnalité.",
+    "bearer": "Bearer",
+    "authorization": "Autorisation",
+    "tokenTitle": "Jeton d'Accès",
+    "tokenSubtitle": "Gérez les Jeton d'Accès à utiliser avec votre API Duke.",
+    "personalAccessTokenTitle": "Jeton d'Accès Personnel",
+    "personalAccessTokenDescription": "Vos Jetons d'Accès Personnel vous permettent de faire des requêtes programmatiques à l'API Duke. Ils héritent de vos privilèges et ont une durée de vie limitée. Ne les partagez avec personne. Une fois généré, il est compliqué de les révoquer.",
+    "expiresIn": "Expire dans",
+    "generateNewPersonalAccessToken_html": "Générer un nouveau <strong>jeton d'Accès Personnel</strong>",
+    "tokenExpire_html": "Ce jeton expire dans <strong>{{expiresInText}}</strong>.",
+    "useTokenPart1": "Pour utiliser le token, fournissez le à To use the token, provide it as a ",
+    "useTokenPart2": " jeton dans le ",
+    "useTokenPart3": " header en faisant des requêtes sur L'API :",
+    "generatePAT": "Générer Jeton d'Accès Personnel",
+    "error": {
+      "canGeneratePersonalAccessToken": "Il semblerait que vous n'êtes pas autorisé à générer des jeton d'Acces Personnel. Si vous pensez que c'est une erreur, merci de contacter votre administrateur Duke.",
+      "personalTokenGenerationFailed": "Echec de la génération de Jeton. Merci de contacter votre administrateur de Duke."
+    }
+  },
+  "tagTerm": {
+    "noTermsOrTermGroups": "Pas de Termes ni de Groupes de Terme",
+    "addTags": "Ajouter Tags",
+    "addTerms": "Ajouter Termes",
+    "addTerm": "Ajouter Terme",
+    "addTermGroup": "Ajouter Groupe de Terme",
+    "colorSavedSuccess": "Couleur enregistrée",
+    "colorSavedFailed": "Echec de l'enregistrement de la couleur",
+    "removeTags": "Retirer Tags",
+    "removeTerm": "Retirer Terme",
+    "emptyGlossary": "Glossaire vide",
+    "emptyGlossaryDescription": "Crée des termes et des groupes de terme pour organiser vos assets autour d'un vocabulaire commun.",
+    "tagTermModal": {
+      "createTag": {
+        "inputDescriptionPlaceholder": "Description du tag...",
+        "errorCreateAndAdd": "Echec de la création et ajout de tag"
+      },
+      "removeTag": {
+        "title": "Confirmation du retrait du tag {{tagName}}",
+        "content": "Etes-vous sûr(e) de vouloir retirer le tag {{tagName}} ? ",
+        "success": "Tag retiré !",
+        "error": "Echec du retrait du tag"
+      },
+      "removeTerm": {
+        "title": "Confirmation du retrait du terme {{termName}}?",
+        "content": "Etes-vous sûr(e) de vouloir retirer le terme {{termName}} ? ",
+        "success": "Terme retiré !",
+        "error": "Echec du retrait du terme"
+      }
+    }
+  },
+  "settings": {
+    "access": "Accès",
+    "developer": "Développeur",
+    "accessTokens": "Jetons d'accès",
+    "usersNGroup": "Utilisateur & Groupe",
+    "preferences": "Préférences",
+    "updateSettingSuccess": "Paramètre mis à jour !",
+    "appearance": {
+      "title": "Affichage",
+      "titleDescription": "Gérer vos paramètres d'affichage.",
+      "simplifiedHomepage": "Afficher une page d'accueil simplifiée",
+      "simplifiedHomepageDescription": "Limiter l'affichage aux Domaines, Graphiques, Jeux de données, Tableaux de bords et Termes du Glossaire"
+    }
+  },
+  "ownerType": {
+    "TECHNICAL_OWNER": {
+      "name": "Technical Owner",
+      "description": "Impliqué dans la production, la maintenance ou la distribution de l'actif."
+    },
+    "BUSINESS_OWNER": {
+      "name": "Business Owner",
+      "description": "Principaux intervenants ou experts du domaine associés à l'actif."
+    },
+    "DATA_STEWARD": {
+      "name": "Data Steward",
+      "description": "Participation à la gouvernance de l'actif."
+    },
+    "NONE": {
+      "name": "None",
+      "description": "Aucun type de propriété spécifié."
+    }
+  },
+  "LOOKBACK_WINDOWS": {
+    "DAY": "1 jour",
+    "WEEK": "1 semaine",
+    "MONTH": "1 mois",
+    "QUARTER": "3 mois",
+    "YEAR": "1 an"
+  },
+  "EMPTY_MESSAGES": {
+    "documentation": {
+      "title": "Pas encore de documentation",
+      "description": "Partagez vos connaissances en ajoutant de la documentations et des liens vers des ressources utiles."
+    },
+    "tags": {
+      "title": "Pas encore de tags",
+      "description": "Tagguez les entités pour faciliter leur recherche et mettre en valeur leurs attributs les plus importants."
+    },
+    "terms": {
+      "title": "Pas encore de termes",
+      "description": "Appliquez des termes aux entités pour classer leur données."
+    },
+    "owners": {
+      "title": "Pas encore de propriétaires",
+      "description": "Ajoutez des propriétaires pour savoir qui est responsable de ces données."
+    },
+    "properties": {
+      "title": "Pas encore de propriétés",
+      "description": "Les propriétes apparaitrons si elles existent dans votre source de données."
+    },
+    "queries": {
+      "title": "Pas encore de requêtes",
+      "description": "Les requêtes récemment effectuées sur ce jeu de donnée s'afficheront ici."
+    },
+    "domain": {
+      "title": "N'appartient à aucun domaine",
+      "description": "Groupez vos entités sous un même Domaine pour améliorer votre organisation."
+    }
+  },
+  "entity": {
+    "DOMAIN": {
+      "singular": "Domaine",
+      "plural": "Domaines"
+    },
+    "DATASET": {
+      "singular": "Jeu de donnée",
+      "plural": "Jeux de donnée"
+    },
+    "CORP_USER": {
+      "singular": "Utilisateur",
+      "plural": "Utilisateurs"
+    },
+    "CORP_GROUP": {
+      "singular": "Groupe",
+      "plural": "Groupes"
+    },
+    "DATA_PLATFORM": {
+      "singular": "Platforme de donnée",
+      "plural": "Platformes de donnée"
+    },
+    "DASHBOARD": {
+      "singular": "Tableau de bord",
+      "plural": "Tableaux de bord"
+    },
+    "CHART": {
+      "singular": "Graphique",
+      "plural": "Graphiques"
+    },
+    "DATA_FLOW": {
+      "singular": "Flux de données",
+      "plural": "Flux de données"
+    },
+    "DATA_JOB": {
+      "singular": "Travail",
+      "plural": "Travaux"
+    },
+    "TAG": {
+      "singular": "Tag",
+      "plural": "Tags"
+    },
+    "GLOSSARY_TERM": {
+      "singular": "Terme du glossaire",
+      "plural": "Termes du glossaire"
+    },
+    "GLOSSARY_NODE": {
+      "singular": "Groupe de terme",
+      "plural": "Groupes de terme"
+    },
+    "CONTAINER": {
+      "singular": "Conteneur",
+      "plural": "Conteneurs"
+    },
+    "MLMODEL": {
+      "singular": "Modèle Ml",
+      "plural": "Modèles ML"
+    },
+    "MLMODEL_GROUP": {
+      "singular": "Groupe de modèle ML",
+      "plural": "Groupes de modèles ML"
+    },
+    "MLFEATURE_TABLE": {
+      "singular": "Table de fature ML",
+      "plural": "Tables de feature ML"
+    },
+    "MLFEATURE": {
+      "singular": "Feature ML",
+      "plural": "Features ML"
+    },
+    "MLPRIMARY_KEY": {
+      "singular": "Clef primaire ML",
+      "plural": "Clefs primaires ML"
+    }
+  },
+  "entitySubtype": {
+    "custom sql": {
+      "singular": "Custom SQL",
+      "plural": "Custom SQL"
+    },
+    "workbook": {
+      "singular": "Workbook",
+      "plural": "Workbooks"
+    },
+    "embedded data source": {
+      "singular": "Source de donnée embarquée",
+      "plural": "Sources de donnée embarquées"
+    },
+    "published data source": {
+      "singular": "Source de donnée publiée",
+      "plural": "Sources de donnée publiées"
+    },
+    "topic": {
+      "singular": "Topic",
+      "plural": "Topics"
+    },
+    "table": {
+      "singular": "Table",
+      "plural": "Tables"
+    },
+    "view": {
+      "singular": "Vue",
+      "plural": "Vues"
+    },
+    "model": {
+      "singular": "Modèle",
+      "plural": "Modèles"
+    },
+    "explore": {
+      "singular": "Explore",
+      "plural": "Explores"
+    },
+    "index": {
+      "singular": "Index",
+      "plural": "Index"
+    },
+    "datastream": {
+      "singular": "Flux de donnée",
+      "plural": "Flux de données"
+    },
+    "entity": {
+      "singular": "Entité",
+      "plural": "Entités"
+    },
+    "schema": {
+      "singular": "Schema",
+      "plural": "Schemas"
+    },
+    "database": {
+      "singular": "Base de donnée",
+      "plural": "Bases de donnée"
+    }
+  },
+  "form": {
+    "validateMessages": {
+      "default": "Erreur de validation",
+      "required": "Requis",
+      "enum": "Doit être parmis [${enum}]",
+      "whitespace": "Ne peut pas être vide",
+      "date": {
+        "format": "Format de date invalide",
+        "parse": "Ne peut pas être traduit en date",
+        "invalid": "Date invalide"
+      },
+      "types": {
+        "string": "Type invalide",
+        "method": "Type invalide",
+        "array": "Type invalide",
+        "object": "Type invalide",
+        "number": "Type invalide",
+        "date": "Type invalide",
+        "boolean": "Type invalide",
+        "integer": "Type invalide",
+        "float": "Type invalide",
+        "regexp": "Type invalide",
+        "email": "Type invalide",
+        "url": "Type invalide",
+        "hex": "Type invalide"
+      },
+      "string": {
+        "len": "Doit faire ${len} caractères",
+        "min": "'Doit faire au moins ${min} caractères",
+        "max": "'Ne peut pas dépasser ${max} caractères",
+        "range": "Doit faire entre ${min} et ${max} caractères"
+      },
+      "number": {
+        "len": "Doit être égal à ${len}",
+        "min": "Ne peut pas être inférieur à ${min}",
+        "max": "Ne peut pas être supérieur à ${max}",
+        "range": "Doit être entre ${min} et ${max}"
+      },
+      "array": {
+        "len": "Doit avoir ${len} éléments",
+        "min": "Doit avoir au moins ${min} éléments",
+        "max": "Doit avoir ${max} éléments au maximum",
+        "range": " Doit avoir entre ${min} et ${max} éléments"
+      },
+      "pattern": {
+        "mismatch": "Ne correspond pas au pattern ${pattern}"
+      }
+    }
+  },
+  "reactCron": {
+    "everyText": "Chaque",
+    "emptyMonths": "tout les mois",
+    "emptyMonthDays": "tout les jours du mois",
+    "emptyMonthDaysShort": "jour du mois",
+    "emptyWeekDays": "tout les jours de la semaine",
+    "emptyWeekDaysShort": "jour de la semaine",
+    "emptyHours": "toutes les heures",
+    "emptyMinutes": "toutes les minutes",
+    "emptyMinutesForHourPeriod": "tout",
+    "yearOption": "année",
+    "monthOption": "mois",
+    "weekOption": "semaine",
+    "dayOption": "jour",
+    "hourOption": "heure",
+    "minuteOption": "minute",
+    "rebootOption": "reboot",
+    "prefixPeriod": "Tout",
+    "prefixMonths": "en",
+    "prefixMonthDays": "le",
+    "prefixWeekDays": "le",
+    "prefixWeekDaysForMonthAndYearPeriod": "et",
+    "prefixHours": "à",
+    "prefixMinutes": ":",
+    "prefixMinutesForHourPeriod": "à",
+    "suffixMinutesForHourPeriod": "minute(s)",
+    "errorInvalidCron": "Expression cron invalide",
+    "clearButtonText": "Nettoyer",
+    "weekDays": [
+      "Dimanche",
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi"
+    ],
+    "months": [
+      "Janvier",
+      "Février",
+      "Mars",
+      "Avril",
+      "Mai",
+      "Juin",
+      "Juillet",
+      "Août",
+      "Septembre",
+      "Octobre",
+      "Novembre",
+      "Décembre"
+    ],
+    "altWeekDays": [
+      "Dim",
+      "Lun",
+      "Mar",
+      "Mer",
+      "Jeu",
+      "Ven",
+      "Sam"
+    ],
+    "altMonths": [
+      "Jan",
+      "Fév",
+      "Mar",
+      "Avr",
+      "Mai",
+      "Juin",
+      "Juil",
+      "Aoû",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ]
+  }
+}

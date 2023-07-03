@@ -10,7 +10,9 @@ if (process.env.REACT_APP_MOCK === 'true' || process.env.REACT_APP_MOCK === 'cy'
     // create a proxy to the graphql server running in docker container
     const {createProxyMiddleware} = require('http-proxy-middleware');
 
-    const proxyTarget = 'http://localhost:9002';
+    // TODO ndespouy A SUPPRIMER
+    // const proxyTarget = 'http://localhost:9002';
+    const proxyTarget = 'http://vmi741747.contaboserver.net:9002/';
     // const proxyTarget = 'https://demo.datahubproject.io/api/v2/graphql';
 
     module.exports = function (app) {
