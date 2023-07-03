@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.notebook.mappers;
 
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.NotebookInfo;
 import com.linkedin.datahub.graphql.generated.QueryCell;
 import com.linkedin.datahub.graphql.generated.TextCell;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.ChangeAuditStampsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -72,12 +74,14 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
     mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (notebook, dataMap) ->
         notebook.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (notebook, dataMap) -> 
-      notebook.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+      notebook.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (notebook, dataMap) -> 
       notebook.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapDataPlatformInstance);
+    mappingHelper.mapToResult(BROWSE_PATHS_V2_ASPECT_NAME, (notebook, dataMap) ->
+        notebook.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
     return mappingHelper.getResult();
   }
 

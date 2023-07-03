@@ -1,4 +1,5 @@
 import { ColumnEdge } from '../types';
+import { isSameColumn } from './columnLineageUtils';
 
 function highlightDownstreamColumnLineage(
     sourceField: string,
@@ -12,7 +13,9 @@ function highlightDownstreamColumnLineage(
             const [targetUrn, fieldPaths] = entry;
             (fieldPaths as string[]).forEach((targetField) => {
                 edges.push({ sourceUrn, sourceField, targetUrn, targetField });
-                highlightDownstreamColumnLineage(targetField, targetUrn, edges, fineGrainedMap);
+                if (!isSameColumn({ sourceUrn, targetUrn, sourceField, targetField })) {
+                    highlightDownstreamColumnLineage(targetField, targetUrn, edges, fineGrainedMap);
+                }
             });
         });
     }
@@ -30,7 +33,9 @@ function highlightUpstreamColumnLineage(
             const [sourceUrn, fieldPaths] = entry;
             (fieldPaths as string[]).forEach((sourceField) => {
                 edges.push({ targetUrn, targetField, sourceUrn, sourceField });
-                highlightUpstreamColumnLineage(sourceField, sourceUrn, edges, fineGrainedMap);
+                if (!isSameColumn({ sourceUrn, targetUrn, sourceField, targetField })) {
+                    highlightUpstreamColumnLineage(sourceField, sourceUrn, edges, fineGrainedMap);
+                }
             });
         });
     }

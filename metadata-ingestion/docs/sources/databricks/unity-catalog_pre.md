@@ -17,5 +17,4 @@
   + To ingest `profiling` information with `call_analyze` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.
     * Alternatively, you can run [ANALYZE TABLE](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) yourself on any tables you want to profile, then set `call_analyze` to `false`.
     You will still need `SELECT` privilege on those tables to fetch the results.
-  + To `ingest_all_metastores` (disabled by default), your service principal must have the admin role: [guide](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#assign-account-admin-rights-to-a-service-principal).
 - Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.

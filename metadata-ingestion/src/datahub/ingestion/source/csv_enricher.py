@@ -546,7 +546,9 @@ class CSVEnricherSource(Source):
         term_urns: List[str] = terms_array_string.split(self.config.array_delimiter)
 
         term_associations: List[GlossaryTermAssociationClass] = [
-            GlossaryTermAssociationClass(term) for term in term_urns
+            GlossaryTermAssociationClass(term)
+            for term in term_urns
+            if term.startswith("urn:li:")
         ]
         return term_associations
 
@@ -559,7 +561,7 @@ class CSVEnricherSource(Source):
         tag_urns: List[str] = tags_array_string.split(self.config.array_delimiter)
 
         tag_associations: List[TagAssociationClass] = [
-            TagAssociationClass(tag) for tag in tag_urns
+            TagAssociationClass(tag) for tag in tag_urns if tag.startswith("urn:li:")
         ]
         return tag_associations
 
@@ -582,7 +584,9 @@ class CSVEnricherSource(Source):
         owner_urns: List[str] = owners_array_string.split(self.config.array_delimiter)
 
         owners: List[OwnerClass] = [
-            OwnerClass(owner_urn, type=ownership_type) for owner_urn in owner_urns
+            OwnerClass(owner_urn, type=ownership_type)
+            for owner_urn in owner_urns
+            if owner_urn.startswith("urn:li:")
         ]
         return owners
 

@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -42,9 +43,12 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.shared.ValidationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -54,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,6 +73,10 @@ import static com.linkedin.metadata.search.utils.SearchUtils.*;
 @Slf4j
 @RequiredArgsConstructor
 public class JavaEntityClient implements EntityClient {
+    private static final int DEFAULT_RETRY_INTERVAL = 2;
+    private static final int DEFAULT_RETRY_COUNT = 3;
+
+    private final static Set<String> NON_RETRYABLE = Set.of("com.linkedin.data.template.RequiredFieldNotPresentException");
 
     private final Clock _clock = Clock.systemUTC();
 
@@ -190,6 +199,25 @@ public class JavaEntityClient implements EntityClient {
             _cachingEntitySearchService.browse(entityType, path, newFilter(requestFilters), start, limit, null), _entityService);
     }
 
+
+    /**
+     * Gets browse V2 snapshot of a given path
+     *
+     * @param entityName entity being browsed
+     * @param path path being browsed
+     * @param filter browse filter
+     * @param input search query
+     * @param start start offset of first group
+     * @param count max number of results requested
+     * @throws RemoteInvocationException
+     */
+    @Nonnull
+    public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                   @Nonnull String input, int start, int count, @Nonnull Authentication authentication) {
+        // TODO: cache browseV2 results
+        return _entitySearchService.browseV2(entityName, path, filter, input, start, count);
+    }
+
     @SneakyThrows
     @Deprecated
     public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
@@ -304,17 +332,6 @@ public class JavaEntityClient implements EntityClient {
                 _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
 
-    /**
-     * Searches for entities matching to a given query and filters across multiple entity types
-     *
-     * @param entities entity types to search (if empty, searches all entities)
-     * @param input search query
-     * @param filter search filters
-     * @param start start offset for search results
-     * @param count max number of search results requested
-     * @return Snapshot key
-     * @throws RemoteInvocationException
-     */
     @Nonnull
     public SearchResult searchAcrossEntities(
         @Nonnull List<String> entities,
@@ -449,7 +466,7 @@ public class JavaEntityClient implements EntityClient {
     @Override
     public void deleteEntityReferences(@Nonnull Urn urn, @Nonnull Authentication authentication)
         throws RemoteInvocationException {
-        _deleteEntityService.deleteReferencesTo(urn, false);
+        withRetry(() -> _deleteEntityService.deleteReferencesTo(urn, false), "deleteEntityReferences");
     }
 
     @Nonnull
@@ -569,5 +586,49 @@ public class JavaEntityClient implements EntityClient {
         if (systemMetadata != null && systemMetadata.hasRunId()) {
             _entitySearchService.appendRunId(entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
         }
+    }
+
+    protected <T> T withRetry(@Nonnull final Supplier<T> block, @Nullable String counterPrefix) {
+        final BackoffPolicy backoffPolicy = new ExponentialBackoff(DEFAULT_RETRY_INTERVAL);
+        int attemptCount = 0;
+
+        while (attemptCount < DEFAULT_RETRY_COUNT + 1) {
+            try {
+                return block.get();
+            } catch (Throwable ex) {
+                MetricUtils.counter(this.getClass(), buildMetricName(ex, counterPrefix)).inc();
+
+                final boolean skipRetry = NON_RETRYABLE.contains(ex.getClass().getCanonicalName())
+                        || (ex.getCause() != null && NON_RETRYABLE.contains(ex.getCause().getClass().getCanonicalName()));
+
+                if (attemptCount == DEFAULT_RETRY_COUNT || skipRetry) {
+                    throw ex;
+                } else {
+                    attemptCount = attemptCount + 1;
+                    try {
+                        Thread.sleep(backoffPolicy.nextBackoff(attemptCount, ex) * 1000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }
+
+        // Should never hit this line.
+        throw new IllegalStateException("No JavaEntityClient call executed.");
+    }
+
+    private String buildMetricName(Throwable throwable, @Nullable String counterPrefix) {
+        StringBuilder builder = new StringBuilder();
+
+        // deleteEntityReferences_failures
+        if (counterPrefix != null) {
+            builder.append(counterPrefix).append(MetricUtils.DELIMITER);
+        }
+
+        return builder.append("exception")
+                .append(MetricUtils.DELIMITER)
+                .append(throwable.getClass().getName())
+                .toString();
     }
 }
