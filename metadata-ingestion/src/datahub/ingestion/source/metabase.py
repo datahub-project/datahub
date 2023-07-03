@@ -60,6 +60,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
         default=None,
         description="Custom mappings between metabase database engines and DataHub platforms",
     )
+    database_id_to_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Custom mappings between metabase database id and DataHub platform instance",
+    )
     default_schema: str = Field(
         default="public",
         description="Default schema name to use when schema is not provided in an SQL query",
@@ -272,6 +276,16 @@ class MetabaseSource(Source):
             user_info_response.raise_for_status()
             user_details = user_info_response.json()
         except HTTPError as http_error:
+            if (
+                http_error.response is not None
+                and http_error.response.status_code == 404
+            ):
+                self.report.report_warning(
+                    key=f"metabase-user-{creator_id}",
+                    reason=f"User {creator_id} is blocked in Metabase or missing",
+                )
+                return None
+            # For cases when the error is not 404 but something else
             self.report.report_failure(
                 key=f"metabase-user-{creator_id}",
                 reason=f"Unable to retrieve User info. " f"Reason: {str(http_error)}",
@@ -564,10 +578,19 @@ class MetabaseSource(Source):
                 reason=f"Platform was not found in DataHub. Using {platform} name as is",
             )
 
+        # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
+        datasource_id_in_metabase = dataset_json.get("id")
+        platform_instance = (
+            self.config.database_id_to_instance_map.get(str(datasource_id_in_metabase))
+            if datasource_id_in_metabase and self.config.database_id_to_instance_map
+            else None
+        )
+
+        # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
         # Set platform_instance if configuration provides a mapping from platform name to instance
         platform_instance = (
             self.config.platform_instance_map.get(platform)
-            if self.config.platform_instance_map
+            if self.config.platform_instance_map and platform_instance is None
             else None
         )
 
