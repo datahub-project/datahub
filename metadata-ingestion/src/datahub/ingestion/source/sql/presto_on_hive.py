@@ -271,7 +271,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
     JOIN DBS d on d.DB_ID = t.DB_ID
     WHERE 1
     {where_clause_suffix}
-    ORDER BY rp.TBL_ID desc;
+    ORDER BY tp.TBL_ID desc;
     """
 
     _HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT = """
