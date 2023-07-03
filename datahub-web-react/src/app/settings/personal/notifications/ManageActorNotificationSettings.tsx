@@ -11,7 +11,7 @@ import {
 } from '../../../../graphql/settings.generated';
 import { updateGroupNotificationSettingsFunction, updateUserNotificationSettingsFunction } from './utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../platform/types';
-import { isSinkEnabled } from '../../platform/PlatformNotifications';
+import { isSinkEnabled } from '../../utils';
 
 const NotificationSettingsTitle = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -39,7 +39,6 @@ type Props = {
  */
 export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    // todo - move isSinkEnabled to a shared util and make this a custom hook
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
