@@ -177,15 +177,6 @@ class IcebergSource(StatefulIngestionSourceBase):
                 else:
                     table = catalog.load_table(dataset_path)
                 yield from self._create_iceberg_workunit(dataset_name, table)
-                dataset_urn: str = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
-                self.stale_entity_removal_handler.add_entity_to_state(
-                    type="table", urn=dataset_urn
-                )
             except NoSuchIcebergTableError:
                 # Path did not contain a valid Iceberg table. Silently ignore this.
                 # Once we move to catalogs, this won't be needed.

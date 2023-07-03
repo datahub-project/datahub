@@ -1,14 +1,10 @@
 import subprocess
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
 
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.iceberg.iceberg import IcebergSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -21,15 +17,6 @@ from tests.test_helpers.state_helpers import (
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    iceberg_source = cast(IcebergSource, pipeline.source)
-    return iceberg_source.get_current_checkpoint(
-        iceberg_source.stale_entity_removal_handler.job_id
-    )
 
 
 def spark_submit(file_path: str) -> None:
