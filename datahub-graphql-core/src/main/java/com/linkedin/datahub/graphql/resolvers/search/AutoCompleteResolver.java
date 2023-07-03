@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteInput;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
@@ -49,6 +50,7 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
             throw new ValidationException("'query' parameter can not be null or empty");
         }
 
+        final Filter filter = ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
         final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
             return CompletableFuture.supplyAsync(() -> {
                 try {
@@ -62,7 +64,7 @@ public class AutoCompleteResolver implements DataFetcher<CompletableFuture<AutoC
                     return _typeToEntity.get(input.getType()).autoComplete(
                             sanitizedQuery,
                             input.getField(),
-                            input.getFilters(),
+                            filter,
                             limit,
                             environment.getContext()
                     );

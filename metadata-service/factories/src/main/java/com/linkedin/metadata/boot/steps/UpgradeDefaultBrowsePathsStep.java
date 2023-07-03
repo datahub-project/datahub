@@ -128,7 +128,8 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newPaths));
     _entityService.ingestProposal(
         proposal,
-        auditStamp
+        auditStamp,
+        false
       );
   }
 

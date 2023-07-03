@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
+import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '../../../../../../graphql/dataset.generated';
 import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../types.generated';
 import { useBaseEntity } from '../../../EntityContext';
 import { toLocalDateString, toLocalTimeString, toLocalDateTimeString } from '../../../../../shared/time/timeUtils';
@@ -16,11 +16,16 @@ export default function StatsTab() {
     const [viewType, setViewType] = useState(ViewType.LATEST);
     const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.WEEK);
 
-    const hasUsageStats = baseEntity?.dataset?.usageStats !== undefined;
+    const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
+        variables: { urn: baseEntity?.dataset?.urn as string },
+        skip: !baseEntity?.dataset?.urn,
+    });
+
+    const hasUsageStats = usageStatsData?.dataset?.usageStats !== undefined;
     const hasDatasetProfiles = baseEntity?.dataset?.datasetProfiles !== undefined;
     const hasOperations = baseEntity?.dataset?.operations !== undefined;
 
-    const usageStats = (hasUsageStats && (baseEntity?.dataset?.usageStats as UsageQueryResult)) || undefined;
+    const usageStats = (hasUsageStats && (usageStatsData?.dataset?.usageStats as UsageQueryResult)) || undefined;
     const datasetProfiles =
         (hasDatasetProfiles && (baseEntity?.dataset?.datasetProfiles as Array<DatasetProfile>)) || undefined;
 

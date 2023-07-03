@@ -47,7 +47,6 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
 
         # Run the metadata ingestion pipeline.
         with fs_helpers.isolated_filesystem(tmp_path):
-
             # Run nifi ingestion run.
             pipeline = Pipeline.create(
                 {
@@ -74,14 +73,13 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             pipeline.raise_from_status()
 
             # Verify the output. ignore values for aspects having last_event_time values
-            # TODO: ignore paths with respect to aspect value in case of MCPs
             mce_helpers.check_golden_file(
                 pytestconfig,
                 output_path="nifi_mces.json",
                 golden_path=test_resources_dir / "nifi_mces_golden_standalone.json",
                 ignore_paths=[
-                    r"root\[5\]\['aspect'\]\['value'\]",
-                    r"root\[9\]\['aspect'\]\['value'\]",
+                    *mce_helpers.IGNORE_PATH_TIMESTAMPS,
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_event_time'\]",
                 ],
             )
 
@@ -110,15 +108,11 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             pipeline.raise_from_status()
 
             # Verify the output.
-            # TODO: ignore paths with respect to aspect value in case of MCPs
             mce_helpers.check_golden_file(
                 pytestconfig,
                 output_path="nifi_mces_cluster.json",
                 golden_path=test_resources_dir / "nifi_mces_golden_cluster.json",
                 ignore_paths=[
-                    r"root\[5\]\['aspect'\]\['value'\]",
-                    r"root\[9\]\['aspect'\]\['value'\]",
-                    r"root\[17\]\['aspect'\]\['value'\]",
-                    r"root\[25\]\['aspect'\]\['value'\]",
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_event_time'\]",
                 ],
             )

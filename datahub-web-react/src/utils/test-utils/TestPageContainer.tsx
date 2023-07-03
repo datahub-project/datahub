@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 
+import { HelmetProvider } from 'react-helmet-async';
 import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
 import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
@@ -19,7 +20,8 @@ import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
 import { ChartEntity } from '../../app/entity/chart/ChartEntity';
 import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
-import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
+import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
+import UserContextProvider from '../../app/context/UserContextProvider';
 
 type Props = {
     children: React.ReactNode;
@@ -40,7 +42,6 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLFeatureTableEntity());
     entityRegistry.register(new MLModelEntity());
     entityRegistry.register(new MLModelGroupEntity());
-    entityRegistry.register(new ContainerEntity());
     return entityRegistry;
 }
 
@@ -48,14 +49,40 @@ export default ({ children, initialEntries }: Props) => {
     const entityRegistry = useMemo(() => getTestEntityRegistry(), []);
     Object.defineProperty(window.document, 'cookie', {
         writable: true,
-        value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:test`,
+        value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
-    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpusertest' }));
+    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
+
     return (
-        <ThemeProvider theme={defaultThemeConfig}>
-            <MemoryRouter initialEntries={initialEntries}>
-                <EntityRegistryContext.Provider value={entityRegistry}>{children}</EntityRegistryContext.Provider>
-            </MemoryRouter>
-        </ThemeProvider>
+        <HelmetProvider>
+            <ThemeProvider theme={defaultThemeConfig}>
+                <MemoryRouter initialEntries={initialEntries}>
+                    <EntityRegistryContext.Provider value={entityRegistry}>
+                        <UserContextProvider>
+                            <LineageExplorerContext.Provider
+                                value={{
+                                    expandTitles: false,
+                                    showColumns: false,
+                                    collapsedColumnsNodes: {},
+                                    setCollapsedColumnsNodes: null,
+                                    fineGrainedMap: {},
+                                    selectedField: null,
+                                    setSelectedField: () => {},
+                                    highlightedEdges: [],
+                                    setHighlightedEdges: () => {},
+                                    visibleColumnsByUrn: {},
+                                    setVisibleColumnsByUrn: () => {},
+                                    columnsByUrn: {},
+                                    setColumnsByUrn: () => {},
+                                    refetchCenterNode: () => {},
+                                }}
+                            >
+                                {children}
+                            </LineageExplorerContext.Provider>
+                        </UserContextProvider>
+                    </EntityRegistryContext.Provider>
+                </MemoryRouter>
+            </ThemeProvider>
+        </HelmetProvider>
     );
 };

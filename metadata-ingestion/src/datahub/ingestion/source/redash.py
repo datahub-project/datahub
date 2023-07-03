@@ -24,6 +24,7 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
 )
 from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -390,7 +391,11 @@ class RedashSource(Source):
     def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
         parser_cls = cls._import_sql_parser_cls(sql_parser_path)
 
-        sql_table_names: List[str] = parser_cls(sql).get_tables()
+        try:
+            sql_table_names: List[str] = parser_cls(sql).get_tables()
+        except Exception as e:
+            logger.warning(f"Sql parser failed on {sql} with {e}")
+            return []
 
         # Remove quotes from table names
         sql_table_names = [t.replace('"', "") for t in sql_table_names]
@@ -398,7 +403,7 @@ class RedashSource(Source):
 
         return sql_table_names
 
-    def _get_chart_data_source(self, data_source_id: int = None) -> Dict:
+    def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
         resp = self.client._get(url).json()
         logger.debug(resp)
@@ -582,11 +587,10 @@ class RedashSource(Source):
     def _process_dashboard_response(
         self, current_page: int
     ) -> Iterable[MetadataWorkUnit]:
-        result: List[MetadataWorkUnit] = []
         logger.info(f"Starting processing dashboard for page {current_page}")
         if current_page > self.api_page_limit:
             logger.info(f"{current_page} > {self.api_page_limit} so returning")
-            return result
+            return
         with PerfTimer() as timer:
             dashboards_response = self.client.dashboards(
                 page=current_page, page_size=self.config.page_size
@@ -623,15 +627,11 @@ class RedashSource(Source):
                     dashboard_data, redash_version
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                wu = MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                self.report.report_workunit(wu)
-
-                result.append(wu)
+                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
 
             self.report.timing[f"dashboard-{current_page}"] = int(
                 timer.elapsed_seconds()
             )
-            return result
 
     def _emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
         # Get total number of dashboards to calculate maximum page number
@@ -731,10 +731,9 @@ class RedashSource(Source):
 
     def _process_query_response(self, current_page: int) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Starting processing query for page {current_page}")
-        result: List[MetadataWorkUnit] = []
         if current_page > self.api_page_limit:
             logger.info(f"{current_page} > {self.api_page_limit} so returning")
-            return result
+            return
         with PerfTimer() as timer:
             queries_response = self.client.queries(
                 page=current_page, page_size=self.config.page_size
@@ -755,13 +754,10 @@ class RedashSource(Source):
                 for visualization in query_data.get("visualizations", []):
                     chart_snapshot = self._get_chart_snapshot(query_data, visualization)
                     mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                    wu = MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                    self.report.report_workunit(wu)
+                    yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
-                    result.append(wu)
             self.report.timing[f"query-{current_page}"] = int(timer.elapsed_seconds())
             logger.info(f"Ending processing query for {current_page}")
-            return result
 
     def _emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         # Get total number of queries to calculate maximum page number
@@ -781,6 +777,9 @@ class RedashSource(Source):
         self.report.api_page_limit = self.config.api_page_limit
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.validate_connection()
         self.add_config_to_report()
         with PerfTimer() as timer:
@@ -792,6 +791,3 @@ class RedashSource(Source):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def close(self):
-        pass

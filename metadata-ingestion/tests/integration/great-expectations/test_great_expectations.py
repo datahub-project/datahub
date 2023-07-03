@@ -1,14 +1,15 @@
-import json
-import pathlib
 import shutil
 from typing import List
 from unittest import mock
 
-import great_expectations as ge
 import pytest
 from freezegun import freeze_time
+from great_expectations.data_context.data_context.file_data_context import (
+    FileDataContext,
+)
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.sink.file import write_metadata_file
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -23,17 +24,7 @@ class MockDatahubEmitter:
         self.mcps.append(mcp)
 
     def write_to_file(self, filename):
-        fpath = pathlib.Path(filename)
-        file = fpath.open("w")
-        file.write("[\n")
-
-        for i, mcp in enumerate(self.mcps):
-            if i != 0:
-                file.write(",\n")
-            json.dump(mcp.to_obj(), file, indent=4)
-
-        file.write("\n]")
-        file.close()
+        write_metadata_file(filename, self.mcps)
 
 
 @freeze_time(FROZEN_TIME)
@@ -54,7 +45,6 @@ def test_ge_ingest(
     golden_json,
     **kwargs,
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/great-expectations"
 
     with docker_compose_runner(
@@ -71,7 +61,7 @@ def test_ge_ingest(
             test_resources_dir / "setup/great_expectations",
             tmp_path / "great_expectations",
         )
-        context = ge.DataContext.create(tmp_path)
+        context = FileDataContext.create(tmp_path)
         context.run_checkpoint(checkpoint_name=checkpoint)
 
         emitter.write_to_file(tmp_path / "ge_mcps.json")

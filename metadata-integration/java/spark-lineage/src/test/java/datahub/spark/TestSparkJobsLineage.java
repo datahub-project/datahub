@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -54,6 +55,7 @@ import datahub.spark.model.dataset.CatalogTableDataset;
 import datahub.spark.model.dataset.HdfsPathDataset;
 import datahub.spark.model.dataset.JdbcDataset;
 import datahub.spark.model.dataset.SparkDataset;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 //!!!! IMP  !!!!!!!!
 //Add the test number before naming the test. This will ensure that tests run in specified order. 
@@ -84,10 +86,15 @@ public class TestSparkJobsLineage {
   private static final FabricType DATASET_ENV = FabricType.DEV;
   private static final String PIPELINE_PLATFORM_INSTANCE = "test_machine";
   private static final String DATASET_PLATFORM_INSTANCE = "test_dev_dataset";
+  private static final String TABLE_PLATFORM = "hive";
 
   @ClassRule
-  public static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:9.6.12")
-      .withDatabaseName("sparktestdb");
+  public static PostgreSQLContainer<?> db;
+  static {
+    db = new PostgreSQLContainer<>("postgres:9.6.12")
+            .withDatabaseName("sparktestdb");
+    db.waitingFor(Wait.forListeningPort()).withStartupTimeout(Duration.ofMinutes(15)).start();
+  }
   private static SparkSession spark;
   private static Properties jdbcConnnProperties;
   private static DatasetLineageAccumulator acc;
@@ -215,7 +222,7 @@ public class TestSparkJobsLineage {
   }
 
   private static HdfsPathDataset hdfsDs(String fileName) {
-    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE, DATASET_ENV);
+    return new HdfsPathDataset("file:" + abs(DATA_DIR + "/" + fileName), DATASET_PLATFORM_INSTANCE, "hdfs", DATASET_ENV);
   }
 
   private static JdbcDataset pgDs(String tbl) {
@@ -223,7 +230,7 @@ public class TestSparkJobsLineage {
   }
 
   private static CatalogTableDataset catTblDs(String tbl) {
-    return new CatalogTableDataset(tbl(tbl), DATASET_PLATFORM_INSTANCE, DATASET_ENV);
+    return new CatalogTableDataset(tbl(tbl), DATASET_PLATFORM_INSTANCE, TABLE_PLATFORM, DATASET_ENV);
   }
 
   private static String tbl(String tbl) {

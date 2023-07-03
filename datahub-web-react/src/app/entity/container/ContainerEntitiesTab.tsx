@@ -1,18 +1,22 @@
 import React from 'react';
 import { useEntityData } from '../shared/EntityContext';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '../../search/utils/constants';
 
 export const ContainerEntitiesTab = () => {
     const { urn } = useEntityData();
 
     const fixedFilter = {
         field: 'container',
-        value: urn,
+        values: [urn],
     };
 
     return (
         <EmbeddedListSearchSection
-            fixedFilter={fixedFilter}
+            fixedFilters={{
+                unionType: UnionType.AND,
+                filters: [fixedFilter],
+            }}
             emptySearchQuery="*"
             placeholderText="Filter container entities..."
         />

@@ -1,15 +1,48 @@
-import { GetDatasetDocument } from './graphql/dataset.generated';
-import { Container, Dataset, EntityType, PlatformType, SchemaFieldDataType } from './types.generated';
+import { GetDatasetDocument, UpdateDatasetDocument, GetDatasetSchemaDocument } from './graphql/dataset.generated';
+import { GetDataFlowDocument } from './graphql/dataFlow.generated';
+import { GetDataJobDocument } from './graphql/dataJob.generated';
+import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
+import {
+    GetAutoCompleteResultsDocument,
+    GetAutoCompleteMultipleResultsDocument,
+    GetSearchResultsDocument,
+    GetSearchResultsQuery,
+    GetSearchResultsForMultipleDocument,
+    GetSearchResultsForMultipleQuery,
+} from './graphql/search.generated';
+import { GetUserDocument } from './graphql/user.generated';
+import {
+    Dataset,
+    DataFlow,
+    DataJob,
+    GlossaryTerm,
+    GlossaryNode,
+    EntityType,
+    PlatformType,
+    MlModel,
+    MlModelGroup,
+    SchemaFieldDataType,
+    ScenarioType,
+    RecommendationRenderType,
+    RelationshipDirection,
+    Container,
+    PlatformPrivileges,
+    FilterOperator,
+} from './types.generated';
+import { GetTagDocument } from './graphql/tag.generated';
+import { GetMlModelDocument } from './graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetEntityCountsDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
-import { GetContainerDocument } from './graphql/container.generated';
-import { GetSearchResultsDocument, GetSearchResultsQuery } from './graphql/search.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import { FetchedEntity } from './app/lineage/types';
 
-const user2 = {
+const user1 = {
     username: 'sdas',
-    urn: 'urn:li:corpuser:2',
-    type: 'CORP_USER',
+    urn: 'urn:li:corpuser:1',
+    type: EntityType.CorpUser,
     info: {
-        __typename: 'CorpUserInfo',
         email: 'sdas@domain.com',
         active: true,
         displayName: 'sdas',
@@ -18,62 +51,287 @@ const user2 = {
         lastName: 'Das',
         fullName: 'Shirshanka Das',
     },
-    properties: {
-        __typename: 'CorpUserProperties',
-        email: 'sdas@domain.com',
-        active: true,
-        displayName: 'sdas',
-        title: 'Software Engineer',
-        firstName: 'Shirshanka',
-        lastName: 'Das',
-        fullName: 'Shirshanka Das',
+    editableInfo: {
+        pictureLink: 'https://crunchconf.com/img/2019/speakers/1559291783-ShirshankaDas.png',
     },
-    editableProperties: {
-        __typename: 'CorpUserEditableProperties',
-        displayName: 'sdas',
-        title: 'Software Engineer',
-        pictureLink: 'something',
-        email: 'sdas@domain.com',
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:corpuser:1',
+            },
+        ],
     },
-    settings: { appearance: { showSimplifiedHomepage: false } },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
-const customContainer = {
-    __typename: 'Container',
-    urn: 'urn:li:container:customContainer',
-    type: EntityType.Container,
+const user2 = {
+    username: 'john',
+    urn: 'urn:li:corpuser:3',
+    type: EntityType.CorpUser,
+    info: {
+        email: 'john@domain.com',
+        active: true,
+        displayName: 'john',
+        title: 'Eng',
+        firstName: 'John',
+        lastName: 'Joyce',
+        fullName: 'John Joyce',
+    },
+    editableInfo: {
+        pictureLink: null,
+    },
+    editableProperties: {
+        displayName: 'Test',
+        title: 'test',
+        pictureLink: null,
+        teams: [],
+        skills: [],
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:corpuser:3',
+            },
+        ],
+    },
+    settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
+};
+
+const dataPlatform = {
+    urn: 'urn:li:dataPlatform:hdfs',
+    name: 'HDFS',
+    type: EntityType.DataPlatform,
+    properties: {
+        displayName: 'HDFS',
+        type: PlatformType.FileSystem,
+        datasetNameDelimiter: '.',
+        logoUrl: '',
+    },
+};
+
+export const dataset1 = {
+    urn: 'urn:li:dataset:1',
+    type: EntityType.Dataset,
     platform: {
-        urn: 'urn:li:dataPlatform:kafka',
-        name: 'Kafka',
+        urn: 'urn:li:dataPlatform:hdfs',
+        name: 'HDFS',
+        type: EntityType.DataPlatform,
+        properties: {
+            displayName: 'HDFS',
+            type: PlatformType.FileSystem,
+            datasetNameDelimiter: '.',
+            logoUrl:
+                'https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/lookerlogo.png',
+        },
+    },
+    lastIngested: null,
+    exists: true,
+    dataPlatformInstance: null,
+    platformNativeType: 'TABLE',
+    name: 'The Great Test Dataset',
+    origin: 'PROD',
+    tags: ['Private', 'PII'],
+    uri: 'www.google.com',
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+        canEditQueries: false,
+    },
+    properties: {
+        name: 'The Great Test Dataset',
+        description: 'This is the greatest dataset in the world, youre gonna love it!',
+        customProperties: [
+            {
+                key: 'TestProperty',
+                associatedUrn: 'urn:li:dataset:1',
+                value: 'My property value.',
+            },
+            {
+                associatedUrn: 'urn:li:dataset:1',
+                key: 'AnotherTestProperty',
+                value: 'My other property value.',
+            },
+        ],
+        externalUrl: null,
+    },
+    editableProperties: null,
+    created: {
+        time: 0,
+    },
+    lastModified: {
+        time: 0,
+    },
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:dataset:1',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:dataset:1',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    institutionalMemory: {
+        elements: [
+            {
+                url: 'https://www.google.com',
+                description: 'This only points to Google',
+                created: {
+                    actor: 'urn:li:corpuser:1',
+                    time: 1612396473001,
+                },
+            },
+        ],
+    },
+    usageStats: null,
+    datasetProfiles: [
+        {
+            timestampMillis: 0,
+            rowCount: 10,
+            columnCount: 5,
+            sizeInBytes: 10,
+            fieldProfiles: [
+                {
+                    fieldPath: 'testColumn',
+                },
+            ],
+        },
+    ],
+    domain: null,
+    container: null,
+    health: [],
+    assertions: null,
+    deprecation: null,
+    testResults: null,
+    statsSummary: null,
+    embed: null,
+};
+
+export const dataset2 = {
+    urn: 'urn:li:dataset:2',
+    type: EntityType.Dataset,
+    platform: {
+        urn: 'urn:li:dataPlatform:mysql',
+        name: 'MySQL',
         info: {
-            displayName: 'Kafka',
-            type: PlatformType.MessageBroker,
+            displayName: 'MySQL',
+            type: PlatformType.RelationalDb,
             datasetNameDelimiter: '.',
             logoUrl: '',
         },
-        displayName: 'kafka',
-        properties: null,
         type: EntityType.DataPlatform,
-        __typename: 'DataPlatform',
     },
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+        canEditQueries: false,
+    },
+    lastIngested: null,
+    exists: true,
+    dataPlatformInstance: null,
+    platformNativeType: 'TABLE',
+    name: 'Some Other Dataset',
+    origin: 'PROD',
+    tags: ['Outdated'],
+    uri: 'www.google.com',
     properties: {
-        __typename: 'ContainerProperties',
-        name: 'newContainer',
-        description: null,
-        customProperties: null,
+        name: 'Some Other Dataset',
+        description: 'This is some other dataset, so who cares!',
+        customProperties: [],
+        origin: 'PROD',
+        externalUrl: null,
     },
-    subTypes: {
-        __typename: 'SubTypes',
-        typeNames: ['any'],
+    editableProperties: null,
+    created: {
+        time: 0,
     },
-    deprecation: {
-        __typename: 'Deprecation',
-        deprecated: false,
-        decommissionTime: 0,
-        note: '',
-        actor: 'urn:li:corpuser:blah',
+    lastModified: {
+        time: 0,
     },
-} as Container;
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:dataset:2',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+                associatedUrn: 'urn:li:dataset:2',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    usageStats: null,
+    datasetProfiles: [
+        {
+            timestampMillis: 0,
+            rowCount: 10,
+            columnCount: 5,
+            sizeInBytes: 10000,
+            fieldProfiles: [
+                {
+                    fieldPath: 'testColumn',
+                    min: '3',
+                    max: '4',
+                    median: '6',
+                    stdev: '1.2',
+                    nullProportion: 0.56,
+                    sampleValues: ['value1', 'value2', 'value3'],
+                },
+            ],
+        },
+    ],
+    domain: null,
+    container: null,
+    health: [],
+    assertions: null,
+    status: null,
+    deprecation: null,
+    testResults: null,
+    statsSummary: null,
+    embed: null,
+};
 
 export const dataset3 = {
     __typename: 'Dataset',
@@ -90,6 +348,12 @@ export const dataset3 = {
         },
         type: EntityType.DataPlatform,
     },
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+        canEditQueries: false,
+    },
+    exists: true,
     lastIngested: null,
     dataPlatformInstance: null,
     platformNativeType: 'STREAM',
@@ -203,8 +467,6 @@ export const dataset3 = {
     },
     incoming: null,
     outgoing: null,
-    upstream: null,
-    downstream: null,
     institutionalMemory: {
         elements: [
             {
@@ -219,59 +481,6 @@ export const dataset3 = {
             },
         ],
     },
-    schemaMetadata: {
-        __typename: 'SchemaMetadata',
-        aspectVersion: 0,
-        createdAt: 0,
-        fields: [
-            {
-                __typename: 'SchemaField',
-                nullable: false,
-                recursive: false,
-                fieldPath: 'user_id',
-                description: 'Id of the user created',
-                type: SchemaFieldDataType.String,
-                nativeDataType: 'varchar(100)',
-                isPartOfKey: false,
-                jsonPath: null,
-                globalTags: null,
-                glossaryTerms: null,
-                label: 'hi',
-            },
-            {
-                __typename: 'SchemaField',
-                nullable: false,
-                recursive: false,
-                fieldPath: 'user_name',
-                description: 'Name of the user who signed up',
-                type: SchemaFieldDataType.String,
-                nativeDataType: 'boolean',
-                isPartOfKey: false,
-                jsonPath: null,
-                globalTags: null,
-                glossaryTerms: null,
-                label: 'hi',
-            },
-        ],
-        hash: '',
-        platformSchema: null,
-        platformUrn: 'urn:li:dataPlatform:hive',
-        created: {
-            actor: 'urn:li:corpuser:jdoe',
-            time: 1581407189000,
-        },
-        cluster: '',
-        name: 'SampleHiveSchema',
-        version: 0,
-        lastModified: {
-            actor: 'urn:li:corpuser:jdoe',
-            time: 1581407189000,
-        },
-        datasetUrn: 'urn:li:dataset:3',
-        primaryKeys: [],
-        foreignKeys: [],
-    },
-    editableSchemaMetadata: null,
     deprecation: null,
     usageStats: null,
     operations: null,
@@ -279,6 +488,7 @@ export const dataset3 = {
         {
             rowCount: 10,
             columnCount: 5,
+            sizeInBytes: 10000,
             timestampMillis: 0,
             fieldProfiles: [
                 {
@@ -322,11 +532,1164 @@ export const dataset3 = {
     testResults: null,
     siblings: null,
     statsSummary: null,
+    embed: null,
 } as Dataset;
+
+export const dataset3WithSchema = {
+    dataset: {
+        __typename: 'Dataset',
+        schemaMetadata: {
+            __typename: 'SchemaMetadata',
+            aspectVersion: 0,
+            createdAt: 0,
+            fields: [
+                {
+                    __typename: 'SchemaField',
+                    nullable: false,
+                    recursive: false,
+                    fieldPath: 'user_id',
+                    description: 'Id of the user created',
+                    type: SchemaFieldDataType.String,
+                    nativeDataType: 'varchar(100)',
+                    isPartOfKey: false,
+                    jsonPath: null,
+                    globalTags: null,
+                    glossaryTerms: null,
+                    label: 'hi',
+                },
+                {
+                    __typename: 'SchemaField',
+                    nullable: false,
+                    recursive: false,
+                    fieldPath: 'user_name',
+                    description: 'Name of the user who signed up',
+                    type: SchemaFieldDataType.String,
+                    nativeDataType: 'boolean',
+                    isPartOfKey: false,
+                    jsonPath: null,
+                    globalTags: null,
+                    glossaryTerms: null,
+                    label: 'hi',
+                },
+            ],
+            hash: '',
+            platformSchema: null,
+            platformUrn: 'urn:li:dataPlatform:hive',
+            created: {
+                actor: 'urn:li:corpuser:jdoe',
+                time: 1581407189000,
+            },
+            cluster: '',
+            name: 'SampleHiveSchema',
+            version: 0,
+            lastModified: {
+                actor: 'urn:li:corpuser:jdoe',
+                time: 1581407189000,
+            },
+            datasetUrn: 'urn:li:dataset:3',
+            primaryKeys: [],
+            foreignKeys: [],
+        },
+        editableSchemaMetadata: null,
+        siblings: null,
+    },
+};
+
+export const dataset4 = {
+    ...dataset3,
+    name: 'Fourth Test Dataset',
+    urn: 'urn:li:dataset:4',
+    properties: {
+        name: 'Fourth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
+};
+
+export const dataset5 = {
+    ...dataset3,
+    name: 'Fifth Test Dataset',
+    urn: 'urn:li:dataset:5',
+    properties: {
+        name: 'Fifth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:5' }],
+        externalUrl: 'https://data.hub',
+    },
+};
+
+export const dataset6 = {
+    ...dataset3,
+    name: 'Sixth Test Dataset',
+    urn: 'urn:li:dataset:6',
+    properties: {
+        name: 'Display Name of Sixth',
+        qualifiedName: 'Fully Qualified Name of Sixth Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue', associatedUrn: 'urn:li:dataset:6' }],
+        externalUrl: 'https://data.hub',
+    },
+};
+
+export const dataset7 = {
+    ...dataset3,
+    name: 'Seventh Test Dataset',
+    urn: 'urn:li:dataset:7',
+    properties: {
+        name: 'Seventh Test Dataset',
+        description: 'This and here we have yet another Dataset (YAN). Are there more?',
+        origin: 'PROD',
+        customProperties: [{ key: 'propertyAKey', value: 'propertyAValue' }],
+        externalUrl: 'https://data.hub',
+    },
+};
+
+export const dataset3WithLineage = {
+    ...dataset3,
+    upstream: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset7,
+            },
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset4,
+            },
+        ],
+    },
+    downstream: {
+        start: 0,
+        count: 0,
+        total: 0,
+        relationships: [],
+    },
+};
+
+export const dataset4WithLineage = {
+    ...dataset4,
+    upstream: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset6,
+            },
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset5,
+            },
+        ],
+    },
+    downstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset3,
+            },
+        ],
+    },
+};
+
+export const dataset5WithCyclicalLineage = {
+    ...dataset5,
+    upstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset3,
+            },
+        ],
+    },
+    downstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset7,
+            },
+        ],
+    },
+};
+
+export const dataset5WithLineage = {
+    ...dataset5,
+    upstream: null,
+    downstream: {
+        start: 0,
+        count: 3,
+        total: 3,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset7,
+            },
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset6,
+            },
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset4,
+            },
+        ],
+    },
+};
+
+export const dataset6WithLineage = {
+    ...dataset6,
+    upstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset5,
+            },
+        ],
+    },
+    downstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset4,
+            },
+        ],
+    },
+};
+
+export const dataset7WithLineage = {
+    ...dataset7,
+    upstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset5,
+            },
+        ],
+    },
+    downstream: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset3,
+            },
+        ],
+    },
+};
+
+export const dataset7WithSelfReferentialLineage = {
+    ...dataset7,
+    upstream: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset5,
+            },
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataset7,
+            },
+        ],
+    },
+    downstream: {
+        start: 0,
+        count: 2,
+        total: 2,
+        relationships: [
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset3,
+            },
+            {
+                type: 'DownstreamOf',
+                direction: RelationshipDirection.Incoming,
+                entity: dataset7,
+            },
+        ],
+    },
+};
+
+export const container1 = {
+    urn: 'urn:li:container:DATABASE',
+    type: EntityType.Container,
+    platform: dataPlatform,
+    lastIngested: null,
+    exists: true,
+    properties: {
+        name: 'database1',
+        externalUrl: null,
+        __typename: 'ContainerProperties',
+    },
+    __typename: 'Container',
+} as Container;
+
+export const container2 = {
+    urn: 'urn:li:container:SCHEMA',
+    type: EntityType.Container,
+    platform: dataPlatform,
+    lastIngested: null,
+    exists: true,
+    properties: {
+        name: 'schema1',
+        externalUrl: null,
+        __typename: 'ContainerProperties',
+    },
+    __typename: 'Container',
+} as Container;
+
+export const glossaryTerm1 = {
+    urn: 'urn:li:glossaryTerm:1',
+    type: EntityType.GlossaryTerm,
+    name: 'Another glossary term',
+    hierarchicalName: 'example.AnotherGlossaryTerm',
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:glossaryTerm:1',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:glossaryTerm:1',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    glossaryTermInfo: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
+        definition: 'New glossary term',
+        termSource: 'termSource',
+        sourceRef: 'sourceRef',
+        sourceURI: 'sourceURI',
+    },
+    properties: {
+        name: 'Another glossary term',
+        description: 'New glossary term',
+        definition: 'New glossary term',
+        termSource: 'termSource',
+        sourceRef: 'sourceRef',
+        sourceURI: 'sourceURI',
+    },
+    parentNodes: null,
+    deprecation: null,
+} as GlossaryTerm;
+
+const glossaryTerm2 = {
+    urn: 'urn:li:glossaryTerm:example.glossaryterm1',
+    type: 'GLOSSARY_TERM',
+    name: 'glossaryterm1',
+    hierarchicalName: 'example.glossaryterm1',
+    ownership: null,
+    glossaryTermInfo: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
+        definition: 'is A relation glossary term 1',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'CustomPropertiesEntry',
+            },
+        ],
+        __typename: 'GlossaryTermInfo',
+    },
+    properties: {
+        name: 'glossaryterm1',
+        description: 'is A relation glossary term 1',
+        definition: 'is A relation glossary term 1',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                __typename: 'CustomPropertiesEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
+    },
+    deprecation: null,
+    isRealtedTerms: {
+        start: 0,
+        count: 0,
+        total: 0,
+        relationships: [
+            {
+                entity: {
+                    urn: 'urn:li:glossaryTerm:schema.Field16Schema_v1',
+                    __typename: 'GlossaryTerm',
+                },
+            },
+        ],
+        __typename: 'EntityRelationshipsResult',
+    },
+    hasRelatedTerms: {
+        start: 0,
+        count: 0,
+        total: 0,
+        relationships: [
+            {
+                entity: {
+                    urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                    __typename: 'GlossaryTerm',
+                },
+            },
+        ],
+        __typename: 'EntityRelationshipsResult',
+    },
+    parentNodes: null,
+    __typename: 'GlossaryTerm',
+};
+
+const glossaryTerm3 = {
+    urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+    type: 'GLOSSARY_TERM',
+    name: 'glossaryterm2',
+    hierarchicalName: 'example.glossaryterm2',
+    ownership: null,
+    glossaryTermInfo: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
+        definition: 'has A relation glossary term 2',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                __typename: 'CustomPropertiesEntry',
+            },
+        ],
+        __typename: 'GlossaryTermInfo',
+    },
+    properties: {
+        name: 'glossaryterm2',
+        description: 'has A relation glossary term 2',
+        definition: 'has A relation glossary term 2',
+        termSource: 'INTERNAL',
+        sourceRef: 'TERM_SOURCE_SAXO',
+        sourceUrl: '',
+        rawSchema: 'sample proto schema',
+        customProperties: [
+            {
+                key: 'keyProperty',
+                value: 'valueProperty',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm2',
+                __typename: 'CustomPropertiesEntry',
+            },
+        ],
+        __typename: 'GlossaryTermProperties',
+    },
+    glossaryRelatedTerms: {
+        isRelatedTerms: null,
+        hasRelatedTerms: [
+            {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm3',
+                properties: {
+                    name: 'glossaryterm3',
+                },
+                __typename: 'GlossaryTerm',
+            },
+            {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm4',
+                properties: {
+                    name: 'glossaryterm4',
+                },
+                __typename: 'GlossaryTerm',
+            },
+        ],
+        __typename: 'GlossaryRelatedTerms',
+    },
+    deprecation: null,
+    __typename: 'GlossaryTerm',
+} as GlossaryTerm;
+
+export const glossaryNode1 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode1',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 1',
+    },
+    parentNodes: {
+        count: 0,
+        nodes: [],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode2 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode2',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 2',
+    },
+    parentNodes: {
+        count: 1,
+        nodes: [glossaryNode1],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode3 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode3',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 3',
+    },
+    parentNodes: {
+        count: 2,
+        nodes: [glossaryNode2, glossaryNode1],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode4 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode4',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 4',
+    },
+    parentNodes: {
+        count: 0,
+        nodes: [],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const glossaryNode5 = {
+    urn: 'urn:li:glossaryNode:example.glossarynode5',
+    type: 'GLOSSARY_NODE',
+    properties: {
+        name: 'Glossary Node 5',
+    },
+    parentNodes: {
+        count: 1,
+        nodes: [glossaryNode4],
+    },
+    __typename: 'GlossaryNode',
+} as GlossaryNode;
+
+export const sampleTag = {
+    urn: 'urn:li:tag:abc-sample-tag',
+    name: 'abc-sample-tag',
+    description: 'sample tag description',
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    properties: {
+        name: 'abc-sample-tag',
+        description: 'sample tag description',
+        colorHex: 'sample tag color',
+    },
+};
+
+export const dataFlow1 = {
+    __typename: 'DataFlow',
+    urn: 'urn:li:dataFlow:1',
+    type: EntityType.DataFlow,
+    orchestrator: 'Airflow',
+    flowId: 'flowId1',
+    cluster: 'cluster1',
+    lastIngested: null,
+    exists: true,
+    properties: {
+        name: 'DataFlowInfoName',
+        description: 'DataFlowInfo1 Description',
+        project: 'DataFlowInfo1 project',
+        externalUrl: null,
+        customProperties: [],
+    },
+    editableProperties: null,
+    ownership: {
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+                associatedUrn: 'urn:li:dataFlow:1',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+                associatedUrn: 'urn:li:dataFlow:1',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:dataFlow:1',
+            },
+        ],
+    },
+    platform: {
+        urn: 'urn:li:dataPlatform:airflow',
+        name: 'Airflow',
+        type: EntityType.DataPlatform,
+        properties: {
+            displayName: 'Airflow',
+            type: PlatformType.FileSystem,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+    },
+    domain: null,
+    deprecation: null,
+} as DataFlow;
+
+export const dataJob1 = {
+    __typename: 'DataJob',
+    urn: 'urn:li:dataJob:1',
+    type: EntityType.DataJob,
+    dataFlow: dataFlow1,
+    jobId: 'jobId1',
+    lastIngested: null,
+    exists: true,
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:dataJob:1',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:dataJob:1',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
+    properties: {
+        name: 'DataJobInfoName',
+        description: 'DataJobInfo1 Description',
+        externalUrl: null,
+        customProperties: [],
+    },
+    editableProperties: null,
+    inputOutput: {
+        __typename: 'DataJobInputOutput',
+        inputDatasets: [dataset5],
+        outputDatasets: [dataset6],
+        inputDatajobs: [],
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:dataJob:1',
+            },
+        ],
+    },
+    incoming: null,
+    outgoing: null,
+    upstream: null,
+    downstream: null,
+    parentFlow: {
+        start: 0,
+        count: 1,
+        total: 1,
+        relationships: [
+            {
+                type: 'IsPartOf',
+                direction: RelationshipDirection.Outgoing,
+                entity: dataFlow1,
+            },
+        ],
+    },
+    domain: null,
+    status: null,
+    deprecation: null,
+} as DataJob;
+
+export const dataJob2 = {
+    __typename: 'DataJob',
+    urn: 'urn:li:dataJob:2',
+    type: EntityType.DataJob,
+    dataFlow: dataFlow1,
+    jobId: 'jobId2',
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:dataJob:2',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:dataJob:2',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    properties: {
+        name: 'DataJobInfoName2',
+        description: 'DataJobInfo2 Description',
+        externalUrl: null,
+        customProperties: [],
+    },
+    editableProperties: null,
+    inputOutput: {
+        __typename: 'DataJobInputOutput',
+        inputDatasets: [dataset3],
+        outputDatasets: [dataset3],
+        inputDatajobs: [dataJob1],
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:dataJob:2',
+            },
+        ],
+    },
+    domain: null,
+    upstream: null,
+    downstream: null,
+    deprecation: null,
+} as DataJob;
+
+export const dataJob3 = {
+    __typename: 'DataJob',
+    urn: 'urn:li:dataJob:3',
+    type: EntityType.DataJob,
+    dataFlow: dataFlow1,
+    jobId: 'jobId3',
+    lastIngested: null,
+    exists: true,
+    privileges: {
+        canEditLineage: false,
+        canEditEmbed: false,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:dataJob:3',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:dataJob:3',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    properties: {
+        name: 'DataJobInfoName3',
+        description: 'DataJobInfo3 Description',
+        externalUrl: null,
+        customProperties: [],
+    },
+    editableProperties: null,
+    inputOutput: {
+        __typename: 'DataJobInputOutput',
+        inputDatasets: [dataset3],
+        outputDatasets: [dataset3],
+        inputDatajobs: [dataJob2],
+    },
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:dataJob:3',
+            },
+        ],
+    },
+    domain: null,
+    upstream: null,
+    downstream: null,
+    status: null,
+    deprecation: null,
+} as DataJob;
+
+export const mlModel = {
+    __typename: 'MLModel',
+    urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+    type: EntityType.Mlmodel,
+    name: 'trust model',
+    description: 'a ml trust model',
+    origin: 'PROD',
+    lastIngested: null,
+    exists: true,
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    tags: [],
+    properties: {
+        description: 'a ml trust model',
+        date: null,
+        version: '1',
+        type: 'model type',
+        trainingMetrics: null,
+        hyperParams: null,
+        mlFeatures: null,
+        groups: null,
+        customProperties: null,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                type: 'DATAOWNER',
+                associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                type: 'DELEGATE',
+                associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    upstreamLineage: [],
+    downstreamLineage: [],
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+                associatedUrn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+            },
+        ],
+    },
+    incoming: null,
+    outgoing: null,
+    upstream: null,
+    downstream: null,
+    status: null,
+    deprecation: null,
+} as MlModel;
+
+export const dataset1FetchedEntity = {
+    urn: dataset1.urn,
+    name: dataset1.name,
+    type: dataset1.type,
+    upstreamChildren: [],
+    downstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset2 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+} as FetchedEntity;
+
+export const dataset2FetchedEntity = {
+    urn: dataset2.urn,
+    name: 'test name',
+    type: dataset2.type,
+    upstreamChildren: [
+        { type: EntityType.Dataset, entity: dataset1 },
+        { type: EntityType.DataJob, entity: dataJob1 },
+    ],
+    downstreamChildren: [],
+} as FetchedEntity;
+
+export const mlModelGroup = {
+    __typename: 'MLModelGroup',
+    urn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
+    type: EntityType.MlmodelGroup,
+    name: 'trust model group',
+    description: 'a ml trust model group',
+    origin: 'PROD',
+    platform: {
+        urn: 'urn:li:dataPlatform:kafka',
+        name: 'Kafka',
+        info: {
+            type: PlatformType.MessageBroker,
+            datasetNameDelimiter: '.',
+            logoUrl: '',
+        },
+        type: EntityType.DataPlatform,
+    },
+    ownership: {
+        __typename: 'Ownership',
+        owners: [
+            {
+                owner: {
+                    ...user1,
+                },
+                associatedUrn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
+                type: 'DATAOWNER',
+            },
+            {
+                owner: {
+                    ...user2,
+                },
+                associatedUrn: 'urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)',
+                type: 'DELEGATE',
+            },
+        ],
+        lastModified: {
+            time: 0,
+        },
+    },
+    upstreamLineage: null,
+    downstreamLineage: null,
+    globalTags: {
+        tags: [
+            {
+                tag: {
+                    type: EntityType.Tag,
+                    urn: 'urn:li:tag:abc-sample-tag',
+                    name: 'abc-sample-tag',
+                    description: 'sample tag',
+                    properties: {
+                        name: 'abc-sample-tag',
+                        description: 'sample tag',
+                        colorHex: 'sample tag color',
+                    },
+                },
+            },
+        ],
+    },
+    incoming: null,
+    outgoing: null,
+    upstream: null,
+    downstream: null,
+    status: null,
+    deprecation: null,
+} as MlModelGroup;
+
+export const recommendationModules = [
+    {
+        title: 'Most Popular',
+        moduleId: 'MostPopular',
+        renderType: RecommendationRenderType.EntityNameList,
+        content: [
+            {
+                entity: {
+                    ...dataset2,
+                },
+            },
+        ],
+    },
+    {
+        title: 'Top Platforms',
+        moduleId: 'TopPlatforms',
+        renderType: RecommendationRenderType.PlatformSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:dataPlatform:snowflake',
+                    type: EntityType.DataPlatform,
+                    name: 'snowflake',
+                    properties: {
+                        displayName: 'Snowflake',
+                        datasetNameDelimiter: '.',
+                        logoUrl: null,
+                    },
+                    displayName: null,
+                    info: null,
+                },
+                params: {
+                    contentParams: {
+                        count: 1,
+                    },
+                },
+            },
+        ],
+    },
+    {
+        title: 'Popular Tags',
+        moduleId: 'PopularTags',
+        renderType: RecommendationRenderType.TagSearchList,
+        content: [
+            {
+                entity: {
+                    urn: 'urn:li:tag:TestTag',
+                    name: 'TestTag',
+                },
+            },
+        ],
+    },
+];
+
 /*
     Define mock data to be returned by Apollo MockProvider.
 */
-export const editMocks = [
+export const mocks = [
     {
         request: {
             query: GetDatasetDocument,
@@ -341,18 +1704,1577 @@ export const editMocks = [
                 },
             },
         },
+        newData: () => ({
+            data: {
+                dataset: {
+                    ...dataset3,
+                },
+            },
+        }),
     },
     {
         request: {
-            query: GetContainerDocument,
+            query: GetDatasetSchemaDocument,
             variables: {
-                urn: 'urn:li:container:customContainer',
+                urn: 'urn:li:dataset:3',
             },
         },
         result: {
             data: {
-                container: {
-                    ...customContainer,
+                ...dataset3WithSchema,
+            },
+        },
+    },
+    {
+        request: {
+            query: GetUserDocument,
+            variables: {
+                urn: 'urn:li:corpuser:1',
+            },
+        },
+        result: {
+            data: {
+                corpUser: {
+                    ...user1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetUserDocument,
+            variables: {
+                urn: 'urn:li:corpuser:2',
+            },
+        },
+        result: {
+            data: {
+                corpUser: {
+                    ...user1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetUserDocument,
+            variables: {
+                urn: 'urn:li:corpuser:datahub',
+            },
+        },
+        result: {
+            data: {
+                corpUser: {
+                    ...user1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowsePathsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    urn: 'urn:li:dataset:1',
+                },
+            },
+        },
+        result: {
+            data: {
+                browsePaths: [['prod', 'hdfs', 'datasets']],
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowseResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    path: [],
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                browse: {
+                    entities: [],
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    metadata: {
+                        path: [],
+                        groups: [
+                            {
+                                name: 'prod',
+                                count: 1,
+                            },
+                        ],
+                        totalNumEntities: 1,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowseResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    path: ['prod', 'hdfs'],
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                browse: {
+                    entities: [
+                        {
+                            __typename: 'Dataset',
+                            ...dataset1,
+                        },
+                    ],
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    metadata: {
+                        path: ['prod', 'hdfs'],
+                        groups: [],
+                        totalNumEntities: 0,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetBrowseResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    path: ['prod'],
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                browse: {
+                    entities: [],
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    metadata: {
+                        path: ['prod'],
+                        groups: [
+                            {
+                                name: 'hdfs',
+                                count: 1,
+                            },
+                        ],
+                        totalNumEntities: 1,
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetAutoCompleteMultipleResultsDocument,
+            variables: {
+                input: {
+                    query: 't',
+                    limit: 10,
+                    filters: [],
+                    types: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                autoCompleteForMultiple: {
+                    query: 't',
+                    suggestions: [
+                        {
+                            type: EntityType.Dataset,
+                            suggestions: ['The Great Test Dataset', 'Some Other Dataset'],
+                            entities: [dataset1, dataset2],
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetAutoCompleteMultipleResultsDocument,
+            variables: {
+                input: {
+                    query: 't',
+                    limit: 10,
+                },
+            },
+        },
+        result: {
+            data: {
+                autoCompleteForMultiple: {
+                    query: 't',
+                    suggestions: [
+                        {
+                            type: EntityType.Dataset,
+                            suggestions: ['The Great Test Dataset', 'Some Other Dataset'],
+                            entities: [dataset1, dataset2],
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetAutoCompleteResultsDocument,
+            variables: {
+                input: {
+                    type: 'USER',
+                    query: 'j',
+                },
+            },
+        },
+        result: {
+            data: {
+                autoComplete: {
+                    query: 'j',
+                    suggestions: ['jjoyce'],
+                    entities: [user1],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 3,
+                    total: 3,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset1,
+                            },
+                            matchedFields: [
+                                {
+                                    name: 'fieldName',
+                                    value: 'fieldValue',
+                                },
+                            ],
+                            insights: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset2,
+                            },
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [{ value: 'PROD', count: 3, entity: null }],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'HDFS', count: 1, entity: null },
+                                { value: 'MySQL', count: 1, entity: null },
+                                { value: 'Kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [
+                        {
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            __typename: 'FacetMetadata',
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            __typename: 'FacetMetadata',
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'GLOSSARY_TERM',
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'GLOSSARY_TERM',
+                                ...glossaryTerm1,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetGlossaryTermDocument,
+            variables: {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm1',
+            },
+        },
+        result: {
+            data: {
+                glossaryTerm: { ...glossaryTerm2 },
+            } as GetGlossaryTermQuery,
+        },
+    },
+    {
+        request: {
+            query: GetGlossaryTermDocument,
+            variables: {
+                urn: 'urn:li:glossaryTerm:example.glossaryterm2',
+            },
+        },
+        result: {
+            data: {
+                glossaryTerm: { ...glossaryTerm3 },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [
+                        {
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'USER',
+                    query: 'Test',
+                    start: 0,
+                    count: 10,
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 2,
+                    total: 2,
+                    searchResult: [
+                        {
+                            entity: {
+                                ...user1,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: UpdateDatasetDocument,
+            variables: {
+                input: {
+                    urn: 'urn:li:dataset:1',
+                    ownership: {
+                        owners: [
+                            {
+                                owner: 'urn:li:corpuser:1',
+                                type: 'DATAOWNER',
+                            },
+                        ],
+                        lastModified: {
+                            time: 0,
+                        },
+                    },
+                },
+            },
+        },
+        result: {
+            data: {
+                dataset: {
+                    urn: 'urn:li:corpuser:1',
+                    ownership: {
+                        owners: [
+                            {
+                                owner: {
+                                    ...user1,
+                                },
+                                type: 'DATAOWNER',
+                            },
+                        ],
+                        lastModified: {
+                            time: 0,
+                        },
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'CORP_USER',
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 0,
+                    total: 2,
+                    searchResults: [],
+                    facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATASET',
+                    query: '*',
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATA_FLOW',
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataFlow',
+                                ...dataFlow1,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetDataFlowDocument,
+            variables: {
+                urn: 'urn:li:dataFlow:1',
+            },
+        },
+        result: {
+            data: {
+                dataFlow: {
+                    ...dataFlow1,
+                    dataJobs: {
+                        entities: [
+                            {
+                                created: {
+                                    time: 0,
+                                },
+                                entity: dataJob1,
+                            },
+                            {
+                                created: {
+                                    time: 0,
+                                },
+                                entity: dataJob2,
+                            },
+                            {
+                                created: {
+                                    time: 0,
+                                },
+                                entity: dataJob3,
+                            },
+                        ],
+                    },
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetDataJobDocument,
+            variables: {
+                urn: 'urn:li:dataJob:1',
+            },
+        },
+        result: {
+            data: {
+                dataJob: {
+                    ...dataJob1,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMlModelDocument,
+            variables: {
+                urn: 'urn:li:mlModel:(urn:li:dataPlatform:sagemaker,trustmodel,PROD)',
+            },
+        },
+        result: {
+            data: {
+                mlModel: {
+                    ...mlModel,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetMlModelGroupDocument,
+            variables: {
+                urn: mlModelGroup.urn,
+            },
+        },
+        result: {
+            data: {
+                mlModelGroup: {
+                    ...mlModelGroup,
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsDocument,
+            variables: {
+                input: {
+                    type: 'DATA_JOB',
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                search: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataJob',
+                                ...dataJob1,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsQuery,
+        },
+    },
+    {
+        request: {
+            query: GetTagDocument,
+            variables: {
+                urn: 'urn:li:tag:abc-sample-tag',
+            },
+        },
+        result: {
+            data: {
+                tag: { ...sampleTag },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [
+                        {
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            __typename: 'SearchResult',
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            __typename: 'FacetMetadata',
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        // {
+                        //     displayName: 'Domain',
+                        //     field: 'domains',
+                        //     __typename: 'FacetMetadata',
+                        //     aggregations: [
+                        //         {
+                        //             value: 'urn:li:domain:baedb9f9-98ef-4846-8a0c-2a88680f213e',
+                        //             count: 1,
+                        //             __typename: 'AggregationMetadata',
+                        //         },
+                        //     ],
+                        // },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            __typename: 'FacetMetadata',
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'mysql',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                {
+                                    __typename: 'AggregationMetadata',
+                                    value: 'kafka',
+                                    count: 1,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [
+                        {
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATA_JOB'],
+                    query: 'Sample',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'DataJob',
+                                ...dataJob1,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                {
+                                    value: 'hdfs',
+                                    count: 1,
+                                    entity: null,
+                                },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'tags:"abc-sample-tag" OR fieldTags:"abc-sample-tag" OR editedFieldTags:"abc-sample-tag"',
+                    start: 0,
+                    count: 1,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: '*',
+                    start: 0,
+                    count: 20,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [
+                        {
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: ['DATASET'],
+                    query: 'test',
+                    start: 0,
+                    count: 10,
+                    filters: [],
+                    orFilters: [
+                        {
+                            and: [
+                                {
+                                    field: 'platform',
+                                    values: ['kafka', 'hdfs'],
+                                    negated: false,
+                                    condition: FilterOperator.Equal,
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        result: {
+            data: {
+                __typename: 'Query',
+                searchAcrossEntities: {
+                    __typename: 'SearchResults',
+                    start: 0,
+                    count: 1,
+                    total: 1,
+                    searchResults: [
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                    ],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
+                },
+            } as GetSearchResultsForMultipleQuery,
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [EntityType.Dataset],
+                },
+            },
+        },
+        result: {
+            data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 10,
+                        },
+                    ],
                 },
             },
         },
@@ -372,6 +3294,18 @@ export const editMocks = [
                         viewAnalytics: true,
                         managePolicies: true,
                         manageIdentities: true,
+                        manageDomains: true,
+                        manageTags: true,
+                        createDomains: true,
+                        createTags: true,
+                        manageUserCredentials: true,
+                        manageGlossaries: true,
+                        manageTests: true,
+                        manageTokens: true,
+                        manageSecrets: true,
+                        manageIngestion: true,
+                        generatePersonalAccessTokens: true,
+                        manageGlobalViews: true,
                     },
                 },
             },
@@ -379,26 +3313,150 @@ export const editMocks = [
     },
     {
         request: {
-            query: GetSearchResultsDocument,
+            query: ListRecommendationsDocument,
             variables: {
                 input: {
-                    types: 'Container',
-                    query: '*',
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.Home,
+                    },
+                    limit: 10,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.EntityProfile,
+                        entityRequestContext: {
+                            urn: dataset3.urn,
+                            type: EntityType.Dataset,
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListRecommendationsDocument,
+            variables: {
+                input: {
+                    userUrn: user2.urn,
+                    requestContext: {
+                        scenario: ScenarioType.SearchResults,
+                        searchRequestContext: {
+                            query: 'noresults',
+                            filters: [],
+                        },
+                    },
+                    limit: 3,
+                },
+            },
+        },
+        result: {
+            data: {
+                listRecommendations: {
+                    modules: [...recommendationModules],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: 'noresults',
                     start: 0,
                     count: 10,
-                    filters: [
-                        {
-                            field: 'platform',
-                            value: 'urn:li:dataPlatform:kafka',
-                        },
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
+                search: {
+                    start: 0,
+                    count: 0,
+                    total: 0,
+                    searchResults: [],
+                    facets: [],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetEntityCountsDocument,
+            variables: {
+                input: {
+                    types: [
+                        EntityType.Dataset,
+                        EntityType.Chart,
+                        EntityType.Dashboard,
+                        EntityType.DataFlow,
+                        EntityType.GlossaryTerm,
+                        EntityType.MlfeatureTable,
+                        EntityType.Mlmodel,
+                        EntityType.MlmodelGroup,
                     ],
                 },
             },
         },
         result: {
             data: {
+                getEntityCounts: {
+                    counts: [
+                        {
+                            entityType: EntityType.Dataset,
+                            count: 670,
+                        },
+                    ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: GetSearchResultsForMultipleDocument,
+            variables: {
+                input: {
+                    types: [],
+                    query: '*',
+                    start: 0,
+                    count: 6,
+                    filters: [],
+                    orFilters: [],
+                },
+            },
+        },
+        result: {
+            data: {
                 __typename: 'Query',
-                search: {
+                searchAcrossEntities: {
                     __typename: 'SearchResults',
                     start: 0,
                     count: 1,
@@ -406,16 +3464,71 @@ export const editMocks = [
                     searchResults: [
                         {
                             entity: {
-                                __typename: 'Container',
-                                ...customContainer,
+                                __typename: 'Dataset',
+                                ...dataset3,
+                            },
+                            matchedFields: [],
+                            insights: [],
+                        },
+                        {
+                            entity: {
+                                __typename: 'Dataset',
+                                ...dataset4,
                             },
                             matchedFields: [],
                             insights: [],
                         },
                     ],
-                    facets: [],
+                    facets: [
+                        {
+                            field: 'origin',
+                            displayName: 'origin',
+                            aggregations: [
+                                {
+                                    value: 'PROD',
+                                    count: 3,
+                                    entity: null,
+                                },
+                            ],
+                        },
+                        {
+                            field: 'entity',
+                            displayName: 'Type',
+                            aggregations: [
+                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
+                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
+                            ],
+                        },
+                        {
+                            field: 'platform',
+                            displayName: 'platform',
+                            aggregations: [
+                                { value: 'hdfs', count: 1, entity: null },
+                                { value: 'mysql', count: 1, entity: null },
+                                { value: 'kafka', count: 1, entity: null },
+                            ],
+                        },
+                    ],
                 },
-            } as GetSearchResultsQuery,
+            } as GetSearchResultsForMultipleQuery,
         },
     },
 ];
+
+export const platformPrivileges: PlatformPrivileges = {
+    viewAnalytics: true,
+    managePolicies: true,
+    manageIdentities: true,
+    generatePersonalAccessTokens: true,
+    manageDomains: true,
+    manageIngestion: true,
+    manageSecrets: true,
+    manageTokens: true,
+    manageTests: true,
+    manageGlossaries: true,
+    manageUserCredentials: true,
+    manageTags: true,
+    createTags: true,
+    createDomains: true,
+    manageGlobalViews: true,
+};

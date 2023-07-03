@@ -21,8 +21,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.spec.SecretKeySpec;
 
-import static com.datahub.authentication.token.TokenClaims.*;
-
 
 /**
  * Service responsible for generating JWT tokens for use within DataHub in stateless way.
@@ -83,10 +81,10 @@ public class StatelessTokenService {
     Objects.requireNonNull(actor);
 
     Map<String, Object> claims = new HashMap<>();
-    claims.put(TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.ONE.numericValue)); // Hardcode version 1 for now.
-    claims.put(TOKEN_TYPE_CLAIM_NAME, type.toString());
-    claims.put(ACTOR_TYPE_CLAIM_NAME, actor.getType());
-    claims.put(ACTOR_ID_CLAIM_NAME, actor.getId());
+    claims.put(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.valueOf(TokenVersion.ONE.numericValue)); // Hardcode version 1 for now.
+    claims.put(TokenClaims.TOKEN_TYPE_CLAIM_NAME, type.toString());
+    claims.put(TokenClaims.ACTOR_TYPE_CLAIM_NAME, actor.getType());
+    claims.put(TokenClaims.ACTOR_ID_CLAIM_NAME, actor.getId());
     return generateAccessToken(actor.getId(), claims, expiresInMs);
   }
 
@@ -135,10 +133,10 @@ public class StatelessTokenService {
           .parseClaimsJws(accessToken);
       validateTokenAlgorithm(jws.getHeader().getAlgorithm());
       final Claims claims = jws.getBody();
-      final String tokenVersion = claims.get(TOKEN_VERSION_CLAIM_NAME, String.class);
-      final String tokenType = claims.get(TOKEN_TYPE_CLAIM_NAME, String.class);
-      final String actorId = claims.get(ACTOR_ID_CLAIM_NAME, String.class);
-      final String actorType = claims.get(ACTOR_TYPE_CLAIM_NAME, String.class);
+      final String tokenVersion = claims.get(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.class);
+      final String tokenType = claims.get(TokenClaims.TOKEN_TYPE_CLAIM_NAME, String.class);
+      final String actorId = claims.get(TokenClaims.ACTOR_ID_CLAIM_NAME, String.class);
+      final String actorType = claims.get(TokenClaims.ACTOR_TYPE_CLAIM_NAME, String.class);
       if (tokenType != null && actorId != null && actorType != null) {
           return new TokenClaims(
               TokenVersion.fromNumericStringValue(tokenVersion),

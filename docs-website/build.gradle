@@ -68,7 +68,10 @@ task yarnInstall(type: YarnTask) {
   }
 }
 
-task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema, generateJsonSchema, ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen'] ) {
+task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
+    generateGraphQLSchema, generateJsonSchema,
+    ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
+    ':metadata-ingestion:buildWheel', ':metadata-ingestion-modules:airflow-plugin:buildWheel'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
@@ -76,6 +79,9 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall, generateGraphQLSchema
 
 task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'start']
+}
+task fastReload(type: YarnTask) {
+  args = ['run', 'generate-rsync']
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {

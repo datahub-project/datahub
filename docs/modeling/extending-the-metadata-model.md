@@ -239,7 +239,7 @@ If you opted for the open-source fork approach, where you are editing models in 
 Read on to understand how to re-build DataHub for the oss-fork option.
 
 **_NOTE_**: If you have updated any existing types or see an `Incompatible changes` warning when building, you will need to run
-`./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
+`./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore`
 before running `build`.
 
 Then, run `./gradlew build` from the repository root to rebuild Datahub with access to your new entity.

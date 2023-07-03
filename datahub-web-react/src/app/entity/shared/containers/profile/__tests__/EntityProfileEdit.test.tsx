@@ -10,17 +10,17 @@ import {
     GetDatasetQuery,
 } from '../../../../../../graphql/dataset.generated';
 import { EntityType } from '../../../../../../types.generated';
-import { SidebarAboutSection } from '../sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../sidebar/AboutSection/SidebarAboutSection';
 import { EditSchemaTab } from '../../../tabs/Dataset/Schema/EditSchemaTab';
 import { CheckOwnership } from '../../../../dataset/whoAmI';
 import { EditPropertiesTab } from '../../../tabs/Dataset/PropertiesEdit/EditPropertiesTab';
 import { AdminTab } from '../../../tabs/Dataset/Schema/AdminTab';
-import { editMocks } from '../../../../../../MocksCustom';
+import { mocks } from '../../../../../../MocksCustom';
 
 describe('EntityProfile Edit', () => {
     it('Render edit tabs as authorised data owner', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={editMocks} addTypename={false}>
+            <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"
@@ -63,7 +63,7 @@ describe('EntityProfile Edit', () => {
     });
     it('Render edit properties as authorised data owner', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={editMocks} addTypename={false}>
+            <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"
@@ -113,7 +113,7 @@ describe('EntityProfile Edit', () => {
 
     it('Render dataset admin properties as authorised data owner', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={editMocks} addTypename={false}>
+            <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"
@@ -152,7 +152,7 @@ describe('EntityProfile Edit', () => {
     });
     it('Render dataset admin properties - show existing name', async () => {
         const { getByText } = render(
-            <MockedProvider mocks={editMocks} addTypename={false}>
+            <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
                     <EntityProfile
                         urn="urn:li:dataset:3"

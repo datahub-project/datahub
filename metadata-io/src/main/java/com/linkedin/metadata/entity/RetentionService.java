@@ -7,6 +7,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
+import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -36,9 +38,6 @@ import lombok.Value;
  */
 public abstract class RetentionService {
   protected static final String ALL = "*";
-  protected static final String DATAHUB_RETENTION_ENTITY = "dataHubRetention";
-  protected static final String DATAHUB_RETENTION_ASPECT = "dataHubRetentionConfig";
-  protected static final String DATAHUB_RETENTION_KEY_ASPECT = "dataHubRetentionKey";
 
   protected abstract EntityService getEntityService();
 
@@ -54,7 +53,7 @@ public abstract class RetentionService {
     // Prioritized list of retention keys to fetch
     List<Urn> retentionUrns = getRetentionKeys(entityName, aspectName);
     Map<Urn, List<RecordTemplate>> fetchedAspects =
-        getEntityService().getLatestAspects(new HashSet<>(retentionUrns), ImmutableSet.of(DATAHUB_RETENTION_ASPECT));
+        getEntityService().getLatestAspects(new HashSet<>(retentionUrns), ImmutableSet.of(Constants.DATAHUB_RETENTION_ASPECT));
     // Find the first retention info that is set among the prioritized list of retention keys above
     Optional<DataHubRetentionConfig> retentionInfo = retentionUrns.stream()
         .flatMap(urn -> fetchedAspects.getOrDefault(urn, Collections.emptyList())
@@ -73,7 +72,7 @@ public abstract class RetentionService {
             new DataHubRetentionKey().setEntityName(ALL).setAspectName(aspectName),
             new DataHubRetentionKey().setEntityName(ALL).setAspectName(ALL))
         .stream()
-        .map(key -> EntityKeyUtils.convertEntityKeyToUrn(key, DATAHUB_RETENTION_ENTITY))
+        .map(key -> EntityKeyUtils.convertEntityKeyToUrn(key, Constants.DATAHUB_RETENTION_ENTITY))
         .collect(Collectors.toList());
   }
 
@@ -93,22 +92,23 @@ public abstract class RetentionService {
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
-    Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, DATAHUB_RETENTION_ENTITY);
+    Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
     MetadataChangeProposal keyProposal = new MetadataChangeProposal();
     GenericAspect keyAspect = GenericRecordUtils.serializeAspect(retentionKey);
     keyProposal.setAspect(keyAspect);
-    keyProposal.setAspectName(DATAHUB_RETENTION_KEY_ASPECT);
-    keyProposal.setEntityType(DATAHUB_RETENTION_ENTITY);
+    keyProposal.setAspectName(Constants.DATAHUB_RETENTION_KEY_ASPECT);
+    keyProposal.setEntityType(Constants.DATAHUB_RETENTION_ENTITY);
     keyProposal.setChangeType(ChangeType.UPSERT);
     keyProposal.setEntityUrn(retentionUrn);
     AuditStamp auditStamp =
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    getEntityService().ingestProposal(keyProposal, auditStamp);
+    getEntityService().ingestProposal(keyProposal, auditStamp, false);
     MetadataChangeProposal aspectProposal = keyProposal.clone();
     GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
-    aspectProposal.setAspectName(DATAHUB_RETENTION_ASPECT);
-    return getEntityService().ingestProposal(aspectProposal, auditStamp).isDidUpdate();
+    aspectProposal.setAspectName(Constants.DATAHUB_RETENTION_ASPECT);
+    aspectProposal.setChangeType(ChangeType.UPSERT);
+    return getEntityService().ingestProposal(aspectProposal, auditStamp, false).isDidUpdate();
   }
 
   /**
@@ -123,7 +123,7 @@ public abstract class RetentionService {
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
-    Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, DATAHUB_RETENTION_ENTITY);
+    Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
     getEntityService().deleteUrn(retentionUrn);
   }
 
@@ -183,6 +183,12 @@ public abstract class RetentionService {
    * @param aspectName Name of the aspect to apply retention to. If null, applies to all aspects
    */
   public abstract void batchApplyRetention(@Nullable String entityName, @Nullable String aspectName);
+
+  /**
+   * Batch apply retention to all records within the start, end count
+   */
+  public abstract BulkApplyRetentionResult batchApplyRetentionEntities(@Nonnull BulkApplyRetentionArgs args);
+
 
   @Value
   public static class RetentionContext {

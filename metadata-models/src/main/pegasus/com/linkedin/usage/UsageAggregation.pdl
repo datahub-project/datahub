@@ -6,6 +6,7 @@ import com.linkedin.common.Urn
 /**
  * Usage data for a given resource, rolled up into a bucket.
  */
+@deprecated = "Use DatasetUsageStatistics, or other UsageStatistics records, instead"
 record UsageAggregation {
   /** Bucket start time in milliseconds */
   bucket: long

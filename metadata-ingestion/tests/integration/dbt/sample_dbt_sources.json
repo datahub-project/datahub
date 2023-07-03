@@ -2,7 +2,7 @@
   "elapsed_time": 3.1415,
   "metadata": {
     "dbt_schema_version": "https://schemas.getdbt.com/dbt/sources/v3.json",
-    "dbt_version": "1.2.1",
+    "dbt_version": "1.3.0",
     "env": {},
     "generated_at": "2021-06-18T21:38:36.384613Z",
     "invocation_id": "just-some-random-id"

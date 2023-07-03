@@ -4,6 +4,7 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.metadata.schema_classes import FabricTypeClass
 
 DEFAULT_ENV = FabricTypeClass.PROD
@@ -14,14 +15,10 @@ ALL_ENV_TYPES: Set[str] = set(
 )
 
 
-class PlatformSourceConfigBase(ConfigModel):
+class PlatformInstanceConfigMixin(ConfigModel):
     """
     Any source that connects to a platform should inherit this class
     """
-
-    platform: Optional[str] = Field(
-        default=None, description="The platform that this source connects to"
-    )
 
     platform_instance: Optional[str] = Field(
         default=None,
@@ -29,7 +26,7 @@ class PlatformSourceConfigBase(ConfigModel):
     )
 
 
-class EnvBasedSourceConfigBase(ConfigModel):
+class EnvConfigMixin(ConfigModel):
     """
     Any source that produces dataset urns in a single environment should inherit this class
     """
@@ -39,6 +36,11 @@ class EnvBasedSourceConfigBase(ConfigModel):
         description="The environment that all assets produced by this connector belong to",
     )
 
+    _env_deprecation = pydantic_field_deprecated(
+        "env",
+        message="env is deprecated and will be removed in a future release. Please use platform_instance instead.",
+    )
+
     @validator("env")
     def env_must_be_one_of(cls, v: str) -> str:
         if v.upper() not in ALL_ENV_TYPES:
@@ -46,13 +48,13 @@ class EnvBasedSourceConfigBase(ConfigModel):
         return v.upper()
 
 
-class DatasetSourceConfigBase(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
+class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
     """
     Any source that is a primary producer of Dataset metadata should inherit this class
     """
 
 
-class DatasetLineageProviderConfigBase(EnvBasedSourceConfigBase):
+class DatasetLineageProviderConfigBase(EnvConfigMixin):
     """
     Any non-Dataset source that produces lineage to Datasets should inherit this class.
     e.g. Orchestrators, Pipelines, BI Tools etc.

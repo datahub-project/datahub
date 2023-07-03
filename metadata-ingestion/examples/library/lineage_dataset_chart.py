@@ -4,7 +4,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.chart import ChartInfoClass
-from datahub.metadata.schema_classes import ChangeAuditStampsClass, ChangeTypeClass
+from datahub.metadata.schema_classes import ChangeAuditStampsClass
 
 # Construct the ChartInfo aspect with the input_datasets lineage.
 input_datasets: List[str] = [
@@ -24,10 +24,7 @@ chart_info = ChartInfoClass(
 # Construct a MetadataChangeProposalWrapper object with the ChartInfo aspect.
 # NOTE: This will overwrite all of the existing chartInfo aspect information associated with this chart.
 chart_info_mcp = MetadataChangeProposalWrapper(
-    entityType="chart",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_chart_urn(platform="looker", name="my_chart_1"),
-    aspectName="chartInfo",
     aspect=chart_info,
 )
 

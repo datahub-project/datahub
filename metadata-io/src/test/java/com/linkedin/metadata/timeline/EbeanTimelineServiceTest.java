@@ -31,7 +31,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
     _mockProducer = mock(EventProducer.class);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry);
+    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true);
   }
 
   /**

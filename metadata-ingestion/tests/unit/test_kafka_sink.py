@@ -39,10 +39,7 @@ class KafkaSinkTest(unittest.TestCase):
         from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
         mcp = MetadataChangeProposalWrapper(
-            entityType="dataset",
             entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
-            changeType=models.ChangeTypeClass.UPSERT,
-            aspectName="datasetProfile",
             aspect=models.DatasetProfileClass(
                 rowCount=2000,
                 columnCount=15,

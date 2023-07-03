@@ -23,6 +23,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -64,24 +65,32 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system_sibling_hook";
   public static final String DBT_PLATFORM_NAME = "dbt";
-  public static final String SOURCE_SUBTYPE = "source";
+
+  // Older dbt sources produced lowercase subtypes, whereas we now
+  // produce titlecase subtypes. We need to handle both cases to
+  // maintain backwards compatibility.
+  public static final String SOURCE_SUBTYPE_V1 = "source";
+  public static final String SOURCE_SUBTYPE_V2 = "Source";
 
   private final EntityRegistry _entityRegistry;
   private final RestliEntityClient _entityClient;
   private final EntitySearchService _searchService;
   private final Authentication _systemAuthentication;
+  private final boolean _isEnabled;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull final Authentication systemAuthentication
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled
   ) {
     _entityRegistry = entityRegistry;
     _entityClient = entityClient;
     _searchService = searchService;
     _systemAuthentication = systemAuthentication;
+    _isEnabled = isEnabled;
   }
 
   @Value("${siblings.enabled:false}")
@@ -94,6 +103,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public void init() {
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override
@@ -132,7 +146,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         entitiesWithYouAsSiblingFilter,
         null,
         0,
-        10);
+        10,
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true));
 
     // we have a match of an entity with you as a sibling, associate yourself back
     searchResult.getEntities().forEach(entity -> {
@@ -167,7 +182,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             && subTypesAspectOfEntity != null
             && upstreamLineage.hasUpstreams()
             && subTypesAspectOfEntity.hasTypeNames()
-            && subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE)
+            && (subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE_V1)
+            || subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE_V2))
     ) {
       UpstreamArray upstreams = upstreamLineage.getUpstreams();
       if (

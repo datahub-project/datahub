@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Post.
+ */
+@Aspect = {
+  "name": "postKey"
+}
+record PostKey {
+  /**
+   * A unique id for the DataHub Post record. Generated on the server side at Post creation time.
+   */
+  id: string
+}

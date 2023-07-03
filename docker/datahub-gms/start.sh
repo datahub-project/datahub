@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+
 # Add default URI (http) scheme if needed
 if ! echo $NEO4J_HOST | grep -q "://" ; then
     NEO4J_HOST="http://$NEO4J_HOST"
@@ -45,21 +45,12 @@ fi
 
 OTEL_AGENT=""
 if [[ $ENABLE_OTEL == true ]]; then
-  OTEL_AGENT="-javaagent:opentelemetry-javaagent-all.jar "
+  OTEL_AGENT="-javaagent:opentelemetry-javaagent.jar "
 fi
 
 PROMETHEUS_AGENT=""
 if [[ $ENABLE_PROMETHEUS == true ]]; then
   PROMETHEUS_AGENT="-javaagent:jmx_prometheus_javaagent.jar=4318:/datahub/datahub-gms/scripts/prometheus-config.yaml "
-fi
-
-# For container based deployments the default directory is /etc/datahub/plugins/auth/resources and it can be different for
-# kubernetes deployments
-auth_resource_dir=${AUTH_RESOURCES_DIR:-"/etc/datahub/plugins/auth/resources"}
-# Option --classes ${AUTH_RESOURCE_LOOK_UP_DIR} is added for Apache Ranger library to load the ranger-datahub-security.xml from classpath
-CLASSES_DIR=""
-if [[ ${RANGER_AUTHORIZER_ENABLED} == true ]]; then
-  CLASSES_DIR="--classes ${auth_resource_dir}"
 fi
 
 COMMON="
@@ -73,7 +64,7 @@ COMMON="
     $PROMETHEUS_AGENT \
     -jar /jetty-runner.jar \
     --jar jetty-util.jar \
-    --jar jetty-jmx.jar ${CLASSES_DIR} \
+    --jar jetty-jmx.jar \
     --config /datahub/datahub-gms/scripts/jetty.xml \
     /datahub/datahub-gms/bin/war.war"
 

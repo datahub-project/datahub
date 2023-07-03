@@ -1,12 +1,13 @@
 import collections
 import logging
-import sys
 import textwrap
-from collections import defaultdict
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
+from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
 
@@ -17,23 +18,35 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
     QueryEvent,
+    ReadEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
+    get_bigquery_client,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetLineageTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.utilities import memory_footprint
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+@dataclass(order=True, eq=True, frozen=True)
+class LineageEdge:
+    table: str
+    auditStamp: datetime
+    type: str = DatasetLineageTypeClass.TRANSFORMED
 
 
 class BigqueryLineageExtractor:
@@ -63,7 +76,6 @@ AND
         protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/__TABLES__"
         AND
         protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable !~ "projects/.*/datasets/_.*/tables/anon.*"
-
     )
 
 )
@@ -76,11 +88,9 @@ timestamp < "{end_time}"
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
-        self.lineage_metadata: Dict[str, Set[str]] = defaultdict(set)
-        self.loaded_project_ids: List[str] = []
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
+        self.report.report_warning(key, reason)
         log.error(f"{key} => {reason}")
 
     @staticmethod
@@ -99,26 +109,18 @@ timestamp < "{end_time}"
         :param limit: set a limit for the maximum event to return. It is used for connection testing currently
         :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
         """
-        query: str
+        limit_text = f"limit {limit}" if limit else ""
+
+        shard_condition = ""
         if use_date_sharded_tables:
-            query = (
-                f"""
-            SELECT
-                timestamp,
-                logName,
-                insertId,
-                protopayload_auditlog AS protoPayload,
-                protopayload_auditlog.metadataJson AS metadata
-            FROM
-                `{dataset}.cloudaudit_googleapis_com_data_access_*`
-            """
-                + """
-            WHERE
-                _TABLE_SUFFIX BETWEEN "{start_time}" AND "{end_time}" AND
-            """
+            from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access_*`"
+            shard_condition = (
+                """ AND _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" """
             )
         else:
-            query = f"""
+            from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
+
+        query = f"""
             SELECT
                 timestamp,
                 logName,
@@ -126,74 +128,152 @@ timestamp < "{end_time}"
                 protopayload_auditlog AS protoPayload,
                 protopayload_auditlog.metadataJson AS metadata
             FROM
-                `{dataset}.cloudaudit_googleapis_com_data_access`
-            WHERE
-            """
-
-        audit_log_filter = """    timestamp >= "{start_time}"
-        AND timestamp < "{end_time}"
-        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-        AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-        AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-        AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+                {from_table}
+            WHERE (
+                timestamp >= "{{start_time}}"
+                AND timestamp < "{{end_time}}"
+            )
+            {shard_condition}
+            AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
+            AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
+            AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
+            AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
+            {limit_text};
         """
-
-        if limit is not None:
-            audit_log_filter = audit_log_filter + f" LIMIT {limit}"
-        query = textwrap.dedent(query) + audit_log_filter + ";"
 
         return textwrap.dedent(query)
 
-    def compute_bigquery_lineage_via_gcp_logging(
-        self, project_id: Optional[str]
-    ) -> Dict[str, Set[str]]:
-        logger.info(f"Populating lineage info via GCP audit logs for {project_id}")
-        try:
-            clients: GCPLoggingClient = _make_gcp_logging_client(project_id)
+    def lineage_via_catalog_lineage_api(
+        self, project_id: str
+    ) -> Dict[str, Set[LineageEdge]]:
+        """
+        Uses Data Catalog API to request lineage metadata. Please take a look at the API documentation for more details.
 
-            log_entries: Iterable[AuditLogEntry] = self._get_bigquery_log_entries(
-                clients
+        NOTE: It's necessary for you to enable the service API in your Google Cloud Project.
+
+        Args:
+            project_id(str): Google project id. Used to search for tables and datasets.
+
+        Returns:
+            Dict[str, Set[str]] - A dictionary, where keys are the downstream table's identifier and values is a set
+            of upstream tables identifiers.
+        """
+        logger.info("Populating lineage info via Catalog Data Linage API")
+
+        # Regions to search for BigQuery tables: projects/{project_id}/locations/{region}
+        enabled_regions: List[str] = ["US", "EU"]
+
+        try:
+            lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
+            bigquery_client: BigQueryClient = get_bigquery_client(self.config)
+            # Filtering datasets
+            datasets = list(bigquery_client.list_datasets(project_id))
+            project_tables = []
+            for dataset in datasets:
+                # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
+                project_tables.extend(
+                    [
+                        table
+                        for table in bigquery_client.list_tables(dataset.dataset_id)
+                        if table.table_type in ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
+                    ]
+                )
+
+            # Convert project tables to <project_id>.<dataset_id>.<table_id> format
+            project_tables = list(
+                map(
+                    lambda table: "{}.{}.{}".format(
+                        table.project, table.dataset_id, table.table_id
+                    ),
+                    project_tables,
+                )
             )
-            parsed_entries: Iterable[QueryEvent] = self._parse_bigquery_log_entries(
-                log_entries
-            )
-            return self._create_lineage_map(parsed_entries)
+
+            lineage_map: Dict[str, Set[LineageEdge]] = {}
+            curr_date = datetime.now()
+            for table in project_tables:
+                logger.info("Creating lineage map for table %s", table)
+                upstreams = set()
+                downstream_table = lineage_v1.EntityReference()
+                # fully_qualified_name in format: "bigquery:<project_id>.<dataset_id>.<table_id>"
+                downstream_table.fully_qualified_name = f"bigquery:{table}"
+                # Searches in different regions
+                for region in enabled_regions:
+                    location_request = lineage_v1.SearchLinksRequest(
+                        target=downstream_table,
+                        parent=f"projects/{project_id}/locations/{region.lower()}",
+                    )
+                    response = lineage_client.search_links(request=location_request)
+                    upstreams.update(
+                        [
+                            str(lineage.source.fully_qualified_name).replace(
+                                "bigquery:", ""
+                            )
+                            for lineage in response
+                        ]
+                    )
+
+                # Downstream table identifier
+                destination_table_str = str(
+                    BigQueryTableRef(
+                        table_identifier=BigqueryTableIdentifier(*table.split("."))
+                    )
+                )
+
+                # Only builds lineage map when the table has upstreams
+                if upstreams:
+                    lineage_map[destination_table_str] = set(
+                        [
+                            LineageEdge(
+                                table=str(
+                                    BigQueryTableRef(
+                                        table_identifier=BigqueryTableIdentifier.from_string_name(
+                                            source_table
+                                        )
+                                    )
+                                ),
+                                auditStamp=curr_date,
+                            )
+                            for source_table in upstreams
+                        ]
+                    )
+            return lineage_map
         except Exception as e:
             self.error(
                 logger,
-                "lineage-gcp-logs",
-                f"Failed to get lineage gcp logging for {project_id}. The error message was {e}",
-            )
-            raise e
-
-    def compute_bigquery_lineage_via_exported_bigquery_audit_metadata(
-        self,
-    ) -> Dict[str, Set[str]]:
-        logger.info("Populating lineage info via exported GCP audit logs")
-        try:
-            # For exported logs we want to submit queries with the credentials project_id.
-            _client: BigQueryClient = BigQueryClient()
-            exported_bigquery_audit_metadata: Iterable[
-                BigQueryAuditMetadata
-            ] = self._get_exported_bigquery_audit_metadata(_client)
-            parsed_entries: Iterable[
-                QueryEvent
-            ] = self._parse_exported_bigquery_audit_metadata(
-                exported_bigquery_audit_metadata
-            )
-            return self._create_lineage_map(parsed_entries)
-        except Exception as e:
-            self.error(
-                logger,
-                "lineage-exported-gcp-audit-logs",
+                "lineage-exported-catalog-lineage-api",
                 f"Error: {e}",
             )
             raise e
 
+    def _get_parsed_audit_log_events(self, project_id: str) -> Iterable[QueryEvent]:
+        parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
+        if self.config.use_exported_bigquery_audit_metadata:
+            logger.info("Populating lineage info via exported GCP audit logs")
+            bq_client = get_bigquery_client(self.config)
+            entries = self._get_exported_bigquery_audit_metadata(bq_client)
+            parse_fn = self._parse_exported_bigquery_audit_metadata
+        else:
+            logger.info("Populating lineage info via exported GCP audit logs")
+            logging_client = _make_gcp_logging_client(project_id)
+            entries = self._get_bigquery_log_entries(logging_client)
+            parse_fn = self._parse_bigquery_log_entries
+
+        for entry in entries:
+            self.report.num_total_log_entries[project_id] += 1
+            try:
+                event = parse_fn(entry)
+                if event:
+                    self.report.num_parsed_log_entries[project_id] += 1
+                    yield event
+            except Exception as e:
+                logger.warning(f"Unable to parse log entry `{entry}`: {e}")
+                self.report.num_lineage_log_parse_failures[project_id] += 1
+
     def _get_bigquery_log_entries(
         self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]]:
-        self.report.num_total_log_entries = 0
+    ) -> Union[Iterable[AuditLogEntry]]:
+        self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
         start_time = (self.config.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
@@ -225,12 +305,20 @@ timestamp < "{end_time}"
             entries = client.list_entries(
                 filter_=filter, page_size=self.config.log_page_size, max_results=limit
             )
+
+        logger.info(
+            f"Start iterating over log entries from BigQuery for {client.project}"
+        )
         for entry in entries:
-            self.report.num_total_log_entries += 1
+            self.report.num_total_log_entries[client.project] += 1
+            if self.report.num_total_log_entries[client.project] % 1000 == 0:
+                logger.info(
+                    f"{self.report.num_total_log_entries[client.project]} log entries loaded for project {client.project} so far..."
+                )
             yield entry
 
         logger.info(
-            f"Finished loading {self.report.num_total_log_entries} log entries from BigQuery project {client.project} so far"
+            f"Finished loading {self.report.num_total_log_entries[client.project]} log entries from BigQuery project {client.project} so far"
         )
 
     def _get_exported_bigquery_audit_metadata(
@@ -243,22 +331,14 @@ timestamp < "{end_time}"
             self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
-        start_time: str = (
-            self.config.start_time - self.config.max_query_duration
-        ).strftime(
-            BQ_DATE_SHARD_FORMAT
-            if self.config.use_date_sharded_audit_log_tables
-            else BQ_DATETIME_FORMAT
-        )
+        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
+        start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        end_time: str = (
-            self.config.end_time + self.config.max_query_duration
-        ).strftime(
-            BQ_DATE_SHARD_FORMAT
-            if self.config.use_date_sharded_audit_log_tables
-            else BQ_DATETIME_FORMAT
-        )
+        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
+        end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
@@ -269,13 +349,14 @@ timestamp < "{end_time}"
             query: str = self.bigquery_audit_metadata_query_template(
                 dataset=dataset,
                 use_date_sharded_tables=self.config.use_date_sharded_audit_log_tables,
+                limit=limit,
             ).format(
                 start_time=start_time,
                 end_time=end_time,
+                start_date=start_date,
+                end_date=end_date,
             )
 
-            if limit is not None:
-                query = query + f" LIMIT {limit}"
             query_job = bigquery_client.query(query)
 
             logger.info(
@@ -292,175 +373,223 @@ timestamp < "{end_time}"
     # events to also create field level lineage.
     def _parse_bigquery_log_entries(
         self,
-        entries: Union[Iterable[AuditLogEntry], Iterable[BigQueryAuditMetadata]],
-    ) -> Iterable[QueryEvent]:
-        self.report.num_parsed_log_entires = 0
-        for entry in entries:
-            event: Optional[QueryEvent] = None
+        entry: AuditLogEntry,
+    ) -> Optional[QueryEvent]:
+        event: Optional[QueryEvent] = None
 
-            missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
-            if missing_entry is None:
-                event = QueryEvent.from_entry(
-                    entry,
-                    debug_include_full_payloads=self.config.debug_include_full_payloads,
-                )
-
-            missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
-            if event is None and missing_entry_v2 is None:
-                event = QueryEvent.from_entry_v2(
-                    entry, self.config.debug_include_full_payloads
-                )
-
-            if event is None:
-                self.error(
-                    logger,
-                    f"{entry.log_name}-{entry.insert_id}",
-                    f"Unable to parse log missing {missing_entry}, missing v2 {missing_entry_v2} for {entry}",
-                )
-            else:
-                self.report.num_parsed_log_entires += 1
-                yield event
-
-        logger.info(
-            "Parsing BigQuery log entries: "
-            f"number of log entries successfully parsed={self.report.num_parsed_log_entires}"
-        )
-
-    def _parse_exported_bigquery_audit_metadata(
-        self, audit_metadata_rows: Iterable[BigQueryAuditMetadata]
-    ) -> Iterable[QueryEvent]:
-        self.report.num_total_audit_entries = 0
-        self.report.num_parsed_audit_entires = 0
-        for audit_metadata in audit_metadata_rows:
-            self.report.num_total_audit_entries += 1
-            event: Optional[QueryEvent] = None
-
-            missing_exported_audit = (
-                QueryEvent.get_missing_key_exported_bigquery_audit_metadata(
-                    audit_metadata
-                )
+        missing_entry = QueryEvent.get_missing_key_entry(entry=entry)
+        if missing_entry is None:
+            event = QueryEvent.from_entry(
+                entry,
+                debug_include_full_payloads=self.config.debug_include_full_payloads,
             )
 
-            if missing_exported_audit is None:
-                event = QueryEvent.from_exported_bigquery_audit_metadata(
-                    audit_metadata, self.config.debug_include_full_payloads
-                )
+        missing_entry_v2 = QueryEvent.get_missing_key_entry_v2(entry=entry)
+        if event is None and missing_entry_v2 is None:
+            event = QueryEvent.from_entry_v2(
+                entry, self.config.debug_include_full_payloads
+            )
 
-            if event is None:
-                self.error(
-                    logger,
-                    f"{audit_metadata['logName']}-{audit_metadata['insertId']}",
-                    f"Unable to parse audit metadata missing {missing_exported_audit} for {audit_metadata}",
-                )
-            else:
-                self.report.num_parsed_audit_entires += 1
-                yield event
+        if event is None:
+            logger.warning(
+                f"Unable to parse log missing {missing_entry}, missing v2 {missing_entry_v2} for {entry}",
+            )
+            return None
+        else:
+            return event
 
-    def _create_lineage_map(self, entries: Iterable[QueryEvent]) -> Dict[str, Set[str]]:
-        lineage_map: Dict[str, Set[str]] = collections.defaultdict(set)
-        self.report.num_total_lineage_entries = 0
-        self.report.num_skipped_lineage_entries_missing_data = 0
-        self.report.num_skipped_lineage_entries_not_allowed = 0
-        self.report.num_skipped_lineage_entries_other = 0
-        self.report.num_skipped_lineage_entries_sql_parser_failure = 0
+    def _parse_exported_bigquery_audit_metadata(
+        self, audit_metadata: BigQueryAuditMetadata
+    ) -> Optional[QueryEvent]:
+        event: Optional[QueryEvent] = None
+
+        missing_exported_audit = (
+            QueryEvent.get_missing_key_exported_bigquery_audit_metadata(audit_metadata)
+        )
+
+        if missing_exported_audit is None:
+            event = QueryEvent.from_exported_bigquery_audit_metadata(
+                audit_metadata, self.config.debug_include_full_payloads
+            )
+
+        if event is None:
+            logger.warning(
+                f"Unable to parse audit metadata missing {missing_exported_audit} for {audit_metadata}",
+            )
+            return None
+        else:
+            return event
+
+    def _create_lineage_map(
+        self, entries: Iterable[QueryEvent]
+    ) -> Dict[str, Set[LineageEdge]]:
+        logger.info("Entering create lineage map function")
+        lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
         for e in entries:
-            self.report.num_total_lineage_entries += 1
+            self.report.num_total_lineage_entries[e.project_id] = (
+                self.report.num_total_lineage_entries.get(e.project_id, 0) + 1
+            )
+
             if e.destinationTable is None or not (
                 e.referencedTables or e.referencedViews
             ):
-                self.report.num_skipped_lineage_entries_missing_data += 1
+                self.report.num_skipped_lineage_entries_missing_data[e.project_id] += 1
                 continue
-            # Skip if schema/table pattern don't allow the destination table
-            destination_table_str = str(e.destinationTable.get_sanitized_table_ref())
-            destination_table_str_parts = destination_table_str.split("/")
+
             if not self.config.dataset_pattern.allowed(
-                destination_table_str_parts[3]
-            ) or not self.config.table_pattern.allowed(destination_table_str_parts[-1]):
-                self.report.num_skipped_lineage_entries_not_allowed += 1
+                e.destinationTable.table_identifier.dataset
+            ) or not self.config.table_pattern.allowed(
+                e.destinationTable.table_identifier.get_table_name()
+            ):
+                self.report.num_skipped_lineage_entries_not_allowed[e.project_id] += 1
                 continue
+
+            lineage_from_event: Set[LineageEdge] = set()
+
+            destination_table_str = str(e.destinationTable)
             has_table = False
             for ref_table in e.referencedTables:
-                ref_table_str = str(ref_table.get_sanitized_table_ref())
-                if ref_table_str != destination_table_str:
-                    lineage_map[destination_table_str].add(ref_table_str)
+                if str(ref_table) != destination_table_str:
+                    lineage_from_event.add(
+                        LineageEdge(
+                            table=str(ref_table),
+                            auditStamp=e.end_time
+                            if e.end_time
+                            else datetime.now(tz=timezone.utc),
+                        )
+                    )
                     has_table = True
             has_view = False
             for ref_view in e.referencedViews:
-                ref_view_str = str(ref_view.get_sanitized_table_ref())
-                if ref_view_str != destination_table_str:
-                    lineage_map[destination_table_str].add(ref_view_str)
+                if str(ref_view) != destination_table_str:
+                    lineage_from_event.add(
+                        LineageEdge(
+                            table=str(ref_view),
+                            auditStamp=e.end_time
+                            if e.end_time
+                            else datetime.now(tz=timezone.utc),
+                        )
+                    )
                     has_view = True
-            if has_table and has_view:
+
+            if not lineage_from_event:
+                self.report.num_skipped_lineage_entries_other[e.project_id] += 1
+            elif self.config.lineage_use_sql_parser and has_table and has_view:
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
                 # to ensure we only use direct objects accessed for lineage
                 try:
-                    parser = BigQuerySQLParser(e.query)
+                    parser = BigQuerySQLParser(
+                        e.query,
+                        self.config.sql_parser_use_external_process,
+                        use_raw_names=self.config.lineage_sql_parser_use_raw_names,
+                    )
                     referenced_objs = set(
                         map(lambda x: x.split(".")[-1], parser.get_tables())
                     )
                 except Exception as ex:
-                    logger.warning(
-                        f"Sql Parser failed on query: {e.query}. It will be skipped from lineage. The error was {ex}"
+                    logger.debug(
+                        f"Sql Parser failed on query: {e.query}. It won't cause any issue except table/view lineage can't be detected reliably. The error was {ex}."
                     )
-                    self.report.num_skipped_lineage_entries_sql_parser_failure += 1
+                    self.report.num_lineage_entries_sql_parser_failure[
+                        e.project_id
+                    ] += 1
                     continue
-                curr_lineage_str = lineage_map[destination_table_str]
-                new_lineage_str = set()
-                for lineage_str in curr_lineage_str:
-                    name = lineage_str.split("/")[-1]
+                new_lineage = set()
+                for lineage in lineage_from_event:
+                    name = lineage.table.split("/")[-1]
                     if name in referenced_objs:
-                        new_lineage_str.add(lineage_str)
-                lineage_map[destination_table_str] = new_lineage_str
-            if not (has_table or has_view):
-                self.report.num_skipped_lineage_entries_other += 1
+                        new_lineage.add(lineage)
+                lineage_from_event = new_lineage
+
+            lineage_map[destination_table_str].update(lineage_from_event)
+
+        logger.info("Exiting create lineage map function")
         return lineage_map
 
-    def _compute_bigquery_lineage(
-        self, project_id: Optional[str] = None
-    ) -> Dict[str, Set[str]]:
-        lineage_extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
-            config=self.config, report=self.report
-        )
-        lineage_metadata: Dict[str, Set[str]]
+    def parse_view_lineage(
+        self, project: str, dataset: str, view: BigqueryView
+    ) -> Optional[List[BigqueryTableIdentifier]]:
+        if not view.view_definition:
+            return None
+
+        parsed_tables = set()
         try:
-            if self.config.use_exported_bigquery_audit_metadata:
-                # Exported bigquery_audit_metadata should contain every projects' audit metada
-                if self.loaded_project_ids:
-                    return {}
-                lineage_metadata = (
-                    lineage_extractor.compute_bigquery_lineage_via_exported_bigquery_audit_metadata()
-                )
-            else:
-                lineage_metadata = (
-                    lineage_extractor.compute_bigquery_lineage_via_gcp_logging(
-                        project_id
+            parser = BigQuerySQLParser(
+                view.view_definition,
+                self.config.sql_parser_use_external_process,
+                use_raw_names=self.config.lineage_sql_parser_use_raw_names,
+            )
+            tables = parser.get_tables()
+        except Exception as ex:
+            logger.debug(
+                f"View {view.name} definination sql parsing failed on query: {view.view_definition}. "
+                f"Edge from physical table to view won't be added. The error was {ex}."
+            )
+            return None
+
+        for table in tables:
+            parts = table.split(".")
+            if len(parts) == 1:
+                parsed_tables.add(
+                    BigqueryTableIdentifier(
+                        project_id=project, dataset=dataset, table=table
                     )
                 )
+            elif len(parts) == 2:
+                parsed_tables.add(
+                    BigqueryTableIdentifier(
+                        project_id=project, dataset=parts[0], table=parts[1]
+                    )
+                )
+            elif len(parts) == 3:
+                parsed_tables.add(
+                    BigqueryTableIdentifier(
+                        project_id=parts[0], dataset=parts[1], table=parts[2]
+                    )
+                )
+            else:
+                logger.warning(
+                    f"Invalid table identifier {table} when parsing view lineage for view {view.name}"
+                )
+
+        return list(parsed_tables)
+
+    def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[LineageEdge]]:
+        lineage_metadata: Dict[str, Set[LineageEdge]]
+        try:
+            if self.config.extract_lineage_from_catalog:
+                lineage_metadata = self.lineage_via_catalog_lineage_api(project_id)
+            else:
+                events = self._get_parsed_audit_log_events(project_id)
+                lineage_metadata = self._create_lineage_map(events)
         except Exception as e:
             if project_id:
                 self.report.lineage_failed_extraction.append(project_id)
-            logger.error(
-                f"Unable to extract lineage for project {project_id} due to error {e}"
+            self.error(
+                logger,
+                "lineage",
+                f"{project_id}: {e}",
             )
             lineage_metadata = {}
 
-        if lineage_metadata is None:
-            lineage_metadata = {}
-
-        self.report.lineage_mem_size = humanfriendly.format_size(
-            sys.getsizeof(lineage_metadata)
+        self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
+            memory_footprint.total_size(lineage_metadata)
         )
-        self.report.lineage_metadata_entries = len(lineage_metadata)
+        self.report.lineage_metadata_entries[project_id] = len(lineage_metadata)
         logger.info(f"Built lineage map containing {len(lineage_metadata)} entries.")
         logger.debug(f"lineage metadata is {lineage_metadata}")
         return lineage_metadata
 
     def get_upstream_tables(
-        self, bq_table: str, tables_seen: List[str] = []
-    ) -> Set[BigQueryTableRef]:
-        upstreams: Set[BigQueryTableRef] = set()
-        for ref_table in self.lineage_metadata[str(bq_table)]:
+        self,
+        bq_table: BigQueryTableRef,
+        lineage_metadata: Dict[str, Set[LineageEdge]],
+        tables_seen: List[str],
+    ) -> Set[LineageEdge]:
+        upstreams: Set[LineageEdge] = set()
+        for ref_lineage in lineage_metadata[str(bq_table)]:
+            ref_table = ref_lineage.table
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
             if upstream_table.is_temporary_table(
                 [self.config.temp_table_dataset_prefix]
@@ -472,59 +601,72 @@ timestamp < "{end_time}"
                     )
                     continue
                 tables_seen.append(ref_table)
-                if ref_table in self.lineage_metadata:
+                if ref_table in lineage_metadata:
                     upstreams = upstreams.union(
-                        self.get_upstream_tables(ref_table, tables_seen=tables_seen)
+                        self.get_upstream_tables(
+                            upstream_table,
+                            lineage_metadata=lineage_metadata,
+                            tables_seen=tables_seen,
+                        )
                     )
             else:
-                upstreams.add(upstream_table)
+                upstreams.add(ref_lineage)
+
         return upstreams
 
-    def get_upstream_lineage_info(
-        self, table_identifier: BigqueryTableIdentifier, platform: str
+    def calculate_lineage_for_project(
+        self, project_id: str
+    ) -> Dict[str, Set[LineageEdge]]:
+        with PerfTimer() as timer:
+            lineage = self._compute_bigquery_lineage(project_id)
+
+            self.report.lineage_extraction_sec[project_id] = round(
+                timer.elapsed_seconds(), 2
+            )
+
+        return lineage
+
+    def get_lineage_for_table(
+        self,
+        bq_table: BigQueryTableRef,
+        lineage_metadata: Dict[str, Set[LineageEdge]],
+        platform: str,
     ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
-        if table_identifier.project_id not in self.loaded_project_ids:
-            with PerfTimer() as timer:
-                self.lineage_metadata.update(
-                    self._compute_bigquery_lineage(table_identifier.project_id)
+        upstream_list: List[UpstreamClass] = []
+        # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
+        # even if the lineage is same but the order is different.
+        for upstream in sorted(
+            self.get_upstream_tables(bq_table, lineage_metadata, tables_seen=[])
+        ):
+            upstream_table = BigQueryTableRef.from_string_name(upstream.table)
+            upstream_table_class = UpstreamClass(
+                dataset=mce_builder.make_dataset_urn_with_platform_instance(
+                    platform,
+                    upstream_table.table_identifier.get_table_name(),
+                    self.config.platform_instance,
+                    self.config.env,
+                ),
+                type=upstream.type,
+                auditStamp=AuditStampClass(
+                    actor="urn:li:corpuser:datahub",
+                    time=int(upstream.auditStamp.timestamp() * 1000),
+                ),
+            )
+            if self.config.upstream_lineage_in_report:
+                current_lineage_map: Set = self.report.upstream_lineage.get(
+                    str(bq_table), set()
                 )
-                self.report.lineage_extraction_sec[table_identifier.project_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
-                self.loaded_project_ids.append(table_identifier.project_id)
+                current_lineage_map.add(str(upstream_table))
+                self.report.upstream_lineage[str(bq_table)] = current_lineage_map
+            upstream_list.append(upstream_table_class)
 
-        bq_table = BigQueryTableRef.from_bigquery_table(table_identifier)
-        if str(bq_table) in self.lineage_metadata:
-            upstream_list: List[UpstreamClass] = []
-            # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
-            # even if the lineage is same but the order is different.
-            for upstream_table in sorted(
-                self.get_upstream_tables(str(bq_table), tables_seen=[])
-            ):
-                upstream_table_class = UpstreamClass(
-                    mce_builder.make_dataset_urn_with_platform_instance(
-                        platform,
-                        f"{upstream_table.table_identifier.project_id}.{upstream_table.table_identifier.dataset}.{upstream_table.table_identifier.table}",
-                        self.config.platform_instance,
-                        self.config.env,
-                    ),
-                    DatasetLineageTypeClass.TRANSFORMED,
-                )
-                if self.config.upstream_lineage_in_report:
-                    current_lineage_map: Set = self.report.upstream_lineage.get(
-                        str(bq_table), set()
-                    )
-                    current_lineage_map.add(str(upstream_table))
-                    self.report.upstream_lineage[str(bq_table)] = current_lineage_map
-                upstream_list.append(upstream_table_class)
+        if upstream_list:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
+            return upstream_lineage, {}
 
-            if upstream_list:
-                upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
-                return upstream_lineage, {}
         return None
 
     def test_capability(self, project_id: str) -> None:
-        lineage_metadata: Dict[str, Set[str]]
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
             entries = self._get_exported_bigquery_audit_metadata(

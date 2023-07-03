@@ -10,14 +10,32 @@ import com.linkedin.timeseries.TimeseriesAspectBase
   "type": "timeseries",
 }
 record DatasetProfile includes TimeseriesAspectBase {
-	rowCount: optional long
+  /**
+   * The total number of rows
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  rowCount: optional long
 
-	columnCount: optional long
+  /**
+   * The total number of columns (or schema fields)
+   */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  columnCount: optional long
 
-	fieldProfiles: optional array[DatasetFieldProfile]
+  /**
+   * Profiles for each column (or schema field)
+   */
+  fieldProfiles: optional array[DatasetFieldProfile]
 
-	/**
-	* Storage size in bytes
-	*/
-	sizeInBytes: optional long
+ /**
+  * Storage size in bytes
+  */
+  @Searchable = {
+    "fieldType": "COUNT"
+  }
+  sizeInBytes: optional long
 }

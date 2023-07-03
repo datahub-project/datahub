@@ -13,7 +13,7 @@ record MLModelFactors {
 
   /**
    * The performance of a MLModel can vary depending on what instruments were used to capture the input to the MLModel.
-   * For example, a face detection model may perform differently depending on the camera’s hardware and software,
+   * For example, a face detection model may perform differently depending on the camera's hardware and software,
    * including lens, image stabilization, high dynamic range techniques, and background blurring for portrait mode.
    */
   instrumentation: optional array[string]

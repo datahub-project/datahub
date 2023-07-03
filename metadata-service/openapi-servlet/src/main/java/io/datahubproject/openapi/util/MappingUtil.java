@@ -2,6 +2,10 @@ package io.datahubproject.openapi.util;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
+import com.datahub.authorization.AuthUtil;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.datahub.authorization.ResourceSpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -19,6 +23,7 @@ import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
@@ -34,11 +39,11 @@ import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,11 +51,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
-import org.reflections.scanners.ResourcesScanner;
 import org.reflections.scanners.SubTypesScanner;
-import org.reflections.util.ClasspathHelper;
-import org.reflections.util.ConfigurationBuilder;
-import org.reflections.util.FilterBuilder;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AssignableTypeFilter;
@@ -98,17 +99,10 @@ public class MappingUtil {
     components = provider.findCandidateComponents("io/datahubproject/openapi/generated");
     components.forEach(MappingUtil::putGenericAspectEntry);
 
-    List<ClassLoader> classLoadersList = new ArrayList<>();
-    classLoadersList.add(ClasspathHelper.contextClassLoader());
-    classLoadersList.add(ClasspathHelper.staticClassLoader());
-
     // Build a map from fully qualified Pegasus generated class name to class
-    Reflections reflections = new Reflections(new ConfigurationBuilder()
-        .setScanners(new SubTypesScanner(false), new ResourcesScanner())
-        .setUrls(ClasspathHelper.forClassLoader(classLoadersList.toArray(new ClassLoader[0])))
-        .filterInputsBy(new FilterBuilder().include(FilterBuilder.prefix(PEGASUS_PACKAGE))));
-    Set<Class<? extends RecordTemplate>> pegasusComponents = reflections.getSubTypesOf(RecordTemplate.class);
-    pegasusComponents.forEach(aClass -> PEGASUS_TYPE_MAP.put(aClass.getSimpleName(), aClass));
+    new Reflections(PEGASUS_PACKAGE, new SubTypesScanner(false))
+            .getSubTypesOf(RecordTemplate.class)
+            .forEach(aClass -> PEGASUS_TYPE_MAP.put(aClass.getSimpleName(), aClass));
   }
 
   public static Map<String, EntityResponse> mapServiceResponse(Map<Urn, com.linkedin.entity.EntityResponse> serviceResponse,
@@ -245,13 +239,76 @@ public class MappingUtil {
     }
   }
 
-  public static Pair<String, Boolean> ingestProposal(MetadataChangeProposal metadataChangeProposal, String actorUrn, EntityService entityService,
-      ObjectMapper objectMapper) {
+  public static boolean authorizeProposals(List<com.linkedin.mxe.MetadataChangeProposal> proposals, EntityService entityService,
+      Authorizer authorizer, String actorUrnStr, DisjunctivePrivilegeGroup orGroup) {
+    List<Optional<ResourceSpec>> resourceSpecs = proposals.stream()
+        .map(proposal -> {
+            EntitySpec entitySpec = entityService.getEntityRegistry().getEntitySpec(proposal.getEntityType());
+            Urn entityUrn = EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec());
+            return Optional.of(new ResourceSpec(proposal.getEntityType(), entityUrn.toString()));
+        })
+        .collect(Collectors.toList());
+    return AuthUtil.isAuthorizedForResources(authorizer, actorUrnStr, resourceSpecs, orGroup);
+  }
+
+  public static Pair<String, Boolean> ingestProposal(com.linkedin.mxe.MetadataChangeProposal serviceProposal, String actorUrn,
+      EntityService entityService) {
     // TODO: Use the actor present in the IC.
     Timer.Context context = MetricUtils.timer("postEntity").time();
     final com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp().setTime(System.currentTimeMillis())
             .setActor(UrnUtils.getUrn(actorUrn));
+
+    final List<com.linkedin.mxe.MetadataChangeProposal> additionalChanges =
+        AspectUtils.getAdditionalChanges(serviceProposal, entityService);
+
+    log.info("Proposal: {}", serviceProposal);
+    Throwable exceptionally = null;
+    try {
+      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
+      Urn urn = proposalResult.getUrn();
+      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
+      return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
+    } catch (ValidationException ve) {
+      exceptionally = ve;
+      throw HttpClientErrorException.create(HttpStatus.UNPROCESSABLE_ENTITY, ve.getMessage(), null, null, null);
+    } catch (Exception e) {
+      exceptionally = e;
+      throw e;
+    } finally {
+      if (exceptionally != null) {
+        MetricUtils.counter(MetricRegistry.name("postEntity", "failed")).inc();
+      } else {
+        MetricUtils.counter(MetricRegistry.name("postEntity", "success")).inc();
+      }
+      context.stop();
+    }
+  }
+
+  public static MetadataChangeProposal mapToProposal(UpsertAspectRequest aspectRequest) {
+    MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
+    io.datahubproject.openapi.generated.GenericAspect
+        genericAspect = new io.datahubproject.openapi.generated.GenericAspect()
+        .value(aspectRequest.getAspect())
+        .contentType(MediaType.APPLICATION_JSON_VALUE);
+    io.datahubproject.openapi.generated.GenericAspect keyAspect = null;
+    if (aspectRequest.getEntityKeyAspect() != null) {
+      keyAspect = new io.datahubproject.openapi.generated.GenericAspect()
+          .contentType(MediaType.APPLICATION_JSON_VALUE)
+          .value(aspectRequest.getEntityKeyAspect());
+    }
+    metadataChangeProposal.aspect(genericAspect)
+        .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
+        .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect().getClass()))
+        .entityKeyAspect(keyAspect)
+        .entityUrn(aspectRequest.getEntityUrn())
+        .entityType(aspectRequest.getEntityType());
+
+    return metadataChangeProposal;
+  }
+
+  public static com.linkedin.mxe.MetadataChangeProposal mapToServiceProposal(MetadataChangeProposal metadataChangeProposal,
+      ObjectMapper objectMapper) {
     io.datahubproject.openapi.generated.KafkaAuditHeader auditHeader = metadataChangeProposal.getAuditHeader();
 
     com.linkedin.mxe.MetadataChangeProposal serviceProposal =
@@ -299,53 +356,7 @@ public class MappingUtil {
         ? serviceProposal.setAspect(
         MappingUtil.convertGenericAspect(metadataChangeProposal.getAspect(), objectMapper))
         : serviceProposal;
-
-    final List<com.linkedin.mxe.MetadataChangeProposal> additionalChanges =
-        AspectUtils.getAdditionalChanges(serviceProposal, entityService);
-
-    log.info("Proposal: {}", serviceProposal);
-    Throwable exceptionally = null;
-    try {
-      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp);
-      Urn urn = proposalResult.getUrn();
-      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp));
-      return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
-    } catch (ValidationException ve) {
-      exceptionally = ve;
-      throw HttpClientErrorException.create(HttpStatus.UNPROCESSABLE_ENTITY, ve.getMessage(), null, null, null);
-    } catch (Exception e) {
-      exceptionally = e;
-      throw e;
-    } finally {
-      if (exceptionally != null) {
-        MetricUtils.counter(MetricRegistry.name("postEntity", "failed")).inc();
-      } else {
-        MetricUtils.counter(MetricRegistry.name("postEntity", "success")).inc();
-      }
-      context.stop();
-    }
-  }
-
-  public static MetadataChangeProposal mapToProposal(UpsertAspectRequest aspectRequest) {
-    MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
-    io.datahubproject.openapi.generated.GenericAspect
-        genericAspect = new io.datahubproject.openapi.generated.GenericAspect()
-        .value(aspectRequest.getAspect())
-        .contentType(MediaType.APPLICATION_JSON_VALUE);
-    io.datahubproject.openapi.generated.GenericAspect keyAspect = null;
-    if (aspectRequest.getEntityKeyAspect() != null) {
-      keyAspect = new io.datahubproject.openapi.generated.GenericAspect()
-          .contentType(MediaType.APPLICATION_JSON_VALUE)
-          .value(aspectRequest.getEntityKeyAspect());
-    }
-    metadataChangeProposal.aspect(genericAspect)
-        .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
-        .aspectName(ASPECT_NAME_MAP.get(aspectRequest.getAspect().getClass()))
-        .entityKeyAspect(keyAspect)
-        .entityUrn(aspectRequest.getEntityUrn())
-        .entityType(aspectRequest.getEntityType());
-
-    return metadataChangeProposal;
+    return serviceProposal;
   }
 
   public static RollbackRunResultDto mapRollbackRunResult(RollbackRunResult rollbackRunResult, ObjectMapper objectMapper) {

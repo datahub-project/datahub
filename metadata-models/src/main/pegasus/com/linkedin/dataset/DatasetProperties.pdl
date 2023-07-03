@@ -3,6 +3,7 @@ namespace com.linkedin.dataset
 import com.linkedin.common.Uri
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.TimeStamp
 
 /**
  * Properties associated with a Dataset
@@ -45,10 +46,35 @@ record DatasetProperties includes CustomProperties, ExternalReference {
   /**
    * The abstracted URI such as hdfs:///data/tracking/PageViewEvent, file:///dir/file_name. Uri should not include any environment specific properties. Some datasets might not have a standardized uri, which makes this field optional (i.e. kafka topic).
    */
+  @deprecated = "Use ExternalReference.externalUrl field instead."
   uri: optional Uri
 
   /**
-   * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
+   * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
    */
+  @Searchable = {
+    "/time": {
+      "fieldName": "createdAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  created: optional TimeStamp
+
+  /**
+   * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
+   */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedAt",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional TimeStamp
+
+  /**
+   * [Legacy] Unstructured tags for the dataset. Structured tags can be applied via the `GlobalTags` aspect.
+   * This is now deprecated.
+   */
+  @deprecated = "Use GlobalTags aspect instead."
   tags: array[string] = [ ]
 }

@@ -3,31 +3,30 @@ package com.linkedin.metadata.graph.neo4j;
 import java.io.File;
 import java.net.URI;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.harness.ServerControls;
-import org.neo4j.harness.TestServerBuilder;
-import org.neo4j.harness.TestServerBuilders;
-
+import org.neo4j.harness.Neo4j;
+import org.neo4j.harness.Neo4jBuilder;
+import org.neo4j.harness.internal.InProcessNeo4jBuilder;
 
 public class Neo4jTestServerBuilder {
 
-  private final TestServerBuilder builder;
-  private ServerControls controls;
+  private final Neo4jBuilder builder;
+  private Neo4j controls;
 
-  private Neo4jTestServerBuilder(TestServerBuilder builder) {
+  private Neo4jTestServerBuilder(Neo4jBuilder builder) {
     this.builder = builder;
   }
 
   public Neo4jTestServerBuilder() {
-    this(TestServerBuilders.newInProcessBuilder());
+    this(new InProcessNeo4jBuilder());
   }
 
   public Neo4jTestServerBuilder(File workingDirectory) {
-    this(TestServerBuilders.newInProcessBuilder(workingDirectory));
+    this(new InProcessNeo4jBuilder(workingDirectory.toPath()));
   }
 
-  public ServerControls newServer() {
+  public Neo4j newServer() {
     if (controls == null) {
-      controls = builder.newServer();
+      controls = builder.build();
     }
     return controls;
   }
@@ -61,6 +60,6 @@ public class Neo4jTestServerBuilder {
   }
 
   public GraphDatabaseService getGraphDatabaseService() {
-    return controls.graph();
+    return controls.defaultDatabaseService();
   }
 }

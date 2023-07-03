@@ -1,6 +1,7 @@
 query getContainer($urn: String!) {
     container(urn: $urn) {
         urn
+        exists
         lastIngested
         platform {
             ...platformFields
@@ -31,8 +32,8 @@ query getContainer($urn: String!) {
         subTypes {
             typeNames
         }
-        entities(input: {}) {
-            ...searchResults
+        entities(input: { start: 0, count: 1 }) {
+            total
         }
         container {
             ...entityContainer
@@ -43,12 +44,15 @@ query getContainer($urn: String!) {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
-
+        status {
+            removed
+        }
     }
 }

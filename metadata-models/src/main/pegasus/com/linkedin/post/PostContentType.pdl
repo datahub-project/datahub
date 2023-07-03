@@ -1,0 +1,16 @@
+namespace com.linkedin.post
+
+/**
+  * Enum defining the type of content held in a Post.
+  */
+enum PostContentType {
+  /**
+   * Text content
+   */
+  TEXT
+
+  /**
+   * Link content
+   */
+  LINK
+}

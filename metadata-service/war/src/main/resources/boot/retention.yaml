@@ -4,12 +4,12 @@
     retention:
       version:
         maxVersions: 5
-#- entity: "*"
-#  aspect: "*"
-#  config:
-#    retention:
-#      version:
-#        maxVersions: 20
+- entity: "*"
+  aspect: "*"
+  config:
+    retention:
+      version:
+        maxVersions: 20
 #- entity: dataset
 #  aspect: datasetProperties
 #  config:

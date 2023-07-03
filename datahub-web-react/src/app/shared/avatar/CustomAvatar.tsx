@@ -7,9 +7,9 @@ import styled from 'styled-components';
 import defaultAvatar from '../../../images/default_avatar.png';
 import getAvatarColor from './getAvatarColor';
 
-const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor: string }>`
+const AvatarStyled = styled(Avatar)<{ size?: number; $backgroundColor?: string }>`
     color: #fff;
-    background-color: ${(props) => props.$backgroundColor};
+    background-color: ${(props) => (props.$backgroundColor ? `${props.$backgroundColor}` : 'transparent')};
     font-size: ${(props) => (props.size ? `${Math.max(props.size / 2.0, 12)}px` : '14px')} !important;
     margin-right: 4px;
     height: 24px;
@@ -61,11 +61,7 @@ export default function CustomAvatar({
         avatarWithInitial
     );
     const avatar =
-        photoUrl && photoUrl !== '' ? (
-            <AvatarStyled src={photoUrl} style={style} size={size} $backgroundColor={getAvatarColor(name)} />
-        ) : (
-            avatarWithDefault
-        );
+        photoUrl && photoUrl !== '' ? <AvatarStyled src={photoUrl} style={style} size={size} /> : avatarWithDefault;
     if (!name) {
         return url ? <Link to={url}>{avatar}</Link> : avatar;
     }

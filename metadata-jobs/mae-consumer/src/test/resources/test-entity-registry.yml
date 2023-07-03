@@ -13,5 +13,13 @@ entities:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
+  - name: dataset
+    keyAspect: datasetKey
+    aspects:
+      - upstreamLineage
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - domains
 events:
   - name: entityChangeEvent

@@ -8,7 +8,7 @@ import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '.
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/SidebarAboutSection';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
 import { GenericEntityProperties } from '../shared/types';
@@ -17,9 +17,17 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { RunsTab } from './tabs/RunsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { getDataProduct } from '../shared/utils';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
-    return data?.dataFlow?.platform?.properties?.displayName || data?.dataFlow?.platform?.name || '';
+    return (
+        data?.dataFlow?.platform?.properties?.displayName ||
+        capitalizeFirstLetterOnly(data?.dataFlow?.platform?.name) ||
+        ''
+    );
 };
 
 /**
@@ -28,20 +36,20 @@ const getDataJobPlatformName = (data?: DataJob): string => {
 export class DataJobEntity implements Entity<DataJob> {
     type: EntityType = EntityType.DataJob;
 
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <ConsoleSqlOutlined style={{ fontSize }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <ConsoleSqlOutlined style={{ fontSize, color: '#B37FEB' }} />;
+            return <ConsoleSqlOutlined style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         return (
             <ConsoleSqlOutlined
                 style={{
                     fontSize,
-                    color: '#BFBFBF',
+                    color: color || '#BFBFBF',
                 }}
             />
         );
@@ -68,7 +76,7 @@ export class DataJobEntity implements Entity<DataJob> {
             useEntityQuery={useGetDataJobQuery}
             useUpdateQuery={useUpdateDataJobMutation}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerDropdownItems={new Set([EntityMenuItems.COPY_URL, EntityMenuItems.UPDATE_DEPRECATION])}
+            headerDropdownItems={new Set([EntityMenuItems.UPDATE_DEPRECATION])}
             tabs={[
                 {
                     name: 'Documentation',
@@ -85,12 +93,6 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
-                    display: {
-                        visible: (_, _1) => true,
-                        enabled: (_, dataJob: GetDataJobQuery) =>
-                            (dataJob?.dataJob?.upstream?.count || 0) !== 0 ||
-                            (dataJob?.dataJob?.downstream?.count || 0) !== 0,
-                    },
                 },
                 {
                     name: 'Runs',
@@ -121,6 +123,9 @@ export class DataJobEntity implements Entity<DataJob> {
                 {
                     component: SidebarDomainSection,
                 },
+                {
+                    component: DataProductSection,
+                },
             ]}
         />
     );
@@ -137,6 +142,7 @@ export class DataJobEntity implements Entity<DataJob> {
     };
 
     renderPreview = (_: PreviewType, data: DataJob) => {
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -147,12 +153,15 @@ export class DataJobEntity implements Entity<DataJob> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags || null}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                externalUrl={data.properties?.externalUrl}
             />
         );
     };
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as DataJob;
+        const genericProperties = this.getGenericEntityProperties(data);
         return (
             <Preview
                 urn={data.urn}
@@ -164,6 +173,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}
                 domain={data.domain?.domain}
+                dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 deprecation={data.deprecation}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
@@ -174,12 +184,31 @@ export class DataJobEntity implements Entity<DataJob> {
         );
     };
 
+    getExpandedNameForDataJob = (entity: DataJob): string => {
+        const name = this.displayName(entity);
+        const flowName = entity?.dataFlow ? new DataFlowEntity().displayName(entity?.dataFlow) : undefined;
+
+        // if we have no name, just return blank. this should not happen, so dont try & construct a name
+        if (!name) {
+            return '';
+        }
+
+        // if we have a flow name, return the full name of flow.task
+        if (flowName) {
+            return `${flowName}.${name}`;
+        }
+
+        // otherwise, just return the task name (same as non-expanded)
+        return name;
+    };
+
     getLineageVizConfig = (entity: DataJob) => {
         return {
             urn: entity?.urn,
-            name: entity?.properties?.name || '',
+            name: this.displayName(entity),
+            expandedName: this.getExpandedNameForDataJob(entity),
             type: EntityType.DataJob,
-            icon: entity?.dataFlow?.platform?.properties?.logoUrl || '',
+            icon: entity?.dataFlow?.platform?.properties?.logoUrl || undefined,
             platform: entity?.dataFlow?.platform,
         };
     };
@@ -204,6 +233,7 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 }

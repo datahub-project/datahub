@@ -10,11 +10,12 @@ import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -39,14 +40,21 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
 
   private FieldResolver.FieldValue getDomains(ResourceSpec resourceSpec) {
     Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+    // In the case that the entity is a domain, the associated domain is the domain itself
+    if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
+      return FieldResolver.FieldValue.builder()
+          .values(Collections.singleton(entityUrn.toString()))
+          .build();
+    }
+
     EnvelopedAspect domainsAspect;
     try {
       EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
-          Collections.singleton(Constants.DOMAINS_ASPECT_NAME), _systemAuthentication);
-      if (response == null || !response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
+          Collections.singleton(DOMAINS_ASPECT_NAME), _systemAuthentication);
+      if (response == null || !response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();
       }
-      domainsAspect = response.getAspects().get(Constants.DOMAINS_ASPECT_NAME);
+      domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
     } catch (Exception e) {
       log.error("Error while retrieving domains aspect for urn {}", entityUrn, e);
       return FieldResolver.emptyFieldValue();

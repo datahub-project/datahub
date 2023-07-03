@@ -204,14 +204,16 @@ export const sampleSchemaWithPkFk: SchemaMetadata = {
             sourceFields: [
                 {
                     urn: 'datasetUrn',
-                    parent: 'dataset',
+                    type: EntityType.Dataset,
+                    parent: { urn: 'test', type: EntityType.Dataset },
                     fieldPath: 'shipping_address',
                 },
             ],
             foreignFields: [
                 {
                     urn: dataset3.urn,
-                    parent: dataset3.name,
+                    type: EntityType.Dataset,
+                    parent: { urn: dataset3.name, type: EntityType.Dataset },
                     fieldPath: 'address',
                 },
             ],

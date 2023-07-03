@@ -1,8 +1,9 @@
 import React from 'react';
-import { Image, Tag } from 'antd';
+import { Divider, Image, Tag } from 'antd';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import { ANTD_GRAY } from '../../../entity/shared/constants';
 
 const EntityTag = styled(Tag)`
     margin: 4px;
@@ -34,6 +35,16 @@ const DisplayNameContainer = styled.span`
     padding-right: 4px;
 `;
 
+const ColumnName = styled.span`
+    font-family: 'Roboto Mono', monospace;
+    font-weight: bold;
+`;
+
+export const StyledDivider = styled(Divider)`
+    background-color: ${ANTD_GRAY[6]};
+    margin: 0 7px;
+`;
+
 type Props = {
     displayName: string;
     url: string;
@@ -41,6 +52,7 @@ type Props = {
     platformLogoUrls?: Maybe<string>[];
     logoComponent?: React.ReactNode;
     onClick?: () => void;
+    columnName?: string;
 };
 
 export const EntityPreviewTag = ({
@@ -50,6 +62,7 @@ export const EntityPreviewTag = ({
     platformLogoUrls,
     logoComponent,
     onClick,
+    columnName,
 }: Props) => {
     return (
         <Link to={url} onClick={onClick}>
@@ -69,6 +82,12 @@ export const EntityPreviewTag = ({
                     </IconContainer>
                     <DisplayNameContainer>
                         <span className="test-mini-preview-class">{displayName}</span>
+                        {columnName && (
+                            <>
+                                <StyledDivider type="vertical" />
+                                <ColumnName>{columnName}</ColumnName>
+                            </>
+                        )}
                     </DisplayNameContainer>
                 </TitleContainer>
             </EntityTag>

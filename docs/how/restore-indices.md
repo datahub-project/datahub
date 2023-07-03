@@ -49,3 +49,7 @@ kubectl create job --from=cronjob/datahub-datahub-restore-indices-job-template d
 ```
 
 Once the job completes, your indices will have been restored. 
+
+## Through API
+
+See [Restore Indices API](../api/restli/restore-indices.md).

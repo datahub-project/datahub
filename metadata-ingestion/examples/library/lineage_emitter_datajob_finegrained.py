@@ -6,7 +6,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.metadata.schema_classes import ChangeTypeClass, DataJobInputOutputClass
+from datahub.metadata.schema_classes import DataJobInputOutputClass
 
 
 def datasetUrn(tbl):
@@ -100,10 +100,7 @@ dataJobInputOutput = DataJobInputOutputClass(
 )
 
 dataJobLineageMcp = MetadataChangeProposalWrapper(
-    entityType="dataJob",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_data_job_urn("spark", "Flow1", "Task1"),
-    aspectName="dataJobInputOutput",
     aspect=dataJobInputOutput,
 )
 

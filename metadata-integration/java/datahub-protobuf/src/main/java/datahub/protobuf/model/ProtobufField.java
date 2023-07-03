@@ -4,6 +4,7 @@ import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.OneofDescriptorProto;
+import com.google.protobuf.DescriptorProtos.SourceCodeInfo;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.schema.ArrayType;
 import com.linkedin.schema.BooleanType;
@@ -21,6 +22,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,6 +40,7 @@ public class ProtobufField implements ProtobufElement {
     private final String fieldPathType;
     private final Boolean isMessageType;
     private final SchemaFieldDataType schemaFieldDataType;
+    private final Boolean isNestedType;
 
     public OneofDescriptorProto oneOfProto() {
         if (fieldProto.hasOneofIndex()) {
@@ -73,8 +77,8 @@ public class ProtobufField implements ProtobufElement {
         return nativeType();
     }
 
-    public int getNumber() { 
-        return fieldProto.getNumber(); 
+    public int getNumber() {
+        return fieldProto.getNumber();
     }
 
     @Override
@@ -148,7 +152,7 @@ public class ProtobufField implements ProtobufElement {
 
     public boolean isMessage() {
         return Optional.ofNullable(isMessageType).orElseGet(() ->
-                    fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
+                fieldProto.getType().equals(FieldDescriptorProto.Type.TYPE_MESSAGE));
     }
 
     public int sortWeight() {
@@ -206,14 +210,71 @@ public class ProtobufField implements ProtobufElement {
     }
 
     @Override
+    public Stream<SourceCodeInfo.Location> messageLocations() {
+        List<SourceCodeInfo.Location> fileLocations = fileProto().getSourceCodeInfo().getLocationList();
+        return fileLocations.stream()
+                .filter(loc -> loc.getPathCount() > 1
+                        && loc.getPath(0) == FileDescriptorProto.MESSAGE_TYPE_FIELD_NUMBER);
+    }
+
+    @Override
     public String comment() {
         return messageLocations()
-                .filter(loc -> loc.getPathCount() > 3
-                        && loc.getPath(2) == DescriptorProto.FIELD_FIELD_NUMBER
-                        && fieldProto == messageProto().getField(loc.getPath(3)))
+                .filter(location -> location.getPathCount() > 3)
+                .filter(location -> !ProtobufUtils.collapseLocationComments(location).isEmpty()
+                        && !isEnumType(location.getPathList()))
+                .filter(location -> {
+                    List<Integer> pathList = location.getPathList();
+                    DescriptorProto messageType = fileProto().getMessageType(pathList.get(1));
+
+                    if (!isNestedType
+                            && location.getPath(2) == DescriptorProto.FIELD_FIELD_NUMBER
+                            && fieldProto == messageType.getField(location.getPath(3))) {
+                        return true;
+                    } else if (isNestedType
+                            && location.getPath(2) == DescriptorProto.NESTED_TYPE_FIELD_NUMBER
+                            && fieldProto == getNestedTypeFields(pathList, messageType)) {
+                        return true;
+                    }
+                    return false;
+                })
                 .map(ProtobufUtils::collapseLocationComments)
                 .collect(Collectors.joining("\n"))
                 .trim();
+    }
+
+    private FieldDescriptorProto getNestedTypeFields(List<Integer> pathList, DescriptorProto messageType) {
+        int pathSize = pathList.size();
+        List<Integer> nestedValues = new ArrayList<>(pathSize);
+
+        for (int index = 0; index < pathSize; index++) {
+            if (index > 1
+                    && index % 2 == 0
+                    && pathList.get(index) == DescriptorProto.NESTED_TYPE_FIELD_NUMBER) {
+                nestedValues.add(pathList.get(index + 1));
+            }
+        }
+
+        for (Integer value : nestedValues) {
+            messageType = messageType.getNestedType(value);
+        }
+
+        if (pathList.get(pathSize - 2) == DescriptorProto.FIELD_FIELD_NUMBER) {
+            return messageType.getField(pathList.get(pathSize - 1));
+        } else {
+            return null;
+        }
+    }
+
+    private boolean isEnumType(List<Integer> pathList) {
+        for (int index = 0; index < pathList.size(); index++) {
+            if (index > 1
+                    && index % 2 == 0
+                    && pathList.get(index) == DescriptorProto.ENUM_TYPE_FIELD_NUMBER) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

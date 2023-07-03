@@ -7,10 +7,7 @@ import { useGetMeQuery } from '../graphql/me.generated';
  */
 export function useGetAuthenticatedUser(skip?: boolean) {
     const userUrn = Cookies.get(CLIENT_AUTH_COOKIE);
-    if (!userUrn) {
-        throw new Error('Could not find logged in user.');
-    }
-    const { data, error } = useGetMeQuery({ skip, fetchPolicy: 'cache-and-network' });
+    const { data, error } = useGetMeQuery({ skip: skip || !userUrn, fetchPolicy: 'cache-and-network' });
     if (error) {
         console.error(`Could not fetch logged in user from cache. + ${error.message}`);
     }

@@ -12,12 +12,14 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.key.GlossaryTermKey;
+import com.linkedin.domain.Domains;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.Constants.*;
@@ -54,6 +56,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
           glossaryTerm.setProperties(GlossaryTermPropertiesMapper.map(new GlossaryTermInfo(dataMap), entityUrn)));
       mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (glossaryTerm, dataMap) ->
           glossaryTerm.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
+      mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
       mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (glossaryTerm, dataMap) ->
         glossaryTerm.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
       mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
@@ -73,5 +76,10 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       GlossaryTermKey glossaryTermKey = new GlossaryTermKey(dataMap);
       glossaryTerm.setName(GlossaryTermUtils.getGlossaryTermName(glossaryTermKey.getName()));
       glossaryTerm.setHierarchicalName(glossaryTermKey.getName());
+    }
+
+    private void mapDomains(@Nonnull GlossaryTerm glossaryTerm, @Nonnull DataMap dataMap) {
+      final Domains domains = new Domains(dataMap);
+      glossaryTerm.setDomain(DomainAssociationMapper.map(domains, glossaryTerm.getUrn()));
     }
 }

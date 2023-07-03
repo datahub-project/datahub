@@ -1,19 +1,29 @@
 package auth;
 
+import auth.sso.SsoConfigs;
+import auth.sso.SsoManager;
+import auth.sso.oidc.OidcConfigs;
+import auth.sso.oidc.OidcProvider;
 import client.AuthServiceClient;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
-import com.datahub.authentication.Authentication;
+import controllers.SsoCallbackController;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
@@ -25,14 +35,6 @@ import org.pac4j.play.store.PlayCookieSessionStore;
 import org.pac4j.play.store.PlaySessionStore;
 import org.pac4j.play.store.ShiroAesDataEncrypter;
 import play.Environment;
-
-import java.util.ArrayList;
-import java.util.List;
-import auth.sso.oidc.OidcProvider;
-import auth.sso.oidc.OidcConfigs;
-import auth.sso.SsoConfigs;
-import auth.sso.SsoManager;
-import controllers.SsoCallbackController;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
 
@@ -54,6 +56,8 @@ public class AuthModule extends AbstractModule {
      */
     private static final String PAC4J_AES_KEY_BASE_CONF = "play.http.secret.key";
     private static final String PAC4J_SESSIONSTORE_PROVIDER_CONF = "pac4j.sessionStore.provider";
+    private static final String ENTITY_CLIENT_RETRY_INTERVAL = "entityClient.retryInterval";
+    private static final String ENTITY_CLIENT_NUM_RETRIES = "entityClient.numRetries";
 
     private final com.typesafe.config.Config _configs;
 
@@ -88,7 +92,7 @@ public class AuthModule extends AbstractModule {
                 final String aesKeyHash = DigestUtils.sha1Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
                 final String aesEncryptionKey = aesKeyHash.substring(0, 16);
                 playCacheCookieStore = new PlayCookieSessionStore(
-                        new ShiroAesDataEncrypter(aesEncryptionKey));
+                        new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
             } catch (Exception e) {
                 throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
             }
@@ -101,9 +105,10 @@ public class AuthModule extends AbstractModule {
                 SsoManager.class,
                 Authentication.class,
                 EntityClient.class,
-                AuthServiceClient.class));
+                AuthServiceClient.class,
+                com.typesafe.config.Config.class));
         } catch (NoSuchMethodException | SecurityException e) {
-            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor, e");
+            throw new RuntimeException("Failed to bind to SsoCallbackController. Cannot find constructor", e);
         }
         // logout
         final LogoutController logoutController = new LogoutController();
@@ -142,44 +147,51 @@ public class AuthModule extends AbstractModule {
         return manager;
     }
 
-    @Provides @Singleton
+    @Provides
+    @Singleton
     protected Authentication provideSystemAuthentication() {
         // Returns an instance of Authentication used to authenticate system initiated calls to Metadata Service.
         String systemClientId = _configs.getString(SYSTEM_CLIENT_ID_CONFIG_PATH);
         String systemSecret = _configs.getString(SYSTEM_CLIENT_SECRET_CONFIG_PATH);
-        final Actor systemActor = new Actor(ActorType.USER, systemClientId); // TODO: Change to service actor once supported.
-        return new Authentication(
-            systemActor,
-            String.format("Basic %s:%s", systemClientId, systemSecret),
-            Collections.emptyMap()
-        );
+        final Actor systemActor =
+            new Actor(ActorType.USER, systemClientId); // TODO: Change to service actor once supported.
+        return new Authentication(systemActor, String.format("Basic %s:%s", systemClientId, systemSecret),
+            Collections.emptyMap());
     }
 
-    @Provides @Singleton
+    @Provides
+    @Singleton
     protected EntityClient provideEntityClient() {
-        return new RestliEntityClient(buildRestliClient());
+        return new RestliEntityClient(buildRestliClient(),
+                new ExponentialBackoff(_configs.getInt(ENTITY_CLIENT_RETRY_INTERVAL)),
+                _configs.getInt(ENTITY_CLIENT_NUM_RETRIES));
     }
 
-    @Provides @Singleton
-    protected AuthServiceClient provideAuthClient(Authentication systemAuthentication) {
+    @Provides
+    @Singleton
+    protected CloseableHttpClient provideHttpClient() {
+        return HttpClients.createDefault();
+    }
+
+    @Provides
+    @Singleton
+    protected AuthServiceClient provideAuthClient(Authentication systemAuthentication, CloseableHttpClient httpClient) {
         // Init a GMS auth client
-        final String metadataServiceHost = _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH)
-            ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
-            : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
+        final String metadataServiceHost =
+            _configs.hasPath(METADATA_SERVICE_HOST_CONFIG_PATH) ? _configs.getString(METADATA_SERVICE_HOST_CONFIG_PATH)
+                : Configuration.getEnvironmentVariable(GMS_HOST_ENV_VAR, DEFAULT_GMS_HOST);
 
-        final int metadataServicePort = _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH)
-            ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
-            : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
+        final int metadataServicePort =
+            _configs.hasPath(METADATA_SERVICE_PORT_CONFIG_PATH) ? _configs.getInt(METADATA_SERVICE_PORT_CONFIG_PATH)
+                : Integer.parseInt(Configuration.getEnvironmentVariable(GMS_PORT_ENV_VAR, DEFAULT_GMS_PORT));
 
-        final Boolean metadataServiceUseSsl = _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
-            ? _configs.getBoolean(METADATA_SERVICE_USE_SSL_CONFIG_PATH)
-            : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
+        final Boolean metadataServiceUseSsl =
+            _configs.hasPath(METADATA_SERVICE_USE_SSL_CONFIG_PATH) ? _configs.getBoolean(
+                METADATA_SERVICE_USE_SSL_CONFIG_PATH)
+                : Boolean.parseBoolean(Configuration.getEnvironmentVariable(GMS_USE_SSL_ENV_VAR, DEFAULT_GMS_USE_SSL));
 
-        return new AuthServiceClient(
-            metadataServiceHost,
-            metadataServicePort,
-            metadataServiceUseSsl,
-            systemAuthentication);
+        return new AuthServiceClient(metadataServiceHost, metadataServicePort, metadataServiceUseSsl,
+            systemAuthentication, httpClient);
     }
 
     private com.linkedin.restli.client.Client buildRestliClient() {

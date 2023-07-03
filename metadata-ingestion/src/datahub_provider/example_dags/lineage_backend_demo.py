@@ -6,14 +6,10 @@ An example DAG demonstrating the usage of DataHub's Airflow lineage backend.
 from datetime import timedelta
 
 from airflow import DAG
+from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 
-try:
-    from airflow.operators.bash import BashOperator
-except ModuleNotFoundError:
-    from airflow.operators.bash_operator import BashOperator
-
-from datahub_provider.entities import Dataset
+from datahub_provider.entities import Dataset, Urn
 
 default_args = {
     "owner": "airflow",
@@ -39,7 +35,11 @@ with DAG(
         bash_command="echo 'This is where you might run your data tooling.'",
         inlets=[
             Dataset("snowflake", "mydb.schema.tableA"),
-            Dataset("snowflake", "mydb.schema.tableB"),
+            Dataset("snowflake", "mydb.schema.tableB", "DEV"),
+            # You can also put dataset URNs in the inlets/outlets lists.
+            Urn(
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
+            ),
         ],
-        outlets=[Dataset("snowflake", "mydb.schema.tableC")],
+        outlets=[Dataset("snowflake", "mydb.schema.tableD")],
     )

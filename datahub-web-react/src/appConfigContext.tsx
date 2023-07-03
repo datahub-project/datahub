@@ -21,6 +21,9 @@ export const DEFAULT_APP_CONFIG = {
     },
     visualConfig: {
         logoUrl: undefined,
+        queriesTab: {
+            queriesTabResultSize: 5,
+        },
     },
     authConfig: {
         tokenAuthEnabled: false,
@@ -30,6 +33,12 @@ export const DEFAULT_APP_CONFIG = {
     },
     testsConfig: {
         enabled: false,
+    },
+    viewsConfig: {
+        enabled: false,
+    },
+    featureFlags: {
+        readOnlyModeEnabled: false,
     },
 };
 

@@ -1,5 +1,4 @@
 package com.datahub.authorization;
-
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
@@ -19,6 +18,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -75,8 +75,8 @@ public class DataHubAuthorizerTest {
     policySearchResult.setEntities(new SearchEntityArray(ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn),
         new SearchEntity().setEntity(inactivePolicyUrn))));
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any())).thenReturn(
-        policySearchResult);
+    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
+        eq(new SearchFlags().setFulltext(true)))).thenReturn(policySearchResult);
     when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
         eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn)), eq(null), any())).thenReturn(
         ImmutableMap.of(
@@ -193,8 +193,8 @@ public class DataHubAuthorizerTest {
     emptyResult.setNumEntities(0);
     emptyResult.setEntities(new SearchEntityArray());
 
-    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any())).thenReturn(
-        emptyResult);
+    when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
+        eq(new SearchFlags().setFulltext(true)))).thenReturn(emptyResult);
     when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME), eq(Collections.emptySet()), eq(null), any())).thenReturn(
         Collections.emptyMap());
 
@@ -285,6 +285,6 @@ public class DataHubAuthorizerTest {
   }
 
   private AuthorizerContext createAuthorizerContext(final Authentication systemAuthentication, final EntityClient entityClient) {
-    return new AuthorizerContext(new DefaultResourceSpecResolver(systemAuthentication, entityClient));
+    return new AuthorizerContext(Collections.emptyMap(), new DefaultResourceSpecResolver(systemAuthentication, entityClient));
   }
 }

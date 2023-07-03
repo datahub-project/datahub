@@ -2,6 +2,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
     glossaryTerm(urn: $urn) {
         urn
         type
+        exists
         name
         hierarchicalName
         isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: $start, count: $count }) {
@@ -41,11 +42,26 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
                 }
             }
         }
+        containedBy: relationships(input: { types: ["HasA"], direction: INCOMING, start: $start, count: $count }) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    ... on GlossaryTerm {
+                        urn
+                    }
+                }
+            }
+        }
         parentNodes {
             ...parentNodesFields
         }
         ownership {
             ...ownershipFields
+        }
+        domain {
+            ...entityDomain
         }
         institutionalMemory {
             ...institutionalMemoryFields
@@ -67,6 +83,9 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         }
         deprecation {
             ...deprecationFields
+        }
+        privileges {
+            canManageEntity
         }
     }
 }

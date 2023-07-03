@@ -31,6 +31,7 @@ public class DatasetProfileMapper implements TimeSeriesAspectMapper<com.linkedin
 
     result.setRowCount(gmsProfile.getRowCount());
     result.setColumnCount(gmsProfile.getColumnCount());
+    result.setSizeInBytes(gmsProfile.getSizeInBytes());
     result.setTimestampMillis(gmsProfile.getTimestampMillis());
     if (gmsProfile.hasFieldProfiles()) {
       result.setFieldProfiles(

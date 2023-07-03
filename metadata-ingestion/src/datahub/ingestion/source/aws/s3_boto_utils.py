@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional
+from typing import Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -23,13 +23,14 @@ def get_s3_tags(
     ctx: PipelineContext,
     use_s3_bucket_tags: Optional[bool] = False,
     use_s3_object_tags: Optional[bool] = False,
+    verify_ssl: Optional[Union[bool, str]] = None,
 ) -> Optional[GlobalTagsClass]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
     new_tags = GlobalTagsClass(tags=[])
     tags_to_add = []
     if use_s3_bucket_tags:
-        s3 = aws_config.get_s3_resource()
+        s3 = aws_config.get_s3_resource(verify_ssl)
         bucket = s3.Bucket(bucket_name)
         try:
             tags_to_add.extend(
@@ -57,9 +58,8 @@ def get_s3_tags(
         return None
     if ctx.graph is not None:
         logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
-        current_tags: Optional[GlobalTagsClass] = ctx.graph.get_aspect_v2(
+        current_tags: Optional[GlobalTagsClass] = ctx.graph.get_aspect(
             entity_urn=dataset_urn,
-            aspect="globalTags",
             aspect_type=GlobalTagsClass,
         )
         if current_tags:
@@ -67,7 +67,7 @@ def get_s3_tags(
     else:
         logger.warn("Could not connect to DatahubApi. No current tags to maintain")
     # Remove duplicate tags
-    tags_to_add = list(set(tags_to_add))
+    tags_to_add = sorted(list(set(tags_to_add)))
     new_tags = GlobalTagsClass(
         tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
     )

@@ -4,6 +4,7 @@ import com.linkedin.data.schema.compatibility.CompatibilityChecker;
 import com.linkedin.data.schema.compatibility.CompatibilityOptions;
 import com.linkedin.data.schema.compatibility.CompatibilityResult;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.ConfigEntitySpec;
 import com.linkedin.metadata.models.DefaultEntitySpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
@@ -31,8 +32,10 @@ public class MergedEntityRegistry implements EntityRegistry {
   private final Map<String, AspectSpec> _aspectNameToSpec;
 
   public MergedEntityRegistry(EntityRegistry baseEntityRegistry) {
-    entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? baseEntityRegistry.getEntitySpecs() : new HashMap<>();
-    eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? baseEntityRegistry.getEventSpecs() : new HashMap<>();
+    // baseEntityRegistry.get*Specs() can return immutable Collections.emptyMap() which fails
+    // when this class attempts .put* operations on it.
+    entityNameToSpec = baseEntityRegistry.getEntitySpecs() != null ? new HashMap<>(baseEntityRegistry.getEntitySpecs()) : new HashMap<>();
+    eventNameToSpec = baseEntityRegistry.getEventSpecs() != null ? new HashMap<>(baseEntityRegistry.getEventSpecs()) : new HashMap<>();
     baseEntityRegistry.getAspectTemplateEngine();
     _aspectTemplateEngine = baseEntityRegistry.getAspectTemplateEngine();
     _aspectNameToSpec = baseEntityRegistry.getAspectSpecs();
@@ -106,6 +109,13 @@ public class MergedEntityRegistry implements EntityRegistry {
   private EntitySpec mergeEntitySpecs(EntitySpec existingEntitySpec, EntitySpec newEntitySpec) {
     Map<String, AspectSpec> aspectSpecMap = new HashMap<>(existingEntitySpec.getAspectSpecMap());
     aspectSpecMap.putAll(newEntitySpec.getAspectSpecMap());
+    // If the base is a config spec, always create another config spec.
+    if (existingEntitySpec instanceof ConfigEntitySpec) {
+      return new ConfigEntitySpec(
+          existingEntitySpec.getEntityAnnotation().getName(),
+          existingEntitySpec.getEntityAnnotation().getKeyAspect(),
+          aspectSpecMap.values());
+    }
     return new DefaultEntitySpec(aspectSpecMap.values(), existingEntitySpec.getEntityAnnotation(),
         existingEntitySpec.getSnapshotSchema(), existingEntitySpec.getAspectTyperefSchema());
   }

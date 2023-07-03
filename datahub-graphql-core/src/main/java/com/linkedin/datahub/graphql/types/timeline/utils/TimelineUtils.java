@@ -7,24 +7,24 @@ import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.util.Pair;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.parquet.SemanticVersion;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 
 
 @Slf4j
 public class TimelineUtils {
 
-  public static Optional<Pair<SemanticVersion, ChangeTransaction>> semanticVersionChangeTransactionPair(
+  public static Optional<Pair<ComparableVersion, ChangeTransaction>> semanticVersionChangeTransactionPair(
       ChangeTransaction changeTransaction) {
-    Optional<SemanticVersion> semanticVersion = createSemanticVersion(changeTransaction.getSemVer());
+    Optional<ComparableVersion> semanticVersion = createSemanticVersion(changeTransaction.getSemVer());
     return semanticVersion.map(version -> Pair.of(version, changeTransaction));
   }
 
-  public static Optional<SemanticVersion> createSemanticVersion(String semanticVersionString) {
+  public static Optional<ComparableVersion> createSemanticVersion(String semanticVersionString) {
     String truncatedSemanticVersion = truncateSemanticVersion(semanticVersionString);
     try {
-      SemanticVersion semanticVersion = SemanticVersion.parse(truncatedSemanticVersion);
+      ComparableVersion semanticVersion = new ComparableVersion(truncatedSemanticVersion);
       return Optional.of(semanticVersion);
-    } catch (SemanticVersion.SemanticVersionParseException e) {
+    } catch (Exception e) {
       return Optional.empty();
     }
   }

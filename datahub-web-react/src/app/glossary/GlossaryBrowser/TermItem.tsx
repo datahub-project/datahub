@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Link } from 'react-router-dom';
-import { useEntityData } from '../../entity/shared/EntityContext';
-import { GlossaryTerm } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
+import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
 
 const TermWrapper = styled.div`
     font-weight: normal;
@@ -44,7 +44,7 @@ export const NameWrapper = styled.span<{ showSelectStyles?: boolean }>`
 `;
 
 interface Props {
-    term: GlossaryTerm;
+    term: ChildGlossaryTermFragment;
     isSelecting?: boolean;
     selectTerm?: (urn: string, displayName: string) => void;
 }
@@ -52,7 +52,7 @@ interface Props {
 function TermItem(props: Props) {
     const { term, isSelecting, selectTerm } = props;
 
-    const { entityData } = useEntityData();
+    const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
 
     function handleSelectTerm() {
@@ -68,7 +68,7 @@ function TermItem(props: Props) {
         <TermWrapper>
             {!isSelecting && (
                 <TermLink
-                    to={`/${entityRegistry.getPathName(term.type)}/${term.urn}`}
+                    to={`${entityRegistry.getEntityUrl(term.type, term.urn)}`}
                     isSelected={entityData?.urn === term.urn}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}

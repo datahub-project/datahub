@@ -5,6 +5,7 @@ import { PageRoutes } from '../../../../conf/Global';
 import { DataPlatform, RecommendationContent } from '../../../../types.generated';
 import { urlEncodeUrn } from '../../../entity/shared/utils';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
 const PlatformListContainer = styled.div`
     display: flex;
@@ -36,7 +37,11 @@ export const PlatformList = ({ content, onClick }: Props) => {
                     onClick={() => onClick?.(index)}
                 >
                     <LogoCountCard
-                        name={platform.platform.properties?.displayName || ''}
+                        name={
+                            platform.platform.properties?.displayName ||
+                            capitalizeFirstLetterOnly(platform.platform.name) ||
+                            ''
+                        }
                         logoUrl={platform.platform.properties?.logoUrl || ''}
                         count={platform.count}
                     />

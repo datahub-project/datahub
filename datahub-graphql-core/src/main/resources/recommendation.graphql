@@ -217,7 +217,7 @@ type SearchParams {
   """
   Entity types to be searched. If this is not provided, all entities will be searched.
   """
-	types: [EntityType!]
+  types: [EntityType!]
 
   """
   Search query
@@ -227,22 +227,7 @@ type SearchParams {
   """
   Filters
   """
-  filters: [Filter!]
-}
-
-"""
-Facet filters to apply to search results
-"""
-type Filter {
-  """
-  Name of field to filter by
-  """
-	field: String!
-
-	"""
-	Value of the field to filter by
-	"""
-	value: String!
+  filters: [FacetFilter!]
 }
 
 """

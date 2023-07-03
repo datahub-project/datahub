@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Iterable, List, Optional, Tuple, cast
+from typing import Any, Iterable, List, NoReturn, Optional, Tuple, cast
 from unittest.mock import patch
 
 # This import verifies that the dependencies are available.
@@ -19,10 +19,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
     make_sqlalchemy_type,
 )
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,10 @@ extra_oracle_types = {
     make_sqlalchemy_type("SDO_ORDINATE_ARRAY"),
 }
 assert OracleDialect.ischema_names
+
+
+def _raise_err(exc: Exception) -> NoReturn:
+    raise exc
 
 
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
@@ -61,6 +65,10 @@ class OracleConfig(BasicSQLAlchemyConfig):
     database: Optional[str] = Field(
         default=None, description="If using, omit `service_name`."
     )
+    add_database_name_to_urn: Optional[bool] = Field(
+        default=False,
+        description="Add oracle database name to urn, default urn is schema.table",
+    )
 
     @pydantic.validator("service_name")
     def check_service_name(cls, v, values):
@@ -76,6 +84,17 @@ class OracleConfig(BasicSQLAlchemyConfig):
             assert not self.database
             url = f"{url}/?service_name={self.service_name}"
         return url
+
+    def get_identifier(self, schema: str, table: str) -> str:
+        regular = f"{schema}.{table}"
+        if self.add_database_name_to_urn:
+            if self.database_alias:
+                return f"{self.database_alias}.{regular}"
+            if self.database:
+                return f"{self.database}.{regular}"
+            return regular
+        else:
+            return regular
 
 
 class OracleInspectorObjectWrapper:
@@ -94,10 +113,14 @@ class OracleInspectorObjectWrapper:
         s = "SELECT username FROM dba_users ORDER BY username"
         cursor = self._inspector_instance.bind.execute(s)
         return [
-            self._inspector_instance.dialect.normalize_name(row[0]) for row in cursor
+            self._inspector_instance.dialect.normalize_name(row[0])
+            or _raise_err(ValueError(f"Invalid schema name: {row[0]}"))
+            for row in cursor
         ]
 
-    def get_table_names(self, schema: str = None, order_by: str = None) -> List[str]:
+    def get_table_names(
+        self, schema: Optional[str] = None, order_by: Optional[str] = None
+    ) -> List[str]:
         """
         skip order_by, we are not using order_by
         """
@@ -121,7 +144,9 @@ class OracleInspectorObjectWrapper:
         cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
 
         return [
-            self._inspector_instance.dialect.normalize_name(row[0]) for row in cursor
+            self._inspector_instance.dialect.normalize_name(row[0])
+            or _raise_err(ValueError(f"Invalid table name: {row[0]}"))
+            for row in cursor
         ]
 
     def __getattr__(self, item: str) -> Any:

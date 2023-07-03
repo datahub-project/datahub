@@ -12,7 +12,6 @@ from datahub.ingestion.source.openapi_parser import (
 
 
 class TestGetEndpoints(unittest.TestCase):
-
     # https://github.com/OAI/OpenAPI-Specification/blob/main/examples/v2.0/yaml/api-with-examples.yaml
     openapi20 = """
 swagger: "2.0"

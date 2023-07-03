@@ -50,7 +50,7 @@ const config: any = {
 
 **Disclaimers**
 
--   This plugin requires use of Univeral Analytics and does not yet support GA4. To create a Universal Analytics Property, follow [this guide](https://www.analyticsmania.com/other-posts/how-to-create-a-universal-analytics-property/).
+-   This plugin requires use of Universal Analytics and does not yet support GA4. To create a Universal Analytics Property, follow [this guide](https://www.analyticsmania.com/other-posts/how-to-create-a-universal-analytics-property/).
 -   Google Analytics lacks robust support for custom event properties. For that reason many of the DataHub events discussed above will not be fully populated. Instead, we map certain fields of the DataHub event to the standard `category`, `action`, `label` fields required by GA.
 
 1. Open `datahub-web-react/src/conf/analytics.ts`

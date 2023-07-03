@@ -47,7 +47,7 @@ enum ViewType {
  */
 export const ValidationsTab = () => {
     const { urn, entityData } = useEntityData();
-    const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn } });
+    const { data, refetch } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);

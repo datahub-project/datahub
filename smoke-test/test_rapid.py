@@ -1,5 +1,4 @@
 import pytest
-import requests
 import tenacity
 
 from tests.utils import (
@@ -73,6 +72,7 @@ def _ensure_dataset_present_correctly(frontend_session):
     assert res_data["data"]
     assert res_data["data"]["dataset"]
     assert res_data["data"]["dataset"]["urn"] == urn
+    assert len(res_data["data"]["dataset"]["outgoing"]["relationships"]) == 1
 
 
 def test_ingestion_via_rest_rapid(frontend_session, wait_for_healthchecks):

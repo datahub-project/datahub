@@ -1,15 +1,22 @@
 import React from 'react';
 import { Menu, Typography, Divider } from 'antd';
-import { BankOutlined, SafetyCertificateOutlined, UsergroupAddOutlined, ToolOutlined } from '@ant-design/icons';
+import {
+    BankOutlined,
+    SafetyCertificateOutlined,
+    UsergroupAddOutlined,
+    ToolOutlined,
+    FilterOutlined,
+} from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { ManageIdentities } from '../identity/ManageIdentities';
 import { ManagePermissions } from '../permissions/ManagePermissions';
 import { useAppConfig } from '../useAppConfig';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
 import { AccessTokens } from './AccessTokens';
 import { Preferences } from './Preferences';
+import { ManageViews } from '../entity/view/ManageViews';
+import { useUserContext } from '../context/useUserContext';
 
 const PageContainer = styled.div`
     display: flex;
@@ -51,6 +58,7 @@ const PATHS = [
     { path: 'identities', content: <ManageIdentities /> },
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'preferences', content: <Preferences /> },
+    { path: 'views', content: <ManageViews /> },
 ];
 
 /**
@@ -69,14 +77,16 @@ export const SettingsPage = () => {
     const providedPath = splitPathName[1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
 
-    const me = useGetAuthenticatedUser();
+    const me = useUserContext();
     const { config } = useAppConfig();
 
     const isPoliciesEnabled = config?.policiesConfig.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
+    const isViewsEnabled = config?.viewsConfig.enabled;
 
-    const showPolicies = (isPoliciesEnabled && me && me.platformPrivileges.managePolicies) || false;
-    const showUsersGroups = (isIdentityManagementEnabled && me && me.platformPrivileges.manageIdentities) || false;
+    const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
+    const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
+    const showViews = isViewsEnabled || false;
 
     return (
         <PageContainer>
@@ -92,7 +102,7 @@ export const SettingsPage = () => {
                     style={{ width: 256, marginTop: 8 }}
                     selectedKeys={[activePath]}
                     onClick={(newPath) => {
-                        history.push(`${url}/${newPath.key}`);
+                        history.replace(`${url}/${newPath.key}`);
                     }}
                 >
                     <Menu.ItemGroup title="Developer">
@@ -115,6 +125,13 @@ export const SettingsPage = () => {
                                     <ItemTitle>Permissions</ItemTitle>
                                 </Menu.Item>
                             )}
+                        </Menu.ItemGroup>
+                    )}
+                    {showViews && (
+                        <Menu.ItemGroup title="Manage">
+                            <Menu.Item key="views">
+                                <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
+                            </Menu.Item>
                         </Menu.ItemGroup>
                     )}
                     <Menu.ItemGroup title="Preferences">

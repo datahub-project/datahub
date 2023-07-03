@@ -10,7 +10,6 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    ChangeTypeClass,
     EditableSchemaFieldInfoClass,
     EditableSchemaMetadataClass,
     GlossaryTermAssociationClass,
@@ -45,10 +44,8 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 
-current_editable_schema_metadata = graph.get_aspect_v2(
-    entity_urn=dataset_urn,
-    aspect="editableSchemaMetadata",
-    aspect_type=EditableSchemaMetadataClass,
+current_editable_schema_metadata = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=EditableSchemaMetadataClass
 )
 
 
@@ -96,14 +93,11 @@ else:
 
 if need_write:
     event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=dataset_urn,
-        aspectName="editableSchemaMetadata",
         aspect=current_editable_schema_metadata,
     )
     graph.emit(event)
-    log.info(f"Tag {term_to_add} added to column {column} of dataset {dataset_urn}")
+    log.info(f"Term {term_to_add} added to column {column} of dataset {dataset_urn}")
 
 else:
-    log.info(f"Tag {term_to_add} already attached to column {column}, omitting write")
+    log.info(f"Term {term_to_add} already attached to column {column}, omitting write")

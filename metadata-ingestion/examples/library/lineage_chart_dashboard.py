@@ -4,7 +4,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.com.linkedin.pegasus2avro.dashboard import DashboardInfoClass
-from datahub.metadata.schema_classes import ChangeAuditStampsClass, ChangeTypeClass
+from datahub.metadata.schema_classes import ChangeAuditStampsClass
 
 # Construct the DashboardInfo aspect with the charts -> dashboard lineage.
 charts_in_dashboard: List[str] = [
@@ -25,10 +25,7 @@ dashboard_info = DashboardInfoClass(
 # Construct a MetadataChangeProposalWrapper object with the DashboardInfo aspect.
 # NOTE: This will overwrite all of the existing dashboard aspect information associated with this dashboard.
 chart_info_mcp = MetadataChangeProposalWrapper(
-    entityType="dashboard",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_dashboard_urn(platform="looker", name="my_dashboard_1"),
-    aspectName="dashboardInfo",
     aspect=dashboard_info,
 )
 

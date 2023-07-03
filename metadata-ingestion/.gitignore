@@ -1,10 +1,14 @@
 .envrc
+src/datahub/__init__.py.bak
 .vscode/
 output
 pvenv36/
 /venv*/
 bq_credentials.json
+junit.*.xml
+tests/integrations/delta_lake/minio/minio
 /tmp
+*.bak
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -58,6 +62,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+junit.*xml
 
 # Translations
 *.mo
@@ -138,3 +143,4 @@ dmypy.json
 
 # Generated classes
 src/datahub/metadata/
+.preflight_sentinel

@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import com.google.common.collect.ImmutableList;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermUrnArray;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
@@ -12,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.TermRelationshipType;
 import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -20,8 +18,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
-import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
-import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
+import static com.linkedin.datahub.graphql.TestUtils.*;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -57,10 +54,7 @@ public class RemoveRelatedTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_ENTITY_URN))
     );
@@ -92,10 +86,7 @@ public class RemoveRelatedTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertTrue(resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1);
     Mockito.verify(mockService, Mockito.times(1)).exists(
         Mockito.eq(Urn.createFromString(TEST_ENTITY_URN))
     );
@@ -123,10 +114,7 @@ public class RemoveRelatedTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -155,10 +143,7 @@ public class RemoveRelatedTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(ExecutionException.class, () -> resolver.get(mockEnv).get());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyNoIngestProposal(mockService);
     Mockito.verify(mockService, Mockito.times(0)).exists(
         Mockito.eq(Urn.createFromString(TEST_ENTITY_URN))
     );

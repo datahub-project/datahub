@@ -7,6 +7,7 @@ const EntityContext = React.createContext<EntityContextType>({
     urn: '',
     entityType: EntityType.Dataset,
     entityData: null,
+    loading: true,
     baseEntity: null,
     updateEntity: () => Promise.resolve({}),
     routeToTab: () => {},
@@ -16,6 +17,10 @@ const EntityContext = React.createContext<EntityContextType>({
 });
 
 export default EntityContext;
+
+export function useEntityContext() {
+    return useContext(EntityContext);
+}
 
 export const useBaseEntity = <T,>(): T => {
     const { baseEntity } = useContext(EntityContext);
@@ -33,8 +38,8 @@ export const useEntityUpdate = <U,>(): UpdateEntityType<U> | null | undefined =>
 };
 
 export const useEntityData = () => {
-    const { urn, entityType, entityData } = useContext(EntityContext);
-    return { urn, entityType, entityData };
+    const { urn, entityType, entityData, loading } = useContext(EntityContext);
+    return { urn, entityType, entityData, loading };
 };
 
 export const useRouteToTab = () => {

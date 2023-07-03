@@ -71,6 +71,7 @@ export default function DictField({ field, removeMargin }: Props) {
                                 {field.keyField && (
                                     <StyledFormItem
                                         {...restField}
+                                        required={field.required}
                                         name={[name, field.keyField.name]}
                                         initialValue=""
                                         label={field.keyField.label}

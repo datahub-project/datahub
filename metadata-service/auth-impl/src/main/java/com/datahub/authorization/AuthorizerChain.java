@@ -1,5 +1,6 @@
 package com.datahub.authorization;
 
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -45,12 +46,25 @@ public class AuthorizerChain implements Authorizer {
   @Nullable
   public AuthorizationResult authorize(@Nonnull final AuthorizationRequest request) {
     Objects.requireNonNull(request);
+    // Save contextClassLoader
+    ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+
     for (final Authorizer authorizer : this.authorizers) {
       try {
         log.debug("Executing Authorizer with class name {}", authorizer.getClass().getCanonicalName());
+        log.debug("Authorization Request: {}", request.toString());
+        // The library came with plugin can use the contextClassLoader to load the classes. For example apache-ranger library does this.
+        // Here we need to set our IsolatedClassLoader as contextClassLoader to resolve such class loading request from plugin's home directory,
+        // otherwise plugin's internal library wouldn't be able to find their dependent classes
+        Thread.currentThread().setContextClassLoader(authorizer.getClass().getClassLoader());
         AuthorizationResult result = authorizer.authorize(request);
+        // reset
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
+
         if (AuthorizationResult.Type.ALLOW.equals(result.type)) {
           // Authorization was successful - Short circuit
+          log.debug("Authorization is successful");
+
           return result;
         } else {
           log.debug("Received DENY result from Authorizer with class name {}. message: {}",
@@ -59,6 +73,8 @@ public class AuthorizerChain implements Authorizer {
       } catch (Exception e) {
         log.error("Caught exception while attempting to authorize request using Authorizer {}. Skipping authorizer.",
             authorizer.getClass().getCanonicalName(), e);
+      } finally {
+        Thread.currentThread().setContextClassLoader(contextClassLoader);
       }
     }
     // Return failed Authorization result.

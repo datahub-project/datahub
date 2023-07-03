@@ -1,20 +1,20 @@
 import json
+import logging
 import re
-import time
-import warnings
-from typing import Any, Dict, Generator, List, Tuple
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 import requests
 import yaml
 from requests.auth import HTTPBasicAuth
 
-from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     OtherSchemaClass,
     SchemaField,
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import SchemaFieldDataTypeClass, StringTypeClass
+
+logger = logging.getLogger(__name__)
 
 
 def flatten(d: dict, prefix: str = "") -> Generator:
@@ -47,9 +47,11 @@ def flatten2list(d: dict) -> list:
 
 
 def request_call(
-    url: str, token: str = None, username: str = None, password: str = None
+    url: str,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
 ) -> requests.Response:
-
     headers = {"accept": "application/json"}
 
     if username is not None and password is not None:
@@ -66,9 +68,9 @@ def request_call(
 
 def get_swag_json(
     url: str,
-    token: str = None,
-    username: str = None,
-    password: str = None,
+    token: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
     swagger_file: str = "",
 ) -> Dict:
     tot_url = url + swagger_file
@@ -118,7 +120,6 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
     for p_k, p_o in sw_dict["paths"].items():
         # will track only the "get" methods, which are the ones that give us data
         if "get" in p_o.keys():
-
             if "200" in p_o["get"]["responses"].keys():
                 base_res = p_o["get"]["responses"]["200"]
             elif 200 in p_o["get"]["responses"].keys():
@@ -163,7 +164,7 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
                                 ex_field
                             ][0]
                     else:
-                        warnings.warn(
+                        logger.warning(
                             f"Field in swagger file does not give consistent data --- {p_k}"
                         )
                 elif "text/csv" in res_cont.keys():
@@ -297,12 +298,12 @@ def extract_fields(
     dict_data = json.loads(response.content)
     if isinstance(dict_data, str):
         # no sense
-        warnings.warn(f"Empty data --- {dataset_name}")
+        logger.warning(f"Empty data --- {dataset_name}")
         return [], {}
     elif isinstance(dict_data, list):
         # it's maybe just a list
         if len(dict_data) == 0:
-            warnings.warn(f"Empty data --- {dataset_name}")
+            logger.warning(f"Empty data --- {dataset_name}")
             return [], {}
         # so we take the fields of the first element,
         # if it's a dict
@@ -331,7 +332,7 @@ def extract_fields(
             else:
                 return [], {}  # it's empty!
         else:
-            warnings.warn(f"Unable to get the attributes --- {dataset_name}")
+            logger.warning(f"Unable to get the attributes --- {dataset_name}")
             return [], {}
 
 
@@ -384,16 +385,12 @@ def set_metadata(
         )
         canonical_schema.append(field)
 
-    actor = "urn:li:corpuser:etl"
-    sys_time = int(time.time() * 1000)
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,
         hash="",
         platformSchema=OtherSchemaClass(rawSchema=""),
-        created=AuditStamp(time=sys_time, actor=actor),
-        lastModified=AuditStamp(time=sys_time, actor=actor),
         fields=canonical_schema,
     )
     return schema_metadata

@@ -89,7 +89,7 @@ function GlossarySearch() {
                         {searchResults.map((result) => {
                             return (
                                 <SearchResult
-                                    to={`/${entityRegistry.getPathName(result.entity.type)}/${result.entity.urn}`}
+                                    to={`${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
                                     onClick={() => setIsSearchBarFocused(false)}
                                 >
                                     <IconWrapper>

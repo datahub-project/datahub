@@ -40,11 +40,12 @@ public class OidcConfigs extends SsoConfigs {
     public static final String OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS = "auth.oidc.extractJwtAccessTokenClaims";
     public static final String OIDC_RESOURCE_CLIENT_ROLE = "auth.oidc.resource.clientRole";
     public static final String OIDC_RESOURCE_ERROR_MESSAGE = "auth.oidc.resource.errorMessage";
+    public static final String OIDC_PREFERRED_JWS_ALGORITHM = "auth.oidc.preferredJwsAlgorithm";
 
     /**
      * Default values
      */
-    private static final String DEFAULT_OIDC_USERNAME_CLAIM = "preferred_username";
+    private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
     private static final String DEFAULT_OIDC_USERNAME_CLAIM_REGEX = "(.*)";
     private static final String DEFAULT_OIDC_SCOPE = "openid profile email"; // Often "group" must be included for groups.
     private static final String DEFAULT_OIDC_CLIENT_NAME = "oidc";
@@ -75,6 +76,7 @@ public class OidcConfigs extends SsoConfigs {
     private Optional<Boolean> extractJwtAccessTokenClaims;
     private Optional<String> resourceClientRole;
     private Optional<String> resourceErrorMessage;
+    private Optional<String> preferredJwsAlgorithm;
 
     public OidcConfigs(final com.typesafe.config.Config configs) {
         super(configs);
@@ -103,5 +105,6 @@ public class OidcConfigs extends SsoConfigs {
         resourceErrorMessage = getOptional(configs, OIDC_RESOURCE_ERROR_MESSAGE);
         readTimeout = getOptional(configs, OIDC_READ_TIMEOUT, DEFAULT_OIDC_READ_TIMEOUT);
         extractJwtAccessTokenClaims = getOptional(configs, OIDC_EXTRACT_JWT_ACCESS_TOKEN_CLAIMS).map(Boolean::parseBoolean);
+        preferredJwsAlgorithm = Optional.ofNullable(getOptional(configs, OIDC_PREFERRED_JWS_ALGORITHM, null));
     }
 }

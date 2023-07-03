@@ -17,7 +17,6 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -29,7 +28,6 @@ import org.mockserver.model.HttpResponse;
 import org.mockserver.model.JsonBody;
 import org.mockserver.socket.PortFactory;
 import org.mockserver.verify.VerificationTimes;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 import com.linkedin.common.FabricType;
 
@@ -58,9 +56,6 @@ public class TestCoalesceJobLineage {
   private static final String PIPELINE_PLATFORM_INSTANCE = "test_machine";
   private static final String DATASET_PLATFORM_INSTANCE = "test_dev_dataset";
 
-  @ClassRule
-  public static PostgreSQLContainer<?> db = new PostgreSQLContainer<>("postgres:9.6.12")
-      .withDatabaseName("sparkcoalescetestdb");
   private static SparkSession spark;
   private static Properties jdbcConnnProperties;
   private static ClientAndServer mockServer;

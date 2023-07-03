@@ -1,46 +1,402 @@
-# Search Guide
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## Introduction 
+# About DataHub Search
 
-The search bar is one of the means of finding data in Datahub. In this document, we discuss more effective ways of finding information beyond doing a standard keyword search. This is because keyword searches can return results from almost any part of an entity.
+<!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
-### Search in Specific Fields
+<!-- 
+Update feature availability; by default, feature availability is Self-Hosted and Managed DataHub
 
-The following examples are in the format of  
-X: *typical question* :  
-```what to key in search bar```.  [sample url](https://example.com)  
-Wildcard characters can be added to the search terms as well. These examples are non exhaustive and using Datasets as a reference.    
+Add in `saasOnly` for Managed DataHub-only features
+ -->
+
+<FeatureAvailability/>
+
+The **search bar** is an important mechanism for discovering data assets in DataHub. From the search bar, you can find Datasets, Columns, Dashboards, Charts, Data Pipelines, and more. Simply type in a term and press 'enter'. 
+
+<p align="center">
+<img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/search-landingpage.png?raw=true" />
+</p>
+
+**Advanced queries** and the **filter sidebar** helps fine tuning queries. For programmatic users Datahub provides a **GraphQL API** as well. 
+
+## Search Setup, Prerequisites, and Permissions
+
+Search is available for all users. Although Search works out of the box, the more relevant data you ingest, the better the results are.
+
+## Using Search
+
+Searching is as easy as typing in relevant business terms and pressing 'enter' to view matching data assets. 
+
+By default, search terms will match against different aspects of a data assets. This includes asset names, descriptions, tags, terms, owners, and even specific attributes like the names of columns in a table. 
+
+ 
+### Filters
+
+The filters sidebar sits on the left hand side of search results, and lets users find assets by drilling down. You can quickly filter by Data Platform (e.g. Snowflake), Tags, Glossary Terms, Domain, Owners, and more with a single click. 
+
+<p align="center">
+ <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/filters_highlighted.png" />
+</p>
+
+### Advanced Filters
+
+Using the Advanced Filter view, you can apply more complex filters. To get there, click 'Advanced' in the top right of the filter panel:
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/click_to_advanced_search_view.png"/>
+</p>
+
+#### Adding an Advanced Filter
+
+Currently, Advanced Filters support filtering by Column Name, Container, Domain, Description (entity or column level), Tag (entity or column level), Glossary Term (entity or column level), Owner, Entity Type, Subtype, Environment and soft-deleted status.
+
+To add a new filter, click the add filter menu, choose a filter type, and then fill in the values you want to filter by.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/click_add_advanced_filter.png"/>
+</p>
+
+#### Matching Any Advanced Filter
+
+By default, all filters must be matched in order for a result to appear. For example, if you add a tag filter and a platform filter, all results will have the tag and the platform. You can set the results to match any filter instead. Click on `all filters` and select `any filter` from the drop-down menu.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/advanced_search_choose_matches_any.png"/>
+</p>
+
+#### Negating An Advanced Filter
+
+After creating a filter, you can choose whether results should or should not match it. Change this by clicking the operation in the top right of the filter and selecting the negated operation.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced_search/advanced_search_select_negated.png"/>
+</p>
+
+
+### Results
+
+Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
+
+With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
+
+### Advanced queries
+
+The search bar supports advanced queries with pattern matching, logical expressions and filtering by specific field matches.
+
+The following are use cases with example search phrases. Additionally, an example link is provided for our demo instance.
+These examples are non exhaustive and using Datasets as a reference.    
   
-I want to:  
-1. *Find a dataset with the word **mask** in the name* :  
-```name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=name%3A%20%2Amask%2A)   
-This will return entities with **mask** in the name.  
-Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.  
+If you want to:
 
-2. *Find a dataset with a property, **encoding***  
-```customProperties: encoding*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=customProperties%3A%20encoding%2A)  
-Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using ```key=value```. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.  
+- Exact match on term or phrase
+  - ```"datahub_schema"``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22datahub_schema%22)
+  - ```datahub_schema``` [Sample results](https://demo.datahubproject.io/search?page=1&query=datahub_schema)
+  - Enclosing one or more terms with double quotes will enforce exact matching on these terms, preventing further tokenization.
 
-3. *Find a dataset with a column name, **latitude***  
-```fieldPaths: latitude``` [Sample results](https://demo.datahubproject.io/search?page=1&query=fieldPaths%3A%20latitude)  
-fieldPaths is the name of the attribute that holds the column name in Datasets.
+- Exclude terms
+  - ```logging -snowflake``` [Sample results](https://demo.datahubproject.io/search?page=1&query=logging%20-snowflake)
+  - Results can be excluded by term using `-` to negate the term.
 
-4. *Find a dataset with the term **latitude** in the field description*  
-```editedFieldDescriptions: latitude OR fieldDescriptions: latitude```  [Sample results](https://demo.datahubproject.io/search?page=1&query=editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)  
-Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.  
+- Term boolean logic with precedence
+  - ```logging + (-snowflake | os_audit_log)``` [Sample results](https://demo.datahubproject.io/search?page=1&query=logging%20%2B%20%28-snowflake%20%7C%20os_audit_log%29)
+  - `(` `)` can be used to set precedence of boolean term expressions 
 
-5. *Find a dataset with the term **logical** in the dataset description*  
-```editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
-Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.  
+- Find a dataset with the word **mask** in the name:  
+  - ```/q name: *mask*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20name%253A%2520%2Amask%2A)   
+  - This will return entities with **mask** in the name. Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.  
 
-6. *Find a dataset which reside in one of the browsing folders, for instance, the **hive** folder*  
-```browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=browsePaths%3A%20%2Ahive%2A)  
-BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
+- Find a dataset with a property, **encoding**  
+  - ```/q customProperties: encoding*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20customProperties%3A%20encoding%2A)  
+  - Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using ```"key=value"```. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.  
 
-## Where to find more information?  
+- Find a dataset with a column name, **latitude**  
+  - ```/q fieldPaths: latitude``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)  
+  - fieldPaths is the name of the attribute that holds the column name in Datasets.
+
+- Find a dataset with the term **latitude** in the field description  
+  - ```/q editedFieldDescriptions: latitude OR fieldDescriptions: latitude```  [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)  
+  - Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.  
+
+- Find a dataset with the term **logical** in the dataset description
+  - ```/q editedDescription: *logical* OR description: *logical*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)  
+  - Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.  
+
+- Find a dataset which resides in one of the browsing folders, for instance, the **hive** folder
+  - ```/q browsePaths: *hive*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20browsePaths%3A%20%2Ahive%2A)
+  - BrowsePath is stored as a complete string, for instance ```/datasets/prod/hive/SampleKafkaDataset```, hence the need for wildcards on both ends of the term to return a result. 
+
+- Find a dataset without the **name** field
+  - ```/q -_exists_:name``` [Sample results](https://demo.datahubproject.io/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
+  - the `-` is negating the existence of the field name.
+
+<!--
+## Additional Resources
+
+ Comment out any irrelevant or empty sections -->
+
+### Videos
+
+**What can you do with DataHub?**
+
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</p> 
+
+
+### GraphQL
+
+* [searchAcrossEntities](https://datahubproject.io/docs/graphql/queries/#searchacrossentities)
+* You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql)
+
+The same GraphQL API that powers the Search UI can be used
+for integrations and programmatic use-cases. 
+
+```
+# Example query
+{
+  searchAcrossEntities(
+    input: {types: [], query: "*", start: 0, count: 10, filters: [{field: "fieldTags", value: "urn:li:tag:Dimension"}]}
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+### Searching at Scale
+
+For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities) GraphQL API: 
+
+```
+# Example query
+{
+  scrollAcrossEntities(input: { types: [DATASET], query: "*", count: 10}) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+This will return a response containing a `nextScrollId` value which must be used in subsequent queries to retrieve more data, i.e:
+
+```
+{
+  scrollAcrossEntities(input: 
+    { types: [DATASET], query: "*", count: 10,
+    scrollId: "eyJzb3J0IjpbMy4wLCJ1cm46bGk6ZGF0YXNldDoodXJuOmxpOmRhdGFQbGF0Zm9ybTpiaWdxdWVyeSxiaWdxdWVyeS1wdWJsaWMtZGF0YS5jb3ZpZDE5X2dlb3RhYl9tb2JpbGl0eV9pbXBhY3QucG9ydF90cmFmZmljLFBST0QpIl0sInBpdElkIjpudWxsLCJleHBpcmF0aW9uVGltZSI6MH0="}
+  ) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        type
+        ... on Dataset {
+          urn
+          type
+          platform {
+            name
+          }
+          name
+        }
+      }
+    }
+  }
+}
+```
+
+In order to complete scrolling through all of the results, continue to request data in batches until the `nextScrollId` returned is null or undefined.
+
+
+### DataHub Blog
+* [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
+
+## Customizing Search
+
+It is possible to completely customize search ranking, filtering, and queries using a search configuration yaml file.
+This no-code solution provides the ability to extend, or replace, the Elasticsearch-based search functionality. The
+only limitation is that the information used in the query/ranking/filtering must be present in the entities' document,
+however this does include `customProperties`, `tags`, `terms`, `domain`, as well as many additional fields.
+
+Additionally, multiple customizations can be applied to different query strings. A regex is applied to the search query
+to determine which customized search profile to use. This means a different query/ranking/filtering can be applied to
+a `select all`/`*` query or one that contains an actual query.
+
+Search results (excluding select `*`) are a balance between relevancy and the scoring function. In
+general, when trying to improve relevancy, focus on changing the query in the `boolQuery` section and rely on the
+`functionScore` for surfacing the *importance* in the case of a relevancy tie. Consider the scenario
+where a dataset named `orders` exists in multiple places. The relevancy between the dataset with the **name** `orders` and
+the **term** `orders` is the same, however one location may be more important and thus the function score preferred.
+
+**Note:** The customized query is a pass-through to Elasticsearch and must comply with their API, syntax errors are possible.
+It is recommended to test the customized queries prior to production deployment and knowledge of the Elasticsearch query
+language is required.
+
+### Enable Custom Search
+
+The following environment variables on GMS control whether a search configuration is enabled and the location of the
+configuration file.
+
+Enable Custom Search:
+```shell
+ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED=true
+```
+
+Custom Search File Location:
+```shell
+ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE=search_config.yml
+```
+The location of the configuration file can be on the Java classpath or the local filesystem. A default configuration
+file is included with the GMS jar with the name `search_config.yml`.
+
+### Search Configuration
+
+The search configuration yaml contains a simple list of configuration profiles selected using the `queryRegex`. If a
+single profile is desired, a catch-all regex of `.*` can be used.
+
+The list of search configurations can be grouped into 4 general sections.
+
+1. `queryRegex` - Responsible for selecting the search customization based on the [regex matching](https://www.w3schools.com/java/java_regex.asp) the search query string.
+*The first match is applied.*
+2. Built-in query booleans - There are 3 built-in queries which can be individually enabled/disabled. These include
+the `simple query string`[[1]](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-simple-query-string-query.html), 
+`match phrase prefix`[[2]](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-match-query-phrase-prefix.html), and
+`exact match`[[3]](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-term-query.html) queries,
+enabled with the following booleans
+respectively [`simpleQuery`, `prefixMatchQuery`, `exactMatchQuery`]
+3. `boolQuery` - The base Elasticsearch `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
+If enabled in #2 above, those queries will
+appear in the `should` section of the `boolean query`[[4](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-bool-query.html)].
+4. `functionScore` - The Elasticsearch `function score`[[5](https://www.elastic.co/guide/en/elasticsearch/reference/7.17/query-dsl-function-score-query.html#score-functions)] section of the overall query.
+
+### Examples
+
+These examples assume a match-all `queryRegex` of `.*` so that it would impact any search query for simplicity.
+
+#### Example 1: Ranking By Tags/Terms
+
+Boost entities with tags of `primary` or `gold` and an example glossary term's uuid.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+
+        - filter:
+            terms:
+              tags.keyword:
+                - urn:li:tag:primary
+                - urn:li:tag:gold
+          weight: 3.0
+        
+        - filter:
+            terms:
+              glossaryTerms.keyword:
+                - urn:li:glossaryTerm:9afa9a59-93b2-47cb-9094-aa342eec24ad
+          weight: 3.0
+
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+#### Example 2: Preferred Data Platform
+
+Boost the `urn:li:dataPlatform:hive` platform.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+        - filter:
+            terms:
+              platform.keyword:
+                - urn:li:dataPlatform:hive
+          weight: 3.0
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+#### Example 3: Exclusion & Bury
+
+This configuration extends the 3 built-in queries with a rule to exclude `deprecated` entities from search results
+because they are not generally relevant as well as reduces the score of `materialized`.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+    
+    boolQuery:
+      must_not:
+        term:
+          deprecated:
+            value: true
+
+    functionScore:
+      functions:
+        - filter:
+            term:
+              materialized:
+                value: true
+          weight: 0.5
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+## FAQ and Troubleshooting
+
+**How are the results ordered?**
+
+The order of the search results is based on the weight what Datahub gives them based on our search algorithm. The current algorithm in OSS DataHub is based on a text-match score from Elasticsearch.
+
+**Where to find more information?**
+
 The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag ```Searchable```.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
-```curl http://localhost:9200/_cat/indices``` returns all the ES indices in the ElasticSearch container.  
+`curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
+
 ```
 yellow open chartindex_v2_1643510690325                           bQO_RSiCSUiKJYsmJClsew 1 1   2 0   8.5kb   8.5kb
 yellow open mlmodelgroupindex_v2_1643510678529                    OjIy0wb7RyKqLz3uTENRHQ 1 1   0 0    208b    208b
@@ -74,11 +430,13 @@ yellow open system_metadata_service_v1                            36spEDbDTdKgVl
 yellow open schemafieldindex_v2_1643510684410                     tZ1gC3haTReRLmpCxirVxQ 1 1   0 0    208b    208b
 yellow open mlfeatureindex_v2_1643510680246                       aQO5HF0mT62Znn-oIWBC8A 1 1  20 0  17.4kb  17.4kb
 yellow open tagindex_v2_1643510684785                             PfnUdCUORY2fnF3I3W7HwA 1 1   3 1  18.6kb  18.6kb
-```  
-The index name will vary from instance to instance. Indexed information about Datasets can be found in:  
-```curl http://localhost:9200/datasetindex_v2_1643510688970/_search?=pretty```  
+```
 
-example information of a dataset:  
+The index name will vary from instance to instance. Indexed information about Datasets can be found in:  
+`curl http://localhost:9200/datasetindex_v2_1643510688970/_search?=pretty`
+
+example information of a dataset:
+
 ```
 {
         "_index" : "datasetindex_v2_1643510688970",
@@ -121,5 +479,16 @@ example information of a dataset:
       },
 ```
 
+<!-- Use the following format:
 
+**Question in bold text**
 
+Response in plain text
+
+-->
+
+*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+
+### Related Features
+
+* [Metadata ingestion framework](../../metadata-ingestion/README.md)

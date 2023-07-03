@@ -1,11 +1,13 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Divider, Popover, Tooltip, Typography } from 'antd';
 import React from 'react';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Divider, message, Modal, Popover, Tooltip, Typography } from 'antd';
+import { blue } from '@ant-design/colors';
 import styled from 'styled-components';
 import moment from 'moment';
 import { Deprecation } from '../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../constants';
+import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 
 const DeprecatedContainer = styled.div`
     width: 104px;
@@ -55,12 +57,30 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
     color: #ef5b5b;
 `;
 
+const UndeprecatedIcon = styled(InfoCircleOutlined)`
+    font-size: 14px;
+    padding-right: 6px;
+`;
+
+const IconGroup = styled.div`
+    font-size: 12px;
+    color: 'black';
+    &:hover {
+        color: ${blue[4]};
+        cursor: pointer;
+    }
+`;
+
 type Props = {
+    urn: string;
     deprecation: Deprecation;
     preview?: boolean | null;
+    refetch?: () => void;
+    showUndeprecate: boolean | null;
 };
 
-export const DeprecationPill = ({ deprecation, preview }: Props) => {
+export const DeprecationPill = ({ deprecation, preview, urn, refetch, showUndeprecate }: Props) => {
+    const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     /**
      * Deprecation Decommission Timestamp
      */
@@ -78,6 +98,30 @@ export const DeprecationPill = ({ deprecation, preview }: Props) => {
     const hasDetails = deprecation.note !== '' || deprecation.decommissionTime !== null;
     const isDividerNeeded = deprecation.note !== '' && deprecation.decommissionTime !== null;
 
+    const batchUndeprecate = () => {
+        batchUpdateDeprecationMutation({
+            variables: {
+                input: {
+                    resources: [{ resourceUrn: urn }],
+                    deprecated: false,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
+                    refetch?.();
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to mark assets as un-deprecated: \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    };
+
     return (
         <Popover
             overlayStyle={{ maxWidth: 240 }}
@@ -94,6 +138,27 @@ export const DeprecationPill = ({ deprecation, preview }: Props) => {
                                     <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
                                 </Tooltip>
                             </Typography.Text>
+                        )}
+                        {isDividerNeeded && <ThinDivider />}
+                        {showUndeprecate && (
+                            <IconGroup
+                                onClick={() =>
+                                    Modal.confirm({
+                                        title: `Confirm Mark as un-deprecated`,
+                                        content: `Are you sure you want to mark this asset as un-deprecated?`,
+                                        onOk() {
+                                            batchUndeprecate();
+                                        },
+                                        onCancel() {},
+                                        okText: 'Yes',
+                                        maskClosable: true,
+                                        closable: true,
+                                    })
+                                }
+                            >
+                                <UndeprecatedIcon />
+                                Mark as un-deprecated
+                            </IconGroup>
                         )}
                     </>
                 ) : (

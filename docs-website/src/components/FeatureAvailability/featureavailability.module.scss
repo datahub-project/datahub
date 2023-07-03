@@ -19,7 +19,7 @@
 
 .managedIcon {
   svg {
-    color: #262626;
+    color: currentColor;
     width: 1.5rem;
     height: 1.5rem;
     margin-right: 0.25rem;
@@ -29,7 +29,7 @@
 .platform {
   opacity: 0.5;
   svg {
-    color: #262626;
+    color: currentColor;
   }
 }
 

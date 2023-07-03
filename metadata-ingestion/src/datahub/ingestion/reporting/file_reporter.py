@@ -31,7 +31,6 @@ class FileReporter(PipelineRunListener):
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
     ) -> PipelineRunListener:
-
         reporter_config = FileReporterConfig.parse_obj(config_dict)
         return cls(reporter_config)
 
@@ -47,7 +46,6 @@ class FileReporter(PipelineRunListener):
         report: Dict[str, Any],
         ctx: PipelineContext,
     ) -> None:
-
         try:
             with open(self.config.filename, "w") as report_out:
                 json.dump(report, report_out)

@@ -2,7 +2,9 @@
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
+from sqlalchemy import util
 from sqlalchemy.dialects.mysql import base
+from sqlalchemy.dialects.mysql.enumerated import SET
 
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -20,6 +22,8 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
+
+SET.__repr__ = util.generic_repr  # type:ignore
 
 GEOMETRY = make_sqlalchemy_type("GEOMETRY")
 POINT = make_sqlalchemy_type("POINT")

@@ -1,4 +1,9 @@
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import moment from 'moment';
 import { DateInterval } from '../../../types.generated';
+
+dayjs.extend(relativeTime);
 
 export const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
@@ -18,6 +23,16 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Week]: 604800000,
     [DateInterval.Month]: 2419200000,
     [DateInterval.Year]: 31536000000,
+};
+
+export const INTERVAL_TO_MOMENT_INTERVAL = {
+    [DateInterval.Second]: 'seconds',
+    [DateInterval.Minute]: 'minutes',
+    [DateInterval.Hour]: 'hours',
+    [DateInterval.Day]: 'days',
+    [DateInterval.Week]: 'weeks',
+    [DateInterval.Month]: 'months',
+    [DateInterval.Year]: 'years',
 };
 
 export type TimeWindowSize = {
@@ -41,6 +56,13 @@ export type TimeWindow = {
  */
 export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
     return INTERVAL_TO_SECONDS[windowSize.interval] * 1000 * windowSize.count;
+};
+
+export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
+    return moment(date)
+        .utc()
+        .add(interval_num, INTERVAL_TO_MOMENT_INTERVAL[interval] as moment.DurationInputArg2)
+        .toDate();
 };
 
 /**
@@ -145,3 +167,42 @@ export const toRelativeTimeString = (timeMs: number) => {
     const diffInYears = Math.round(diffInMs / INTERVAL_TO_MS[DateInterval.Year]);
     return rtf.format(diffInYears, 'year');
 };
+
+export function getTimeFromNow(timestampMillis) {
+    if (!timestampMillis) {
+        return '';
+    }
+    const relativeTimeString = dayjs(timestampMillis).fromNow();
+    if (relativeTimeString === 'a few seconds ago') {
+        return 'now';
+    }
+    return relativeTimeString;
+}
+
+export function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+    if (!startDate && !endDate) {
+        return 'All Time';
+    }
+
+    if (!startDate && endDate) {
+        return `Until ${endDate.format('ll')}`;
+    }
+
+    if (startDate && !endDate) {
+        return `From ${startDate.format('ll')}`;
+    }
+
+    if (startDate && endDate) {
+        if (endDate && endDate.isSame(moment(), 'day')) {
+            const startDateRelativeTime = moment().diff(startDate, 'days');
+            return `Last ${startDateRelativeTime} days`;
+        }
+
+        if (endDate.isSame(startDate, 'day')) {
+            return startDate.format('ll');
+        }
+        return `${startDate.format('ll')} - ${endDate.format('ll')}`;
+    }
+
+    return 'Unknown time range';
+}

@@ -75,11 +75,6 @@ describe('SearchPage', () => {
         const datasetEntityBox = getByTestId('facet-entity-DATASET');
         expect(datasetEntityBox).toHaveProperty('checked', true);
 
-        const expandButton = getByTestId('expand-facet-platform');
-        act(() => {
-            fireEvent.click(expandButton);
-        });
-
         await waitFor(() => expect(queryByTestId('facet-platform-hdfs')).toBeInTheDocument());
         const hdfsPlatformBox = getByTestId('facet-platform-hdfs');
         expect(hdfsPlatformBox).toHaveProperty('checked', true);

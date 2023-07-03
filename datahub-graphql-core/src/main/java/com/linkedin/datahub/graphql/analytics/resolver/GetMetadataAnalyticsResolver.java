@@ -77,7 +77,8 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
       filter = QueryUtils.newFilter("domains.keyword", input.getDomain());
     }
 
-    SearchResult searchResult = _entityClient.searchAcrossEntities(entities, query, filter, 0, 0, authentication);
+    SearchResult searchResult = _entityClient.searchAcrossEntities(entities, query, filter, 0, 0,
+        null, authentication);
 
     List<AggregationMetadata> aggregationMetadataList = searchResult.getMetadata().getAggregations();
 
@@ -107,7 +108,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (termAggregation.isPresent()) {
       List<NamedBar> termChart = buildBarChart(termAggregation.get());
       AnalyticsUtil.hydrateDisplayNameForBars(_entityClient, termChart, Constants.GLOSSARY_TERM_ENTITY_NAME,
-          ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
+          ImmutableSet.of(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME, Constants.GLOSSARY_TERM_INFO_ASPECT_NAME), AnalyticsUtil::getTermName, authentication);
       charts.add(BarChart.builder().setTitle("Entities by Term").setBars(termChart).build());
     }
 

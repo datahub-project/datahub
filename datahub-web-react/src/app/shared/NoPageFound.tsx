@@ -53,7 +53,7 @@ export const NoPageFound = () => {
     const history = useHistory();
 
     const goToHomepage = () => {
-        history.push('/');
+        history.replace('/');
     };
 
     return (

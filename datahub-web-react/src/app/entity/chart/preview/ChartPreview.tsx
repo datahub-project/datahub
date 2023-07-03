@@ -11,10 +11,10 @@ import {
     ParentContainersResult,
     Deprecation,
     ChartStatsSummary,
+    DataProduct,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { capitalizeFirstLetter } from '../../../shared/textUtil';
 import { IconStyleType } from '../../Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
 
@@ -29,6 +29,7 @@ export const ChartPreview = ({
     tags,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     insights,
     logoUrl,
@@ -41,7 +42,7 @@ export const ChartPreview = ({
     snippet,
 }: {
     urn: string;
-    platform: string;
+    platform?: string;
     platformInstanceId?: string;
     name?: string;
     description?: string | null;
@@ -50,6 +51,7 @@ export const ChartPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     container?: Container | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
@@ -62,23 +64,24 @@ export const ChartPreview = ({
     snippet?: React.ReactNode | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    const capitalizedPlatform = capitalizeFirstLetter(platform);
 
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Chart, urn)}
             name={name || ''}
+            urn={urn}
             description={description || ''}
             type="Chart"
             typeIcon={entityRegistry.getIcon(EntityType.Chart, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
-            platform={capitalizedPlatform}
+            platform={platform}
             platformInstanceId={platformInstanceId}
             qualifier={access}
             tags={tags}
             owners={owners}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             container={container || undefined}
             insights={insights}
             parentContainers={parentContainers}

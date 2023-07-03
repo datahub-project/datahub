@@ -11,7 +11,7 @@ from datahub.configuration.common import (
     ConfigModel,
     PermissiveConfigModel,
 )
-from datahub.configuration.source_common import EnvBasedSourceConfigBase
+from datahub.configuration.source_common import EnvConfigMixin
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
@@ -59,7 +59,7 @@ def assume_role(
     return dict(assumed_role_object["Credentials"])
 
 
-AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html for details."
+AUTODETECT_CREDENTIALS_DOC_LINK = "Can be auto-detected, see [the AWS boto3 docs](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html) for details."
 
 
 class AwsConnectionConfig(ConfigModel):
@@ -97,11 +97,11 @@ class AwsConnectionConfig(ConfigModel):
 
     aws_endpoint_url: Optional[str] = Field(
         default=None,
-        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+        description="The AWS service endpoint. This is normally [constructed automatically](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html), but can be overridden here.",
     )
     aws_proxy: Optional[Dict[str, str]] = Field(
         default=None,
-        description="Autodetected. See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/core/session.html",
+        description="A set of proxy configs to use with AWS. See the [botocore.config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html) docs for details.",
     )
 
     def _normalized_aws_roles(self) -> List[AwsAssumeRoleConfig]:
@@ -167,18 +167,24 @@ class AwsConnectionConfig(ConfigModel):
             }
         return {}
 
-    def get_s3_client(self) -> "S3Client":
+    def get_s3_client(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3Client":
         return self.get_session().client(
             "s3",
             endpoint_url=self.aws_endpoint_url,
             config=Config(proxies=self.aws_proxy),
+            verify=verify_ssl,
         )
 
-    def get_s3_resource(self) -> "S3ServiceResource":
+    def get_s3_resource(
+        self, verify_ssl: Optional[Union[bool, str]] = None
+    ) -> "S3ServiceResource":
         resource = self.get_session().resource(
             "s3",
             endpoint_url=self.aws_endpoint_url,
             config=Config(proxies=self.aws_proxy),
+            verify=verify_ssl,
         )
         # according to: https://stackoverflow.com/questions/32618216/override-s3-endpoint-using-boto3-configuration-file
         # boto3 only reads the signature version for s3 from that config file. boto3 automatically changes the endpoint to
@@ -195,7 +201,7 @@ class AwsConnectionConfig(ConfigModel):
         return self.get_session().client("sagemaker")
 
 
-class AwsSourceConfig(EnvBasedSourceConfigBase, AwsConnectionConfig):
+class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
     """
     Common AWS credentials config.
 

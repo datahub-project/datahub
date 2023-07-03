@@ -1,6 +1,5 @@
 package auth.sso;
 
-import static auth.AuthUtils.*;
 import static auth.ConfigUtil.*;
 
 
@@ -26,7 +25,6 @@ public class SsoConfigs {
   private final String _authBaseUrl;
   private final String _authBaseCallbackPath;
   private final String _authSuccessRedirectPath;
-  private final Integer _sessionTtlInHours;
   private final Boolean _oidcEnabled;
 
   public SsoConfigs(final com.typesafe.config.Config configs) {
@@ -39,10 +37,6 @@ public class SsoConfigs {
         configs,
         AUTH_SUCCESS_REDIRECT_PATH_CONFIG_PATH,
         DEFAULT_SUCCESS_REDIRECT_PATH);
-    _sessionTtlInHours = Integer.parseInt(getOptional(
-        configs,
-        SESSION_TTL_CONFIG_PATH,
-        DEFAULT_SESSION_TTL_HOURS.toString()));
     _oidcEnabled =  configs.hasPath(OIDC_ENABLED_CONFIG_PATH)
         && Boolean.TRUE.equals(
         Boolean.parseBoolean(configs.getString(OIDC_ENABLED_CONFIG_PATH)));
@@ -58,10 +52,6 @@ public class SsoConfigs {
 
   public String getAuthSuccessRedirectPath() {
     return _authSuccessRedirectPath;
-  }
-
-  public Integer getSessionTtlInHours() {
-    return _sessionTtlInHours;
   }
 
   public Boolean isOidcEnabled() {

@@ -8,6 +8,7 @@ dependencies {
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
   compile externalDependency.neo4jJavaDriver
+  compile externalDependency.json
 
   compile spec.product.pegasus.restliClient
   compile spec.product.pegasus.restliCommon
@@ -18,6 +19,7 @@ dependencies {
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-utils-avro-1.7')
 
+  implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
@@ -25,12 +27,13 @@ dependencies {
   testCompile project(':test-models')
 
   constraints {
-      implementation("org.apache.logging.log4j:log4j-core:2.17.0") {
+      implementation(externalDependency.log4jCore) {
           because("previous versions are vulnerable to CVE-2021-45105")
       }
-      implementation("org.apache.logging.log4j:log4j-api:2.17.0") {
+      implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
   }
+  implementation externalDependency.logbackClassic
 
 }

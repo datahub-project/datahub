@@ -48,7 +48,6 @@ export default function GlossaryTermsDropdown({ urns, disabled = false, refetch 
                         resourceUrn: urn,
                     }))}
                     operationType={operationType}
-                    entityType={EntityType.Dataset} // TODO REMOVE
                 />
             )}
         </>

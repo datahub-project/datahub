@@ -46,4 +46,41 @@ record GlossaryRelatedTerms {
     }
   }
   hasRelatedTerms: optional array[GlossaryTermUrn]
+
+  /**
+   * The relationship Has Value with glossary term.
+   * These are fixed value a term has. For example a ColorEnum where RED, GREEN and YELLOW are fixed values.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "HasValue",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "values",
+      "fieldType": "URN",
+    }
+  }
+  values: optional array[GlossaryTermUrn]
+
+
+  /**
+   * The relationship isRelatedTo with glossary term
+   */
+  @Relationship = {
+    "/*": {
+      "name": "IsRelatedTo",
+      "entityTypes": [ "glossaryTerm" ]
+    }
+  }
+  @Searchable = {
+    "/*": {
+      "fieldName": "relatedTerms",
+      "fieldType": "URN",
+    }
+  }
+  relatedTerms: optional array[GlossaryTermUrn]
+
 }

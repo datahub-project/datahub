@@ -16,6 +16,7 @@ import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.GlossaryTermKey;
@@ -140,11 +141,20 @@ public class AnalyticsUtil {
   }
 
   public static Optional<String> getTermName(EntityResponse entityResponse) {
-    EnvelopedAspect envelopedDatasetKey = entityResponse.getAspects().get(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME);
-    if (envelopedDatasetKey == null) {
+    EnvelopedAspect envelopedTermInfo = entityResponse.getAspects().get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME);
+    if (envelopedTermInfo != null) {
+      GlossaryTermInfo glossaryTermInfo = new GlossaryTermInfo(envelopedTermInfo.getValue().data());
+      if (glossaryTermInfo.hasName()) {
+        return Optional.ofNullable(glossaryTermInfo.getName());
+      }
+    }
+
+    // if name is not set on GlossaryTermInfo or there is no GlossaryTermInfo
+    EnvelopedAspect envelopedGlossaryTermKey = entityResponse.getAspects().get(Constants.GLOSSARY_TERM_KEY_ASPECT_NAME);
+    if (envelopedGlossaryTermKey == null) {
       return Optional.empty();
     }
-    GlossaryTermKey glossaryTermKey = new GlossaryTermKey(envelopedDatasetKey.getValue().data());
+    GlossaryTermKey glossaryTermKey = new GlossaryTermKey(envelopedGlossaryTermKey.getValue().data());
     return Optional.of(glossaryTermKey.getName());
   }
 }

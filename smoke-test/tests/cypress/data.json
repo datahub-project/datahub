@@ -152,6 +152,16 @@
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)",
         "aspects": [
           {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hdfs dataset",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
               "paths": ["/prod/hdfs/SampleCypressHdfsDataset"]
             }
@@ -189,6 +199,19 @@
                   "dataset": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
                   "type": "TRANSFORMED"
                 }
+              ],
+              "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD),field_bar)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD),shipment_info)"
+                    ],
+                    "confidenceScore": 1.0
+                }
               ]
             }
           },
@@ -223,7 +246,19 @@
               "editableSchemaFieldInfo": [
                 {
                   "fieldPath": "shipment_info",
-                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] }
+                  "globalTags": { "tags": [{ "tag": "urn:li:tag:Legacy" }] },
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe",
+                      "impersonator": null
+                    }
+                  }
                 }
               ]
             }
@@ -365,7 +400,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Cypress" }]
+              "tags": [{ "tag": "urn:li:tag:Cypress" },  { "tag": "urn:li:tag:Cypress2" }]
             }
           }
         ]
@@ -379,6 +414,17 @@
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)",
         "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hive dataset",
+              "uri": null,
+              "tags": [],
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
               "owners": [
@@ -621,7 +667,19 @@
                     }
                   },
                   "nativeDataType": "boolean",
-                  "recursive": false
+                  "recursive": false,
+                  "glossaryTerms": {
+                    "terms": [
+                      {
+                        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType"
+                      }
+                    ],
+                    "auditStamp": {
+                      "time": 0,
+                      "actor": "urn:li:corpuser:jdoe",
+                      "impersonator": null
+                    }
+                  }
                 },
                 {
                   "fieldPath": "timestamp",
@@ -673,7 +731,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "description": "table containing all the users created on a single day",
+              "description": "table containing all the users created on a single day. Creted from log events.",
               "uri": null,
               "tags": [],
               "customProperties": {
@@ -790,16 +848,18 @@
               ],
               "primaryKeys": null,
               "foreignKeysSpecs": null,
-              "foreignKeys": [{
-                "name": "user id",
-                "foreignFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
-                ],
-                "sourceFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
-                ],
-                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-              }]
+              "foreignKeys": [
+                {
+                  "name": "user id",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                }
+              ]
             }
           }
         ]
@@ -932,16 +992,18 @@
               ],
               "primaryKeys": null,
               "foreignKeysSpecs": null,
-              "foreignKeys": [{
-                "name": "user id",
-                "foreignFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
-                ],
-                "sourceFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
-                ],
-                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
-              }]
+              "foreignKeys": [
+                {
+                  "name": "user id",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+                }
+              ]
             }
           },
           {
@@ -1148,16 +1210,18 @@
               ],
               "primaryKeys": ["user_name"],
               "foreignKeysSpecs": null,
-              "foreignKeys": [{
-                "name": "user session",
-                "foreignFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)"
-                ],
-                "sourceFields": [
-                  "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD),user_id)"
-                ],
-                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)"
-              }]
+              "foreignKeys": [
+                {
+                  "name": "user session",
+                  "foreignFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD),user_id)"
+                  ],
+                  "sourceFields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_deleted,PROD),user_id)"
+                  ],
+                  "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_cypress_users_created,PROD)"
+                }
+              ]
             }
           },
           {
@@ -1482,10 +1546,12 @@
           },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [{
-                "owner": "urn:li:corpuser:jdoe",
-                "type": "DATAOWNER"
-              }],
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
               "lastModified": {
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:jdoe"
@@ -1502,17 +1568,20 @@
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
         "urn": "urn:li:glossaryNode:CypressNode",
-        "aspects": [{
-          "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
-            "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities"
-          }
-        },
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+              "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities"
+            }
+          },
           {
             "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [{
-                "owner": "urn:li:corpuser:jdoe",
-                "type": "DATAOWNER"
-              }],
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
               "lastModified": {
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:jdoe"
@@ -1524,7 +1593,7 @@
     },
     "proposedDelta": null
   },
-   {
+  {
     "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
@@ -1559,14 +1628,47 @@
   },
   {
     "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Cypress2",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.tag.TagProperties": {
+              "name": "Cypress 2",
+              "description": "Indicates the entity is #2 for cypress test purposes"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER",
+                  "source": null
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe",
+                "impersonator": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.bigquery_usage_logs.cypress_logging_events,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1622243780153, \"lastUpdatedTimestamp\": 1622243780153, \"actor\": \"urn:li:corpuser:harshal\", \"operationType\": \"CREATE\", \"affectedDatasets\": []}",
-        "contentType": "application/json"
+      "value": "{\"timestampMillis\": 1622243780153, \"lastUpdatedTimestamp\": 1622243780153, \"actor\": \"urn:li:corpuser:harshal\", \"operationType\": \"CREATE\", \"affectedDatasets\": []}",
+      "contentType": "application/json"
     },
     "systemMetadata": null
   },
@@ -1582,7 +1684,8 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
-  },{
+  },
+  {
     "auditHeader": null,
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
@@ -1594,7 +1697,8 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
-    },{
+  },
+  {
     "auditHeader": null,
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
@@ -1606,7 +1710,8 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
-  },{
+  },
+  {
     "auditHeader": null,
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
@@ -1618,7 +1723,8 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
-  },{
+  },
+  {
     "auditHeader": null,
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:c39d6e424c70a1b3e8982535c68b5b5888",
@@ -1642,7 +1748,9 @@
               "description": null,
               "dataType": "TEXT",
               "version": null,
-              "sources": ["urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)"]
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)"
+              ]
             }
           },
           {
@@ -1667,7 +1775,9 @@
               "description": "this is a description from source system",
               "dataType": "ORDINAL",
               "version": null,
-              "sources": ["urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)"]
+              "sources": [
+                "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)"
+              ]
             }
           },
           {
@@ -1689,9 +1799,7 @@
         "aspects": [
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/cypress-feature-table"
-              ]
+              "paths": ["/sagemaker/cypress-feature-table"]
             }
           },
           {
@@ -1750,7 +1858,9 @@
                 }
               ],
               "onlineMetrics": null,
-              "mlFeatures": ["urn:li:mlFeature:(cypress-test-2,some-cypress-feature-1)"],
+              "mlFeatures": [
+                "urn:li:mlFeature:(cypress-test-2,some-cypress-feature-1)"
+              ],
               "tags": [],
               "deployments": [],
               "trainingJobs": [],
@@ -1762,9 +1872,7 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/cypress-model-package-group/cypress-model"
-              ]
+              "paths": ["/sagemaker/cypress-model-package-group/cypress-model"]
             }
           }
         ]
@@ -1810,15 +1918,98 @@
           },
           {
             "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/cypress-model-package-group"
-              ]
+              "paths": ["/sagemaker/cypress-model-package-group"]
             }
           }
         ]
       }
     },
     "proposedDelta": null,
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:CypressNode.CypressColumnInfoType",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "a definition",
+              "parentNode": "urn:li:glossaryNode:CypressNode",
+              "sourceRef": "FIBO",
+              "termSource": "EXTERNAL",
+              "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/FunctionalEntities/FinancialServicesEntities/BankingProduct",
+              "customProperties": {
+                "FQDN": "SavingAccount"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:marketing",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"Marketing\", \"description\": \"My custom domain\" }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:marketing\"] }",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-query",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+      "value": "{\"name\":\"TestQuery\",\"description\":\"TestDescription\",\"source\":\"MANUAL\",\"statement\":{\"language\":\"SQL\",\"value\":\"SELECT*FROMTABLE\"},\"created\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0},\"lastModified\":{\"actor\":\"urn:li:corpuser:test\",\"time\":0}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "query",
+    "entityUrn": "urn:li:query:test-query",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+      "value": "{\"subjects\":[{\"entity\":\"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)\"}]}",
+      "contentType": "application/json"
+    },
     "systemMetadata": null
   }
 ]

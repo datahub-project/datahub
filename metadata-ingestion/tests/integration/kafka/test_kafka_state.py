@@ -1,23 +1,20 @@
 import time
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 import pytest
 from confluent_kafka.admin import AdminClient, NewTopic
 from freezegun import freeze_time
 
-from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.kafka import KafkaSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.kafka_state import KafkaCheckpointState
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
-KAFKA_PORT = 59092
+KAFKA_PORT = 29092
 KAFKA_BOOTSTRAP_SERVER = f"localhost:{KAFKA_PORT}"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -81,15 +78,6 @@ class KafkaTopicsCxtManager:
         self.delete_kafka_topics(self.topics)
 
 
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    kafka_source = cast(KafkaSource, pipeline.source)
-    return kafka_source.get_current_checkpoint(
-        kafka_source.stale_entity_removal_handler.job_id
-    )
-
-
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_ingest_with_stateful(
@@ -103,7 +91,6 @@ def test_kafka_ingest_with_stateful(
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "kafka"
     ) as docker_services:
-
         wait_for_port(docker_services, "test_broker", KAFKA_PORT, timeout=120)
         wait_for_port(docker_services, "test_schema_registry", 8081, timeout=120)
 
@@ -149,7 +136,6 @@ def test_kafka_ingest_with_stateful(
             "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
             mock_datahub_graph,
         ) as mock_checkpoint:
-
             # both checkpoint and reporting will use the same mocked graph instance
             mock_checkpoint.return_value = mock_datahub_graph
 
@@ -172,8 +158,8 @@ def test_kafka_ingest_with_stateful(
 
             # 3. Perform all assertions on the states. The deleted topic should not be
             #    part of the second state
-            state1 = cast(KafkaCheckpointState, checkpoint1.state)
-            state2 = cast(KafkaCheckpointState, checkpoint2.state)
+            state1 = checkpoint1.state
+            state2 = checkpoint2.state
             difference_urns = list(
                 state1.get_urns_not_in(type="topic", other_checkpoint_state=state2)
             )
@@ -184,10 +170,7 @@ def test_kafka_ingest_with_stateful(
                 == f"urn:li:dataset:(urn:li:dataPlatform:kafka,{platform_instance}.{kafka_ctx.topics[0]},PROD)"
             )
 
-            # 4. Checkpoint configuration should be the same.
-            assert checkpoint1.config == checkpoint2.config
-
-            # 5. Validate that all providers have committed successfully.
+            # 4. Validate that all providers have committed successfully.
             # NOTE: The following validation asserts for presence of state as well
             # and validates reporting.
             validate_all_providers_have_committed_successfully(

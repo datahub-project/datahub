@@ -23,6 +23,9 @@ public class MLModelPropertiesMapper {
 
         result.setDate(mlModelProperties.getDate());
         result.setDescription(mlModelProperties.getDescription());
+        if (mlModelProperties.getExternalUrl() != null) {
+            result.setExternalUrl(mlModelProperties.getExternalUrl().toString());
+        }        
         if (mlModelProperties.getVersion() != null) {
             result.setVersion(mlModelProperties.getVersion().getVersionTag());
         }

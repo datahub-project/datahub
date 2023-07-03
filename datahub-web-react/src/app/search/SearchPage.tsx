@@ -9,10 +9,18 @@ import { SearchResults } from './SearchResults';
 import analytics, { EventType } from '../analytics';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { SearchCfg } from '../../conf';
-import { ENTITY_FILTER_NAME } from './utils/constants';
-import { GetSearchResultsParams } from '../entity/shared/components/styled/search/types';
+import { ENTITY_FILTER_NAME, UnionType } from './utils/constants';
 import { EntityAndType } from '../entity/shared/types';
 import { scrollToTop } from '../shared/searchUtils';
+import { generateOrFilters } from './utils/generateOrFilters';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
+import {
+    SEARCH_RESULTS_ADVANCED_SEARCH_ID,
+    SEARCH_RESULTS_FILTERS_ID,
+} from '../onboarding/config/SearchOnboardingConfig';
+import { useUserContext } from '../context/useUserContext';
+import { useDownloadScrollAcrossEntitiesSearchResults } from './utils/useDownloadScrollAcrossEntitiesSearchResults';
+import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
 
 type SearchPageParams = {
     type?: string;
@@ -24,19 +32,23 @@ type SearchPageParams = {
 export const SearchPage = () => {
     const history = useHistory();
     const location = useLocation();
+    const userContext = useUserContext();
 
     const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const activeType = entityRegistry.getTypeOrDefaultFromPathName(useParams<SearchPageParams>().type || '', undefined);
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
+    const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
+    const viewUrn = userContext.localState?.selectedViewUrn;
+
     const filters: Array<FacetFilterInput> = useFilters(params);
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
         (filter) => filter.field !== ENTITY_FILTER_NAME,
     );
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .map((filter) => filter.value.toUpperCase() as EntityType);
+        .flatMap((filter) => (filter.values || []).map((value) => value?.toUpperCase() as EntityType));
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -54,7 +66,9 @@ export const SearchPage = () => {
                 query,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: filtersWithoutEntities,
+                filters: [],
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                viewUrn,
             },
         },
     });
@@ -66,31 +80,40 @@ export const SearchPage = () => {
         })) || [];
     const searchResultUrns = searchResultEntities.map((entity) => entity.urn);
 
-    // we need to extract refetch on its own so paging thru results for csv download
-    // doesnt also update search results
-    const { refetch } = useGetSearchResultsForMultipleQuery({
+    // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
+    // download the correct results given the current context.
+    // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
+    // TODO: Revisit this pattern -- what can we push down?
+    const { refetch: refetchForDownload } = useDownloadScrollAcrossEntitiesSearchResults({
         variables: {
             input: {
                 types: entityFilters,
                 query,
-                start: (page - 1) * SearchCfg.RESULTS_PER_PAGE,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                filters: filtersWithoutEntities,
+                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                scrollId: null,
             },
         },
+        skip: true,
     });
 
-    const callSearchOnVariables = (variables: GetSearchResultsParams['variables']) => {
-        return refetch(variables).then((res) => res.data.searchAcrossEntities);
+    const downloadSearchResults = (
+        input: DownloadSearchResultsInput,
+    ): Promise<DownloadSearchResults | null | undefined> => {
+        return refetchForDownload(input);
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history });
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, unionType });
+    };
+
+    const onChangeUnionType = (newUnionType: UnionType) => {
+        navigateToSearchUrl({ type: activeType, query, page: 1, filters, history, unionType: newUnionType });
     };
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
-        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history });
+        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, unionType });
     };
 
     /**
@@ -138,18 +161,22 @@ export const SearchPage = () => {
 
     return (
         <>
+            {!loading && <OnboardingTour stepIds={[SEARCH_RESULTS_FILTERS_ID, SEARCH_RESULTS_ADVANCED_SEARCH_ID]} />}
             <SearchResults
+                unionType={unionType}
                 entityFilters={entityFilters}
                 filtersWithoutEntities={filtersWithoutEntities}
-                callSearchOnVariables={callSearchOnVariables}
+                downloadSearchResults={downloadSearchResults}
                 page={page}
                 query={query}
+                viewUrn={viewUrn || undefined}
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 filters={data?.searchAcrossEntities?.facets}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}
+                onChangeUnionType={onChangeUnionType}
                 onChangePage={onChangePage}
                 numResultsPerPage={numResultsPerPage}
                 setNumResultsPerPage={setNumResultsPerPage}

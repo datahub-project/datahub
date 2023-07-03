@@ -23,7 +23,7 @@ for more visibility.
 - *Landed*: when an RFC's proposed changes are shipped in an actual release.
 - *Rejected*: when an RFC PR is closed without being merged.
 
-[Pending RFC List](https://github.com/datahub-project/datahub/pulls?q=is%3Apr+is%3Aopen+label%3Arfc+)
+[Pending RFC List](https://github.com/datahub-project/rfcs/pulls?q=is%3Apr+is%3Aopen)
 
 ## When to follow this process
 
@@ -56,8 +56,8 @@ pull request with the specific implementation design. We also highly recommend s
 In short, to get a major feature added to DataHub, one must first get the RFC merged into the RFC repo as a markdown
 file. At that point the RFC is 'active' and may be implemented with the goal of eventual inclusion into DataHub.
 
-- Fork the DataHub repository.
-- Copy the `000-template.md` template file to `docs/rfc/active/000-my-feature.md`, where `my-feature` is more
+- Fork the [datahub-project/rfc repository](https://github.com/datahub-project/rfcs).
+- Copy the `000-template.md` template file to `rfc/active/000-my-feature.md`, where `my-feature` is more
 descriptive. Don't assign an RFC number yet.
 - Fill in the RFC. Put care into the details. *RFCs that do not present convincing motivation, demonstrate understanding
 of the impact of the design, or are disingenuous about the drawback or alternatives tend to be poorly-received.*
@@ -108,8 +108,8 @@ already working on it, feel free to ask (e.g. by leaving a comment on the associ
 ## Implemented RFCs
 
 Once an RFC has finally be implemented, first off, congratulations! And thank you for your contribution! Second, to
-help track the status of the RFC, please make one final PR to move the RFC from `docs/rfc/active` to
-`docs/rfc/finished`.
+help track the status of the RFC, please make one final PR to move the RFC from `rfc/active` to
+`rfc/finished`.
 
 ## Reviewing RFCs
 

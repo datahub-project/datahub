@@ -12,6 +12,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
+    SchemaField,
+    SchemaFieldDataType,
     StringTypeClass,
     TimeTypeClass,
 )
@@ -26,6 +28,10 @@ class TableauLineageOverrides(ConfigModel):
     platform_override_map: Optional[Dict[str, str]] = Field(
         default=None,
         description="A holder for platform -> platform mappings to generate correct dataset urns",
+    )
+    database_override_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="A holder for database -> database mappings to generate correct dataset urns",
     )
 
 
@@ -47,96 +53,125 @@ workbook_graphql_query = """
       uri
       createdAt
       updatedAt
+      tags {
+          name
+      }
       sheets {
         id
-        name
-        path
-        luid
-        createdAt
-        updatedAt
-        tags {
-          name
-        }
-        containedInDashboards {
-          name
-          path
-        }
-        datasourceFields {
-          __typename
-          id
-          name
-          description
-          datasource {
-            id
-            name
-          }
-          ... on ColumnField {
-            dataCategory
-            role
-            dataType
-            aggregation
-          }
-          ... on CalculatedField {
-            role
-            dataType
-            aggregation
-            formula
-          }
-          ... on GroupField {
-            role
-            dataType
-          }
-          ... on DatasourceField {
-            remoteField {
-              __typename
-              id
-              name
-              description
-              folderName
-              ... on ColumnField {
-                dataCategory
-                role
-                dataType
-                aggregation
-              }
-              ... on CalculatedField {
-                role
-                dataType
-                aggregation
-                formula
-              }
-              ... on GroupField {
-                role
-                dataType
-              }
-            }
-          }
-        }
       }
       dashboards {
         id
-        name
-        path
-        luid
-        createdAt
-        updatedAt
-        sheets {
-          id
-          name
-        }
       }
       embeddedDatasources {
         id
       }
-      upstreamDatasources {
-        name
-        id
-        downstreamSheets {
-          name
-          id
-        }
-      }
     }
+"""
+
+sheet_graphql_query = """
+{
+    id
+    name
+    path
+    luid
+    documentViewId
+    createdAt
+    updatedAt
+    tags {
+        name
+    }
+    containedInDashboards {
+        name
+        path
+    }
+    workbook {
+        id
+        name
+        projectName
+        luid
+        owner {
+          username
+        }
+    }
+    datasourceFields {
+        __typename
+        id
+        name
+        description
+        datasource {
+        id
+        name
+        }
+        ... on ColumnField {
+        dataCategory
+        role
+        dataType
+        aggregation
+        }
+        ... on CalculatedField {
+        role
+        dataType
+        aggregation
+        formula
+        }
+        ... on GroupField {
+        role
+        dataType
+        }
+        ... on DatasourceField {
+        remoteField {
+            __typename
+            id
+            name
+            description
+            folderName
+            ... on ColumnField {
+            dataCategory
+            role
+            dataType
+            aggregation
+            }
+            ... on CalculatedField {
+            role
+            dataType
+            aggregation
+            formula
+            }
+            ... on GroupField {
+            role
+            dataType
+            }
+        }
+        }
+    }
+}
+"""
+
+dashboard_graphql_query = """
+{
+    id
+    name
+    path
+    luid
+    createdAt
+    updatedAt
+    sheets {
+        id
+        name
+    }
+    tags {
+        name
+    }
+    workbook {
+        id
+        name
+        projectName
+        luid
+        owner {
+          username
+        }
+    }
+}
 """
 
 embedded_datasource_graphql_query = """
@@ -175,21 +210,25 @@ embedded_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                    __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                    }
-                }
-            }
         }
         ... on CalculatedField {
             role
@@ -211,6 +250,7 @@ embedded_datasource_graphql_query = """
         id
         name
         projectName
+        luid
         owner {
           username
         }
@@ -246,12 +286,14 @@ custom_sql_graphql_query = """
             }
             ... on PublishedDatasource {
               projectName
+              luid
             }
             ... on EmbeddedDatasource {
               workbook {
                 id
                 name
                 projectName
+                luid
               }
             }
           }
@@ -267,6 +309,15 @@ custom_sql_graphql_query = """
         schema
         fullName
         connectionType
+        description
+        columns {
+            name
+            remoteType
+        }
+      }
+      database{
+        name
+        connectionType
       }
 }
 """
@@ -276,6 +327,7 @@ published_datasource_graphql_query = """
     __typename
     id
     name
+    luid
     hasExtracts
     extractLastRefreshTime
     extractLastIncrementalUpdateTime
@@ -303,21 +355,25 @@ published_datasource_graphql_query = """
         description
         isHidden
         folderName
+        upstreamFields {
+            name
+            datasource {
+                id
+            }
+        }
+        upstreamColumns {
+            name
+            table {
+                __typename
+                id
+            }
+        }
         ... on ColumnField {
             dataCategory
             role
             dataType
             defaultFormat
             aggregation
-            columns {
-                table {
-                  __typename
-                    ... on CustomSQLTable {
-                        id
-                        name
-                        }
-                    }
-                }
             }
         ... on CalculatedField {
             role
@@ -408,6 +464,31 @@ def get_tags_from_params(params: List[str] = []) -> GlobalTagsClass:
     return GlobalTagsClass(tags=tags)
 
 
+def tableau_field_to_schema_field(field, ingest_tags):
+    nativeDataType = field.get("dataType", "UNKNOWN")
+    TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
+
+    schema_field = SchemaField(
+        fieldPath=field["name"],
+        type=SchemaFieldDataType(type=TypeClass()),
+        description=make_description_from_params(
+            field.get("description", ""), field.get("formula")
+        ),
+        nativeDataType=nativeDataType,
+        globalTags=get_tags_from_params(
+            [
+                field.get("role", ""),
+                field.get("__typename", ""),
+                field.get("aggregation", ""),
+            ]
+        )
+        if ingest_tags
+        else None,
+    )
+
+    return schema_field
+
+
 @lru_cache(128)
 def get_platform(connection_type: str) -> str:
     # connection_type taken from
@@ -459,9 +540,12 @@ def get_fully_qualified_table_name(
     # do some final adjustments on the fully qualified table name to help them line up with source systems:
     # lowercase it
     fully_qualified_table_name = fully_qualified_table_name.lower()
-    # strip double quotes and escaped double quotes
+    # strip double quotes, escaped double quotes and backticks
     fully_qualified_table_name = (
-        fully_qualified_table_name.replace('\\"', "").replace('"', "").replace("\\", "")
+        fully_qualified_table_name.replace('\\"', "")
+        .replace('"', "")
+        .replace("\\", "")
+        .replace("`", "")
     )
 
     if platform in ("athena", "hive", "mysql"):
@@ -504,6 +588,14 @@ def make_table_urn(
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
 
+    if (
+        lineage_overrides is not None
+        and lineage_overrides.database_override_map is not None
+        and upstream_db is not None
+        and upstream_db in lineage_overrides.database_override_map.keys()
+    ):
+        upstream_db = lineage_overrides.database_override_map[upstream_db]
+
     table_name = get_fully_qualified_table_name(
         original_platform, upstream_db, schema, full_name
     )
@@ -525,22 +617,19 @@ def make_description_from_params(description, formula):
     return final_description
 
 
-def get_field_value_in_sheet(field, field_name):
-    if field.get("__typename", "") == "DatasourceField":
-        field = field.get("remoteField") or {}
-
-    return field.get(field_name, "")
-
-
 def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
     unique_custom_sql = []
     for custom_sql in custom_sql_list:
         unique_csql = {
             "id": custom_sql.get("id"),
             "name": custom_sql.get("name"),
+            # We assume that this is unsupported custom sql if "actual tables that this query references"
+            # are missing from api result.
+            "isUnsupportedCustomSql": True if not custom_sql.get("tables") else False,
             "query": custom_sql.get("query"),
             "columns": custom_sql.get("columns"),
             "tables": custom_sql.get("tables"),
+            "database": custom_sql.get("database"),
         }
         datasource_for_csql = []
         for column in custom_sql.get("columns", []):
@@ -554,7 +643,7 @@ def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:
     return unique_custom_sql
 
 
-def clean_query(query):
+def clean_query(query: str) -> str:
     """
     Clean special chars in query
     """

@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { useGetRootGlossaryNodesQuery, useGetRootGlossaryTermsQuery } from '../../../graphql/glossary.generated';
-import { GlossaryNode, GlossaryTerm } from '../../../types.generated';
+import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
+import { GlossaryNode } from '../../../types.generated';
 import { sortGlossaryNodes } from '../../entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '../../entity/glossaryTerm/utils';
+import { useGlossaryEntityData } from '../../entity/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ROOT_NODES, ROOT_TERMS } from '../utils';
 import NodeItem from './NodeItem';
 import TermItem from './TermItem';
 
@@ -18,7 +21,7 @@ const BrowserWrapper = styled.div`
 
 interface Props {
     rootNodes?: GlossaryNode[];
-    rootTerms?: GlossaryTerm[];
+    rootTerms?: ChildGlossaryTermFragment[];
     isSelecting?: boolean;
     hideTerms?: boolean;
     openToEntity?: boolean;
@@ -41,6 +44,8 @@ function GlossaryBrowser(props: Props) {
         selectNode,
     } = props;
 
+    const { urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+
     const { data: nodesData, refetch: refetchNodes } = useGetRootGlossaryNodesQuery({ skip: !!rootNodes });
     const { data: termsData, refetch: refetchTerms } = useGetRootGlossaryTermsQuery({ skip: !!rootTerms });
 
@@ -57,6 +62,18 @@ function GlossaryBrowser(props: Props) {
             refetchTerms();
         }
     }, [refreshBrowser, refetchNodes, refetchTerms]);
+
+    // if node(s) or term(s) need to be refreshed at the root level, check if these special cases are in `urnsToUpdate`
+    useEffect(() => {
+        if (urnsToUpdate.includes(ROOT_NODES)) {
+            refetchNodes();
+            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== ROOT_NODES));
+        }
+        if (urnsToUpdate.includes(ROOT_TERMS)) {
+            refetchTerms();
+            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== ROOT_TERMS));
+        }
+    });
 
     return (
         <BrowserWrapper>

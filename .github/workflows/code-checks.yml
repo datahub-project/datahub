@@ -1,0 +1,47 @@
+name: code check
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata-io/**"
+      - "datahub-web-react/**"
+      - "metadata-service/war/src/main/resources/boot/policies.json"
+      - ".github/workflows/code-checks.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "metadata-io/**"
+      - "datahub-web-react/**"
+      - "metadata-service/war/src/main/resources/boot/policies.json"
+      - ".github/workflows/code-checks.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  code_check:
+    strategy:
+      fail-fast: false
+      matrix:
+        command:
+          [
+            "check_event_type.py",
+            "check_policies.py"
+          ]
+    name: run code checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: run check ${{ matrix.command }}
+        run: |
+          python .github/scripts/${{ matrix.command }}

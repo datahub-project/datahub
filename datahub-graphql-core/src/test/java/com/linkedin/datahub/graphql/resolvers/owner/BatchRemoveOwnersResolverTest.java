@@ -14,7 +14,6 @@ import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -67,10 +66,7 @@ public class BatchRemoveOwnersResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(), // Ownership has a dynamically generated timestamp
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 2);
   }
 
   @Test
@@ -116,10 +112,7 @@ public class BatchRemoveOwnersResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
-        Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 2);
   }
 
   @Test
@@ -154,9 +147,7 @@ public class BatchRemoveOwnersResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -176,9 +167,7 @@ public class BatchRemoveOwnersResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -187,7 +176,7 @@ public class BatchRemoveOwnersResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);
 

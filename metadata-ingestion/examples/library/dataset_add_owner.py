@@ -9,7 +9,6 @@ from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
@@ -21,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Inputs -> owner, ownership_type, dataset
 owner_to_add = make_user_urn("jdoe")
-ownership_type = OwnershipTypeClass.DATAOWNER
+ownership_type = OwnershipTypeClass.TECHNICAL_OWNER
 dataset_urn = make_dataset_urn(platform="hive", name="realestate_db.sales", env="PROD")
 
 # Some objects to help with conditional pathways later
@@ -34,10 +33,8 @@ gms_endpoint = "http://localhost:8080"
 graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
 
 
-current_owners: Optional[OwnershipClass] = graph.get_aspect_v2(
-    entity_urn=dataset_urn,
-    aspect="ownership",
-    aspect_type=OwnershipClass,
+current_owners: Optional[OwnershipClass] = graph.get_aspect(
+    entity_urn=dataset_urn, aspect_type=OwnershipClass
 )
 
 
@@ -56,10 +53,7 @@ else:
 
 if need_write:
     event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-        entityType="dataset",
-        changeType=ChangeTypeClass.UPSERT,
         entityUrn=dataset_urn,
-        aspectName="ownership",
         aspect=current_owners,
     )
     graph.emit(event)

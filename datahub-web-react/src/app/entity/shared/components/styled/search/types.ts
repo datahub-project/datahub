@@ -1,5 +1,6 @@
 import {
     Entity,
+    FacetFilterInput,
     FacetMetadata,
     MatchedField,
     Maybe,
@@ -7,6 +8,7 @@ import {
     SearchAcrossEntitiesInput,
     SearchInsight,
 } from '../../../../../../types.generated';
+import { UnionType } from '../../../../../search/utils/constants';
 
 export type GetSearchResultsParams = {
     variables: {
@@ -46,4 +48,13 @@ export enum SelectActionGroups {
     CHANGE_DOMAINS,
     CHANGE_DEPRECATION,
     DELETE,
+    CHANGE_DATA_PRODUCTS,
 }
+
+/**
+ * A fixed set of Filters, joined in conjunction or disjunction.
+ */
+export type FilterSet = {
+    unionType: UnionType;
+    filters: FacetFilterInput[];
+};

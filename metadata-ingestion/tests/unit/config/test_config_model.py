@@ -3,7 +3,8 @@ from typing import List
 import pydantic
 import pytest
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, redact_raw_config
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 
 
 def test_extras_not_allowed():
@@ -16,6 +17,16 @@ def test_extras_not_allowed():
 
     with pytest.raises(pydantic.ValidationError):
         MyConfig.parse_obj({"required": "foo", "extra": "extra"})
+
+
+def test_extras_allowed():
+    class MyConfig(ConfigModel):
+        required: str
+        optional: str = "bar"
+
+    MyConfig.parse_obj_allow_extras({"required": "foo"})
+    MyConfig.parse_obj_allow_extras({"required": "foo", "optional": "baz"})
+    MyConfig.parse_obj_allow_extras({"required": "foo", "extra": "extra"})
 
 
 def test_default_object_copy():
@@ -39,3 +50,35 @@ def test_default_object_copy():
 
     assert config_2.items == []
     assert config_2.items_field == []
+
+
+def test_config_redaction():
+    obj = {
+        "config": {
+            "password": "this_is_sensitive",
+            "aws_key_id": "${AWS_KEY_ID}",
+            "projects": ["default"],
+            "options": {},
+        },
+        "options": {"foo": "bar"},
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "config": {
+            "password": "********",
+            "aws_key_id": "${AWS_KEY_ID}",
+            "projects": ["default"],
+            "options": {},
+        },
+        "options": "********",
+    }
+
+
+def test_shared_defaults():
+    c1 = UnityCatalogSourceConfig(token="s", workspace_url="https://workspace_url")
+    c2 = UnityCatalogSourceConfig(token="s", workspace_url="https://workspace_url")
+
+    assert c2.catalog_pattern.allow == [".*"]
+    c1.catalog_pattern.allow += ["foo"]
+    assert c2.catalog_pattern.allow == [".*"]

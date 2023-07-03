@@ -3,7 +3,7 @@ namespace com.linkedin.identity
 import com.linkedin.common.Urn
 
 /**
- * Aspect used to store the token needed to invite native DataHub users
+ * Aspect used to store invite tokens.
  */
 @Aspect = {
   "name": "inviteToken"
@@ -13,4 +13,14 @@ record InviteToken {
    * The encrypted invite token.
    */
   token: string
+
+  /**
+   * The role that this invite token may be associated with
+   */
+  @Searchable = {
+    "fieldName": "role",
+    "fieldType": "KEYWORD",
+    "hasValuesFieldName": "hasRole"
+  }
+  role: optional Urn
 }

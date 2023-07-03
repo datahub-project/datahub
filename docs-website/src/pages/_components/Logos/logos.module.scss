@@ -83,19 +83,19 @@
   width: auto;
   mix-blend-mode: luminosity;
   opacity: 0.66;
-  height: 60px;
   margin: 2.5rem;
-}
-
-.default {
   height: 60px;
-}
-.large {
-  height: 100px;
-}
-.medium {
-  height: 30px;
-}
-.small {
-  height: 20px;
+
+  &.default {
+    height: 60px;
+  }
+  &.large {
+    height: 100px;
+  }
+  &.medium {
+    height: 30px;
+  }
+  &.small {
+    height: 20px;
+  }
 }

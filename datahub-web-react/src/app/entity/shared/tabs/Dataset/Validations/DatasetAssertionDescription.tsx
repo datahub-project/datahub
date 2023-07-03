@@ -9,6 +9,7 @@ import {
     DatasetAssertionScope,
     SchemaFieldRef,
 } from '../../../../../../types.generated';
+import { decodeSchemaField } from '../../../../../lineage/utils/columnLineageUtils';
 import { getFormattedParameterValue } from './assertionUtils';
 import { DatasetAssertionLogicModal } from './DatasetAssertionLogicModal';
 
@@ -37,7 +38,7 @@ const getSchemaAggregationText = (
         case AssertionStdAggregation.Columns:
             return <Typography.Text>Dataset columns are</Typography.Text>;
         case AssertionStdAggregation.Native: {
-            const fieldNames = fields?.map((field) => field.path) || [];
+            const fieldNames = fields?.map((field) => decodeSchemaField(field.path)) || [];
             return (
                 <Typography.Text>
                     Dataset columns <Typography.Text strong>{JSON.stringify(fieldNames)}</Typography.Text> are
@@ -76,7 +77,7 @@ const getColumnAggregationText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
 ) => {
-    let columnText = field?.path;
+    let columnText = decodeSchemaField(field?.path || '');
     if (field === undefined) {
         columnText = 'undefined';
         console.error(`Invalid field provided for Dataset Assertion with scope Column ${JSON.stringify(field)}`);

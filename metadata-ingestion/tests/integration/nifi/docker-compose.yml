@@ -45,7 +45,7 @@ services:
       - ALLOW_ANONYMOUS_LOGIN=yes
       - ZOO_PORT_NUMBER=52181
     ports:
-      - 52181:52181
+      - "52181"
 
   nifi01:
     image: apache/nifi:1.15.0 

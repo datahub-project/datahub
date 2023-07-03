@@ -18,12 +18,44 @@ record LineageRelationship {
   entity: Urn
 
   /**
+   * Optional list of entities between the source and destination node.
+   * There can be multiple paths from the source to the destination.
+   */
+  paths: array[array[Urn]] = []
+
+  /**
    * Optional list of entities between the source and destination node
    */
+  @deprecated
   path: array[Urn] = []
 
   /**
    * Degree of relationship (number of hops to get to entity)
    */
   degree: int = 1
+
+  /**
+   * Timestamp for when this lineage relationship was created. Could be null.
+   */
+  createdOn: optional long
+
+  /**
+   * Urn of the actor that created this lineage relationship. Could be null.
+   */
+  createdActor: optional Urn
+
+  /**
+   * Timestamp for when this lineage relationship was last updated. Could be null.
+   */
+  updatedOn: optional long
+
+  /**
+   * Urn of the actor that last updated this lineage relationship. Could be null.
+   */
+  updatedActor: optional Urn
+
+  /**
+   * Whether this lineage edge is a manual edge.
+   */
+  isManual: optional boolean
 }

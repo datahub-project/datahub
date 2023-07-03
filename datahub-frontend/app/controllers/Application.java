@@ -9,13 +9,17 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
-import play.api.Play;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import play.Environment;
 import play.http.HttpEntity;
 import play.libs.ws.InMemoryBodyWritable;
 import play.libs.ws.StandaloneWSClient;
@@ -37,18 +41,21 @@ import play.shaded.ahc.org.asynchttpclient.DefaultAsyncHttpClientConfig;
 import utils.ConfigUtil;
 import java.time.Duration;
 
-import static auth.AuthUtils.*;
+import static auth.AuthUtils.ACTOR;
+import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
 
 public class Application extends Controller {
-
+  private final Logger _logger = LoggerFactory.getLogger(Application.class.getName());
   private final Config _config;
   private final StandaloneWSClient _ws;
+  private final Environment _environment;
 
   @Inject
-  public Application(@Nonnull Config config) {
+  public Application(Environment environment, @Nonnull Config config) {
     _config = config;
     _ws = createWsClient();
+    _environment = environment;
   }
 
   /**
@@ -60,9 +67,17 @@ public class Application extends Controller {
    */
   @Nonnull
   private Result serveAsset(@Nullable String path) {
-    InputStream indexHtml = Play.current().classloader().getResourceAsStream("public/index.html");
-    response().setHeader("Cache-Control", "no-cache");
-    return ok(indexHtml).as("text/html");
+    try {
+      InputStream indexHtml = _environment.resourceAsStream("public/index.html");
+      return ok(indexHtml)
+              .withHeader("Cache-Control", "no-cache")
+              .as("text/html");
+    } catch (Exception e) {
+      _logger.warn("Cannot load public/index.html resource. Static assets or assets jar missing?");
+      return notFound()
+              .withHeader("Cache-Control", "no-cache")
+              .as("text/html");
+    }
   }
 
   @Nonnull
@@ -87,9 +102,9 @@ public class Application extends Controller {
    * TODO: Investigate using mutual SSL authentication to call Metadata Service.
    */
   @Security.Authenticated(Authenticator.class)
-  public CompletableFuture<Result> proxy(String path) throws ExecutionException, InterruptedException {
-    final String authorizationHeaderValue = getAuthorizationHeaderValueToProxy();
-    final String resolvedUri = mapPath(request().uri());
+  public CompletableFuture<Result> proxy(String path, Http.Request request) throws ExecutionException, InterruptedException {
+    final String authorizationHeaderValue = getAuthorizationHeaderValueToProxy(request);
+    final String resolvedUri = mapPath(request.uri());
 
     final String metadataServiceHost = ConfigUtil.getString(
         _config,
@@ -108,14 +123,14 @@ public class Application extends Controller {
     // TODO: Fully support custom internal SSL.
     final String protocol = metadataServiceUseSsl ? "https" : "http";
 
-    final Map<String, List<String>> headers = request().getHeaders().toMap();
+    final Map<String, List<String>> headers = request.getHeaders().toMap();
 
     if (headers.containsKey(Http.HeaderNames.HOST) && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
         headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
     }
 
     return _ws.url(String.format("%s://%s:%s%s", protocol, metadataServiceHost, metadataServicePort, resolvedUri))
-        .setMethod(request().method())
+        .setMethod(request.method())
         .setHeaders(headers
             .entrySet()
             .stream()
@@ -129,8 +144,8 @@ public class Application extends Controller {
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue)
-        .addHeader(AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader())
-        .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request().body().asBytes().asByteBuffer()), "application/json"))
+        .addHeader(AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request))
+        .setBody(new InMemoryBodyWritable(ByteString.fromByteBuffer(request.body().asBytes().asByteBuffer()), "application/json"))
         .setRequestTimeout(Duration.ofSeconds(120))
         .execute()
         .thenApply(apiResponse -> {
@@ -248,6 +263,7 @@ public class Application extends Controller {
     Materializer materializer = ActorMaterializer.create(system);
     AsyncHttpClientConfig asyncHttpClientConfig =
         new DefaultAsyncHttpClientConfig.Builder()
+            .setDisableUrlEncodingForBoundRequests(true)
             .setMaxRequestRetry(0)
             .setShutdownQuietPeriod(0)
             .setShutdownTimeout(0)
@@ -272,14 +288,14 @@ public class Application extends Controller {
    *
    * If neither are found, an empty string is returned.
    */
-  private String getAuthorizationHeaderValueToProxy() {
+  private String getAuthorizationHeaderValueToProxy(Http.Request request) {
     // If the session cookie has an authorization token, use that. If there's an authorization header provided, simply
     // use that.
     String value = "";
-    if (ctx().session().containsKey(SESSION_COOKIE_GMS_TOKEN_NAME)) {
-      value = "Bearer " + ctx().session().get(SESSION_COOKIE_GMS_TOKEN_NAME);
-    } else if (request().getHeaders().contains(Http.HeaderNames.AUTHORIZATION)) {
-      value = request().getHeaders().get(Http.HeaderNames.AUTHORIZATION).get();
+    if (request.session().data().containsKey(SESSION_COOKIE_GMS_TOKEN_NAME)) {
+      value = "Bearer " + request.session().data().get(SESSION_COOKIE_GMS_TOKEN_NAME);
+    } else if (request.getHeaders().contains(Http.HeaderNames.AUTHORIZATION)) {
+      value = request.getHeaders().get(Http.HeaderNames.AUTHORIZATION).get();
     }
     return value;
   }
@@ -291,8 +307,8 @@ public class Application extends Controller {
    * If Metadata Service authentication is enabled, this value is not required because Actor context will most often come
    * from the authentication credentials provided in the Authorization header.
    */
-  private String getDataHubActorHeader() {
-    String actor = ctx().session().get(ACTOR);
+  private String getDataHubActorHeader(Http.Request request) {
+    String actor = request.session().data().get(ACTOR);
     return actor == null ? "" : actor;
   }
 

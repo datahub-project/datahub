@@ -1,0 +1,14 @@
+namespace com.linkedin.settings.global
+
+/**
+ * DataHub Global platform settings. Careful - these should not be modified by the outside world!
+ */
+@Aspect = {
+  "name": "globalSettingsInfo"
+}
+record GlobalSettingsInfo {
+  /**
+   * Settings related to the Views Feature
+   */
+   views: optional GlobalViewsSettings
+}

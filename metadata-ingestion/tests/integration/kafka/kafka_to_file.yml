@@ -4,8 +4,8 @@ source:
   type: kafka
   config:
     connection:
-        bootstrap: "localhost:59092"
-        schema_registry_url: "http://localhost:58081"
+      bootstrap: "localhost:29092"
+      schema_registry_url: "http://localhost:28081"
     domain:
       "urn:li:domain:sales":
         allow:

@@ -32,6 +32,7 @@ def test_ldap_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
                         "group_attrs_map": {
                             "members": "memberUid",
                         },
+                        "custom_props_list": ["givenName"],
                     },
                 },
                 "sink": {

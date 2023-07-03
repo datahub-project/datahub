@@ -29,6 +29,7 @@ source:
       include_field_distinct_value_frequencies: true
       include_field_histogram: true
       include_field_sample_values: true
+      field_sample_values_limit: 75
     domain:
       "urn:li:domain:sales":
         allow:

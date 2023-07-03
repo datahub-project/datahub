@@ -181,20 +181,12 @@ mutation updateCorpUserProperties($urn: String!, $input: CorpUserUpdateInput!) {
     }
 }
 
-mutation createNativeUserInviteToken {
-    createNativeUserInviteToken {
-        inviteToken
-    }
-}
-
-query getNativeUserInviteToken {
-    getNativeUserInviteToken {
-        inviteToken
-    }
-}
-
 mutation createNativeUserResetToken($input: CreateNativeUserResetTokenInput!) {
     createNativeUserResetToken(input: $input) {
         resetToken
     }
+}
+
+mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) {
+    updateCorpUserViewsSettings(input: $input)
 }

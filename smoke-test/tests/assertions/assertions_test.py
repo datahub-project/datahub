@@ -2,7 +2,7 @@ import json
 import urllib
 
 import pytest
-import requests
+import requests_wrapper as requests
 import tenacity
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

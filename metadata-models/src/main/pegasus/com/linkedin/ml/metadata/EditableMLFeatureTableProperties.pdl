@@ -11,5 +11,9 @@ record EditableMLFeatureTableProperties {
   /**
    * Documentation of the MLFeatureTable
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "fieldName": "editedDescription",
+  }
   description: optional string
 }

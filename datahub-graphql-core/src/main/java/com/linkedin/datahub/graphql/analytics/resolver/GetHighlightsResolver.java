@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTime;
@@ -37,6 +39,51 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     }
   }
 
+  private Highlight getTimeBasedHighlight(
+          final String title,
+          final String changeString,
+          final DateTime endDateTime,
+          final Function<DateTime, DateTime> periodStartFunc
+  ) {
+    DateTime startDate = periodStartFunc.apply(endDateTime);
+    DateTime timeBeforeThat = periodStartFunc.apply(startDate);
+    DateRange dateRangeThis = new DateRange(
+            String.valueOf(startDate.getMillis()),
+            String.valueOf(endDateTime.getMillis())
+    );
+    DateRange dateRangeLast = new DateRange(
+            String.valueOf(timeBeforeThat.getMillis()),
+            String.valueOf(startDate.getMillis())
+    );
+
+    int activeUsersThisRange =  _analyticsService.getHighlights(
+            _analyticsService.getUsageIndexName(),
+            Optional.of(dateRangeThis),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.of("browserId")
+    );
+    int activeUsersLastRange =  _analyticsService.getHighlights(
+            _analyticsService.getUsageIndexName(),
+            Optional.of(dateRangeLast),
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            Optional.of("browserId")
+    );
+
+    String bodyText = "";
+    if (activeUsersLastRange > 0) {
+      double percentChange = (double) (activeUsersThisRange - activeUsersLastRange) 
+        / (double) activeUsersLastRange * 100;
+
+      String directionChange = percentChange > 0 ? "increase" : "decrease";
+
+      bodyText = Double.isInfinite(percentChange) ? ""
+              : String.format(changeString, percentChange, directionChange);
+    }
+    return Highlight.builder().setTitle(title).setValue(activeUsersThisRange).setBody(bodyText).build();
+  }
+
   /**
    * TODO: Config Driven Charts Instead of Hardcoded.
    */
@@ -44,37 +91,18 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     final List<Highlight> highlights = new ArrayList<>();
 
     DateTime endDate = DateTime.now();
-    DateTime startDate = endDate.minusWeeks(1);
-    DateTime lastWeekStartDate = startDate.minusWeeks(1);
-    DateRange dateRange = new DateRange(String.valueOf(startDate.getMillis()), String.valueOf(endDate.getMillis()));
-    DateRange dateRangeLastWeek =
-        new DateRange(String.valueOf(lastWeekStartDate.getMillis()), String.valueOf(startDate.getMillis()));
-
-    // Highlight 1: The Highlights!
-    String title = "Weekly Active Users";
-    String eventType = "SearchEvent";
-
-    int weeklyActiveUsers =
-        _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRange),
-            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
-
-    int weeklyActiveUsersLastWeek =
-        _analyticsService.getHighlights(_analyticsService.getUsageIndexName(), Optional.of(dateRangeLastWeek),
-            ImmutableMap.of(), ImmutableMap.of(), Optional.of("browserId"));
-
-    String bodyText = "";
-    if (weeklyActiveUsersLastWeek > 0) {
-      Double percentChange =
-          (Double.valueOf(weeklyActiveUsers) - Double.valueOf(weeklyActiveUsersLastWeek)) / Double.valueOf(
-              weeklyActiveUsersLastWeek) * 100;
-
-      String directionChange = percentChange > 0 ? "increase" : "decrease";
-
-      bodyText = Double.isInfinite(percentChange) ? ""
-          : String.format("%.2f%% %s from last week", percentChange, directionChange);
-    }
-
-    highlights.add(Highlight.builder().setTitle(title).setValue(weeklyActiveUsers).setBody(bodyText).build());
+    highlights.add(getTimeBasedHighlight(
+            "Weekly Active Users",
+            "%.2f%% %s from last week",
+            endDate,
+            (date) -> date.minusWeeks(1)
+    ));
+    highlights.add(getTimeBasedHighlight(
+            "Monthly Active Users",
+            "%.2f%% %s from last month",
+            endDate,
+            (date) -> date.minusMonths(1)
+    ));
 
     // Entity metdata statistics
     getEntityMetadataStats("Datasets", EntityType.DATASET).ifPresent(highlights::add);

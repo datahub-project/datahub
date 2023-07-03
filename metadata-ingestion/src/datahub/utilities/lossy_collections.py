@@ -98,7 +98,7 @@ class LossyDict(Dict[_KT, _VT]):
         self.sampled = False
         self._overflow = 0
         self._items_removed = 0
-        self.__items_ignored = 0
+        self._items_ignored = 0
 
     def __getitem__(self, __k: _KT) -> _VT:
         return super().__getitem__(__k)
@@ -113,7 +113,7 @@ class LossyDict(Dict[_KT, _VT]):
                 self._items_removed += 1
                 return super().__setitem__(__k, __v)
             else:
-                self.__items_ignored += 1
+                self._items_ignored += 1
                 return None
         else:
             return super().__setitem__(__k, __v)
@@ -132,6 +132,6 @@ class LossyDict(Dict[_KT, _VT]):
             ] = f"{len(self.keys())} sampled of at most {self.max_elements + self._overflow} entries."
         return base_dict
 
-    def get_keys_upper_bound(self) -> int:
-        """Returns the upper bound of the number of keys that have been pushed into this dictionary"""
-        return len(self) + self._overflow
+    def dropped_keys_count(self) -> int:
+        """Returns the number of keys that have been dropped from this dictionary."""
+        return self._overflow

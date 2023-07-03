@@ -66,10 +66,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal1);
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
@@ -78,10 +75,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal2);
   }
 
   @Test
@@ -124,10 +118,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     proposal1.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal1.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal1);
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
@@ -136,10 +127,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     proposal2.setAspect(GenericRecordUtils.serializeAspect(newStatus));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal2),
-        Mockito.any(AuditStamp.class)
-    );
+    verifyIngestProposal(mockService, 1, proposal2);
   }
 
   @Test
@@ -171,9 +159,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -191,9 +177,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class));
+    verifyNoIngestProposal(mockService);
   }
 
   @Test
@@ -202,7 +186,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 

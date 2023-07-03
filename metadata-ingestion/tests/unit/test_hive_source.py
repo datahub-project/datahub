@@ -6,7 +6,6 @@ from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_colum
 
 
 def test_hive_configuration_get_identifier_with_database():
-
     test_db_name = "test_database"
     # test_table_name = "test_table"
     config_dict = {

@@ -5,6 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.mvc.Result;
 
+import java.util.Optional;
+
 import static play.mvc.Results.internalServerError;
 import static play.mvc.Results.unauthorized;
 
@@ -26,7 +28,7 @@ public class OidcResponseErrorHandler {
                 getError(context),
                 getErrorDescription(context));
 
-        if (getError(context).equals("access_denied")) {
+        if (getError(context).isPresent() && getError(context).get().equals("access_denied")) {
             return unauthorized(String.format("Access denied. "
                     + "The OIDC service responded with 'Access denied'. "
                     + "It seems that you don't have access to this application yet. Please apply for access. \n\n"
@@ -38,18 +40,18 @@ public class OidcResponseErrorHandler {
 
         return internalServerError(
                 String.format("Internal server error. The OIDC service responded with an error: '%s'.\n"
-                        + "Error description: '%s'", getError(context), getErrorDescription(context)));
+                        + "Error description: '%s'", getError(context).orElse(""), getErrorDescription(context).orElse("")));
     }
 
     public static boolean isError(final PlayWebContext context) {
-        return getError(context) != null && !getError(context).isEmpty();
+        return getError(context).isPresent() && !getError(context).get().isEmpty();
     }
 
-    public static String getError(final PlayWebContext context) {
+    public static Optional<String> getError(final PlayWebContext context) {
         return context.getRequestParameter(ERROR_FIELD_NAME);
     }
 
-    public static String getErrorDescription(final PlayWebContext context) {
+    public static Optional<String> getErrorDescription(final PlayWebContext context) {
         return context.getRequestParameter(ERROR_DESCRIPTION_FIELD_NAME);
     }
 }

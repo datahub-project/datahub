@@ -1,0 +1,56 @@
+fragment view on DataHubView {
+    urn
+    type
+    viewType
+    name
+    description
+    definition {
+        entityTypes
+        filter {
+            operator
+            filters {
+                field
+                condition
+                values
+                negated
+            }
+        }
+    }
+}
+
+fragment listViewResults on ListViewsResult {
+    start
+    count
+    total
+    views {
+        ...view
+    }
+}
+
+query listMyViews($viewType: DataHubViewType, $start: Int!, $count: Int!, $query: String) {
+    listMyViews(input: { viewType: $viewType, start: $start, count: $count, query: $query }) {
+        ...listViewResults
+    }
+}
+
+query listGlobalViews($start: Int!, $count: Int!, $query: String) {
+    listGlobalViews(input: { start: $start, count: $count, query: $query }) {
+        ...listViewResults
+    }
+}
+
+mutation createView($input: CreateViewInput!) {
+    createView(input: $input) {
+        ...view
+    }
+}
+
+mutation updateView($urn: String!, $input: UpdateViewInput!) {
+    updateView(urn: $urn, input: $input) {
+        ...view
+    }
+}
+
+mutation deleteView($urn: String!) {
+    deleteView(urn: $urn)
+}

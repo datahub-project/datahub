@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 
 
@@ -303,3 +305,23 @@ EXTRACT(TIME FROM time_field)           AS col_17
 FROM `src-project.dataset.src_table_a`
 """
     )
+
+
+def test_bigquery_sql_parser_with_semicolon_in_from():
+    sql_query = """CREATE VIEW `acryl-staging.smoke_test_db.view_from_table`\nAS select * from smoke_test_db.base_table;"""
+
+    table_list = BigQuerySQLParser(sql_query).get_tables()
+    table_list.sort()
+    assert table_list == ["smoke_test_db.base_table"]
+
+
+@pytest.mark.xfail
+def test_bigquery_sql_parser_with_parenthesis_in_from():
+    sql_query = """
+    CREATE VIEW `acryl-staging.smoke_test_db.view_from_table` AS
+    select * from smoke_test_db.base_table LEFT JOIN UNNEST(my_array) ON day1 = day2;
+    """
+
+    table_list = BigQuerySQLParser(sql_query).get_tables()
+    table_list.sort()
+    assert table_list == ["smoke_test_db.base_table"]

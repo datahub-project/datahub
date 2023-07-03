@@ -1,0 +1,18 @@
+plugins:
+  - name: "apache-ranger-authorizer"
+    type: "authorizer"
+    enabled: "true"
+    params:
+      className: "com.datahub.authorization.ranger.RangerAuthorizer"
+      configs:
+        username: "foo"
+        password: "bar"
+
+  - name: "apache-ranger-authorizer"  # duplicate name
+    type: "authorizer"
+    enabled: "true"
+    params:
+      className: "com.datahub.authorization.ranger.RangerAuthorizer"
+      configs:
+        username: "foo"
+        password: "bar"

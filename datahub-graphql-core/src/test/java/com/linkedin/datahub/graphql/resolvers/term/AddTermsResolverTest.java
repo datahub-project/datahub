@@ -59,7 +59,7 @@ public class AddTermsResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(AuditStamp.class), Mockito.eq(false)
     );
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
@@ -105,7 +105,7 @@ public class AddTermsResolverTest {
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(AuditStamp.class)
+        Mockito.any(AuditStamp.class), Mockito.eq(false)
     );
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
@@ -144,7 +144,7 @@ public class AddTermsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -174,7 +174,7 @@ public class AddTermsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -195,7 +195,7 @@ public class AddTermsResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   @Test
@@ -204,7 +204,7 @@ public class AddTermsResolverTest {
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),
-        Mockito.any(AuditStamp.class));
+        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     AddTermsResolver resolver = new AddTermsResolver(Mockito.mock(EntityService.class));
 

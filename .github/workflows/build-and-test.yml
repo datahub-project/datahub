@@ -13,7 +13,7 @@ on:
       - "docs/**"
       - "**.md"
   release:
-    types: [published, edited]
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -21,21 +21,43 @@ concurrency:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        command:
+          [
+            "./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test -x :metadata-ingestion-modules:airflow-plugin:build -x :datahub-frontend:build -x :datahub-web-react:build --parallel",
+            "./gradlew :datahub-frontend:build :datahub-web-react:build --parallel",
+            "./gradlew :metadata-ingestion-modules:airflow-plugin:build --parallel"
+          ]
+        timezone:
+          [
+            "UTC",
+            "America/New_York",
+          ]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up JDK 1.8
-        uses: actions/setup-java@v1
+      - uses: szenius/set-timezone@v1.0
         with:
-          java-version: 1.8
-      - uses: actions/setup-python@v2
+          timezoneLinux: ${{ matrix.timezone }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          distribution: "zulu"
+          java-version: 11
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
       - name: Gradle build (and test)
         run: |
-          ./gradlew build -x :metadata-ingestion:build -x :metadata-ingestion:check -x docs-website:build -x :metadata-integration:java:spark-lineage:test -x :metadata-io:test
-      - uses: actions/upload-artifact@v2
+          ${{ matrix.command }}
+        env:
+          NODE_OPTIONS: "--max-old-space-size=3072"
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Test Results (build)
@@ -56,10 +78,14 @@ jobs:
   quickstart-compose-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
           python-version: "3.7"
+      - name: Download YQ
+        uses: chrisdickinson/setup-yq@v1.0.1
+        with:
+          yq-version: v4.28.2
       - name: Quickstart Compose Validation
         run: ./docker/quickstart/generate_and_compare.sh
 
@@ -67,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Event File
           path: ${{ github.event_path }}

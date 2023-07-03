@@ -4,6 +4,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
         datasetProfiles(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime) {
             rowCount
             columnCount
+            sizeInBytes
             timestampMillis
             fieldProfiles {
                 fieldPath
@@ -24,6 +25,7 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
+        exists
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
@@ -38,21 +40,6 @@ query getDataset($urn: String!) {
 
 fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
-    schemaMetadata(version: 0) {
-        ...schemaMetadataFields
-    }
-    editableSchemaMetadata {
-        editableSchemaFieldInfo {
-            fieldPath
-            description
-            globalTags {
-                ...globalTagsFields
-            }
-            glossaryTerms {
-                ...glossaryTerms
-            }
-        }
-    }
     deprecation {
         actor
         deprecated
@@ -71,42 +58,20 @@ fragment nonSiblingDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     parentContainers {
         ...parentContainersFields
     }
     usageStats(range: MONTH) {
         buckets {
             bucket
-            duration
-            resource
             metrics {
-                uniqueUserCount
                 totalSqlQueries
-                topSqlQueries
             }
         }
         aggregations {
             uniqueUserCount
             totalSqlQueries
-            users {
-                user {
-                    urn
-                    type
-                    username
-                    properties {
-                        displayName
-                        firstName
-                        lastName
-                        fullName
-                    }
-                    editableProperties {
-                        displayName
-                        pictureLink
-                    }
-                }
-                count
-                userEmail
-            }
             fields {
                 fieldName
                 count
@@ -116,6 +81,7 @@ fragment nonSiblingDatasetFields on Dataset {
     datasetProfiles(limit: 1) {
         rowCount
         columnCount
+        sizeInBytes
         timestampMillis
         fieldProfiles {
             fieldPath
@@ -143,12 +109,6 @@ fragment nonSiblingDatasetFields on Dataset {
     operations(limit: 1) {
         timestampMillis
         lastUpdatedTimestamp
-    }
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-        ...partialLineageResults
-    }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-        ...partialLineageResults
     }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
@@ -206,6 +166,61 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
+    siblings {
+        isPrimary
+    }
+    privileges {
+        canEditLineage
+        canEditEmbed
+        canEditQueries
+    }
+}
+
+query getRecentQueries($urn: String!) {
+    dataset(urn: $urn) {
+        usageStats(range: MONTH) {
+            buckets {
+                bucket
+                metrics {
+                    topSqlQueries
+                }
+            }
+        }
+    }
+}
+
+query getLastMonthUsageAggregations($urn: String!) {
+    dataset(urn: $urn) {
+        usageStats(range: MONTH) {
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        type
+                        username
+                        properties {
+                            displayName
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableProperties {
+                            displayName
+                            pictureLink
+                        }
+                    }
+                    count
+                    userEmail
+                }
+                fields {
+                    fieldName
+                    count
+                }
+            }
+        }
+    }
 }
 
 mutation updateDataset($urn: String!, $input: DatasetUpdateInput!) {
@@ -223,7 +238,7 @@ fragment viewProperties on Dataset {
 }
 
 fragment assertionsQuery on Dataset {
-    assertions(start: 0, count: 100) {
+    assertions(start: 0, count: 1000) {
         start
         count
         total
@@ -259,6 +274,40 @@ query getDatasetRuns($urn: String!, $start: Int!, $count: Int!, $direction: Rela
     dataset(urn: $urn) {
         runs(start: $start, count: $count, direction: $direction) {
             ...runResults
+        }
+    }
+}
+
+fragment datasetSchema on Dataset {
+    schemaMetadata(version: 0) {
+        ...schemaMetadataFields
+    }
+    editableSchemaMetadata {
+        editableSchemaFieldInfo {
+            fieldPath
+            description
+            globalTags {
+                ...globalTagsFields
+            }
+            glossaryTerms {
+                ...glossaryTerms
+            }
+        }
+    }
+}
+
+query getDatasetSchema($urn: String!) {
+    dataset(urn: $urn) {
+        ...datasetSchema
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    ...datasetSchema
+                }
+            }
         }
     }
 }

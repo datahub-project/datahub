@@ -1,9 +1,10 @@
 import { RedoOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography } from 'antd';
+import { Button, message, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../conf/Global';
 import { useCreateNativeUserResetTokenMutation } from '../../../graphql/user.generated';
+import analytics, { EventType } from '../../analytics';
 
 const ModalSection = styled.div`
     display: flex;
@@ -43,8 +44,35 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
     const baseUrl = window.location.origin;
     const [hasGeneratedResetToken, setHasGeneratedResetToken] = useState(false);
 
-    const [createNativeUserResetToken, { data: createNativeUserResetTokenData }] =
+    const [createNativeUserResetTokenMutation, { data: createNativeUserResetTokenData }] =
         useCreateNativeUserResetTokenMutation({});
+
+    const createNativeUserResetToken = () => {
+        createNativeUserResetTokenMutation({
+            variables: {
+                input: {
+                    userUrn,
+                },
+            },
+        })
+            .then(({ errors }) => {
+                if (!errors) {
+                    analytics.event({
+                        type: EventType.CreateResetCredentialsLinkEvent,
+                        userUrn,
+                    });
+                    setHasGeneratedResetToken(true);
+                    message.success('Generated new link to reset credentials');
+                }
+            })
+            .catch((e) => {
+                message.destroy();
+                message.error({
+                    content: `Failed to create new link to reset credentials : \n ${e.message || ''}`,
+                    duration: 3,
+                });
+            });
+    };
 
     const resetToken = createNativeUserResetTokenData?.createNativeUserResetToken?.resetToken || '';
 
@@ -86,20 +114,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 <ModalSectionParagraph>
                     Generate a new reset link! Note, any old links will <b>cease to be active</b>.
                 </ModalSectionParagraph>
-                <CreateResetTokenButton
-                    onClick={() => {
-                        createNativeUserResetToken({
-                            variables: {
-                                input: {
-                                    userUrn,
-                                },
-                            },
-                        });
-                        setHasGeneratedResetToken(true);
-                    }}
-                    size="small"
-                    type="text"
-                >
+                <CreateResetTokenButton onClick={createNativeUserResetToken} size="small" type="text">
                     <RedoOutlined style={{}} />
                 </CreateResetTokenButton>
             </ModalSection>

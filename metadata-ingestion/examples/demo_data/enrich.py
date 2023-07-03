@@ -6,12 +6,12 @@ produces a new JSON file called demo_data.json.
 
 import csv
 import dataclasses
-import json
-import os
 import pathlib
 import time
-from typing import Dict, List
+from typing import Dict, List, cast
 
+from datahub.ingestion.sink.file import write_metadata_file as write_mces
+from datahub.ingestion.source.file import read_metadata_file
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     CorpUserInfoClass,
@@ -42,17 +42,10 @@ class Directive:
     depends_on: List[str]
 
 
-def read_mces(path: os.PathLike) -> List[MetadataChangeEventClass]:
-    with open(path) as f:
-        objs = json.load(f)
-        mces = [MetadataChangeEventClass.from_obj(obj) for obj in objs]
-    return mces
-
-
-def write_mces(path: os.PathLike, mces: List[MetadataChangeEventClass]) -> None:
-    objs = [mce.to_obj() for mce in mces]
-    with open(path, "w") as f:
-        json.dump(objs, f, indent=4)
+def read_mces(path: pathlib.Path) -> List[MetadataChangeEventClass]:
+    objs = read_metadata_file(path)
+    assert all(isinstance(obj, MetadataChangeEventClass) for obj in objs)
+    return cast(List[MetadataChangeEventClass], objs)
 
 
 def parse_directive(row: Dict) -> Directive:

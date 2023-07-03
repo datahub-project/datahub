@@ -6,9 +6,19 @@ import pytest
 from avrogen.dict_wrapper import DictWrapper
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.committable import StatefulCommittable
+from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
+    IngestionCheckpointingProviderBase,
+)
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.state.checkpoint import Checkpoint
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionSourceBase,
+)
 
 
 def validate_all_providers_have_committed_successfully(
@@ -21,8 +31,8 @@ def validate_all_providers_have_committed_successfully(
     provider_count: int = 0
     for _, provider in pipeline.ctx.get_committables():
         provider_count += 1
-        assert isinstance(provider, StatefulCommittable)
-        stateful_committable = cast(StatefulCommittable, provider)
+        assert isinstance(provider, IngestionCheckpointingProviderBase)
+        stateful_committable = cast(IngestionCheckpointingProviderBase, provider)
         assert stateful_committable.has_successfully_committed()
         assert stateful_committable.state_to_commit
     assert provider_count == expected_providers
@@ -74,7 +84,6 @@ def mock_datahub_graph():
             self,
             graph_ref: MagicMock,
             entity_urn: str,
-            aspect_name: str,
             aspect_type: Type[DictWrapper],
             filter_criteria_map: Dict[str, str],
         ) -> Optional[DictWrapper]:
@@ -90,3 +99,16 @@ def mock_datahub_graph():
 
     mock_datahub_graph_ctx = MockDataHubGraphContext()
     return mock_datahub_graph_ctx.mock_graph
+
+
+def get_current_checkpoint_from_pipeline(
+    pipeline: Pipeline,
+) -> Optional[Checkpoint[GenericCheckpointState]]:
+    # TODO: This only works for stale entity removal. We need to generalize this.
+
+    stateful_source = cast(StatefulIngestionSourceBase, pipeline.source)
+    return stateful_source.state_provider.get_current_checkpoint(
+        StaleEntityRemovalHandler.compute_job_id(
+            getattr(stateful_source, "platform", "default")
+        )
+    )

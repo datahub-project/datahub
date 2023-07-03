@@ -9,7 +9,6 @@ This module contains a React application that serves as the DataHub UI.
 
 Feel free to take a look around, deploy, and contribute. 
 
-For details about the motivation please see [this RFC](../docs/rfc/active/2055-react-app/README.md). 
 
 ## Functional Goals
 The initial milestone for the app was to achieve functional parity with the previous Ember app. This meant supporting
@@ -54,15 +53,11 @@ Optionally you could also start the app with the mock server without running the
 
 ### Functional testing
 
-Automated functional testing is powered by Cypress and MirageJS. When running the web server with Cypress the port is set to 3010 so that the usual web server running on port 3000 used for development can be started without interruptions.
+In order to start a server and run frontend unit tests using react-testing-framework, run:
 
-#### During development
+`yarn test :e2e`
 
-`yarn test:e2e`
-
-#### CI
-
-`yarn test:e2e:ci`
+There are also more automated tests using Cypress in the `smoke-test` folder of the repository root.
 
 #### Troubleshooting
 `Error: error:0308010C:digital envelope routines::unsupported`: This error message shows up when using Node 17, due to an OpenSSL update related to md5.  
@@ -74,7 +69,10 @@ The best workaround is to revert to the Active LTS version of Node, 16.13.0 with
 #### Customizing your App without rebuilding assets
 
 To see the results of any change to a theme, you will need to rebuild your datahub-frontend-react container. While this may work for some users, if you don't want to rebuild your container
-you can still customize the homepage's logo without rebuilding. You can do this by setting the REACT_APP_LOGO_URL env variable when deploying GMS.
+you can change two things without rebuilding.
+
+1. You customize the logo on the homepage & the search bar header by setting the `REACT_APP_LOGO_URL` env variable when deploying GMS.
+2. You can customize the favicon (the icon on your browser tab) by setting the `REACT_APP_FAVICON_URL` env var when deploying GMS.
 
 #### Selecting a theme
 

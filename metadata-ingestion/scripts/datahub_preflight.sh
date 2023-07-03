@@ -98,7 +98,7 @@ EOF
   fi
 
   printf "✨ Setting up prerequisities\n"
-  brew install "jq"
+  # none for now, since jq was removed
 
   printf "\e[38;2;0;255;0m✅ Done\e[38;2;255;255;255m\n"
 }
@@ -117,4 +117,3 @@ fi
 
 
 printf "\n\e[38;2;0;255;0m✅ Preflight was successful\e[38;2;255;255;255m\n"
-

@@ -1,7 +1,6 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-
 import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
 import {
     sampleSchema,
@@ -14,6 +13,15 @@ import { mocks } from '../../../../../Mocks';
 import { SchemaTab } from '../../../shared/tabs/Dataset/Schema/SchemaTab';
 import EntityContext from '../../../shared/EntityContext';
 import { EntityType, SchemaMetadata } from '../../../../../types.generated';
+
+jest.mock('virtualizedtableforantd4', () => {
+    /* eslint-disable-next-line */
+    const { SchemaRow } = require('../../../shared/tabs/Dataset/Schema/components/SchemaRow');
+    return {
+        ...jest.requireActual('virtualizedtableforantd4'),
+        useVT: () => [{ body: { row: SchemaRow } }, jest.fn()],
+    };
+});
 
 describe('Schema', () => {
     it('renders', () => {
@@ -283,5 +291,61 @@ describe('Schema', () => {
         );
         expect(queryByText('Key')).not.toBeInTheDocument();
         expect(queryByText('Value')).not.toBeInTheDocument();
+    });
+
+    it('renders usage column when usage is present', () => {
+        const usageStats = {
+            buckets: [
+                {
+                    bucket: Date.now(),
+                    metrics: {
+                        totalSqlQueries: 10,
+                    },
+                },
+            ],
+            aggregations: {
+                uniqueUserCount: 2,
+                totalSqlQueries: 10,
+                fields: [
+                    {
+                        fieldName: 'id',
+                        count: 10,
+                    },
+                    {
+                        fieldName: 'name',
+                        count: 24,
+                    },
+                ],
+            },
+        };
+
+        const { queryByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <EntityContext.Provider
+                        value={{
+                            urn: 'urn:li:dataset:123',
+                            entityType: EntityType.Dataset,
+                            entityData: {
+                                description: 'This is a description',
+                                schemaMetadata: sampleSchema as SchemaMetadata,
+                            },
+                            baseEntity: {
+                                dataset: {
+                                    urn: 'urn:li:dataset:123',
+                                    usageStats,
+                                },
+                            },
+                            updateEntity: jest.fn(),
+                            routeToTab: jest.fn(),
+                            refetch: jest.fn(),
+                        }}
+                    >
+                        <SchemaTab />
+                    </EntityContext.Provider>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(queryByText('Usage')).toBeInTheDocument();
     });
 });

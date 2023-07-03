@@ -4,19 +4,19 @@ from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
 import sqlalchemy
-
-# This import verifies that the dependencies are available.
-import trino.sqlalchemy  # noqa: F401
+import trino
+from packaging import version
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.types import TypeEngine
 from trino.exceptions import TrinoQueryError
-from trino.sqlalchemy import datatype, error
+from trino.sqlalchemy import datatype
 from trino.sqlalchemy.dialect import TrinoDialect
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -27,10 +27,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.source.sql.sql_common import (
-    BasicSQLAlchemyConfig,
     SQLAlchemySource,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     MapTypeClass,
     NumberTypeClass,
@@ -41,6 +41,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 register_custom_type(datatype.ROW, RecordTypeClass)
 register_custom_type(datatype.MAP, MapTypeClass)
 register_custom_type(datatype.DOUBLE, NumberTypeClass)
+
+# Type JSON was introduced in trino sqlalchemy dialect in version 0.317.0
+if version.parse(trino.__version__) >= version.parse("0.317.0"):
+    register_custom_type(datatype.JSON, RecordTypeClass)
 
 
 # Read only table names and skip view names, as view names will also be returned
@@ -73,17 +77,20 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         properties = {}
         if row:
             for col_name, col_value in row.items():
-                properties[col_name] = col_value
+                if col_value is not None:
+                    properties[col_name] = col_value
 
         return {"text": properties.get("comment", None), "properties": properties}
-    except TrinoQueryError as e:
-        if e.error_name in (
-            error.TABLE_NOT_FOUND,
-            error.COLUMN_NOT_FOUND,
-            error.NOT_FOUND,
-        ):
-            return dict(text=None)
+    # Fallback to default trino-sqlalchemy behaviour if `$properties` table doesn't exist
+    except TrinoQueryError:
+        return self.get_table_comment_default(connection, table_name, schema)
+    # Exception raised when using Starburst Delta Connector that falls back to a Hive Catalog
+    except exc.ProgrammingError as e:
+        if isinstance(e.orig, TrinoQueryError):
+            return self.get_table_comment_default(connection, table_name, schema)
         raise
+    except Exception:
+        return {}
 
 
 # Include column comment, original trino datatype as full_type
@@ -118,6 +125,7 @@ def _get_columns(self, connection, table_name, schema: str = None, **kw):  # typ
     return columns
 
 
+TrinoDialect.get_table_comment_default = TrinoDialect.get_table_comment
 TrinoDialect.get_table_names = get_table_names
 TrinoDialect.get_table_comment = get_table_comment
 TrinoDialect._get_columns = _get_columns
@@ -125,7 +133,7 @@ TrinoDialect._get_columns = _get_columns
 
 class TrinoConfig(BasicSQLAlchemyConfig):
     # defaults
-    scheme = Field(default="trino", description="", exclude=True)
+    scheme = Field(default="trino", description="", hidden_from_docs=True)
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
@@ -141,7 +149,7 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         )
 
 
-@platform_name("Trino")
+@platform_name("Trino", doc_order=1)
 @config_class(TrinoConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -159,8 +167,10 @@ class TrinoSource(SQLAlchemySource):
 
     config: TrinoConfig
 
-    def __init__(self, config, ctx):
-        super().__init__(config, ctx, "trino")
+    def __init__(
+        self, config: TrinoConfig, ctx: PipelineContext, platform: str = "trino"
+    ):
+        super().__init__(config, ctx, platform)
 
     def get_db_name(self, inspector: Inspector) -> str:
         if self.config.database_alias:
@@ -179,10 +189,9 @@ class TrinoSource(SQLAlchemySource):
         self,
         dataset_name: str,
         column: dict,
-        pk_constraints: dict = None,
+        pk_constraints: Optional[dict] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
-
         fields = super().get_schema_fields_for_column(
             dataset_name, column, pk_constraints
         )

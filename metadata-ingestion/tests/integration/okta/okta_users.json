@@ -38,6 +38,26 @@
         }   
     },
     {
+        "id": "5",
+        "status": "ACTIVE",
+        "created": "2013-07-02T21:37:25.344Z",
+        "activated": null,
+        "statusChanged": null,
+        "lastLogin": null,
+        "lastUpdated": "2013-07-02T21:37:25.344Z",
+        "passwordChanged": null,
+        "profile": {
+            "firstName": "Good",
+            "lastName": "Test",
+            "email": "good.test@test.com",
+            "login": "good.test@test.com",
+            "mobilePhone": "666-415-1337",
+            "title": "Manager",
+            "department": "Marketing",
+            "countryCode": "eu"
+        }
+    },
+    {
         "id": "2",
         "status": "DEPROVISIONED",
         "created": "2013-07-02T21:37:25.344Z",

@@ -40,8 +40,25 @@ class OracleIntegrationTestCase(OracleTestCaseBase):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_oracle_source_integration(pytestconfig, tmp_path, mock_time):
+def test_oracle_source_integration_with_out_database(pytestconfig, tmp_path, mock_time):
     oracle_source_integration_test = OracleIntegrationTestCase(
-        pytestconfig=pytestconfig, tmp_path=tmp_path
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        golden_file_name="golden_test_ingest_with_out_database.json",
+        output_file_name="oracle_mce_output_with_out_database.json",
+        add_database_name_to_urn=False,
+    )
+    oracle_source_integration_test.apply()
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_oracle_source_integration_with_database(pytestconfig, tmp_path, mock_time):
+    oracle_source_integration_test = OracleIntegrationTestCase(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        golden_file_name="golden_test_ingest_with_database.json",
+        output_file_name="oracle_mce_output_with_database.json",
+        add_database_name_to_urn=True,
     )
     oracle_source_integration_test.apply()

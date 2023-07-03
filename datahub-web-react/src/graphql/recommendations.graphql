@@ -15,7 +15,7 @@ query listRecommendations($input: ListRecommendationsInput!) {
                         query
                         filters {
                             field
-                            value
+                            values
                         }
                     }
                     entityProfileParams {

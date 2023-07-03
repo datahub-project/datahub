@@ -3,6 +3,8 @@ set -euxo pipefail
 
 if [[ ! ${RELEASE_SKIP_TEST:-} ]]; then
 	../../gradlew build  # also runs tests
+elif [[ ! ${RELEASE_SKIP_INSTALL:-} ]]; then
+	../../gradlew install
 fi
 
 MODULE=datahub_airflow_plugin

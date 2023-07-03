@@ -1,12 +1,16 @@
 # Python Emitter
 
-In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. Use-cases are typically push-based and include emitting metadata events from CI/CD pipelines, custom orchestrators etc. 
+In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. Use-cases are typically push-based and include emitting metadata events from CI/CD pipelines, custom orchestrators etc.
 
 The `acryl-datahub` Python package offers REST and Kafka emitter API-s, which can easily be imported and called from your own code.
+
+> **Pro Tip!** Throughout our API guides, we have examples of using Python API SDK.
+> Lookout for the `| Python |` tab within our tutorials.
 
 ## Installation
 
 Follow the installation guide for the main `acryl-datahub` package [here](./README.md#install-from-pypi). Read on for emitter specific installation instructions.
+
 ## REST Emitter
 
 The REST emitter is a thin wrapper on top of the `requests` module and offers a blocking interface for sending metadata events over HTTP. Use this when simplicity and acknowledgement of metadata being persisted to DataHub's metadata store is more important than throughput of metadata emission. Also use this when read-after-write scenarios exist, e.g. writing metadata and then immediately reading it back.
@@ -18,10 +22,11 @@ pip install -U `acryl-datahub[datahub-rest]`
 ```
 
 ### Example Usage
+
 ```python
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
@@ -39,10 +44,7 @@ dataset_properties = DatasetPropertiesClass(description="This table stored the c
 
 # Construct a MetadataChangeProposalWrapper object.
 metadata_event = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_dataset_urn("bigquery", "my-project.my-dataset.user-table"),
-    aspectName="datasetProperties",
     aspect=dataset_properties,
 )
 
@@ -51,6 +53,7 @@ emitter.emit(metadata_event)
 ```
 
 Other examples:
+
 - [lineage_emitter_mcpw_rest.py](./examples/library/lineage_emitter_mcpw_rest.py) - emits simple bigquery table-to-table (dataset-to-dataset) lineage via REST as MetadataChangeProposalWrapper.
 
 ### Emitter Code
@@ -70,12 +73,12 @@ The Kafka emitter is a thin wrapper on top of the SerializingProducer class from
 pip install -U `acryl-datahub[datahub-kafka]`
 ```
 
-
 ### Example Usage
+
 ```python
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import ChangeTypeClass, DatasetPropertiesClass
+from datahub.metadata.schema_classes import DatasetPropertiesClass
 
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfig
 # Create an emitter to Kafka
@@ -100,10 +103,7 @@ dataset_properties = DatasetPropertiesClass(description="This table stored the c
 
 # Construct a MetadataChangeProposalWrapper object.
 metadata_event = MetadataChangeProposalWrapper(
-    entityType="dataset",
-    changeType=ChangeTypeClass.UPSERT,
     entityUrn=builder.make_dataset_urn("bigquery", "my-project.my-dataset.user-table"),
-    aspectName="datasetProperties",
     aspect=dataset_properties,
 )
 
@@ -119,10 +119,11 @@ emitter.flush()
 ```
 
 ### Emitter Code
+
 If you're interested in looking at the Kafka emitter code, it is available [here](./src/datahub/emitter/kafka_emitter.py)
 
 ## Other Languages
 
 Emitter API-s are also supported for:
-- [Java](../metadata-integration/java/as-a-library.md)
 
+- [Java](../metadata-integration/java/as-a-library.md)

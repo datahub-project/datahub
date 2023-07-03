@@ -2,7 +2,6 @@ package server
 
 import play.api.Logger
 import play.core.server.AkkaHttpServer
-import play.core.server.AkkaHttpServerProvider
 import play.core.server.ServerProvider
 import akka.http.scaladsl.settings.ParserSettings
 

@@ -36,7 +36,7 @@ export const ExpandedActor = ({ actor, popOver, closable, onClose }: Props) => {
 
     return (
         <ActorTag onClose={onClose} closable={closable}>
-            <Link to={`/${entityRegistry.getPathName(actor.type)}/${actor.urn}`}>
+            <Link to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}>
                 <CustomAvatar name={name} photoUrl={pictureLink} useDefaultAvatar={false} />
                 {(!popOver && <>{name}</>) || (
                     <Popover overlayStyle={{ maxWidth: 200 }} placement="left" content={popOver}>

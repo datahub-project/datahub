@@ -8,8 +8,8 @@ from pydantic import Field
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     ConfigModel,
-    EnvBasedSourceConfigBase,
-    PlatformSourceConfigBase,
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
@@ -20,7 +20,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class S3(ConfigModel):
-    aws_config: AwsConnectionConfig = Field(
+    aws_config: Optional[AwsConnectionConfig] = Field(
         default=None, description="AWS configuration"
     )
 
@@ -35,13 +35,12 @@ class S3(ConfigModel):
     )
 
 
-class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
-
+class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     base_path: str = Field(
         description="Path to table (s3 or local file system). If path is not a delta table path "
         "then all subfolders will be scanned to detect and ingest delta tables."
     )
-    relative_path: str = Field(
+    relative_path: Optional[str] = Field(
         default=None,
         description="If set, delta-tables will be searched at location "
         "'<base_path>/<relative_path>' and URNs will be created using "
@@ -63,6 +62,14 @@ class DeltaLakeSourceConfig(PlatformSourceConfigBase, EnvBasedSourceConfigBase):
     version_history_lookback: Optional[int] = Field(
         default=1,
         description="Number of previous version histories to be ingested. Defaults to 1. If set to -1 all version history will be ingested.",
+    )
+
+    require_files: Optional[bool] = Field(
+        default=True,
+        description="Whether DeltaTable should track files. "
+        "Consider setting this to `False` for large delta tables, "
+        "resulting in significant memory reduction for ingestion process."
+        "When set to `False`, number_of_files in delta table can not be reported.",
     )
 
     s3: Optional[S3] = Field()

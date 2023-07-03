@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a DataHub View
+ */
+@Aspect = {
+  "name": "dataHubViewKey"
+}
+record DataHubViewKey {
+  /**
+   * A unique id for the View
+   */
+  id: string
+}

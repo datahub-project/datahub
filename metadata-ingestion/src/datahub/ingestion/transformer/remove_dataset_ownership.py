@@ -31,8 +31,7 @@ class SimpleRemoveDatasetOwnership(DatasetOwnershipTransformer):
     ) -> Optional[Aspect]:
         in_ownership_aspect = cast(OwnershipClass, aspect)
         if in_ownership_aspect is None:
-            return cast(Aspect, in_ownership_aspect)
+            return None
 
         in_ownership_aspect.owners = []
-
         return cast(Aspect, in_ownership_aspect)

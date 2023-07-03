@@ -1,11 +1,28 @@
-#!/bin/bash
+#!/bin/bash -x
 
-
+set -e
 # Script assumptions:
-#   - The gradle build has already been run.
 #   - Python 3.6+ is installed and in the PATH.
 #   - pytest is installed
 #   - requests is installed
+
+is_healthy() {
+    local service="$1"
+    local -r -i max_attempts="$2"; shift
+    local -i attempt_num=1
+
+    until [ -n "$(docker ps -f name="$service" -f "health=healthy"|tail -n +2)" ]
+    do
+        if (( attempt_num == max_attempts ))
+        then
+            echo "Attempt $attempt_num failed and there are no more attempts left!"
+            return 1
+        else
+            echo "Attempt $attempt_num failed! Trying again in $attempt_num seconds..."
+            sleep $(( attempt_num++ ))
+        fi
+    done
+}
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
@@ -22,12 +39,12 @@ echo "--------------------------------------------------------------------"
 
 pwd ../../../
 
-datahub docker quickstart \
-	--build-locally \
-	--quickstart-compose-file ../../../../docker/docker-compose.yml \
-	--quickstart-compose-file ../../../../docker/docker-compose.override.yml \
-	--quickstart-compose-file ../../../../docker/docker-compose.dev.yml \
-	--dump-logs-on-failure
+if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
+  DATAHUB_TELEMETRY_ENABLED=false  \
+  DOCKER_COMPOSE_BASE="file://$(cd "$(dirname "${DIR}/../../../../../")"; pwd)" \
+  datahub docker quickstart --dump-logs-on-failure
+fi
+is_healthy "datahub-gms" 60
 
 echo "--------------------------------------------------------------------"
 echo "Setup environment for pytest"

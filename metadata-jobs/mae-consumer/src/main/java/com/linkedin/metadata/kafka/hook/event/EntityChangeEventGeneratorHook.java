@@ -17,9 +17,9 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
-import com.linkedin.metadata.timeline.differ.Aspect;
-import com.linkedin.metadata.timeline.differ.AspectDifferRegistry;
-import com.linkedin.metadata.timeline.differ.AspectDiffer;
+import com.linkedin.metadata.timeline.eventgenerator.Aspect;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
@@ -46,49 +46,43 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@Import({
-    AspectDifferRegistry.class,
-    EntityRegistryFactory.class,
-    RestliEntityClientFactory.class,
-    SystemAuthenticationFactory.class
-})
+@Import({EntityChangeEventGeneratorRegistry.class, EntityRegistryFactory.class, RestliEntityClientFactory.class,
+    SystemAuthenticationFactory.class})
 public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   /**
    * The list of aspects that are supported for generating semantic change events.
    */
-  private static final Set<String> SUPPORTED_ASPECT_NAMES = ImmutableSet.of(
-      Constants.GLOBAL_TAGS_ASPECT_NAME,
-      Constants.GLOSSARY_TERMS_ASPECT_NAME,
-      Constants.OWNERSHIP_ASPECT_NAME,
-      Constants.DOMAINS_ASPECT_NAME,
-      Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-      Constants.SCHEMA_METADATA_ASPECT_NAME,
-      Constants.DEPRECATION_ASPECT_NAME,
-      Constants.DATASET_PROPERTIES_ASPECT_NAME,
-      Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+  private static final Set<String> SUPPORTED_ASPECT_NAMES =
+      ImmutableSet.of(
+          Constants.GLOBAL_TAGS_ASPECT_NAME,
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          Constants.OWNERSHIP_ASPECT_NAME,
+          Constants.DOMAINS_ASPECT_NAME,
+          Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          Constants.SCHEMA_METADATA_ASPECT_NAME,
+          Constants.DEPRECATION_ASPECT_NAME,
+          Constants.DATASET_PROPERTIES_ASPECT_NAME,
+          Constants.EDITABLE_DATASET_PROPERTIES_ASPECT_NAME,
+          Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+          Constants.DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
 
-      // Entity Lifecycle Event
-      Constants.DATASET_KEY_ASPECT_NAME,
-      Constants.DASHBOARD_KEY_ASPECT_NAME,
-      Constants.CHART_KEY_ASPECT_NAME,
-      Constants.CONTAINER_KEY_ASPECT_NAME,
-      Constants.DATA_FLOW_KEY_ASPECT_NAME,
-      Constants.DATA_JOB_KEY_ASPECT_NAME,
-      Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
-      Constants.DOMAIN_KEY_ASPECT_NAME,
-      Constants.TAG_KEY_ASPECT_NAME,
-      Constants.STATUS_ASPECT_NAME
-  );
+          // Entity Lifecycle Event
+          Constants.DATASET_KEY_ASPECT_NAME,
+          Constants.DASHBOARD_KEY_ASPECT_NAME,
+          Constants.CHART_KEY_ASPECT_NAME,
+          Constants.CONTAINER_KEY_ASPECT_NAME,
+          Constants.DATA_FLOW_KEY_ASPECT_NAME,
+          Constants.DATA_JOB_KEY_ASPECT_NAME,
+          Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
+          Constants.DOMAIN_KEY_ASPECT_NAME,
+          Constants.TAG_KEY_ASPECT_NAME,
+          Constants.STATUS_ASPECT_NAME);
   /**
    * The list of change types that are supported for generating semantic change events.
    */
-  private static final Set<String> SUPPORTED_OPERATIONS = ImmutableSet.of(
-      "CREATE",
-      "UPSERT",
-      "DELETE"
-  );
-  private final AspectDifferRegistry _aspectDifferRegistry;
+  private static final Set<String> SUPPORTED_OPERATIONS = ImmutableSet.of("CREATE", "UPSERT", "DELETE");
+  private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
   private final EntityClient _entityClient;
   private final Authentication _systemAuthentication;
   private final EntityRegistry _entityRegistry;
@@ -96,12 +90,11 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
 
   @Autowired
   public EntityChangeEventGeneratorHook(
-      @Nonnull final AspectDifferRegistry aspectDifferRegistry,
-      @Nonnull final RestliEntityClient entityClient,
-      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
+      @Nonnull final RestliEntityClient entityClient, @Nonnull final Authentication systemAuthentication,
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull @Value("${entityChangeEvents.enabled:true}") Boolean isEnabled) {
-    _aspectDifferRegistry = Objects.requireNonNull(aspectDifferRegistry);
+    _entityChangeEventGeneratorRegistry = Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityClient = Objects.requireNonNull(entityClient);
     _systemAuthentication = Objects.requireNonNull(systemAuthentication);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
@@ -118,19 +111,18 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
     if (isEligibleForProcessing(logEvent)) {
       // Steps:
       // 1. Parse the old and new aspect.
-      // 2. Find and invoke a differ.
-      // 3. Sink the output of the differ to a specific PDL change event.
-      final AspectSpec aspectSpec = _entityRegistry
-          .getEntitySpec(logEvent.getEntityType())
-          .getAspectSpec(logEvent.getAspectName());
+      // 2. Find and invoke a EntityChangeEventGenerator.
+      // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
+      final AspectSpec aspectSpec =
+          _entityRegistry.getEntitySpec(logEvent.getEntityType()).getAspectSpec(logEvent.getAspectName());
 
       assert aspectSpec != null;
 
       final RecordTemplate fromAspect = logEvent.getPreviousAspectValue() != null
           ? GenericRecordUtils.deserializeAspect(
-              logEvent.getPreviousAspectValue().getValue(),
-              logEvent.getPreviousAspectValue().getContentType(),
-              aspectSpec)
+          logEvent.getPreviousAspectValue().getValue(),
+          logEvent.getPreviousAspectValue().getContentType(),
+          aspectSpec)
           : null;
 
       final RecordTemplate toAspect = logEvent.getAspect() != null
@@ -164,7 +156,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
     }
   }
 
-  private  <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
+  private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
       @Nonnull final Urn urn,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
@@ -172,22 +164,28 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       @Nonnull final Aspect to,
       @Nonnull AuditStamp auditStamp
   ) {
-    final List<AspectDiffer<T>> aspectDiffers = _aspectDifferRegistry.getAspectDiffers(aspectName)
-        .stream()
-        .map(differ -> (AspectDiffer<T>) differ) // Note: Assumes that correct types have been registered for the aspect.
-        .collect(Collectors.toList());
+    final List<EntityChangeEventGenerator<T>> entityChangeEventGenerators =
+        _entityChangeEventGeneratorRegistry
+            .getEntityChangeEventGenerators(aspectName)
+            .stream()
+            // Note: Assumes that correct types have been registered for the aspect.
+            .map(changeEventGenerator -> (EntityChangeEventGenerator<T>) changeEventGenerator)
+            .collect(Collectors.toList());
     final List<ChangeEvent> allChangeEvents = new ArrayList<>();
-    for (AspectDiffer<T> aspectDiffer : aspectDiffers) {
-      allChangeEvents.addAll(aspectDiffer.getChangeEvents(urn, entityName, aspectName, from, to, auditStamp));
+    for (EntityChangeEventGenerator<T> entityChangeEventGenerator : entityChangeEventGenerators) {
+      allChangeEvents.addAll(
+          entityChangeEventGenerator.getChangeEvents(urn, entityName, aspectName, from, to, auditStamp));
     }
     return allChangeEvents;
   }
 
   private boolean isEligibleForProcessing(final MetadataChangeLog log) {
-    return SUPPORTED_OPERATIONS.contains(log.getChangeType().toString()) && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName());
+    return SUPPORTED_OPERATIONS.contains(log.getChangeType().toString()) && SUPPORTED_ASPECT_NAMES.contains(
+        log.getAspectName());
   }
 
-  private void emitPlatformEvent(@Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
+  private void emitPlatformEvent(@Nonnull final PlatformEvent event, @Nonnull final String partitioningKey)
+      throws Exception {
     _entityClient.producePlatformEvent(
         Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME,
         partitioningKey,
@@ -212,7 +210,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
    * API for outbound consumption.
    */
   private RecordTemplate convertRawEventToChangeEvent(final ChangeEvent rawChangeEvent) {
-    com.linkedin.platform.event.v1.EntityChangeEvent changeEvent = new com.linkedin.platform.event.v1.EntityChangeEvent();
+    com.linkedin.platform.event.v1.EntityChangeEvent changeEvent =
+        new com.linkedin.platform.event.v1.EntityChangeEvent();
     log.debug(String.format("Attempting to convert %s", rawChangeEvent));
     try {
       Urn entityUrn = Urn.createFromString(rawChangeEvent.getEntityUrn());
@@ -224,10 +223,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       changeEvent.setAuditStamp(rawChangeEvent.getAuditStamp());
       changeEvent.setVersion(0);
       if (rawChangeEvent.getParameters() != null) {
-        changeEvent.setParameters(
-            // This map should ideally contain only primitives at the leaves - integers, floats, booleans, strings.
-            new Parameters(new DataMap(rawChangeEvent.getParameters()))
-        );
+        // This map should ideally contain only primitives at the leaves - integers, floats, booleans, strings.
+        changeEvent.setParameters(new Parameters(new DataMap(rawChangeEvent.getParameters())));
       }
       return changeEvent;
     } catch (Exception e) {
@@ -236,9 +233,6 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   private Aspect createAspect(@Nullable final RecordTemplate value, @Nullable final SystemMetadata systemMetadata) {
-    return new Aspect(
-        value,
-        systemMetadata
-    );
+    return new Aspect(value, systemMetadata);
   }
 }

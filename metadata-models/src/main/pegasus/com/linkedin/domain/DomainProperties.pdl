@@ -1,5 +1,7 @@
 namespace com.linkedin.domain
 
+import com.linkedin.common.AuditStamp
+
 /**
  * Information about a Domain
  */
@@ -23,4 +25,14 @@ record DomainProperties {
    */
   description: optional string
 
+  /**
+   * Created Audit stamp
+   */
+   @Searchable = {
+     "/time": {
+      "fieldName": "createdTime",
+      "fieldType": "DATETIME"
+     }
+   }
+   created: optional AuditStamp
 }

@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+ * A standard event timestamp
+ */
+record TimeStamp {
+  /**
+   * When did the event occur
+   */
+  time: Time
+
+  /**
+   * Optional: The actor urn involved in the event.
+   */
+  actor: optional Urn
+}

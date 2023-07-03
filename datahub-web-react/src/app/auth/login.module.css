@@ -47,3 +47,17 @@
     background-color: transparent;
     border: 1px solid  #555555;
 }
+
+.sso_button {
+    color: #EEEEEE;
+    background-color: #171717;
+    border: 1px solid #555555;
+    height: 40px;
+    font-size: 14px;
+}
+
+.sso_button:hover {
+    color: black;
+    background-color: white;
+    border: 1px solid #555555;
+}

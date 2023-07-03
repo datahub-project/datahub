@@ -5,9 +5,12 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.stream.Collectors;
 
 
+@Slf4j
 public class ForeignKeyConstraintMapper {
   private ForeignKeyConstraintMapper() { }
 
@@ -34,7 +37,12 @@ public class ForeignKeyConstraintMapper {
 
   private static SchemaFieldEntity mapSchemaFieldEntity(Urn schemaFieldUrn) {
     SchemaFieldEntity result = new SchemaFieldEntity();
-    result.setParent(schemaFieldUrn.getEntityKey().get(0));
+    try {
+      Urn resourceUrn = Urn.createFromString(schemaFieldUrn.getEntityKey().get(0));
+      result.setParent(UrnToEntityMapper.map(resourceUrn));
+    } catch (Exception e) {
+      throw new RuntimeException("Error converting schemaField parent urn string to Urn", e);
+    }
     result.setFieldPath(schemaFieldUrn.getEntityKey().get(1));
     return result;
   }

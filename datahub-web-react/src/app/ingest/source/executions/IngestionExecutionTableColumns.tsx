@@ -27,7 +27,7 @@ const StatusButton = styled(Button)`
 export function TimeColumn(time: string) {
     const date = time && new Date(time);
     const localTime = date && `${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
-    return <Typography.Text>{localTime || 'N/A'}</Typography.Text>;
+    return <Typography.Text>{localTime || 'None'}</Typography.Text>;
 }
 
 interface StatusColumnProps {
@@ -42,10 +42,10 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusCol
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <StatusContainer>
-            {Icon && <Icon style={{ color }} />}
+            {Icon && <Icon style={{ color, fontSize: 14 }} />}
             <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.urn)}>
                 <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                    {text || 'N/A'}
+                    {text || 'Pending...'}
                 </Typography.Text>
             </StatusButton>
         </StatusContainer>
