@@ -99,7 +99,7 @@ const NotificationSinkName = styled(Typography.Text)`
 
 const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
 
-const isSinkEnabled = (sinkId, settings?: GlobalSettings | null) => {
+export const isSinkEnabled = (sinkId, settings?: GlobalSettings | null) => {
     switch (sinkId) {
         case SLACK_SINK.id: {
             return settings?.integrationSettings?.slackSettings?.defaultChannelName || false;

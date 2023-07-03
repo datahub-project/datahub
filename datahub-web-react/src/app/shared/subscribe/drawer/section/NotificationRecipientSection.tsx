@@ -10,6 +10,8 @@ import {
     validateGroupSlackChannel,
     validateSlackUserHandle,
 } from '../../../../settings/personal/utils';
+import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
+import { isSinkEnabled } from '../../../../settings/platform/PlatformNotifications';
 
 const SLACK_TOP_ROW = 1;
 
@@ -97,7 +99,9 @@ export default function NotificationRecipientSection({
     setSaveSlackSinkAsDefault,
 }: Props) {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const slackSinkEnabled = globalSettings?.globalSettings?.integrationSettings?.slackSettings?.enabled || true;
+    // todo - move isSinkEnabled to a shared util and make this a custom hook
+    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
+    const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
     const [inputSlackValue, setInputSlackValue] = useState<string>(isPersonal ? '@' : '#');
     const [useDefaultSlackSink, setUseDefaultSlackSink] = useState<boolean>(true);

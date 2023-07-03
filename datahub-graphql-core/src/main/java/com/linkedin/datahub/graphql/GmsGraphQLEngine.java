@@ -967,27 +967,18 @@ public class GmsGraphQLEngine {
             .dataFetcher("globalViewsSettings", new GlobalViewsSettingsResolver(this.settingsService))
             .dataFetcher("listQueries", new ListQueriesResolver(this.entityClient))
             .dataFetcher("getQuickFilters", new GetQuickFiltersResolver(this.entityClient, this.viewService))
-<<<<<<< HEAD
-<<<<<<< HEAD
             .dataFetcher("dataProduct", getResolver(dataProductType))
             .dataFetcher("listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
             .dataFetcher("listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
             .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
-=======
-=======
             // Notifications not in OSS
             .dataFetcher("getUserNotificationSettings", new GetUserNotificationSettingsResolver(this.settingsService))
             .dataFetcher("getGroupNotificationSettings", new GetGroupNotificationSettingsResolver(this.settingsService))
->>>>>>> 92236e6601 (add resolvers for getting and updating notification settings)
             // Subscriptions not in OSS
             .dataFetcher("getSubscription", new GetSubscriptionResolver(this.subscriptionService))
             .dataFetcher("listSubscriptions", new ListSubscriptionsResolver(this.subscriptionService))
-<<<<<<< HEAD
->>>>>>> f2fe88b693 (add resolvers for listing, creating, and updating subscriptions (#1250))
-=======
             .dataFetcher("getEntitySubscriptionSummary",
                 new GetEntitySubscriptionSummaryResolver(this.subscriptionService, this.groupService))
->>>>>>> 5ce0b795b8 (hook up notifications UI to backend (#1274))
         );
     }
 
@@ -1145,14 +1136,11 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateOwnershipType", new UpdateOwnershipTypeResolver(this.ownershipTypeService))
             .dataFetcher("deleteOwnershipType", new DeleteOwnershipTypeResolver(this.ownershipTypeService))
             // Notifications not in OSS
-<<<<<<< HEAD
             .dataFetcher("updateGroupNotificationSettings", new UpdateGroupNotificationSettingsResolver(this.settingsService))
-=======
             .dataFetcher("updateUserNotificationSettings",
                 new UpdateUserNotificationSettingsResolver(this.settingsService))
             .dataFetcher("updateGroupNotificationSettings",
                 new UpdateGroupNotificationSettingsResolver(this.settingsService))
->>>>>>> 5ce0b795b8 (hook up notifications UI to backend (#1274))
             // Subscriptions not in OSS
             .dataFetcher("createSubscription", new CreateSubscriptionResolver(this.subscriptionService))
             .dataFetcher("updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))

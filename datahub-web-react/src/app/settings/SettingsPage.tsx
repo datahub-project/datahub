@@ -138,11 +138,6 @@ export const SettingsPage = () => {
                                 <ItemTitle>My Views</ItemTitle>
                             </Menu.Item>
                         )}
-                        {showOwnershipTypes && (
-                            <Menu.Item key="ownership">
-                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
-                            </Menu.Item>
-                        )}
                         <Menu.Item key="personal-notifications">
                             <BellOutlined />
                             <ItemTitle>My Notifications</ItemTitle>
@@ -193,6 +188,13 @@ export const SettingsPage = () => {
                             </Menu.ItemGroup>
                         )
                     }
+                    <Menu.ItemGroup title="Manage">
+                        {showOwnershipTypes && (
+                            <Menu.Item key="ownership">
+                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
+                            </Menu.Item>
+                        )}
+                    </Menu.ItemGroup>
 
                     <Menu.ItemGroup title="Preferences">
                         <Menu.Item key="preferences">

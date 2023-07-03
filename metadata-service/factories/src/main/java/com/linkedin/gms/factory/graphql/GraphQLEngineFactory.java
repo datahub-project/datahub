@@ -206,6 +206,7 @@ public class GraphQLEngineFactory {
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
 
+  @Autowired
   @Qualifier("subscriptionService")
   private SubscriptionService _subscriptionService;
 

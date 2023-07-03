@@ -3,7 +3,6 @@ import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
-import { validateSlackHandle } from '../../settings/personal/utils';
 import { validateSlackUserHandle } from '../../settings/personal/utils';
 
 type PropsData = {
