@@ -676,6 +676,7 @@ class OktaSource(StatefulIngestionSourceBase):
             title=profile.title,
             countryCode=profile.countryCode,
             departmentName=department,
+            customProperties={"department": profile.department},
         )
 
     def _make_corp_group_urn(self, name: str) -> str:
