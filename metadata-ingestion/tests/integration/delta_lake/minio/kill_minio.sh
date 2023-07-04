@@ -1,3 +1,5 @@
-kill -9 `cat minio_pid.txt`
-rm ./tests/integrations/delta_lake/minio/minio_pid.txt
-rm -rf ./tests/integrations/delta_lake/minio/data
+INTEGRATIONS_DIR="./tests/integrations/minio"
+kill -9 "$(cat "${INTEGRATIONS_DIR}/minio_pid.txt")"
+rm "${INTEGRATIONS_DIR}/minio_pid.txt"
+rm "${INTEGRATIONS_DIR}/temp.log"
+rm -rf "${INTEGRATIONS_DIR}/data"

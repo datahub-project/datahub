@@ -30,19 +30,14 @@ def minio_startup():
 
 
 @pytest.fixture(scope="module", autouse=True)
-def bucket_name():
-    return "my-test-bucket"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def s3_bkt(bucket_name, minio_startup):
+def s3_bkt(minio_startup):
     s3 = boto3.resource(
         "s3",
         endpoint_url="http://localhost:9000",
         aws_access_key_id="minioadmin",
         aws_secret_access_key="minioadmin",
     )
-    bkt = s3.Bucket(bucket_name)
+    bkt = s3.Bucket("my-test-bucket")
     bkt.create()
     return bkt
 
