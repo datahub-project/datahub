@@ -140,7 +140,11 @@ def dataplatform2instance_func(
     run_id: str = f"migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
-    graph = None # initialize for dry-run 
+    
+    # initialize for dry-run
+    graph = DataHubGraph(
+        config=DataHubGraphConfig(server="127.0.0.1")
+    ) 
 
     if not dry_run:
         graph = DataHubGraph(
