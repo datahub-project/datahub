@@ -57,7 +57,7 @@ public class DataPlatformInstanceMapper {
     );
     mappingHelper.mapToResult(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
             (dataPlatformInstance, dataMap) ->
-                    dataPlatformInstance.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap)))
+                    dataPlatformInstance.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn))
     );
     mappingHelper.mapToResult(Constants.STATUS_ASPECT_NAME,
             (dataPlatformInstance, dataMap) ->

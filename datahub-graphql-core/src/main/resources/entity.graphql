@@ -1382,7 +1382,9 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     siblings: SiblingProperties
 
     """
-    fine grained lineage
+    Lineage information for the column-level. Includes a list of objects
+    detailing which columns are upstream and which are downstream of each other.
+    The upstream and downstream columns are from datasets.
     """
     fineGrainedLineages: [FineGrainedLineage!]
 
@@ -2483,6 +2485,11 @@ type InstitutionalMemoryMetadata {
     Description of the resource
     """
     description: String! @deprecated
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -5648,11 +5655,9 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     info: DataJobInfo @deprecated
 
     """
-    Deprecated, use relationship Produces, Consumes, DownstreamOf instead
-    Information about the inputs and outputs of a Data processing job
+    Information about the inputs and outputs of a Data processing job including column-level lineage.
     """
-    inputOutput: DataJobInputOutput @deprecated
-
+    inputOutput: DataJobInputOutput
 
     """
     Deprecated, use the tags field instead
@@ -5877,6 +5882,13 @@ type DataJobInputOutput {
     Input datajobs that this data job depends on
     """
     inputDatajobs: [DataJob!] @deprecated
+
+    """
+    Lineage information for the column-level. Includes a list of objects
+    detailing which columns are upstream and which are downstream of each other.
+    The upstream and downstream columns are from datasets.
+    """
+    fineGrainedLineages: [FineGrainedLineage!]
 }
 
 """
@@ -7996,6 +8008,16 @@ type ActorFilter {
   resourceOwners: Boolean!
 
   """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
+
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
+  """
+  resolvedOwnershipTypes: [OwnershipTypeEntity!]
+
+  """
   Whether the filter should apply to all users
   """
   allUsers: Boolean!
@@ -8122,6 +8144,11 @@ input ActorFilterInput {
   Only applies to policies of type METADATA, which have a resource associated with them
   """
   resourceOwners: Boolean!
+
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
 
   """
   Whether the filter should apply to all users
