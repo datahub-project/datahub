@@ -25,7 +25,7 @@ class ProcedureLineageStream:
     dependencies: List[ProcedureDependency]
 
     @property
-    def as_property(self):
+    def as_property(self) -> Dict[str, str]:
         return {
             f"{dep.db}.{dep.schema}.{dep.name}": dep.type for dep in self.dependencies
         }
@@ -49,7 +49,7 @@ class MSSQLJob:
         return f"({self.source},{self.formatted_name},{self.env})"
 
     @property
-    def orchestrator(self):
+    def orchestrator(self) -> str:
         return self.source
 
     @property
@@ -57,7 +57,7 @@ class MSSQLJob:
         return self.platform_instance.replace(".", "/")
 
     @property
-    def cluster(self):
+    def cluster(self) -> str:
         return f"{self.env}"
 
 
@@ -97,7 +97,7 @@ class ProcedureParameter:
     type: str
 
     @property
-    def properties(self):
+    def properties(self) -> Dict[str, str]:
         return {"type": self.type}
 
 
@@ -166,7 +166,7 @@ class MSSQLDataJob:
     job_properties: Dict[str, str] = field(default_factory=dict)
 
     @property
-    def urn(self):
+    def urn(self) -> str:
         return make_data_job_urn(
             orchestrator=self.entity.flow.orchestrator,
             flow_id=self.entity.flow.formatted_name,
@@ -174,17 +174,21 @@ class MSSQLDataJob:
             cluster=self.entity.flow.cluster,
         )
 
-    def add_property(self, name, value):
+    def add_property(
+        self,
+        name: str,
+        value: str,
+    ) -> None:
         self.job_properties[name] = value
 
     @property
-    def valued_properties(self):
+    def valued_properties(self) -> Dict[str, str]:
         if self.job_properties:
             return {k: v for k, v in self.job_properties.items() if v is not None}
         return self.job_properties
 
     @property
-    def as_datajob_input_output_aspect_data(self):
+    def as_datajob_input_output_aspect_data(self) -> Dict:
         return dict(
             aspectName="dataJobInputOutput",
             aspect=DataJobInputOutputClass(
@@ -195,7 +199,7 @@ class MSSQLDataJob:
         )
 
     @property
-    def as_datajob_info_aspect_data(self):
+    def as_datajob_info_aspect_data(self) -> Dict:
         return dict(
             aspectName="dataJobInfo",
             aspect=DataJobInfoClass(
@@ -217,11 +221,15 @@ class MSSQLDataFlow:
     external_url: str = ""
     flow_properties: Dict[str, str] = field(default_factory=dict)
 
-    def add_property(self, name, value):
+    def add_property(
+        self,
+        name: str,
+        value: str,
+    ) -> None:
         self.flow_properties[name] = value
 
     @property
-    def urn(self):
+    def urn(self) -> str:
         return make_data_flow_urn(
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
@@ -229,7 +237,7 @@ class MSSQLDataFlow:
         )
 
     @property
-    def as_dataflow_info_aspect_data(self):
+    def as_dataflow_info_aspect_data(self) -> Dict:
         return dict(
             aspectName="dataFlowInfo",
             aspect=DataFlowInfoClass(
