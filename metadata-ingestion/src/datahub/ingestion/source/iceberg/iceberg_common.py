@@ -72,10 +72,6 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     catalog: IcebergCatalogConfig = Field(
         description="Catalog configuration where to find Iceberg tables.  See [pyiceberg's catalog configuration details](https://py.iceberg.apache.org/configuration/).",
     )
-    max_path_depth: int = Field(
-        default=2,
-        description="Maximum folder depth to crawl for Iceberg tables.  Folders deeper than this value will be silently ignored.",
-    )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion.",

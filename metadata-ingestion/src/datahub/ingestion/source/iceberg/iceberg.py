@@ -75,16 +75,6 @@ from datahub.metadata.schema_classes import (
 
 LOGGER = logging.getLogger(__name__)
 
-_all_atomic_types = {
-    BooleanType: "boolean",
-    IntegerType: "int",
-    LongType: "long",
-    FloatType: "float",
-    DoubleType: "double",
-    BinaryType: "bytes",
-    StringType: "string",
-}
-
 
 @platform_name("Iceberg")
 @support_status(SupportStatus.TESTING)
