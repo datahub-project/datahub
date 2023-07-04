@@ -7,7 +7,7 @@ set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 # Fetch public COVID-19 datasets from BigQuery.
-datahub ingest -c "$DIR/bigquery_covid19_to_file.yml"
+datahub ingest -c "$DIR/bigquery_covid19_to_file.dhub.yaml"
 
 # Pull the directives CSV from Google sheets.
 # See https://docs.google.com/spreadsheets/d/17c5SBiXEw5PuV7oEkC2uQnX55C6TPZTnr6XRQ6X-Qy0/edit#gid=0.

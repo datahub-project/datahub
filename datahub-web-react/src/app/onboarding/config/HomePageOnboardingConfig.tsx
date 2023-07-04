@@ -102,8 +102,8 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: HOME_PAGE_MOST_POPULAR_ID,
         selector: `#${HOME_PAGE_MOST_POPULAR_ID}`,
-        title: 'Explore Most Popular',
-        content: "Here you'll find the assets that are viewed most frequently within your organization.",
+        title: '最受欢迎的数据资产',
+        content: '这里是在您组织内浏览最多的数据资产.',
     },
     {
         id: HOME_PAGE_SEARCH_BAR_ID,

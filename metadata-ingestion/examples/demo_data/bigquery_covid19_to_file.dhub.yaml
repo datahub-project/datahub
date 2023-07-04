@@ -1,19 +1,32 @@
 ---
+#source:
+#  type: bigquery
+#  config:
+#    project_id: "bigquery-public-data"
+#    options:
+#      credentials_path: "./bq_credentials.json"
+#    table_pattern:
+#      allow:
+#      # Allow anything that starts with "covid19"
+#      - "bigquery-public-data\\.covid19.*"
+##      deny:
+##      # Except for tables that end with an underscore.
+##      - ".*_\$" # also escapes the variable expansion on $
+# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
 source:
-  type: bigquery
+  type: "csv-enricher"
   config:
-    project_id: "bigquery-public-data"
-    options:
-      credentials_path: "./bq_credentials.json"
-    table_pattern:
-      allow:
-      # Allow anything that starts with "covid19"
-      - "bigquery-public-data\\.covid19.*"
-      deny:
-      # Except for tables that end with an underscore.
-      - ".*_\$" # also escapes the variable expansion on $
+    filename: "../demo_data/csv_enricher_demo_data.csv"
+    write_semantics: "OVERRIDE"
+    delimiter: ","
+    array_delimiter: "|"
 
 sink:
-  type: "file"
+  type: "datahub-rest"
   config:
-    filename: "./examples/demo_data/all_covid19_datasets.json"
+    server: "http://localhost:8080"
+
+#sink:
+#  type: "file"
+#  config:
+#    filename: "../demo_data/all_covid19_datasets.json"
