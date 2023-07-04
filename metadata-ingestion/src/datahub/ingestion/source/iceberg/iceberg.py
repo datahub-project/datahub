@@ -81,7 +81,7 @@ LOGGER = logging.getLogger(__name__)
 @config_class(IcebergSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
-    "Optionally enabled via configuration, an Iceberg instance represents the datalake name where the table is stored.",
+    "Optionally enabled via configuration, an Iceberg instance represents the catalog name where the table is stored.",
 )
 @capability(SourceCapability.DOMAINS, "Currently not supported.", supported=False)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration.")
