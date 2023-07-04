@@ -3,10 +3,20 @@ import pathlib
 import re
 
 import click
+import pytest
 from click.testing import CliRunner
 
 from datahub.entrypoints import datahub
-from datahub.utilities.logging_manager import get_log_buffer
+from datahub.utilities.logging_manager import DATAHUB_PACKAGES, get_log_buffer
+
+
+@pytest.fixture(autouse=True, scope="module")
+def cleanup():
+    """Attempt to clear undo the stateful changes done by invoking `my_logging_fn`, which calls `configure_logging`."""
+    yield
+    for lib in DATAHUB_PACKAGES:
+        lib_logger = logging.getLogger(lib)
+        lib_logger.propagate = True
 
 
 @datahub.command()

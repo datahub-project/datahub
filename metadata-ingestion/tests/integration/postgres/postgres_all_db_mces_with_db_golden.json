@@ -446,6 +446,18 @@
                                 "nativeDataType": "VARCHAR(length=255)",
                                 "recursive": false,
                                 "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "metadata_json",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "JSON(astext_type=Text())",
+                                "recursive": false,
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -488,31 +500,64 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "rowCount": 2,
-            "columnCount": 8,
+            "columnCount": 9,
             "fieldProfiles": [
                 {
-                    "fieldPath": "urn"
+                    "fieldPath": "urn",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
                 },
                 {
-                    "fieldPath": "aspect"
+                    "fieldPath": "aspect",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
                 },
                 {
-                    "fieldPath": "version"
+                    "fieldPath": "version",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
                 },
                 {
-                    "fieldPath": "metadata"
+                    "fieldPath": "metadata",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
                 },
                 {
-                    "fieldPath": "systemmetadata"
+                    "fieldPath": "systemmetadata",
+                    "uniqueCount": 0,
+                    "nullCount": 2,
+                    "nullProportion": 1
                 },
                 {
-                    "fieldPath": "createdon"
+                    "fieldPath": "createdon",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
                 },
                 {
-                    "fieldPath": "createdby"
+                    "fieldPath": "createdby",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0
                 },
                 {
-                    "fieldPath": "createdfor"
+                    "fieldPath": "createdfor",
+                    "uniqueCount": 0,
+                    "nullCount": 2,
+                    "nullProportion": 1
+                },
+                {
+                    "fieldPath": "metadata_json"
                 }
             ]
         }

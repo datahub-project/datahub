@@ -23,10 +23,8 @@ import BrowseSidebar from './sidebar';
 import ToggleSidebarButton from './ToggleSidebarButton';
 import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
-import analytics from '../analytics/analytics';
-import useToggle from '../shared/useToggle';
-import { EventType } from '../analytics';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
+import useToggleSidebar from './useToggleSidebar';
 
 const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
     display: flex;
@@ -151,6 +149,7 @@ export const SearchResults = ({
 }: Props) => {
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
+    const { isSidebarOpen, toggleSidebar } = useToggleSidebar();
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
@@ -160,15 +159,6 @@ export const SearchResults = ({
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
-
-    const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useToggle({
-        initialValue: true,
-        onToggle: (isNowOpen: boolean) =>
-            analytics.event({
-                type: EventType.BrowseV2ToggleSidebarEvent,
-                action: isNowOpen ? 'open' : 'close',
-            }),
-    });
 
     return (
         <>
