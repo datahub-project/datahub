@@ -2,16 +2,14 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_user_urn,
-)
+from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
@@ -104,13 +102,19 @@ class SnowflakeJoinedAccessEvent(PermissiveModel):
 class SnowflakeUsageExtractor(
     SnowflakeQueryMixin, SnowflakeConnectionMixin, SnowflakeCommonMixin
 ):
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        dataset_urn_builder: Callable[[str], str],
+    ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
+        self.dataset_urn_builder = dataset_urn_builder
         self.logger = logger
         self.connection: Optional[SnowflakeConnection] = None
 
-    def get_workunits(
+    def get_usage_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         self.connection = self.create_connection()
@@ -138,7 +142,14 @@ class SnowflakeUsageExtractor(
         # Now, we report the usage as well as operation metadata even if user email is absent
 
         if self.config.include_usage_stats:
-            yield from self.get_usage_workunits(discovered_datasets)
+            yield from auto_empty_dataset_usage_statistics(
+                self._get_workunits_internal(discovered_datasets),
+                config=self.config,
+                dataset_urns={
+                    self.dataset_urn_builder(dataset_identifier)
+                    for dataset_identifier in discovered_datasets
+                },
+            )
 
         if self.config.include_operational_stats:
             # Generate the operation workunits.
@@ -148,7 +159,7 @@ class SnowflakeUsageExtractor(
                     event, discovered_datasets
                 )
 
-    def get_usage_workunits(
+    def _get_workunits_internal(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
@@ -210,15 +221,9 @@ class SnowflakeUsageExtractor(
                 userCounts=self._map_user_counts(json.loads(row["USER_COUNTS"])),
                 fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
             )
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                self.platform,
-                dataset_identifier,
-                self.config.platform_instance,
-                self.config.env,
-            )
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=stats
+                entityUrn=self.dataset_urn_builder(dataset_identifier), aspect=stats
             ).as_workunit()
         except Exception as e:
             logger.debug(
@@ -368,12 +373,6 @@ class SnowflakeUsageExtractor(
                     )
                     continue
 
-                dataset_urn = make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_identifier,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
                 operation_aspect = OperationClass(
                     timestampMillis=reported_time,
                     lastUpdatedTimestamp=last_updated_timestamp,
@@ -384,7 +383,7 @@ class SnowflakeUsageExtractor(
                     else None,
                 )
                 mcp = MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
+                    entityUrn=self.dataset_urn_builder(dataset_identifier),
                     aspect=operation_aspect,
                 )
                 wu = MetadataWorkUnit(

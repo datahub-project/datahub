@@ -23,6 +23,13 @@ import { useGlossaryEntityData } from '../../GlossaryEntityContext';
 import usePrevious from '../../../../shared/usePrevious';
 import { GLOSSARY_ENTITY_TYPES } from '../../constants';
 
+/**
+ * The structure of our path will be
+ *
+ * /<entity-name>/<entity-urn>/<tab-name>
+ */
+const ENTITY_TAB_NAME_REGEX_PATTERN = '^/[^/]+/[^/]+/([^/]+).*';
+
 export function getDataForEntityType<T>({
     data: entityData,
     getOverrideProperties,
@@ -103,18 +110,28 @@ export function useEntityPath(entityType: EntityType, urn: string, tabName?: str
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    const splitPathName = trimmedPathName.split('/');
-    const lastTokenInPath = splitPathName[splitPathName.length - 1];
-    const routedTab = tabs.find((tab) => tab.name === lastTokenInPath);
-    return routedTab;
+    // Match against the regex
+    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
+    if (match && match[1]) {
+        const selectedTabPath = match[1];
+        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
+        return routedTab;
+    }
+    // No match found!
+    return undefined;
 }
 
 export function useIsOnTab(tabName: string): boolean {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    const splitPathName = trimmedPathName.split('/');
-    const lastTokenInPath = splitPathName[splitPathName.length - 1];
-    return lastTokenInPath === tabName;
+    // Match against the regex
+    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
+    if (match && match[1]) {
+        const selectedTabPath = match[1];
+        return selectedTabPath === tabName;
+    }
+    // No match found!
+    return false;
 }
 
 export function formatDateString(time: number) {
