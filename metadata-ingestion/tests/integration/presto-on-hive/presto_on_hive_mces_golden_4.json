@@ -229,9 +229,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
+                            "create_date": "2023-07-03"
                         },
                         "name": "map_test",
                         "tags": []
@@ -399,9 +399,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
+                            "create_date": "2023-07-03"
                         },
                         "name": "union_test",
                         "tags": []
@@ -561,9 +561,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
+                            "create_date": "2023-07-03"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -707,12 +707,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
+                            "create_date": "2023-07-03"
                         },
                         "name": "array_struct_test",
-                        "description": "This table has array of structs",
                         "tags": []
                     }
                 }
@@ -848,9 +847,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
+                            "create_date": "2023-07-03"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -958,9 +957,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
-                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore"
+                            "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
+                            "create_date": "2023-07-03"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -1081,9 +1080,9 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_date": "2023-05-12",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
+                            "create_date": "2023-07-03",
                             "partitioned_columns": "baz"
                         },
                         "name": "pokes",
