@@ -151,6 +151,122 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"bar\":\"true\",\"foo\":\"true\"}}",
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
+                            "bucketing_version": "2",
+                            "external.table.purge": "TRUE",
+                            "numfiles": "0",
+                            "numfileserasurecoded": "0",
+                            "numrows": "0",
+                            "rawdatasize": "0",
+                            "totalsize": "0",
+                            "transient_lastddltime": "1688428836"
+                        },
+                        "name": "_test_table_underscore",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "hivedb.db1._test_table_underscore",
+                        "platform": "urn:li:dataPlatform:trino",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "foo",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "bar",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -178,13 +294,18 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
                             "another.comment": "This table has no partitions",
+                            "bucketing_version": "2",
                             "comment": "This table has array of structs",
+                            "external.table.purge": "TRUE",
                             "numfiles": "1",
+                            "numfileserasurecoded": "0",
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1683850708"
+                            "transient_lastddltime": "1688428843"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -328,12 +449,17 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"keyvalue\":\"true\",\"recordid\":\"true\"}}",
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
+                            "bucketing_version": "2",
+                            "external.table.purge": "TRUE",
                             "numfiles": "0",
+                            "numfileserasurecoded": "0",
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1683850711"
+                            "transient_lastddltime": "1688428848"
                         },
                         "name": "map_test",
                         "tags": []
@@ -443,12 +569,17 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"property_id\":\"true\",\"service\":\"true\"}}",
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
+                            "bucketing_version": "2",
+                            "external.table.purge": "TRUE",
                             "numfiles": "0",
+                            "numfileserasurecoded": "0",
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1683850711"
+                            "transient_lastddltime": "1688428848"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -607,7 +738,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1683850703"
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
+                            "bucketing_version": "2",
+                            "external.table.purge": "TRUE",
+                            "transient_lastddltime": "1688428833"
                         },
                         "name": "pokes",
                         "tags": []
@@ -725,12 +860,17 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"property_id\":\"true\",\"service\":\"true\"}}",
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
+                            "bucketing_version": "2",
+                            "external.table.purge": "TRUE",
                             "numfiles": "0",
+                            "numfileserasurecoded": "0",
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1683850705"
+                            "transient_lastddltime": "1688428837"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -867,9 +1007,14 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "numfiles": "0",
-                            "totalsize": "0",
-                            "transient_lastddltime": "1683850711"
+                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"bar\":\"true\",\"baz\":\"true\",\"foo\":\"true\"}}",
+                            "bucketing_version": "2",
+                            "numfiles": "1",
+                            "numfileserasurecoded": "0",
+                            "numrows": "500",
+                            "rawdatasize": "91500",
+                            "totalsize": "2654",
+                            "transient_lastddltime": "1688428847"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -878,148 +1023,6 @@
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
                         "schemaName": "hivedb.db1.struct_test_view_materialized",
-                        "platform": "urn:li:dataPlatform:trino",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "property_id",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "INTEGER()",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
-                                    }
-                                },
-                                "nativeDataType": "ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))])",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))])\"}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "VARCHAR()",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
-                                            "nestedType": [
-                                                "int"
-                                            ]
-                                        }
-                                    }
-                                },
-                                "nativeDataType": "ARRAY(INTEGER())",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
-                            }
-                        ]
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:304fd7ad57dc0ab32fb2cb778cbccd84"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-hive-test"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
-                            "numfiles": "0",
-                            "numrows": "0",
-                            "rawdatasize": "0",
-                            "totalsize": "0",
-                            "transient_lastddltime": "1683850705"
-                        },
-                        "name": "_test_table_underscore",
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "hivedb.db1._test_table_underscore",
                         "platform": "urn:li:dataPlatform:trino",
                         "version": 0,
                         "created": {
@@ -1060,6 +1063,18 @@
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
                                 "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "baz",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR()",
+                                "recursive": false,
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1074,7 +1089,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1._test_table_underscore,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,hivedb.db1.struct_test_view_materialized,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1117,12 +1132,17 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\"}",
+                            "column_stats_accurate": "{\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"foo\":\"true\"}}",
+                            "external": "TRUE",
+                            "translated_to_external": "TRUE",
+                            "bucketing_version": "2",
+                            "external.table.purge": "TRUE",
                             "numfiles": "0",
+                            "numfileserasurecoded": "0",
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1683850711"
+                            "transient_lastddltime": "1688428848"
                         },
                         "name": "union_test",
                         "tags": []
@@ -1312,7 +1332,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1683850711",
+                            "bucketing_version": "2",
+                            "transient_lastddltime": "1688428847",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\"",
                             "is_view": "True"
                         },

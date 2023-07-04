@@ -43,7 +43,7 @@ def test_resources_dir(pytestconfig):
 @pytest.fixture(scope="module")
 def loaded_presto_on_hive(presto_on_hive_runner):
     # Set up the container.
-    command = "docker exec hiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
+    command = "docker exec hiveserver2 beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
     subprocess.run(command, shell=True, check=True)
     # Create presto view so we can test
     command = "docker exec presto-cli /usr/bin/presto --server presto:8080 --catalog hivedb --execute 'CREATE VIEW db1.array_struct_test_presto_view as select * from db1.array_struct_test'"
@@ -86,9 +86,10 @@ def test_presto_on_hive_ingest(
                 "config": {
                     "host_port": "localhost:5432",
                     "database": "db1",
-                    "metastore_db_name": "metastore",
+                    "metastore_db_name": "metastore_db",
                     "database_alias": "hive",
                     "username": "postgres",
+                    "password": "datahub",
                     "scheme": "postgresql+psycopg2",
                     "include_views": True,
                     "include_tables": True,
@@ -148,9 +149,10 @@ def test_presto_on_hive_instance_ingest(
             "type": data_platform,
             "config": {
                 "host_port": "localhost:5432",
-                "database": "metastore",
+                "database": "metastore_db",
                 "database_alias": "hive",
                 "username": "postgres",
+                "password": "datahub",
                 "scheme": "postgresql+psycopg2",
                 "include_views": True,
                 "include_tables": True,

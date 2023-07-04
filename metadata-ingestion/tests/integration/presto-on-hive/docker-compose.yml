@@ -3,9 +3,9 @@
 version: "3"
 
 services:
-
   presto:
     image: starburstdata/presto:350-e.15
+    platform: linux/amd64
     container_name: "presto"
     ports:
       - 5300:8080
@@ -15,62 +15,65 @@ services:
       - "hive-metastore"
   presto-cli:
     image: harisekhon/presto-cli-dev:latest
+    platform: linux/amd64
     container_name: "presto-cli"
     command: "-f /dev/null"
     entrypoint: /usr/bin/tail
     depends_on:
       - "presto"
-  namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
-    volumes:
-      - namenode:/hadoop/dfs/name
-    environment:
-      - CLUSTER_NAME=test
-    env_file:
-      - ./setup/hadoop-hive.env
-    ports:
-      - "50070"
-  datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
-    volumes:
-      - datanode:/hadoop/dfs/data
-    env_file:
-      - ./setup/hadoop-hive.env
-    environment:
-      SERVICE_PRECONDITION: "namenode:50070"
-    ports:
-      - "50075:50075"
+
   hive-server:
-    image: bde2020/hive:2.3.2-postgresql-metastore
+    image: apache/hive:4.0.0-alpha-2
+    platform: linux/amd64
     container_name: "hiveserver2"
-    env_file:
-      - ./setup/hadoop-hive.env
+    user: root
     environment:
-      HIVE_CORE_CONF_javax_jdo_option_ConnectionURL: "jdbc:postgresql://hive-metastore/metastore"
-      SERVICE_PRECONDITION: "hive-metastore:9083"
+      IS_RESUME: true
+      SERVICE_NAME: hiveserver2
+      DB_DRIVER: postgres
+      SERVICE_OPTS: "-Dhive.metastore.uris=thrift://hive-metastore:9083"
     ports:
       - "10000:10000"
+      - "10002:10002"
+    entrypoint:
+      - "sh"
+      - "-c"
+      - "sleep 15 && /entrypoint.sh"
     volumes:
       - ./setup/hive_setup.sql:/hive_setup.sql
+    depends_on:
+      - "hive-metastore"
+
   hive-metastore:
-    image: bde2020/hive:2.3.2-postgresql-metastore
+    image: apache/hive:4.0.0-alpha-2
+    platform: linux/amd64
     container_name: "hive-metastore"
-    env_file:
-      - ./setup/hadoop-hive.env
-    command: /opt/hive/bin/hive --service metastore
+    user: root
     environment:
-      SERVICE_PRECONDITION: "namenode:50070 datanode:50075 hive-metastore-postgresql:5432"
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+      SERVICE_OPTS: |-
+        -Djavax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+        -Djavax.jdo.option.ConnectionURL=jdbc:postgresql://postgres:5432/metastore_db
+        -Djavax.jdo.option.ConnectionUserName=postgres
+        -Djavax.jdo.option.ConnectionPassword=datahub
     ports:
       - "9083:9083"
+    depends_on:
+      - "hive-metastore-postgresql"
+
   hive-metastore-postgresql:
-    image: bde2020/hive-metastore-postgresql:2.3.0
+    image: postgres:alpine
+    container_name: "postgres"
+    environment:
+      POSTGRES_DB: metastore_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: datahub
     ports:
       - "5432:5432"
-#  presto-coordinator:
-#    image: shawnzhu/prestodb:0.181
-#    ports:
-#      - "8080:8080"
 
-volumes:
-  namenode:
-  datanode:
+# See https://github.com/TrivadisPF/platys-modern-data-platform/issues/231
+# Underscore being added to hive metastore thrift URL in hive-server, resulting in error
+networks:
+  default:
+    name: presto-on-hive
