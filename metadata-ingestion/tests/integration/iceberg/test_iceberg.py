@@ -19,9 +19,9 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 
 
-def spark_submit(file_path: str) -> None:
+def spark_submit(file_path: str, args: str = "") -> None:
     docker = "docker"
-    command = f"{docker} exec spark-iceberg spark-submit {file_path}"
+    command = f"{docker} exec spark-iceberg spark-submit {file_path} {args}"
     ret = subprocess.run(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -39,7 +39,7 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
         # Run the create.py pyspark file to populate the table.
-        spark_submit("/home/iceberg/setup/create.py")
+        spark_submit("/home/iceberg/setup/create.py", "nyc.taxis")
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "iceberg_to_file.yml").resolve()
@@ -114,8 +114,9 @@ def test_iceberg_stateful_ingest(
     ) as mock_checkpoint:
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
-        # Run the create.py pyspark file to populate the table.
-        spark_submit("/home/iceberg/setup/create.py")
+        # Run the create.py pyspark file to populate two tables.
+        spark_submit("/home/iceberg/setup/create.py", "nyc.taxis")
+        spark_submit("/home/iceberg/setup/create.py", "nyc.another_taxis")
 
         # Both checkpoint and reporting will use the same mocked graph instance.
         mock_checkpoint.return_value = mock_datahub_graph
@@ -164,9 +165,16 @@ def test_iceberg_stateful_ingest(
             pipeline=pipeline_run2, expected_providers=1
         )
 
+        ignore_paths: List[str] = [
+            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
+            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
+            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
+        ]
+
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            ignore_paths=ignore_paths,
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "iceberg_deleted_table_mces_golden.json",
         )
@@ -183,7 +191,7 @@ def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_t
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
         # Run the create.py pyspark file to populate the table.
-        spark_submit("/home/iceberg/setup/create.py")
+        spark_submit("/home/iceberg/setup/create.py", "nyc.taxis")
 
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "iceberg_profile_to_file.yml").resolve()

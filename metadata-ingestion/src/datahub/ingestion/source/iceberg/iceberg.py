@@ -3,7 +3,6 @@ import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
-from pyiceberg.exceptions import NoSuchIcebergTableError
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.types import (

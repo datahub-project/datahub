@@ -132,28 +132,36 @@ class IcebergProfiler:
         null_counts: Dict[int, int] = {}
         min_bounds: Dict[int, Any] = {}
         max_bounds: Dict[int, Any] = {}
-        for manifest in current_snapshot.manifests(table.io):
-            for manifest_entry in manifest.fetch_manifest_entry(table.io):
-                data_file = manifest_entry.data_file
-                if self.config.include_field_null_count:
-                    null_counts = self._aggregate_counts(
-                        null_counts, data_file.null_value_counts
-                    )
-                if self.config.include_field_min_value:
-                    self._aggregate_bounds(
-                        table.schema(),
-                        min,
-                        min_bounds,
-                        data_file.lower_bounds,
-                    )
-                if self.config.include_field_max_value:
-                    self._aggregate_bounds(
-                        table.schema(),
-                        max,
-                        max_bounds,
-                        data_file.upper_bounds,
-                    )
-                total_count += data_file.record_count
+        try:
+            for manifest in current_snapshot.manifests(table.io):
+                for manifest_entry in manifest.fetch_manifest_entry(table.io):
+                    data_file = manifest_entry.data_file
+                    if self.config.include_field_null_count:
+                        null_counts = self._aggregate_counts(
+                            null_counts, data_file.null_value_counts
+                        )
+                    if self.config.include_field_min_value:
+                        self._aggregate_bounds(
+                            table.schema(),
+                            min,
+                            min_bounds,
+                            data_file.lower_bounds,
+                        )
+                    if self.config.include_field_max_value:
+                        self._aggregate_bounds(
+                            table.schema(),
+                            max,
+                            max_bounds,
+                            data_file.upper_bounds,
+                        )
+                    total_count += data_file.record_count
+        except Exception as e:
+            # Catch any errors that arise from attempting to read the Iceberg table's manifests
+            # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
+            self.report.report_warning(
+                "profiling",
+                f"Error while profiling dataset {dataset_name}: {e}",
+            )
         if row_count:
             # Iterating through fieldPaths introduces unwanted stats for list element fields...
             for field_path, field_id in table.schema()._name_to_id.items():
