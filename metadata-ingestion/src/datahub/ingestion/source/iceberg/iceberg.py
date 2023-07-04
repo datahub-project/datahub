@@ -112,16 +112,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     The DataHub Iceberg source plugin extracts metadata from [Iceberg tables](https://iceberg.apache.org/spec/) stored in a distributed or local file system.
     Typically, Iceberg tables are stored in a distributed file system like S3 or Azure Data Lake Storage (ADLS) and registered in a catalog.  There are various catalog
     implementations like Filesystem-based, RDBMS-based or even REST-based catalogs.  This Iceberg source plugin relies on the
-    [pyiceberg library](https://py.iceberg.apache.org/) and its support for catalogs is limited at the moment.
-    A new version of pyiceberg is currently in development and should fix this.
-    Because of this limitation, this source plugin **will only ingest HadoopCatalog-based tables that have a `version-hint.text` metadata file**.
-
-    Ingestion of tables happens in 2 steps:
-    1. Discover Iceberg tables stored in file system.
-    2. Load discovered tables using pyiceberg.
-
-    The current implementation of the Iceberg source plugin will only discover tables stored in a local file system or in ADLS.  Support for S3 could
-    be added fairly easily.
+    [pyiceberg library](https://py.iceberg.apache.org/).
     """
 
     def __init__(self, config: IcebergSourceConfig, ctx: PipelineContext) -> None:
@@ -156,34 +147,12 @@ class IcebergSource(StatefulIngestionSourceBase):
                         continue
                     else:
                         datasets.append((tableName, dataset_name))
-        else:
-            # Will be obsolete once HadoopCatalog is supported by PyIceberg, or we migrate to REST catalog
-            for (
-                dataset_path,
-                dataset_name,
-            ) in self.config.get_paths():  # Tuple[str, str]
-                if not self.config.table_pattern.allowed(dataset_name):
-                    # Dataset name is rejected by pattern, report as dropped.
-                    self.report.report_dropped(dataset_name)
-                    continue
-                else:
-                    datasets.append((dataset_path, dataset_name))
 
         for dataset_path, dataset_name in datasets:
             try:
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
-                if isinstance(dataset_path, str):
-                    table = self.config.load_table(dataset_name, dataset_path)
-                else:
-                    table = catalog.load_table(dataset_path)
+                table = catalog.load_table(dataset_path)
                 yield from self._create_iceberg_workunit(dataset_name, table)
-            except NoSuchIcebergTableError:
-                # Path did not contain a valid Iceberg table. Silently ignore this.
-                # Once we move to catalogs, this won't be needed.
-                LOGGER.debug(
-                    f"Path {dataset_path} does not contain table {dataset_name}"
-                )
-                pass
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(

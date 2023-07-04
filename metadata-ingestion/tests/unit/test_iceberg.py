@@ -1,6 +1,7 @@
 from typing import Any, Optional
 
 import pytest
+from pydantic import ValidationError
 from pyiceberg.schema import Schema
 from pyiceberg.types import (
     BinaryType,
@@ -24,9 +25,7 @@ from pyiceberg.types import (
     UUIDType,
 )
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 from datahub.ingestion.source.iceberg.iceberg import IcebergSource, IcebergSourceConfig
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
@@ -44,12 +43,10 @@ from datahub.metadata.schema_classes import (
 
 
 def with_iceberg_source() -> IcebergSource:
-    adls: AdlsSourceConfig = AdlsSourceConfig(
-        account_name="test", account_key="test", container_name="test"
-    )
+    catalog: IcebergCatalogConfig = IcebergCatalogConfig(name="test", conf={})
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
-        config=IcebergSourceConfig(adls=adls),
+        config=IcebergSourceConfig(catalog=catalog),
     )
 
 
@@ -70,66 +67,26 @@ def assert_field(
     ), f"Field type {schema_field.type.type} is different from expected type {expected_type}"
 
 
-def test_adls_config_no_credential():
+def test_config_no_catalog():
     """
-    Test when no ADLS credential information is provided (SAS token, Account key).
+    Test when no Iceberg catalog is provided.
     """
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(account_name="test", container_name="test")
+    with pytest.raises(ValidationError, match="catalog"):
+        IcebergSourceConfig()  # type: ignore
 
 
-def test_adls_config_with_sas_credential():
+def test_config_catalog_not_configured():
     """
-    Test when a SAS token is used as an ADLS credential.
+    Test when an Iceberg catalog is provided, but not properly configured.
     """
-    AdlsSourceConfig(account_name="test", sas_token="test", container_name="test")
+    with pytest.raises(ValidationError):
+        IcebergCatalogConfig()  # type: ignore
 
+    with pytest.raises(ValidationError, match="conf"):
+        IcebergCatalogConfig(name="a name")  # type: ignore
 
-def test_adls_config_with_key_credential():
-    """
-    Test when an account key is used as an ADLS credential.
-    """
-    AdlsSourceConfig(account_name="test", account_key="test", container_name="test")
-
-
-def test_adls_config_with_client_secret_credential():
-    """
-    Test when a client secret is used as an ADLS credential.
-    """
-    AdlsSourceConfig(
-        account_name="test",
-        tenant_id="test",
-        client_id="test",
-        client_secret="test",
-        container_name="test",
-    )
-
-    # Test when tenant_id is missing
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(
-            account_name="test",
-            client_id="test",
-            client_secret="test",
-            container_name="test",
-        )
-
-    # Test when client_id is missing
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(
-            account_name="test",
-            tenant_id="test",
-            client_secret="test",
-            container_name="test",
-        )
-
-    # Test when client_secret is missing
-    with pytest.raises(ConfigurationError):
-        AdlsSourceConfig(
-            account_name="test",
-            tenant_id="test",
-            client_id="test",
-            container_name="test",
-        )
+    with pytest.raises(ValidationError, match="name"):
+        IcebergCatalogConfig(conf={})  # type: ignore
 
 
 def test_config_for_tests():
@@ -137,47 +94,6 @@ def test_config_for_tests():
     Test valid iceberg source that will be used in unit tests.
     """
     with_iceberg_source()
-
-
-def test_config_no_filesystem():
-    """
-    Test when no filesystem is configured.
-    """
-    with pytest.raises(ConfigurationError):
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(),
-        )
-
-
-def test_config_multiple_filesystems():
-    """
-    Test when more than 1 filesystem is configured.
-    """
-    catalog = IcebergCatalogConfig(name="default", conf={})
-    adls = AdlsSourceConfig(
-        account_name="test", account_key="test", container_name="test"
-    )
-    with pytest.raises(ConfigurationError):
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(catalog=catalog, adls=adls, localfs="/tmp"),
-        )
-    with pytest.raises(ConfigurationError):
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(catalog=catalog, adls=adls),
-        )
-    with pytest.raises(ConfigurationError):
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(catalog=catalog, localfs="/tmp"),
-        )
-    with pytest.raises(ConfigurationError):
-        IcebergSource(
-            ctx=PipelineContext(run_id="iceberg-source-test"),
-            config=IcebergSourceConfig(adls=adls, localfs="/tmp"),
-        )
 
 
 @pytest.mark.parametrize(
