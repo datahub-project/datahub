@@ -131,3 +131,66 @@ You can now see the lineage between `fct_users_deleted` and `logging_events`.
 You can now see the column-level lineage between datasets. Note that you have to enable `Show Columns` to be able to see the column-level lineage.
 
 ![column-level-lineage-added](../../imgs/apis/tutorials/column-level-lineage-added.png)
+
+## Read Lineage
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+mutation searchAcrossLineage {
+  searchAcrossLineage(
+    input: {
+      query: "*"
+      urn: "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD)"
+      start: 0
+      count: 10
+      direction: DOWNSTREAM
+      orFilters: [
+        {
+          and: [
+            {
+              condition: EQUAL
+              negated: false
+              field: "degree"
+              values: ["1", "2", "3+"]
+            }
+          ]
+        }
+      ]
+    }
+  ) {
+    searchResults {
+      degree
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}
+```
+
+This example shows using lineage degrees as a filter, but additional search filters can be included here as well. 
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json'  --data-raw '{ { "query": "mutation searchAcrossLineage { searchAcrossLineage( input: { query: \"*\" urn: \"urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD)\" start: 0 count: 10 direction: DOWNSTREAM orFilters: [ { and: [ { condition: EQUAL negated: false field: \"degree\" values: [\"1\", \"2\", \"3+\"] } ] } ] } ) { searchResults { degree entity { urn type } } }}"
+}}'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/read_lineage_rest.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+This will perform a multi-hop lineage search on the urn specified. For more information about the `searchAcrossLineage` mutation, please refer to [searchAcrossLineage](https://datahubproject.io/docs/graphql/queries/#searchacrosslineage).
