@@ -300,6 +300,11 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
               label: "Evaluate Tests",
               id: "docs/api/restli/evaluate-tests",
             },
