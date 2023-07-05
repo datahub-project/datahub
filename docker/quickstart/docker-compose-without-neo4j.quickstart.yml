@@ -19,7 +19,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 5
-      start_period: 5s
+      start_period: 30s
       test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
       timeout: 5s
     hostname: broker
@@ -100,8 +100,8 @@ services:
     - UI_INGESTION_ENABLED=true
     healthcheck:
       interval: 1s
-      retries: 20
-      start_period: 20s
+      retries: 3
+      start_period: 90s
       test: curl -sS --fail http://datahub-gms:${DATAHUB_MAPPED_GMS_PORT:-8080}/health
       timeout: 5s
     hostname: datahub-gms
@@ -155,8 +155,8 @@ services:
     - ES_JAVA_OPTS=-Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
     healthcheck:
       interval: 1s
-      retries: 5
-      start_period: 5s
+      retries: 3
+      start_period: 20s
       test: curl -sS --fail http://elasticsearch:$${DATAHUB_MAPPED_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
       timeout: 5s
     hostname: elasticsearch
@@ -242,8 +242,8 @@ services:
     - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=broker:29092
     healthcheck:
       interval: 1s
-      retries: 5
-      start_period: 5s
+      retries: 3
+      start_period: 30s
       test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
       timeout: 5s
     hostname: schema-registry
@@ -257,8 +257,8 @@ services:
     - ZOOKEEPER_TICK_TIME=2000
     healthcheck:
       interval: 5s
-      retries: 5
-      start_period: 2s
+      retries: 3
+      start_period: 10s
       test: echo srvr | nc zookeeper $${DATAHUB_MAPPED_ZK_PORT:-2181}
       timeout: 5s
     hostname: zookeeper

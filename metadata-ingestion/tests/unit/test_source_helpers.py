@@ -1,16 +1,21 @@
+import logging
+from datetime import datetime
 from typing import Any, Dict, Iterable, List, Union
 from unittest.mock import patch
 
+from freezegun import freeze_time
+
 import datahub.metadata.schema_classes as models
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
     make_container_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
+    auto_empty_dataset_usage_statistics,
     auto_status_aspect,
     auto_workunit,
 )
@@ -298,7 +303,6 @@ def test_auto_browse_path_v2_container_over_legacy_browse_path(telemetry_ping_mo
 def test_auto_browse_path_v2_with_platform_instsance(telemetry_ping_mock):
     platform = "my_platform"
     platform_instance = "my_instance"
-    platform_key = PlatformKey(platform=platform, instance=platform_instance)
     platform_instance_urn = make_dataplatform_instance_urn(platform, platform_instance)
     platform_instance_entry = models.BrowsePathEntryClass(
         platform_instance_urn, platform_instance_urn
@@ -310,7 +314,8 @@ def test_auto_browse_path_v2_with_platform_instsance(telemetry_ping_mock):
     new_wus = list(
         auto_browse_path_v2(
             wus,
-            platform_key=platform_key,
+            platform=platform,
+            platform_instance=platform_instance,
         )
     )
     assert telemetry_ping_mock.call_count == 0
@@ -404,3 +409,100 @@ def test_auto_browse_path_v2_dry_run(telemetry_ping_mock):
         == 0
     )
     assert telemetry_ping_mock.call_count == 1
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_auto_empty_dataset_usage_statistics(caplog):
+    has_urn = make_dataset_urn("my_platform", "has_aspect")
+    empty_urn = make_dataset_urn("my_platform", "no_aspect")
+    config = BaseTimeWindowConfig()
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=has_urn,
+            aspect=models.DatasetUsageStatisticsClass(
+                timestampMillis=int(config.start_time.timestamp() * 1000),
+                eventGranularity=models.TimeWindowSizeClass(
+                    models.CalendarIntervalClass.DAY
+                ),
+                uniqueUserCount=1,
+                totalSqlQueries=1,
+            ),
+        ).as_workunit()
+    ]
+    with caplog.at_level(logging.WARNING):
+        new_wus = list(
+            auto_empty_dataset_usage_statistics(
+                wus,
+                dataset_urns={has_urn, empty_urn},
+                config=config,
+                all_buckets=False,
+            )
+        )
+        assert not caplog.records
+
+    assert new_wus == [
+        *wus,
+        MetadataChangeProposalWrapper(
+            entityUrn=empty_urn,
+            aspect=models.DatasetUsageStatisticsClass(
+                timestampMillis=int(datetime(2023, 1, 1).timestamp() * 1000),
+                eventGranularity=models.TimeWindowSizeClass(
+                    models.CalendarIntervalClass.DAY
+                ),
+                uniqueUserCount=0,
+                totalSqlQueries=0,
+                topSqlQueries=[],
+                userCounts=[],
+                fieldCounts=[],
+            ),
+        ).as_workunit(),
+    ]
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_auto_empty_dataset_usage_statistics_invalid_timestamp(caplog):
+    urn = make_dataset_urn("my_platform", "my_dataset")
+    config = BaseTimeWindowConfig()
+    wus = [
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=models.DatasetUsageStatisticsClass(
+                timestampMillis=0,
+                eventGranularity=models.TimeWindowSizeClass(
+                    models.CalendarIntervalClass.DAY
+                ),
+                uniqueUserCount=1,
+                totalSqlQueries=1,
+            ),
+        ).as_workunit()
+    ]
+    with caplog.at_level(logging.WARNING):
+        new_wus = list(
+            auto_empty_dataset_usage_statistics(
+                wus,
+                dataset_urns={urn},
+                config=config,
+                all_buckets=True,
+            )
+        )
+        assert len(caplog.records) == 1
+        assert "1970-01-01 00:00:00+00:00" in caplog.records[0].msg
+
+    assert new_wus == [
+        *wus,
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=models.DatasetUsageStatisticsClass(
+                timestampMillis=int(config.start_time.timestamp() * 1000),
+                eventGranularity=models.TimeWindowSizeClass(
+                    models.CalendarIntervalClass.DAY
+                ),
+                uniqueUserCount=0,
+                totalSqlQueries=0,
+                topSqlQueries=[],
+                userCounts=[],
+                fieldCounts=[],
+            ),
+            changeType=models.ChangeTypeClass.CREATE,
+        ).as_workunit(),
+    ]

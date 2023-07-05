@@ -28,17 +28,19 @@ import {
     Container,
     PlatformPrivileges,
     FilterOperator,
+    AppConfig,
 } from './types.generated';
 import { GetTagDocument } from './graphql/tag.generated';
 import { GetMlModelDocument } from './graphql/mlModel.generated';
 import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
-import { GetEntityCountsDocument } from './graphql/app.generated';
+import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
 import { GetMeDocument } from './graphql/me.generated';
 import { ListRecommendationsDocument } from './graphql/recommendations.generated';
 import { FetchedEntity } from './app/lineage/types';
+import { DEFAULT_APP_CONFIG } from './appConfigContext';
 
-const user1 = {
+export const user1 = {
     username: 'sdas',
     urn: 'urn:li:corpuser:1',
     type: EntityType.CorpUser,
@@ -119,7 +121,7 @@ const user2 = {
     settings: { appearance: { showSimplifiedHomepage: false }, views: { defaultView: null } },
 };
 
-const dataPlatform = {
+export const dataPlatform = {
     urn: 'urn:li:dataPlatform:hdfs',
     name: 'HDFS',
     type: EntityType.DataPlatform,
@@ -127,7 +129,22 @@ const dataPlatform = {
         displayName: 'HDFS',
         type: PlatformType.FileSystem,
         datasetNameDelimiter: '.',
-        logoUrl: '',
+        logoUrl:
+            'https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/lookerlogo.png',
+    },
+};
+
+export const dataPlatformInstance = {
+    urn: 'urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)',
+    type: EntityType.DataPlatformInstance,
+    instanceId: 'clickhousetestserver',
+    platform: {
+        type: 'DATA_PLATFORM',
+        urn: 'urn:li:dataPlatform:clickhouse',
+        properties: {
+            displayName: 'ClickHouse',
+            logoUrl: '/assets/platforms/clickhouselogo.png',
+        },
     },
 };
 
@@ -213,6 +230,7 @@ export const dataset1 = {
                     actor: 'urn:li:corpuser:1',
                     time: 1612396473001,
                 },
+                associatedUrn: 'urn:li:dataset:1',
             },
         ],
     },
@@ -238,6 +256,7 @@ export const dataset1 = {
     testResults: null,
     statsSummary: null,
     embed: null,
+    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
 };
 
 export const dataset2 = {
@@ -331,6 +350,7 @@ export const dataset2 = {
     testResults: null,
     statsSummary: null,
     embed: null,
+    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
 };
 
 export const dataset3 = {
@@ -453,6 +473,7 @@ export const dataset3 = {
                     actor: 'urn:li:corpuser:1',
                     time: 1612396473001,
                 },
+                associatedUrn: 'urn:li:dataset:3',
             },
         ],
     },
@@ -508,6 +529,7 @@ export const dataset3 = {
     siblings: null,
     statsSummary: null,
     embed: null,
+    browsePathV2: { path: [{ name: 'test', entity: null }], __typename: 'BrowsePathV2' },
 } as Dataset;
 
 export const dataset3WithSchema = {
@@ -3544,6 +3566,26 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
+        },
+    },
+];
+
+export const mocksWithSearchFlagsOff = [
+    ...mocks,
+    {
+        request: {
+            query: AppConfigDocument,
+        },
+        result: {
+            data: {
+                appConfig: {
+                    ...DEFAULT_APP_CONFIG,
+                    featureFlags: {
+                        ...DEFAULT_APP_CONFIG.featureFlags,
+                        showSearchFiltersV2: false,
+                    },
+                } as AppConfig,
+            },
         },
     },
 ];

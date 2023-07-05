@@ -32,6 +32,8 @@ HOME_PAGE_ONBOARDING_IDS: List[str] = [
 SEARCH_ONBOARDING_IDS: List[str] = [
     "search-results-filters",
     "search-results-advanced-search",
+    "search-results-filters-v2-intro",
+    "search-results-browse-sidebar",
 ]
 
 ENTITY_PROFILE_ONBOARDING_IDS: List[str] = [

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.GlobalTags;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.DataFlowProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -68,7 +70,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
             dataFlow.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataFlow, dataMap) -> this.mapGlobalTags(dataFlow, dataMap, entityUrn));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataFlow, dataMap) ->
-            dataFlow.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            dataFlow.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataFlow, dataMap) ->
             dataFlow.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
@@ -76,6 +78,8 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
             dataFlow.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+        mappingHelper.mapToResult(BROWSE_PATHS_V2_ASPECT_NAME, (dataFlow, dataMap) ->
+            dataFlow.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
 
         return mappingHelper.getResult();
     }
