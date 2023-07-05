@@ -2,6 +2,7 @@ package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -309,15 +310,15 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
     // If the policy does not apply to owners, or there is no resource to own, return false immediately.
-    if (!actorFilter.isResourceOwners() || !requestResource.isPresent()) {
+    if (!actorFilter.isResourceOwners() || !actorFilter.isPlatformInstanceOwners() || !requestResource.isPresent() ) {
       return false;
     }
-    List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
-    return isActorOwner(actor, requestResource.get(), ownershipTypes, context);
+    List<Urn> resourceOwnershipTypes = actorFilter.getResourceOwnersTypes();
+    List<Urn> platformInstanceOwnershipTypes = actorFilter.getPlatformInstanceOwnersTypes();
+    return isActorOwner(actor, requestResource.get(), resourceOwnershipTypes, platformInstanceOwnershipTypes, context);
   }
 
-  private Set<String> getOwnersForType(ResourceSpec resourceSpec, List<Urn> ownershipTypes) {
-    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+  private Set<String> getEntityOwnersForType(Urn entityUrn, List<Urn> ownershipTypes) {
     EnvelopedAspect ownershipAspect;
     try {
       EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
@@ -338,8 +339,15 @@ public class PolicyEngine {
     return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
   }
 
-  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> ownershipTypes, PolicyEvaluationContext context) {
-    Set<String> owners = this.getOwnersForType(resourceSpec.getSpec(), ownershipTypes);
+  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> resourceOwnershipTypes, List<Urn> platformInstanceOwnershipTypes, PolicyEvaluationContext context) {
+    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getSpec().getResource());
+    Set<String> owners = this.getEntityOwnersForType(entityUrn, resourceOwnershipTypes);
+    String platformInstance = resourceSpec.getPlatformInstance();
+    Set<String> platformInstanceOwners = null;
+    if (platformInstance != null) {
+      platformInstanceOwners = this.getEntityOwnersForType(UrnUtils.getUrn(platformInstance), resourceOwnershipTypes);
+      owners.addAll(platformInstanceOwners);
+    }
     if (isUserOwner(actor, owners)) {
       return true;
     }

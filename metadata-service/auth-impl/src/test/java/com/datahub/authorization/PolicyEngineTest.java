@@ -52,6 +52,8 @@ public class PolicyEngineTest {
 
   private static final String DOMAIN_URN = "urn:li:domain:domain1";
 
+  private static final String PLATFORM_INSTANCE_URN = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)";
+
   private static final String OWNERSHIP_TYPE_URN = "urn:li:ownershipType:__system__technical_owner";
 
   private static final String OTHER_OWNERSHIP_TYPE_URN = "urn:li:ownershipType:__system__data_steward";

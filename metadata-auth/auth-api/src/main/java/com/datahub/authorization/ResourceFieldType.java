@@ -19,5 +19,9 @@ public enum ResourceFieldType {
   /**
    * Domains of resource
    */
-  DOMAIN
+  DOMAIN,
+  /**
+   * Platform instance of resource
+   */
+  PLATFORM_INSTANCE
 }
