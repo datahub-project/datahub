@@ -1,6 +1,7 @@
 import time
 
 import pytest
+import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
@@ -42,8 +43,22 @@ def test_nifi_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
             timeout=60,
         )
 
-        # Wait for nifi to execute all processors
-        time.sleep(120)
+        # Wait for nifi to execute all processors, max wait time 120 seconds
+        url = "http://localhost:9080/nifi-api/flow/process-groups/root"
+        for i in range(23):
+            time.sleep(5)
+            resp = requests.get(url)
+            if resp.status_code != 200:
+                continue
+            else:
+                break
+
+            pgs = resp.json()["processGroupFlow"]["flow"]["processGroups"]
+            statuses = [pg["status"] for pg in pgs]
+            status = next(s for s in statuses if s["name"] == "Cluster_Site_S3_to_S3")
+            if status["aggregateSnapshot"]["flowFilesSent"] == 2:
+                break
+        time.sleep(5)
 
         # Run the metadata ingestion pipeline.
         with fs_helpers.isolated_filesystem(tmp_path):
