@@ -33,6 +33,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             timestamp: `${profileDate.toLocaleDateString()} at ${profileDate.toLocaleTimeString()}`,
             rowCount: profile.rowCount?.toString() || 'unknown',
             columnCount: profile.columnCount?.toString() || 'unknown',
+            sizeInBytes: profile.sizeInBytes?.toString() || 'unknown',
         };
     });
 
@@ -58,6 +59,11 @@ export default function ProfilingRunsChart({ profiles }: Props) {
             title: 'Column Count',
             key: 'Column Count',
             dataIndex: 'columnCount',
+        },
+        {
+            title: 'Size',
+            key: 'Size',
+            dataIndex: 'sizeInBytes',
         },
     ];
 
