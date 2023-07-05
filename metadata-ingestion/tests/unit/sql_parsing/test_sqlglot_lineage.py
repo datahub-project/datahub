@@ -1,7 +1,6 @@
 import pathlib
 
 import pytest
-from traitlets import default
 
 from datahub.testing.check_sql_parser_result import assert_sql_result
 
