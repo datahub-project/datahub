@@ -1,11 +1,15 @@
 package mock;
 
+import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.BrowsePathsV2;
+import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.SubTypes;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.TyperefDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProfile;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.ViewProperties;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.key.DataPlatformKey;
@@ -28,9 +32,16 @@ import static com.linkedin.metadata.Constants.*;
 public class MockEntitySpec implements EntitySpec {
 
   private String _name;
+  private Map<String, AspectSpec> _aspectTypeMap;
 
   public MockEntitySpec(String name) {
     _name = name;
+    _aspectTypeMap = new HashMap<>();
+    if (DATASET_ENTITY_NAME.equals(name)) {
+      _aspectTypeMap.put(BROWSE_PATHS_ASPECT_NAME, getAspectSpec(BROWSE_PATHS_ASPECT_NAME));
+      _aspectTypeMap.put(BROWSE_PATHS_V2_ASPECT_NAME, getAspectSpec(BROWSE_PATHS_V2_ASPECT_NAME));
+      _aspectTypeMap.put(DATA_PLATFORM_INSTANCE_ASPECT_NAME, getAspectSpec(DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+    }
   }
 
   @Override
@@ -82,7 +93,7 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public Map<String, AspectSpec> getAspectSpecMap() {
-    return Collections.emptyMap();
+    return _aspectTypeMap;
   }
 
   @Override
@@ -100,6 +111,10 @@ public class MockEntitySpec implements EntitySpec {
     ASPECT_TYPE_MAP.put(SUB_TYPES_ASPECT_NAME, new SubTypes());
     ASPECT_TYPE_MAP.put("datasetProfile", new DatasetProfile());
     ASPECT_TYPE_MAP.put(GLOSSARY_TERMS_ASPECT_NAME, new GlossaryTerms());
+    ASPECT_TYPE_MAP.put(DATASET_PROPERTIES_ASPECT_NAME, new DatasetProperties());
+    ASPECT_TYPE_MAP.put(BROWSE_PATHS_ASPECT_NAME, new BrowsePaths());
+    ASPECT_TYPE_MAP.put(BROWSE_PATHS_V2_ASPECT_NAME, new BrowsePathsV2());
+    ASPECT_TYPE_MAP.put(DATA_PLATFORM_INSTANCE_ASPECT_NAME, new DataPlatformInstance());
   }
   @Override
   public AspectSpec getAspectSpec(String name) {
