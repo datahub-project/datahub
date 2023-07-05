@@ -1,5 +1,4 @@
 import subprocess
-import time
 from typing import Any, Dict, List, cast
 from unittest import mock
 
