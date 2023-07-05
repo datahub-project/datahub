@@ -7,7 +7,7 @@ if [[ $(uname -m) == 'arm64' && $(uname) == 'Darwin' ]]; then
   mkdir -p "${INTEGRATIONS_DIR}"
   MINIO_CMD="minio"
 else
-  wget https://dl.min.io/server/minio/release/linux-amd64/minio -P "${INTEGRATIONS_DIR}"
+  wget https://dl.min.io/server/minio/release/$(uname)-$(uname -m)/minio -P "${INTEGRATIONS_DIR
   chmod +x "${INTEGRATIONS_DIR}/minio"
   MINIO_CMD="${INTEGRATIONS_DIR}/minio"
 fi
