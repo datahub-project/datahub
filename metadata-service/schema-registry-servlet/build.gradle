@@ -22,6 +22,7 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     testImplementation externalDependency.springBootTest
+    testImplementation project(':mock-entity-registry')
     testCompile externalDependency.springBoot
     testCompile externalDependency.testContainers
     testCompile externalDependency.testContainersKafka

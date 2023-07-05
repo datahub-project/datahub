@@ -5,7 +5,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +39,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
           CompletableFuture.runAsync(() -> {
             try {
               _entityClient.deleteEntityReferences(urn, context.getAuthentication());
-            } catch (RemoteInvocationException e) {
+            } catch (Exception e) {
               log.error(String.format("Caught exception while attempting to clear all entity references for Domain with urn %s", urn), e);
             }
           });

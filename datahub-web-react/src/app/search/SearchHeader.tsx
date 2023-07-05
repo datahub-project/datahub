@@ -9,9 +9,10 @@ import { AutoCompleteResultForEntity, EntityType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
-import { useAppConfig } from '../useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { ViewSelect } from '../entity/view/select/ViewSelect';
+import DemoButton from '../entity/shared/components/styled/DemoButton';
 
 const { Header } = Layout;
 
@@ -82,6 +83,7 @@ export const SearchHeader = ({
 }: Props) => {
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const themeConfig = useTheme();
+    const showAcrylInfo = useIsShowAcrylInfoEnabled();
     const appConfig = useAppConfig();
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled;
 
@@ -118,6 +120,7 @@ export const SearchHeader = ({
                 )}
                 <HeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
+                {showAcrylInfo && <DemoButton />}
             </NavGroup>
         </Header>
     );

@@ -28,12 +28,12 @@ const PlatformIconContainer = styled.div`
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-right: 8px;
 `;
 
 const BrowseGroupListContainer = styled.div`
     background: white;
     border-radius: 8px;
-    padding-bottom: 8px;
     padding-right: 8px;
 `;
 
@@ -64,7 +64,7 @@ const PlatformNode = () => {
         if (count) toggle();
     };
 
-    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip: !isOpen });
+    const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
     const color = '#000';
 
@@ -81,7 +81,7 @@ const PlatformNode = () => {
                             dataTestId={`browse-platform-${label}`}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <ExpandableNode.Title color={color} size={14}>
+                        <ExpandableNode.Title color={color} size={14} padLeft>
                             {label}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
@@ -103,7 +103,7 @@ const PlatformNode = () => {
                                 <BrowseNode />
                             </BrowseProvider>
                         ))}
-                        {error && <SidebarLoadingError onClickRetry={refetch} />}
+                        {error && <SidebarLoadingError onClickRetry={retry} />}
                         {observable}
                     </BrowseGroupListContainer>
                 </ExpandableNode.Body>

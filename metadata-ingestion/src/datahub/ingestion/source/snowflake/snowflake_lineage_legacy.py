@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, FrozenSet, Iterable, List, Optional, Set
+from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set
 
 from pydantic import Field
 from pydantic.error_wrappers import ValidationError
@@ -177,15 +177,20 @@ class SnowflakeLineageExtractor(
     Edition Note - Snowflake Standard Edition does not have Access History Feature. So it does not support lineage extraction for edges 3, 4, 5 mentioned above.
     """
 
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
+    def __init__(
+        self,
+        config: SnowflakeV2Config,
+        report: SnowflakeV2Report,
+        dataset_urn_builder: Callable[[str], str],
+    ) -> None:
         self._lineage_map: Dict[str, SnowflakeTableLineage] = defaultdict(
             SnowflakeTableLineage
         )
         self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
-        self.platform = "snowflake"
         self.report = report
         self.logger = logger
+        self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
 
     def get_workunits(
@@ -228,31 +233,21 @@ class SnowflakeLineageExtractor(
     def get_table_upstream_workunits(self, discovered_tables):
         if self.config.include_table_lineage:
             for dataset_name in discovered_tables:
-                dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
                 upstream_lineage = self._get_upstream_lineage_info(dataset_name)
                 if upstream_lineage is not None:
                     yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=upstream_lineage
+                        entityUrn=self.dataset_urn_builder(dataset_name),
+                        aspect=upstream_lineage,
                     ).as_workunit()
 
     def get_view_upstream_workunits(self, discovered_views):
         if self.config.include_view_lineage:
             for view_name in discovered_views:
-                dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    view_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
                 upstream_lineage = self._get_upstream_lineage_info(view_name)
                 if upstream_lineage is not None:
                     yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=upstream_lineage
+                        entityUrn=self.dataset_urn_builder(view_name),
+                        aspect=upstream_lineage,
                     ).as_workunit()
 
     def _get_upstream_lineage_info(
@@ -267,17 +262,13 @@ class SnowflakeLineageExtractor(
         upstream_tables: List[UpstreamClass] = []
         finegrained_lineages: List[FineGrainedLineage] = []
 
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
         # Populate the table-lineage in aspect
         self.update_upstream_tables_lineage(upstream_tables, lineage)
 
         # Populate the column-lineage in aspect
-        self.update_upstream_columns_lineage(dataset_urn, finegrained_lineages, lineage)
+        self.update_upstream_columns_lineage(
+            self.dataset_urn_builder(dataset_name), finegrained_lineages, lineage
+        )
 
         # Populate the external-table-lineage(s3->snowflake) in aspect
         self.update_external_tables_lineage(upstream_tables, external_lineage)
@@ -579,14 +570,8 @@ class SnowflakeLineageExtractor(
             lineage.upstreamTables.values(), key=lambda x: x.upstreamDataset
         ):
             upstream_table_name = lineage_entry.upstreamDataset
-            upstream_table_urn = builder.make_dataset_urn_with_platform_instance(
-                self.platform,
-                upstream_table_name,
-                self.config.platform_instance,
-                self.config.env,
-            )
             upstream_table = UpstreamClass(
-                dataset=upstream_table_urn,
+                dataset=self.dataset_urn_builder(upstream_table_name),
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
             upstream_tables.append(upstream_table)
@@ -657,15 +642,9 @@ class SnowflakeLineageExtractor(
                 upstream_dataset_name = self.get_dataset_identifier_from_qualified_name(
                     upstream_col.objectName
                 )
-                upstream_dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform,
-                    upstream_dataset_name,
-                    self.config.platform_instance,
-                    self.config.env,
-                )
                 column_upstreams.append(
                     builder.make_schema_field_urn(
-                        upstream_dataset_urn,
+                        self.dataset_urn_builder(upstream_dataset_name),
                         self.snowflake_identifier(upstream_col.columnName),
                     )
                 )
