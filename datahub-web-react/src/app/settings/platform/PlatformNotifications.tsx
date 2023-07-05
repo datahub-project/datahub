@@ -16,12 +16,12 @@ import {
 } from '../../../graphql/settings.generated';
 import {
     GlobalNotificationSettings,
-    GlobalSettings,
     NotificationScenarioType,
     NotificationSettingValue,
     StringMapEntry,
 } from '../../../types.generated';
 import { Message } from '../../shared/Message';
+import { isSinkEnabled } from '../utils';
 
 const Page = styled.div`
     width: 100%;
@@ -98,16 +98,6 @@ const NotificationSinkName = styled(Typography.Text)`
 `;
 
 const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
-
-export const isSinkEnabled = (sinkId, settings?: GlobalSettings | null) => {
-    switch (sinkId) {
-        case SLACK_SINK.id: {
-            return settings?.integrationSettings?.slackSettings?.defaultChannelName || false;
-        }
-        default:
-            return false;
-    }
-};
 
 const paramsMapToArray = (params: Map<string, string>) => {
     const paramsArray = Array<StringMapEntry>();

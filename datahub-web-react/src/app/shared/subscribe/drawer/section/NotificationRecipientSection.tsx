@@ -11,7 +11,7 @@ import {
     validateSlackUserHandle,
 } from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
-import { isSinkEnabled } from '../../../../settings/platform/PlatformNotifications';
+import { isSinkEnabled } from '../../../../settings/utils';
 
 const SLACK_TOP_ROW = 1;
 
@@ -99,7 +99,6 @@ export default function NotificationRecipientSection({
     setSaveSlackSinkAsDefault,
 }: Props) {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    // todo - move isSinkEnabled to a shared util and make this a custom hook
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
