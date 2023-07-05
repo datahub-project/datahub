@@ -200,16 +200,12 @@ class IcebergProfiler:
         self, dataset_name: str, value_type: IcebergType, value: Any
     ) -> Union[str, None]:
         try:
-            if isinstance(value_type, (TimestampType, TimestamptzType)):
-                # if value_type.adjust_to_utc:
-                #     # TODO Deal with utc when required
-                #     microsecond_unix_ts = value
-                # else:
-                #     microsecond_unix_ts = value
-                microsecond_unix_ts = value
-                return datetime.fromtimestamp(microsecond_unix_ts / 1000000.0).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+            if isinstance(value_type, TimestampType):
+                ts = pyiceberg.utils.datetime.micros_to_timestamp(value)
+                return ts.strftime("%Y-%m-%d %H:%M:%S")
+            if isinstance(value_type, TimestamptzType):
+                ts = pyiceberg.utils.datetime.micros_to_timestamptz(value)
+                return ts.strftime("%Y-%m-%d %H:%M:%S")
             elif isinstance(value_type, DateType):
                 return (datetime(1970, 1, 1, 0, 0) + timedelta(value - 1)).strftime(
                     "%Y-%m-%d"
