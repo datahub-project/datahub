@@ -81,7 +81,7 @@ const PlatformNode = () => {
                             dataTestId={`browse-platform-${label}`}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <ExpandableNode.Title color={color} size={14}>
+                        <ExpandableNode.Title color={color} size={14} padLeft>
                             {label}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>

@@ -61,7 +61,7 @@ import org.elasticsearch.tasks.TaskInfo;
 @Slf4j
 public class ESIndexBuilder {
 
-  private final RestHighLevelClient searchClient;
+  private final RestHighLevelClient _searchClient;
   @Getter
   private final int numShards;
 
@@ -99,7 +99,7 @@ public class ESIndexBuilder {
                         int refreshIntervalSeconds, Map<String, Map<String, String>> indexSettingOverrides,
                         boolean enableIndexSettingsReindex, boolean enableIndexMappingsReindex,
                         ElasticSearchConfiguration elasticSearchConfiguration, GitVersion gitVersion) {
-    this.searchClient = searchClient;
+    this._searchClient = searchClient;
     this.numShards = numShards;
     this.numReplicas = numReplicas;
     this.numRetries = numRetries;
@@ -138,7 +138,7 @@ public class ESIndexBuilder {
     builder.targetSettings(targetSetting);
 
     // Check if index exists
-    boolean exists = searchClient.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
+    boolean exists = _searchClient.indices().exists(new GetIndexRequest(indexName), RequestOptions.DEFAULT);
     builder.exists(exists);
 
     // If index doesn't exist, no reindex
@@ -146,14 +146,14 @@ public class ESIndexBuilder {
       return builder.build();
     }
 
-    Settings currentSettings = searchClient.indices()
+    Settings currentSettings = _searchClient.indices()
             .getSettings(new GetSettingsRequest().indices(indexName), RequestOptions.DEFAULT)
             .getIndexToSettings()
             .valuesIt()
             .next();
     builder.currentSettings(currentSettings);
 
-    Map<String, Object> currentMappings = searchClient.indices()
+    Map<String, Object> currentMappings = _searchClient.indices()
             .getMapping(new GetMappingsRequest().indices(indexName), RequestOptions.DEFAULT)
             .mappings()
             .values()
@@ -195,7 +195,7 @@ public class ESIndexBuilder {
       if (indexState.isPureMappingsAddition()) {
         log.info("Updating index {} mappings in place.", indexState.name());
         PutMappingRequest request = new PutMappingRequest(indexState.name()).source(indexState.targetMappings());
-        searchClient.indices().putMapping(request, RequestOptions.DEFAULT);
+        _searchClient.indices().putMapping(request, RequestOptions.DEFAULT);
         log.info("Updated index {} with new mappings", indexState.name());
       }
 
@@ -207,7 +207,7 @@ public class ESIndexBuilder {
                 .collect(Collectors.toMap(e -> "index." + e.getKey(), Map.Entry::getValue));
         request.settings(indexSettings);
 
-        boolean ack = searchClient.indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
+        boolean ack = _searchClient.indices().putSettings(request, RequestOptions.DEFAULT).isAcknowledged();
         log.info("Updated index {} with new settings. Settings: {}, Acknowledged: {}", indexState.name(),
                 ReindexConfig.OBJECT_MAPPER.writeValueAsString(indexSettings), ack);
       }
@@ -304,20 +304,25 @@ public class ESIndexBuilder {
       }
     } catch (Throwable e) {
       log.error("Failed to reindex {} to {}: Exception {}", indexState.name(), tempIndexName, e.toString());
-      searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
+      _searchClient.indices().delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
       throw e;
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
-    // Check if the original index is aliased or not
+    renameReindexedIndices(_searchClient, indexState.name(), indexState.indexPattern(), tempIndexName);
+    log.info("Finished setting up {}", indexState.name());
+  }
+
+  public static void renameReindexedIndices(RestHighLevelClient searchClient, String originalName, String pattern, String newName)
+      throws IOException {
     GetAliasesResponse aliasesResponse = searchClient.indices().getAlias(
-            new GetAliasesRequest(indexState.name()).indices(indexState.indexPattern()), RequestOptions.DEFAULT);
+        new GetAliasesRequest(originalName).indices(pattern), RequestOptions.DEFAULT);
 
     // If not aliased, delete the original index
     final Collection<String> aliasedIndexDelete;
     if (aliasesResponse.getAliases().isEmpty()) {
-      log.info("Deleting index {} to allow alias creation", indexState.name());
-      aliasedIndexDelete = List.of(indexState.name());
+      log.info("Deleting index {} to allow alias creation", originalName);
+      aliasedIndexDelete = List.of(originalName);
     } else {
       log.info("Deleting old indices in existing alias {}", aliasesResponse.getAliases().keySet());
       aliasedIndexDelete = aliasesResponse.getAliases().keySet();
@@ -325,13 +330,11 @@ public class ESIndexBuilder {
 
     // Add alias for the new index
     AliasActions removeAction = AliasActions.removeIndex()
-            .indices(aliasedIndexDelete.toArray(new String[0]));
-    AliasActions addAction = AliasActions.add().alias(indexState.name()).index(tempIndexName);
+        .indices(aliasedIndexDelete.toArray(new String[0]));
+    AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
     searchClient.indices()
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),
             RequestOptions.DEFAULT);
-
-    log.info("Finished setting up {}", indexState.name());
   }
 
   private String submitReindex(String sourceIndex, String destinationIndex) throws IOException {
@@ -344,7 +347,7 @@ public class ESIndexBuilder {
 
     RequestOptions requestOptions = ESUtils.buildReindexTaskRequestOptions(gitVersion.getVersion(), sourceIndex,
             destinationIndex);
-    TaskSubmissionResponse reindexTask = searchClient.submitReindexTask(reindexRequest, requestOptions);
+    TaskSubmissionResponse reindexTask = _searchClient.submitReindexTask(reindexRequest, requestOptions);
     return reindexTask.getTask();
   }
 
@@ -377,7 +380,7 @@ public class ESIndexBuilder {
 
     return retryWithDefaultConfig.executeCheckedSupplier(() -> {
       ListTasksRequest listTasksRequest = new ListTasksRequest().setDetailed(true);
-      List<TaskInfo> taskInfos = searchClient.tasks().list(listTasksRequest, REQUEST_OPTIONS).getTasks();
+      List<TaskInfo> taskInfos = _searchClient.tasks().list(listTasksRequest, REQUEST_OPTIONS).getTasks();
       return taskInfos.stream()
               .filter(info -> ESUtils.prefixMatch(info.getHeaders().get(ESUtils.OPAQUE_ID_HEADER), gitVersion.getVersion(),
                       indexName)).findFirst();
@@ -397,8 +400,8 @@ public class ESIndexBuilder {
       indexBRequest.source(searchSourceBuilder);
 
       try {
-        SearchResponse responseA = searchClient.search(indexARequest, RequestOptions.DEFAULT);
-        SearchResponse responseB = searchClient.search(indexBRequest, RequestOptions.DEFAULT);
+        SearchResponse responseA = _searchClient.search(indexARequest, RequestOptions.DEFAULT);
+        SearchResponse responseB = _searchClient.search(indexBRequest, RequestOptions.DEFAULT);
 
         Set<String> actual = Arrays.stream(responseB.getHits().getHits())
                 .map(SearchHit::getId).collect(Collectors.toSet());
@@ -413,7 +416,7 @@ public class ESIndexBuilder {
   }
 
   private long getCount(@Nonnull String indexName) throws IOException {
-    return searchClient.count(new CountRequest(indexName).query(QueryBuilders.matchAllQuery()), RequestOptions.DEFAULT)
+    return _searchClient.count(new CountRequest(indexName).query(QueryBuilders.matchAllQuery()), RequestOptions.DEFAULT)
         .getCount();
   }
 
@@ -422,7 +425,7 @@ public class ESIndexBuilder {
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
     createIndexRequest.mapping(state.targetMappings());
     createIndexRequest.settings(state.targetSettings());
-    searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
+    _searchClient.indices().create(createIndexRequest, RequestOptions.DEFAULT);
     log.info("Created index {}", indexName);
   }
 

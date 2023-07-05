@@ -389,6 +389,11 @@ type FeatureFlagsConfig {
   Whether browse V2 sidebar should be shown
   """
   showBrowseV2: Boolean!
+
+  """
+  Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
+  """
+  showAcrylInfo: Boolean!
 }
 
 """

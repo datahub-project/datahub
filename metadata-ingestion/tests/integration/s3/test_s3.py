@@ -56,7 +56,7 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
             pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
         )
         for root, _dirs, files in os.walk(test_resources_dir):
-            for file in files:
+            for file in sorted(files):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
                 bkt.upload_file(full_path, rel_path)

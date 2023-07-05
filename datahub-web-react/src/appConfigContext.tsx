@@ -41,6 +41,7 @@ export const DEFAULT_APP_CONFIG = {
         readOnlyModeEnabled: false,
         showSearchFiltersV2: true,
         showBrowseV2: true,
+        showAcrylInfo: false,
     },
 };
 

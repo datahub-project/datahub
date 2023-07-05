@@ -11,6 +11,22 @@
     },
     "supports" : [ ],
     "actions" : [ {
+      "name" : "getEsTaskStatus",
+      "parameters" : [ {
+        "name" : "nodeId",
+        "type" : "string",
+        "optional" : true
+      }, {
+        "name" : "taskId",
+        "type" : "long",
+        "default" : "0"
+      }, {
+        "name" : "task",
+        "type" : "string",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
       "name" : "getIndexSizes",
       "returns" : "com.linkedin.timeseries.TimeseriesIndicesSizesResult"
     }, {
@@ -34,6 +50,31 @@
       }, {
         "name" : "batchSize",
         "type" : "int",
+        "optional" : true
+      } ],
+      "returns" : "string"
+    }, {
+      "name" : "truncateTimeseriesAspect",
+      "parameters" : [ {
+        "name" : "entityType",
+        "type" : "string"
+      }, {
+        "name" : "aspect",
+        "type" : "string"
+      }, {
+        "name" : "endTimeMillis",
+        "type" : "long"
+      }, {
+        "name" : "dryRun",
+        "type" : "boolean",
+        "default" : "true"
+      }, {
+        "name" : "batchSize",
+        "type" : "int",
+        "optional" : true
+      }, {
+        "name" : "timeoutSeconds",
+        "type" : "long",
         "optional" : true
       } ],
       "returns" : "string"

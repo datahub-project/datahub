@@ -48,6 +48,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+SearchFilterRule = Dict[str, Any]
+
 
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
@@ -538,8 +540,9 @@ class DataHubGraph(DatahubRestEmitter):
         query: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
+        extraFilters: Optional[List[SearchFilterRule]] = None,
     ) -> Iterable[str]:
-        """Fetch all urns that match the given filters.
+        """Fetch all urns that match all of the given filters.
 
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
@@ -549,6 +552,7 @@ class DataHubGraph(DatahubRestEmitter):
         :param platform: Platform to filter on. If None, all platforms will be returned.
         :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+        :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         """
 
         types: Optional[List[str]] = None
@@ -561,8 +565,7 @@ class DataHubGraph(DatahubRestEmitter):
         # Add the query default of * if no query is specified.
         query = query or "*"
 
-        FilterRule = Dict[str, Any]
-        andFilters: List[FilterRule] = []
+        andFilters: List[SearchFilterRule] = []
 
         # Platform filter.
         if platform:
@@ -602,14 +605,18 @@ class DataHubGraph(DatahubRestEmitter):
         else:
             raise ValueError(f"Invalid status filter: {status}")
 
-        orFilters: List[Dict[str, List[FilterRule]]] = [{"and": andFilters}]
+        # Extra filters.
+        if extraFilters:
+            andFilters += extraFilters
+
+        orFilters: List[Dict[str, List[SearchFilterRule]]] = [{"and": andFilters}]
 
         # Env filter.
         if env:
             # The env filter is a bit more tricky since it's not always stored
             # in the same place in ElasticSearch.
 
-            envOrConditions: List[FilterRule] = [
+            envOrConditions: List[SearchFilterRule] = [
                 # For most entity types, we look at the origin field.
                 {
                     "field": "origin",
