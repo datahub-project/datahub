@@ -17,8 +17,8 @@ else
             openldap-clients \
             sqlite-devel \
             xz-devel \
-            libxml2 \
-            libxslt
+            libxml2-devel \
+            libxslt-devel
     else
         $sudo_cmd apt-get update && $sudo_cmd apt-get install -y \
             librdkafka-dev \
