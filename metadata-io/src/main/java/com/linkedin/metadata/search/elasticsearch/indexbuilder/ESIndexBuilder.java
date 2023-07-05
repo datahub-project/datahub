@@ -224,7 +224,7 @@ public class ESIndexBuilder {
     }
   }
 
-  public String reindexInPlaceAsync(String indexAlias, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
+  public String reindexInPlaceAsync(String indexAlias, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options, ReindexConfig config)
       throws Exception {
     GetAliasesResponse aliasesResponse = _searchClient.indices().getAlias(
         new GetAliasesRequest(indexAlias), RequestOptions.DEFAULT);
@@ -234,6 +234,7 @@ public class ESIndexBuilder {
 
     // Point alias at new index
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
+    createIndex(nextIndexName, config);
     renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName);
 
     return submitReindex(aliasesResponse.getAliases().keySet().toArray(new String[0]),

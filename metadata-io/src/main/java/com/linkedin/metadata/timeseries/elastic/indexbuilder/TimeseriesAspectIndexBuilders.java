@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.linkedin.util.Pair;
@@ -38,7 +39,16 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
 
   public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
       throws Exception {
-    return _indexBuilder.reindexInPlaceAsync(index, filterQuery, options);
+    Optional<Pair<String, String>> entityAndAspect = _indexConvention.getEntityAndAspectName(index);
+    if (entityAndAspect.isEmpty()) {
+      throw new IllegalArgumentException("Could not extract entity and aspect from index " + index);
+    }
+    String entityName = entityAndAspect.get().getFirst();
+    String aspectName = entityAndAspect.get().getSecond();
+    ReindexConfig config = _indexBuilder.buildReindexState(index,
+        MappingsBuilder.getMappings(_entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName)),
+        Collections.emptyMap());
+    return _indexBuilder.reindexInPlaceAsync(index, filterQuery, options, config);
   }
 
   @Override
