@@ -56,22 +56,10 @@ export default function StatChart({ title, values, tickInterval: interval, dateR
         [values],
     );
 
-    const chartData = {
-        title,
-        lines: [
-            {
-                name: 'line_1',
-                data: timeSeriesData,
-            },
-        ],
-        interval,
-        dateRange,
-    };
-
     return (
         <ChartCard>
             <ChartContainer>
-                <ChartTitle>{chartData.title}</ChartTitle>
+                <ChartTitle>{title}</ChartTitle>
                 <TimeSeriesChart
                     style={{
                         lineColor: DEFAULT_LINE_COLOR,
@@ -79,9 +67,20 @@ export default function StatChart({ title, values, tickInterval: interval, dateR
                         axisWidth: DEFAULT_AXIS_WIDTH,
                     }}
                     hideLegend
-                    chartData={chartData}
+                    chartData={{
+                        title,
+                        lines: [
+                            {
+                                name: 'line_1',
+                                data: timeSeriesData,
+                            },
+                        ],
+                        interval,
+                        dateRange,
+                    }}
                     width={360}
                     height={300}
+                    yScale={{ type: 'linear', includeZero: false }}
                 />
             </ChartContainer>
         </ChartCard>

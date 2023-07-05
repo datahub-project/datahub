@@ -167,6 +167,7 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
      */
     const rowCountChartValues = extractChartValuesFromTableProfiles(profiles, 'rowCount');
     const columnCountChartValues = extractChartValuesFromTableProfiles(profiles, 'columnCount');
+    const sizeChartValues = extractChartValuesFromTableProfiles(profiles, 'sizeInBytes');
 
     /**
      * Compute Column Stat chart data.
@@ -214,6 +215,14 @@ export default function HistoricalStats({ urn, lookbackWindow }: Props) {
                         tickInterval={graphTickInterval}
                         dateRange={graphDateRange}
                         values={columnCountChartValues}
+                    />
+                </ChartRow>
+                <ChartRow>
+                    <StatChart
+                        title="Size Over Time"
+                        tickInterval={graphTickInterval}
+                        dateRange={graphDateRange}
+                        values={sizeChartValues}
                     />
                 </ChartRow>
             </StatSection>
