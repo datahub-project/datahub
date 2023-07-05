@@ -24,7 +24,7 @@ services:
       - rest:rest
       - minio:minio
   rest:
-    image: tabulario/iceberg-rest:0.2.0
+    image: tabulario/iceberg-rest:0.5.0
     ports:
       - 8181:8181
     environment:
