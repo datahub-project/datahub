@@ -9,6 +9,7 @@ import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
+import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,6 +22,18 @@ public interface TimeseriesAspectService {
    */
   void configure();
 
+  /**
+   * Count the number of entries using a filter
+   * @param entityName the name of the entity to count entries for
+   * @param aspectName the name of the timeseries aspect to count for that entity
+   * @param filter the filter to apply to the count
+   * @return The count of the number of entries that match the filter
+   */
+  public long countByFilter(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable final Filter filter
+  );
 
   /**
    * Retrieve a list of Time-Series Aspects for an individual entity, matching a set of optional filters, sorted by the timestampMillis
@@ -119,6 +132,22 @@ public interface TimeseriesAspectService {
       @Nonnull final Filter filter);
 
   /**
+   * Generic filter based deletion for Time-Series Aspects.
+   *
+   * @param entityName The name of the entity.
+   * @param aspectName  The name of the aspect.
+   * @param filter A filter to be used for deletion of the documents on the index.
+   * @param options Options to control delete parameters
+   * @return The Job ID of the deletion operation
+   */
+  @Nonnull
+  String deleteAspectValuesAsync(
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nonnull final Filter filter,
+      @Nonnull final BatchWriteOperationsOptions options);
+
+  /**
    * Rollback the Time-Series aspects associated with a particular runId. This is invoked as a part of an
    * ingestion rollback process.
    *
@@ -144,4 +173,6 @@ public interface TimeseriesAspectService {
       @Nonnull final String aspectName,
       @Nonnull final String docId,
       @Nonnull final JsonNode document);
+
+  List<TimeseriesIndexSizeResult> getIndexSizes();
 }

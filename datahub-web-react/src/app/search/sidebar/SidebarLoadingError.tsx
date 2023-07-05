@@ -1,5 +1,10 @@
 import React from 'react';
 import { Alert, Button } from 'antd';
+import styled from 'styled-components';
+
+const StyledAlert = styled(Alert)`
+    white-space: normal;
+`;
 
 type Props = {
     onClickRetry?: () => void;
@@ -7,8 +12,8 @@ type Props = {
 
 const SidebarLoadingError = ({ onClickRetry }: Props) => {
     return (
-        <Alert
-            message="There was a problem loading the sidebar."
+        <StyledAlert
+            message="The sidebar failed to load."
             showIcon
             type="error"
             action={

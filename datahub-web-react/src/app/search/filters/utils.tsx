@@ -183,7 +183,7 @@ export function getFilterIconAndLabel(
         ) : (
             entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
         );
-        label = entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity);
+        label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
         icon = <FolderFilled size={size} color="black" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
