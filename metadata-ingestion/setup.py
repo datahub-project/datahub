@@ -376,6 +376,9 @@ plugins: Dict[str, Set[str]] = {
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
     "unity-catalog": databricks | sqllineage_lib,
+    "dagster": {
+        "dagster",
+    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
