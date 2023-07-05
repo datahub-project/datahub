@@ -399,6 +399,9 @@ plugins: Dict[str, Set[str]] = {
     "databricks": databricks | sql_common | sqllineage_lib,
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
+    "dagster": {
+        "dagster",
+    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
