@@ -3,11 +3,13 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -15,6 +17,8 @@ import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
@@ -24,22 +28,51 @@ public class MutationUtils {
   private MutationUtils() { }
 
   public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
-    proposal.setAspectName(aspectName);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
-    proposal.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
     entityService.ingestProposal(proposal, getAuditStamp(actor), false);
   }
 
-  public static MetadataChangeProposal buildMetadataChangeProposal(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
+  /**
+   * Only intended for use from GraphQL mutations, executes a different flow indicating a request sourced from the UI
+   * @param urn
+   * @param aspectName
+   * @param aspect
+   * @return
+   */
+  public static MetadataChangeProposal buildMetadataChangeProposalWithUrn(Urn urn, String aspectName, RecordTemplate aspect) {
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
-    proposal.setEntityType(urn.getEntityType());
+    return setProposalProperties(proposal, urn.getEntityType(), aspectName, aspect);
+  }
+
+  /**
+   * Only intended for use from GraphQL mutations, executes a different flow indicating a request sourced from the UI
+   * @param entityKey
+   * @param entityType
+   * @param aspectName
+   * @param aspect
+   * @return
+   */
+  public static MetadataChangeProposal buildMetadataChangeProposalWithKey(RecordTemplate entityKey, String entityType,
+      String aspectName, RecordTemplate aspect) {
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(entityKey));
+    return setProposalProperties(proposal, entityType, aspectName, aspect);
+  }
+
+  private static MetadataChangeProposal setProposalProperties(MetadataChangeProposal proposal,
+      String entityType, String aspectName, RecordTemplate aspect) {
+    proposal.setEntityType(entityType);
     proposal.setAspectName(aspectName);
     proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
     proposal.setChangeType(ChangeType.UPSERT);
+
+    // Assumes proposal is generated first from the builder methods above so SystemMetadata is empty
+    SystemMetadata systemMetadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, UI_SOURCE);
+    systemMetadata.setProperties(properties);
+    proposal.setSystemMetadata(systemMetadata);
     return proposal;
   }
 

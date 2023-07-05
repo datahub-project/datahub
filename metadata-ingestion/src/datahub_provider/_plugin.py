@@ -351,8 +351,6 @@ def _patch_policy(settings):
 
 
 def _patch_datahub_policy():
-    logger.info("Patching datahub policy")
-
     with contextlib.suppress(ImportError):
         import airflow_local_settings
 
