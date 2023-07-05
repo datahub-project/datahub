@@ -116,9 +116,9 @@ class IcebergProfiler:
         )
         column_count = len(
             [
-                id
-                for id in table.schema().field_ids
-                if table.schema().find_field(id).field_type.is_primitive
+                field.id
+                for field in table.schema().fields
+                if field.is_primitive
             ]
         )
         dataset_profile = DatasetProfileClass(
