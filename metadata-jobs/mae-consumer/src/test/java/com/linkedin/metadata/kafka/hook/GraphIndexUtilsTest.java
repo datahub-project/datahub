@@ -17,7 +17,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -31,6 +30,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.graph.GraphIndexUtils.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 import static org.testng.Assert.*;
 
 
@@ -57,8 +57,7 @@ public class GraphIndexUtilsTest {
     _datasetUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)");
     _upstreamDataset1 = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     _upstreamDataset2 = UrnUtils.toDatasetUrn("snowflake", "test2", "DEV");
-    _mockRegistry = new ConfigEntityRegistry(
-        UpdateIndicesHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
+    _mockRegistry = ENTITY_REGISTRY;
   }
 
   @Test
