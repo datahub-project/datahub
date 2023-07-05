@@ -9,29 +9,26 @@ type Props = {
 const useSidebarEntities = ({ skip }: Props) => {
     const {
         error: filteredError,
-        entityAggregations: filteredAggregations,
-        retry,
+        entityAggregations: filteredAggs,
+        retry: retryFilteredAggs,
     } = useAggregationsQuery({
         skip,
         facets: [ENTITY_FILTER_NAME],
     });
 
-    const { error: baseError, entityAggregations: baseEntityAggregations } = useAggregationsQuery({
+    const { error: baseError, entityAggregations: baseAggs } = useAggregationsQuery({
         skip,
         facets: [ENTITY_FILTER_NAME],
         excludeFilters: true,
     });
 
     const result = useMemo(() => {
-        if (filteredError || baseError) return filteredAggregations;
-        if (!filteredAggregations) return filteredAggregations;
-        if (!baseEntityAggregations) return baseEntityAggregations;
-        return filteredAggregations.filter((agg) =>
-            baseEntityAggregations.some((base) => base.value === agg.value && !!base.count),
-        );
-    }, [baseEntityAggregations, baseError, filteredAggregations, filteredError]);
+        if (filteredError || baseError) return filteredAggs; // Fallback to filtered aggs on any error
+        if (!filteredAggs || !baseAggs) return null; // If we're loading one of the queries, wait to render
+        return filteredAggs.filter((agg) => baseAggs.some((base) => base.value === agg.value && !!base.count));
+    }, [baseAggs, baseError, filteredAggs, filteredError]);
 
-    return { error: filteredError, entityAggregations: result, retry } as const;
+    return { error: filteredError, entityAggregations: result, retry: retryFilteredAggs } as const;
 };
 
 export default useSidebarEntities;
