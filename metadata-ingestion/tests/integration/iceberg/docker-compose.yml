@@ -4,6 +4,8 @@ services:
   spark-iceberg:
     image: tabulario/spark-iceberg:3.3.2_1.3.0
     container_name: spark-iceberg
+    networks:
+      iceberg_net:
     depends_on:
       - rest
       - minio
@@ -20,11 +22,11 @@ services:
       - 8080:8080
       - 10000:10000
       - 10001:10001
-    links:
-      - rest:rest
-      - minio:minio
   rest:
     image: tabulario/iceberg-rest:0.5.0
+    container_name: iceberg-rest
+    networks:
+      iceberg_net:
     ports:
       - 8181:8181
     environment:
@@ -40,6 +42,11 @@ services:
     environment:
       - MINIO_ROOT_USER=admin
       - MINIO_ROOT_PASSWORD=password
+      - MINIO_DOMAIN=minio
+    networks:
+      iceberg_net:
+        aliases:
+          - warehouse.minio
     ports:
       - 9001:9001
       - 9000:9000
@@ -49,6 +56,8 @@ services:
       - minio
     image: minio/mc
     container_name: mc
+    networks:
+      iceberg_net:
     environment:
       - AWS_ACCESS_KEY_ID=admin
       - AWS_SECRET_ACCESS_KEY=password
@@ -61,3 +70,5 @@ services:
       /usr/bin/mc policy set public minio/warehouse;
       exit 0;
       "
+networks:
+  iceberg_net:

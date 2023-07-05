@@ -57,7 +57,11 @@ class IcebergCatalogConfig(ConfigModel):
     """
 
     name: str = Field(
+        default="default",
         description="Name of catalog",
+    )
+    type: str = Field(
+        description="Type of catalog.  See [PyIceberg](https://py.iceberg.apache.org/configuration/) for list of possible values.",
     )
     conf: Dict[str, str] = Field(
         description="Catalog specific configuration.  See [PyIceberg documentation](https://py.iceberg.apache.org/configuration/) for details.",
@@ -90,12 +94,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
 
         Returns:
-            Catalog: Iceberg catalog instance, `None` is not configured.
+            Catalog: Iceberg catalog instance.
         """
-        return (
-            load_catalog(name=self.catalog.name, **self.catalog.conf)
-            if self.catalog
-            else None
+        return load_catalog(
+            name=self.catalog.name, **{"type": self.catalog.type, **self.catalog.conf}
         )
 
 

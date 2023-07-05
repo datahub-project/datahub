@@ -4,6 +4,7 @@ source:
     env: PROD
     catalog:
       name: my_iceberg_catalog
+      type: rest
       # Catalog configuration follows pyiceberg's documentation (https://py.iceberg.apache.org/configuration)
       conf:
         uri: http://localhost:8181

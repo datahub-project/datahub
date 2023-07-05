@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, Iterable, Union, cast
 
 from pyiceberg.conversions import from_bytes
@@ -15,6 +14,12 @@ from pyiceberg.types import (
     TimestampType,
     TimestamptzType,
     TimeType,
+)
+from pyiceberg.utils.datetime import (
+    days_to_date,
+    to_human_time,
+    to_human_timestamp,
+    to_human_timestamptz,
 )
 
 from datahub.emitter.mce_builder import get_sys_time
@@ -116,9 +121,9 @@ class IcebergProfiler:
         )
         column_count = len(
             [
-                field.id
+                field.field_id
                 for field in table.schema().fields
-                if field.is_primitive
+                if field.field_type.is_primitive
             ]
         )
         dataset_profile = DatasetProfileClass(
@@ -201,15 +206,13 @@ class IcebergProfiler:
     ) -> Union[str, None]:
         try:
             if isinstance(value_type, TimestampType):
-                ts = pyiceberg.utils.datetime.micros_to_timestamp(value)
-                return ts.strftime("%Y-%m-%d %H:%M:%S")
+                return to_human_timestamp(value)
             if isinstance(value_type, TimestamptzType):
-                ts = pyiceberg.utils.datetime.micros_to_timestamptz(value)
-                return ts.strftime("%Y-%m-%d %H:%M:%S")
+                return to_human_timestamptz(value)
             elif isinstance(value_type, DateType):
-                return (datetime(1970, 1, 1, 0, 0) + timedelta(value - 1)).strftime(
-                    "%Y-%m-%d"
-                )
+                return days_to_date(value).strftime("%Y-%m-%d")
+            elif isinstance(value_type, TimeType):
+                return to_human_time(value)
             return str(value)
         except Exception as e:
             self.report.report_warning(

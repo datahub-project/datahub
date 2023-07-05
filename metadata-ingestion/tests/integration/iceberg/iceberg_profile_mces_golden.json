@@ -176,8 +176,8 @@
                         "fieldPath": "trip_date",
                         "nullCount": 0,
                         "nullProportion": 0.0,
-                        "min": "2000-01-01 12:00:00",
-                        "max": "2000-01-04 12:00:00"
+                        "min": "2000-01-01T12:00:00+00:00",
+                        "max": "2000-01-04T12:00:00+00:00"
                     },
                     {
                         "fieldPath": "trip_id",

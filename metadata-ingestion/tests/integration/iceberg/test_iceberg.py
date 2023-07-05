@@ -75,6 +75,7 @@ def test_iceberg_stateful_ingest(
             "config": {
                 "catalog": {
                     "name": "default",
+                    "type": "rest",
                     "conf": {
                         "uri": "http://localhost:8181",
                         "s3.access-key-id": "admin",

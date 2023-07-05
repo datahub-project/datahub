@@ -1,3 +1,5 @@
+import uuid
+from decimal import Decimal
 from typing import Any, Optional
 
 import pytest
@@ -11,6 +13,7 @@ from pyiceberg.types import (
     DoubleType,
     FixedType,
     FloatType,
+    IcebergType,
     IntegerType,
     ListType,
     LongType,
@@ -26,7 +29,11 @@ from pyiceberg.types import (
 )
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.iceberg.iceberg import IcebergSource, IcebergSourceConfig
+from datahub.ingestion.source.iceberg.iceberg import (
+    IcebergProfiler,
+    IcebergSource,
+    IcebergSourceConfig,
+)
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
@@ -43,10 +50,19 @@ from datahub.metadata.schema_classes import (
 
 
 def with_iceberg_source() -> IcebergSource:
-    catalog: IcebergCatalogConfig = IcebergCatalogConfig(name="test", conf={})
+    catalog: IcebergCatalogConfig = IcebergCatalogConfig(
+        name="test", type="rest", conf={}
+    )
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
         config=IcebergSourceConfig(catalog=catalog),
+    )
+
+
+def with_iceberg_profiler() -> IcebergProfiler:
+    iceberg_source_instance = with_iceberg_source()
+    return IcebergProfiler(
+        iceberg_source_instance.report, iceberg_source_instance.config.profiling
     )
 
 
@@ -83,9 +99,9 @@ def test_config_catalog_not_configured():
         IcebergCatalogConfig()  # type: ignore
 
     with pytest.raises(ValidationError, match="conf"):
-        IcebergCatalogConfig(name="a name")  # type: ignore
+        IcebergCatalogConfig(type="a type")  # type: ignore
 
-    with pytest.raises(ValidationError, match="name"):
+    with pytest.raises(ValidationError, match="type"):
         IcebergCatalogConfig(conf={})  # type: ignore
 
 
@@ -381,7 +397,48 @@ def test_iceberg_struct_to_schema_field(
     )
 
 
-def test_avro_decimal_bytes_nullable():
+@pytest.mark.parametrize(
+    "value_type, value, expected_value",
+    [
+        (BinaryType(), bytes([1, 2, 3, 4, 5]), "b'\\x01\\x02\\x03\\x04\\x05'"),
+        (BooleanType(), True, "True"),
+        (DateType(), 19543, "2023-07-05"),
+        (DecimalType(3, 2), Decimal((0, (3, 1, 4), -2)), "3.14"),
+        (DoubleType(), 3.4, "3.4"),
+        (FixedType(4), bytes([1, 2, 3, 4]), "b'\\x01\\x02\\x03\\x04'"),
+        (FloatType(), 3.4, "3.4"),
+        (IntegerType(), 3, "3"),
+        (LongType(), 4294967295000, "4294967295000"),
+        (StringType(), "a string", "a string"),
+        (
+            TimestampType(),
+            1688559488157000,
+            "2023-07-05T12:18:08.157000",
+        ),
+        (
+            TimestamptzType(),
+            1688559488157000,
+            "2023-07-05T12:18:08.157000+00:00",
+        ),
+        (TimeType(), 40400000000, "11:13:20"),
+        (
+            UUIDType(),
+            uuid.UUID("00010203-0405-0607-0809-0a0b0c0d0e0f"),
+            "00010203-0405-0607-0809-0a0b0c0d0e0f",
+        ),
+    ],
+)
+def test_iceberg_profiler_value_render(
+    value_type: IcebergType, value: Any, expected_value: Optional[str]
+) -> None:
+    iceberg_profiler_instance = with_iceberg_profiler()
+    assert (
+        iceberg_profiler_instance._renderValue("a.dataset", value_type, value)
+        == expected_value
+    )
+
+
+def test_avro_decimal_bytes_nullable() -> None:
     """
     The following test exposes a problem with decimal (bytes) not preserving extra attributes like _nullable.  Decimal (fixed) and Boolean for example do.
     NOTE: This bug was by-passed by mapping the Decimal type to fixed instead of bytes.
