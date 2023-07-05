@@ -173,4 +173,4 @@ def test_lineage_with_timestamps():
         platform="bigquery",
     )
     assert upstream_lineage
-    assert len(upstream_lineage[0].upstreams) == 4
+    assert len(upstream_lineage.upstreams) == 4

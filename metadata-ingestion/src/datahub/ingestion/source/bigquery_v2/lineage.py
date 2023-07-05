@@ -3,7 +3,7 @@ import logging
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
 
 import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
@@ -272,7 +272,7 @@ timestamp < "{end_time}"
 
     def _get_bigquery_log_entries(
         self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Union[Iterable[AuditLogEntry]]:
+    ) -> Iterable[AuditLogEntry]:
         self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
         start_time = (self.config.start_time - self.config.max_query_duration).strftime(
@@ -631,7 +631,7 @@ timestamp < "{end_time}"
         bq_table: BigQueryTableRef,
         lineage_metadata: Dict[str, Set[LineageEdge]],
         platform: str,
-    ) -> Optional[Tuple[UpstreamLineageClass, Dict[str, str]]]:
+    ) -> Optional[UpstreamLineageClass]:
         upstream_list: List[UpstreamClass] = []
         # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
         # even if the lineage is same but the order is different.
@@ -662,7 +662,7 @@ timestamp < "{end_time}"
 
         if upstream_list:
             upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
-            return upstream_lineage, {}
+            return upstream_lineage
 
         return None
 

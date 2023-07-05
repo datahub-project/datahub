@@ -5,7 +5,7 @@ import re
 import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
@@ -1028,12 +1028,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def gen_lineage(
         self,
         dataset_urn: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
+        upstream_lineage: Optional[UpstreamLineage] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        if lineage_info is None:
+        if upstream_lineage is None:
             return
 
-        upstream_lineage, upstream_column_props = lineage_info
         if upstream_lineage is not None:
             if self.config.incremental_lineage:
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
