@@ -11,6 +11,8 @@ public class RestoreIndicesArgs implements Cloneable {
     public String aspectName;
     public String urn;
     public String urnLike;
+    public Sort sortUrn = Sort.ASC;
+    public Sort sortAspects = Sort.ASC;
 
     @Override
     public RestoreIndicesArgs clone() {
@@ -50,5 +52,39 @@ public class RestoreIndicesArgs implements Cloneable {
             this.batchSize = batchSize;
         }
         return this;
+    }
+
+    public RestoreIndicesArgs setSortUrn(Sort sortUrn) {
+        if (sortUrn == null) {
+            sortAspects = Sort.ASC;
+        }
+        this.sortUrn = sortUrn;
+        return this;
+    }
+
+    public RestoreIndicesArgs setSortAspects(Sort sortAspects) {
+        if (sortAspects == null) {
+            sortAspects = Sort.ASC;
+        }
+        this.sortAspects = sortAspects;
+        return this;
+    }
+
+    public enum Sort {
+        NONE,
+        ASC,
+        DESC;
+
+        public static Sort of(String text) {
+            if (text != null) {
+                switch (text.toLowerCase()) {
+                    case "none":
+                        return NONE;
+                    case "desc":
+                        return DESC;
+                }
+            }
+            return ASC;
+        }
     }
 }
