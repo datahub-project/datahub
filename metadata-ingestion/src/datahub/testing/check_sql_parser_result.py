@@ -1,15 +1,19 @@
+import logging
 import os
 import pathlib
 from typing import Any, Dict, Optional
 
 import deepdiff
 
+from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.utilities.sqlglot_lineage import (
     SchemaInfo,
     SchemaResolver,
     SqlParsingResult,
     sqlglot_lineage,
 )
+
+logger = logging.getLogger(__name__)
 
 # TODO: Hook this into the standard --update-golden-files mechanism.
 UPDATE_FILES = os.environ.get("UPDATE_SQLPARSER_FILES", "false").lower() == "true"
@@ -23,12 +27,22 @@ def assert_sql_result_with_resolver(
     schema_resolver: SchemaResolver,
     **kwargs: Any,
 ) -> None:
+    # HACK: Our BigQuery source overwrites this value and doesn't undo it.
+    # As such, we need to handle that here.
+    BigqueryTableIdentifier._BQ_SHARDED_TABLE_SUFFIX = "_yyyymmdd"
+
     res = sqlglot_lineage(
         sql,
         platform=dialect,
         schema_resolver=schema_resolver,
         **kwargs,
     )
+
+    if res.debug_info.column_error:
+        logger.warning(
+            f"SQL parser column error: {res.debug_info.column_error}",
+            exc_info=res.debug_info.column_error,
+        )
 
     txt = res.json(indent=4)
     if UPDATE_FILES:
