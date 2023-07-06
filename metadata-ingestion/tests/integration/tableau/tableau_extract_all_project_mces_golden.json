@@ -35604,9 +35604,9 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
+                            "/prod/tableau/default/Executive Dashboard/Problems",
                             "/prod/tableau/default/Executive Dashboard/Requests",
-                            "/prod/tableau/default/Executive Dashboard/Incidents",
-                            "/prod/tableau/default/Executive Dashboard/Problems"
+                            "/prod/tableau/default/Executive Dashboard/Incidents"
                         ]
                     }
                 },
@@ -36462,7 +36462,7 @@
                     "id": "Executive Dashboard"
                 },
                 {
-                    "id": "Requests"
+                    "id": "Problems"
                 }
             ]
         }
