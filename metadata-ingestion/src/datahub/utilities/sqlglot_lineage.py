@@ -149,12 +149,17 @@ class ColumnLineageInfo(BaseModel):
 
 
 class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
-    confidence: float
+    confidence: float = 0.0
 
-    tables_discovered: int
-    table_schemas_resolved: int
+    tables_discovered: int = 0
+    table_schemas_resolved: int = 0
 
-    column_error: Optional[Exception]
+    table_error: Optional[Exception] = None
+    column_error: Optional[Exception] = None
+
+    @property
+    def error(self) -> Optional[Exception]:
+        return self.table_error or self.column_error
 
 
 class SqlParsingResult(BaseModel):
@@ -169,12 +174,7 @@ class SqlParsingResult(BaseModel):
     # TODO include list of referenced columns
 
     debug_info: SqlParsingDebugInfo = pydantic.Field(
-        default_factory=lambda: SqlParsingDebugInfo(
-            confidence=0,
-            tables_discovered=0,
-            table_schemas_resolved=0,
-            column_error=None,
-        ),
+        default_factory=lambda: SqlParsingDebugInfo(),
         exclude=True,
     )
 
@@ -622,7 +622,7 @@ def _translate_internal_column_lineage(
     )
 
 
-def sqlglot_lineage(
+def _sqlglot_lineage_inner(
     sql: str,
     platform: str,
     schema_resolver: SchemaResolver,
@@ -630,6 +630,7 @@ def sqlglot_lineage(
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
     # TODO: convert datahub platform names to sqlglot dialect
+    # TODO: Pull the platform name from the schema resolver?
     dialect = platform
 
     if dialect == "snowflake":
@@ -752,3 +753,29 @@ def sqlglot_lineage(
         column_lineage=column_lineage_urns,
         debug_info=debug_info,
     )
+
+
+def sqlglot_lineage(
+    sql: str,
+    platform: str,
+    schema_resolver: SchemaResolver,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+) -> SqlParsingResult:
+    try:
+        return _sqlglot_lineage_inner(
+            sql=sql,
+            platform=platform,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+    except Exception as e:
+        return SqlParsingResult(
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+            debug_info=SqlParsingDebugInfo(
+                table_error=e,
+            ),
+        )

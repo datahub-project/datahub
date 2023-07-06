@@ -3,7 +3,7 @@ import logging
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Union
 
 import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
@@ -32,21 +32,77 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
 from datahub.utilities import memory_footprint
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass(order=True, eq=True, frozen=True)
+class LineageEdgeColumnMapping:
+    out_column: str
+    in_columns: FrozenSet[str]
+
+
+@dataclass(order=True, eq=True, frozen=True)
 class LineageEdge:
     table: str
+    column_mapping: FrozenSet[LineageEdgeColumnMapping]
+
     auditStamp: datetime
     type: str = DatasetLineageTypeClass.TRANSFORMED
+
+
+def make_lineage_edges_from_parsing_result(
+    sql_lineage: SqlParsingResult, audit_stamp: datetime, lineage_type: str
+) -> List[LineageEdge]:
+
+    # Note: This ignores the out_tables section of the sql parsing result.
+    audit_stamp = datetime.now(timezone.utc)
+
+    # Invariant: table_edges[k].table == k
+    table_edges: Dict[str, LineageEdge] = {}
+
+    # This isn't the most efficient code - it iterates over the same data multiple times,
+    # once per in_table entry.
+    for table_urn in sql_lineage.in_tables:
+        column_mapping: Dict[str, FrozenSet[str]] = {}
+
+        for column_lineage in sql_lineage.column_lineage or []:
+            out_column = column_lineage.downstream.column
+            column_mapping[out_column] = frozenset(
+                upstream_column_info.column
+                for upstream_column_info in column_lineage.upstreams
+                if upstream_column_info.table == table_urn
+            )
+
+        table_name = str(
+            BigQueryTableRef.from_bigquery_table(
+                BigqueryTableIdentifier.from_string_name(
+                    DatasetUrn.create_from_string(table_urn).get_dataset_name()
+                )
+            )
+        )
+        table_edges[table_name] = LineageEdge(
+            table=table_name,
+            column_mapping=frozenset(
+                LineageEdgeColumnMapping(out_column=out_column, in_columns=in_columns)
+                for out_column, in_columns in column_mapping.items()
+            ),
+            auditStamp=audit_stamp,
+            type=lineage_type,
+        )
+
+    return list(table_edges.values())
 
 
 class BigqueryLineageExtractor:
@@ -232,6 +288,7 @@ timestamp < "{end_time}"
                                         )
                                     )
                                 ),
+                                column_mapping=frozenset(),
                                 auditStamp=curr_date,
                             )
                             for source_table in upstreams
@@ -477,7 +534,9 @@ timestamp < "{end_time}"
             elif self.config.lineage_use_sql_parser and has_table and has_view:
                 # If there is a view being referenced then bigquery sends both the view as well as underlying table
                 # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
-                # to ensure we only use direct objects accessed for lineage
+                # to ensure we only use direct objects accessed for lineage.
+                # Because of this, we use the SQL parser as the primary source of truth for lineage
+                # and the audit log as a fallback.
                 try:
                     parser = BigQuerySQLParser(
                         e.query,
@@ -510,6 +569,7 @@ timestamp < "{end_time}"
     def parse_view_lineage(
         self, project: str, dataset: str, view: BigqueryView
     ) -> Optional[List[BigqueryTableIdentifier]]:
+        # TODO: This uses the old parser, and should be removed once the new parser is in place.
         if not view.view_definition:
             return None
 
@@ -629,23 +689,28 @@ timestamp < "{end_time}"
     def get_lineage_for_table(
         self,
         bq_table: BigQueryTableRef,
+        bq_table_urn: str,
         lineage_metadata: Dict[str, Set[LineageEdge]],
         platform: str,
     ) -> Optional[UpstreamLineageClass]:
         upstream_list: List[UpstreamClass] = []
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
         # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
         # even if the lineage is same but the order is different.
         for upstream in sorted(
             self.get_upstream_tables(bq_table, lineage_metadata, tables_seen=[])
         ):
             upstream_table = BigQueryTableRef.from_string_name(upstream.table)
+            upstream_table_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                platform,
+                upstream_table.table_identifier.get_table_name(),
+                self.config.platform_instance,
+                self.config.env,
+            )
+
+            # Generate table-level lineage.
             upstream_table_class = UpstreamClass(
-                dataset=mce_builder.make_dataset_urn_with_platform_instance(
-                    platform,
-                    upstream_table.table_identifier.get_table_name(),
-                    self.config.platform_instance,
-                    self.config.env,
-                ),
+                dataset=upstream_table_urn,
                 type=upstream.type,
                 auditStamp=AuditStampClass(
                     actor="urn:li:corpuser:datahub",
@@ -658,10 +723,35 @@ timestamp < "{end_time}"
                 )
                 current_lineage_map.add(str(upstream_table))
                 self.report.upstream_lineage[str(bq_table)] = current_lineage_map
+
             upstream_list.append(upstream_table_class)
 
+            # Generate column-level lineage.
+            for col_lineage_edge in upstream.column_mapping:
+                fine_grained_lineage = FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=[
+                        mce_builder.make_schema_field_urn(
+                            bq_table_urn, col_lineage_edge.out_column
+                        )
+                    ],
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=[
+                        mce_builder.make_schema_field_urn(
+                            upstream_table_urn, upstream_col
+                        )
+                        for upstream_col in col_lineage_edge.in_columns
+                    ],
+                    # TODO Retain the confidence score from the lineage parser.
+                    confidenceScore=0.8,
+                )
+                fine_grained_lineages.append(fine_grained_lineage)
+
         if upstream_list:
-            upstream_lineage = UpstreamLineageClass(upstreams=upstream_list)
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=upstream_list,
+                fineGrainedLineages=fine_grained_lineages,
+            )
             return upstream_lineage
 
         return None

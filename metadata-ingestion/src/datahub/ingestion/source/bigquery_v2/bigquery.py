@@ -57,7 +57,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
-    LineageEdge,
+    make_lineage_edges_from_parsing_result,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
@@ -119,6 +119,7 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -253,8 +254,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-        # Maps project -> view_ref -> [upstream_table_ref], for view lineage
-        self.view_upstream_tables: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
+        # Maps project -> view_ref -> view definition (will be used when generating lineage)
+        self.view_definitions: Dict[str, Dict[str, str]] = defaultdict(dict)
+
+        self.sql_parser_schema_resolver = SchemaResolver(
+            platform=self.platform, env=self.config.env
+        )
 
         atexit.register(cleanup, config)
 
@@ -274,7 +279,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return CapabilityReport(capable=True)
 
     @staticmethod
-    def metada_read_capability_test(
+    def metadata_read_capability_test(
         project_ids: List[str], config: BigQueryV2Config
     ) -> CapabilityReport:
         for project_id in project_ids:
@@ -379,11 +384,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if connection_conf.project_id_pattern.allowed(project.project_id):
                     project_ids.append(project.project_id)
 
-            metada_read_capability = BigqueryV2Source.metada_read_capability_test(
+            metadata_read_capability = BigqueryV2Source.metadata_read_capability_test(
                 project_ids, connection_conf
             )
             if SourceCapability.SCHEMA_METADATA not in _report:
-                _report[SourceCapability.SCHEMA_METADATA] = metada_read_capability
+                _report[SourceCapability.SCHEMA_METADATA] = metadata_read_capability
 
             if connection_conf.include_table_lineage:
                 lineage_capability = BigqueryV2Source.lineage_capability_test(
@@ -656,17 +661,36 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
 
+        # TODO: We should be doing this for all projects first.
         if self.config.lineage_parse_view_ddl:
-            for view, upstream_tables in self.view_upstream_tables[project_id].items():
-                # Override upstreams obtained by parsing audit logs as they may contain indirectly referenced tables
-                lineage[view] = {
-                    LineageEdge(
-                        table=table,
-                        auditStamp=datetime.now(timezone.utc),
-                        type=DatasetLineageTypeClass.VIEW,
+            for view, view_definition in self.view_definitions[project_id].items():
+                raw_view_lineage = sqlglot_lineage(
+                    view_definition,
+                    platform=self.platform,
+                    schema_resolver=self.sql_parser_schema_resolver,
+                    default_db=project_id,
+                )
+                if raw_view_lineage.debug_info.table_error:
+                    logger.debug(
+                        f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
                     )
-                    for table in upstream_tables
-                }
+                    self.report.num_view_definitions_failed_parsing += 1
+                    continue
+                elif raw_view_lineage.debug_info.column_error:
+                    self.report.num_view_definitions_failed_column_parsing += 1
+                else:
+                    self.report.num_view_definitions_parsed += 1
+
+                # For views, we override the upstreams obtained by parsing audit logs
+                # as they may contain indirectly referenced tables.
+                ts = datetime.now(timezone.utc)
+                lineage[view] = set(
+                    make_lineage_edges_from_parsing_result(
+                        raw_view_lineage,
+                        audit_stamp=ts,
+                        lineage_type=DatasetLineageTypeClass.VIEW,
+                    )
+                )
 
         for lineage_key in lineage.keys():
             if lineage_key not in self.table_refs:
@@ -681,6 +705,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             lineage_info = self.lineage_extractor.get_lineage_for_table(
                 bq_table=table_ref,
+                bq_table_urn=dataset_urn,
                 platform=self.platform,
                 lineage_metadata=lineage,
             )
@@ -843,14 +868,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             self.table_refs.add(table_ref)
             if self.config.lineage_parse_view_ddl:
-                upstream_tables = self.lineage_extractor.parse_view_lineage(
-                    project_id, dataset_name, view
-                )
-                if upstream_tables is not None:
-                    self.view_upstream_tables[project_id][table_ref] = [
-                        str(BigQueryTableRef(table_id).get_sanitized_table_ref())
-                        for table_id in upstream_tables
-                    ]
+                self.view_definitions[project_id][table_ref] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -1147,6 +1165,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # fields=[],
             fields=self.gen_schema_fields(columns),
         )
+
+        self.sql_parser_schema_resolver.add_schema_metadata(
+            dataset_urn, schema_metadata
+        )
+
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
