@@ -6,9 +6,9 @@ pipeline = Pipeline.create(
         "source": {
             "type": "mysql",
             "config": {
-                "username": "user",
-                "password": "pass",
-                "database": "db_name",
+                "username": "datahub",
+                "password": "datahub",
+                "database": "datahub",
                 "host_port": "localhost:3306",
             },
         },

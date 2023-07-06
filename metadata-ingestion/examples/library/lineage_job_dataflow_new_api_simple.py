@@ -10,7 +10,7 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 emitter = DatahubRestEmitter("http://localhost:8080")
 
-jobFlow = DataFlow(env="prod", orchestrator="airflow", id="flow_api_simple")
+jobFlow = DataFlow(env="prod", orchestrator="informatica", id="flow_api_simple")
 jobFlow.emit(emitter)
 
 # Flowurn as constructor
@@ -26,6 +26,8 @@ dataJob2.emit(emitter)
 
 dataJob3 = DataJob(flow_urn=jobFlow.urn, id="job3", name="My Job 3")
 dataJob3.upstream_urns.append(dataJob.urn)
+dataJob3.tags.add("Important")
+dataJob3.owners.add("walt")
 dataJob3.emit(emitter)
 
 dataJob4 = DataJob(flow_urn=jobFlow.urn, id="job4", name="My Job 4")
