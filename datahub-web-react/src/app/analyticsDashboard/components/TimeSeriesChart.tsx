@@ -12,6 +12,10 @@ type ScaleConfig = {
     includeZero?: boolean;
 };
 
+type AxisConfig = {
+    formatter: (tick: number) => string;
+};
+
 type Props = {
     chartData: TimeSeriesChartType;
     width: number;
@@ -26,9 +30,15 @@ type Props = {
     };
     insertBlankPoints?: boolean;
     yScale?: ScaleConfig;
+    yAxis?: AxisConfig;
 };
 
-const MARGIN_SIZE = 40;
+const MARGIN = {
+    TOP: 40,
+    RIGHT: 45,
+    BOTTOM: 40,
+    LEFT: 40,
+};
 
 function insertBlankAt(ts: number, newLine: Array<NumericDataPoint>) {
     const dateString = new Date(ts).toISOString();
@@ -66,7 +76,16 @@ export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: 
     return returnLines;
 }
 
-export const TimeSeriesChart = ({ chartData, width, height, hideLegend, style, insertBlankPoints, yScale }: Props) => {
+export const TimeSeriesChart = ({
+    chartData,
+    width,
+    height,
+    hideLegend,
+    style,
+    insertBlankPoints,
+    yScale,
+    yAxis,
+}: Props) => {
     const ordinalColorScale = scaleOrdinal<string, string>({
         domain: chartData.lines.map((data) => data.name),
         range: lineColors.slice(0, chartData.lines.length),
@@ -81,7 +100,7 @@ export const TimeSeriesChart = ({ chartData, width, height, hideLegend, style, i
                 ariaLabel={chartData.title}
                 width={width}
                 height={height}
-                margin={{ top: MARGIN_SIZE, right: MARGIN_SIZE, bottom: MARGIN_SIZE, left: MARGIN_SIZE }}
+                margin={{ top: MARGIN.TOP, right: MARGIN.RIGHT, bottom: MARGIN.BOTTOM, left: MARGIN.LEFT }}
                 xScale={{ type: 'time' }}
                 yScale={
                     yScale ?? {
@@ -99,7 +118,7 @@ export const TimeSeriesChart = ({ chartData, width, height, hideLegend, style, i
                 <XAxis axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }} />
                 <YAxis
                     axisStyles={{ stroke: style && style.axisColor, strokeWidth: style && style.axisWidth }}
-                    tickFormat={(tick) => formatNumber(tick)}
+                    tickFormat={(tick) => (yAxis?.formatter ? yAxis.formatter(tick) : formatNumber(tick))}
                 />
                 {lines.map((line, i) => (
                     <LineSeries
