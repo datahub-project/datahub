@@ -60,6 +60,7 @@ class LineageEdge:
 
     auditStamp: datetime
     type: str = DatasetLineageTypeClass.TRANSFORMED
+    column_confidence: float = 0.0
 
 
 def make_lineage_edges_from_parsing_result(
@@ -100,6 +101,7 @@ def make_lineage_edges_from_parsing_result(
             ),
             auditStamp=audit_stamp,
             type=lineage_type,
+            column_confidence=sql_lineage.debug_info.confidence,
         )
 
     return list(table_edges.values())
@@ -662,6 +664,8 @@ timestamp < "{end_time}"
                     continue
                 tables_seen.append(ref_table)
                 if ref_table in lineage_metadata:
+                    # TODO: Figure out how to merge the column mappings when
+                    # removing temp tables.
                     upstreams = upstreams.union(
                         self.get_upstream_tables(
                             upstream_table,
@@ -742,8 +746,7 @@ timestamp < "{end_time}"
                         )
                         for upstream_col in col_lineage_edge.in_columns
                     ],
-                    # TODO Retain the confidence score from the lineage parser.
-                    confidenceScore=0.8,
+                    confidenceScore=upstream.column_confidence,
                 )
                 fine_grained_lineages.append(fine_grained_lineage)
 
