@@ -846,6 +846,11 @@ type FeatureFlagsConfig {
   Whether browse V2 sidebar should be shown
   """
   showBrowseV2: Boolean!
+
+  """
+  Whether subscriptions should be enabled
+  """
+  subscriptionsEnabled: Boolean!
 }
 
 """

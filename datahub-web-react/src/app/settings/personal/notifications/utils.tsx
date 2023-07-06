@@ -1,4 +1,5 @@
 import { message } from 'antd';
+import { useAppConfig } from '../../../useAppConfig';
 
 export const updateUserNotificationSettingsFunction = (
     newUserHandle: string,
@@ -54,4 +55,8 @@ export const updateGroupNotificationSettingsFunction = (
                 message.error({ content: `Failed to update settings: \n ${e.message || ''}`, duration: 3 });
             }
         });
+};
+
+export const useSubscriptionsEnabled = () => {
+    return useAppConfig().config.featureFlags.subscriptionsEnabled;
 };
