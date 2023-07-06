@@ -31,8 +31,11 @@ def test_resources_dir(pytestconfig):
 @pytest.fixture(scope="module")
 def loaded_hive(hive_runner):
     # Set up the container.
-    command = "docker exec testhiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
-    subprocess.run(command, shell=True, check=True)
+    subprocess.run(
+        "docker exec testhiveserver2 beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql",
+        shell=True,
+        check=True,
+    )
 
 
 def base_pipeline_config(events_file, db=None):

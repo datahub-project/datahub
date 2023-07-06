@@ -46,13 +46,12 @@ def test_resources_dir(pytestconfig):
 @pytest.fixture(scope="module")
 def loaded_trino(trino_runner):
     # Set up the container.
-    command = "docker exec testhiveserver2 /opt/hive/bin/beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
+    command = "docker exec testhiveserver2 beeline -u jdbc:hive2://localhost:10000 -f /hive_setup.sql"
     subprocess.run(command, shell=True, check=True)
 
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-@pytest.mark.xfail
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

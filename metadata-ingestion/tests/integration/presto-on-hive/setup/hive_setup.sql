@@ -40,7 +40,7 @@ test_data as (
 INSERT INTO TABLE db1.array_struct_test
 select * from test_data;
 
-CREATE MATERIALIZED VIEW db1.struct_test_view_materialized as select * from db1.struct_test;
+CREATE MATERIALIZED VIEW db1.struct_test_view_materialized DISABLE REWRITE as select * from db1.pokes;
 CREATE VIEW db1.array_struct_test_view as select * from db1.array_struct_test;
 
 CREATE TABLE IF NOT EXISTS db1.nested_struct_test
@@ -56,4 +56,4 @@ CREATE TABLE db1.union_test(
     foo UNIONTYPE<int, double, array<string>, struct<a:int,b:string>>
 ) STORED AS ORC ;
 
-CREATE TABLE db1.map_test(KeyValue String, RecordId map<int,string>); 
+CREATE TABLE db1.map_test(KeyValue String, RecordId map<int,string>);
