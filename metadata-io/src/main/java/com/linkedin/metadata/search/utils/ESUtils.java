@@ -109,10 +109,11 @@ public class ESUtils {
                                                              boolean isTimeseries) {
     final BoolQueryBuilder andQueryBuilder = new BoolQueryBuilder();
     conjunctiveCriterion.getAnd().forEach(criterion -> {
-      if (!criterion.getValue().trim().isEmpty() || criterion.hasValues()
-              || criterion.getCondition() == Condition.IS_NULL) {
+      if (Set.of(Condition.EXISTS, Condition.IS_NULL).contains(criterion.getCondition())
+              || !criterion.getValue().trim().isEmpty() || criterion.hasValues()) {
         if (!criterion.isNegated()) {
-          andQueryBuilder.must(getQueryBuilderFromCriterion(criterion, isTimeseries));
+          // `filter` instead of `must` (enables caching and bypasses scoring)
+          andQueryBuilder.filter(getQueryBuilderFromCriterion(criterion, isTimeseries));
         } else {
           andQueryBuilder.mustNot(getQueryBuilderFromCriterion(criterion, isTimeseries));
         }
@@ -261,8 +262,12 @@ public class ESUtils {
       Criterion criterionToQuery = new Criterion();
       criterionToQuery.setCondition(criterion.getCondition());
       criterionToQuery.setNegated(criterion.isNegated());
-      criterionToQuery.setValue(criterion.getValue());
-      criterionToQuery.setValues(criterion.getValues());
+      if (criterion.hasValues()) {
+        criterionToQuery.setValues(criterion.getValues());
+      }
+      if (criterion.hasValue()) {
+        criterionToQuery.setValue(criterion.getValue());
+      }
       criterionToQuery.setField(toKeywordField(field, isTimeseries));
       orQueryBuilder.should(getQueryBuilderFromCriterionForSingleField(criterionToQuery, isTimeseries));
     }
@@ -274,30 +279,32 @@ public class ESUtils {
     final Condition condition = criterion.getCondition();
     final String fieldName = toFacetField(criterion.getField());
 
-    if (condition == Condition.EQUAL) {
-      return buildEqualsConditionFromCriterion(fieldName, criterion, isTimeseries);
-    } else if (condition == Condition.IS_NULL) {
+    if (condition == Condition.IS_NULL) {
       return QueryBuilders.boolQuery().mustNot(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
     } else if (condition == Condition.EXISTS) {
       return QueryBuilders.boolQuery().must(QueryBuilders.existsQuery(criterion.getField())).queryName(fieldName);
-    // TODO: Support multi-match on the following operators (using new 'values' field)
-    } else if (condition == Condition.GREATER_THAN) {
-      return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
-      return QueryBuilders.rangeQuery(criterion.getField()).gte(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.LESS_THAN) {
-      return QueryBuilders.rangeQuery(criterion.getField()).lt(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
-      return QueryBuilders.rangeQuery(criterion.getField()).lte(criterion.getValue().trim()).queryName(fieldName);
-    } else if (condition == Condition.CONTAIN) {
-      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
-          "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
-    } else if (condition == Condition.START_WITH) {
-      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
-          ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
-    } else if (condition == Condition.END_WITH) {
-      return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
-          "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim())).queryName(fieldName);
+    } else if (criterion.hasValues() || criterion.hasValue()) {
+      if (condition == Condition.EQUAL) {
+        return buildEqualsConditionFromCriterion(fieldName, criterion, isTimeseries);
+        // TODO: Support multi-match on the following operators (using new 'values' field)
+      } else if (condition == Condition.GREATER_THAN) {
+        return QueryBuilders.rangeQuery(criterion.getField()).gt(criterion.getValue().trim()).queryName(fieldName);
+      } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
+        return QueryBuilders.rangeQuery(criterion.getField()).gte(criterion.getValue().trim()).queryName(fieldName);
+      } else if (condition == Condition.LESS_THAN) {
+        return QueryBuilders.rangeQuery(criterion.getField()).lt(criterion.getValue().trim()).queryName(fieldName);
+      } else if (condition == Condition.LESS_THAN_OR_EQUAL_TO) {
+        return QueryBuilders.rangeQuery(criterion.getField()).lte(criterion.getValue().trim()).queryName(fieldName);
+      } else if (condition == Condition.CONTAIN) {
+        return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
+                "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
+      } else if (condition == Condition.START_WITH) {
+        return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
+                ESUtils.escapeReservedCharacters(criterion.getValue().trim()) + "*").queryName(fieldName);
+      } else if (condition == Condition.END_WITH) {
+        return QueryBuilders.wildcardQuery(toKeywordField(criterion.getField(), isTimeseries),
+                "*" + ESUtils.escapeReservedCharacters(criterion.getValue().trim())).queryName(fieldName);
+      }
     }
     throw new UnsupportedOperationException("Unsupported condition: " + condition);
   }

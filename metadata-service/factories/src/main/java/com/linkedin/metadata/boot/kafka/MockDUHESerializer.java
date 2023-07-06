@@ -11,19 +11,24 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.Map;
 
+import static com.linkedin.gms.factory.kafka.schemaregistry.DUHESchemaRegistryFactory.DUHE_SCHEMA_REGISTRY_TOPIC_KEY;
+
 /**
  * Used for early bootstrap to avoid contact with not yet existing schema registry
  */
 @Slf4j
 public class MockDUHESerializer extends KafkaAvroSerializer {
 
-    static final String DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT = "DataHubUpgradeHistory_v1-value";
+    private static final String DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT_SUFFIX = "-value";
+
+    private String topicName;
 
     public MockDUHESerializer() {
         this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
     public MockDUHESerializer(SchemaRegistryClient client) {
+        super(client);
         this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
@@ -32,14 +37,24 @@ public class MockDUHESerializer extends KafkaAvroSerializer {
         this.schemaRegistry = buildMockSchemaRegistryClient();
     }
 
-    private static MockSchemaRegistryClient buildMockSchemaRegistryClient() {
+    @Override
+    public void configure(Map<String, ?> configs, boolean isKey) {
+        super.configure(configs, isKey);
+        topicName = configs.get(DUHE_SCHEMA_REGISTRY_TOPIC_KEY).toString();
+    }
+
+    private MockSchemaRegistryClient buildMockSchemaRegistryClient() {
         MockSchemaRegistryClient schemaRegistry = new MockSchemaRegistryClient();
         try {
-            schemaRegistry.register(DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT,
+            schemaRegistry.register(topicToSubjectName(topicName),
                     new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA));
             return schemaRegistry;
         } catch (IOException | RestClientException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static String topicToSubjectName(String topicName) {
+        return topicName + DATAHUB_UPGRADE_HISTORY_EVENT_SUBJECT_SUFFIX;
     }
 }
