@@ -1,58 +1,139 @@
+import os
+from typing import Dict, List, Optional
+
 from dagster import (
     DagsterRunStatus,
     RunStatusSensorContext,
+    SensorDefinition,
+    SensorEvaluationContext,
     SkipReason,
     run_status_sensor,
+    sensor,
 )
+from dagster._core.definitions.sensor_definition import (
+    RawSensorEvaluationFunctionReturn,
+)
+from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub_provider.client.dagster_generator import DATAHUB_REST_URL, DagsterGenerator
+from datahub_provider.client.dagster_generator import DagsterGenerator
+
+# Default configuration constants
+DEFAULT_DATAHUB_REST_URL = "http://localhost:8080"
+DEFAULT_DATAHUB_ENV = "prod"
 
 
-@run_status_sensor(run_status=DagsterRunStatus.SUCCESS)
-def emit_metadata_sensor(context: RunStatusSensorContext):
-    emitter = DatahubRestEmitter(gms_server=DATAHUB_REST_URL)
-    emitter.test_connection()
+@sensor()
+def dagster_sensor(
+    context: SensorEvaluationContext,
+) -> RawSensorEvaluationFunctionReturn:
+    """
+    Sensor which instigate all run status sensors and trigger them based upon run status
+    """
+    for each in DagsterSensors().sensors:
+        each.evaluate_tick(context)
+    yield SkipReason("Nothing to see here...")
 
-    assert context.dagster_run.job_snapshot_id
-    assert context.dagster_run.execution_plan_snapshot_id
 
-    job_snapshot = context.instance.get_job_snapshot(
-        snapshot_id=context.dagster_run.job_snapshot_id
-    )
-    dataflow = DagsterGenerator.generate_dataflow(job_snapshot=job_snapshot)
-    dataflow.emit(emitter)
-
-    DagsterGenerator.emit_job_run(
-        emitter=emitter,
-        dataflow=dataflow,
-        run=context.dagster_run,
-        run_stats=context.instance.get_run_stats(context.dagster_run.run_id),
-    )
-
-    execution_plan_snapshot = context.instance.get_execution_plan_snapshot(
-        snapshot_id=context.dagster_run.execution_plan_snapshot_id
-    )
-
-    run_step_stats = {
-        run_step_stat.step_key: run_step_stat
-        for run_step_stat in context.instance.get_run_step_stats(
-            context.dagster_run.run_id
+class DagsterSensors:
+    def __init__(self):
+        """
+        Set datahub configurations and initialize datahub emitter and dagster run status sensors
+        """
+        self.datahub_rest_url: str = (
+            os.environ["DATAHUB_REST_URL"]
+            if "DATAHUB_REST_URL" in os.environ
+            else DEFAULT_DATAHUB_REST_URL
         )
-    }
+        self.env: str = (
+            os.environ["DATAHUB_ENV"]
+            if "DATAHUB_ENV" in os.environ
+            else DEFAULT_DATAHUB_ENV
+        )
+        self.platform_instance: Optional[str] = os.getenv("DATAHUB_PLATFORM_INSTANCE")
 
-    for op_def_snap in job_snapshot.node_defs_snapshot.op_def_snaps:
-        datajob = DagsterGenerator.generate_datajob(
+        self.emitter: DatahubRestEmitter = DatahubRestEmitter(
+            gms_server=self.datahub_rest_url
+        )
+        self.emitter.test_connection()
+
+        self.sensors: List[SensorDefinition] = []
+        self.sensors.append(
+            run_status_sensor(
+                name="dagster_success_sensor", run_status=DagsterRunStatus.SUCCESS
+            )(self._emit_metadata)
+        )
+
+        self.sensors.append(
+            run_status_sensor(
+                name="dagster_failure_sensor", run_status=DagsterRunStatus.FAILURE
+            )(self._emit_metadata)
+        )
+
+        self.sensors.append(
+            run_status_sensor(
+                name="dagster_canceled_sensor", run_status=DagsterRunStatus.CANCELED
+            )(self._emit_metadata)
+        )
+
+    def _emit_metadata(
+        self, context: RunStatusSensorContext
+    ) -> RawSensorEvaluationFunctionReturn:
+        """
+        Function to emit metadata for datahub rest.
+        """
+        assert context.dagster_run.job_snapshot_id
+        assert context.dagster_run.execution_plan_snapshot_id
+
+        job_snapshot = context.instance.get_job_snapshot(
+            snapshot_id=context.dagster_run.job_snapshot_id
+        )
+        # Emit dagster job entity which get mapped with datahub dataflow entity
+        dataflow = DagsterGenerator.generate_dataflow(
             job_snapshot=job_snapshot,
-            step_deps=execution_plan_snapshot.step_deps,
-            op_def_snap=op_def_snap,
+            env=self.env,
+            platform_instance=self.platform_instance,
         )
-        datajob.emit(emitter)
+        dataflow.emit(self.emitter)
 
-        DagsterGenerator.emit_op_run(
-            emitter=emitter,
-            datajob=datajob,
-            run_step_stats=run_step_stats[op_def_snap.name],
+        # Emit dagster job run which get mapped with datahub data process instance entity
+        DagsterGenerator.emit_job_run(
+            emitter=self.emitter,
+            dataflow=dataflow,
+            run=context.dagster_run,
+            run_stats=context.instance.get_run_stats(context.dagster_run.run_id),
         )
 
-    yield SkipReason("Datahub emit metadata success")
+        # Execution plan snapshot contains all steps(ops) dependency.
+        execution_plan_snapshot = context.instance.get_execution_plan_snapshot(
+            snapshot_id=context.dagster_run.execution_plan_snapshot_id
+        )
+
+        # Map step key with its run step stats
+        run_step_stats: Dict[str, RunStepKeyStatsSnapshot] = {
+            run_step_stat.step_key: run_step_stat
+            for run_step_stat in context.instance.get_run_step_stats(
+                context.dagster_run.run_id
+            )
+        }
+
+        # For all dagster ops present in job:
+        # Emit op entity which get mapped with datahub datajob entity.
+        # Emit op run which get mapped with datahub data process instance entity.
+        for op_def_snap in job_snapshot.node_defs_snapshot.op_def_snaps:
+            datajob = DagsterGenerator.generate_datajob(
+                job_snapshot=job_snapshot,
+                step_deps=execution_plan_snapshot.step_deps,
+                op_def_snap=op_def_snap,
+                env=self.env,
+                platform_instance=self.platform_instance,
+            )
+            datajob.emit(self.emitter)
+
+            DagsterGenerator.emit_op_run(
+                emitter=self.emitter,
+                datajob=datajob,
+                run_step_stats=run_step_stats[op_def_snap.name],
+            )
+
+        yield SkipReason("Datahub emit metadata success")
