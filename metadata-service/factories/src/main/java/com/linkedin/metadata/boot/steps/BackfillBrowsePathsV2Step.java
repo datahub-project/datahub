@@ -114,7 +114,12 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     }
 
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
-      ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+      try {
+        ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+      } catch (Exception e) {
+        // don't stop the whole step because of one bad urn or one bad ingestion
+        log.error(String.format("Error ingesting default browsePathsV2 aspect for urn %s", searchEntity.getEntity()), e);
+      }
     }
 
     return scrollResult.getScrollId();
