@@ -40,8 +40,10 @@ query appConfig {
             queriesTab {
                 queriesTabResultSize
             }
-            entityProfile {
-                domainDefaultTab
+            entityProfiles {
+                domain {
+                    defaultTab
+                }
             }
         }
         telemetryConfig {

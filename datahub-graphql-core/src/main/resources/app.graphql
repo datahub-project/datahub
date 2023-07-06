@@ -215,7 +215,7 @@ type VisualConfig {
   """
   Configuration for the queries tab
   """
-  entityProfile: EntityProfileConfig
+  entityProfiles: EntityProfilesConfig
 }
 
 """
@@ -230,14 +230,24 @@ type QueriesTabConfig {
 
 
 """
-Configuration for the queries tab
+Configuration for different entity profiles
+"""
+type EntityProfilesConfig {
+  """
+  The configurations for a Domain entity profile
+  """
+  domain: EntityProfileConfig
+}
+
+"""
+Configuration for an entity profile
 """
 type EntityProfileConfig {
   """
   The enum value from EntityProfileTab for which tab should be showed by default on
-  Domain profile pages. If null, rely on default sorting from React code.
+  entity profile pages. If null, rely on default sorting from React code.
   """
-  domainDefaultTab: String
+  defaultTab: String
 }
 
 """
