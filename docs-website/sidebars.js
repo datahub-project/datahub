@@ -290,6 +290,21 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
               label: "Evaluate Tests",
               id: "docs/api/restli/evaluate-tests",
             },
@@ -437,6 +452,7 @@ module.exports = {
             "docs/developers",
             "docs/docker/development",
             "metadata-ingestion/developing",
+            "docs/api/graphql/graphql-endpoint-development",
             {
               Modules: [
                 "datahub-web-react/README",
@@ -558,6 +574,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_9",
             "docs/managed-datahub/release-notes/v_0_2_8",
             "docs/managed-datahub/release-notes/v_0_2_7",
             "docs/managed-datahub/release-notes/v_0_2_6",

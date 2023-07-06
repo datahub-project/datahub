@@ -14,6 +14,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -88,7 +89,7 @@ public class BackfillBrowsePathsV2StepTest {
     Mockito.verify(mockSearchService, Mockito.times(9)).scrollAcrossEntities(
         Mockito.any(),
         Mockito.eq("*"),
-        Mockito.eq(null),
+        Mockito.any(Filter.class),
         Mockito.eq(null),
         Mockito.eq(null),
         Mockito.eq("5m"),
@@ -157,7 +158,7 @@ public class BackfillBrowsePathsV2StepTest {
       Mockito.when(mockSearchService.scrollAcrossEntities(
           Mockito.eq(ImmutableList.of(ENTITY_TYPES.get(i))),
           Mockito.eq("*"),
-          Mockito.eq(null),
+          Mockito.any(Filter.class),
           Mockito.eq(null),
           Mockito.eq(null),
           Mockito.eq("5m"),

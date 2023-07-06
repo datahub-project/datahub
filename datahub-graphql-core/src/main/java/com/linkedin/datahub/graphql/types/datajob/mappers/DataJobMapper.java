@@ -90,7 +90,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setGlobalTags(globalTags);
                 result.setTags(globalTags);
             } else if (INSTITUTIONAL_MEMORY_ASPECT_NAME.equals(name)) {
-                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data)));
+                result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(data), entityUrn));
             } else if (GLOSSARY_TERMS_ASPECT_NAME.equals(name)) {
                 result.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(data), entityUrn));
             } else if (DOMAINS_ASPECT_NAME.equals(name)) {
