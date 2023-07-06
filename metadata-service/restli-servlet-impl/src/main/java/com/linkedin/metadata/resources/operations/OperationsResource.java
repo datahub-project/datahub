@@ -124,7 +124,7 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
           && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.GET_ES_TASK_STATUS_PRIVILEGE),
           List.of(java.util.Optional.empty()))) {
-        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to truncate timeseries index");
+        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to get ES task status");
       }
       boolean taskSpecified = task != null;
       boolean nodeAndTaskIdSpecified = nodeId != null && taskId > 0;
