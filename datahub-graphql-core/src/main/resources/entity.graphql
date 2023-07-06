@@ -8015,7 +8015,23 @@ type ActorFilter {
   """
   Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
   """
-  resolvedOwnershipTypes: [OwnershipTypeEntity!]
+  resolvedResourceOwnershipTypes: [OwnershipTypeEntity!]
+
+  """
+  Whether the filter should return TRUE for platform instance owners of a particular resource
+  Only applies to policies of type METADATA, which have a resource associated with them
+  """
+  platformInstanceOwners: Boolean!
+
+  """
+  Set of OwnershipTypes to apply the policy to (if platformInstanceOwners field is set to True)
+  """
+  platformInstanceOwnersTypes: [String!]
+
+  """
+  Set of OwnershipTypes to apply the policy to (if platformInstanceOwners field is set to True), resolved.
+  """
+  resolvedPlatformInstanceOwnershipTypes: [OwnershipTypeEntity!]
 
   """
   Whether the filter should apply to all users
@@ -8149,6 +8165,17 @@ input ActorFilterInput {
   Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
   """
   resourceOwnersTypes: [String!]
+
+  """
+  Whether the filter should return TRUE for platform instance owners of a particular resource
+  Only applies to policies of type METADATA, which have a resource associated with them
+  """
+  platformInstanceOwners: Boolean!
+
+  """
+  Set of OwnershipTypes to apply the policy to (if platformInstanceOwners field is set to True)
+  """
+  platformInstanceOwnersTypes: [String!]
 
   """
   Whether the filter should apply to all users

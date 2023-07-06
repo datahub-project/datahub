@@ -51,8 +51,12 @@ public class PolicyUpdateInputInfoMapper implements ModelMapper<PolicyUpdateInpu
     result.setAllGroups(actorInput.getAllGroups());
     result.setAllUsers(actorInput.getAllUsers());
     result.setResourceOwners(actorInput.getResourceOwners());
+    result.setPlatformInstanceOwners(actorInput.getPlatformInstanceOwners());
     if (actorInput.getResourceOwnersTypes() != null) {
       result.setResourceOwnersTypes(new UrnArray(actorInput.getResourceOwnersTypes().stream().map(this::createUrn).collect(Collectors.toList())));
+    }
+    if (actorInput.getPlatformInstanceOwnersTypes() != null) {
+      result.setPlatformInstanceOwnersTypes(new UrnArray(actorInput.getPlatformInstanceOwnersTypes().stream().map(this::createUrn).collect(Collectors.toList())));
     }
     if (actorInput.getGroups() != null) {
       result.setGroups(new UrnArray(actorInput.getGroups().stream().map(this::createUrn).collect(Collectors.toList())));

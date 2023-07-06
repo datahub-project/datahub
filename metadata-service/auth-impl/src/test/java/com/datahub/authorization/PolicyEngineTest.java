@@ -90,12 +90,16 @@ public class PolicyEngineTest {
     EntityResponse entityResponse = new EntityResponse();
     EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
     envelopedAspectMap.put(OWNERSHIP_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new com.linkedin.entity.Aspect(createOwnershipAspect(true, true).data())));
+        new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, true).data())));
+    envelopedAspectMap.put(DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+            new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, true).data())));
     entityResponse.setAspects(envelopedAspectMap);
     resourceUrn = Urn.createFromString(RESOURCE_URN);
     Map<Urn, EntityResponse> mockMap = mock(Map.class);
     when(_entityClient.batchGetV2(any(), eq(Collections.singleton(resourceUrn)),
         eq(Collections.singleton(OWNERSHIP_ASPECT_NAME)), any())).thenReturn(mockMap);
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(resourceUrn)),
+            eq(Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME)), any())).thenReturn(mockMap);
     when(mockMap.get(eq(resourceUrn))).thenReturn(entityResponse);
   }
 
@@ -535,6 +539,51 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testEvaluatePolicyActorFilterPlatformInstanceOwnersMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(false);
+    actorFilter.setPlatformInstanceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    entityResponse.setAspects(aspectMap);
+    Urn platformInstanceUrn = Urn.createFromString(PLATFORM_INSTANCE_URN);
+    when(_entityClient.getV2(eq(platformInstanceUrn.getEntityType()), eq(platformInstanceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
+
+    ResolvedResourceSpec resourceSpec =
+        buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet(), PLATFORM_INSTANCE_URN);
+    // Assert authorized user can edit entity tags, because he is a user owner.
+    PolicyEngine.PolicyEvaluationResult result1 =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertTrue(result1.isGranted());
+
+    // Ensure no calls for group membership.
+    verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+        eq(null), any());
+  }
+
+  @Test
   public void testEvaluatePolicyActorFilterUserResourceOwnersTypeMatch() throws Exception {
 
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
@@ -571,6 +620,56 @@ public class PolicyEngineTest {
             _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
                     Optional.of(resourceSpec));
     assertTrue(result1.isGranted());
+
+    // Ensure no calls for group membership.
+    verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+            eq(null), any());
+  }
+
+
+  @Test
+  public void testEvaluatePolicyActorFilterUserPlatformInstanceOwnersTypeMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(false);
+    actorFilter.setPlatformInstanceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setResourceOwnersTypes(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspect(true, false).data())));
+    entityResponse.setAspects(aspectMap);
+    Urn platformInstanceUrn = Urn.createFromString(PLATFORM_INSTANCE_URN);
+    when(_entityClient.getV2(eq(platformInstanceUrn.getEntityType()), eq(platformInstanceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
+
+    ResolvedResourceSpec resourceSpec =
+            buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet(), PLATFORM_INSTANCE_URN);
+
+    PolicyEngine.PolicyEvaluationResult result1 =
+            _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+                    Optional.of(resourceSpec));
+    assertTrue(result1.isGranted());
+
+    // Ensure no calls for group membership.
+    verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
+            eq(null), any());
   }
 
   @Test
@@ -605,6 +704,47 @@ public class PolicyEngineTest {
 
     ResolvedResourceSpec resourceSpec =
             buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet());
+
+    PolicyEngine.PolicyEvaluationResult result1 =
+            _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+                    Optional.of(resourceSpec));
+    assertFalse(result1.isGranted());
+  }
+
+  @Test
+  public void testEvaluatePolicyActorFilterUserPlatformInstanceOwnersTypeNoMatch() throws Exception {
+
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(false);
+    actorFilter.setPlatformInstanceOwners(true);
+    actorFilter.setAllUsers(false);
+    actorFilter.setAllGroups(false);
+    actorFilter.setPlatformInstanceOwnersTypes(new UrnArray(ImmutableList.of(Urn.createFromString(OWNERSHIP_TYPE_URN))));
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(true);
+    resourceFilter.setType("dataset");
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(OWNERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(createOwnershipAspectWithTypeUrn(OTHER_OWNERSHIP_TYPE_URN).data())));
+    entityResponse.setAspects(aspectMap);
+    Urn platformInstanceUrn = Urn.createFromString(PLATFORM_INSTANCE_URN);
+    when(_entityClient.getV2(eq(platformInstanceUrn.getEntityType()), eq(platformInstanceUrn), eq(Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME)),
+            any())).thenReturn(entityResponse);
+
+    ResolvedResourceSpec resourceSpec =
+            buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet(), PLATFORM_INSTANCE_URN);
 
     PolicyEngine.PolicyEvaluationResult result1 =
             _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
@@ -1223,5 +1363,16 @@ public class PolicyEngineTest {
             FieldResolver.getResolverFromValues(Collections.singleton(entityUrn)), ResourceFieldType.OWNER,
             FieldResolver.getResolverFromValues(owners), ResourceFieldType.DOMAIN,
             FieldResolver.getResolverFromValues(domains)));
+  }
+
+  public static ResolvedResourceSpec buildResourceResolvers(String entityType, String entityUrn, Set<String> owners,
+      Set<String> domains, String platformInstance) {
+    return new ResolvedResourceSpec(new ResourceSpec(entityType, entityUrn),
+        ImmutableMap.of(ResourceFieldType.RESOURCE_TYPE,
+            FieldResolver.getResolverFromValues(Collections.singleton(entityType)), ResourceFieldType.RESOURCE_URN,
+            FieldResolver.getResolverFromValues(Collections.singleton(entityUrn)), ResourceFieldType.OWNER,
+            FieldResolver.getResolverFromValues(owners), ResourceFieldType.DOMAIN,
+            FieldResolver.getResolverFromValues(domains), ResourceFieldType.PLATFORM_INSTANCE,
+            FieldResolver.getResolverFromValues(Collections.singleton(platformInstance))));
   }
 }

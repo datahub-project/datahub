@@ -1634,9 +1634,12 @@ public class GmsGraphQLEngine {
         })).dataFetcher("resolvedRoles", new LoadableTypeBatchResolver<>(dataHubRoleType, (env) -> {
             final ActorFilter filter = env.getSource();
             return filter.getRoles();
-        })).dataFetcher("resolvedOwnershipTypes", new LoadableTypeBatchResolver<>(ownershipType, (env) -> {
+        })).dataFetcher("resolvedResourceOwnershipTypes", new LoadableTypeBatchResolver<>(ownershipType, (env) -> {
             final ActorFilter filter = env.getSource();
             return filter.getResourceOwnersTypes();
+        })).dataFetcher("resolvedPlatformInstanceOwnershipTypes", new LoadableTypeBatchResolver<>(ownershipType, (env) -> {
+            final ActorFilter filter = env.getSource();
+            return filter.getPlatformInstanceOwnersTypes();
         })));
     }
 

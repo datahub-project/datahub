@@ -107,10 +107,26 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         if (!actors?.resourceOwners) {
             return <PoliciesTag>No</PoliciesTag>;
         }
-        if ((actors?.resolvedOwnershipTypes?.length ?? 0) > 0) {
+        if ((actors?.resolvedResourceOwnershipTypes?.length ?? 0) > 0) {
             return (
                 <div>
-                    {actors?.resolvedOwnershipTypes?.map((type) => (
+                    {actors?.resolvedResourceOwnershipTypes?.map((type) => (
+                        <PoliciesTag>{type.info.name}</PoliciesTag>
+                    ))}
+                </div>
+            );
+        }
+        return <PoliciesTag>Yes - All owners</PoliciesTag>;
+    };
+
+    const platformInstanceOwnersField = (actors) => {
+        if (!actors?.platformInstanceOwners) {
+            return <PoliciesTag>No</PoliciesTag>;
+        }
+        if ((actors?.resolvedPlatformInstanceOwnershipTypes?.length ?? 0) > 0) {
+            return (
+                <div>
+                    {actors?.resolvedPlatformInstanceOwnershipTypes?.map((type) => (
                         <PoliciesTag>{type.info.name}</PoliciesTag>
                     ))}
                 </div>
@@ -194,9 +210,14 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     ))}
                 </Privileges>
                 <div>
-                    <Typography.Title level={5}>Applies to Owners</Typography.Title>
+                    <Typography.Title level={5}>Applies to Resource Owners</Typography.Title>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
+                </div>
+                <div>
+                    <Typography.Title level={5}>Applies to Platform InstanceOwners</Typography.Title>
+                    <ThinDivider />
+                    {platformInstanceOwnersField(policy?.actors)}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>

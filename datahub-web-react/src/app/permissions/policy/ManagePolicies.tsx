@@ -110,6 +110,8 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
             allGroups: policy.actors.allGroups,
             resourceOwners: policy.actors.resourceOwners,
             resourceOwnersTypes: policy.actors.resourceOwnersTypes,
+            platformInstanceOwners: policy.actors.platformInstanceOwners,
+            platformInstanceOwnersTypes: policy.actors.platformInstanceOwnersTypes,
         },
     };
     if (policy.resources !== null && policy.resources !== undefined) {
@@ -360,7 +362,8 @@ export const ManagePolicies = () => {
                         />
                         {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
                         {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
-                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>All Resource Owners</ActorTag> : null}
+                        {record?.platformInstanceOwners ? <ActorTag>All Platform Instance Owners</ActorTag> : null}
                     </>
                 );
             },
@@ -430,6 +433,7 @@ export const ManagePolicies = () => {
         allGroups: policy?.actors?.allGroups,
         allUsers: policy?.actors?.allUsers,
         resourceOwners: policy?.actors?.resourceOwners,
+        platformInstanceOwners: policy?.actors?.platformInstanceOwners,
         description: policy?.description,
         editable: policy?.editable,
         name: policy?.name,

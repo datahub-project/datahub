@@ -61,8 +61,8 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         ownershipData?.listOwnershipTypes?.ownershipTypes.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
     const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
-    // Toggle the "Owners" switch
-    const onToggleAppliesToOwners = (value: boolean) => {
+    // Toggle the "Resource Owners" switch
+    const onToggleAppliesToResourceOwners = (value: boolean) => {
         setActors({
             ...actors,
             resourceOwners: value,
@@ -70,7 +70,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    const onSelectOwnershipTypeActor = (newType: string) => {
+    const onSelectResourceOwnershipTypeActor = (newType: string) => {
         const newResourceOwnersTypes: Maybe<string[]> = [...(actors.resourceOwnersTypes || []), newType];
         setActors({
             ...actors,
@@ -78,11 +78,35 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         });
     };
 
-    const onDeselectOwnershipTypeActor = (type: string) => {
+    const onDeselectResourceOwnershipTypeActor = (type: string) => {
         const newResourceOwnersTypes: Maybe<string[]> = actors.resourceOwnersTypes?.filter((u: string) => u !== type);
         setActors({
             ...actors,
             resourceOwnersTypes: newResourceOwnersTypes?.length ? newResourceOwnersTypes : null,
+        });
+    };
+    // Toggle the "Platform Instance Owners" switch
+    const onToggleAppliesToPlatformInstanceOwners = (value: boolean) => {
+        setActors({
+            ...actors,
+            platformInstanceOwners: value,
+            platformInstanceOwnersTypes: value ? actors.platformInstanceOwnersTypes : null,
+        });
+    };
+
+    const onSelectPlatformInstanceOwnershipTypeActor = (newType: string) => {
+        const newPlatformInstanceOwnersTypes: Maybe<string[]> = [...(actors.platformInstanceOwnersTypes || []), newType];
+        setActors({
+            ...actors,
+            platformInstanceOwnersTypes: newPlatformInstanceOwnersTypes,
+        });
+    };
+
+    const onDeselectPlatformInstanceOwnershipTypeActor = (type: string) => {
+        const newPlatformInstanceOwnersTypes: Maybe<string[]> = actors.platformInstanceOwnersTypes?.filter((u: string) => u !== type);
+        setActors({
+            ...actors,
+            platformInstanceOwnersTypes: newPlatformInstanceOwnersTypes?.length ? newPlatformInstanceOwnersTypes : null,
         });
     };
 
@@ -206,7 +230,8 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Select dropdown values.
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
-    const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
+    const resourceOwnershipTypesSelectValue = actors.resourceOwnersTypes || [];
+    const platformInstanceOwnershipTypesSelectValue = actors.platformInstanceOwnershipTypes || [];
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
@@ -240,13 +265,13 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 <Typography.Paragraph>Select the users & groups that this policy should apply to.</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>Resource Owners</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
+                        Whether this policy should apply to owners of the Metadata asset. If true, those who are
                         marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
                         selected privileges.
                     </Typography.Paragraph>
-                    <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
+                    <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToResourceOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
                             <Typography.Paragraph>
@@ -254,11 +279,49 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                                 will applied to any type of ownership.
                             </Typography.Paragraph>
                             <Select
-                                value={ownershipTypesSelectValue}
+                                value={resourceOwnershipTypesSelectValue}
                                 mode="multiple"
                                 placeholder="Ownership types"
-                                onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
-                                onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
+                                onSelect={(asset: any) => onSelectResourceOwnershipTypeActor(asset)}
+                                onDeselect={(asset: any) => onDeselectResourceOwnershipTypeActor(asset)}
+                                tagRender={(tagProps) => {
+                                    return (
+                                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                            {ownershipTypesMap[tagProps.value.toString()]}
+                                        </Tag>
+                                    );
+                                }}
+                            >
+                                {ownershipTypes.map((resOwnershipType) => {
+                                    return (
+                                        <Select.Option value={resOwnershipType.urn}>
+                                            {resOwnershipType?.info?.name}
+                                        </Select.Option>
+                                    );
+                                })}
+                            </Select>
+                        </OwnershipWrapper>
+                    )}
+                </Form.Item>
+                <Form.Item label={<Typography.Text strong>Platform Instance Owners</Typography.Text>} labelAlign="right">
+                    <Typography.Paragraph>
+                        Whether this policy should apply to platform instance owners of the Metadata asset. If true, those who are
+                        marked as owners of the platform instance to which a Metadata Asset belongs to, either directly or indirectly
+                        via a Group, will have the selected privileges.
+                    </Typography.Paragraph>
+                    <Switch size="small" checked={actors.platformInstanceOwners} onChange={onToggleAppliesToPlatformInstanceOwners} />
+                    {actors.platformInstanceOwners && (
+                        <OwnershipWrapper>
+                            <Typography.Paragraph>
+                                List of types of ownership which will be used to match plafrom instance owners. If empty,
+                                the policies will applied to any type of ownership.
+                            </Typography.Paragraph>
+                            <Select
+                                value={platformInstanceOwnershipTypesSelectValue}
+                                mode="multiple"
+                                placeholder="Ownership types"
+                                onSelect={(asset: any) => onSelectPlatformInstanceOwnershipTypeActor(asset)}
+                                onDeselect={(asset: any) => onDeselectPlatformInstanceOwnershipTypeActor(asset)}
                                 tagRender={(tagProps) => {
                                     return (
                                         <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
