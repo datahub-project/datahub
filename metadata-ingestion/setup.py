@@ -377,7 +377,7 @@ plugins: Dict[str, Set[str]] = {
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
     "unity-catalog": databricks | sqllineage_lib,
     "dagster": {
-        "dagster",
+        "dagster>=1.3.3",
     },
 }
 

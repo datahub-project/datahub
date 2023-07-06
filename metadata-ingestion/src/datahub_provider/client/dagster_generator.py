@@ -1,4 +1,3 @@
-import os
 from typing import Dict, List, Optional
 
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
@@ -19,10 +18,6 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-
-# Default configuration constants
-DEFAULT_DATAHUB_REST_URL = "http://localhost:8080"
-DEFAULT_DATAHUB_ENV = "prod"
 
 # Contants
 ORCHESTRATOR = "dagster"
@@ -51,17 +46,6 @@ END_TIME = "end_time"
 STEP_KEY = "step_key"
 ATTEMPTS = "attempts"
 
-# Configuration contants
-DATAHUB_REST_URL: str = (
-    os.environ["DATAHUB_REST_URL"]
-    if "DATAHUB_REST_URL" in os.environ
-    else DEFAULT_DATAHUB_REST_URL
-)
-DATAHUB_ENV: str = (
-    os.environ["DATAHUB_ENV"] if "DATAHUB_ENV" in os.environ else DEFAULT_DATAHUB_ENV
-)
-DATAHUB_PLATFORM_INSTANCE: Optional[str] = os.getenv("DATAHUB_PLATFORM_INSTANCE")
-
 
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
     return [DatasetUrn.create_from_string(urn) for urn in urns]
@@ -69,18 +53,22 @@ def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
 
 class DagsterGenerator:
     @staticmethod
-    def generate_dataflow(job_snapshot: JobSnapshot) -> DataFlow:
+    def generate_dataflow(
+        job_snapshot: JobSnapshot, env: str, platform_instance: Optional[str] = None
+    ) -> DataFlow:
         """
         Generates a Dataflow object from an Dagster Job Snapshot
         :param job_snapshot: JobSnapshot - Job snapshot object
+        :param env: str
+        :param platform_instance: Optional[str]
         :return: DataFlow - Data generated dataflow
         """
         dataflow = DataFlow(
             orchestrator=ORCHESTRATOR,
             id=job_snapshot.name,
-            env=DATAHUB_ENV,
+            env=env,
             name=job_snapshot.name,
-            platform_instance=DATAHUB_PLATFORM_INSTANCE,
+            platform_instance=platform_instance,
         )
         dataflow.description = job_snapshot.description
         dataflow.tags = set(job_snapshot.tags.keys())
@@ -93,19 +81,25 @@ class DagsterGenerator:
 
     @staticmethod
     def generate_datajob(
-        job_snapshot: JobSnapshot, step_deps: Dict[str, List], op_def_snap: OpDefSnap
+        job_snapshot: JobSnapshot,
+        step_deps: Dict[str, List],
+        op_def_snap: OpDefSnap,
+        env: str,
+        platform_instance: Optional[str] = None,
     ) -> DataJob:
         """
         Generates a Datajob object from an Dagster op snapshot
         :param job_snapshot: JobSnapshot - Job snapshot object
         :param op_def_snap: OpDefSnap - Op def snapshot object
+        :param env: str
+        :param platform_instance: Optional[str]
         :return: DataJob - Data generated datajob
         """
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=ORCHESTRATOR,
             flow_id=job_snapshot.name,
-            env=DATAHUB_ENV,
-            platform_instance=DATAHUB_PLATFORM_INSTANCE,
+            env=env,
+            platform_instance=platform_instance,
         )
         datajob = DataJob(
             id=op_def_snap.name,
@@ -116,6 +110,7 @@ class DagsterGenerator:
         datajob.description = op_def_snap.description
         datajob.tags = set(op_def_snap.tags.keys())
 
+        # Add upstream dependencies for this op
         for upstream_op_name in step_deps[op_def_snap.name]:
             upstream_op_urn = DataJobUrn.create_from_ids(
                 data_flow_urn=str(dataflow_urn),
@@ -125,10 +120,13 @@ class DagsterGenerator:
 
         job_property_bag: Dict[str, str] = {}
 
-        cnt = 1
+        # For all op inputs/outputs:
+        # Add input/output details like its type, description, metadata etc in datajob properties.
+        # Also, add datahub inputs/outputs if present in input/output metatdata.
         for input_def_snap in op_def_snap.input_def_snaps:
-            job_property_bag[f"input_{cnt}"] = str(input_def_snap._asdict())
-            cnt += 1
+            job_property_bag[f"input.{input_def_snap.name}"] = str(
+                input_def_snap._asdict()
+            )
             if DATAHUB_INPUTS in input_def_snap.metadata:
                 datajob.inlets.extend(
                     _str_urn_to_dataset_urn(
@@ -136,10 +134,10 @@ class DagsterGenerator:
                     )
                 )
 
-        cnt = 1
         for output_def_snap in op_def_snap.output_def_snaps:
-            job_property_bag[f"output_{cnt}"] = str(output_def_snap._asdict())
-            cnt += 1
+            job_property_bag[f"output_{output_def_snap.name}"] = str(
+                output_def_snap._asdict()
+            )
             if DATAHUB_OUTPUTS in output_def_snap.metadata:
                 datajob.outlets.extend(
                     _str_urn_to_dataset_urn(
@@ -167,6 +165,7 @@ class DagsterGenerator:
         """
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=run_stats.run_id)
 
+        # Add below details in dpi properties
         dpi_property_bag: Dict[str, str] = {}
         allowed_job_run_keys = [
             JOB_SNAPSHOT_ID,
@@ -191,13 +190,13 @@ class DagsterGenerator:
                 dpi_property_bag[key] = str(getattr(run_stats, key))
         dpi.properties.update(dpi_property_bag)
 
-        state_result_map = {
+        status_result_map = {
             DagsterRunStatus.SUCCESS: InstanceRunResult.SUCCESS,
             DagsterRunStatus.FAILURE: InstanceRunResult.FAILURE,
             DagsterRunStatus.CANCELED: InstanceRunResult.SKIPPED,
         }
 
-        if run.status not in state_result_map:
+        if run.status not in status_result_map:
             raise Exception(
                 f"Job run status should be either complete, failed or cancelled and it was "
                 f"{run.status }"
@@ -213,7 +212,7 @@ class DagsterGenerator:
             dpi.emit_process_end(
                 emitter=emitter,
                 end_timestamp_millis=int(run_stats.end_time * 1000),
-                result=state_result_map[run.status],
+                result=status_result_map[run.status],
                 result_type=ORCHESTRATOR,
             )
 
@@ -236,6 +235,7 @@ class DagsterGenerator:
             clone_outlets=True,
         )
 
+        # Add below details in dpi properties
         dpi_property_bag: Dict[str, str] = {}
         allowed_op_run_keys = [
             STEP_KEY,
@@ -251,13 +251,13 @@ class DagsterGenerator:
                 dpi_property_bag[key] = str(getattr(run_step_stats, key))
         dpi.properties.update(dpi_property_bag)
 
-        state_result_map = {
+        status_result_map = {
             StepEventStatus.SUCCESS: InstanceRunResult.SUCCESS,
             StepEventStatus.FAILURE: InstanceRunResult.FAILURE,
             StepEventStatus.SKIPPED: InstanceRunResult.SKIPPED,
         }
 
-        if run_step_stats.status not in state_result_map:
+        if run_step_stats.status not in status_result_map:
             raise Exception(
                 f"Step run status should be either complete, failed or cancelled and it was "
                 f"{run_step_stats.status }"
@@ -273,6 +273,6 @@ class DagsterGenerator:
             dpi.emit_process_end(
                 emitter=emitter,
                 end_timestamp_millis=int(run_step_stats.end_time * 1000),
-                result=state_result_map[run_step_stats.status],
+                result=status_result_map[run_step_stats.status],
                 result_type=ORCHESTRATOR,
             )
