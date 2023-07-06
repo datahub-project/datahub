@@ -437,7 +437,7 @@ public class ESBrowseDAO {
 
     queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
-    queryBuilder.must(SearchRequestHandler.getFilterQuery(filter));
+    queryBuilder.filter(SearchRequestHandler.getFilterQuery(filter));
 
     return queryBuilder;
   }
