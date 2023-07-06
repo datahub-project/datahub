@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SlackNotificationRecipientBuilder extends NotificationRecipientBuilder {
-  private static final Predicate<? super NotificationSettings> predicate = NotificationSettings::hasSlackSettings;
+  private static final Predicate<? super NotificationSettings> PREDICATE = NotificationSettings::hasSlackSettings;
   private static final String SLACK_CHANNEL_CUSTOM_TYPE = "SLACK_CHANNEL";
   private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
 
@@ -32,7 +32,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull EntityClient entityClient,
       @Nonnull Authentication authentication) {
-    super(settingsProvider, entityClient, authentication, predicate);
+    super(settingsProvider, entityClient, authentication, PREDICATE);
   }
 
   @Override
