@@ -95,7 +95,6 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
 
 @dataclass
 class MCPAspectDiff:
-    diff: DeepDiff
     aspects_added: Dict[int, AspectForDiff]
     aspects_removed: Dict[int, AspectForDiff]
     aspects_changed: Dict[Tuple[int, AspectForDiff, AspectForDiff], List[DiffLevel]]
@@ -121,7 +120,6 @@ class MCPAspectDiff:
                     aspects_changed[(idx, level.t1, level.t2)].append(diff_level)
 
         return cls(
-            diff,
             aspects_added=aspects_added,
             aspects_removed=aspects_removed,
             aspects_changed=aspects_changed,

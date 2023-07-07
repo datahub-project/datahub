@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 MetadataJson = List[Dict[str, Any]]
 
 default_exclude_paths = [
-    r"root\[\d+]\['systemMetadata']\['lastObserved']",
-    r"root\[\d+]\['aspect']\['json']\['timestampMillis']",
-    r"root\[\d+]\['aspect']\['json']\['lastUpdatedTimestamp']",
-    r"root\[\d+]\['aspect']\['json']\['created']",
-    r"root\[\d+]\['aspect']\['json']\['lastModified']",
+    r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+    r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
 ]
 
 
@@ -54,10 +54,10 @@ def assert_metadata_files_equal(
 
     output = load_json_file(output_path)
 
-    # if updating a golden file that doesn't exist yet, load the output again
     if update_golden and not golden_exists:
         golden = load_json_file(output_path)
         shutil.copyfile(str(output_path), str(golden_path))
+        return
     else:
         # We have to "normalize" the golden file by reading and writing it back out.
         # This will clean up nulls, double serialization, and other formatting issues.
