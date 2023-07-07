@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeseries.elastic.indexbuilder;
 
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -45,6 +46,16 @@ public class TimeseriesAspectIndexBuilders implements ElasticSearchIndexed {
     }
     String entityName = entityAndAspect.get().getFirst();
     String aspectName = entityAndAspect.get().getSecond();
+    EntitySpec entitySpec = _entityRegistry.getEntitySpec(entityName);
+    for (String aspect : entitySpec.getAspectSpecMap().keySet()) {
+      if (aspect.toLowerCase().equals(aspectName)) {
+        aspectName = aspect;
+        break;
+      }
+    }
+    if (!entitySpec.hasAspect(aspectName)) {
+      throw new IllegalArgumentException(String.format("Could not find aspect %s of entity %s", aspectName, entityName));
+    }
     ReindexConfig config = _indexBuilder.buildReindexState(index,
         MappingsBuilder.getMappings(_entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName)),
         Collections.emptyMap());

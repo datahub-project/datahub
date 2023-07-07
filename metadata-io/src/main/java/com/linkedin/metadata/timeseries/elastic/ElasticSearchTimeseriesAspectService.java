@@ -332,7 +332,7 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       return this.reindexAsync(indexName, filterQueryBuilder, options);
     } catch (Exception e) {
       log.error("Async reindex failed");
-      throw new ESQueryException("Async delete query failed", e);
+      throw new ESQueryException("Async reindex failed", e);
     }
   }
 
