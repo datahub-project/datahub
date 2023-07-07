@@ -59,6 +59,7 @@ query appConfig {
             readOnlyModeEnabled
             showSearchFiltersV2
             showBrowseV2
+            showAcrylInfo
         }
     }
 }
