@@ -201,7 +201,7 @@ class IcebergProfiler:
             aspect=dataset_profile,
         ).as_workunit()
 
-    def _renderValue(
+    def _render_value(
         self, dataset_name: str, value_type: IcebergType, value: Any
     ) -> Union[str, None]:
         try:
