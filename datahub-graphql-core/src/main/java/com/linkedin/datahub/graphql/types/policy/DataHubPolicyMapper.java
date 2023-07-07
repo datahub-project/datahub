@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.policy;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.generated.ActorFilter;
@@ -67,6 +68,11 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     result.setAllGroups(actorFilter.isAllGroups());
     result.setAllUsers(actorFilter.isAllUsers());
     result.setResourceOwners(actorFilter.isResourceOwners());
+    // Change here is not executed at the moment - leaving it for the future
+    UrnArray resourceOwnersTypes = actorFilter.getResourceOwnersTypes();
+    if (resourceOwnersTypes != null) {
+      result.setResourceOwnersTypes(resourceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
+    }
     if (actorFilter.hasGroups()) {
       result.setGroups(actorFilter.getGroups().stream().map(Urn::toString).collect(Collectors.toList()));
     }
