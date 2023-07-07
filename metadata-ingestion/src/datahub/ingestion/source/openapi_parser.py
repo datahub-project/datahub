@@ -145,7 +145,7 @@ def get_endpoints(sw_dict: dict) -> dict:  # noqa: C901
 
         url_details[p_k] = {"description": desc, "tags": tags, "method": method}
 
-        example_data = check_for_api_example_data(base_res, key)
+        example_data = check_for_api_example_data(base_res, p_k)
         if example_data:
             url_details[p_k]["data"] = example_data
 
