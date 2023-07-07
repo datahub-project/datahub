@@ -307,7 +307,9 @@
         "json": {
             "inputDatasets": [],
             "outputDatasets": [],
-            "inputDatajobs": []
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(nifi,80820b2f-017d-1000-85cf-05f56cde9185,PROD),3ec2acd6-a0d4-3198-9066-a59fb757bc05)"
+            ]
         }
     },
     "systemMetadata": {
