@@ -1,5 +1,7 @@
+import os
 from typing import Dict, List, Optional
 
+import pydantic
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot, StepEventStatus
 from dagster._core.snap import JobSnapshot
 from dagster._core.snap.node import OpDefSnap
@@ -14,37 +16,67 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
-# Contants
-ORCHESTRATOR = "dagster"
 
-# Datahub inputs/outputs constant
-DATAHUB_INPUTS = "datahub.inputs"
-DATAHUB_OUTPUTS = "datahub.outputs"
+class Constant:
+    """
+    keys used in dagster plugin
+    """
 
-# Job run constant
-JOB_SNAPSHOT_ID = "job_snapshot_id"
-EXECUTION_PLAN_SNAPSHOT_ID = "execution_plan_snapshot_id"
-ROOT_RUN_ID = "root_run_id"
-PARENT_RUN_ID = "parent_run_id"
-HAS_REPOSITORY_LOAD_DATA = "has_repository_load_data"
-TAGS = "tags"
-STEPS_SUCCEEDED = "steps_succeeded"
-STEPS_FAILED = "steps_failed"
-MATERIALIZATIONS = "materializations"
-EXPECTATIONS = "expectations"
-ENQUEUED_TIME = "enqueued_time"
-LAUNCH_TIME = "launch_time"
-START_TIME = "start_time"
-END_TIME = "end_time"
+    ORCHESTRATOR = "dagster"
 
-# Op run contants
-STEP_KEY = "step_key"
-ATTEMPTS = "attempts"
+    # Default config constants
+    DEFAULT_DATAHUB_REST_URL = "http://localhost:8080"
+
+    # Environment variable contants
+    DATAHUB_REST_URL = "DATAHUB_REST_URL"
+    DATAHUB_ENV = "DATAHUB_ENV"
+    DATAHUB_PLATFORM_INSTANCE = "DATAHUB_PLATFORM_INSTANCE"
+
+    # Datahub inputs/outputs constant
+    DATAHUB_INPUTS = "datahub.inputs"
+    DATAHUB_OUTPUTS = "datahub.outputs"
+
+    # Job run constant
+    JOB_SNAPSHOT_ID = "job_snapshot_id"
+    EXECUTION_PLAN_SNAPSHOT_ID = "execution_plan_snapshot_id"
+    ROOT_RUN_ID = "root_run_id"
+    PARENT_RUN_ID = "parent_run_id"
+    HAS_REPOSITORY_LOAD_DATA = "has_repository_load_data"
+    TAGS = "tags"
+    STEPS_SUCCEEDED = "steps_succeeded"
+    STEPS_FAILED = "steps_failed"
+    MATERIALIZATIONS = "materializations"
+    EXPECTATIONS = "expectations"
+    ENQUEUED_TIME = "enqueued_time"
+    LAUNCH_TIME = "launch_time"
+    START_TIME = "start_time"
+    END_TIME = "end_time"
+
+    # Op run contants
+    STEP_KEY = "step_key"
+    ATTEMPTS = "attempts"
+
+
+class DagsterSourceConfig(DatasetSourceConfigMixin):
+    datahub_rest_url: str = pydantic.Field(
+        default=Constant.DEFAULT_DATAHUB_REST_URL,
+        description="Datahub GMS Rest URL. Example: http://localhost:8080",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if Constant.DATAHUB_REST_URL in os.environ:
+            self.datahub_rest_url: str = os.environ[Constant.DATAHUB_REST_URL]
+        if Constant.DATAHUB_ENV in os.environ:
+            self.env = os.environ[Constant.DATAHUB_ENV]
+        if Constant.DATAHUB_PLATFORM_INSTANCE in os.environ:
+            self.platform_instance = os.environ[Constant.DATAHUB_PLATFORM_INSTANCE]
 
 
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
@@ -64,7 +96,7 @@ class DagsterGenerator:
         :return: DataFlow - Data generated dataflow
         """
         dataflow = DataFlow(
-            orchestrator=ORCHESTRATOR,
+            orchestrator=Constant.ORCHESTRATOR,
             id=job_snapshot.name,
             env=env,
             name=job_snapshot.name,
@@ -96,7 +128,7 @@ class DagsterGenerator:
         :return: DataJob - Data generated datajob
         """
         dataflow_urn = DataFlowUrn.create_from_ids(
-            orchestrator=ORCHESTRATOR,
+            orchestrator=Constant.ORCHESTRATOR,
             flow_id=job_snapshot.name,
             env=env,
             platform_instance=platform_instance,
@@ -127,10 +159,10 @@ class DagsterGenerator:
             job_property_bag[f"input.{input_def_snap.name}"] = str(
                 input_def_snap._asdict()
             )
-            if DATAHUB_INPUTS in input_def_snap.metadata:
+            if Constant.DATAHUB_INPUTS in input_def_snap.metadata:
                 datajob.inlets.extend(
                     _str_urn_to_dataset_urn(
-                        input_def_snap.metadata[DATAHUB_INPUTS].value
+                        input_def_snap.metadata[Constant.DATAHUB_INPUTS].value
                     )
                 )
 
@@ -138,10 +170,10 @@ class DagsterGenerator:
             job_property_bag[f"output_{output_def_snap.name}"] = str(
                 output_def_snap._asdict()
             )
-            if DATAHUB_OUTPUTS in output_def_snap.metadata:
+            if Constant.DATAHUB_OUTPUTS in output_def_snap.metadata:
                 datajob.outlets.extend(
                     _str_urn_to_dataset_urn(
-                        output_def_snap.metadata[DATAHUB_OUTPUTS].value
+                        output_def_snap.metadata[Constant.DATAHUB_OUTPUTS].value
                     )
                 )
 
@@ -168,20 +200,20 @@ class DagsterGenerator:
         # Add below details in dpi properties
         dpi_property_bag: Dict[str, str] = {}
         allowed_job_run_keys = [
-            JOB_SNAPSHOT_ID,
-            EXECUTION_PLAN_SNAPSHOT_ID,
-            ROOT_RUN_ID,
-            PARENT_RUN_ID,
-            HAS_REPOSITORY_LOAD_DATA,
-            TAGS,
-            STEPS_SUCCEEDED,
-            STEPS_FAILED,
-            MATERIALIZATIONS,
-            EXPECTATIONS,
-            ENQUEUED_TIME,
-            LAUNCH_TIME,
-            START_TIME,
-            END_TIME,
+            Constant.JOB_SNAPSHOT_ID,
+            Constant.EXECUTION_PLAN_SNAPSHOT_ID,
+            Constant.ROOT_RUN_ID,
+            Constant.PARENT_RUN_ID,
+            Constant.HAS_REPOSITORY_LOAD_DATA,
+            Constant.TAGS,
+            Constant.STEPS_SUCCEEDED,
+            Constant.STEPS_FAILED,
+            Constant.MATERIALIZATIONS,
+            Constant.EXPECTATIONS,
+            Constant.ENQUEUED_TIME,
+            Constant.LAUNCH_TIME,
+            Constant.START_TIME,
+            Constant.END_TIME,
         ]
         for key in allowed_job_run_keys:
             if hasattr(run, key) and getattr(run, key) is not None:
@@ -213,7 +245,7 @@ class DagsterGenerator:
                 emitter=emitter,
                 end_timestamp_millis=int(run_stats.end_time * 1000),
                 result=status_result_map[run.status],
-                result_type=ORCHESTRATOR,
+                result_type=Constant.ORCHESTRATOR,
             )
 
     @staticmethod
@@ -238,10 +270,10 @@ class DagsterGenerator:
         # Add below details in dpi properties
         dpi_property_bag: Dict[str, str] = {}
         allowed_op_run_keys = [
-            STEP_KEY,
-            ATTEMPTS,
-            START_TIME,
-            END_TIME,
+            Constant.STEP_KEY,
+            Constant.ATTEMPTS,
+            Constant.START_TIME,
+            Constant.END_TIME,
         ]
         for key in allowed_op_run_keys:
             if (
@@ -274,5 +306,5 @@ class DagsterGenerator:
                 emitter=emitter,
                 end_timestamp_millis=int(run_step_stats.end_time * 1000),
                 result=status_result_map[run_step_stats.status],
-                result_type=ORCHESTRATOR,
+                result_type=Constant.ORCHESTRATOR,
             )

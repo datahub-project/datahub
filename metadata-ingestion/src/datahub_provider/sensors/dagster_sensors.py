@@ -1,5 +1,4 @@
-import os
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from dagster import (
     DagsterRunStatus,
@@ -16,11 +15,10 @@ from dagster._core.definitions.sensor_definition import (
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub_provider.client.dagster_generator import DagsterGenerator
-
-# Default configuration constants
-DEFAULT_DATAHUB_REST_URL = "http://localhost:8080"
-DEFAULT_DATAHUB_ENV = "prod"
+from datahub_provider.client.dagster_generator import (
+    DagsterGenerator,
+    DagsterSourceConfig,
+)
 
 
 @sensor()
@@ -32,28 +30,18 @@ def dagster_sensor(
     """
     for each in DagsterSensors().sensors:
         each.evaluate_tick(context)
-    yield SkipReason("Nothing to see here...")
+    return SkipReason("Trigger run status sensors if any new runs present...")
 
 
 class DagsterSensors:
     def __init__(self):
         """
-        Set datahub configurations and initialize datahub emitter and dagster run status sensors
+        Set dagster source configurations and initialize datahub emitter and dagster run status sensors
         """
-        self.datahub_rest_url: str = (
-            os.environ["DATAHUB_REST_URL"]
-            if "DATAHUB_REST_URL" in os.environ
-            else DEFAULT_DATAHUB_REST_URL
-        )
-        self.env: str = (
-            os.environ["DATAHUB_ENV"]
-            if "DATAHUB_ENV" in os.environ
-            else DEFAULT_DATAHUB_ENV
-        )
-        self.platform_instance: Optional[str] = os.getenv("DATAHUB_PLATFORM_INSTANCE")
+        self.config: DagsterSourceConfig = DagsterSourceConfig()
 
         self.emitter: DatahubRestEmitter = DatahubRestEmitter(
-            gms_server=self.datahub_rest_url
+            gms_server=self.config.datahub_rest_url
         )
         self.emitter.test_connection()
 
@@ -82,6 +70,8 @@ class DagsterSensors:
         """
         Function to emit metadata for datahub rest.
         """
+        context.log.info("Emitting metadata...")
+
         assert context.dagster_run.job_snapshot_id
         assert context.dagster_run.execution_plan_snapshot_id
 
@@ -91,8 +81,8 @@ class DagsterSensors:
         # Emit dagster job entity which get mapped with datahub dataflow entity
         dataflow = DagsterGenerator.generate_dataflow(
             job_snapshot=job_snapshot,
-            env=self.env,
-            platform_instance=self.platform_instance,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
         )
         dataflow.emit(self.emitter)
 
@@ -125,8 +115,8 @@ class DagsterSensors:
                 job_snapshot=job_snapshot,
                 step_deps=execution_plan_snapshot.step_deps,
                 op_def_snap=op_def_snap,
-                env=self.env,
-                platform_instance=self.platform_instance,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
             )
             datajob.emit(self.emitter)
 
@@ -136,4 +126,4 @@ class DagsterSensors:
                 run_step_stats=run_step_stats[op_def_snap.name],
             )
 
-        yield SkipReason("Datahub emit metadata success")
+        return SkipReason("Pipeline metadata is emitted to DataHub")
