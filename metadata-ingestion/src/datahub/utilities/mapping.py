@@ -3,6 +3,8 @@ import logging
 import operator
 import re
 from functools import reduce
+from jinja2 import Template
+from jinja2.sandbox import SandboxedEnvironment
 from typing import Any, Dict, List, Match, Optional, Union
 
 from datahub.emitter import mce_builder
@@ -34,8 +36,10 @@ def _insert_match_value(original_value: str, match_value: str) -> str:
     """
     If the original value is something like "foo{{ $match }}bar", then we insert the match value
     e.g. "foo<match_value>bar". Otherwise, it will leave the original value unchanged.
+    Uses a Jinja2 template render to perform simple string operations.
     """
-    return _match_regexp.sub(match_value, original_value)
+    return Template(_match_regexp.sub(match_value, original_value)).render(jinja_env=SandboxedEnvironment())
+
 
 
 class Constants:
@@ -265,9 +269,9 @@ class OperationProcessor:
 
     def get_match(self, match_clause: Any, raw_props_value: Any) -> Optional[Match]:
         # function to check if a match clause is satisfied to a value.
-        if type(raw_props_value) not in Constants.OPERAND_DATATYPE_SUPPORTED or type(
-            raw_props_value
-        ) != type(match_clause):
+        if type(raw_props_value) not in Constants.OPERAND_DATATYPE_SUPPORTED:
+            return None
+        elif type(raw_props_value) != bool and type(raw_props_value) != type(match_clause):
             return None
         elif type(raw_props_value) == str:
             return re.match(match_clause, raw_props_value)
