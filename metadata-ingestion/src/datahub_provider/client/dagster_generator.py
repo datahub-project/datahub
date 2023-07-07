@@ -16,7 +16,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -66,17 +66,14 @@ class Constant:
 class DagsterSourceConfig(DatasetSourceConfigMixin):
     datahub_rest_url: str = pydantic.Field(
         default=Constant.DEFAULT_DATAHUB_REST_URL,
-        description="Datahub GMS Rest URL. Example: http://localhost:8080",
+        description="Datahub GMS Rest URL. Default to http://localhost:8080",
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if Constant.DATAHUB_REST_URL in os.environ:
-            self.datahub_rest_url: str = os.environ[Constant.DATAHUB_REST_URL]
-        if Constant.DATAHUB_ENV in os.environ:
-            self.env = os.environ[Constant.DATAHUB_ENV]
-        if Constant.DATAHUB_PLATFORM_INSTANCE in os.environ:
-            self.platform_instance = os.environ[Constant.DATAHUB_PLATFORM_INSTANCE]
+        self.datahub_rest_url: str = os.getenv(Constant.DATAHUB_REST_URL, Constant.DEFAULT_DATAHUB_REST_URL)
+        self.env = os.getenv(Constant.DATAHUB_ENV, DEFAULT_ENV)
+        self.platform_instance = os.getenv(Constant.DATAHUB_PLATFORM_INSTANCE)
 
 
 def _str_urn_to_dataset_urn(urns: List[str]) -> List[DatasetUrn]:
