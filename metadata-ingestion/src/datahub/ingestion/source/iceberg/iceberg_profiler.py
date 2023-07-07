@@ -71,7 +71,7 @@ class IcebergProfiler:
                 continue
             if IcebergProfiler._is_numeric_type(field.field_type):
                 value_decoded = from_bytes(field.field_type, value_encoded)
-                if value_decoded:
+                if value_decoded is not None:
                     agg_value = aggregated_values.get(field_id)
                     aggregated_values[field_id] = (
                         aggregator(agg_value, value_decoded)
