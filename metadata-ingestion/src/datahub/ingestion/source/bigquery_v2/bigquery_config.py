@@ -123,7 +123,7 @@ class BigQueryV2Config(
 
     lineage_use_sql_parser: bool = Field(
         default=True,
-        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
+        description="Use sql parser to resolve view/table lineage.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,

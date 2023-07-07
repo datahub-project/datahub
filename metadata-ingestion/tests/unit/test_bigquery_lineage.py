@@ -12,6 +12,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
 )
+from datahub.utilities.sqlglot_lineage import SchemaResolver
 
 
 def test_parse_view_lineage():
@@ -164,11 +165,14 @@ def test_lineage_with_timestamps():
     )
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
-        iter(lineage_entries)
+        iter(lineage_entries),
+        platform="bigquery",
+        sql_parser_schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     upstream_lineage = extractor.get_lineage_for_table(
         bq_table=bq_table,
+        bq_table_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
         lineage_metadata=lineage_map,
         platform="bigquery",
     )

@@ -659,9 +659,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
-        lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
+        lineage = self.lineage_extractor.calculate_lineage_for_project(
+            project_id,
+            platform=self.platform,
+            sql_parser_schema_resolver=self.sql_parser_schema_resolver,
+        )
 
-        # TODO: We should be doing this for all projects first.
         if self.config.lineage_parse_view_ddl:
             for view, view_definition in self.view_definitions[project_id].items():
                 raw_view_lineage = sqlglot_lineage(

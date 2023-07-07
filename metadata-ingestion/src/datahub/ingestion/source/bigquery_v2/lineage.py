@@ -41,7 +41,11 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import memory_footprint
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sqlglot_lineage import SqlParsingResult
+from datahub.utilities.sqlglot_lineage import (
+    SchemaResolver,
+    SqlParsingResult,
+    sqlglot_lineage,
+)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -480,7 +484,10 @@ timestamp < "{end_time}"
             return event
 
     def _create_lineage_map(
-        self, entries: Iterable[QueryEvent]
+        self,
+        entries: Iterable[QueryEvent],
+        platform: str,
+        sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         logger.info("Entering create lineage map function")
         lineage_map: Dict[str, Set[LineageEdge]] = collections.defaultdict(set)
@@ -489,79 +496,81 @@ timestamp < "{end_time}"
                 self.report.num_total_lineage_entries.get(e.project_id, 0) + 1
             )
 
-            if e.destinationTable is None or not (
-                e.referencedTables or e.referencedViews
-            ):
+            ts = e.end_time if e.end_time else datetime.now(tz=timezone.utc)
+
+            # Note that we trust the audit log to have the correct destination table.
+            destination_table = e.destinationTable
+            destination_table_str = str(destination_table)
+            if not destination_table:
                 self.report.num_skipped_lineage_entries_missing_data[e.project_id] += 1
                 continue
 
             if not self.config.dataset_pattern.allowed(
-                e.destinationTable.table_identifier.dataset
+                destination_table.table_identifier.dataset
             ) or not self.config.table_pattern.allowed(
-                e.destinationTable.table_identifier.get_table_name()
+                destination_table.table_identifier.get_table_name()
             ):
                 self.report.num_skipped_lineage_entries_not_allowed[e.project_id] += 1
                 continue
 
+            # If there is a view being referenced then bigquery sends both the view as well as underlying table
+            # in the references. There is no distinction between direct/base objects accessed. Doing sql parsing
+            # ensures that we only use direct objects accessed for lineage.
+            #
+            # Because of this, we use the SQL parser as the primary source of truth for lineage
+            # and the audit log as a fallback.
             lineage_from_event: Set[LineageEdge] = set()
 
-            destination_table_str = str(e.destinationTable)
-            has_table = False
-            for ref_table in e.referencedTables:
-                if str(ref_table) != destination_table_str:
-                    lineage_from_event.add(
-                        LineageEdge(
-                            table=str(ref_table),
-                            auditStamp=e.end_time
-                            if e.end_time
-                            else datetime.now(tz=timezone.utc),
-                        )
-                    )
-                    has_table = True
-            has_view = False
-            for ref_view in e.referencedViews:
-                if str(ref_view) != destination_table_str:
-                    lineage_from_event.add(
-                        LineageEdge(
-                            table=str(ref_view),
-                            auditStamp=e.end_time
-                            if e.end_time
-                            else datetime.now(tz=timezone.utc),
-                        )
-                    )
-                    has_view = True
-
-            if not lineage_from_event:
-                self.report.num_skipped_lineage_entries_other[e.project_id] += 1
-            elif self.config.lineage_use_sql_parser and has_table and has_view:
-                # If there is a view being referenced then bigquery sends both the view as well as underlying table
-                # in the references. There is no distinction between direct/base objects accessed. So doing sql parsing
-                # to ensure we only use direct objects accessed for lineage.
-                # Because of this, we use the SQL parser as the primary source of truth for lineage
-                # and the audit log as a fallback.
-                try:
-                    parser = BigQuerySQLParser(
-                        e.query,
-                        self.config.sql_parser_use_external_process,
-                        use_raw_names=self.config.lineage_sql_parser_use_raw_names,
-                    )
-                    referenced_objs = set(
-                        map(lambda x: x.split(".")[-1], parser.get_tables())
-                    )
-                except Exception as ex:
+            # Try the sql parser first.
+            if self.config.lineage_use_sql_parser:
+                raw_lineage = sqlglot_lineage(
+                    e.query,
+                    platform=platform,
+                    schema_resolver=sql_parser_schema_resolver,
+                    default_db=e.project_id,
+                )
+                if raw_lineage.debug_info.table_error:
                     logger.debug(
-                        f"Sql Parser failed on query: {e.query}. It won't cause any issue except table/view lineage can't be detected reliably. The error was {ex}."
+                        f"Sql Parser failed on query: {e.query}. It won't cause any major issues, but "
+                        f"queries referencing views may contain extra lineage for the tables underlying those views. "
+                        f"The error was {raw_lineage.debug_info.table_error}."
                     )
                     self.report.num_lineage_entries_sql_parser_failure[
                         e.project_id
                     ] += 1
+
+                lineage_from_event = set(
+                    make_lineage_edges_from_parsing_result(
+                        raw_lineage,
+                        audit_stamp=ts,
+                        lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                )
+
+            if not lineage_from_event:
+                # Fallback to the audit log if the sql parser didn't find anything.
+                if not (e.referencedTables or e.referencedViews):
+                    self.report.num_skipped_lineage_entries_missing_data[
+                        e.project_id
+                    ] += 1
                     continue
-                new_lineage = set()
-                for lineage in lineage_from_event:
-                    name = lineage.table.split("/")[-1]
-                    if name in referenced_objs:
-                        new_lineage.add(lineage)
-                lineage_from_event = new_lineage
+
+                for ref_table_or_view in [*e.referencedTables, *e.referencedViews]:
+                    if str(ref_table_or_view) != destination_table_str:
+                        lineage_from_event.add(
+                            LineageEdge(
+                                table=str(ref_table_or_view),
+                                auditStamp=e.end_time
+                                if e.end_time
+                                else datetime.now(tz=timezone.utc),
+                                column_mapping=frozenset(),
+                                column_confidence=0.0,
+                            )
+                        )
+
+            if not lineage_from_event:
+                self.report.num_skipped_lineage_entries_other[e.project_id] += 1
+                continue
 
             lineage_map[destination_table_str].update(lineage_from_event)
 
@@ -617,14 +626,19 @@ timestamp < "{end_time}"
 
         return list(parsed_tables)
 
-    def _compute_bigquery_lineage(self, project_id: str) -> Dict[str, Set[LineageEdge]]:
+    def _compute_bigquery_lineage(
+        self,
+        project_id: str,
+        platform: str,
+        sql_parser_schema_resolver: SchemaResolver,
+    ) -> Dict[str, Set[LineageEdge]]:
         lineage_metadata: Dict[str, Set[LineageEdge]]
         try:
             if self.config.extract_lineage_from_catalog:
                 lineage_metadata = self.lineage_via_catalog_lineage_api(project_id)
             else:
                 events = self._get_parsed_audit_log_events(project_id)
-                lineage_metadata = self._create_lineage_map(events)
+                lineage_metadata = self._create_lineage_map(events, platform, sql_parser_schema_resolver)
         except Exception as e:
             if project_id:
                 self.report.lineage_failed_extraction.append(project_id)
@@ -679,10 +693,12 @@ timestamp < "{end_time}"
         return upstreams
 
     def calculate_lineage_for_project(
-        self, project_id: str
+        self, project_id: str,
+        platform: str,
+        sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         with PerfTimer() as timer:
-            lineage = self._compute_bigquery_lineage(project_id)
+            lineage = self._compute_bigquery_lineage(project_id, platform, sql_parser_schema_resolver)
 
             self.report.lineage_extraction_sec[project_id] = round(
                 timer.elapsed_seconds(), 2
