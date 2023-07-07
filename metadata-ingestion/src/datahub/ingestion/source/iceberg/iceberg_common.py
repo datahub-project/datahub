@@ -97,7 +97,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             Catalog: Iceberg catalog instance.
         """
         return load_catalog(
-            name=self.catalog.name, **{"type": self.catalog.type, **self.catalog.conf}
+            name=self.catalog.name, **{"type": self.catalog.type, **self.catalog.config}
         )
 
 

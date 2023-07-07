@@ -51,7 +51,7 @@ from datahub.metadata.schema_classes import (
 
 def with_iceberg_source() -> IcebergSource:
     catalog: IcebergCatalogConfig = IcebergCatalogConfig(
-        name="test", type="rest", conf={}
+        name="test", type="rest", config={}
     )
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
@@ -433,7 +433,7 @@ def test_iceberg_profiler_value_render(
 ) -> None:
     iceberg_profiler_instance = with_iceberg_profiler()
     assert (
-        iceberg_profiler_instance._renderValue("a.dataset", value_type, value)
+        iceberg_profiler_instance._render_value("a.dataset", value_type, value)
         == expected_value
     )
 

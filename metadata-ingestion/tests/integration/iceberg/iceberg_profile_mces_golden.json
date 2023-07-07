@@ -162,7 +162,7 @@
                     "type": "FULL_TABLE",
                     "partition": "FULL_TABLE_SNAPSHOT"
                 },
-                "rowCount": 4,
+                "rowCount": 5,
                 "columnCount": 6,
                 "fieldProfiles": [
                     {
@@ -170,7 +170,7 @@
                         "nullCount": 0,
                         "nullProportion": 0.0,
                         "min": "1",
-                        "max": "2"
+                        "max": "3"
                     },
                     {
                         "fieldPath": "trip_date",
@@ -184,20 +184,20 @@
                         "nullCount": 0,
                         "nullProportion": 0.0,
                         "min": "1000371",
-                        "max": "1000374"
+                        "max": "1000375"
                     },
                     {
                         "fieldPath": "trip_distance",
                         "nullCount": 0,
                         "nullProportion": 0.0,
-                        "min": "0.8999999761581421",
+                        "min": "0.0",
                         "max": "8.399999618530273"
                     },
                     {
                         "fieldPath": "fare_amount",
                         "nullCount": 0,
                         "nullProportion": 0.0,
-                        "min": "9.01",
+                        "min": "0.0",
                         "max": "42.13"
                     },
                     {

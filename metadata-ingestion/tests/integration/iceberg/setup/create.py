@@ -32,6 +32,8 @@ def main(table_name: str) -> None:
         (2, datetime(2000, 1, 2, 12, 0), 1000372, 2.5, 22.15, "N"),
         (2, datetime(2000, 1, 3, 12, 0), 1000373, 0.9, 9.01, "N"),
         (1, datetime(2000, 1, 4, 12, 0), 1000374, 8.4, 42.13, "Y"),
+        # Following entry will test profiling values at 0
+        (3, datetime(2000, 1, 4, 12, 0), 1000375, 0.0, 0.0, "Y"),
     ]
 
     df = spark.createDataFrame(data, schema)
