@@ -63,7 +63,7 @@ class IcebergCatalogConfig(ConfigModel):
     type: str = Field(
         description="Type of catalog.  See [PyIceberg](https://py.iceberg.apache.org/configuration/) for list of possible values.",
     )
-    conf: Dict[str, str] = Field(
+    config: Dict[str, str] = Field(
         description="Catalog specific configuration.  See [PyIceberg documentation](https://py.iceberg.apache.org/configuration/) for details.",
     )
 
