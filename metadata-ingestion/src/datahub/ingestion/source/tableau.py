@@ -1689,7 +1689,7 @@ class TableauSource(StatefulIngestionSourceBase):
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.config.env.lower()}/{self.platform}/{path}"
-                    for path in database_table.paths
+                    for path in sorted(database_table.paths, key=lambda p: (len(p), p))
                 ]
             )
             dataset_snapshot.aspects.append(browse_paths)
