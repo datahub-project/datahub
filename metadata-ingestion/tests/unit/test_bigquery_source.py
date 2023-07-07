@@ -272,7 +272,7 @@ def test_simple_upstream_table_generation():
             )
         }
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
 
     assert len(upstreams) == 1
     assert list(upstreams)[0].table == str(b)
@@ -304,7 +304,7 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
             )
         }
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
     assert list(upstreams) == []
 
 
@@ -356,10 +356,10 @@ def test_upstream_table_column_lineage_with_temp_table():
                 column_mapping=frozenset(
                     [
                         LineageEdgeColumnMapping(
-                            "b_col2", in_columns=frozenset(["c_col1", "b_col2"])
+                            "b_col2", in_columns=frozenset(["c_col1", "c_col2"])
                         ),
                         LineageEdgeColumnMapping(
-                            "b_col3", in_columns=frozenset(["c_col2", "b_col3"])
+                            "b_col3", in_columns=frozenset(["c_col2", "c_col3"])
                         ),
                     ]
                 ),
@@ -367,7 +367,7 @@ def test_upstream_table_column_lineage_with_temp_table():
             )
         },
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
     assert len(upstreams) == 1
 
     upstream = list(upstreams)[0]
@@ -435,7 +435,7 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
             )
         },
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
     sorted_list = list(upstreams)
     sorted_list.sort()
     assert sorted_list[0].table == str(c)

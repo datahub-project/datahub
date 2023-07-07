@@ -59,12 +59,71 @@ class LineageEdgeColumnMapping:
 
 @dataclass(order=True, eq=True, frozen=True)
 class LineageEdge:
-    table: str
+    table: str  # in BigQueryTableRef format
     column_mapping: FrozenSet[LineageEdgeColumnMapping]
 
     auditStamp: datetime
     type: str = DatasetLineageTypeClass.TRANSFORMED
     column_confidence: float = 0.0
+
+
+def _merge_lineage_edge_columns(
+    a: Optional[LineageEdge], b: LineageEdge
+) -> LineageEdge:
+    if a is None:
+        return b
+    assert a.table == b.table
+
+    merged_col_mapping: Dict[str, Set[str]] = collections.defaultdict(set)
+    for col_mapping in a.column_mapping:
+        merged_col_mapping[col_mapping.out_column].update(col_mapping.in_columns)
+    for col_mapping in b.column_mapping:
+        merged_col_mapping[col_mapping.out_column].update(col_mapping.in_columns)
+
+    return LineageEdge(
+        table=a.table,
+        column_mapping=frozenset(
+            LineageEdgeColumnMapping(
+                out_column=out_column,
+                in_columns=frozenset(in_columns),
+            )
+            for out_column, in_columns in merged_col_mapping.items()
+        ),
+        auditStamp=a.auditStamp,
+        type=a.type,
+        column_confidence=min(a.column_confidence, b.column_confidence),
+    )
+
+
+def _follow_column_lineage(
+    base: LineageEdge,
+    upstream: LineageEdge,
+) -> LineageEdge:
+    # Collapse lineage of a -> base -> upstream into a -> upstream.
+
+    upstream_col_mapping: Dict[str, Set[str]] = collections.defaultdict(set)
+    for col_mapping in upstream.column_mapping:
+        upstream_col_mapping[col_mapping.out_column].update(col_mapping.in_columns)
+
+    return LineageEdge(
+        table=upstream.table,
+        column_mapping=frozenset(
+            LineageEdgeColumnMapping(
+                out_column=base_column.out_column,
+                in_columns=frozenset(
+                    [
+                        col
+                        for base_upstream in base_column.in_columns
+                        for col in upstream_col_mapping.get(base_upstream, set())
+                    ]
+                ),
+            )
+            for base_column in base.column_mapping
+        ),
+        auditStamp=upstream.auditStamp,
+        type=upstream.type,
+        column_confidence=min(base.column_confidence, upstream.column_confidence),
+    )
 
 
 def make_lineage_edges_from_parsing_result(
@@ -638,7 +697,9 @@ timestamp < "{end_time}"
                 lineage_metadata = self.lineage_via_catalog_lineage_api(project_id)
             else:
                 events = self._get_parsed_audit_log_events(project_id)
-                lineage_metadata = self._create_lineage_map(events, platform, sql_parser_schema_resolver)
+                lineage_metadata = self._create_lineage_map(
+                    events, platform, sql_parser_schema_resolver
+                )
         except Exception as e:
             if project_id:
                 self.report.lineage_failed_extraction.append(project_id)
@@ -661,9 +722,12 @@ timestamp < "{end_time}"
         self,
         bq_table: BigQueryTableRef,
         lineage_metadata: Dict[str, Set[LineageEdge]],
-        tables_seen: List[str],
+        tables_seen: Optional[Set[LineageEdge]] = None,
     ) -> Set[LineageEdge]:
-        upstreams: Set[LineageEdge] = set()
+        if tables_seen is None:
+            tables_seen = set()
+
+        upstreams: Dict[str, LineageEdge] = {}
         for ref_lineage in lineage_metadata[str(bq_table)]:
             ref_table = ref_lineage.table
             upstream_table = BigQueryTableRef.from_string_name(ref_table)
@@ -671,34 +735,46 @@ timestamp < "{end_time}"
                 [self.config.temp_table_dataset_prefix]
             ):
                 # making sure we don't process a table twice and not get into a recursive loop
-                if ref_table in tables_seen:
+                if ref_lineage in tables_seen:
                     logger.debug(
-                        f"Skipping table {ref_table} because it was seen already"
+                        f"Skipping table {ref_lineage} because it was seen already"
                     )
                     continue
-                tables_seen.append(ref_table)
-                if ref_table in lineage_metadata:
-                    # TODO: Figure out how to merge the column mappings when
-                    # removing temp tables.
-                    upstreams = upstreams.union(
-                        self.get_upstream_tables(
-                            upstream_table,
-                            lineage_metadata=lineage_metadata,
-                            tables_seen=tables_seen,
-                        )
-                    )
-            else:
-                upstreams.add(ref_lineage)
+                tables_seen.add(ref_lineage)
 
-        return upstreams
+                if ref_table in lineage_metadata:
+                    # When following lineage for a temp table, we need to merge the
+                    # column lineage.
+                    for temp_table_upstream in self.get_upstream_tables(
+                        upstream_table,
+                        lineage_metadata=lineage_metadata,
+                        tables_seen=tables_seen,
+                    ):
+                        ref_temp_table_upstream = temp_table_upstream.table
+                        upstreams[
+                            ref_temp_table_upstream
+                        ] = _merge_lineage_edge_columns(
+                            upstreams.get(ref_temp_table_upstream),
+                            _follow_column_lineage(ref_lineage, temp_table_upstream),
+                        )
+            else:
+                upstreams[ref_table] = _merge_lineage_edge_columns(
+                    upstreams.get(ref_table),
+                    ref_lineage,
+                )
+
+        return set(upstreams.values())
 
     def calculate_lineage_for_project(
-        self, project_id: str,
+        self,
+        project_id: str,
         platform: str,
         sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         with PerfTimer() as timer:
-            lineage = self._compute_bigquery_lineage(project_id, platform, sql_parser_schema_resolver)
+            lineage = self._compute_bigquery_lineage(
+                project_id, platform, sql_parser_schema_resolver
+            )
 
             self.report.lineage_extraction_sec[project_id] = round(
                 timer.elapsed_seconds(), 2
@@ -717,9 +793,7 @@ timestamp < "{end_time}"
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         # Sorting the list of upstream lineage events in order to avoid creating multiple aspects in backend
         # even if the lineage is same but the order is different.
-        for upstream in sorted(
-            self.get_upstream_tables(bq_table, lineage_metadata, tables_seen=[])
-        ):
+        for upstream in sorted(self.get_upstream_tables(bq_table, lineage_metadata)):
             upstream_table = BigQueryTableRef.from_string_name(upstream.table)
             upstream_table_urn = mce_builder.make_dataset_urn_with_platform_instance(
                 platform,
