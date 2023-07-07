@@ -195,7 +195,7 @@ SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
 )
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default, can be disabled via configuration `include_usage_stats",
+    "Enabled by default, can be disabled via configuration `include_usage_stats`",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -245,14 +245,17 @@ class SnowflakeV2Source(
             # For lineage
             if self.config.use_legacy_lineage_method:
                 self.lineage_extractor = SnowflakeLineageLegacyExtractor(
-                    config, self.report
+                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
                 )
             else:
-                self.lineage_extractor = SnowflakeLineageExtractor(config, self.report)
+                self.lineage_extractor = SnowflakeLineageExtractor(
+                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                )
 
         if config.include_usage_stats or config.include_operational_stats:
-            # For usage stats
-            self.usage_extractor = SnowflakeUsageExtractor(config, self.report)
+            self.usage_extractor = SnowflakeUsageExtractor(
+                config, self.report, dataset_urn_builder=self.gen_dataset_urn
+            )
 
         self.tag_extractor = SnowflakeTagExtractor(
             config, self.data_dictionary, self.report
@@ -576,7 +579,7 @@ class SnowflakeV2Source(
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
 
-            yield from self.usage_extractor.get_workunits(discovered_datasets)
+            yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
@@ -976,6 +979,14 @@ class SnowflakeV2Source(
 
         yield from self.gen_tag_workunits(tag)
 
+    def gen_dataset_urn(self, dataset_identifier: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_identifier,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
     def gen_dataset_workunits(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
@@ -983,12 +994,7 @@ class SnowflakeV2Source(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
+        dataset_urn = self.gen_dataset_urn(dataset_name)
 
         status = Status(removed=False)
         yield MetadataChangeProposalWrapper(

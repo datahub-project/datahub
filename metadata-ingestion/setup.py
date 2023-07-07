@@ -227,7 +227,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1",
+    "pydeequ>=1.0.1, <1.1",
     "pyspark==3.0.3",
 }
 
@@ -242,9 +242,9 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli>=0.17.7",
-    "databricks-sdk>=0.1.1",
+databricks = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    "databricks-sdk>=0.1.1, <0.1.11",
     "pyspark",
     "requests",
 }
@@ -375,7 +375,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | sqllineage_lib,
+    "unity-catalog": databricks | sqllineage_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.

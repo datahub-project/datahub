@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -142,6 +157,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -233,6 +268,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                },
+                {
+                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test2,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -305,6 +364,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema1.test2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                },
+                {
+                    "id": "urn:li:container:c093e810646c7ebc493237bb24a3538f",
+                    "urn": "urn:li:container:c093e810646c7ebc493237bb24a3538f"
+                }
             ]
         }
     },
@@ -397,6 +480,26 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test3,PROD)",
     "changeType": "UPSERT",
@@ -480,6 +583,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                },
+                {
+                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test4,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -552,6 +679,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "oracle-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,OraDoc.schema2.test4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:8c867b02fcc2615b19cd02b15b023287",
+                    "urn": "urn:li:container:8c867b02fcc2615b19cd02b15b023287"
+                },
+                {
+                    "id": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825",
+                    "urn": "urn:li:container:ab1a240f35ae787df0eff0e6726a9825"
+                }
             ]
         }
     },
