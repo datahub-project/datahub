@@ -197,7 +197,6 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       return "please only set forceReindex OR forceDeleteByQuery flags";
     }
 
-    // TODO(indy): Add optimization to perform a reindex if many documents will be truncated
     List<Criterion> criteria = new ArrayList<>();
     criteria.add(
         QueryUtils.newCriterion("timestampMillis", String.valueOf(endTimeMillis), Condition.LESS_THAN_OR_EQUAL_TO));
@@ -233,7 +232,13 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
       }
 
       if (reindex) {
-        String taskId = _timeseriesAspectService.reindexAsync(entityType, aspectName, filter, options);
+        // need to invert query to retain only the ones that do NOT meet the criterion from the count
+        List<Criterion> reindexCriteria = new ArrayList<>();
+        reindexCriteria.add(
+            QueryUtils.newCriterion("timestampMillis", String.valueOf(endTimeMillis), Condition.GREATER_THAN));
+
+        final Filter reindexFilter = QueryUtils.getFilterFromCriteria(reindexCriteria);
+        String taskId = _timeseriesAspectService.reindexAsync(entityType, aspectName, reindexFilter, options);
         log.info("reindex request submitted with ID " + taskId);
         return taskId;
       } else {

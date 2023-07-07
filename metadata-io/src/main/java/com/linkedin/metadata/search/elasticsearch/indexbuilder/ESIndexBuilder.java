@@ -235,7 +235,7 @@ public class ESIndexBuilder {
     // Point alias at new index
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
     createIndex(nextIndexName, config);
-    renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName);
+    renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName, false);
 
     return submitReindex(aliasesResponse.getAliases().keySet().toArray(new String[0]),
         nextIndexName, options.getBatchSize(),
@@ -335,11 +335,11 @@ public class ESIndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
-    renameReindexedIndices(_searchClient, indexState.name(), indexState.indexPattern(), tempIndexName);
+    renameReindexedIndices(_searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
     log.info("Finished setting up {}", indexState.name());
   }
 
-  public static void renameReindexedIndices(RestHighLevelClient searchClient, String originalName, @Nullable String pattern, String newName)
+  public static void renameReindexedIndices(RestHighLevelClient searchClient, String originalName, @Nullable String pattern, String newName, boolean deleteOld)
       throws IOException {
     GetAliasesRequest getAliasesRequest = new GetAliasesRequest(originalName);
     if (pattern != null) {
@@ -359,8 +359,8 @@ public class ESIndexBuilder {
     }
 
     // Add alias for the new index
-    AliasActions removeAction = AliasActions.removeIndex()
-        .indices(aliasedIndexDelete.toArray(new String[0]));
+    AliasActions removeAction = deleteOld ? AliasActions.removeIndex() : AliasActions.remove().alias(originalName);
+    removeAction.indices(aliasedIndexDelete.toArray(new String[0]));
     AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
     searchClient.indices()
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),
