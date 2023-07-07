@@ -46,6 +46,7 @@ class QueryType(enum.Enum):
 
 
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
+    # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
         sqlglot.exp.Create: QueryType.CREATE,
         sqlglot.exp.Select: QueryType.SELECT,
@@ -102,7 +103,6 @@ class _TableName(_FrozenModel):
     def from_sqlglot_table(
         cls,
         table: sqlglot.exp.Table,
-        dialect: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
@@ -191,7 +191,7 @@ def _table_level_lineage(
     dialect: str,
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
     def _raw_table_name(table: sqlglot.exp.Table) -> _TableName:
-        return _TableName.from_sqlglot_table(table, dialect=dialect)
+        return _TableName.from_sqlglot_table(table)
 
     # Generate table-level lineage.
     modified = {
@@ -259,7 +259,6 @@ class SchemaResolver:
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
-            # TODO check that this is the right way to do it
             with contextlib.suppress(IndexError):
                 table_name = BigqueryTableIdentifier.from_string_name(
                     table_name
@@ -513,9 +512,7 @@ def _column_level_lineage(  # noqa: C901
                     pass
 
                 elif isinstance(node.expression, sqlglot.exp.Table):
-                    table_ref = _TableName.from_sqlglot_table(
-                        node.expression, dialect=dialect
-                    )
+                    table_ref = _TableName.from_sqlglot_table(node.expression)
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
