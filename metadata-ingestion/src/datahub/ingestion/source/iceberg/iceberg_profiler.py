@@ -60,7 +60,7 @@ class IcebergProfiler:
         schema: Schema,
         aggregator: Callable,
         aggregated_values: Dict[int, Any],
-        manifest_values: Dict[int, Any],
+        manifest_values: Dict[int, bytes],
     ) -> None:
         for field_id, value_encoded in manifest_values.items():  # type: int, Any
             try:
