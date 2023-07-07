@@ -210,6 +210,7 @@ microsoft_common = {"msal==1.16.0"}
 iceberg_common = {
     # Iceberg Python SDK
     "pyiceberg==0.4.0",
+    "pyarrow>=9.0.0, <13.0.0",
 }
 
 s3_base = {

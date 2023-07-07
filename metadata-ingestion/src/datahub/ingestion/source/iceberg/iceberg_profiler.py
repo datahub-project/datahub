@@ -180,7 +180,7 @@ class IcebergProfiler:
 
                 if self.config.include_field_min_value:
                     column_profile.min = (
-                        self._renderValue(
+                        self._render_value(
                             dataset_name, field.field_type, min_bounds.get(field_id)
                         )
                         if field_id in min_bounds
@@ -188,7 +188,7 @@ class IcebergProfiler:
                     )
                 if self.config.include_field_max_value:
                     column_profile.max = (
-                        self._renderValue(
+                        self._render_value(
                             dataset_name, field.field_type, max_bounds.get(field_id)
                         )
                         if field_id in max_bounds
