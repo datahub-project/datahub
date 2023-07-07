@@ -1070,6 +1070,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     for mcp in patch_builder.build()
                 ]
             else:
+                if not self.config.extract_column_lineage:
+                    upstream_lineage.fineGrainedLineages = None
+
                 yield from [
                     MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=upstream_lineage
