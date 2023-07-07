@@ -22,18 +22,18 @@ from datahub_provider.client.dagster_generator import (
 
 
 @sensor()
-def dagster_sensor(
+def datahub_sensor(
     context: SensorEvaluationContext,
 ) -> RawSensorEvaluationFunctionReturn:
     """
     Sensor which instigate all run status sensors and trigger them based upon run status
     """
-    for each in DagsterSensors().sensors:
+    for each in DatahubSensors().sensors:
         each.evaluate_tick(context)
     return SkipReason("Trigger run status sensors if any new runs present...")
 
 
-class DagsterSensors:
+class DatahubSensors:
     def __init__(self):
         """
         Set dagster source configurations and initialize datahub emitter and dagster run status sensors
@@ -48,19 +48,19 @@ class DagsterSensors:
         self.sensors: List[SensorDefinition] = []
         self.sensors.append(
             run_status_sensor(
-                name="dagster_success_sensor", run_status=DagsterRunStatus.SUCCESS
+                name="datahub_success_sensor", run_status=DagsterRunStatus.SUCCESS
             )(self._emit_metadata)
         )
 
         self.sensors.append(
             run_status_sensor(
-                name="dagster_failure_sensor", run_status=DagsterRunStatus.FAILURE
+                name="datahub_failure_sensor", run_status=DagsterRunStatus.FAILURE
             )(self._emit_metadata)
         )
 
         self.sensors.append(
             run_status_sensor(
-                name="dagster_canceled_sensor", run_status=DagsterRunStatus.CANCELED
+                name="datahub_canceled_sensor", run_status=DagsterRunStatus.CANCELED
             )(self._emit_metadata)
         )
 
