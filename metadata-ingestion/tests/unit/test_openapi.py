@@ -547,7 +547,7 @@ paths:
         url_endpoints = get_endpoints(sw_file_raw)
 
         self.assertEqual(len(url_endpoints), 4)
-        d4k = {"data": "", "tags": "", "description": "", "method":""}
+        d4k = {"data": "", "tags": "", "description": "", "method": ""}
         self.assertEqual(url_endpoints["/"].keys(), d4k.keys())
 
         self.assertIn("data", url_endpoints["/v2/update"])
