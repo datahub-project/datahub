@@ -18,7 +18,9 @@ dependencies {
   compile externalDependency.elasticSearchRest
   compile externalDependency.httpClient
   compile externalDependency.gson
-  compile externalDependency.hazelcast
+  implementation (externalDependency.hazelcast) {
+    exclude group: 'org.json', module: 'json'
+  }
   compile externalDependency.hazelcastSpring
   compile externalDependency.kafkaClients
   compile externalDependency.kafkaAvroSerde
@@ -44,7 +46,13 @@ dependencies {
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
   testCompile externalDependency.hazelcastTest
+  implementation externalDependency.jline
+  implementation externalDependency.common
+}
 
+configurations.all{
+  exclude group: "commons-io", module:"commons-io"
+  exclude group: "jline", module:"jline"
 }
 
 processResources.configure {

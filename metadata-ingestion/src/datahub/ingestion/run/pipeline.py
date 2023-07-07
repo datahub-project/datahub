@@ -189,6 +189,9 @@ class Pipeline:
             if self.config.datahub_api:
                 self.graph = DataHubGraph(self.config.datahub_api)
 
+            telemetry.telemetry_instance.update_capture_exception_context(
+                server=self.graph
+            )
         with _add_init_error_context("set up framework context"):
             self.ctx = PipelineContext(
                 run_id=self.config.run_id,
@@ -308,8 +311,7 @@ class Pipeline:
                     status="CANCELLED"
                     if self.final_status == "cancelled"
                     else "FAILURE"
-                    if self.source.get_report().failures
-                    or self.sink.get_report().failures
+                    if self.has_failures()
                     else "SUCCESS"
                     if self.final_status == "completed"
                     else "UNKNOWN",
@@ -388,6 +390,7 @@ class Pipeline:
                     logger.error(
                         "Failed to process some records. Continuing.", exc_info=e
                     )
+                    # TODO: Transformer errors should cause the pipeline to fail.
 
                 self.extractor.close()
                 if not self.dry_run:
@@ -410,7 +413,7 @@ class Pipeline:
             self.sink.close()
             self.process_commits()
             self.final_status = "completed"
-        except (SystemExit, RuntimeError) as e:
+        except (SystemExit, RuntimeError, KeyboardInterrupt) as e:
             self.final_status = "cancelled"
             logger.error("Caught error", exc_info=e)
             raise
@@ -533,6 +536,11 @@ class Pipeline:
                 return "bright_yellow"
             else:
                 return "bright_green"
+
+    def has_failures(self) -> bool:
+        return bool(
+            self.source.get_report().failures or self.sink.get_report().failures
+        )
 
     def pretty_print_summary(
         self, warnings_as_failure: bool = False, currently_running: bool = False

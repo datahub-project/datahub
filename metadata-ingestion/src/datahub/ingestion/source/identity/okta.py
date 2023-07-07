@@ -13,7 +13,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigModel, ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class OktaConfig(StatefulIngestionConfigBase):
+class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     # Required: Domain of the Okta deployment. Example: dev-33231928.okta.com
     okta_domain: str = Field(
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
@@ -78,11 +78,11 @@ class OktaConfig(StatefulIngestionConfigBase):
     # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User
     # profile. Reference: https://developer.okta.com/docs/reference/api/users/
     okta_profile_to_username_attr: str = Field(
-        default="login",
+        default="email",
         description="Which Okta User Profile attribute to use as input to DataHub username mapping. Common values used are - login, email.",
     )
     okta_profile_to_username_regex: str = Field(
-        default="([^@]+)",
+        default="(.*)",
         description="A regex used to parse the DataHub username from the attribute specified in `okta_profile_to_username_attr`.",
     )
 

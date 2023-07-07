@@ -8,9 +8,9 @@ from tests.utils import (
     ingest_file_via_rest,
     wait_for_healthcheck_util,
     delete_urns_from_file,
+    wait_for_writes_to_sync,
     get_datahub_graph,
 )
-from requests_wrapper import ELASTICSEARCH_REFRESH_INTERVAL_SECONDS
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -68,7 +68,7 @@ def test_setup():
         ),
     )
 
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
+    wait_for_writes_to_sync()
 
     assert "browsePaths" not in get_aspects_for_entity(
         entity_urn=dataset_urn, aspects=["browsePaths"], typed=False
@@ -101,8 +101,8 @@ def test_delete_reference(test_setup, depends=["test_healthchecks"]):
     # Delete references to the tag
     graph.delete_references_to_urn(tag_urn, dry_run=False)
 
-    sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
-
+    wait_for_writes_to_sync()
+    
     # Validate that references no longer exist
     references_count, related_aspects = graph.delete_references_to_urn(
         tag_urn, dry_run=True
