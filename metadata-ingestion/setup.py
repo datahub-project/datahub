@@ -378,6 +378,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sqllineage_lib,
     "dagster": {
         "dagster>=1.3.3",
+        *rest_common,
     },
 }
 
