@@ -40,7 +40,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
       Constants.ML_FEATURE_TABLE_ENTITY_NAME,
       Constants.ML_FEATURE_ENTITY_NAME
   );
-  private static final String VERSION = "1";
+  private static final String VERSION = "2";
   private static final String UPGRADE_ID = "backfill-default-browse-paths-v2-step";
   private static final Integer BATCH_SIZE = 5000;
 
@@ -114,7 +114,12 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     }
 
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
-      ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+      try {
+        ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+      } catch (Exception e) {
+        // don't stop the whole step because of one bad urn or one bad ingestion
+        log.error(String.format("Error ingesting default browsePathsV2 aspect for urn %s", searchEntity.getEntity()), e);
+      }
     }
 
     return scrollResult.getScrollId();

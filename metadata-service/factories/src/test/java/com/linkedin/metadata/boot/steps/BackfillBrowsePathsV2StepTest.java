@@ -32,7 +32,7 @@ import java.util.Map;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 
 public class BackfillBrowsePathsV2StepTest {
-  private static final String VERSION_1 = "1";
+  private static final String VERSION = "2";
   private static final String UPGRADE_URN = String.format(
       "urn:li:%s:%s",
       Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
@@ -110,7 +110,7 @@ public class BackfillBrowsePathsV2StepTest {
     final SearchService mockSearchService = initMockSearchService();
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
-    com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest = new com.linkedin.upgrade.DataHubUpgradeRequest().setVersion(VERSION_1);
+    com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest = new com.linkedin.upgrade.DataHubUpgradeRequest().setVersion(VERSION);
     Map<String, EnvelopedAspect> upgradeRequestAspects = new HashMap<>();
     upgradeRequestAspects.put(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data())));
