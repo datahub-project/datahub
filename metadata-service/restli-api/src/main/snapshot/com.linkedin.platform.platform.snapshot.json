@@ -381,6 +381,21 @@
     } ]
   }, {
     "type" : "record",
+    "name" : "BrowsePathEntry",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Represents a single level in an entity's browsePathV2",
+    "fields" : [ {
+      "name" : "id",
+      "type" : "string",
+      "doc" : "The ID of the browse path entry. This is what gets stored in the index.\nIf there's an urn associated with this entry, id and urn will be the same"
+    }, {
+      "name" : "urn",
+      "type" : "Urn",
+      "doc" : "Optional urn pointing to some entity in DataHub",
+      "optional" : true
+    } ]
+  }, {
+    "type" : "record",
     "name" : "BrowsePaths",
     "namespace" : "com.linkedin.common",
     "doc" : "Shared aspect containing Browse Paths to be indexed for an entity.",
@@ -400,6 +415,28 @@
     } ],
     "Aspect" : {
       "name" : "browsePaths"
+    }
+  }, {
+    "type" : "record",
+    "name" : "BrowsePathsV2",
+    "namespace" : "com.linkedin.common",
+    "doc" : "Shared aspect containing a Browse Path to be indexed for an entity.",
+    "fields" : [ {
+      "name" : "path",
+      "type" : {
+        "type" : "array",
+        "items" : "BrowsePathEntry"
+      },
+      "doc" : "A valid browse path for the entity. This field is provided by DataHub by default.\nThis aspect is a newer version of browsePaths where we can encode more information in the path.\nThis path is also based on containers for a given entity if it has containers.\n\nThis is stored in elasticsearch as unit-separator delimited strings and only includes platform specific folders or containers.\nThese paths should not include high level info captured elsewhere ie. Platform and Environment.",
+      "Searchable" : {
+        "/*/id" : {
+          "fieldName" : "browsePathV2",
+          "fieldType" : "BROWSE_PATH_V2"
+        }
+      }
+    } ],
+    "Aspect" : {
+      "name" : "browsePathsV2"
     }
   }, "com.linkedin.common.ChangeAuditStamps", {
     "type" : "typeref",
@@ -2336,7 +2373,7 @@
                   "Aspect" : {
                     "name" : "chartKey"
                   }
-                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.chart.ChartInfo", "com.linkedin.chart.ChartQuery", "com.linkedin.chart.EditableChartProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the chart. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2783,7 +2820,7 @@
                   "Aspect" : {
                     "name" : "dashboardKey"
                   }
-                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.dashboard.DashboardInfo", "com.linkedin.dashboard.EditableDashboardProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dashboard. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2840,7 +2877,7 @@
                   "Aspect" : {
                     "name" : "dataFlowKey"
                   }
-                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.datajob.DataFlowInfo", "com.linkedin.datajob.EditableDataFlowProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data flow. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -2896,7 +2933,7 @@
                   "Aspect" : {
                     "name" : "dataJobKey"
                   }
-                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.datajob.DataJobInfo", "com.linkedin.datajob.DataJobInputOutput", "com.linkedin.datajob.EditableDataJobProperties", "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.GlobalTags", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the data job. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -3518,7 +3555,7 @@
                   "Aspect" : {
                     "name" : "editableSchemaMetadata"
                   }
-                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties" ]
+                }, "com.linkedin.common.GlobalTags", "com.linkedin.common.GlossaryTerms", "com.linkedin.common.BrowsePaths", "com.linkedin.common.DataPlatformInstance", "com.linkedin.dataset.ViewProperties", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the dataset. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4215,7 +4252,7 @@
                   "Aspect" : {
                     "name" : "sourceCode"
                   }
-                }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.common.Status", "com.linkedin.common.Cost", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModel. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4396,7 +4433,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLFeature. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4506,7 +4543,7 @@
                   "Aspect" : {
                     "name" : "mlFeatureTableProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.InstitutionalMemory", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLFeatureTable. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -4696,7 +4733,7 @@
                   "Aspect" : {
                     "name" : "mlModelGroupProperties"
                   }
-                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance" ]
+                }, "com.linkedin.common.Ownership", "com.linkedin.common.Status", "com.linkedin.common.Deprecation", "com.linkedin.common.BrowsePaths", "com.linkedin.common.GlobalTags", "com.linkedin.common.DataPlatformInstance", "com.linkedin.common.BrowsePathsV2" ]
               }
             },
             "doc" : "The list of metadata aspects associated with the MLModelGroup. Depending on the use case, this can either be all, or a selection, of supported aspects."
@@ -5244,6 +5281,14 @@
                         "type" : "boolean",
                         "doc" : "Whether the filter should return true for owners of a particular resource.\nOnly applies to policies of type 'Metadata', which have a resource associated with them.",
                         "default" : false
+                      }, {
+                        "name" : "resourceOwnersTypes",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "Define type of ownership for the policy",
+                        "optional" : true
                       }, {
                         "name" : "allUsers",
                         "type" : "boolean",

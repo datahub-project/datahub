@@ -227,7 +227,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1",
+    "pydeequ>=1.0.1, <1.1",
     "pyspark==3.0.3",
 }
 
@@ -243,7 +243,8 @@ usage_common = {
 }
 
 databricks = {
-    "databricks-sdk>=0.1.1",
+    # 0.1.11 appears to have authentication issues with azure databricks
+    "databricks-sdk>=0.1.1, <0.1.11",
     "pyspark",
     "requests",
 }
