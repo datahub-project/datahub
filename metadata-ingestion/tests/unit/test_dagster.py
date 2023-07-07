@@ -18,17 +18,17 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub_provider.entities import Dataset
-from datahub_provider.sensors.dagster_sensors import DagsterSensors, dagster_sensor
+from datahub_provider.sensors.datahub_sensors import DatahubSensors, datahub_sensor
 
 
-def test_dagster_sensor():
+def test_datahub_sensor():
     instance = DagsterInstance.ephemeral()
     context = build_sensor_context(instance=instance)
-    skip_reason = dagster_sensor(context)
+    skip_reason = datahub_sensor(context)
     assert isinstance(skip_reason, SkipReason)
 
 
-@patch("datahub_provider.sensors.dagster_sensors.DatahubRestEmitter", autospec=True)
+@patch("datahub_provider.sensors.datahub_sensors.DatahubRestEmitter", autospec=True)
 def test_emit_metadata(mock_emit):
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
@@ -78,7 +78,7 @@ def test_emit_metadata(mock_emit):
         dagster_event=dagster_event,
     )
 
-    DagsterSensors()._emit_metadata(run_status_sensor_context)
+    DatahubSensors()._emit_metadata(run_status_sensor_context)
 
     expected_dataflow_urn = (
         f"urn:li:dataFlow:(dagster,{dagster_run.job_name},{DEFAULT_ENV})"

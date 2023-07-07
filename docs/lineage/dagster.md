@@ -13,8 +13,8 @@ Dagster sensors allow us to perform some action based on some state change. Data
 ## Prerequisites
 
 1. You need to create a new dagster project. See <https://docs.dagster.io/getting-started/create-new-project>.
-2. There are two ways to define Dagster definition before starting dagster UI. One using [Definitions](https://docs.dagster.io/_apidocs/definitions#dagster.Definitions)(recommended) class and second using [Repositories](https://docs.dagster.io/concepts/repositories-workspaces/repositories#repositories).
-3. Creation of new dagster project internally use Definition class to define Dagster definition.
+2. There are two ways to define Dagster definition before starting dagster UI. One using [Definitions](https://docs.dagster.io/_apidocs/definitions#dagster.Definitions) class (recommended) and second using [Repositories](https://docs.dagster.io/concepts/repositories-workspaces/repositories#repositories).
+3. Creation of new dagster project by default use Definition class to define Dagster definition.
 
 ### Setup
 
@@ -24,15 +24,15 @@ Dagster sensors allow us to perform some action based on some state change. Data
 pip install acryl-datahub[dagster]
 ```
 
-2. You need to import DataHub provided dagster sensor definition and add it in Dagster definition or dagster repository before starting dagster server as show below: 
+2. You need to import DataHub provided sensor definition and add it in Dagster definition or dagster repository before starting dagster UI as show below: 
 **Using Definitions class:**
 
 ```python
 from dagster import Definitions
-from datahub_provider.sensors.dagster_sensors import dagster_sensor
+from datahub_provider.sensors.datahub_sensors import datahub_sensor
 
 defs = Definitions(
-    sensors=[dagster_sensor],
+    sensors=[datahub_sensor],
 )
 ```
 
@@ -40,14 +40,14 @@ defs = Definitions(
 
 ```python
 from dagster import repository
-from datahub_provider.sensors.dagster_sensors import dagster_sensor
+from datahub_provider.sensors.datahub_sensors import datahub_sensor
 
 @repository
 def my_repository():
-    return [dagster_sensor]
+    return [datahub_sensor]
 ```
 
-3. The DataHub provided Dagster sensor internally use below configs. You can set this configs using environment variables. If not set, sensor will take default value.
+3. The DataHub provided sensor internally use below configs. You can set this configs using environment variables. If not set, sensor will take default value.
 
    **Configuration options:**
 
@@ -86,17 +86,17 @@ def my_op(name):
     return "hello" + name
 ```
 
-6. Once Dagster UI is up, you need to turn on the DataHub provided dagster sensor execution. To turn on the sensor, click on Overview tab and then on Sensors tab. You will see to toggle button in front of all defined sensors to turn it on/off.
+6. Once Dagster UI is up, you need to turn on the DataHub provided sensor execution. To turn on the sensor, click on Overview tab and then on Sensors tab. You will see to toggle button in front of all defined sensors to turn it on/off.
 
-7. DataHub provided dagster sensor is ready emit metadata after every dagster pipeline run execution.
+7. DataHub provided sensor is ready emit metadata after every dagster pipeline run execution.
 
 ### How to validate installation
 
-1. Go and check in Dagster UI at Overview -> Sensors menu if you can see the 'dagster_sensor'.
+1. Go and check in Dagster UI at Overview -> Sensors menu if you can see the 'datahub_sensor'.
 2. Run an Dagster Job. In the dagster deamon logs, you should see DataHub related log messages like:
 
 ```
-dagster_sensor - Emitting metadata...
+datahub_sensor - Emitting metadata...
 ```
 
 ## Debugging
