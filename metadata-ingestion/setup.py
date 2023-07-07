@@ -401,6 +401,7 @@ plugins: Dict[str, Set[str]] = {
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "dagster": {
         "dagster>=1.3.3",
+        *rest_common,
     },
 }
 
