@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from 'antd';
 import styled from 'styled-components';
 import { blue } from '@ant-design/colors';
-import { ANTD_GRAY } from '../entity/shared/constants';
+import { ANTD_GRAY } from '../../../../constants';
 
 const PartitioningKeyBadge = styled(Badge)`
     margin-left: 4px;
@@ -17,5 +17,5 @@ const PartitioningKeyBadge = styled(Badge)`
 `;
 
 export default function PartitioningKeyLabel() {
-    return <PartitionKeyBadge count="Partition Key" />;
+    return <PartitioningKeyBadge count="Partition Key" />;
 }
