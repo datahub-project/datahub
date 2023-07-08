@@ -57,9 +57,13 @@ with DAG(
         mces=[
             builder.make_lineage_mce(
                 upstream_urns=[
-                    builder.make_dataset_urn(platform="snowflake", name="mydb.schema.tableA"),
+                    builder.make_dataset_urn(
+                        platform="snowflake", name="mydb.schema.tableA"
+                    ),
                     builder.make_dataset_urn_with_platform_instance(
-                        platform="snowflake", name="mydb.schema.tableB", platform_instance="cloud",
+                        platform="snowflake",
+                        name="mydb.schema.tableB",
+                        platform_instance="cloud",
                     ),
                 ],
                 downstream_urn=builder.make_dataset_urn(

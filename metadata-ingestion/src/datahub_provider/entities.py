@@ -26,7 +26,7 @@ class Dataset(_Entity):
             platform=self.platform,
             name=self.name,
             platform_instance=self.platform_instance,
-            env=self.env
+            env=self.env,
         )
 
 
