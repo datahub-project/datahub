@@ -386,65 +386,7 @@
             },
             "rowCount": 2,
             "columnCount": 9,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "urn",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "aspect",
-                    "uniqueCount": 2,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "version",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "metadata",
-                    "uniqueCount": 2,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "systemmetadata",
-                    "uniqueCount": 0,
-                    "nullCount": 2,
-                    "nullProportion": 1
-                },
-                {
-                    "fieldPath": "createdon",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "createdby",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "createdfor",
-                    "uniqueCount": 0,
-                    "nullCount": 2,
-                    "nullProportion": 1
-                },
-                {
-                    "fieldPath": "metadata_json"
-                }
-            ]
+            "fieldProfiles": []
         }
     },
     "systemMetadata": {
