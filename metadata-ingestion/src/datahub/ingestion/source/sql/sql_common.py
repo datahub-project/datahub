@@ -460,7 +460,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_database_level_workunits(
         self,
-        sql_config: SQLAlchemyConfig,
         inspector: Inspector,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -468,18 +467,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def get_schema_level_workunits(
         self,
-        sql_config: SQLAlchemyConfig,
         inspector: Inspector,
         schema: str,
         database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from self.gen_schema_containers(schema=schema, database=database)
 
-        if sql_config.include_tables:
-            yield from self.loop_tables(inspector, schema, sql_config)
+        if self.config.include_tables:
+            yield from self.loop_tables(inspector, schema, self.config)
 
-        if sql_config.include_views:
-            yield from self.loop_views(inspector, schema, sql_config)
+        if self.config.include_views:
+            yield from self.loop_views(inspector, schema, self.config)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -510,7 +508,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
             db_name = self.get_db_name(inspector)
             yield from self.get_database_level_workunits(
-                sql_config=sql_config,
                 inspector=inspector,
                 database=db_name,
             )
@@ -519,7 +516,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 self.add_information_for_schema(inspector, schema)
 
                 yield from self.get_schema_level_workunits(
-                    sql_config=sql_config,
                     inspector=inspector,
                     schema=schema,
                     database=db_name,

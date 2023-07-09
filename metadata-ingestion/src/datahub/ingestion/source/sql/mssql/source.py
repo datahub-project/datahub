@@ -266,42 +266,38 @@ class SQLServerSource(SQLAlchemySource):
                 column["comment"] = description
         return columns
 
-    def get_database_level_workunits(  # type: ignore[override]
+    def get_database_level_workunits(
         self,
-        sql_config: SQLServerConfig,
         inspector: Inspector,
         database: str,
     ) -> Iterable[MetadataWorkUnit]:
         yield from super().get_database_level_workunits(
-            sql_config=sql_config,
             inspector=inspector,
             database=database,
         )
-        if sql_config.include_jobs:
+        if self.config.include_jobs:
             try:
-                yield from self.loop_jobs(inspector, sql_config)
+                yield from self.loop_jobs(inspector, self.config)
             except Exception as e:
                 self.report.report_failure(
                     "jobs",
                     f"Failed to list jobs due to error {e}",
                 )
 
-    def get_schema_level_workunits(  # type: ignore[override]
+    def get_schema_level_workunits(
         self,
-        sql_config: SQLServerConfig,
         inspector: Inspector,
         schema: str,
         database: str,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         yield from super().get_schema_level_workunits(
-            sql_config=sql_config,
             inspector=inspector,
             schema=schema,
             database=database,
         )
-        if sql_config.include_stored_procedures:
+        if self.config.include_stored_procedures:
             try:
-                yield from self.loop_stored_procedures(inspector, schema, sql_config)
+                yield from self.loop_stored_procedures(inspector, schema, self.config)
             except Exception as e:
                 self.report.report_failure(
                     "jobs",
@@ -605,29 +601,21 @@ class SQLServerSource(SQLAlchemySource):
         self,
         data_job: MSSQLDataJob,
     ) -> Iterable[MetadataWorkUnit]:
-        mcp = MetadataChangeProposalWrapper(
+        wu = MetadataChangeProposalWrapper(
             entityType=data_job.type,
             entityUrn=data_job.urn,
             changeType=ChangeTypeClass.UPSERT,
-            **data_job.as_datajob_info_aspect_data,
-        )
-        wu = MetadataWorkUnit(
-            id=f"{data_job.source}.{data_job.entity.full_name}.{mcp.aspectName}",
-            mcp=mcp,
-        )
+            aspect=data_job.as_datajob_info_aspect,
+        ).as_workunit()
         self.report.report_workunit(wu)
         yield wu
 
-        mcp = MetadataChangeProposalWrapper(
+        wu = MetadataChangeProposalWrapper(
             entityType=data_job.type,
             entityUrn=data_job.urn,
             changeType=ChangeTypeClass.UPSERT,
-            **data_job.as_datajob_input_output_aspect_data,
-        )
-        wu = MetadataWorkUnit(
-            id=f"{data_job.source}.{data_job.entity.full_name}.{mcp.aspectName}",
-            mcp=mcp,
-        )
+            aspect=data_job.as_datajob_input_output_aspect,
+        ).as_workunit()
         self.report.report_workunit(wu)
         yield wu
 
@@ -635,19 +623,14 @@ class SQLServerSource(SQLAlchemySource):
         self,
         data_flow: MSSQLDataFlow,
     ) -> Iterable[MetadataWorkUnit]:
-        mcp = MetadataChangeProposalWrapper(
+        wu = MetadataChangeProposalWrapper(
             entityType=data_flow.type,
             entityUrn=data_flow.urn,
             changeType=ChangeTypeClass.UPSERT,
-            **data_flow.as_dataflow_info_aspect_data,
-        )
-        for proposal in [mcp]:
-            wu = MetadataWorkUnit(
-                id=f"{data_flow.source}.{data_flow.entity.formatted_name}.{proposal.aspectName}",
-                mcp=proposal,
-            )
-            self.report.report_workunit(wu)
-            yield wu
+            aspect=data_flow.as_dataflow_info_aspect,
+        ).as_workunit()
+        self.report.report_workunit(wu)
+        yield wu
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically

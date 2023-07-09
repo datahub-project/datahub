@@ -188,28 +188,22 @@ class MSSQLDataJob:
         return self.job_properties
 
     @property
-    def as_datajob_input_output_aspect_data(self) -> Dict:
-        return dict(
-            aspectName="dataJobInputOutput",
-            aspect=DataJobInputOutputClass(
-                inputDatasets=sorted(self.incoming),
-                outputDatasets=sorted(self.outgoing),
-                inputDatajobs=sorted(self.input_jobs),
-            ),
+    def as_datajob_input_output_aspect(self) -> DataJobInputOutputClass:
+        return DataJobInputOutputClass(
+            inputDatasets=sorted(self.incoming),
+            outputDatasets=sorted(self.outgoing),
+            inputDatajobs=sorted(self.input_jobs),
         )
 
     @property
-    def as_datajob_info_aspect_data(self) -> Dict:
-        return dict(
-            aspectName="dataJobInfo",
-            aspect=DataJobInfoClass(
-                name=self.entity.full_name,
-                type=self.entity.full_type,
-                description=self.description,
-                customProperties=self.valued_properties,
-                externalUrl=self.external_url,
-                status=self.status,
-            ),
+    def as_datajob_info_aspect(self) -> DataJobInfoClass:
+        return DataJobInfoClass(
+            name=self.entity.full_name,
+            type=self.entity.full_type,
+            description=self.description,
+            customProperties=self.valued_properties,
+            externalUrl=self.external_url,
+            status=self.status,
         )
 
 
@@ -237,12 +231,9 @@ class MSSQLDataFlow:
         )
 
     @property
-    def as_dataflow_info_aspect_data(self) -> Dict:
-        return dict(
-            aspectName="dataFlowInfo",
-            aspect=DataFlowInfoClass(
-                name=self.entity.formatted_name,
-                customProperties=self.flow_properties,
-                externalUrl=self.external_url,
-            ),
+    def as_dataflow_info_aspect(self) -> DataFlowInfoClass:
+        return DataFlowInfoClass(
+            name=self.entity.formatted_name,
+            customProperties=self.flow_properties,
+            externalUrl=self.external_url,
         )
