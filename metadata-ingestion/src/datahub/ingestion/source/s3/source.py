@@ -282,6 +282,8 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        # Deequ fails if Spark is not available which is not needed for non profiling use cases
         import pydeequ
 
         conf = SparkConf()
@@ -476,6 +478,8 @@ class S3Source(StatefulIngestionSourceBase):
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        # Deequ fails if Spark is not available which is not needed for non profiling use cases
         from pydeequ.analyzers import AnalyzerContext
 
         from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
