@@ -118,7 +118,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_URN = "urn";
   private static final String SYSTEM_METADATA = "systemMetadata";
-  private static final String ES_FILED_TIMESTAMP = "timestampMillis";
+  private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
   private final Clock _clock = Clock.systemUTC();
   @Inject
@@ -646,11 +646,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     criteria.add(QueryUtils.newCriterion("urn", urn.toString()));
     if (startTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(ES_FILED_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
+          QueryUtils.newCriterion(ES_FIELD_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
     }
     if (endTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(ES_FILED_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
+          QueryUtils.newCriterion(ES_FIELD_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
     }
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
 
