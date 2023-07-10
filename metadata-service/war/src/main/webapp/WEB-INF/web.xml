@@ -66,6 +66,12 @@
     <load-on-startup>1</load-on-startup>
     <async-supported>true</async-supported>
   </servlet>
+  <servlet>
+    <servlet-name>operationsServlet</servlet-name>
+    <servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+    <async-supported>true</async-supported>
+  </servlet>
 
   <!---
     This is a servlet exclusive to DataHub's implementation of the Confluent OpenAPI spec which is not behind
@@ -113,6 +119,10 @@
   <servlet-mapping>
     <servlet-name>openapiServlet</servlet-name>
     <url-pattern>/openapi/*</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>operationsServlet</servlet-name>
+    <url-pattern>/welcome/*</url-pattern>
   </servlet-mapping>
   <servlet-mapping>
     <servlet-name>authServlet</servlet-name>

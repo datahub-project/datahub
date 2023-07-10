@@ -1,0 +1,20 @@
+apply plugin: 'java'
+
+dependencies {
+  implementation project(path: ':metadata-io')
+  compile externalDependency.reflections
+  compile externalDependency.springBoot
+  compile externalDependency.springCore
+  compile externalDependency.springDocUI
+  compile externalDependency.springWeb
+  compile externalDependency.springWebMVC
+  compile externalDependency.springBeans
+  compile externalDependency.springContext
+  implementation externalDependency.slf4jApi
+  compileOnly externalDependency.lombok
+  implementation externalDependency.antlr4Runtime
+  implementation externalDependency.antlr4
+
+  annotationProcessor externalDependency.lombok
+
+}
