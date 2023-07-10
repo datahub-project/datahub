@@ -178,7 +178,7 @@ const schemaNode: DataNode = {
             key: EntityChangeType.OperationColumnModified,
             title: (
                 <>
-                    <NotificationTypeText>A column type changed</NotificationTypeText>
+                    <NotificationTypeText>A column is modified</NotificationTypeText>
                 </>
             ),
         },

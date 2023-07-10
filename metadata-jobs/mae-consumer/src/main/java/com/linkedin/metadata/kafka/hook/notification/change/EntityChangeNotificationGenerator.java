@@ -29,6 +29,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
+import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
@@ -98,7 +99,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       Constants.DOMAINS_ASPECT_NAME
   );
   /**
-   * The list of aspects that are supported for generating semantic change events.
+   * The list of entities that are supported for generating semantic change events.
    */
   private static final Set<String> SUPPORTED_ENTITY_NAMES = ImmutableSet.of(
       Constants.DATASET_ENTITY_NAME,
@@ -441,6 +442,48 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           "removed",
           "schema field(s)",
           removedUrns,
+          logEvent.getEntityUrn(),
+          "",
+          null
+      );
+    }
+
+    List<Urn> renamedUrns = changeEvents.stream()
+        .filter(changeEvent -> ChangeCategory.TECHNICAL_SCHEMA.equals(changeEvent.getCategory()))
+        .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
+        .filter(changeEvent -> SchemaFieldModificationCategory.RENAME.toString().equals(changeEvent.getParameters().get("modificationCategory")))
+        .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
+        .collect(Collectors.toList());
+
+    if (renamedUrns.size() > 0) {
+      sendEntityChangeNotification(
+          NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_MODIFIED,
+          logEvent.getCreated().getActor(),
+          "renamed",
+          "schema field(s)",
+          renamedUrns,
+          logEvent.getEntityUrn(),
+          "",
+          null
+      );
+    }
+
+    List<Urn> typeChangedUrns = changeEvents.stream()
+        .filter(changeEvent -> ChangeCategory.TECHNICAL_SCHEMA.equals(changeEvent.getCategory()))
+        .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
+        .filter(changeEvent -> SchemaFieldModificationCategory.TYPE_CHANGE.toString().equals(changeEvent.getParameters().get("modificationCategory")))
+        .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
+        .collect(Collectors.toList());
+
+    if (typeChangedUrns.size() > 0) {
+      sendEntityChangeNotification(
+          NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_MODIFIED,
+          logEvent.getCreated().getActor(),
+          "updated type for",
+          "schema field(s)",
+          typeChangedUrns,
           logEvent.getEntityUrn(),
           "",
           null

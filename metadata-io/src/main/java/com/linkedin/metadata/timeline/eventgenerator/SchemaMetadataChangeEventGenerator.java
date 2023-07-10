@@ -13,6 +13,7 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.data.dataset.DatasetSchemaFieldChangeEvent;
+import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaMetadata;
@@ -220,6 +221,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                 .fieldPath(curBaseField.getFieldPath())
                 .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
                 .nullable(curBaseField.isNullable())
+                .modificationCategory(SchemaFieldModificationCategory.TYPE_CHANGE)
                 .auditStamp(auditStamp)
                 .build());
           }
@@ -245,7 +247,9 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           processRemoval(changeCategory, changeEvents, datasetUrn, curBaseField, auditStamp);
           ++baseFieldIdx;
         } else {
-          changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
+          if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+            changeEvents.add(generateRenameEvent(datasetUrn, curBaseField, renamedField, auditStamp));
+          }
           List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
               changeCategory, auditStamp);
           changeEvents.addAll(propChangeEvents);
@@ -260,7 +264,9 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           processAdd(changeCategory, changeEvents, datasetUrn, curTargetField, auditStamp);
           ++targetFieldIdx;
         } else {
-          changeEvents.add(generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
+          if (ChangeCategory.TECHNICAL_SCHEMA.equals(changeCategory)) {
+            changeEvents.add(generateRenameEvent(datasetUrn, renamedField, curTargetField, auditStamp));
+          }
           List<ChangeEvent> propChangeEvents = getFieldPropertyChangeEvents(curBaseField, curTargetField, datasetUrn,
               changeCategory, auditStamp);
           changeEvents.addAll(propChangeEvents);
@@ -389,6 +395,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           .fieldPath(curBaseField.getFieldPath())
           .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
           .nullable(curBaseField.isNullable())
+          .modificationCategory(SchemaFieldModificationCategory.RENAME)
           .auditStamp(auditStamp)
           .build();
   }
