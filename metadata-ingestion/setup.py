@@ -211,7 +211,7 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
-microsoft_common = {"msal==1.16.0"}
+microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
