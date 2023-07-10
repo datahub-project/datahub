@@ -1,4 +1,5 @@
 import collections
+import itertools
 import logging
 import textwrap
 from dataclasses import dataclass
@@ -75,9 +76,7 @@ def _merge_lineage_edge_columns(
     assert a.table == b.table
 
     merged_col_mapping: Dict[str, Set[str]] = collections.defaultdict(set)
-    for col_mapping in a.column_mapping:
-        merged_col_mapping[col_mapping.out_column].update(col_mapping.in_columns)
-    for col_mapping in b.column_mapping:
+    for col_mapping in itertools.chain(a.column_mapping, b.column_mapping):
         merged_col_mapping[col_mapping.out_column].update(col_mapping.in_columns)
 
     return LineageEdge(
@@ -126,8 +125,9 @@ def _follow_column_lineage(
             )
             for base_column_mapping in temp.column_mapping
         ),
-        auditStamp=upstream.auditStamp,
-        type=upstream.type,
+        # We use the audit stamp and type from temp, since it's "closer" to the base.
+        auditStamp=temp.auditStamp,
+        type=temp.type,
         column_confidence=min(temp.column_confidence, upstream.column_confidence),
     )
 
