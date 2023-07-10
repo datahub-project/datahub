@@ -96,16 +96,23 @@ def _merge_lineage_edge_columns(
 
 
 def _follow_column_lineage(
-    base: LineageEdge,
+    temp: LineageEdge,
     upstream: LineageEdge,
 ) -> LineageEdge:
-    # Collapse lineage of table_a -> base -> upstream
-    # into table_a -> upstream.
+    """
+    Collapse lineage of `base -> temp -> upstream` into `base -> upstream`.
+    """
 
+    # This is a mapping from temp's column -> upstream's columns.
     upstream_col_mapping: Dict[str, Set[str]] = collections.defaultdict(set)
     for col_mapping in upstream.column_mapping:
         upstream_col_mapping[col_mapping.out_column].update(col_mapping.in_columns)
 
+    # This code can be a bit confusing.
+    # - temp.column_mapping[i].out_column is a column in base.
+    # - temp.column_mapping[i].in_columns are columns in temp.
+    # - For each temp_col in temp.column_mapping[i].in_columns, we want to replace it with
+    #   the columns in upstream that it depends on.
     return LineageEdge(
         table=upstream.table,
         column_mapping=frozenset(
@@ -117,11 +124,11 @@ def _follow_column_lineage(
                     for col in upstream_col_mapping.get(temp_col, set())
                 ),
             )
-            for base_column_mapping in base.column_mapping
+            for base_column_mapping in temp.column_mapping
         ),
         auditStamp=upstream.auditStamp,
         type=upstream.type,
-        column_confidence=min(base.column_confidence, upstream.column_confidence),
+        column_confidence=min(temp.column_confidence, upstream.column_confidence),
     )
 
 
@@ -722,39 +729,48 @@ timestamp < "{end_time}"
             edges_seen = set()
 
         upstreams: Dict[str, LineageEdge] = {}
-        for ref_lineage in lineage_metadata[str(bq_table)]:
-            ref_table = ref_lineage.table
-            upstream_table = BigQueryTableRef.from_string_name(ref_table)
+        for upstream_lineage in lineage_metadata[str(bq_table)]:
+            upstream_table_ref = upstream_lineage.table
+            upstream_table = BigQueryTableRef.from_string_name(upstream_table_ref)
             if upstream_table.is_temporary_table(
                 [self.config.temp_table_dataset_prefix]
             ):
                 # making sure we don't process a table twice and not get into a recursive loop
-                if ref_lineage in edges_seen:
+                if upstream_lineage in edges_seen:
                     logger.debug(
-                        f"Skipping table {ref_lineage} because it was seen already"
+                        f"Skipping table {upstream_lineage} because it was seen already"
                     )
                     continue
-                edges_seen.add(ref_lineage)
+                edges_seen.add(upstream_lineage)
 
-                if ref_table in lineage_metadata:
-                    # When following lineage for a temp table, we need to merge the
-                    # column lineage.
+                if upstream_table_ref in lineage_metadata:
+                    # `upstream_table` is a temporary table.
+                    # We don't want it in the lineage, but we do want its upstreams.
+                    # When following lineage for a temp table, we need to merge the column lineage.
+
                     for temp_table_upstream in self.get_upstream_tables(
                         upstream_table,
                         lineage_metadata=lineage_metadata,
                         edges_seen=edges_seen,
                     ):
                         ref_temp_table_upstream = temp_table_upstream.table
+
+                        # Replace `bq_table -> upstream_table -> temp_table_upstream`
+                        # with `bq_table -> temp_table_upstream`, merging the column lineage.
+                        collapsed_lineage = _follow_column_lineage(
+                            upstream_lineage, temp_table_upstream
+                        )
+
                         upstreams[
                             ref_temp_table_upstream
                         ] = _merge_lineage_edge_columns(
                             upstreams.get(ref_temp_table_upstream),
-                            _follow_column_lineage(ref_lineage, temp_table_upstream),
+                            collapsed_lineage,
                         )
             else:
-                upstreams[ref_table] = _merge_lineage_edge_columns(
-                    upstreams.get(ref_table),
-                    ref_lineage,
+                upstreams[upstream_table_ref] = _merge_lineage_edge_columns(
+                    upstreams.get(upstream_table_ref),
+                    upstream_lineage,
                 )
 
         return set(upstreams.values())
