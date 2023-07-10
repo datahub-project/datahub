@@ -14,4 +14,5 @@ public class FeatureFlags {
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
   private PreProcessHooks preProcessHooks;
+  private boolean showAcrylInfo = false;
 }

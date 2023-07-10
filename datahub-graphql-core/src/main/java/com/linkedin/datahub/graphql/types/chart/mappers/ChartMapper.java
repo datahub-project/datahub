@@ -82,7 +82,7 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
             chart.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataset, dataMap) -> this.mapGlobalTags(dataset, dataMap, entityUrn));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (chart, dataMap) ->
-            chart.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            chart.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (chart, dataMap) ->
             chart.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
         mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
