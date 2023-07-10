@@ -340,86 +340,6 @@ class VerticaSource(SQLAlchemySource):
             Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]
         """
 
-        try:
-            columns = inspector.get_view_columns(view, schema)
-        except KeyError:
-            # For certain types of views, we are unable to fetch the list of columns.
-            self.report.report_warning(
-                dataset_name, "unable to get schema for this view"
-            )
-            schema_metadata = None
-        else:
-            schema_fields = self.get_schema_fields(dataset_name, columns)
-            schema_metadata = get_schema_metadata(
-                self.report,
-                dataset_name,
-                self.platform,
-                columns,
-                canonical_schema=schema_fields,
-            )
-        description, properties, _ = self.get_view_properties(inspector, schema, view)
-        try:
-            view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                view_definition = str(view_definition)
-        except NotImplementedError:
-            view_definition = ""
-        properties["view_definition"] = view_definition
-        properties["is_view"] = "True"
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[StatusClass(removed=False)],
-        )
-        db_name = self.get_db_name(inspector)
-        yield from self.add_table_to_schema_container(
-            dataset_urn=dataset_urn,
-            db_name=db_name,
-            schema=schema,
-        )
-
-        dataset_properties = DatasetPropertiesClass(
-            name=view,
-            description=description,
-            customProperties=properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
-        if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield SqlWorkUnit(id=dataset_name, mce=mce)
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
-        ).as_workunit()
-        if "view_definition" in properties:
-            view_definition_string = properties["view_definition"]
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
-
-        if self.config.domain and self.domain_registry:
-            yield from get_domain_wu(
-                dataset_name=dataset_name,
-                entity_urn=dataset_urn,
-                domain_config=sql_config.domain,
-                domain_registry=self.domain_registry,
-            )
-
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -432,6 +352,10 @@ class VerticaSource(SQLAlchemySource):
             entity_type="dataset",
             entity_urn=dataset_urn,
             owner_urn=f"urn:li:corpuser:{view_owner}",
+        )
+        
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
         )
 
     def loop_projections(
@@ -796,32 +720,6 @@ class VerticaSource(SQLAlchemySource):
                 domain_registry=self.domain_registry,
             )
 
-    def get_view_properties(
-        self, inspector: VerticaInspector, schema: str, table: str
-    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
-        description: Optional[str] = None
-        properties: Dict[str, str] = {}
-
-        # The location cannot be fetched generically, but subclasses may override
-        # this method and provide a location.
-        location: Optional[str] = None
-
-        try:
-            # SQLAlchemy stubs are incomplete and missing this method.
-            # PR: https://github.com/dropbox/sqlalchemy-stubs/pull/223.
-            table_info: dict = inspector.get_view_comment(table, schema)
-        except NotImplementedError:
-            return description, properties, location
-
-        description = table_info.get("text")
-        if type(description) is tuple:
-            # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
-            description = table_info["text"][0]
-
-        # The "properties" field is a non-standard addition to SQLAlchemy's interface.
-        properties = table_info.get("properties", {})
-        return description, properties, location
-
     def get_projection_properties(
         self, inspector: VerticaInspector, schema: str, projection: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
@@ -982,17 +880,3 @@ class VerticaSource(SQLAlchemySource):
 
         return None
 
-    def _get_columns(
-        self, dataset_name: str, inspector: VerticaInspector, schema: str, table: str
-    ) -> List[dict]:
-        columns = []
-        try:
-            columns = inspector.get_all_columns(table, schema)
-            if len(columns) == 0:
-                self.report.report_warning(MISSING_COLUMN_INFO, dataset_name)
-        except Exception as e:
-            self.report.report_warning(
-                dataset_name,
-                f"unable to get column information due to an error -> {e}",
-            )
-        return columns
