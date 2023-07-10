@@ -1,0 +1,90 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        {
+            "database": "bq-proj",
+            "db_schema": "dataset",
+            "table": "table1"
+        },
+        {
+            "database": "bq-proj",
+            "db_schema": "dataset",
+            "table": "table2"
+        }
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "day"
+            },
+            "upstreams": [
+                {
+                    "table": {
+                        "database": "bq-proj",
+                        "db_schema": "dataset",
+                        "table": "table1"
+                    },
+                    "column": "reporting_day"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "product"
+            },
+            "upstreams": [
+                {
+                    "table": {
+                        "database": "bq-proj",
+                        "db_schema": "dataset",
+                        "table": "table1"
+                    },
+                    "column": "by_product.product_code"
+                },
+                {
+                    "table": {
+                        "database": "bq-proj",
+                        "db_schema": "dataset",
+                        "table": "table2"
+                    },
+                    "column": "other_field"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "other_field"
+            },
+            "upstreams": [
+                {
+                    "table": {
+                        "database": "bq-proj",
+                        "db_schema": "dataset",
+                        "table": "table2"
+                    },
+                    "column": "other_field"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "daily_active_users"
+            },
+            "upstreams": [
+                {
+                    "table": {
+                        "database": "bq-proj",
+                        "db_schema": "dataset",
+                        "table": "table1"
+                    },
+                    "column": "by_product.product_code_dau"
+                }
+            ]
+        }
+    ]
+}
