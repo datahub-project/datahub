@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SQLSourceReport,
@@ -47,7 +46,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SubTypesClass,
     UpstreamClass,
-    ViewPropertiesClass,
     _Aspect,
 )
 from datahub.utilities import config_clean
@@ -353,7 +351,7 @@ class VerticaSource(SQLAlchemySource):
             entity_urn=dataset_urn,
             owner_urn=f"urn:li:corpuser:{view_owner}",
         )
-        
+
         yield from super()._process_view(
             dataset_name, inspector, schema, view, sql_config
         )
@@ -879,4 +877,3 @@ class VerticaSource(SQLAlchemySource):
             return UpstreamLineage(upstreams=upstream_tables)
 
         return None
-
