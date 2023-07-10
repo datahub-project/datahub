@@ -13,6 +13,8 @@ describe("search", () => {
         req.reply((res) => {
           // Modify the response body directly
           res.body.data.appConfig.featureFlags.showBrowseV2 = isOn;
+          // search and browse both need to be on for browse to show
+          res.body.data.appConfig.featureFlags.showSearchFiltersV2 = isOn;
         });
       }
     });
