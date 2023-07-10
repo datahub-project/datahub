@@ -28,6 +28,7 @@ export const EMPTY_POLICY = {
         allUsers: false,
         allGroups: false,
         resourceOwners: false,
+        platformInstanceOwners: false,
     },
     editable: true,
 };

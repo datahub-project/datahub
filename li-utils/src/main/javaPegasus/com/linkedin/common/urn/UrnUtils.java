@@ -52,7 +52,6 @@ public class UrnUtils {
         try {
             return Urn.createFromString(urnStr);
         } catch (URISyntaxException e) {
-            System.out.println(e.toString());
             throw new RuntimeException(String.format("Failed to retrieve entity with urn %s, invalid urn", urnStr));
         }
     }

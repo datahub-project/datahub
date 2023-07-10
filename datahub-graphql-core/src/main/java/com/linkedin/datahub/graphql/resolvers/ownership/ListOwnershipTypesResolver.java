@@ -72,7 +72,7 @@ public class ListOwnershipTypesResolver implements
         result.setStart(gmsResult.getFrom());
         result.setCount(gmsResult.getPageSize());
         result.setTotal(gmsResult.getNumEntities());
-        result.setOwnershipTypes(mapUnresolvedResourceOwnershipTypes(gmsResult.getEntities().stream()
+        result.setOwnershipTypes(mapUnresolvedOwnershipTypes(gmsResult.getEntities().stream()
             .map(SearchEntity::getEntity)
             .collect(Collectors.toList())));
         return result;
@@ -83,7 +83,7 @@ public class ListOwnershipTypesResolver implements
     });
   }
 
-  private List<OwnershipTypeEntity> mapUnresolvedResourceOwnershipTypes(List<Urn> entityUrns) {
+  private List<OwnershipTypeEntity> mapUnresolvedOwnershipTypes(List<Urn> entityUrns) {
     final List<OwnershipTypeEntity> results = new ArrayList<>();
     for (final Urn urn : entityUrns) {
       final OwnershipTypeEntity unresolvedView = new OwnershipTypeEntity();
