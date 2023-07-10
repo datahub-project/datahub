@@ -1,4 +1,5 @@
 import atexit
+import hashlib
 import logging
 import os
 import re
@@ -112,6 +113,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -136,6 +138,10 @@ def cleanup(config: BigQueryV2Config) -> None:
             f"Deleting temporary credential file at {config._credentials_path}"
         )
         os.unlink(config._credentials_path)
+
+
+def _generate_sql_id(sql: str) -> str:
+    return hashlib.md5(sql.encode("utf-8")).hexdigest()
 
 
 @platform_name("BigQuery", doc_order=1)
@@ -254,8 +260,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-        # Maps project -> view_ref -> view definition (will be used when generating lineage)
-        self.view_definitions: Dict[str, Dict[str, str]] = defaultdict(dict)
+
+        # We do this so that the SQL is stored in a file-backed dict, but the sql IDs are stored in memory.
+        # Maps project -> view_ref -> sql ID (will be used when generating lineage)
+        self.view_definition_ids: Dict[str, Dict[str, str]] = defaultdict(dict)
+        # Maps sql ID -> actual sql
+        self.view_definitions: FileBackedDict[str] = FileBackedDict()
 
         self.sql_parser_schema_resolver = SchemaResolver(
             platform=self.platform, env=self.config.env
@@ -666,7 +676,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         if self.config.lineage_parse_view_ddl:
-            for view, view_definition in self.view_definitions[project_id].items():
+            for view, view_definition_id in self.view_definition_ids[
+                project_id
+            ].items():
+                view_definition = self.view_definitions[view_definition_id]
                 raw_view_lineage = sqlglot_lineage(
                     view_definition,
                     platform=self.platform,
@@ -871,7 +884,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
             self.table_refs.add(table_ref)
             if self.config.lineage_parse_view_ddl:
-                self.view_definitions[project_id][table_ref] = view.view_definition
+                view_definition_id = _generate_sql_id(view.view_definition)
+                self.view_definition_ids[project_id][table_ref] = view_definition_id
+                self.view_definitions[view_definition_id] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
