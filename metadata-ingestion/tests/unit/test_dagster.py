@@ -20,6 +20,7 @@ from datahub.configuration.source_common import DEFAULT_ENV
 from datahub_provider.entities import Dataset
 from datahub_provider.sensors.datahub_sensors import DatahubSensors, datahub_sensor
 
+
 @patch("datahub_provider.sensors.datahub_sensors.DatahubRestEmitter", autospec=True)
 def test_datahub_sensor(mock_emit):
     instance = DagsterInstance.ephemeral()

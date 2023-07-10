@@ -71,7 +71,9 @@ class DagsterSourceConfig(DatasetSourceConfigMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.datahub_rest_url: str = os.getenv(Constant.DATAHUB_REST_URL, Constant.DEFAULT_DATAHUB_REST_URL)
+        self.datahub_rest_url: str = os.getenv(
+            Constant.DATAHUB_REST_URL, Constant.DEFAULT_DATAHUB_REST_URL
+        )
         self.env = os.getenv(Constant.DATAHUB_ENV, DEFAULT_ENV)
         self.platform_instance = os.getenv(Constant.DATAHUB_PLATFORM_INSTANCE)
 
