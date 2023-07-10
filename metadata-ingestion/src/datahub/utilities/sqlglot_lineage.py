@@ -190,12 +190,9 @@ def _table_level_lineage(
     statement: sqlglot.Expression,
     dialect: str,
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
-    def _raw_table_name(table: sqlglot.exp.Table) -> _TableName:
-        return _TableName.from_sqlglot_table(table)
-
     # Generate table-level lineage.
     modified = {
-        _raw_table_name(expr.this)
+        _TableName.from_sqlglot_table(expr.this)
         for expr in statement.find_all(
             sqlglot.exp.Create,
             sqlglot.exp.Insert,
@@ -209,7 +206,10 @@ def _table_level_lineage(
     }
 
     tables = (
-        {_raw_table_name(table) for table in statement.find_all(sqlglot.exp.Table)}
+        {
+            _TableName.from_sqlglot_table(table)
+            for table in statement.find_all(sqlglot.exp.Table)
+        }
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
@@ -621,14 +621,13 @@ def _translate_internal_column_lineage(
 
 def _sqlglot_lineage_inner(
     sql: str,
-    platform: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
     # TODO: convert datahub platform names to sqlglot dialect
     # TODO: Pull the platform name from the schema resolver?
-    dialect = platform
+    dialect = schema_resolver.platform
 
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
@@ -754,7 +753,6 @@ def _sqlglot_lineage_inner(
 
 def sqlglot_lineage(
     sql: str,
-    platform: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
@@ -762,7 +760,6 @@ def sqlglot_lineage(
     try:
         return _sqlglot_lineage_inner(
             sql=sql,
-            platform=platform,
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,

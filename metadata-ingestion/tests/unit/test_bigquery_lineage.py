@@ -166,7 +166,6 @@ def test_lineage_with_timestamps():
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
         iter(lineage_entries),
-        platform="bigquery",
         sql_parser_schema_resolver=SchemaResolver(platform="bigquery"),
     )
 

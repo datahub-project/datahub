@@ -671,7 +671,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         logger.info(f"Generate lineage for {project_id}")
         lineage = self.lineage_extractor.calculate_lineage_for_project(
             project_id,
-            platform=self.platform,
             sql_parser_schema_resolver=self.sql_parser_schema_resolver,
         )
 
@@ -682,7 +681,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 view_definition = self.view_definitions[view_definition_id]
                 raw_view_lineage = sqlglot_lineage(
                     view_definition,
-                    platform=self.platform,
                     schema_resolver=self.sql_parser_schema_resolver,
                     default_db=project_id,
                 )
@@ -1187,9 +1185,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             fields=self.gen_schema_fields(columns),
         )
 
-        self.sql_parser_schema_resolver.add_schema_metadata(
-            dataset_urn, schema_metadata
-        )
+        if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
 
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata

@@ -99,7 +99,8 @@ def _follow_column_lineage(
     base: LineageEdge,
     upstream: LineageEdge,
 ) -> LineageEdge:
-    # Collapse lineage of a -> base -> upstream into a -> upstream.
+    # Collapse lineage of table_a -> base -> upstream
+    # into table_a -> upstream.
 
     upstream_col_mapping: Dict[str, Set[str]] = collections.defaultdict(set)
     for col_mapping in upstream.column_mapping:
@@ -109,16 +110,14 @@ def _follow_column_lineage(
         table=upstream.table,
         column_mapping=frozenset(
             LineageEdgeColumnMapping(
-                out_column=base_column.out_column,
+                out_column=base_column_mapping.out_column,
                 in_columns=frozenset(
-                    [
-                        col
-                        for base_upstream in base_column.in_columns
-                        for col in upstream_col_mapping.get(base_upstream, set())
-                    ]
+                    col
+                    for temp_col in base_column_mapping.in_columns
+                    for col in upstream_col_mapping.get(temp_col, set())
                 ),
             )
-            for base_column in base.column_mapping
+            for base_column_mapping in base.column_mapping
         ),
         auditStamp=upstream.auditStamp,
         type=upstream.type,
@@ -545,7 +544,6 @@ timestamp < "{end_time}"
     def _create_lineage_map(
         self,
         entries: Iterable[QueryEvent],
-        platform: str,
         sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         logger.info("Entering create lineage map function")
@@ -584,7 +582,6 @@ timestamp < "{end_time}"
             if self.config.lineage_use_sql_parser:
                 raw_lineage = sqlglot_lineage(
                     e.query,
-                    platform=platform,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
                 )
@@ -619,11 +616,9 @@ timestamp < "{end_time}"
                         lineage_from_event.add(
                             LineageEdge(
                                 table=str(ref_table_or_view),
-                                auditStamp=e.end_time
-                                if e.end_time
-                                else datetime.now(tz=timezone.utc),
+                                auditStamp=ts,
                                 column_mapping=frozenset(),
-                                column_confidence=0.0,
+                                column_confidence=0.1,
                             )
                         )
 
@@ -688,7 +683,6 @@ timestamp < "{end_time}"
     def _compute_bigquery_lineage(
         self,
         project_id: str,
-        platform: str,
         sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         lineage_metadata: Dict[str, Set[LineageEdge]]
@@ -698,7 +692,7 @@ timestamp < "{end_time}"
             else:
                 events = self._get_parsed_audit_log_events(project_id)
                 lineage_metadata = self._create_lineage_map(
-                    events, platform, sql_parser_schema_resolver
+                    events, sql_parser_schema_resolver
                 )
         except Exception as e:
             if project_id:
@@ -722,10 +716,10 @@ timestamp < "{end_time}"
         self,
         bq_table: BigQueryTableRef,
         lineage_metadata: Dict[str, Set[LineageEdge]],
-        tables_seen: Optional[Set[LineageEdge]] = None,
+        edges_seen: Optional[Set[LineageEdge]] = None,
     ) -> Set[LineageEdge]:
-        if tables_seen is None:
-            tables_seen = set()
+        if edges_seen is None:
+            edges_seen = set()
 
         upstreams: Dict[str, LineageEdge] = {}
         for ref_lineage in lineage_metadata[str(bq_table)]:
@@ -735,12 +729,12 @@ timestamp < "{end_time}"
                 [self.config.temp_table_dataset_prefix]
             ):
                 # making sure we don't process a table twice and not get into a recursive loop
-                if ref_lineage in tables_seen:
+                if ref_lineage in edges_seen:
                     logger.debug(
                         f"Skipping table {ref_lineage} because it was seen already"
                     )
                     continue
-                tables_seen.add(ref_lineage)
+                edges_seen.add(ref_lineage)
 
                 if ref_table in lineage_metadata:
                     # When following lineage for a temp table, we need to merge the
@@ -748,7 +742,7 @@ timestamp < "{end_time}"
                     for temp_table_upstream in self.get_upstream_tables(
                         upstream_table,
                         lineage_metadata=lineage_metadata,
-                        tables_seen=tables_seen,
+                        edges_seen=edges_seen,
                     ):
                         ref_temp_table_upstream = temp_table_upstream.table
                         upstreams[
@@ -768,12 +762,11 @@ timestamp < "{end_time}"
     def calculate_lineage_for_project(
         self,
         project_id: str,
-        platform: str,
         sql_parser_schema_resolver: SchemaResolver,
     ) -> Dict[str, Set[LineageEdge]]:
         with PerfTimer() as timer:
             lineage = self._compute_bigquery_lineage(
-                project_id, platform, sql_parser_schema_resolver
+                project_id, sql_parser_schema_resolver
             )
 
             self.report.lineage_extraction_sec[project_id] = round(
