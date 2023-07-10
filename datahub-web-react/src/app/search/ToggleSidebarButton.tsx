@@ -40,7 +40,7 @@ const ToggleSidebarButton = ({ isOpen, onClick }: Props) => {
     if (pauseTooltip) return button;
 
     return (
-        <Tooltip title={title} placement={placement} arrowPointAtCenter>
+        <Tooltip title={title} placement={placement} arrowPointAtCenter mouseEnterDelay={1}>
             {button}
         </Tooltip>
     );

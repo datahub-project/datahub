@@ -1,6 +1,6 @@
 services:
   nifi1:
-    image: apache/nifi:1.15.0
+    image: apache/nifi:1.22.0
     container_name: nifi1
     hostname: nifi1
     environment:      
@@ -48,7 +48,7 @@ services:
       - "52181"
 
   nifi01:
-    image: apache/nifi:1.15.0 
+    image: apache/nifi:1.22.0
     container_name: nifi01
     hostname: nifi01
     depends_on:
@@ -80,7 +80,7 @@ services:
 
 
   nifi02:
-    image: apache/nifi:1.15.0  
+    image: apache/nifi:1.22.0
     container_name: nifi02 
     hostname: nifi02 
     depends_on:
@@ -98,7 +98,7 @@ services:
       - NIFI_SENSITIVE_PROPS_KEY=admin@datahub
 
   nifi03:
-      image: apache/nifi:1.15.0
+      image: apache/nifi:1.22.0
       container_name: nifi03
       hostname: nifi03    
       depends_on:
@@ -117,6 +117,7 @@ services:
 
   sftp_public_host:
     image: atmoz/sftp
+    platform: linux/amd64
     container_name: sftp_public_host
     hostname: sftp_public_host
     volumes:

@@ -2575,6 +2575,11 @@ type InstitutionalMemoryMetadata {
     Description of the resource
     """
     description: String! @deprecated
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -8220,6 +8225,16 @@ type ActorFilter {
   resourceOwners: Boolean!
 
   """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
+
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
+  """
+  resolvedOwnershipTypes: [OwnershipTypeEntity!]
+
+  """
   Whether the filter should apply to all users
   """
   allUsers: Boolean!
@@ -8346,6 +8361,11 @@ input ActorFilterInput {
   Only applies to policies of type METADATA, which have a resource associated with them
   """
   resourceOwners: Boolean!
+
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
 
   """
   Whether the filter should apply to all users

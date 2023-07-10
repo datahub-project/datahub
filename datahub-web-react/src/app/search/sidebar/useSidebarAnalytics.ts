@@ -1,5 +1,10 @@
 import { EntityType } from '../../../types.generated';
-import { BrowseV2SelectNodeEvent, BrowseV2ToggleNodeEvent, EventType } from '../../analytics';
+import {
+    BrowseV2EntityLinkClickEvent,
+    BrowseV2SelectNodeEvent,
+    BrowseV2ToggleNodeEvent,
+    EventType,
+} from '../../analytics';
 import analytics from '../../analytics/analytics';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
@@ -48,7 +53,18 @@ const useSidebarAnalytics = () => {
         });
     };
 
-    return { trackToggleNodeEvent, trackSelectNodeEvent } as const;
+    const trackEntityLinkClickEvent = (targetNode: BrowseV2EntityLinkClickEvent['targetNode']) => {
+        analytics.event({
+            type: EventType.BrowseV2EntityLinkClickEvent,
+            targetNode,
+            entity: entityDisplayName,
+            environment: environmentDisplayName,
+            platform: platformDisplayName,
+            targetDepth,
+        });
+    };
+
+    return { trackToggleNodeEvent, trackSelectNodeEvent, trackEntityLinkClickEvent } as const;
 };
 
 export default useSidebarAnalytics;

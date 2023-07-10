@@ -13,6 +13,7 @@ from google.cloud.bigquery.table import Row, TableListItem
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -652,7 +653,7 @@ def test_get_table_and_shard_default(
 ) -> None:
     with patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        "((.+)[_$])?(\\d{8})$",
+        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
     ):
         assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
             expected_table_prefix,
