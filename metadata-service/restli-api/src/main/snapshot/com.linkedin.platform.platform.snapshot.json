@@ -5287,7 +5287,20 @@
                           "type" : "array",
                           "items" : "com.linkedin.common.Urn"
                         },
-                        "doc" : "Define type of ownership for the policy",
+                        "doc" : "Define type of resource ownership for the policy",
+                        "optional" : true
+                      }, {
+                        "name" : "platformInstanceOwners",
+                        "type" : "boolean",
+                        "doc" : "Whether the filter should return true for owners of the platform instance to which a particular resource belongs to.\nOnly applies to policies of type 'Metadata', which have a resource associated with them.",
+                        "default" : false
+                      }, {
+                        "name" : "platformInstanceOwnersTypes",
+                        "type" : {
+                          "type" : "array",
+                          "items" : "com.linkedin.common.Urn"
+                        },
+                        "doc" : "Define type of platform instance ownership for the policy",
                         "optional" : true
                       }, {
                         "name" : "allUsers",

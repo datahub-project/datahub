@@ -60,7 +60,7 @@ public class PolicyInfoPolicyMapper implements ModelMapper<DataHubPolicyInfo, Po
       result.setResourceOwnersTypes(resourceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
     }
     UrnArray platformInstanceOwnersTypes = actorFilter.getPlatformInstanceOwnersTypes();
-    if (resourceOwnersTypes != null) {
+    if (platformInstanceOwnersTypes != null) {
       result.setPlatformInstanceOwnersTypes(platformInstanceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
     }
     if (actorFilter.hasGroups()) {

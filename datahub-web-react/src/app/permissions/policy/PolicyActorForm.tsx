@@ -95,7 +95,10 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onSelectPlatformInstanceOwnershipTypeActor = (newType: string) => {
-        const newPlatformInstanceOwnersTypes: Maybe<string[]> = [...(actors.platformInstanceOwnersTypes || []), newType];
+        const newPlatformInstanceOwnersTypes: Maybe<string[]> = [
+            ...(actors.platformInstanceOwnersTypes || []),
+            newType,
+        ];
         setActors({
             ...actors,
             platformInstanceOwnersTypes: newPlatformInstanceOwnersTypes,
@@ -103,7 +106,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     };
 
     const onDeselectPlatformInstanceOwnershipTypeActor = (type: string) => {
-        const newPlatformInstanceOwnersTypes: Maybe<string[]> = actors.platformInstanceOwnersTypes?.filter((u: string) => u !== type);
+        const newPlatformInstanceOwnersTypes: Maybe<string[]> = actors.platformInstanceOwnersTypes?.filter(
+            (u: string) => u !== type,
+        );
         setActors({
             ...actors,
             platformInstanceOwnersTypes: newPlatformInstanceOwnersTypes?.length ? newPlatformInstanceOwnersTypes : null,
@@ -231,7 +236,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
     const resourceOwnershipTypesSelectValue = actors.resourceOwnersTypes || [];
-    const platformInstanceOwnershipTypesSelectValue = actors.platformInstanceOwnershipTypes || [];
+    const platformInstanceOwnershipTypesSelectValue = actors.platformInstanceOwnersTypes || [];
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
@@ -267,9 +272,9 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
             {showAppliesToOwners && (
                 <Form.Item label={<Typography.Text strong>Resource Owners</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        Whether this policy should apply to owners of the Metadata asset. If true, those who are
-                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
-                        selected privileges.
+                        Whether this policy should apply to owners of the Metadata asset. If true, those who are marked
+                        as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected
+                        privileges.
                     </Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToResourceOwners} />
                     {actors.resourceOwners && (
@@ -303,18 +308,27 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         </OwnershipWrapper>
                     )}
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Platform Instance Owners</Typography.Text>} labelAlign="right">
+            )}
+            {showAppliesToOwners && (
+                <Form.Item
+                    label={<Typography.Text strong>Platform Instance Owners</Typography.Text>}
+                    labelAlign="right"
+                >
                     <Typography.Paragraph>
-                        Whether this policy should apply to platform instance owners of the Metadata asset. If true, those who are
-                        marked as owners of the platform instance to which a Metadata Asset belongs to, either directly or indirectly
-                        via a Group, will have the selected privileges.
+                        Whether this policy should apply to platform instance owners of the Metadata asset. If true,
+                        those who are marked as owners of the platform instance to which a Metadata Asset belongs to,
+                        either directly or indirectly via a Group, will have the selected privileges.
                     </Typography.Paragraph>
-                    <Switch size="small" checked={actors.platformInstanceOwners} onChange={onToggleAppliesToPlatformInstanceOwners} />
+                    <Switch
+                        size="small"
+                        checked={actors.platformInstanceOwners}
+                        onChange={onToggleAppliesToPlatformInstanceOwners}
+                    />
                     {actors.platformInstanceOwners && (
                         <OwnershipWrapper>
                             <Typography.Paragraph>
-                                List of types of ownership which will be used to match plafrom instance owners. If empty,
-                                the policies will applied to any type of ownership.
+                                List of types of ownership which will be used to match plafrom instance owners. If
+                                empty, the policies will applied to any type of ownership.
                             </Typography.Paragraph>
                             <Select
                                 value={platformInstanceOwnershipTypesSelectValue}
