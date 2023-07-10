@@ -6,14 +6,14 @@ import { Route } from 'react-router';
 
 import { SearchPage } from '../SearchPage';
 import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../Mocks';
+import { mocksWithSearchFlagsOff } from '../../../Mocks';
 import { PageRoutes } from '../../../conf/Global';
 
 describe('SearchPage', () => {
     it('renders loading', async () => {
         const promise = Promise.resolve();
         const { getByText } = render(
-            <MockedProvider mocks={mocks} addTypename={false}>
+            <MockedProvider mocks={mocksWithSearchFlagsOff} addTypename={false}>
                 <TestPageContainer
                     initialEntries={[
                         '/search?filter__entityType=DATASET&filter_platform=hive,kafka&page=1&query=sample',
@@ -30,7 +30,7 @@ describe('SearchPage', () => {
     it('renders the selected filters as checked', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider
-                mocks={mocks}
+                mocks={mocksWithSearchFlagsOff}
                 addTypename={false}
                 defaultOptions={{
                     watchQuery: { fetchPolicy: 'no-cache' },
@@ -57,7 +57,7 @@ describe('SearchPage', () => {
     it('renders the selected filters as checked using legacy URL scheme for entity (entity instead of _entityType)', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider
-                mocks={mocks}
+                mocks={mocksWithSearchFlagsOff}
                 addTypename={false}
                 defaultOptions={{
                     watchQuery: { fetchPolicy: 'no-cache' },
@@ -84,7 +84,7 @@ describe('SearchPage', () => {
     it('renders multiple checked filters at once', async () => {
         const { getByTestId, queryByTestId } = render(
             <MockedProvider
-                mocks={mocks}
+                mocks={mocksWithSearchFlagsOff}
                 addTypename={false}
                 defaultOptions={{
                     watchQuery: { fetchPolicy: 'no-cache' },
@@ -113,7 +113,7 @@ describe('SearchPage', () => {
         const promise = Promise.resolve();
         const { getByTestId, queryByTestId } = render(
             <MockedProvider
-                mocks={mocks}
+                mocks={mocksWithSearchFlagsOff}
                 addTypename={false}
                 defaultOptions={{
                     watchQuery: { fetchPolicy: 'no-cache' },

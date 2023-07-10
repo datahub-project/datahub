@@ -17,6 +17,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Streams;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePaths;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
@@ -59,6 +60,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.search.utils.BrowsePathV2Utils;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
@@ -694,7 +696,12 @@ public class EntityService {
   }
 
   @VisibleForTesting
-  static void validateUrn(@Nonnull final Urn urn) {
+  void validateUrn(@Nonnull final Urn urn) {
+    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(_entityRegistry);
+    validator.setCurrentEntitySpec(_entityRegistry.getEntitySpec(urn.getEntityType()));
+    RecordTemplateValidator.validate(buildKeyAspect(urn), validationResult -> {
+      throw new IllegalArgumentException("Invalid urn: " + urn + "\n Cause: "
+          + validationResult.getMessages()); }, validator);
 
     if (urn.toString().trim().length() != urn.toString().length()) {
       throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
@@ -704,6 +711,11 @@ public class EntityService {
     }
     if (urn.toString().contains(DELIMITER_SEPARATOR)) {
       throw new IllegalArgumentException("Error: URN cannot contain " + DELIMITER_SEPARATOR + " character");
+    }
+    try {
+      Urn.createFromString(urn.toString());
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
     }
   }
 
@@ -1407,6 +1419,11 @@ public class EntityService {
       aspectsToGet.add(BROWSE_PATHS);
     }
 
+    boolean shouldCheckBrowsePathV2 = isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects);
+    if (shouldCheckBrowsePathV2) {
+      aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
+    }
+
     boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE, includedAspects);
     if (shouldCheckDataPlatform) {
       aspectsToGet.add(DATA_PLATFORM_INSTANCE);
@@ -1428,6 +1445,15 @@ public class EntityService {
       try {
         BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
         aspects.add(Pair.of(BROWSE_PATHS, generatedBrowsePath));
+      } catch (URISyntaxException e) {
+        log.error("Failed to parse urn: {}", urn);
+      }
+    }
+
+    if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null) {
+      try {
+        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
+        aspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
       } catch (URISyntaxException e) {
         log.error("Failed to parse urn: {}", urn);
       }
@@ -2044,6 +2070,18 @@ public class EntityService {
     BrowsePaths browsePathAspect = new BrowsePaths();
     browsePathAspect.setPaths(browsePaths);
     return browsePathAspect;
+  }
+
+  /**
+   * Builds the default browse path V2 aspects for all entities.
+   *
+   * This method currently supports datasets, charts, dashboards, and data jobs best. Everything else
+   * will have a basic "Default" folder added to their browsePathV2.
+   */
+  @Nonnull
+  public BrowsePathsV2 buildDefaultBrowsePathV2(final @Nonnull Urn urn, boolean useContainerPaths) throws URISyntaxException {
+    Character dataPlatformDelimiter = getDataPlatformDelimiter(urn);
+    return BrowsePathV2Utils.getDefaultBrowsePathV2(urn, this.getEntityRegistry(), dataPlatformDelimiter, this, useContainerPaths);
   }
 
   /**

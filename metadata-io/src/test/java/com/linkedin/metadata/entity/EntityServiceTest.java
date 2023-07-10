@@ -1202,13 +1202,13 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     @Test
     public void testValidateUrn() throws Exception {
         // Valid URN
-        Urn validTestUrn = new Urn("li", "testType", new TupleKey("testKey"));
-        EntityService.validateUrn(validTestUrn);
+        Urn validTestUrn = new Urn("li", "corpuser", new TupleKey("testKey"));
+        _entityService.validateUrn(validTestUrn);
 
         // URN with trailing whitespace
-        Urn testUrnWithTrailingWhitespace = new Urn("li", "testType", new TupleKey("testKey   "));
+        Urn testUrnWithTrailingWhitespace = new Urn("li", "corpuser", new TupleKey("testKey   "));
         try {
-            EntityService.validateUrn(testUrnWithTrailingWhitespace);
+            _entityService.validateUrn(testUrnWithTrailingWhitespace);
             Assert.fail("Should have raised IllegalArgumentException for URN with trailing whitespace");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN with leading or trailing whitespace");
@@ -1217,9 +1217,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Urn purely too long
         String stringTooLong = "a".repeat(510);
 
-        Urn testUrnTooLong = new Urn("li", "testType", new TupleKey(stringTooLong));
+        Urn testUrnTooLong = new Urn("li", "corpuser", new TupleKey(stringTooLong));
         try {
-            EntityService.validateUrn(testUrnTooLong);
+            _entityService.validateUrn(testUrnTooLong);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
@@ -1232,27 +1232,63 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             buildStringTooLongWhenEncoded.append('>');
             buildStringSameLengthWhenEncoded.append('a');
         }
-        Urn testUrnTooLongWhenEncoded = new Urn("li", "testType", new TupleKey(buildStringTooLongWhenEncoded.toString()));
-        Urn testUrnSameLengthWhenEncoded = new Urn("li", "testType", new TupleKey(buildStringSameLengthWhenEncoded.toString()));
+        Urn testUrnTooLongWhenEncoded = new Urn("li", "corpUser", new TupleKey(buildStringTooLongWhenEncoded.toString()));
+        Urn testUrnSameLengthWhenEncoded = new Urn("li", "corpUser", new TupleKey(buildStringSameLengthWhenEncoded.toString()));
         // Same length when encoded should be allowed, the encoded one should not be
-        EntityService.validateUrn(testUrnSameLengthWhenEncoded);
+        _entityService.validateUrn(testUrnSameLengthWhenEncoded);
         try {
-            EntityService.validateUrn(testUrnTooLongWhenEncoded);
+            _entityService.validateUrn(testUrnTooLongWhenEncoded);
             Assert.fail("Should have raised IllegalArgumentException for URN too long");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: cannot provide an URN longer than 512 bytes (when URL encoded)");
         }
 
         // Urn containing disallowed character
-        Urn testUrnSpecialCharValid = new Urn("li", "testType", new TupleKey("entity␇"));
-        Urn testUrnSpecialCharInvalid = new Urn("li", "testType", new TupleKey("entity␟"));
-        EntityService.validateUrn(testUrnSpecialCharValid);
+        Urn testUrnSpecialCharValid = new Urn("li", "corpUser", new TupleKey("bob␇"));
+        Urn testUrnSpecialCharInvalid = new Urn("li", "corpUser", new TupleKey("bob␟"));
+        _entityService.validateUrn(testUrnSpecialCharValid);
         try {
-            EntityService.validateUrn(testUrnSpecialCharInvalid);
+            _entityService.validateUrn(testUrnSpecialCharInvalid);
             Assert.fail("Should have raised IllegalArgumentException for URN containing the illegal char");
         } catch (IllegalArgumentException e) {
             assertEquals(e.getMessage(), "Error: URN cannot contain ␟ character");
         }
+
+        Urn urnWithMismatchedParens = new Urn("li", "corpuser", new TupleKey("test(Key"));
+        try {
+            _entityService.validateUrn(urnWithMismatchedParens);
+            Assert.fail("Should have raised IllegalArgumentException for URN with mismatched parens");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("mismatched paren nesting"));
+        }
+
+        Urn invalidType = new Urn("li", "fakeMadeUpType", new TupleKey("testKey"));
+        try {
+            _entityService.validateUrn(invalidType);
+            Assert.fail("Should have raised IllegalArgumentException for URN with non-existent entity type");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("Failed to find entity with name fakeMadeUpType"));
+        }
+
+        Urn validFabricType = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD"));
+        _entityService.validateUrn(validFabricType);
+
+        Urn invalidFabricType = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "prod"));
+        try {
+            _entityService.validateUrn(invalidFabricType);
+            Assert.fail("Should have raised IllegalArgumentException for URN with invalid fabric type");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains(invalidFabricType.toString()));
+        }
+
+        Urn urnEndingInComma = new Urn("li", "dataset", new TupleKey("urn:li:dataPlatform:foo", "bar", "PROD", ""));
+        try {
+            _entityService.validateUrn(urnEndingInComma);
+            Assert.fail("Should have raised IllegalArgumentException for URN ending in comma");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains(urnEndingInComma.toString()));
+        }
+
     }
 
     @Test

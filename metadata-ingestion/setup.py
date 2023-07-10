@@ -28,6 +28,7 @@ base_requirements = {
     # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
     "pydantic>=1.5.1,!=1.10.3,<2",
     "mixpanel>=4.9.0",
+    "sentry-sdk",
 }
 
 framework_common = {
@@ -132,6 +133,12 @@ sqllineage_lib = {
     "sqlparse==0.4.3",
 }
 
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
+    "acryl-sqlglot==16.7.6.dev6",
+}
+
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -226,7 +233,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1",
+    "pydeequ>=1.0.1, <1.1",
     "pyspark==3.0.3",
 }
 
@@ -241,9 +248,9 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli>=0.17.7",
-    "databricks-sdk>=0.1.1",
+databricks = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    "databricks-sdk>=0.1.1, <0.1.11",
     "pyspark",
     "requests",
 }
@@ -268,6 +275,8 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | sqllineage_lib,
+    # Misc plugins.
+    "sql-parser": sqlglot_lib,
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -275,7 +284,9 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
+        # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
@@ -284,6 +295,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
@@ -374,7 +386,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | sqllineage_lib,
+    "unity-catalog": databricks | sqllineage_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.

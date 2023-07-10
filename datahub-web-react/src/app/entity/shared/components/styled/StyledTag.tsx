@@ -2,7 +2,7 @@ import { Tag } from 'antd';
 import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
 
-const generateColor = new ColorHash({
+export const generateColor = new ColorHash({
     saturation: 0.9,
 });
 
