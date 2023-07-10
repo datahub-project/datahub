@@ -23,7 +23,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
@@ -40,7 +39,6 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.utilities import memory_footprint
-from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlglot_lineage import (
     SchemaResolver,
@@ -637,55 +635,6 @@ timestamp < "{end_time}"
 
         logger.info("Exiting create lineage map function")
         return lineage_map
-
-    def parse_view_lineage(
-        self, project: str, dataset: str, view: BigqueryView
-    ) -> Optional[List[BigqueryTableIdentifier]]:
-        # TODO: This uses the old parser, and should be removed once the new parser is in place.
-        if not view.view_definition:
-            return None
-
-        parsed_tables = set()
-        try:
-            parser = BigQuerySQLParser(
-                view.view_definition,
-                self.config.sql_parser_use_external_process,
-                use_raw_names=self.config.lineage_sql_parser_use_raw_names,
-            )
-            tables = parser.get_tables()
-        except Exception as ex:
-            logger.debug(
-                f"View {view.name} definination sql parsing failed on query: {view.view_definition}. "
-                f"Edge from physical table to view won't be added. The error was {ex}."
-            )
-            return None
-
-        for table in tables:
-            parts = table.split(".")
-            if len(parts) == 1:
-                parsed_tables.add(
-                    BigqueryTableIdentifier(
-                        project_id=project, dataset=dataset, table=table
-                    )
-                )
-            elif len(parts) == 2:
-                parsed_tables.add(
-                    BigqueryTableIdentifier(
-                        project_id=project, dataset=parts[0], table=parts[1]
-                    )
-                )
-            elif len(parts) == 3:
-                parsed_tables.add(
-                    BigqueryTableIdentifier(
-                        project_id=parts[0], dataset=parts[1], table=parts[2]
-                    )
-                )
-            else:
-                logger.warning(
-                    f"Invalid table identifier {table} when parsing view lineage for view {view.name}"
-                )
-
-        return list(parsed_tables)
 
     def _compute_bigquery_lineage(
         self,
