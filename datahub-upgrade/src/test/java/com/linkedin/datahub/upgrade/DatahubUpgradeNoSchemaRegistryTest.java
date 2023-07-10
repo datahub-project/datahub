@@ -19,7 +19,8 @@ import static org.testng.AssertJUnit.assertNotNull;
 @ActiveProfiles("test")
 @SpringBootTest(classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
         properties = {
-                "kafka.schemaRegistry.type=INTERNAL"
+                "kafka.schemaRegistry.type=INTERNAL",
+                "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=test_due_topic"
         })
 public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringContextTests {
 
