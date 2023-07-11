@@ -141,7 +141,7 @@ sqlglot_lib = {
 
 aws_common = {
     # AWS Python SDK
-    "boto3==1.24.59",
+    "boto3",
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
