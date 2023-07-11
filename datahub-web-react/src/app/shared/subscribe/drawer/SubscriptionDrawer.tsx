@@ -1,4 +1,4 @@
-import React, { Key, useEffect, useState } from 'react';
+import React, { Key, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
@@ -85,17 +85,29 @@ export default function SubscriptionDrawer({
     refetchEntitySubscriptionSummary,
     onDeleteSubscription,
 }: Props) {
-    const [checkedKeys, setCheckedKeys] = useState<Key[]>(
-        subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType),
+    const [checkedKeys, setCheckedKeys] = useState<Key[]>([]);
+    const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(false);
+    const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
+    const [allowEditing, setAllowEditing] = useState<boolean>(false);
+
+    const getCachedKeysState = useCallback(
+        () => subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType),
+        [entityType, subscription?.entityChangeTypes],
     );
-    const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(
-        subscription?.subscriptionTypes.includes(SubscriptionType.UpstreamEntityChange) || false,
+
+    const getSubscribeToUpstreamState = useCallback(
+        () => !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange),
+        [subscription?.subscriptionTypes],
     );
-    const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>(
-        subscription?.notificationConfig?.sinkTypes || [],
+
+    const getNotificationSinkTypesState = useCallback(
+        () => subscription?.notificationConfig?.sinkTypes || [],
+        [subscription?.notificationConfig?.sinkTypes],
     );
-    const [allowEditing, setAllowEditing] = useState<boolean>(
-        notificationSinkTypes.includes(NotificationSinkType.Slack),
+
+    const getAllowEditingState = useCallback(
+        () => notificationSinkTypes.includes(NotificationSinkType.Slack),
+        [notificationSinkTypes],
     );
 
     const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
@@ -118,27 +130,11 @@ export default function SubscriptionDrawer({
     const upstreamCount = upstreamTotal - upstreamFiltered;
 
     useEffect(() => {
-        if (subscription?.entityChangeTypes) {
-            setCheckedKeys(subscription.entityChangeTypes);
-        } else {
-            setCheckedKeys(getDefaultCheckedKeys(entityType));
-        }
-
-        if (
-            subscription?.subscriptionTypes &&
-            subscription?.subscriptionTypes.includes(SubscriptionType.UpstreamEntityChange)
-        ) {
-            setSubscribeToUpstream(true);
-        } else {
-            setSubscribeToUpstream(false);
-        }
-
-        if (subscription?.notificationConfig?.sinkTypes) {
-            setNotificationSinkTypes(subscription.notificationConfig.sinkTypes);
-        } else {
-            setNotificationSinkTypes([]);
-        }
-    }, [subscription, entityType]);
+        setCheckedKeys(getCachedKeysState);
+        setSubscribeToUpstream(getSubscribeToUpstreamState);
+        setNotificationSinkTypes(getNotificationSinkTypesState);
+        setAllowEditing(getAllowEditingState);
+    }, [getAllowEditingState, getCachedKeysState, getNotificationSinkTypesState, getSubscribeToUpstreamState]);
 
     useEffect(() => {
         if (isPersonal) {
