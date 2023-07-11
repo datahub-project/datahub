@@ -4,7 +4,6 @@ from dagster import (
     DagsterRunStatus,
     RunStatusSensorContext,
     SensorDefinition,
-    SensorEvaluationContext,
     SkipReason,
     run_status_sensor,
     sensor,
@@ -22,9 +21,7 @@ from datahub_provider.client.dagster_generator import (
 
 
 @sensor()
-def datahub_sensor(
-    context: SensorEvaluationContext,
-) -> RawSensorEvaluationFunctionReturn:
+def datahub_sensor(context):
     """
     Sensor which instigate all run status sensors and trigger them based upon run status
     """

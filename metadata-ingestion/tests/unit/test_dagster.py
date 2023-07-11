@@ -1,4 +1,3 @@
-from typing import List
 from unittest.mock import Mock, patch
 
 from dagster import (
@@ -41,7 +40,7 @@ def test_emit_metadata(mock_emit):
             )
         }
     )
-    def extract() -> List:
+    def extract():
         results = [1, 2, 3, 4]
         return results
 
@@ -52,7 +51,7 @@ def test_emit_metadata(mock_emit):
             )
         }
     )
-    def transform(data: List) -> List:
+    def transform(data):
         results = []
         for each in data:
             results.append(str(each))
