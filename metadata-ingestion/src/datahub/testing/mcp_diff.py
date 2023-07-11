@@ -1,7 +1,7 @@
+import dataclasses
 import json
 import re
 from collections import defaultdict
-import dataclasses
 from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
 import deepdiff.serialization
