@@ -517,7 +517,7 @@ full_test_dev_requirements = {
             "druid",
             "hana",
             "hive",
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -527,6 +527,7 @@ full_test_dev_requirements = {
             "redash",
             # "vertica",
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
