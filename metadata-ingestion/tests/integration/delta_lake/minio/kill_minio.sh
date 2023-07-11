@@ -1,5 +1,0 @@
-INTEGRATIONS_DIR="./tests/integrations/minio"
-kill -9 "$(cat "${INTEGRATIONS_DIR}/minio_pid.txt")"
-rm "${INTEGRATIONS_DIR}/minio_pid.txt"
-rm "${INTEGRATIONS_DIR}/temp.log"
-rm -rf "${INTEGRATIONS_DIR}/data"
