@@ -6,6 +6,9 @@ source:
   type: "kafka-connect"
   config:
     connect_uri: "http://localhost:28083"
+    connector_patterns:
+      allow:
+        - confluent_s3_sink_connector
     provided_configs:
       - provider: env
         path_key: S3_ENDPOINT_URL
