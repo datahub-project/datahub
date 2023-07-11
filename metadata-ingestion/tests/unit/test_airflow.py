@@ -1,5 +1,3 @@
-from datahub_provider._airflow_compat import AIRFLOW_PATCHED
-
 import datetime
 import json
 import os
@@ -15,10 +13,10 @@ import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
-from airflow.operators.empty import EmptyOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
+from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_provider.entities import Dataset, Urn
 from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
