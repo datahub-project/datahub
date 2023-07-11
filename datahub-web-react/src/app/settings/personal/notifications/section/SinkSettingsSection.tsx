@@ -19,18 +19,11 @@ const SinkTextContainer = styled.div`
 `;
 
 const SinkTitle = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
     font-size: 16px;
-    line-height: 24px;
-    font-weight: 700;
 `;
 
 const SinkDescription = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
     font-size: 14px;
-    line-height: 20px;
-    font-weight: 500;
-    max-width: 500px;
 `;
 
 const SinkEditButton = styled(Button)`
@@ -38,25 +31,25 @@ const SinkEditButton = styled(Button)`
 `;
 
 const EditDescription = styled(Typography.Text)`
-    font-weight: 700;
     text-decoration: underline;
 `;
 
 const SinkSettingValueText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
     font-size: 14px;
-    line-height: 20px;
-    font-weight: 700;
-    max-width: 500px;
 `;
 
 const SinkButtonsContainer = styled.div`
     display: flex;
     flex-direction: row;
     justify-content: flex-start;
-    align-items: center;
+    align-items: start;
     margin-top: 8px;
     gap: 2px;
+`;
+
+const ReadOnlyContainer = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -68,40 +61,9 @@ const StyledInput = styled(Input)`
     border-color: ${ANTD_GRAY[8]};
 `;
 
-const SaveButton = styled(Button)`
-    display: inline-flex;
-    align-items: center;
-    background-color: #078781;
-    > .ant-btn {
-        background-color: #078781;
-    }
-    > .ant-btn:focus {
-        background-color: #078781;
-    }
-    > .ant-btn:hover {
-        background-color: #078781;
-    }
-`;
+const SaveButton = styled(Button)``;
 
-const SaveButtonText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
-    font-weight: 500;
-    font-size: 14px;
-    line-height: 22px;
-    color: white;
-`;
-
-const CancelButton = styled(Button)`
-    display: inline-flex;
-    align-items: center;
-`;
-
-const CancelButtonText = styled(Typography.Text)`
-    font-family: 'Manrope', sans-serif;
-    font-weight: 500;
-    font-size: 14px;
-    line-height: 22px;
-`;
+const CancelButton = styled(Button)``;
 
 type Props = {
     isPersonal: boolean;
@@ -158,7 +120,7 @@ export const SinkSettingsSection = ({
         <SinkSettings>
             <Switch checked={allowEditing} disabled={!sinkEnabled} onChange={(checked) => setAllowEditing(checked)} />
             <SinkTextContainer>
-                <SinkTitle>{`${sinkName} Notifications`}</SinkTitle>
+                <SinkTitle strong>{`${sinkName} Notifications`}</SinkTitle>
                 <SinkDescription>{sinkEnabled ? sinkEnabledDescription : sinkDisabledDescription}</SinkDescription>
                 {sinkEnabled && (
                     <SinkButtonsContainer>
@@ -191,19 +153,17 @@ export const SinkSettingsSection = ({
                                     onClick={saveButtonOnClick}
                                     disabled={!inputValue || inputValue.length < 2}
                                 >
-                                    <SaveButtonText style={{ color: 'white' }}>Save</SaveButtonText>
+                                    Save
                                 </SaveButton>
-                                <CancelButton onClick={cancelButtonOnClick}>
-                                    <CancelButtonText>Cancel</CancelButtonText>
-                                </CancelButton>
+                                <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
                             </>
                         ) : (
-                            <>
-                                <SinkSettingValueText>{inputValue}</SinkSettingValueText>
+                            <ReadOnlyContainer>
+                                <SinkSettingValueText strong>{inputValue}</SinkSettingValueText>
                                 <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
-                                    <EditDescription>edit</EditDescription>
+                                    <EditDescription strong>edit</EditDescription>
                                 </SinkEditButton>
-                            </>
+                            </ReadOnlyContainer>
                         )}
                     </SinkButtonsContainer>
                 )}
