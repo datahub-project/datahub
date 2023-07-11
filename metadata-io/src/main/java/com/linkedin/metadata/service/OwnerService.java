@@ -212,8 +212,8 @@ public class OwnerService extends BaseService {
       ownerAssociationArray.add(newOwner);
     }
   }
-
-  public static Urn mapOwnershipTypeToEntity(String type) {
+  @VisibleForTesting
+  static Urn mapOwnershipTypeToEntity(String type) {
     final String typeName = SYSTEM_ID + type.toLowerCase();
     return Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, typeName);
   }
