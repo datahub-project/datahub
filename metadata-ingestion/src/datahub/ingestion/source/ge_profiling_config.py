@@ -156,7 +156,7 @@ class GEProfilingConfig(ConfigModel):
             del values["bigquery_temp_table_schema"]
         return values
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(pre=True)
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -167,7 +167,11 @@ class GEProfilingConfig(ConfigModel):
         if values.get("profile_table_level_only"):
             for field_level_metric in cls.__fields__:
                 if field_level_metric.startswith("include_field_"):
-                    values.setdefault(field_level_metric, False)
+                    if values.get(field_level_metric):
+                        raise ValueError(
+                            "Cannot enable field-level metrics if profile_table_level_only is set"
+                        )
+                    values[field_level_metric] = False
 
             assert (
                 max_num_fields_to_profile is None
