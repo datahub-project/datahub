@@ -3,14 +3,18 @@ package com.linkedin.metadata.kafka.hook.notification.incident;
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
@@ -42,13 +46,29 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 @Slf4j
 public class IncidentNotificationGenerator extends BaseMclNotificationGenerator {
 
+  private final FeatureFlags _featureFlags;
+
   public IncidentNotificationGenerator(
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication, Collections.emptyMap());
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final FeatureFlags featureFlags) {
+    super(
+        eventProducer,
+        entityClient,
+        graphClient,
+        settingsProvider,
+        systemAuthentication,
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
+    _featureFlags = featureFlags;
+  }
+
+  @Override
+  public boolean isEligibleForSubscriberRecipients() {
+    return _featureFlags.isSubscriptionsEnabled();
   }
 
   @Override

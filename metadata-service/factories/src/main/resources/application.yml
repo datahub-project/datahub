@@ -285,15 +285,6 @@ metadataTests:
 notifications:
   # Enable if you want to enable creation of the Notification Manager.
   enabled: ${METADATA_SERVICE_NOTIFICATIONS_ENABLED:true} # Enable to turn on notifications.
-  subscriptions:
-    # Enable to turn on subscriptions.
-    enabled: ${METADATA_SERVICE_NOTIFICATIONS_SUBSCRIPTIONS_ENABLED:true}
-    upstreams:
-      # Enable to turn on notifications for upstreams affecting subscriptions.
-      enabled: ${METADATA_SERVICE_NOTIFICATIONS_SUBSCRIPTIONS_UPSTREAMS_ENABLED:false}
-      depth: ${METADATA_SERVICE_NOTIFICATIONS_SUBSCRIPTIONS_UPSTREAMS_DEPTH:3}
-      maxEntities: ${METADATA_SERVICE_NOTIFICATIONS_SUBSCRIPTIONS_UPSTREAMS_MAX_ENTITIES:100}
-
 
   # Required if enabled is true! The set of notification sinks to use.
   sinks:
