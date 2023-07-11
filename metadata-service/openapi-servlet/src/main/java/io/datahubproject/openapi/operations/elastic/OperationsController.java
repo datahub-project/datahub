@@ -30,7 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @RestController
-@RequestMapping("/elastic")
+@RequestMapping("/operations/elasticSearch")
 @Slf4j
 @Tag(name = "ElasticSearchOperations", description = "An API for managing your elasticsearch instance")
 public class OperationsController {
