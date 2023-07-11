@@ -65,6 +65,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   private static final Integer MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP = 1000;
   private static final Integer MAX_DOWNSTREAMS_HOP = 1000;
 
+  // Should stay disabled due to concerns around performance with upstream queries on notifications
   private static final boolean ENABLE_DOWNSTREAM_ENTITIES = false;
 
   protected final EventProducer _eventProducer;
