@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -142,6 +157,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -351,63 +386,29 @@
             },
             "rowCount": 2,
             "columnCount": 9,
-            "fieldProfiles": [
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
                 {
-                    "fieldPath": "urn",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
                 },
                 {
-                    "fieldPath": "aspect",
-                    "uniqueCount": 2,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "version",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "metadata",
-                    "uniqueCount": 2,
-                    "uniqueProportion": 1,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "systemmetadata",
-                    "uniqueCount": 0,
-                    "nullCount": 2,
-                    "nullProportion": 1
-                },
-                {
-                    "fieldPath": "createdon",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "createdby",
-                    "uniqueCount": 1,
-                    "uniqueProportion": 0.5,
-                    "nullCount": 0,
-                    "nullProportion": 0.0
-                },
-                {
-                    "fieldPath": "createdfor",
-                    "uniqueCount": 0,
-                    "nullCount": 2,
-                    "nullProportion": 1
-                },
-                {
-                    "fieldPath": "metadata_json"
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
                 }
             ]
         }
