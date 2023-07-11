@@ -538,6 +538,7 @@ base_dev_requirements = {
             "fivetran",
             "kafka-connect",
             "qlik-sense",
+            "dagster"
         ]
         if plugin
         for dependency in plugins[plugin]
