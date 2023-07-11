@@ -484,7 +484,8 @@ base_dev_requirements = {
             "powerbi-report-server",
             "salesforce",
             "unity-catalog",
-            "nifi"
+            "nifi",
+            "dagster"
             # airflow is added below
         ]
         if plugin
