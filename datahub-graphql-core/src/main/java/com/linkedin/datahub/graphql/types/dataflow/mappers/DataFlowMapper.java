@@ -70,7 +70,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
             dataFlow.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (dataFlow, dataMap) -> this.mapGlobalTags(dataFlow, dataMap, entityUrn));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataFlow, dataMap) ->
-            dataFlow.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            dataFlow.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (dataFlow, dataMap) ->
             dataFlow.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
         mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
