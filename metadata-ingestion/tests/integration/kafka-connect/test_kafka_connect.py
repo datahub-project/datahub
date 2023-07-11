@@ -1,4 +1,5 @@
 import subprocess
+import time
 from typing import Any, Dict, List, cast
 from unittest import mock
 
@@ -34,6 +35,13 @@ def is_mysql_up(container_name: str, port: int) -> bool:
     return ret.returncode == 0
 
 
+def have_connectors_processed(container_name: str) -> bool:
+    """A cheap way to figure out if postgres is responsive on a container"""
+
+    cmd = f"docker logs {container_name} 2>&1 | grep 'Session key updated'"
+    return subprocess.run(cmd, shell=True).returncode == 0
+
+
 @pytest.fixture(scope="module")
 def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"
@@ -66,10 +74,7 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         docker_services.wait_until_responsive(
             timeout=30,
             pause=1,
-            check=lambda: requests.get(
-                KAFKA_CONNECT_ENDPOINT,
-            ).status_code
-            == 200,
+            check=lambda: requests.get(KAFKA_CONNECT_ENDPOINT).status_code == 200,
         )
         yield docker_services
 
@@ -297,6 +302,13 @@ def loaded_kafka_connect(kafka_connect_runner):
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
     assert ret.returncode == 0
+
+    # Give time for connectors to process the table data
+    kafka_connect_runner.wait_until_responsive(
+        timeout=20,
+        pause=1,
+        check=lambda: have_connectors_processed("test_connect"),
+    )
 
 
 @freeze_time(FROZEN_TIME)
