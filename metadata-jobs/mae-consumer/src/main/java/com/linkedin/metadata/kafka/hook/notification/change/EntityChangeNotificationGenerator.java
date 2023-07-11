@@ -119,6 +119,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       ChangeType.UPSERT
   );
 
+  private static final String MODIFICATION_CATEGORY = "modificationCategory";
+
   private final EntityNameProvider _entityNameProvider;
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
   private final EntityRegistry _entityRegistry;
@@ -451,7 +453,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     List<Urn> renamedUrns = changeEvents.stream()
         .filter(changeEvent -> ChangeCategory.TECHNICAL_SCHEMA.equals(changeEvent.getCategory()))
         .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
-        .filter(changeEvent -> SchemaFieldModificationCategory.RENAME.toString().equals(changeEvent.getParameters().get("modificationCategory")))
+        .filter(changeEvent -> SchemaFieldModificationCategory.RENAME.toString().equals(changeEvent.getParameters().get(MODIFICATION_CATEGORY)))
         .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
         .collect(Collectors.toList());
 
@@ -472,7 +474,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     List<Urn> typeChangedUrns = changeEvents.stream()
         .filter(changeEvent -> ChangeCategory.TECHNICAL_SCHEMA.equals(changeEvent.getCategory()))
         .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
-        .filter(changeEvent -> SchemaFieldModificationCategory.TYPE_CHANGE.toString().equals(changeEvent.getParameters().get("modificationCategory")))
+        .filter(changeEvent -> SchemaFieldModificationCategory.TYPE_CHANGE.toString().equals(changeEvent.getParameters().get(MODIFICATION_CATEGORY)))
         .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
         .collect(Collectors.toList());
 
