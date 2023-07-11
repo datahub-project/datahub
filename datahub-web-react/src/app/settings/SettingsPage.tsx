@@ -29,6 +29,7 @@ import { useUserContext } from '../context/useUserContext';
 import { ManageOwnership } from '../entity/ownership/ManageOwnership';
 import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSubscriptions';
+import { useSubscriptionsEnabled } from './personal/notifications/utils';
 
 const PageContainer = styled.div`
     display: flex;
@@ -91,6 +92,7 @@ const PATHS = [
 const DEFAULT_PATH = PATHS[0];
 
 export const SettingsPage = () => {
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
@@ -138,14 +140,18 @@ export const SettingsPage = () => {
                                 <ItemTitle>My Views</ItemTitle>
                             </Menu.Item>
                         )}
-                        <Menu.Item key="personal-notifications">
-                            <BellOutlined />
-                            <ItemTitle>My Notifications</ItemTitle>
-                        </Menu.Item>
-                        <Menu.Item key="personal-subscriptions">
-                            <StarOutlined />
-                            <ItemTitle>My Subscriptions</ItemTitle>
-                        </Menu.Item>
+                        {subscriptionsEnabled && (
+                            <>
+                                <Menu.Item key="personal-notifications">
+                                    <BellOutlined />
+                                    <ItemTitle>My Notifications</ItemTitle>
+                                </Menu.Item>
+                                <Menu.Item key="personal-subscriptions">
+                                    <StarOutlined />
+                                    <ItemTitle>My Subscriptions</ItemTitle>
+                                </Menu.Item>
+                            </>
+                        )}
                     </Menu.ItemGroup>
 
                     <Menu.ItemGroup title="Developer">

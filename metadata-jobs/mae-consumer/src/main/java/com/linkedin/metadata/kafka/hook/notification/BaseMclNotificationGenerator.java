@@ -65,6 +65,9 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   private static final Integer MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP = 1000;
   private static final Integer MAX_DOWNSTREAMS_HOP = 1000;
 
+  // Should stay disabled due to concerns around performance with upstream queries on notifications
+  private static final boolean ENABLE_DOWNSTREAM_ENTITIES = false;
+
   protected final EventProducer _eventProducer;
   protected final EntityClient _entityClient;
   protected final GraphClient _graphClient;
@@ -158,9 +161,12 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   @Nonnull
   protected List<NotificationRecipient> buildSubscriberRecipients(@Nonnull final Urn entityUrn, @Nonnull final
   EntityChangeType changeType) {
-    // TODO: flag out this downstream entities stuff
-//    final Set<Urn> downstreamEntityUrns = getDownstreamEntities(entityUrn);
     final Set<Urn> downstreamEntityUrns = new HashSet<>();
+
+    if (ENABLE_DOWNSTREAM_ENTITIES) {
+      downstreamEntityUrns.addAll(getDownstreamEntities(entityUrn));
+    }
+
     final Map<Urn, SubscriptionInfo> subscriptionInfoMap =
         getSubscriptionInfoMap(entityUrn, downstreamEntityUrns, changeType);
     // We split up the subscriptions by sink type.
@@ -183,9 +189,14 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
   protected Map<Urn, SubscriptionInfo> getSubscriptionInfoMap(@Nonnull final Urn entityUrn,
       @Nonnull final Set<Urn> downstreamEntityUrns, @Nonnull final EntityChangeType changeType) {
     final Set<Urn> subscriptionUrns = getEntitySubscriptionUrns(entityUrn, changeType);
-//    final Set<Urn> downstreamSubscriptionUrns = getDownstreamEntitySubscriptionUrns(downstreamEntityUrns, changeType);
-//    subscriptionUrns.addAll(downstreamSubscriptionUrns);
+
+    if (ENABLE_DOWNSTREAM_ENTITIES) {
+      final Set<Urn> downstreamSubscriptionUrns = getDownstreamEntitySubscriptionUrns(downstreamEntityUrns, changeType);
+      subscriptionUrns.addAll(downstreamSubscriptionUrns);
+    }
+
     Map<Urn, EntityResponse> subscriptions;
+
     try {
       subscriptions = Objects.requireNonNull(_entityClient.batchGetV2(SUBSCRIPTION_ENTITY_NAME, subscriptionUrns,
           ImmutableSet.of(SUBSCRIPTION_INFO_ASPECT_NAME),
@@ -317,7 +328,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
           entityUrn.toString(),
           LineageDirection.DOWNSTREAM,
           0,
-          MAX_DOWNSTREAMS_TO_FETCH_OWNERSHIP,
+          1000,
           MAX_DOWNSTREAMS_HOP,
           _systemAuthentication.getActor().toUrnStr()
       );

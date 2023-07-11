@@ -11,6 +11,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
@@ -124,6 +125,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   private final EntityNameProvider _entityNameProvider;
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
   private final EntityRegistry _entityRegistry;
+  private final FeatureFlags _featureFlags;
 
   public EntityChangeNotificationGenerator(
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
@@ -133,7 +135,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
       @Nonnull final Authentication systemAuthentication,
-      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder) {
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final FeatureFlags featureFlags) {
     super(eventProducer,
         entityClient,
         graphClient,
@@ -143,12 +146,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
     _entityChangeEventGeneratorRegistry = Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _featureFlags = featureFlags;
   }
 
-  // TODO: Use feature flag to set this
   @Override
   public boolean isEligibleForSubscriberRecipients() {
-    return true;
+    return _featureFlags.isSubscriptionsEnabled();
   }
 
   @Override

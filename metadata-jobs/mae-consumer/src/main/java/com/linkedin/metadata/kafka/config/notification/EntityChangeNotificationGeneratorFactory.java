@@ -6,6 +6,7 @@ import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.common.GraphClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
@@ -62,6 +63,11 @@ public class EntityChangeNotificationGeneratorFactory {
   @Qualifier("slackNotificationRecipientBuilder")
   private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
 
+  @Autowired
+  @Qualifier("configurationProvider")
+  private ConfigurationProvider _configProvider;
+
+
   @Bean(name = "entityChangeNotificationGenerator")
   @Scope("singleton")
   @Nonnull
@@ -74,7 +80,8 @@ public class EntityChangeNotificationGeneratorFactory {
         _graphClient,
         _settingsProvider,
         _systemAuthentication,
-        _slackNotificationRecipientBuilder
+        _slackNotificationRecipientBuilder,
+        _configProvider.getFeatureFlags()
     );
   }
 }

@@ -17,6 +17,7 @@ import ShareButton from '../../../../../shared/share/ShareButton';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { useUserContext } from '../../../../../context/useUserContext';
 import SubscribeButtons from '../../../../../shared/subscribe/SubscribeButtons';
+import { useSubscriptionsEnabled } from '../../../../../settings/personal/notifications/utils';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -83,6 +84,7 @@ type Props = {
 };
 
 export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEditable, subHeader }: Props) => {
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const me = useUserContext();
@@ -137,7 +139,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
                         <ShareButton entityType={entityType} subType={subType} urn={urn} name={entityName} />
-                        <SubscribeButtons />
+                        {subscriptionsEnabled && <SubscribeButtons />}
                         {headerDropdownItems && (
                             <EntityDropdown
                                 urn={urn}
