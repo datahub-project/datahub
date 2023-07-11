@@ -75,6 +75,11 @@ class BigQueryV2Report(ProfilingSqlReport):
     num_filtered_query_events: int = 0
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
+
+    num_view_definitions_parsed: int = 0
+    num_view_definitions_failed_parsing: int = 0
+    num_view_definitions_failed_column_parsing: int = 0
+
     read_reasons_stat: Counter[str] = dataclasses.field(
         default_factory=collections.Counter
     )
