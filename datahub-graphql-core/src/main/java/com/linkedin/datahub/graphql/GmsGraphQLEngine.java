@@ -463,6 +463,8 @@ public class GmsGraphQLEngine {
             // Add new plugins here
         );
 
+        this.graphQLPlugins.forEach(plugin -> plugin.init(args));
+
         this.entityClient = args.entityClient;
         this.graphClient = args.graphClient;
         this.usageClient = args.usageClient;
