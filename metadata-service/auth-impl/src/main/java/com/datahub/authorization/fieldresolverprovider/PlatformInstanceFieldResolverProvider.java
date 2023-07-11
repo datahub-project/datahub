@@ -42,7 +42,7 @@ public class PlatformInstanceFieldResolverProvider implements ResourceFieldResol
 
     private FieldResolver.FieldValue getPlatformInstance(ResourceSpec resourceSpec) {
         Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
-        // In the case that the entity is a platform instance, the associated domain is the domain itself
+        // In the case that the entity is a platform instance, the associated platform instance entity is the instance itself
         if (entityUrn.getEntityType().equals(DATA_PLATFORM_ENTITY_NAME)) {
             return FieldResolver.FieldValue.builder()
                     .values(Collections.singleton(entityUrn.toString()))
