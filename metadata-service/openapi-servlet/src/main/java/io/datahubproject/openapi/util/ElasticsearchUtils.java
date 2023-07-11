@@ -1,4 +1,4 @@
-package com.datahub.operations.utils;
+package io.datahubproject.openapi.util;
 
 public class ElasticsearchUtils {
   public static boolean isTaskIdValid(String task) {

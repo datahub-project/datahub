@@ -3,7 +3,6 @@ package com.linkedin.metadata.resources.operations;
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.operations.utils.ElasticsearchUtils;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -100,7 +99,14 @@ public class OperationsResource extends CollectionResourceTaskTemplate<String, V
 
   @VisibleForTesting
   static boolean isTaskIdValid(String task) {
-    return ElasticsearchUtils.isTaskIdValid(task);
+    if (task.matches("^[a-zA-Z0-9-_]+:[0-9]+$")) {
+      try {
+        return Long.parseLong(task.split(":")[1]) != 0;
+      } catch (NumberFormatException e) {
+        return false;
+      }
+    }
+    return false;
   }
 
   @Action(name = ACTION_GET_ES_TASK_STATUS)
