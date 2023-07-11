@@ -38,7 +38,7 @@ export default function AcrylDemoBanner() {
         <BannerWrapper>
             <Logo src={AcrylLogo} />
             <TextWrapper>
-                <Title>Schedule a Demo of Managed Datahub</Title>
+                <Title>Schedule a Demo of Managed DataHub</Title>
                 <span>
                     DataHub is already the industry&apos;s #1 Open Source Data Catalog.{' '}
                     <StyledLink
