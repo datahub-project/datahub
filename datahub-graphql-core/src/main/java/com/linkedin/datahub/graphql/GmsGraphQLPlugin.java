@@ -34,10 +34,10 @@ public interface GmsGraphQLPlugin {
   Collection<? extends LoadableType<?, ?>> getLoadableTypes();
 
   /**
-   * Optional callback that a plugin can implement to wire up any Query, Mutation or Type specific resolvers.
+   * Optional callback that a plugin can implement to configure any Query, Mutation or Type specific resolvers.
    * @param wiringBuilder
    */
-  default void wireAnyResolvers(final RuntimeWiring.Builder wiringBuilder) {
+  default void configureExtraResolvers(final RuntimeWiring.Builder wiringBuilder) {
 
   }
 

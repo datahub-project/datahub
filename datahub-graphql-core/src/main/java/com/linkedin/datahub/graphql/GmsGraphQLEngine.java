@@ -605,7 +605,7 @@ public class GmsGraphQLEngine {
      * @param builder
      */
     private void configurePluginResolvers(final RuntimeWiring.Builder builder) {
-        this.graphQLPlugins.forEach(plugin -> plugin.wireAnyResolvers(builder));
+        this.graphQLPlugins.forEach(plugin -> plugin.configureExtraResolvers(builder));
     }
 
 
