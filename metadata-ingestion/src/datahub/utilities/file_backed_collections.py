@@ -55,14 +55,16 @@ class ConnectionWrapper:
 
     conn: sqlite3.Connection
     filename: pathlib.Path
-    _directory: Optional[tempfile.TemporaryDirectory]
+
+    _temp_directory: Optional[tempfile.TemporaryDirectory]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
-        self._directory = None
-        # Warning: If filename is provided, the file will not be automatically cleaned up
+        self._temp_directory = None
+
+        # Warning: If filename is provided, the file will not be automatically cleaned up.
         if not filename:
-            self._directory = tempfile.TemporaryDirectory()
-            filename = pathlib.Path(self._directory.name) / _DEFAULT_FILE_NAME
+            self._temp_directory = tempfile.TemporaryDirectory()
+            filename = pathlib.Path(self._temp_directory.name) / _DEFAULT_FILE_NAME
 
         self.conn = sqlite3.connect(filename, isolation_level=None)
         self.conn.row_factory = sqlite3.Row
@@ -77,22 +79,29 @@ class ConnectionWrapper:
         self.conn.execute('PRAGMA journal_mode = "MEMORY"')
         self.conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
 
+    @property
+    def allow_table_name_reuse(self) -> bool:
+        # In the normal case, we do not use "IF NOT EXISTS" in our create table statements
+        # because creating the same table twice indicates a client usage error.
+        # However, if you're trying to persist a file-backed dict across multiple runs,
+        # which happens when filename is passed explicitly, then we need to allow table name reuse.
+
+        return self._temp_directory is None
+
     def execute(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        logger.debug(f"Executing <{sql}> ({parameters})")
         return self.conn.execute(sql, parameters)
 
     def executemany(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        logger.debug(f"Executing many <{sql}> ({parameters})")
         return self.conn.executemany(sql, parameters)
 
     def close(self) -> None:
         self.conn.close()
-        if self._directory:
-            self._directory.cleanup()
+        if self._temp_directory:
+            self._temp_directory.cleanup()
 
     def __enter__(self) -> "ConnectionWrapper":
         return self
@@ -184,10 +193,10 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         # a poor-man's LRU cache.
         self._active_object_cache = collections.OrderedDict()
 
-        # Create the table. We're not using "IF NOT EXISTS" because creating
-        # the same table twice indicates a client usage error.
+        # Create the table.
+        if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
         self._conn.execute(
-            f"""CREATE TABLE {self.tablename} (
+            f"""CREATE TABLE {if_not_exists} {self.tablename} (
                 key TEXT PRIMARY KEY,
                 value BLOB
                 {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
