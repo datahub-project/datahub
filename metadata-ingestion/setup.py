@@ -462,7 +462,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
