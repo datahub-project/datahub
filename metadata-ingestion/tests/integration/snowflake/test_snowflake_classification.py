@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from typing import cast
 from unittest import mock
@@ -18,13 +19,16 @@ from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Repor
 from tests.integration.snowflake.common import default_query_results
 
 NUM_SAMPLE_VALUES = 100
+TEST_CLASSIFY_PERFORMANCE = os.environ.get("DATAHUB_TEST_CLASSIFY_PERFORMANCE")
 
 sample_values = ["abc@xyz.com" for _ in range(NUM_SAMPLE_VALUES)]
 
 
-# Uncomment below skip line to run this test. The test takes approx 4.5 minutes.
 # Run with --durations=0 to show the timings for different combinations
-# @pytest.mark.skip
+@pytest.mark.skipif(
+    TEST_CLASSIFY_PERFORMANCE is None,
+    reason="DATAHUB_TEST_CLASSIFY_PERFORMANCE env variable is not configured",
+)
 @pytest.mark.parametrize(
     "num_workers,num_cols_per_table,num_tables",
     [(w, c, t) for w in [1, 2, 4, 6, 8] for c in [5, 10, 40, 80] for t in [1]],
