@@ -386,7 +386,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
 
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.7"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
 
     "unity-catalog": databricks | sqllineage_lib,
 }
