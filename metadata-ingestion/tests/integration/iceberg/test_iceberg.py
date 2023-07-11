@@ -1,4 +1,5 @@
 import subprocess
+import sys
 from typing import Any, Dict, List
 from unittest.mock import patch
 
@@ -12,6 +13,10 @@ from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
+)
+
+pytestmark = pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python 3.8 or higher"
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"

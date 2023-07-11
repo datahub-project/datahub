@@ -1,3 +1,4 @@
+import sys
 import uuid
 from decimal import Decimal
 from typing import Any, Optional
@@ -46,6 +47,10 @@ from datahub.metadata.schema_classes import (
     RecordTypeClass,
     StringTypeClass,
     TimeTypeClass,
+)
+
+pytestmark = pytest.mark.skipif(
+    sys.version_info < (3, 8), reason="requires python 3.8 or higher"
 )
 
 
