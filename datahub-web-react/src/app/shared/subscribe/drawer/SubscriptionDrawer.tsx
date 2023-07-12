@@ -85,18 +85,10 @@ export default function SubscriptionDrawer({
     refetchEntitySubscriptionSummary,
     onDeleteSubscription,
 }: Props) {
-    const [checkedKeys, setCheckedKeys] = useState<Key[]>(
-        subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType),
-    );
-    const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(
-        subscription?.subscriptionTypes.includes(SubscriptionType.UpstreamEntityChange) || false,
-    );
-    const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>(
-        subscription?.notificationConfig?.sinkTypes || [],
-    );
-    const [allowEditing, setAllowEditing] = useState<boolean>(
-        notificationSinkTypes.includes(NotificationSinkType.Slack),
-    );
+    const [checkedKeys, setCheckedKeys] = useState<Key[]>([]);
+    const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(false);
+    const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
+    const [allowEditing, setAllowEditing] = useState<boolean>(false);
 
     const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
     const [customSlackSink, setCustomSlackSink] = useState<string | undefined>(undefined);
@@ -118,27 +110,17 @@ export default function SubscriptionDrawer({
     const upstreamCount = upstreamTotal - upstreamFiltered;
 
     useEffect(() => {
-        if (subscription?.entityChangeTypes) {
-            setCheckedKeys(subscription.entityChangeTypes);
-        } else {
-            setCheckedKeys(getDefaultCheckedKeys(entityType));
-        }
-
-        if (
-            subscription?.subscriptionTypes &&
-            subscription?.subscriptionTypes.includes(SubscriptionType.UpstreamEntityChange)
-        ) {
-            setSubscribeToUpstream(true);
-        } else {
-            setSubscribeToUpstream(false);
-        }
-
-        if (subscription?.notificationConfig?.sinkTypes) {
-            setNotificationSinkTypes(subscription.notificationConfig.sinkTypes);
-        } else {
-            setNotificationSinkTypes([]);
-        }
-    }, [subscription, entityType]);
+        setCheckedKeys(subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType));
+        setSubscribeToUpstream(!!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange));
+        setNotificationSinkTypes(subscription?.notificationConfig?.sinkTypes || []);
+        setAllowEditing(notificationSinkTypes.includes(NotificationSinkType.Slack));
+    }, [
+        entityType,
+        notificationSinkTypes,
+        subscription?.entityChangeTypes,
+        subscription?.notificationConfig?.sinkTypes,
+        subscription?.subscriptionTypes,
+    ]);
 
     useEffect(() => {
         if (isPersonal) {

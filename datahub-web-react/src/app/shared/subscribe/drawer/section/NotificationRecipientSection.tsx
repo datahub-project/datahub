@@ -1,3 +1,4 @@
+import uniq from 'lodash/uniq';
 import React, { useEffect, useState } from 'react';
 import { Checkbox, Form, Input, Radio, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
@@ -116,6 +117,7 @@ export default function NotificationRecipientSection({
             setCustomSlackSink(undefined);
         }
     }, [saveSlackSinkAsDefault, inputSlackValue, setCustomSlackSink]);
+
     return (
         <>
             <NotificationRecipientContainer>
@@ -127,11 +129,9 @@ export default function NotificationRecipientSection({
                         checked={allowEditing}
                         onChange={(checked) => {
                             setAllowEditing(checked);
-                            if (checked) {
-                                setNotificationSinkTypes([...notificationSinkTypes, NotificationSinkType.Slack]);
-                            } else {
-                                setNotificationSinkTypes([]);
-                            }
+                            setNotificationSinkTypes(
+                                uniq(checked ? [...notificationSinkTypes, NotificationSinkType.Slack] : []),
+                            );
                         }}
                     />
                     <NotificationTypeText row={SLACK_TOP_ROW}> Slack Notifications </NotificationTypeText>

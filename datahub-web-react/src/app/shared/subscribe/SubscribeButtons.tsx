@@ -20,6 +20,12 @@ const StyledStarFilled = styled(StarFilled)`
 
 const SubscribeDropdown = styled(Dropdown.Button)``;
 
+const DROPDOWN_KEYS = {
+    SUBSCRIBE_ME: 'SUBSCRIBE_ME',
+    SUBSCRIBE_GROUP: 'SUBSCRIBE_GROUP',
+    UNSUBSCRIBE_ME: 'UNSUBSCRIBE_ME',
+};
+
 export default function SubscribeButtons() {
     const { urn: entityUrn, entityData, entityType } = useEntityData();
     const entityName = entityData?.name || '';
@@ -68,16 +74,16 @@ export default function SubscribeButtons() {
 
     const handleMenuClick: MenuProps['onClick'] = (e) => {
         const key = e.key as string;
-        if (key === 'subscribe_me') {
+        if (key === DROPDOWN_KEYS.SUBSCRIBE_ME) {
             setIsPersonal(true);
             setDrawerIsOpen(true);
-        } else if (key === 'subscribe_group') {
+        } else if (key === DROPDOWN_KEYS.SUBSCRIBE_GROUP) {
             setIsPersonal(false);
             setGroupUrn(undefined);
             setSubscription(undefined);
             setIsSubscribed(false);
             setDrawerIsOpen(true);
-        } else if (key === 'unsubscribe_me') {
+        } else if (key === DROPDOWN_KEYS.UNSUBSCRIBE_ME) {
             setIsPersonal(true);
             onDeleteSubscription();
         }
@@ -85,18 +91,18 @@ export default function SubscribeButtons() {
 
     let items: MenuProps['items'] = [
         {
-            key: 'subscribe_me',
+            key: DROPDOWN_KEYS.SUBSCRIBE_ME,
             label: isSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
         },
         {
-            key: 'subscribe_group',
+            key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
             label: 'Manage Group Subscriptions',
         },
     ];
     if (isSubscribed) {
         items = [
             {
-                key: 'unsubscribe_me',
+                key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
                 label: 'Unsubscribe Me',
             },
             ...items,
