@@ -264,6 +264,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "rawDataSize": "0",
+                            "numRows": "0",
+                            "totalSize": "0",
+                            "transient_lastDdlTime": "1688395014",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
                             "create_date": "2023-07-03"
@@ -814,6 +820,14 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "comment": "This table has array of structs",
+                            "numFiles": "1",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "transient_lastDdlTime": "1688395011",
+                            "rawDataSize": "32",
+                            "numRows": "1",
+                            "totalSize": "33",
+                            "another.comment": "This table has no partitions",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
                             "create_date": "2023-07-03"
@@ -1113,6 +1127,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "numFiles": "0",
+                            "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+                            "transient_lastDdlTime": "1688395008",
+                            "rawDataSize": "0",
+                            "numRows": "0",
+                            "totalSize": "0",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
                             "create_date": "2023-07-03"
@@ -1260,6 +1280,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "transient_lastDdlTime": "1688395005",
                             "table_type": "MANAGED_TABLE",
                             "table_location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
                             "create_date": "2023-07-03",
