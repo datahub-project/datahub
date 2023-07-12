@@ -681,6 +681,10 @@ timestamp < "{end_time}"
         for upstream_lineage in lineage_metadata[str(bq_table)]:
             upstream_table_ref = upstream_lineage.table
             upstream_table = BigQueryTableRef.from_string_name(upstream_table_ref)
+            if bq_table == upstream_table:
+                # Skip self-references.
+                continue
+
             if upstream_table.is_temporary_table(
                 [self.config.temp_table_dataset_prefix]
             ):
