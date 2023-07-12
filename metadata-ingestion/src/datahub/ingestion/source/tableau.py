@@ -413,7 +413,7 @@ class DatabaseTable:
 
 @platform_name("Tableau")
 @config_class(TableauConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -1689,7 +1689,7 @@ class TableauSource(StatefulIngestionSourceBase):
             browse_paths = BrowsePathsClass(
                 paths=[
                     f"/{self.config.env.lower()}/{self.platform}/{path}"
-                    for path in database_table.paths
+                    for path in sorted(database_table.paths, key=lambda p: (len(p), p))
                 ]
             )
             dataset_snapshot.aspects.append(browse_paths)

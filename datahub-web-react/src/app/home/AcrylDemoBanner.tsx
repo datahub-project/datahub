@@ -40,7 +40,7 @@ export default function AcrylDemoBanner() {
             <TextWrapper>
                 <Title>Schedule a Demo of Managed Datahub</Title>
                 <span>
-                    DataHub is already the industries #1 Open Source Data Catalog.{' '}
+                    DataHub is already the industry&apos;s #1 Open Source Data Catalog.{' '}
                     <StyledLink
                         href="https://www.acryldata.io/datahub-sign-up"
                         target="_blank"
@@ -48,7 +48,7 @@ export default function AcrylDemoBanner() {
                     >
                         Schedule a demo
                     </StyledLink>{' '}
-                    of Acryl DataHub to see the advanced features that take it to the next level!
+                    of Acryl Cloud to see the advanced features that take it to the next level!
                 </span>
             </TextWrapper>
         </BannerWrapper>
