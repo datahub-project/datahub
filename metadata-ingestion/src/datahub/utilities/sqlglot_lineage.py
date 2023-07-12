@@ -46,6 +46,7 @@ class QueryType(enum.Enum):
 
 
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
+    # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
         sqlglot.exp.Create: QueryType.CREATE,
         sqlglot.exp.Select: QueryType.SELECT,
@@ -102,7 +103,6 @@ class _TableName(_FrozenModel):
     def from_sqlglot_table(
         cls,
         table: sqlglot.exp.Table,
-        dialect: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
@@ -149,12 +149,17 @@ class ColumnLineageInfo(BaseModel):
 
 
 class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
-    confidence: float
+    confidence: float = 0.0
 
-    tables_discovered: int
-    table_schemas_resolved: int
+    tables_discovered: int = 0
+    table_schemas_resolved: int = 0
 
-    column_error: Optional[Exception]
+    table_error: Optional[Exception] = None
+    column_error: Optional[Exception] = None
+
+    @property
+    def error(self) -> Optional[Exception]:
+        return self.table_error or self.column_error
 
 
 class SqlParsingResult(BaseModel):
@@ -169,12 +174,7 @@ class SqlParsingResult(BaseModel):
     # TODO include list of referenced columns
 
     debug_info: SqlParsingDebugInfo = pydantic.Field(
-        default_factory=lambda: SqlParsingDebugInfo(
-            confidence=0,
-            tables_discovered=0,
-            table_schemas_resolved=0,
-            column_error=None,
-        ),
+        default_factory=lambda: SqlParsingDebugInfo(),
         exclude=True,
     )
 
@@ -190,12 +190,9 @@ def _table_level_lineage(
     statement: sqlglot.Expression,
     dialect: str,
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
-    def _raw_table_name(table: sqlglot.exp.Table) -> _TableName:
-        return _TableName.from_sqlglot_table(table, dialect=dialect)
-
     # Generate table-level lineage.
     modified = {
-        _raw_table_name(expr.this)
+        _TableName.from_sqlglot_table(expr.this)
         for expr in statement.find_all(
             sqlglot.exp.Create,
             sqlglot.exp.Insert,
@@ -209,7 +206,10 @@ def _table_level_lineage(
     }
 
     tables = (
-        {_raw_table_name(table) for table in statement.find_all(sqlglot.exp.Table)}
+        {
+            _TableName.from_sqlglot_table(table)
+            for table in statement.find_all(sqlglot.exp.Table)
+        }
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
@@ -259,7 +259,6 @@ class SchemaResolver:
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
-            # TODO check that this is the right way to do it
             with contextlib.suppress(IndexError):
                 table_name = BigqueryTableIdentifier.from_string_name(
                     table_name
@@ -513,9 +512,7 @@ def _column_level_lineage(  # noqa: C901
                     pass
 
                 elif isinstance(node.expression, sqlglot.exp.Table):
-                    table_ref = _TableName.from_sqlglot_table(
-                        node.expression, dialect=dialect
-                    )
+                    table_ref = _TableName.from_sqlglot_table(node.expression)
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
@@ -622,15 +619,15 @@ def _translate_internal_column_lineage(
     )
 
 
-def sqlglot_lineage(
+def _sqlglot_lineage_inner(
     sql: str,
-    platform: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
     # TODO: convert datahub platform names to sqlglot dialect
-    dialect = platform
+    # TODO: Pull the platform name from the schema resolver?
+    dialect = schema_resolver.platform
 
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
@@ -752,3 +749,27 @@ def sqlglot_lineage(
         column_lineage=column_lineage_urns,
         debug_info=debug_info,
     )
+
+
+def sqlglot_lineage(
+    sql: str,
+    schema_resolver: SchemaResolver,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+) -> SqlParsingResult:
+    try:
+        return _sqlglot_lineage_inner(
+            sql=sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+    except Exception as e:
+        return SqlParsingResult(
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+            debug_info=SqlParsingDebugInfo(
+                table_error=e,
+            ),
+        )

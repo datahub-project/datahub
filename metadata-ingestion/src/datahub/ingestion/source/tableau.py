@@ -422,7 +422,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
 
 @platform_name("Tableau")
 @config_class(TableauConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Requires transformer", supported=False)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
