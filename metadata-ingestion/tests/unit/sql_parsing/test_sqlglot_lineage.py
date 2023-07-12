@@ -421,6 +421,51 @@ FROM `bq-proj.dataset.table_2023*`
     )
 
 
+def test_bigquery_star_with_replace():
+    assert_sql_result(
+        """
+CREATE VIEW `my-project.my-dataset.test_table` AS
+SELECT
+  * REPLACE(
+    LOWER(something) AS something)
+FROM
+  `my-project2.my-dataset2.test_physical_table`;
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+                "something": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_star_with_replace.json",
+    )
+
+
+def test_bigquery_view_from_union():
+    assert_sql_result(
+        """
+CREATE VIEW my_view as
+select * from my_project_2.my_dataset_2.sometable
+union
+select * from my_project_2.my_dataset_2.sometable2 as a
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable2,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_view_from_union.json",
+    )
+
+
 def test_snowflake_default_normalization():
     assert_sql_result(
         """

@@ -108,6 +108,9 @@ visualConfig:
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/favicon.ico}
+  entityProfile:
+    # we only support default tab for domains right now. In order to implement for other entities, update React code
+    domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
 
 # Storage Layer
 
