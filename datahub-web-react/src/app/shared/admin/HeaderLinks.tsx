@@ -10,6 +10,8 @@ import {
     FileDoneOutlined,
     SolutionOutlined,
     DownOutlined,
+    EyeOutlined,
+    DatabaseOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Menu, Tooltip } from 'antd';
@@ -18,6 +20,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 import { useUserContext } from '../../context/useUserContext';
+import { PageRoutes } from '../../../conf/Global';
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -59,6 +62,13 @@ const NavTitleDescription = styled.div`
     color: ${ANTD_GRAY[7]};
 `;
 
+const StyledDatabaseOutlined = styled(DatabaseOutlined)`
+    && {
+        font-size: 14px;
+        font-weight: bold;
+    }
+`;
+
 interface Props {
     areLinksHidden?: boolean;
 }
@@ -85,6 +95,9 @@ export function HeaderLinks(props: Props) {
     // SaaS only
     const showActionRequests = (isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) || false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
+    const showObserve = showDatasetHealth;
+
     useUpdateEducationStepIdsAllowlist(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
     return (
@@ -172,6 +185,35 @@ export function HeaderLinks(props: Props) {
                     </Button>
                 </LinkWrapper>
             </Dropdown>
+            {showObserve && (
+                <Dropdown
+                    trigger={['click']}
+                    overlay={
+                        <Menu>
+                            {showDatasetHealth && (
+                                <MenuItem key="1">
+                                    <Link to={PageRoutes.DATASET_HEALTH_DASHBOARD}>
+                                        <NavTitleContainer>
+                                            <StyledDatabaseOutlined />
+                                            <NavTitleText>Dataset Health</NavTitleText>
+                                        </NavTitleContainer>
+                                        <NavTitleDescription>
+                                            Monitor active incidents & failing assertions across your
+                                            organization&apos;s datasets
+                                        </NavTitleDescription>
+                                    </Link>
+                                </MenuItem>
+                            )}
+                        </Menu>
+                    }
+                >
+                    <LinkWrapper>
+                        <Button type="text">
+                            <EyeOutlined /> Observe <DownOutlined style={{ fontSize: '6px' }} />
+                        </Button>
+                    </LinkWrapper>
+                </Dropdown>
+            )}
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">

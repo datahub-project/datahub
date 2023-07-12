@@ -1,4 +1,4 @@
-namespace com.linkedin.common
+namespace com.linkedin.dataset
 
 /**
  * A definition of filters that should be used when
@@ -7,14 +7,14 @@ namespace com.linkedin.common
  * Note that this models should NOT be used for working with
  * search / filter on DataHub Platform itself.
  */
-record Filter {
+record DatasetFilter {
   /**
    * How the partition will be represented in this model.
    *
    * In the future, we'll likely add support for more structured
    * predicates.
    */
-  type: enum FilterType {
+  type: enum DatasetFilterType {
     /**
      * The partition is represented as a an opaque, raw SQL
      * clause.

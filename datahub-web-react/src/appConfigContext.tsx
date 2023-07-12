@@ -45,6 +45,7 @@ export const DEFAULT_APP_CONFIG = {
         showSearchFiltersV2: true,
         showBrowseV2: true,
         assertionMonitorsEnabled: false,
+        datasetHealthDashboardEnabled: false,
     },
     chromeExtensionConfig: {
         enabled: false,

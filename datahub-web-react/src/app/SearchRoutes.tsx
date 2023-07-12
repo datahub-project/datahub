@@ -14,6 +14,7 @@ import GlossaryRoutes from './glossary/GlossaryRoutes';
 import { SettingsPage } from './settings/SettingsPage';
 import { ActionRequestsPage } from './actionrequest/ActionRequestsPage';
 import { ManageTestsPage } from './tests/ManageTestsPage';
+import { DatasetHealthPage } from './observe/dataset/DatasetHealthPage';
 
 /**
  * Container for all searchable page routes
@@ -45,7 +46,9 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route path={PageRoutes.ACTION_REQUESTS} render={() => <ActionRequestsPage />} />
                 <Route path={PageRoutes.TESTS} render={() => <ManageTestsPage />} />
+                <Route path={PageRoutes.DATASET_HEALTH_DASHBOARD} render={() => <DatasetHealthPage />} />
                 <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutes />} />
+
                 <Route component={NoPageFound} />
             </Switch>
         </SearchablePage>

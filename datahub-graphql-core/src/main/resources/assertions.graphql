@@ -18,6 +18,11 @@ extend type Mutation {
   Update an existing Freshness Assertion
   """
   updateFreshnessAssertion(urn: String!, input: UpdateFreshnessAssertionInput!): Assertion!
+
+  """
+  Update the actions for a given assertion.
+  """
+  updateAssertionActions(urn: String!, input: AssertionActionsInput!): Assertion!
 }
 
 """

@@ -1,7 +1,7 @@
 namespace com.linkedin.assertion
 
 import com.linkedin.common.Urn
-import com.linkedin.common.Filter
+import com.linkedin.dataset.DatasetFilter
 
 /**
 * Attributes defining a Freshness Assertion.
@@ -49,5 +49,5 @@ record FreshnessAssertionInfo {
      * A definition of the specific filters that should be applied, when performing monitoring.
      * If not provided, there is no filter, and the full table is under consideration.
      */
-    filter: optional Filter
+    filter: optional DatasetFilter
 }

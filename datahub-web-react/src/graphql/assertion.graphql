@@ -64,6 +64,14 @@ fragment assertionDetails on Assertion {
             type
         }
     }
+    actions {
+        onSuccess {
+            type
+        }
+        onFailure {
+            type
+        }
+    }
 }
 
 fragment assertionRunEventDetails on AssertionRunEvent {
@@ -115,6 +123,12 @@ mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {
 
 mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertionInput!) {
     updateFreshnessAssertion(urn: $urn, input: $input) {
+        ...assertionDetails
+    }
+}
+
+mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
+    updateAssertionActions(urn: $urn, input: $input) {
         ...assertionDetails
     }
 }

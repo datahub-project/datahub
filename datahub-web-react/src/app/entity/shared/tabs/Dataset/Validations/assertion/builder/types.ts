@@ -206,3 +206,31 @@ export type StepProps = {
     submit: () => void;
     cancel: () => void;
 };
+
+/**
+ * State required to use the assertion actions builder.
+ */
+export interface AssertionActionsBuilderState {
+    /**
+     * Configurations for actions to be performed on assertion success or failure.
+     */
+    actions?: {
+        /**
+         * Actions to run on assertion success.
+         */
+        onSuccess?: AssertionAction[] | null;
+
+        /**
+         * Actions to run on assertion failure.
+         */
+        onFailure?: AssertionAction[] | null;
+    } | null;
+}
+
+/**
+ * State required to use the assertiona actions form.
+ */
+export type AssertionActionsFormState = {
+    onFailure?: AssertionAction[] | null;
+    onSuccess?: AssertionAction[] | null;
+};

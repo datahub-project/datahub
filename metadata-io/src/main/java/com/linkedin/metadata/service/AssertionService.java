@@ -315,6 +315,37 @@ public class AssertionService extends BaseService {
   }
 
   /**
+   * Updates the actions executed for a given assertion.
+   */
+  @Nonnull
+  public Urn updateAssertionActions(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionActions actions,
+      @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(actions, "actions must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+
+    // 1. Check whether the Assertion exists
+    AssertionInfo existingInfo = getAssertionInfo(assertionUrn);
+
+    if (existingInfo == null) {
+      throw new IllegalArgumentException(String.format("Failed to update Assertion. Assertion with urn %s does not exist.", assertionUrn));
+    }
+    // 3. Ingest actions aspect
+    try {
+      this.entityClient.ingestProposal(
+          AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions),
+          authentication,
+          false
+      );
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to update actions for Assertion with urn %s", assertionUrn), e);
+    }
+  }
+
+  /**
    * Updates an existing Dataset Metrics Assertion for native execution by DataHub.
    * Assumes that the caller has already performed the required authorization.
    */

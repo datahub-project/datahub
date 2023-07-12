@@ -117,6 +117,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionRe
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionActionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateFreshnessAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.auth.CreateAccessTokenResolver;
@@ -141,7 +142,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
-import com.linkedin.datahub.graphql.resolvers.dataset.DatasetHealthResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.AcrylDatasetHealthResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
@@ -1271,7 +1272,7 @@ public class GmsGraphQLEngine {
                 )
                 .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
                 .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.entityClient, this.usageClient))
-                .dataFetcher("health", new DatasetHealthResolver(entityClient, graphClient, timeseriesAspectService))
+                .dataFetcher("health", new AcrylDatasetHealthResolver(entityClient))
                 .dataFetcher("schemaMetadata", new AspectResolver())
                 .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
                 .dataFetcher("testResults", new EntityTestResultsResolver(entityClient))
@@ -1910,7 +1911,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
             .dataFetcher("createFreshnessAssertion", new CreateFreshnessAssertionResolver(assertionService))
             .dataFetcher("updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
-            .dataFetcher("updateFreshnessAssertion", new UpdateFreshnessAssertionResolver(assertionService)));
+            .dataFetcher("updateFreshnessAssertion", new UpdateFreshnessAssertionResolver(assertionService))
+            .dataFetcher("updateAssertionActions", new UpdateAssertionActionsResolver(assertionService)));
     }
 
     private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {

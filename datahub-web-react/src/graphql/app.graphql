@@ -59,6 +59,7 @@ query appConfig {
             showSearchFiltersV2
             showBrowseV2
             assertionMonitorsEnabled
+            datasetHealthDashboardEnabled
         }
         chromeExtensionConfig {
             enabled

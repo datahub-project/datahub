@@ -64,3 +64,8 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_PARAMETERS_STATE = {
         auditLog: {},
     },
 };
+
+// Default state used to initialize the Assertion Actions Builder.
+export const DEFAULT_ACTIONS_BUILDER_STATE = {
+    actions: null,
+};

@@ -1,7 +1,14 @@
-import { Button, Empty, Image, message, Modal, Tag, Tooltip, Typography } from 'antd';
-import React from 'react';
+import { Empty, Image, message, Modal, Tag, Tooltip, Typography, Dropdown, Menu } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DeleteOutlined, DownOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';
+import {
+    DeleteOutlined,
+    DownOutlined,
+    MoreOutlined,
+    RightOutlined,
+    SettingOutlined,
+    StopOutlined,
+} from '@ant-design/icons';
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { DatasetAssertionDetails } from './DatasetAssertionDetails';
@@ -11,6 +18,7 @@ import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
 import { FreshnessAssertionDescription } from './FreshnessAssertionDescription';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
+import { AssertionActionsBuilderModal } from './assertion/builder/AssertionActionsBuilderModal';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -35,6 +43,7 @@ const PlatformContainer = styled.div`
 type Props = {
     assertions: Array<Assertion>;
     onDelete?: (urn: string) => void;
+    onUpdate?: (assertion: Assertion) => void;
 };
 
 const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
@@ -45,8 +54,9 @@ const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
  *
  * Currently this component supports rendering Dataset Assertions only.
  */
-export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
+export const DatasetAssertionsList = ({ assertions, onDelete, onUpdate }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const [managingAssertion, setManagingAssertion] = useState<Assertion | undefined>(undefined);
 
     const deleteAssertion = async (urn: string) => {
         try {
@@ -77,6 +87,17 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
         });
     };
 
+    const onManageAssertion = (assertion: Assertion) => {
+        // Only allow editing of the actions for now.
+        // todo: allow updating the entire assertion definition. For now, we only support changing action configs (final step).
+        setManagingAssertion(assertion);
+    };
+
+    const onUpdateAssertion = (assertion: Assertion) => {
+        onUpdate?.(assertion);
+        setManagingAssertion(undefined);
+    };
+
     const assertionsTableData = assertions.map((assertion) => ({
         urn: assertion.urn,
         type: assertion.info?.type,
@@ -92,6 +113,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
             assertion.runEvents?.runEvents?.length &&
             assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents.runEvents[0].result?.externalUrl,
+        assertion,
     }));
 
     const assertionsTableCols = [
@@ -159,9 +181,23 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                             </PlatformContainer>
                         </Tooltip>
                     )}
-                    <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
-                        <DeleteOutlined />
-                    </Button>
+                    <Dropdown
+                        overlay={
+                            <Menu>
+                                <Menu.Item key="0" onClick={() => onManageAssertion(record.assertion)}>
+                                    <SettingOutlined style={{ marginRight: 8 }} />
+                                    Manage...
+                                </Menu.Item>
+                                <Menu.Item key="1" onClick={() => onDeleteAssertion(record.urn)}>
+                                    <DeleteOutlined style={{ marginRight: 8 }} />
+                                    Delete
+                                </Menu.Item>
+                            </Menu>
+                        }
+                        trigger={['click']}
+                    >
+                        <MoreOutlined style={{ fontSize: 18 }} />
+                    </Dropdown>
                 </ActionButtonContainer>
             ),
         },
@@ -192,6 +228,14 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                 showHeader={false}
                 pagination={false}
             />
+            {managingAssertion && (
+                <AssertionActionsBuilderModal
+                    urn={managingAssertion.urn}
+                    assertion={managingAssertion}
+                    onSubmit={onUpdateAssertion}
+                    onCancel={() => setManagingAssertion(undefined)}
+                />
+            )}
         </>
     );
 };

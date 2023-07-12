@@ -36,6 +36,7 @@ public class AssertionsSummaryHookTest {
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final String TEST_ASSERTION_TYPE = AssertionType.DATASET.toString();
+  private static final Urn TEST_INFERRED_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:inferred-test");
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
@@ -237,6 +238,25 @@ public class AssertionsSummaryHookTest {
         Mockito.eq(expectedSummary));
   }
 
+  @Test(dataProvider = "assertionsSummaryProvider")
+  public void testInvokeInferredAssertionRunEventSuccess(AssertionsSummary summary) throws Exception {
+    AssertionService service = mockAssertionService(summary);
+    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
+    final AssertionRunEvent runEvent = mockAssertionRunEvent(TEST_INFERRED_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS);
+    final MetadataChangeLog event = buildMetadataChangeLog(
+        TEST_INFERRED_ASSERTION_URN,
+        ASSERTION_RUN_EVENT_ASPECT_NAME,
+        ChangeType.UPSERT,
+        runEvent);
+    hook.invoke(event);
+    Mockito.verify(service, Mockito.times(1)).getAssertionInfo(Mockito.eq(TEST_INFERRED_ASSERTION_URN));
+
+    // Ensure we NEVER updated the assertions summary.
+    Mockito.verify(service, Mockito.times(0)).updateAssertionsSummary(
+        Mockito.any(Urn.class),
+        Mockito.any(AssertionsSummary.class));
+  }
+
   private AssertionRunEvent mockAssertionRunEvent(final Urn urn, final AssertionRunStatus status, final AssertionResultType resultType) {
     AssertionRunEvent event = new AssertionRunEvent();
     event.setTimestampMillis(1L);
@@ -266,6 +286,15 @@ public class AssertionsSummaryHookTest {
                 .setDataset(TEST_DATASET_URN)
         )
     );
+
+    Mockito.when(mockService.getAssertionInfo(TEST_INFERRED_ASSERTION_URN))
+        .thenReturn(new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.INFERRED))
+            .setDatasetAssertion(new DatasetAssertionInfo()
+                .setDataset(TEST_DATASET_URN)
+            )
+        );
 
     Mockito.when(mockService.getAssertionsSummary(TEST_DATASET_URN)).thenReturn(summary);
 

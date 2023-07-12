@@ -838,6 +838,11 @@ type FeatureFlagsConfig {
   assertionMonitorsEnabled: Boolean!
 
   """
+  SaaS only -- Whether the Dataset health dashboard is enabled.
+  """
+  datasetHealthDashboardEnabled: Boolean!
+
+  """
   Whether search filters V2 should be shown or the default filter side-panel
   """
   showSearchFiltersV2: Boolean!

@@ -3,9 +3,10 @@ import {
     EntityType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
+    AssertionActionType,
 } from '../../../../../../../../types.generated';
 import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
-import { AssertionMonitorBuilderState } from './types';
+import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
 import { ASSERTION_TYPES } from './constants';
 
 export const builderStateToUpdateFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
@@ -114,4 +115,51 @@ export const isEntityEligibleForAssertionMonitoring = (platformUrn) => {
 
 export const adjustCronText = (text: string) => {
     return text.replace('at', '');
+};
+
+export const toggleRaiseIncidentState = (state: AssertionActionsFormState, newValue: boolean) => {
+    let newFailureActions = state.onFailure || [];
+    if (newValue) {
+        // Add auto-raise incident action.
+        newFailureActions = [...newFailureActions, { type: AssertionActionType.RaiseIncident }];
+    } else {
+        // Remove auto-raise incident actions.
+        newFailureActions = [
+            ...newFailureActions.filter((action) => action.type !== AssertionActionType.RaiseIncident),
+        ];
+    }
+    return {
+        ...state,
+        onFailure: newFailureActions,
+    };
+};
+
+export const toggleResolveIncidentState = (state: AssertionActionsFormState, newValue: boolean) => {
+    let newSuccessActions = state.onSuccess || [];
+    if (newValue) {
+        // Add auto-resolve incident action.
+        newSuccessActions = [...newSuccessActions, { type: AssertionActionType.ResolveIncident }];
+    } else {
+        // Remove auto-raise incident actions.
+        newSuccessActions = [
+            ...newSuccessActions.filter((action) => action.type !== AssertionActionType.ResolveIncident),
+        ];
+    }
+    return {
+        ...state,
+        onSuccess: newSuccessActions,
+    };
+};
+
+export const builderStateToUpdateAssertionActionsVariables = (
+    urn: string,
+    builderState: AssertionActionsBuilderState,
+) => {
+    return {
+        urn,
+        input: {
+            onSuccess: builderState.actions?.onSuccess || [],
+            onFailure: builderState.actions?.onFailure || [],
+        },
+    };
 };

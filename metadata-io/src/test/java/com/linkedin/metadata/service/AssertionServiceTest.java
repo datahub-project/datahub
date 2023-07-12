@@ -3,7 +3,9 @@ package com.linkedin.metadata.service;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActionArray;
+import com.linkedin.assertion.AssertionActionType;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -116,6 +118,21 @@ public class AssertionServiceTest {
     service.updateAssertionsSummary(TEST_DATASET_URN, mockAssertionSummary());
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(mockAssertionSummaryMcp()),
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
+    );
+  }
+
+
+  @Test
+  private void testUpdateAssertionActions() throws Exception {
+    final EntityClient mockClient = createMockEntityClient();
+    final AssertionService service = new AssertionService(
+        mockClient,
+        Mockito.mock(Authentication.class));
+    service.updateAssertionActions(TEST_ASSERTION_URN, mockAssertionActions(), Mockito.mock(Authentication.class));
+    Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
+        Mockito.eq(mockAssertionActionsMcp()),
         Mockito.any(Authentication.class),
         Mockito.eq(false)
     );
@@ -409,7 +426,7 @@ public class AssertionServiceTest {
             .setEntityName(ASSERTION_ENTITY_NAME)
             .setAspects(new EnvelopedAspectMap(ImmutableMap.of(
                 ASSERTION_INFO_ASPECT_NAME,
-                new EnvelopedAspect().setValue(new Aspect(mockFRESHNESSAssertionInfo().data()))
+                new EnvelopedAspect().setValue(new Aspect(mockFreshnessAssertionInfo().data()))
             ))));
 
     // Init for assertions summary
@@ -455,7 +472,7 @@ public class AssertionServiceTest {
     return info;
   }
 
-  private static AssertionInfo mockFRESHNESSAssertionInfo() throws Exception {
+  private static AssertionInfo mockFreshnessAssertionInfo() throws Exception {
     final AssertionInfo info = new AssertionInfo();
     info.setType(AssertionType.FRESHNESS);
     info.setFreshnessAssertion(new FreshnessAssertionInfo()
@@ -470,6 +487,23 @@ public class AssertionServiceTest {
     return summary;
   }
 
+  private static AssertionActions mockAssertionActions() throws Exception {
+    final AssertionActions actions = new AssertionActions();
+    actions.setOnFailure(new AssertionActionArray(
+        ImmutableList.of(
+            new AssertionAction()
+              .setType(AssertionActionType.RAISE_INCIDENT)
+        )
+    ));
+    actions.setOnSuccess(new AssertionActionArray(
+        ImmutableList.of(
+            new AssertionAction()
+              .setType(AssertionActionType.RESOLVE_INCIDENT)
+        )
+    ));
+    return actions;
+  }
+
   private static MetadataChangeProposal mockAssertionSummaryMcp() throws Exception {
 
     final MetadataChangeProposal mcp = new MetadataChangeProposal();
@@ -478,6 +512,18 @@ public class AssertionServiceTest {
     mcp.setAspectName(ASSERTIONS_SUMMARY_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setAspect(GenericRecordUtils.serializeAspect(mockAssertionSummary()));
+
+    return mcp;
+  }
+
+  private static MetadataChangeProposal mockAssertionActionsMcp() throws Exception {
+
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_ASSERTION_URN);
+    mcp.setEntityType(ASSERTION_ENTITY_NAME);
+    mcp.setAspectName(ASSERTION_ACTIONS_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(mockAssertionActions()));
 
     return mcp;
   }
