@@ -4,11 +4,10 @@ import subprocess
 import boto3
 import freezegun
 import pytest
-from mypy_boto3_s3.service_resource import Bucket
 
 from datahub.ingestion.run.pipeline import Pipeline
-from test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 MINIO_PORT = 9000
@@ -47,7 +46,7 @@ def minio_runner(docker_compose_runner, pytestconfig, test_resources_dir):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def s3_bkt(minio_runner) -> Bucket:
+def s3_bkt(minio_runner):
     s3 = boto3.resource(
         "s3",
         endpoint_url=f"http://localhost:{MINIO_PORT}",
