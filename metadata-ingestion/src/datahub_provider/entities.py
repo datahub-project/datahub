@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Optional
 
 import attr
 
@@ -18,7 +19,7 @@ class Dataset(_Entity):
     platform: str
     name: str
     env: str = builder.DEFAULT_ENV
-    platform_instance: str = None
+    platform_instance: Optional[str] = None
 
     @property
     def urn(self):
