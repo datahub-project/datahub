@@ -420,10 +420,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
         return JobId(self.config.ingestion_job_id)
 
     def _get_table_properties(
-        self, scheme: str, where_clause_suffix: str
+        self, db_name: str, scheme: str, where_clause_suffix: str
     ) -> Dict[str, Dict[str, str]]:
-        db_name = self.get_db_name(inspector)
-
         statement: str = (
             PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
@@ -472,14 +470,17 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
         )
 
+        db_name = self.get_db_name(inspector)
+
         properties_cache = self._get_table_properties(
-            scheme=sql_config.scheme, where_clause_suffix=where_clause_suffix
+            db_name=db_name,
+            scheme=sql_config.scheme,
+            where_clause_suffix=where_clause_suffix,
         )
 
         iter_res = self._alchemy_client.execute_query(statement)
 
         for key, group in groupby(iter_res, self._get_table_key):
-            db_name = self.get_db_name(inspector)
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
