@@ -422,6 +422,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
     def _get_table_properties(
         self, scheme: str, where_clause_suffix: str
     ) -> Dict[str, Dict[str, str]]:
+        db_name = self.get_db_name(inspector)
+
         statement: str = (
             PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
                 where_clause_suffix=where_clause_suffix
@@ -435,6 +437,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
         table_properties: Dict[str, Dict[str, str]] = {}
         for row in iter_res:
             dataset_name = f"{row['schema_name']}.{row['table_name']}"
+            if self.config.include_catalog_name_in_ids:
+                dataset_name = f"{db_name}.{dataset_name}"
             if row["PARAM_KEY"] and row["PARAM_VALUE"]:
                 table_properties.setdefault(dataset_name, {})[row["PARAM_KEY"]] = row[
                     "PARAM_VALUE"
