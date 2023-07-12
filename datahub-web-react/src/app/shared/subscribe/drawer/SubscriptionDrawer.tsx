@@ -1,4 +1,4 @@
-import React, { Key, useCallback, useEffect, useState } from 'react';
+import React, { Key, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
@@ -90,26 +90,6 @@ export default function SubscriptionDrawer({
     const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
     const [allowEditing, setAllowEditing] = useState<boolean>(false);
 
-    const getCachedKeysState = useCallback(
-        () => subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType),
-        [entityType, subscription?.entityChangeTypes],
-    );
-
-    const getSubscribeToUpstreamState = useCallback(
-        () => !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange),
-        [subscription?.subscriptionTypes],
-    );
-
-    const getNotificationSinkTypesState = useCallback(
-        () => subscription?.notificationConfig?.sinkTypes || [],
-        [subscription?.notificationConfig?.sinkTypes],
-    );
-
-    const getAllowEditingState = useCallback(
-        () => notificationSinkTypes.includes(NotificationSinkType.Slack),
-        [notificationSinkTypes],
-    );
-
     const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
     const [customSlackSink, setCustomSlackSink] = useState<string | undefined>(undefined);
     const [createSubscription] = useCreateSubscriptionMutation();
@@ -130,11 +110,17 @@ export default function SubscriptionDrawer({
     const upstreamCount = upstreamTotal - upstreamFiltered;
 
     useEffect(() => {
-        setCheckedKeys(getCachedKeysState);
-        setSubscribeToUpstream(getSubscribeToUpstreamState);
-        setNotificationSinkTypes(getNotificationSinkTypesState);
-        setAllowEditing(getAllowEditingState);
-    }, [getAllowEditingState, getCachedKeysState, getNotificationSinkTypesState, getSubscribeToUpstreamState]);
+        setCheckedKeys(subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType));
+        setSubscribeToUpstream(!!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange));
+        setNotificationSinkTypes(subscription?.notificationConfig?.sinkTypes || []);
+        setAllowEditing(notificationSinkTypes.includes(NotificationSinkType.Slack));
+    }, [
+        entityType,
+        notificationSinkTypes,
+        subscription?.entityChangeTypes,
+        subscription?.notificationConfig?.sinkTypes,
+        subscription?.subscriptionTypes,
+    ]);
 
     useEffect(() => {
         if (isPersonal) {
