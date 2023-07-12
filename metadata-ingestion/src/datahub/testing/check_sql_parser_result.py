@@ -22,7 +22,6 @@ UPDATE_FILES = os.environ.get("UPDATE_SQLPARSER_FILES", "false").lower() == "tru
 def assert_sql_result_with_resolver(
     sql: str,
     *,
-    dialect: str,
     expected_file: pathlib.Path,
     schema_resolver: SchemaResolver,
     **kwargs: Any,
@@ -33,7 +32,6 @@ def assert_sql_result_with_resolver(
 
     res = sqlglot_lineage(
         sql,
-        platform=dialect,
         schema_resolver=schema_resolver,
         **kwargs,
     )
@@ -83,7 +81,6 @@ def assert_sql_result(
 
     assert_sql_result_with_resolver(
         sql,
-        dialect=dialect,
         expected_file=expected_file,
         schema_resolver=schema_resolver,
         **kwargs,

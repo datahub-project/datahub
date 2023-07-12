@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from datahub.testing.compare_metadata_json import diff_metadata_json
 from tests.test_helpers import mce_helpers
 
 basic_1 = json.loads(
@@ -149,18 +150,18 @@ basic_3 = json.loads(
 
 
 def test_basic_diff_same() -> None:
-    mce_helpers.assert_mces_equal(basic_1, basic_2, mce_helpers.IGNORE_PATH_TIMESTAMPS)
+    assert not diff_metadata_json(basic_1, basic_2, mce_helpers.IGNORE_PATH_TIMESTAMPS)
 
 
 def test_basic_diff_only_owner_change() -> None:
     with pytest.raises(AssertionError):
-        mce_helpers.assert_mces_equal(
+        assert not diff_metadata_json(
             basic_2, basic_3, mce_helpers.IGNORE_PATH_TIMESTAMPS
         )
 
 
 def test_basic_diff_owner_change() -> None:
     with pytest.raises(AssertionError):
-        mce_helpers.assert_mces_equal(
+        assert not diff_metadata_json(
             basic_1, basic_3, mce_helpers.IGNORE_PATH_TIMESTAMPS
         )
