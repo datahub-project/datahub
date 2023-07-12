@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -142,6 +157,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -260,6 +295,30 @@
         "json": {
             "typeNames": [
                 "table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
             ]
         }
     },
@@ -446,6 +505,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -614,6 +697,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -759,6 +866,30 @@
         "json": {
             "typeNames": [
                 "table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
             ]
         }
     },
@@ -915,6 +1046,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1021,6 +1176,30 @@
         "json": {
             "typeNames": [
                 "table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
             ]
         }
     },
@@ -1156,6 +1335,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_presto_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1266,6 +1469,30 @@
             "materialized": false,
             "viewLogic": "/* Presto View */",
             "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_presto_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1432,6 +1659,30 @@
             "materialized": false,
             "viewLogic": "select `array_struct_test`.`property_id`, `array_struct_test`.`service` from `db1`.`array_struct_test`",
             "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "presto-on-hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918",
+                    "urn": "urn:li:container:939ecec0f01fb6bb1ca15fe6f0ead918"
+                },
+                {
+                    "id": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f",
+                    "urn": "urn:li:container:f5e571e4a9acce86333e6b427ba1651f"
+                }
+            ]
         }
     },
     "systemMetadata": {
