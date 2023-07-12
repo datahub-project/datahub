@@ -7,7 +7,6 @@ import com.datahub.authorization.ResourceSpec;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
@@ -16,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.Constants.*;
 

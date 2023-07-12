@@ -109,6 +109,7 @@ def test_frontend_policy_operations(frontend_session):
                 "actors": {
                     "users": [get_root_urn()],
                     "resourceOwners": False,
+                    "platformInstanceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
                 },

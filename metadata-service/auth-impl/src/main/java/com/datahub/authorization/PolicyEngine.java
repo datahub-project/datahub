@@ -309,7 +309,7 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
     // If the policy does not apply to owners, or there is no resource to own, return false immediately.
-    if (!(actorFilter.isResourceOwners() || actorFilter.isPlatformInstanceOwners()) || !requestResource.isPresent() ) {
+    if (!(actorFilter.isResourceOwners() || actorFilter.isPlatformInstanceOwners()) || !requestResource.isPresent()) {
       return false;
     }
     List<Urn> resourceOwnershipTypes = actorFilter.getResourceOwnersTypes();
@@ -317,7 +317,13 @@ public class PolicyEngine {
     return isActorOwner(actor, requestResource.get(), resourceOwnershipTypes, platformInstanceOwnershipTypes, context);
   }
 
-  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> resourceOwnershipTypes, List<Urn> platformInstanceOwnershipTypes, PolicyEvaluationContext context) {
+  private boolean isActorOwner(
+    Urn actor,
+    ResolvedResourceSpec resourceSpec,
+    List<Urn> resourceOwnershipTypes,
+    List<Urn> platformInstanceOwnershipTypes,
+    PolicyEvaluationContext context
+  ) {
     Urn entityUrn = UrnUtils.getUrn(resourceSpec.getSpec().getResource());
     Set<String> resourceOwners = this.resolveEntityOwnersForType(entityUrn, resourceOwnershipTypes);
     Set<String> owners = new HashSet<>(new ArrayList<>(resourceOwners));
