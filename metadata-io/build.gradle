@@ -15,7 +15,7 @@ dependencies {
   compile project(':metadata-models')
   compile project(':metadata-service:restli-client')
   compile project(':metadata-service:configuration')
-  compile project(':metadata-service:service-layer')
+  compile project(':metadata-service:services')
 
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
