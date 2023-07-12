@@ -110,13 +110,19 @@ export default function SubscriptionDrawer({
     const upstreamCount = upstreamTotal - upstreamFiltered;
 
     useEffect(() => {
-        setCheckedKeys(subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType));
-        setSubscribeToUpstream(!!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange));
-        setNotificationSinkTypes(subscription?.notificationConfig?.sinkTypes || []);
-        setAllowEditing(notificationSinkTypes.includes(NotificationSinkType.Slack));
+        const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
+        const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
+        const hasSlackSinkType = sinkTypes.includes(NotificationSinkType.Slack);
+        const hasUpstreamSubscription = !!subscription?.subscriptionTypes?.includes(
+            SubscriptionType.UpstreamEntityChange,
+        );
+
+        setCheckedKeys(entityChangeTypes);
+        setSubscribeToUpstream(hasUpstreamSubscription);
+        setNotificationSinkTypes(sinkTypes);
+        setAllowEditing(hasSlackSinkType);
     }, [
         entityType,
-        notificationSinkTypes,
         subscription?.entityChangeTypes,
         subscription?.notificationConfig?.sinkTypes,
         subscription?.subscriptionTypes,
