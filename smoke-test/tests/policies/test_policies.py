@@ -140,6 +140,7 @@ def test_frontend_policy_operations(frontend_session):
                 "privileges": ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"],
                 "actors": {
                     "resourceOwners": False,
+                    "platformInstanceOwners": False,
                     "allUsers": True,
                     "allGroups": False,
                 },
