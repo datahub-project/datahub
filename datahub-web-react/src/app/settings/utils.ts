@@ -42,7 +42,7 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
     }
 };
 
-export const isSinkEnabled = (sinkId, settings?: GlobalSettings | null) => {
+export const isSinkEnabled = (sinkId: string, settings?: GlobalSettings | null) => {
     switch (sinkId) {
         case SLACK_SINK.id: {
             return settings?.integrationSettings?.slackSettings?.defaultChannelName || false;

@@ -37,6 +37,7 @@ import {
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
 import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
+import useEnabledSinks from '../../useEnabledSinks';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -85,6 +86,8 @@ export default function SubscriptionDrawer({
     refetchEntitySubscriptionSummary,
     onDeleteSubscription,
 }: Props) {
+    const { slackSinkEnabled } = useEnabledSinks();
+
     const [checkedKeys, setCheckedKeys] = useState<Key[]>([]);
     const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(false);
     const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
@@ -113,10 +116,11 @@ export default function SubscriptionDrawer({
         setCheckedKeys(subscription?.entityChangeTypes || getDefaultCheckedKeys(entityType));
         setSubscribeToUpstream(!!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange));
         setNotificationSinkTypes(subscription?.notificationConfig?.sinkTypes || []);
-        setAllowEditing(notificationSinkTypes.includes(NotificationSinkType.Slack));
+        setAllowEditing(slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack));
     }, [
         entityType,
         notificationSinkTypes,
+        slackSinkEnabled,
         subscription?.entityChangeTypes,
         subscription?.notificationConfig?.sinkTypes,
         subscription?.subscriptionTypes,
@@ -247,13 +251,16 @@ export default function SubscriptionDrawer({
             {showBottomDrawerSection && (
                 <>
                     <NotificationTypesSection checkedKeys={checkedKeys} setCheckedKeys={setCheckedKeys} />
-                    <UpstreamSection
-                        entityUrn={entityUrn}
-                        entityType={entityType}
-                        subscribeToUpstream={subscribeToUpstream}
-                        setSubscribeToUpstream={setSubscribeToUpstream}
-                        upstreamCount={upstreamCount}
-                    />
+                    {/* todo - this is disabled until we have a proper implementation */}
+                    {false && (
+                        <UpstreamSection
+                            entityUrn={entityUrn}
+                            entityType={entityType}
+                            subscribeToUpstream={subscribeToUpstream}
+                            setSubscribeToUpstream={setSubscribeToUpstream}
+                            upstreamCount={upstreamCount}
+                        />
+                    )}
                     <NotificationRecipientSection
                         isPersonal={isPersonal}
                         slackSinkDefaultValue={slackSinkDefaultValue}

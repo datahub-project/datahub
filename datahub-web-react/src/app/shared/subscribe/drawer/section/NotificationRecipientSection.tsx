@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { Checkbox, Form, Input, Radio, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NotificationSinkType } from '../../../../../types.generated';
 import {
     isGroupSlackChannelValid,
@@ -11,8 +10,7 @@ import {
     validateGroupSlackChannel,
     validateSlackUserHandle,
 } from '../../../../settings/personal/utils';
-import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
-import { isSinkEnabled } from '../../../../settings/utils';
+import useEnabledSinks from '../../../useEnabledSinks';
 
 const SLACK_TOP_ROW = 1;
 
@@ -49,6 +47,11 @@ const NotificationTypeText = styled(Typography.Text)<{ row: number }>`
     font-weight: 700;
     grid-column: 2;
     grid-row: ${({ row }) => row};
+`;
+
+const DisabledText = styled(Typography.Text)`
+    font-weight: 500;
+    grid-column: 2;
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -99,9 +102,7 @@ export default function NotificationRecipientSection({
     saveSlackSinkAsDefault,
     setSaveSlackSinkAsDefault,
 }: Props) {
-    const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
-    const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const { slackSinkEnabled } = useEnabledSinks();
 
     const [inputSlackValue, setInputSlackValue] = useState<string>(isPersonal ? '@' : '#');
     const [useDefaultSlackSink, setUseDefaultSlackSink] = useState<boolean>(true);
@@ -118,12 +119,16 @@ export default function NotificationRecipientSection({
         }
     }, [saveSlackSinkAsDefault, inputSlackValue, setCustomSlackSink]);
 
+    const disabled = !allowEditing || !slackSinkEnabled;
+
     return (
         <>
             <NotificationRecipientContainer>
                 <NotificationRecipientTitle>Send notifications via</NotificationRecipientTitle>
                 <NotificationSwitchContainer>
+                    {/* todo - test and add copy */}
                     <StyledSwitch
+                        disabled={disabled}
                         row={SLACK_TOP_ROW}
                         size="small"
                         checked={allowEditing}
@@ -134,10 +139,20 @@ export default function NotificationRecipientSection({
                             );
                         }}
                     />
-                    <NotificationTypeText row={SLACK_TOP_ROW}> Slack Notifications </NotificationTypeText>
+                    <NotificationTypeText row={SLACK_TOP_ROW}>Slack Notifications</NotificationTypeText>
+                    {!slackSinkEnabled && (
+                        <DisabledText>
+                            Reach out to your admin to enable your Slack integration to turn on Slack notifications.
+                        </DisabledText>
+                    )}
                     <Radio.Group
-                        disabled={!allowEditing || !slackSinkEnabled}
-                        style={{ gridRow: SLACK_TOP_ROW + 2, gridColumn: 2 }}
+                        disabled={disabled}
+                        style={{
+                            gridRow: SLACK_TOP_ROW + 2,
+                            gridColumn: 2,
+                            // conditionally render?
+                            visibility: disabled ? 'hidden' : 'visible',
+                        }}
                         value={useDefaultSlackSink && slackSinkDefaultValue ? 'default' : 'custom'}
                         onChange={(e) => {
                             if (e.target.value === 'default') {
@@ -168,7 +183,7 @@ export default function NotificationRecipientSection({
                                     >
                                         <StyledInput
                                             placeholder={isPersonal ? '@user' : '#channel'}
-                                            disabled={!allowEditing || !slackSinkEnabled}
+                                            disabled={disabled}
                                             value={inputSlackValue}
                                             status={inputSlackValueIsValid ? undefined : 'error'}
                                             onChange={(e) => {

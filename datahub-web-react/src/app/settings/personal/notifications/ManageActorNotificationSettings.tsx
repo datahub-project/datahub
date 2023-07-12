@@ -3,15 +3,13 @@ import styled from 'styled-components/macro';
 import { Typography } from 'antd';
 import { SinkSettingsSection } from './section/SinkSettingsSection';
 import {
-    useGetGlobalSettingsQuery,
     useGetGroupNotificationSettingsQuery,
     useGetUserNotificationSettingsQuery,
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
 import { updateGroupNotificationSettingsFunction, updateUserNotificationSettingsFunction } from './utils';
-import { NOTIFICATION_SINKS, SLACK_SINK } from '../../platform/types';
-import { isSinkEnabled } from '../../utils';
+import useEnabledSinks from '../../../shared/useEnabledSinks';
 
 const NotificationSettingsTitle = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -38,9 +36,7 @@ type Props = {
  * Component used for managing actor notification settings.
  */
 export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupName }: Props) => {
-    const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
-    const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const { slackSinkEnabled } = useEnabledSinks();
 
     const { data: userNotificationSettings, refetch: refetchUserNotificationSettings } =
         useGetUserNotificationSettingsQuery({ skip: !isPersonal });
