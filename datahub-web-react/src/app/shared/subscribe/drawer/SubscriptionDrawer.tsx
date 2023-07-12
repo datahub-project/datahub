@@ -112,6 +112,7 @@ export default function SubscriptionDrawer({
     useEffect(() => {
         const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
         const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
+        const hasSlackSinkType = sinkTypes.includes(NotificationSinkType.Slack);
         const hasUpstreamSubscription = !!subscription?.subscriptionTypes?.includes(
             SubscriptionType.UpstreamEntityChange,
         );
@@ -119,7 +120,7 @@ export default function SubscriptionDrawer({
         setCheckedKeys(entityChangeTypes);
         setSubscribeToUpstream(hasUpstreamSubscription);
         setNotificationSinkTypes(sinkTypes);
-        setAllowEditing(sinkTypes.includes(NotificationSinkType.Slack));
+        setAllowEditing(hasSlackSinkType);
     }, [
         entityType,
         subscription?.entityChangeTypes,
