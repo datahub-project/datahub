@@ -1,0 +1,17 @@
+MANIFEST.in
+README.md
+requirements-dev.txt
+requirements.txt
+setup.cfg
+setup.py
+prefect_datahub/__init__.py
+prefect_datahub/_version.py
+prefect_datahub/datahub_emitter.py
+prefect_datahub.egg-info/PKG-INFO
+prefect_datahub.egg-info/SOURCES.txt
+prefect_datahub.egg-info/dependency_links.txt
+prefect_datahub.egg-info/entry_points.txt
+prefect_datahub.egg-info/requires.txt
+prefect_datahub.egg-info/top_level.txt
+tests/test_block_standards.py
+tests/test_datahub_emitter.py

@@ -1,0 +1,22 @@
+prefect>=2.0.0
+acryl-datahub[datahub-rest]
+
+[dev]
+pytest
+black
+flake8
+mypy
+mkdocs
+mkdocs-material
+mkdocstrings[python]
+isort
+pre-commit
+pytest-asyncio
+mkdocs-gen-files
+interrogate
+coverage
+pillow
+types-requests
+
+[dev:python_version < "3.8"]
+mock
