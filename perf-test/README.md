@@ -14,6 +14,9 @@ To run the example configs, you need to first install locust by running
 pip3 install locust
 ```
 
+Note that it supports python versions 3.6 and up. Refer to
+this [guide](https://docs.locust.io/en/stable/installation.html) for more details.
+
 You will also need to import requirements in order to run the Locustfile scripts:
 ```shell
 pip3 install -r requirements.txt
