@@ -424,6 +424,11 @@ mypy_stubs = {
     "types-protobuf>=4.21.0.1",
 }
 
+
+pytest_dep = "pytest>=6.2.2"
+deepdiff_dep = "deepdiff"
+test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
+
 base_dev_requirements = {
     *base_requirements,
     *framework_common,
@@ -442,11 +447,12 @@ base_dev_requirements = {
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
-    "pytest>=6.2.2",
+    *test_api_requirements,
+    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=1.0.1",
-    "deepdiff",
+    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -697,6 +703,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
+        "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
     },
 )
