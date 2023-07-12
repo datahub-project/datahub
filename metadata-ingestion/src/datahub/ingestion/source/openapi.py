@@ -280,7 +280,7 @@ class APISource(Source, ABC):
 
                     yield self.build_wu(dataset_snapshot, dataset_name)
                 else:
-                    self.report_bad_responses(response.status_code, key=endpoint_k)
+                    self.report_bad_response(response.status_code, key=endpoint_k)
             else:
                 if endpoint_k not in config.forced_examples.keys():
                     # start guessing...
@@ -303,7 +303,7 @@ class APISource(Source, ABC):
 
                         yield self.build_wu(dataset_snapshot, dataset_name)
                     else:
-                        self.report_bad_responses(response.status_code, key=endpoint_k)
+                        self.report_bad_response(response.status_code, key=endpoint_k)
                 else:
                     composed_url = compose_url_attr(
                         raw_url=endpoint_k, attr_list=config.forced_examples[endpoint_k]
@@ -328,7 +328,7 @@ class APISource(Source, ABC):
 
                         yield self.build_wu(dataset_snapshot, dataset_name)
                     else:
-                        self.report_bad_responses(response.status_code, key=endpoint_k)
+                        self.report_bad_response(response.status_code, key=endpoint_k)
 
     def get_report(self):
         return self.report

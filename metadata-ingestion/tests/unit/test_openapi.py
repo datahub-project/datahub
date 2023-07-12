@@ -596,6 +596,10 @@ MIXED_FLATTEN_DEFINITIONS = {
             "allOf": [{"$ref": "#/definitions/fatten_string"}],
         },
         "fatten_string": {"maxLength": 65535, "minLength": 0, "type": "string"},
+        "flatten_with_allof": {
+            "type": "object",
+            "allOf": [{"$ref": "#/definitions/fatten_string"}],
+        },
     }
 }
 
@@ -629,7 +633,8 @@ MIXED_FLATTEN_SCHEMAS = [
             },
         },
         "type": "object",
-    }
+    },
+    {"$ref": "#/definitions/flatten_with_allof"},
 ]
 
 SCHEMAS = [
@@ -1113,7 +1118,16 @@ EXPECTED_MIXED_FLATTEN = [
             description="",
             recursive=False,
         ),
-    ]
+    ],
+    [
+        SchemaField(
+            fieldPath="",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+            nativeDataType="'string'",
+            description="",
+            recursive=False,
+        ),
+    ],
 ]
 
 
@@ -1144,7 +1158,7 @@ def test_parse_nested_schema(schema, expected_fields):
 )
 def test_parse_fatten_responses(schema, expected_fields):
     metadata_extractor = SchemaMetadataExtractor("", {}, {})
-    metadata_extractor.parse_flatten_schema(schema, "", "")
+    metadata_extractor.parse_flatten_schema(schema, "")
     assert metadata_extractor.canonical_schema == expected_fields
 
 

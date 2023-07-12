@@ -463,7 +463,10 @@ class SchemaMetadataExtractor:
     ) -> None:
         if isinstance(items, dict) and items.get("$ref", ""):
             _, inner_schema = self.get_schema_by_ref(items.get("$ref", ""))
-            nested_type = inner_schema.get("type", UNKNOWN_TYPE)
+            if inner_schema.get("oneOf") or inner_schema.get("allOf"):
+                nested_type = OBJECT_TYPE
+            else:
+                nested_type = inner_schema.get("type", UNKNOWN_TYPE)
         else:
             nested_type = (
                 items.get("type", OBJECT_TYPE) if isinstance(items, dict) else items
@@ -565,21 +568,11 @@ class SchemaMetadataExtractor:
         self.parse_nested_schema(ref, base_path)
         self.schemas_stack.pop()
 
-    def parse_flatten_schema(
-        self, schema_to_parse: dict, field_path: str, current_schema_name: str
-    ) -> None:
+    def parse_flatten_schema(self, schema_to_parse: dict, field_path: str) -> None:
         field_type = schema_to_parse.get("type", "")
-        if field_type in (ARRAY_TYPE, OBJECT_TYPE):
-            return
-        if schema_with_of := (
-            schema_to_parse.get("allOf", []) or schema_to_parse.get("oneOf", [])
+        if field_type in (ARRAY_TYPE, OBJECT_TYPE, "") or schema_to_parse.get(
+            "properties", ""
         ):
-            schema, number_of_schemas_in_stack = self.parse_all_one_of(schema_with_of)
-            self.parse_schema(schema, field_path, current_schema_name)
-            if number_of_schemas_in_stack > 0:
-                self.schemas_stack = self.schemas_stack[:-number_of_schemas_in_stack]
-            return
-        if field_type == "":
             return
         field = SchemaField(
             fieldPath=field_path,
@@ -609,7 +602,14 @@ class SchemaMetadataExtractor:
                 schema_to_parse.get("description", ""),
                 current_schema_name,
             )
-        self.parse_flatten_schema(schema_to_parse, base_path, current_schema_name)
+        if schema_with_of := (
+            schema_to_parse.get("allOf", []) or schema_to_parse.get("oneOf", [])
+        ):
+            schema, number_of_schemas_in_stack = self.parse_all_one_of(schema_with_of)
+            self.parse_schema(schema, base_path, current_schema_name)
+            if number_of_schemas_in_stack > 0:
+                self.schemas_stack = self.schemas_stack[:-number_of_schemas_in_stack]
+        self.parse_flatten_schema(schema_to_parse, base_path)
 
     def extract_metadata(self) -> Optional[SchemaMetadata]:
         self.parse_schema(self.endpoint_schema)
