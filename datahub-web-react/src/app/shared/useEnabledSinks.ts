@@ -2,6 +2,8 @@ import { useGetGlobalSettingsQuery } from '../../graphql/settings.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../settings/platform/types';
 import { isSinkEnabled } from '../settings/utils';
 
+// todo - this is a little rough, rather than a strict bool lets try to do something more dynamic?
+
 // todo - put this everywhere we can, ie grep for useGetGlobalSettingsQuery
 const useEnabledSinks = () => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();

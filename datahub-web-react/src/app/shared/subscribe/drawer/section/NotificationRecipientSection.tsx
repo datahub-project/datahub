@@ -102,6 +102,7 @@ export default function NotificationRecipientSection({
     saveSlackSinkAsDefault,
     setSaveSlackSinkAsDefault,
 }: Props) {
+    // todo - can we get the specific sink from somewhere instead of from another query here?
     const { slackSinkEnabled } = useEnabledSinks();
 
     const [inputSlackValue, setInputSlackValue] = useState<string>(isPersonal ? '@' : '#');
@@ -119,8 +120,6 @@ export default function NotificationRecipientSection({
         }
     }, [saveSlackSinkAsDefault, inputSlackValue, setCustomSlackSink]);
 
-    const disabled = !allowEditing || !slackSinkEnabled;
-
     return (
         <>
             <NotificationRecipientContainer>
@@ -128,7 +127,7 @@ export default function NotificationRecipientSection({
                 <NotificationSwitchContainer>
                     {/* todo - test and add copy */}
                     <StyledSwitch
-                        disabled={disabled}
+                        disabled={!slackSinkEnabled}
                         row={SLACK_TOP_ROW}
                         size="small"
                         checked={allowEditing}
@@ -140,64 +139,63 @@ export default function NotificationRecipientSection({
                         }}
                     />
                     <NotificationTypeText row={SLACK_TOP_ROW}>Slack Notifications</NotificationTypeText>
-                    {!slackSinkEnabled && (
+                    {slackSinkEnabled ? (
+                        <Radio.Group
+                            disabled={!allowEditing || !slackSinkEnabled}
+                            style={{
+                                gridRow: SLACK_TOP_ROW + 2,
+                                gridColumn: 2,
+                            }}
+                            value={useDefaultSlackSink && slackSinkDefaultValue ? 'default' : 'custom'}
+                            onChange={(e) => {
+                                if (e.target.value === 'default') {
+                                    setUseDefaultSlackSink(true);
+                                    setCustomSlackSink(undefined);
+                                } else if (e.target.value === 'custom') {
+                                    setUseDefaultSlackSink(false);
+                                    setCustomSlackSink(inputSlackValue);
+                                }
+                            }}
+                        >
+                            <Space direction="vertical">
+                                {slackSinkDefaultValue && <Radio value="default">{defaultText}</Radio>}
+                                <Radio value="custom">
+                                    <Form>
+                                        <StyledFormItem
+                                            name="slackFormValue"
+                                            rules={[
+                                                ({ getFieldValue }) => ({
+                                                    validator() {
+                                                        const fieldValue = getFieldValue('slackFormValue');
+                                                        return isPersonal
+                                                            ? validateSlackUserHandle(fieldValue)
+                                                            : validateGroupSlackChannel(fieldValue);
+                                                    },
+                                                }),
+                                            ]}
+                                        >
+                                            <StyledInput
+                                                placeholder={isPersonal ? '@user' : '#channel'}
+                                                disabled={!allowEditing || !slackSinkEnabled}
+                                                value={inputSlackValue}
+                                                status={inputSlackValueIsValid ? undefined : 'error'}
+                                                onChange={(e) => {
+                                                    setInputSlackValue(e.target.value);
+                                                    if (!useDefaultSlackSink) {
+                                                        setCustomSlackSink(e.target.value);
+                                                    }
+                                                }}
+                                            />
+                                        </StyledFormItem>
+                                    </Form>
+                                </Radio>
+                            </Space>
+                        </Radio.Group>
+                    ) : (
                         <DisabledText>
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    <Radio.Group
-                        disabled={disabled}
-                        style={{
-                            gridRow: SLACK_TOP_ROW + 2,
-                            gridColumn: 2,
-                            // conditionally render?
-                            visibility: disabled ? 'hidden' : 'visible',
-                        }}
-                        value={useDefaultSlackSink && slackSinkDefaultValue ? 'default' : 'custom'}
-                        onChange={(e) => {
-                            if (e.target.value === 'default') {
-                                setUseDefaultSlackSink(true);
-                                setCustomSlackSink(undefined);
-                            } else if (e.target.value === 'custom') {
-                                setUseDefaultSlackSink(false);
-                                setCustomSlackSink(inputSlackValue);
-                            }
-                        }}
-                    >
-                        <Space direction="vertical">
-                            {slackSinkDefaultValue && <Radio value="default">{defaultText}</Radio>}
-                            <Radio value="custom">
-                                <Form>
-                                    <StyledFormItem
-                                        name="slackFormValue"
-                                        rules={[
-                                            ({ getFieldValue }) => ({
-                                                validator() {
-                                                    const fieldValue = getFieldValue('slackFormValue');
-                                                    return isPersonal
-                                                        ? validateSlackUserHandle(fieldValue)
-                                                        : validateGroupSlackChannel(fieldValue);
-                                                },
-                                            }),
-                                        ]}
-                                    >
-                                        <StyledInput
-                                            placeholder={isPersonal ? '@user' : '#channel'}
-                                            disabled={disabled}
-                                            value={inputSlackValue}
-                                            status={inputSlackValueIsValid ? undefined : 'error'}
-                                            onChange={(e) => {
-                                                setInputSlackValue(e.target.value);
-                                                if (!useDefaultSlackSink) {
-                                                    setCustomSlackSink(e.target.value);
-                                                }
-                                            }}
-                                        />
-                                    </StyledFormItem>
-                                </Form>
-                            </Radio>
-                        </Space>
-                    </Radio.Group>
                     {!slackSinkDefaultValue && (
                         <StyledCheckbox
                             row={slackSinkDefaultValue ? SLACK_TOP_ROW + 5 : SLACK_TOP_ROW + 4}
