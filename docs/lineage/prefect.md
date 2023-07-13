@@ -24,11 +24,11 @@ prefect profile inspect
 
 ## Setup
 
-For setup detail please refer [prefct-datahub](https://prefecthq.github.io/prefect-datahub/).
+For setup details please refer [prefect-datahub](https://prefecthq.github.io/prefect-datahub/).
 
 ## How to validate saved block and emit of metadata
 
-1. Go and check in Prefect UI at Blocks menu if you can see the datahub emitter.
+1. Go and check in Prefect UI at the Blocks menu if you can see the datahub emitter.
 2. Run a Prefect workflow. In the flow logs, you should see Datahub related log messages like:
 
 ```
