@@ -9,6 +9,7 @@ import { UpstreamsColumn } from './table/UpstreamsColumn';
 import { EditSubscriptionColumn } from './table/EditSubscriptionColumn';
 import { SubscribedSinceColumn } from './table/SubscribedSinceColumn';
 import { scrollToTop } from '../../../shared/searchUtils';
+import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../notifications/constants';
 
 const PAGE_SIZE = 10;
 
@@ -99,12 +100,16 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             sorter: (a: any, b: any) => a?.entityName?.localeCompare(b?.entityName),
             render: (_, record: any) => <EntityColumn subscription={record} />,
         },
-        {
-            title: <ColumnTitle>Subscribed to Upstreams</ColumnTitle>,
-            dataIndex: 'upstreams',
-            key: 'upstreams',
-            render: (_, record: any) => <UpstreamsColumn subscription={record} />,
-        },
+        ...(ENABLE_UPSTREAM_NOTIFICATIONS
+            ? [
+                  {
+                      title: <ColumnTitle>Subscribed to Upstreams</ColumnTitle>,
+                      dataIndex: 'upstreams',
+                      key: 'upstreams',
+                      render: (_, record: any) => <UpstreamsColumn subscription={record} />,
+                  },
+              ]
+            : []),
         {
             title: <ColumnTitle>Subscribed Since</ColumnTitle>,
             dataIndex: 'since',
