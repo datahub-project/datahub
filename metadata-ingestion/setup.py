@@ -126,12 +126,14 @@ sql_common = {
 }
 
 sqllineage_lib = {
-    "sqllineage==1.3.6",
+    "sqllineage==1.4.5 ;  python_version >= '3.8'",
+
+    "sqllineage==1.3.6 ;  python_version < '3.8'",
     # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
     # As per https://github.com/reata/sqllineage/issues/361
     # and https://github.com/reata/sqllineage/pull/360
     # sqllineage has compat issues with sqlparse 0.4.4.
-    "sqlparse==0.4.3",
+    "sqlparse==0.4.3 ;  python_version < '3.8'",
 }
 
 sqlglot_lib = {
