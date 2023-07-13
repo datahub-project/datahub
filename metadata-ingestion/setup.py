@@ -57,7 +57,8 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    "jsonschema",
+    # jsonschema drops python 3.7 support in v4.18.0
+    "jsonschema<=4.17.3",
     "ruamel.yaml",
 }
 
