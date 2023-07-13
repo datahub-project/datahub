@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Checkbox, Form, Input, Radio, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NotificationSinkType } from '../../../../../types.generated';
 import {
     isGroupSlackChannelValid,
@@ -10,9 +11,8 @@ import {
     validateGroupSlackChannel,
     validateSlackUserHandle,
 } from '../../../../settings/personal/utils';
-import useEnabledSinks from '../../../useEnabledSinks';
-
-const SLACK_TOP_ROW = 1;
+import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
+import { isSinkEnabled } from '../../../../settings/utils';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -35,18 +35,20 @@ const NotificationSwitchContainer = styled.div`
     align-items: center;
 `;
 
-const StyledSwitch = styled(Switch)<{ row: number }>`
+const StyledSwitch = styled(Switch)`
     grid-column: 1;
-    grid-row: ${({ row }) => row};
 `;
 
-const NotificationTypeText = styled(Typography.Text)<{ row: number }>`
+const StyledRadioGroup = styled(Radio.Group)`
+    grid-column: 2;
+`;
+
+const NotificationTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
     line-height: 20px;
     font-weight: 700;
     grid-column: 2;
-    grid-row: ${({ row }) => row};
 `;
 
 const DisabledText = styled(Typography.Text)`
@@ -64,10 +66,8 @@ const StyledInput = styled(Input)`
     border-color: ${ANTD_GRAY[8]};
 `;
 
-const StyledCheckbox = styled(Checkbox)<{ row: number }>`
+const StyledCheckbox = styled(Checkbox)`
     grid-column: 2;
-    margin-left: 24px;
-    grid-row: ${({ row }) => row};
     border: 0.3px solid #ffffff;
 `;
 
@@ -102,8 +102,9 @@ export default function NotificationRecipientSection({
     saveSlackSinkAsDefault,
     setSaveSlackSinkAsDefault,
 }: Props) {
-    // todo - can we get the specific sink from somewhere instead of from another query here?
-    const { slackSinkEnabled } = useEnabledSinks();
+    const { data: globalSettings } = useGetGlobalSettingsQuery();
+    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
+    const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
     const [inputSlackValue, setInputSlackValue] = useState<string>(isPersonal ? '@' : '#');
     const [useDefaultSlackSink, setUseDefaultSlackSink] = useState<boolean>(true);
@@ -125,10 +126,8 @@ export default function NotificationRecipientSection({
             <NotificationRecipientContainer>
                 <NotificationRecipientTitle>Send notifications via</NotificationRecipientTitle>
                 <NotificationSwitchContainer>
-                    {/* todo - test and add copy */}
                     <StyledSwitch
                         disabled={!slackSinkEnabled}
-                        row={SLACK_TOP_ROW}
                         size="small"
                         checked={allowEditing}
                         onChange={(checked) => {
@@ -138,14 +137,10 @@ export default function NotificationRecipientSection({
                             );
                         }}
                     />
-                    <NotificationTypeText row={SLACK_TOP_ROW}>Slack Notifications</NotificationTypeText>
+                    <NotificationTypeText>Slack Notifications</NotificationTypeText>
                     {slackSinkEnabled ? (
-                        <Radio.Group
+                        <StyledRadioGroup
                             disabled={!allowEditing || !slackSinkEnabled}
-                            style={{
-                                gridRow: SLACK_TOP_ROW + 2,
-                                gridColumn: 2,
-                            }}
                             value={useDefaultSlackSink && slackSinkDefaultValue ? 'default' : 'custom'}
                             onChange={(e) => {
                                 if (e.target.value === 'default') {
@@ -190,7 +185,7 @@ export default function NotificationRecipientSection({
                                     </Form>
                                 </Radio>
                             </Space>
-                        </Radio.Group>
+                        </StyledRadioGroup>
                     ) : (
                         <DisabledText>
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
@@ -198,7 +193,6 @@ export default function NotificationRecipientSection({
                     )}
                     {!slackSinkDefaultValue && (
                         <StyledCheckbox
-                            row={slackSinkDefaultValue ? SLACK_TOP_ROW + 5 : SLACK_TOP_ROW + 4}
                             onChange={() => {
                                 setSaveSlackSinkAsDefault(!saveSlackSinkAsDefault);
                             }}
