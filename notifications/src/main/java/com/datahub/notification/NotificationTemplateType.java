@@ -136,6 +136,17 @@ public enum NotificationTemplateType {
             "subResourceType",
             "subResourceUrn"
         )
+    ),
+    /**
+     * Broadcast an Assertion status change as a FAILURE or SUCCESS
+     */
+    BROADCAST_ASSERTION_STATUS_CHANGE(
+        ImmutableSet.of(
+            "entityName",
+            "entityPath",
+            "result"
+        ),
+        Collections.emptySet()
     );
 
   private final Set<String> requiredParameters;

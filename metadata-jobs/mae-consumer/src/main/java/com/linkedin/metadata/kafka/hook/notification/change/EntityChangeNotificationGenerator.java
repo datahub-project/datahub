@@ -7,6 +7,9 @@ import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionResult;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -51,6 +54,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Import;
 
+import static com.linkedin.metadata.Constants.ASSERTION_RESULT_KEY;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
 
@@ -97,7 +101,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       Constants.DEPRECATION_ASPECT_NAME,
       Constants.SCHEMA_METADATA_ASPECT_NAME,
       Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-      Constants.DOMAINS_ASPECT_NAME
+      Constants.DOMAINS_ASPECT_NAME,
+      Constants.ASSERTION_RUN_EVENT_ASPECT_NAME
   );
   /**
    * The list of entities that are supported for generating semantic change events.
@@ -110,7 +115,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       Constants.DATA_FLOW_ENTITY_NAME,
       Constants.DATA_JOB_ENTITY_NAME,
       Constants.DOMAIN_ENTITY_NAME,
-      Constants.TAG_ENTITY_NAME
+      Constants.TAG_ENTITY_NAME,
+      Constants.ASSERTION_ENTITY_NAME
   );
   /**
    * The list of aspects that are supported for generating semantic change events.
@@ -217,6 +223,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
         trySendDatasetSchemaFieldChangeNotifications(logEvent, changeEvents);
         trySendSchemaFieldTagChangeNotifications(logEvent, changeEvents);
         trySendSchemaFieldGlossaryTermChangeNotifications(logEvent, changeEvents);
+        break;
+      case Constants.ASSERTION_RUN_EVENT_ASPECT_NAME:
+        trySendAssertionRunEventChangeNotification(logEvent, changeEvents);
         break;
       default:
         log.warn(String.format("Found supported aspect that did not generate any notifications: %s", logEvent.getAspectName()));
@@ -633,6 +642,82 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     // 3. Send request.
     log.debug(String.format("Broadcasting entity change notification request for entity %s, notification type %s", entityUrn,
         notificationScenarioType));
+    sendNotificationRequest(notificationRequest);
+  }
+
+  private void trySendAssertionRunEventChangeNotification(final MetadataChangeLog logEvent, final List<ChangeEvent> changeEvents) {
+    List<ChangeEvent> completedAssertionEvents = changeEvents.stream()
+        .filter(changeEvent -> ChangeCategory.RUN.equals(changeEvent.getCategory()))
+        .filter(changeEvent -> ChangeOperation.COMPLETED.equals(changeEvent.getOperation()))
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY) != null)
+        .collect(Collectors.toList());
+
+    final AspectSpec aspectSpec = _entityRegistry
+        .getEntitySpec(logEvent.getEntityType())
+        .getAspectSpec(logEvent.getAspectName());
+
+    final RecordTemplate aspect = logEvent.getAspect() != null
+        ? GenericRecordUtils.deserializeAspect(
+        logEvent.getAspect().getValue(),
+        logEvent.getAspect().getContentType(),
+        aspectSpec)
+        : null;
+
+    final AssertionRunEvent runEvent = new AssertionRunEvent(aspect.data());
+
+    List<ChangeEvent> successfulAssertionEvents = completedAssertionEvents.stream()
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY).equals(AssertionResultType.SUCCESS.toString()))
+        .collect(Collectors.toList());
+
+    if (successfulAssertionEvents.size() > 0) {
+      sendAssertionChangeNotification(
+          EntityChangeType.ASSERTION_PASSED,
+          AssertionResultType.SUCCESS,
+          runEvent.getAsserteeUrn()
+      );
+    }
+
+    List<ChangeEvent> failedAssertionEvents = completedAssertionEvents.stream()
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY).equals(AssertionResultType.FAILURE.toString()))
+        .collect(Collectors.toList());
+
+    if (failedAssertionEvents.size() > 0) {
+      sendAssertionChangeNotification(
+          EntityChangeType.ASSERTION_FAILED,
+          AssertionResultType.FAILURE,
+          runEvent.getAsserteeUrn()
+      );
+    }
+  }
+
+  private void sendAssertionChangeNotification(
+      final EntityChangeType entityChangeType,
+      final AssertionResultType result,
+      final Urn entityUrn
+  ) {
+    // 1. Determine who to send to.
+    final Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.ASSERTION_STATUS_CHANGE, entityUrn, entityChangeType));
+
+    if (recipients.isEmpty()) {
+      return;
+    }
+
+    // 2. Build request.
+    final String entityName = _entityNameProvider.getName(entityUrn);
+    final Map<String, String> templateParams = new HashMap<>();
+    templateParams.put("entityName", entityName);
+    templateParams.put("entityPath", generateEntityPath(entityUrn));
+    templateParams.put("result", result.toString());
+
+    final NotificationRequest notificationRequest = buildNotificationRequest(
+        NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name(),
+        templateParams,
+        recipients
+    );
+
+    // 3. Send request.
+    log.debug(String.format("Broadcasting entity change notification request for entity %s, notification type %s", entityUrn,
+        NotificationScenarioType.ASSERTION_STATUS_CHANGE));
     sendNotificationRequest(notificationRequest);
   }
 

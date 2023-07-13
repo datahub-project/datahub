@@ -8,6 +8,10 @@ enum NotificationTemplateType {
     * Ownership change notification template.
     */
     OWNERSHIP_CHANGE
+    /**
+    * Ownership change notification template.
+    */
+    BROADCAST_ASSERTION_STATUS_CHANGE
 
     /**
     * Legacy template types to support backwards compatibility.

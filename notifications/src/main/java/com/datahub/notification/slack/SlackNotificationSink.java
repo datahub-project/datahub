@@ -22,6 +22,7 @@ import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+import com.linkedin.subscription.EntityChangeType;
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
 import com.slack.api.methods.SlackApiException;
@@ -72,7 +73,8 @@ public class SlackNotificationSink implements NotificationSink {
       NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
       NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
       NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
-      NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE
+      NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
+      NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE
   );
   // TODO: consolidate this fricken duplicated mess
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
@@ -211,6 +213,8 @@ public class SlackNotificationSink implements NotificationSink {
       case BROADCAST_INGESTION_RUN_CHANGE:
         sendBroadcastNotification(notificationRequest.getRecipients(), buildIngestionRunChangeMessage(notificationRequest));
         break;
+      case BROADCAST_ASSERTION_STATUS_CHANGE:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildAssertionStatusChangeMessage(notificationRequest));
       default:
         throw new UnsupportedOperationException(String.format(
             "Unsupported template type %s providing to %s",
@@ -519,6 +523,28 @@ public class SlackNotificationSink implements NotificationSink {
         sourceType,
         statusText,
         ingestionUrl
+    );
+  }
+
+private String buildAssertionStatusChangeMessage(NotificationRequest request) {
+    final String entityName = request.getMessage().getParameters().get("entityName");
+    final String entityPath = request.getMessage().getParameters().get("entityPath");
+    final String entityUrl = String.format("%s%s", this.baseUrl, entityPath);
+    final String result = request.getMessage().getParameters().get("result");
+
+    String resultString = result.equals(EntityChangeType.ASSERTION_PASSED.toString()) ? "passing" : "failing";
+    String emojiString = result.equals(EntityChangeType.ASSERTION_PASSED.toString()) ? ":white_check_mark:" : ":warning:";
+
+    /*
+     * Example:
+     *     - Assertion now failing on SampleHiveDataset
+     *     - Assertion now passing on SampleHiveDataset
+     */
+    return String.format("%s  Assertion now *%s* on *<%s|%s>*",
+        emojiString,
+        resultString,
+        entityUrl,
+        entityName
     );
   }
 
