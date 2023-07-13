@@ -1682,7 +1682,7 @@ class TableauSource(StatefulIngestionSourceBase):
             )
 
     def _get_datasource_container_key(self, datasource, workbook, is_embedded_ds):
-        container_key: Optional[PlatformKey] = None
+        container_key: Optional[ContainerKey] = None
         if is_embedded_ds:  # It is embedded then parent is container is workbook
             if workbook is not None:
                 container_key = self.gen_workbook_key(workbook)
