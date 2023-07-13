@@ -1,5 +1,4 @@
 import subprocess
-import time
 from typing import Any, Dict, List, cast
 from unittest import mock
 
@@ -35,6 +34,13 @@ def is_mysql_up(container_name: str, port: int) -> bool:
     return ret.returncode == 0
 
 
+def have_connectors_processed(container_name: str) -> bool:
+    """A cheap way to figure out if postgres is responsive on a container"""
+
+    cmd = f"docker logs {container_name} 2>&1 | grep 'Session key updated'"
+    return subprocess.run(cmd, shell=True).returncode == 0
+
+
 @pytest.fixture(scope="module")
 def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir):
     test_resources_dir_kafka = pytestconfig.rootpath / "tests/integration/kafka"
@@ -67,10 +73,7 @@ def kafka_connect_runner(docker_compose_runner, pytestconfig, test_resources_dir
         docker_services.wait_until_responsive(
             timeout=30,
             pause=1,
-            check=lambda: requests.get(
-                KAFKA_CONNECT_ENDPOINT,
-            ).status_code
-            == 200,
+            check=lambda: requests.get(KAFKA_CONNECT_ENDPOINT).status_code == 200,
         )
         yield docker_services
 
@@ -82,13 +85,8 @@ def test_resources_dir(pytestconfig):
 
 @pytest.fixture(scope="module")
 def loaded_kafka_connect(kafka_connect_runner):
-    # Set up the container.
-    time.sleep(10)
-
-    # Setup mongo cluster
-    command = (
-        'docker exec test_mongo mongo admin -u admin -p admin --eval "rs.initiate();"'
-    )
+    # # Setup mongo cluster
+    command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-init.js"
     ret = subprocess.run(
         command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
     )
@@ -99,17 +97,17 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                        "name": "mysql_source1",
-                        "config": {
-                            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-                            "mode": "incrementing",
-                            "incrementing.column.name": "id",
-                            "topic.prefix": "test-mysql-jdbc-",
-                            "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
-                        }
-                    }
-                    """,
+            "name": "mysql_source1",
+            "config": {
+                "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "mode": "incrementing",
+                "incrementing.column.name": "id",
+                "topic.prefix": "test-mysql-jdbc-",
+                "tasks.max": "1",
+                "connection.url": "${env:MYSQL_CONNECTION_URL}"
+            }
+        }
+        """,
     )
     assert r.status_code == 201  # Created
     # Creating MySQL source with regex router transformations , only topic prefix
@@ -117,20 +115,20 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                        "name": "mysql_source2",
-                        "config": {
-                            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-                            "mode": "incrementing",
-                            "incrementing.column.name": "id",
-                            "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}",
-                            "transforms": "TotalReplacement",
-                            "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
-                            "transforms.TotalReplacement.regex": ".*(book)",
-                            "transforms.TotalReplacement.replacement": "my-new-topic-$1"
-                        }
-                    }
-                    """,
+            "name": "mysql_source2",
+            "config": {
+                "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "mode": "incrementing",
+                "incrementing.column.name": "id",
+                "tasks.max": "1",
+                "connection.url": "${env:MYSQL_CONNECTION_URL}",
+                "transforms": "TotalReplacement",
+                "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.TotalReplacement.regex": ".*(book)",
+                "transforms.TotalReplacement.replacement": "my-new-topic-$1"
+            }
+        }
+        """,
     )
     assert r.status_code == 201  # Created
     # Creating MySQL source with regex router transformations , no topic prefix, table whitelist
@@ -138,21 +136,21 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                        "name": "mysql_source3",
-                        "config": {
-                            "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-                            "mode": "incrementing",
-                            "incrementing.column.name": "id",
-                            "table.whitelist": "book",
-                            "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}",
-                            "transforms": "TotalReplacement",
-                            "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
-                            "transforms.TotalReplacement.regex": ".*",
-                            "transforms.TotalReplacement.replacement": "my-new-topic"
-                        }
-                    }
-                    """,
+            "name": "mysql_source3",
+            "config": {
+                "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "mode": "incrementing",
+                "incrementing.column.name": "id",
+                "table.whitelist": "book",
+                "tasks.max": "1",
+                "connection.url": "${env:MYSQL_CONNECTION_URL}",
+                "transforms": "TotalReplacement",
+                "transforms.TotalReplacement.type": "org.apache.kafka.connect.transforms.RegexRouter",
+                "transforms.TotalReplacement.regex": ".*",
+                "transforms.TotalReplacement.replacement": "my-new-topic"
+            }
+        }
+        """,
     )
     assert r.status_code == 201  # Created
     # Creating MySQL source with query , topic prefix
@@ -201,17 +199,17 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                        "name": "mysql_sink",
-                        "config": {
-                            "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
-                            "insert.mode": "insert",
-                            "auto.create": true,
-                            "topics": "my-topic",
-                            "tasks.max": "1",
-                            "connection.url": "${env:MYSQL_CONNECTION_URL}"
-                        }
-                    }
-                    """,
+            "name": "mysql_sink",
+            "config": {
+                "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+                "insert.mode": "insert",
+                "auto.create": true,
+                "topics": "my-topic",
+                "tasks.max": "1",
+                "connection.url": "${env:MYSQL_CONNECTION_URL}"
+            }
+        }
+        """,
     )
     assert r.status_code == 201  # Created
 
@@ -220,21 +218,22 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                        "name": "debezium-mysql-connector",
-                        "config": {
-                            "name": "debezium-mysql-connector",
-                            "connector.class": "io.debezium.connector.mysql.MySqlConnector",
-                            "database.hostname": "test_mysql",
-                            "database.port": "3306",
-                            "database.user": "root",
-                            "database.password": "rootpwd",
-                            "database.server.name": "debezium.topics",
-                            "database.history.kafka.bootstrap.servers": "test_broker:9092",
-                            "database.history.kafka.topic": "dbhistory.debeziummysql",
-                            "include.schema.changes": "false"
-                        }
-                    }
-                    """,
+            "name": "debezium-mysql-connector",
+            "config": {
+                "name": "debezium-mysql-connector",
+                "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+                "database.hostname": "test_mysql",
+                "database.port": "3306",
+                "database.user": "root",
+                "database.password": "rootpwd",
+                "database.server.name": "debezium.topics",
+                "database.history.kafka.bootstrap.servers": "test_broker:9092",
+                "database.history.kafka.topic": "dbhistory.debeziummysql",
+                "database.allowPublicKeyRetrieval": "true",
+                "include.schema.changes": "false"
+            }
+        }
+        """,
     )
     assert r.status_code == 201  # Created
 
@@ -243,17 +242,17 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                    "name": "postgres_source",
-                    "config": {
-                        "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
-                        "mode": "incrementing",
-                        "incrementing.column.name": "id",
-                        "table.whitelist": "member",
-                        "topic.prefix": "test-postgres-jdbc-",
-                        "tasks.max": "1",
-                        "connection.url": "${env:POSTGRES_CONNECTION_URL}"
-                    }
-                }""",
+            "name": "postgres_source",
+            "config": {
+                "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+                "mode": "incrementing",
+                "incrementing.column.name": "id",
+                "table.whitelist": "member",
+                "topic.prefix": "test-postgres-jdbc-",
+                "tasks.max": "1",
+                "connection.url": "${env:POSTGRES_CONNECTION_URL}"
+            }
+        }""",
     )
     assert r.status_code == 201  # Created
 
@@ -262,19 +261,19 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data="""{
-                    "name": "generic_source",
-                    "config": {
-                        "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
-                        "kafka.topic": "my-topic",
-                        "quickstart": "product",
-                        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
-                        "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-                        "value.converter.schemas.enable": "false",
-                        "max.interval": 1000,
-                        "iterations": 10000000,
-                        "tasks.max": "1"
-                    }
-                }""",
+            "name": "generic_source",
+            "config": {
+                "connector.class": "io.confluent.kafka.connect.datagen.DatagenConnector",
+                "kafka.topic": "my-topic",
+                "quickstart": "product",
+                "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+                "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+                "value.converter.schemas.enable": "false",
+                "max.interval": 1000,
+                "iterations": 10000000,
+                "tasks.max": "1"
+            }
+        }""",
     )
     r.raise_for_status()
     assert r.status_code == 201  # Created
@@ -284,37 +283,31 @@ def loaded_kafka_connect(kafka_connect_runner):
         KAFKA_CONNECT_ENDPOINT,
         headers={"Content-Type": "application/json"},
         data=r"""{
-                    "name": "source_mongodb_connector",
-                    "config": {
-                        "tasks.max": "1",
-                        "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
-                        "connection.uri": "mongodb://admin:admin@test_mongo:27017",
-                        "topic.prefix": "mongodb",
-                        "database": "test_db",
-                        "collection": "purchases",
-                        "copy.existing": true,
-                        "copy.existing.namespace.regex": "test_db.purchases",
-                        "change.stream.full.document": "updateLookup",
-                        "topic.creation.enable": "true",
-                        "topic.creation.default.replication.factor": "-1",
-                        "topic.creation.default.partitions": "-1",
-                        "output.json.formatter": "com.mongodb.kafka.connect.source.json.formatter.SimplifiedJson",
-                        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
-                        "value.converter": "org.apache.kafka.connect.storage.StringConverter",
-                        "key.converter.schemas.enable": false,
-                        "value.converter.schemas.enable": false,
-                        "output.format.key": "schema",
-                        "output.format.value": "json",
-                        "output.schema.infer.value": false,
-                        "publish.full.document.only":true
-                    }
-                }""",
+            "name": "source_mongodb_connector",
+            "config": {
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "connection.uri": "mongodb://test_mongo:27017",
+                "topic.prefix": "mongodb",
+                "database": "test_db",
+                "collection": "purchases"
+            }
+        }""",
     )
     r.raise_for_status()
     assert r.status_code == 201  # Created
 
+    command = "docker exec test_mongo mongosh test_db -f /scripts/mongo-populate.js"
+    ret = subprocess.run(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    assert ret.returncode == 0
+
     # Give time for connectors to process the table data
-    time.sleep(60)
+    kafka_connect_runner.wait_until_responsive(
+        timeout=30,
+        pause=1,
+        check=lambda: have_connectors_processed("test_connect"),
+    )
 
 
 @freeze_time(FROZEN_TIME)

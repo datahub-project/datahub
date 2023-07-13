@@ -13,6 +13,7 @@ from google.cloud.bigquery.table import Row, TableListItem
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
@@ -22,7 +23,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryProject,
     BigqueryView,
 )
-from datahub.ingestion.source.bigquery_v2.lineage import LineageEdge
+from datahub.ingestion.source.bigquery_v2.lineage import (
+    LineageEdge,
+    LineageEdgeColumnMapping,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
 from datahub.metadata.schema_classes import MetadataChangeProposalClass
 
@@ -261,8 +265,14 @@ def test_simple_upstream_table_generation():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    lineage_metadata = {str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())}}
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    lineage_metadata = {
+        str(a): {
+            LineageEdge(
+                table=str(b), auditStamp=datetime.now(), column_mapping=frozenset()
+            )
+        }
+    }
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
 
     assert len(upstreams) == 1
     assert list(upstreams)[0].table == str(b)
@@ -287,12 +297,18 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream():
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
-    lineage_metadata = {str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())}}
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    lineage_metadata = {
+        str(a): {
+            LineageEdge(
+                table=str(b), auditStamp=datetime.now(), column_mapping=frozenset()
+            )
+        }
+    }
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
     assert list(upstreams) == []
 
 
-def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
+def test_upstream_table_column_lineage_with_temp_table():
     from datahub.ingestion.api.common import PipelineContext
 
     a: BigQueryTableRef = BigQueryTableRef(
@@ -319,12 +335,51 @@ def test_upstream_table_generation_with_temporary_table_with_temp_upstream():
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     lineage_metadata = {
-        str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())},
-        str(b): {LineageEdge(table=str(c), auditStamp=datetime.now())},
+        str(a): {
+            LineageEdge(
+                table=str(b),
+                auditStamp=datetime.now(),
+                column_mapping=frozenset(
+                    [
+                        LineageEdgeColumnMapping(
+                            "a_col1", in_columns=frozenset(["b_col2", "b_col3"])
+                        )
+                    ]
+                ),
+                column_confidence=0.8,
+            )
+        },
+        str(b): {
+            LineageEdge(
+                table=str(c),
+                auditStamp=datetime.now(),
+                column_mapping=frozenset(
+                    [
+                        LineageEdgeColumnMapping(
+                            "b_col2", in_columns=frozenset(["c_col1", "c_col2"])
+                        ),
+                        LineageEdgeColumnMapping(
+                            "b_col3", in_columns=frozenset(["c_col2", "c_col3"])
+                        ),
+                    ]
+                ),
+                column_confidence=0.7,
+            )
+        },
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
     assert len(upstreams) == 1
-    assert list(upstreams)[0].table == str(c)
+
+    upstream = list(upstreams)[0]
+    assert upstream.table == str(c)
+    assert upstream.column_mapping == frozenset(
+        [
+            LineageEdgeColumnMapping(
+                "a_col1", in_columns=frozenset(["c_col1", "c_col2", "c_col3"])
+            )
+        ]
+    )
+    assert upstream.column_confidence == 0.7
 
 
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream():
@@ -361,14 +416,26 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     lineage_metadata = {
-        str(a): {LineageEdge(table=str(b), auditStamp=datetime.now())},
-        str(b): {
-            LineageEdge(table=str(c), auditStamp=datetime.now()),
-            LineageEdge(table=str(d), auditStamp=datetime.now()),
+        str(a): {
+            LineageEdge(
+                table=str(b), auditStamp=datetime.now(), column_mapping=frozenset()
+            )
         },
-        str(d): {LineageEdge(table=str(e), auditStamp=datetime.now())},
+        str(b): {
+            LineageEdge(
+                table=str(c), auditStamp=datetime.now(), column_mapping=frozenset()
+            ),
+            LineageEdge(
+                table=str(d), auditStamp=datetime.now(), column_mapping=frozenset()
+            ),
+        },
+        str(d): {
+            LineageEdge(
+                table=str(e), auditStamp=datetime.now(), column_mapping=frozenset()
+            )
+        },
     }
-    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata, [])
+    upstreams = source.lineage_extractor.get_upstream_tables(a, lineage_metadata)
     sorted_list = list(upstreams)
     sorted_list.sort()
     assert sorted_list[0].table == str(c)
@@ -652,7 +719,7 @@ def test_get_table_and_shard_default(
 ) -> None:
     with patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_audit.BigqueryTableIdentifier._BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX",
-        "((.+)[_$])?(\\d{8})$",
+        _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
     ):
         assert BigqueryTableIdentifier.get_table_and_shard(table_name) == (
             expected_table_prefix,
