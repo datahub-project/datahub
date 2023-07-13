@@ -23,7 +23,6 @@ import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
-import com.linkedin.subscription.EntityChangeType;
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
 import com.slack.api.methods.SlackApiException;
@@ -216,6 +215,7 @@ public class SlackNotificationSink implements NotificationSink {
         break;
       case BROADCAST_ASSERTION_STATUS_CHANGE:
         sendBroadcastNotification(notificationRequest.getRecipients(), buildAssertionStatusChangeMessage(notificationRequest));
+        break;
       default:
         throw new UnsupportedOperationException(String.format(
             "Unsupported template type %s providing to %s",
