@@ -255,13 +255,6 @@ This advanced functionality allows of Admins of DataHub to closely control which
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-owners.png"/>
 </p>
 
-We can also grant the Privileges to the *owners* of the platform instance to which Entities (or *Resources*) belong to that are in scope for the Policy. 
-This advanced functionality allows of Admins of DataHub to closely control which actions can or cannot be performed by owners.
-
-<p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/policies-select-owners.png"/>
-</p>
-
 ### Updating an Existing Policy
 
 To update an existing Policy, simply click the **Edit** on the Policy you wish to change.
