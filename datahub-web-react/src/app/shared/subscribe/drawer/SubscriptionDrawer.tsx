@@ -149,6 +149,7 @@ export default function SubscriptionDrawer({
     };
 
     const entityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
+
     const notificationSettings: NotificationSettingsInput | undefined = customSlackSink
         ? {
               slackSettings: {
