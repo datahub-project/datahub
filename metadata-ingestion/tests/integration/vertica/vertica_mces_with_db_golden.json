@@ -2826,7 +2826,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(date_dimension.date_key)",
-                            "projection_size": "138 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -3237,7 +3237,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(product_dimension.product_key, product_dimension.product_version)",
-                            "projection_size": "19 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -3648,7 +3648,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(promotion_dimension.promotion_key)",
-                            "projection_size": "3 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -3942,7 +3942,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(vendor_dimension.vendor_key)",
-                            "projection_size": "1 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -4184,7 +4184,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(customer_dimension.customer_key)",
-                            "projection_size": "2119 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -4595,7 +4595,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(employee_dimension.employee_key)",
-                            "projection_size": "327 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -4967,7 +4967,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(warehouse_dimension.warehouse_key)",
-                            "projection_size": "2 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -5183,7 +5183,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(shipping_dimension.shipping_key)",
-                            "projection_size": "1 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -5373,7 +5373,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(inventory_fact.date_key, inventory_fact.product_key, inventory_fact.product_version, inventory_fact.warehouse_key, inventory_fact.qty_in_stock)",
-                            "projection_size": "2566 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -6369,7 +6369,7 @@
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "create_time": "2023-06-29 10:41:23.607859+00:00",
-                            "table_size": "225089 KB"
+                            "table_size": "0 KB"
                         },
                         "name": "store_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -6701,7 +6701,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(store_dimension.store_key)",
-                            "projection_size": "2 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -7069,11 +7069,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "ROS_Count": "2",
+                            "ROS_Count": "1",
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(store_sales_fact.date_key, store_sales_fact.product_key, store_sales_fact.product_version, store_sales_fact.store_key, store_sales_fact.promotion_key, store_sales_fact.customer_key, store_sales_fact.employee_key, store_sales_fact.pos_transaction_number)",
-                            "projection_size": "225089 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -7432,7 +7432,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(store_orders_fact.product_key, store_orders_fact.product_version, store_orders_fact.store_key, store_orders_fact.vendor_key, store_orders_fact.employee_key, store_orders_fact.order_number, store_orders_fact.date_ordered, store_orders_fact.date_shipped)",
-                            "projection_size": "8648 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -8721,7 +8721,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(online_page_dimension.online_page_key)",
-                            "projection_size": "9 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -8937,7 +8937,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(call_center_dimension.call_center_key)",
-                            "projection_size": "6 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -9231,7 +9231,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(online_sales_fact.sale_date_key, online_sales_fact.ship_date_key, online_sales_fact.product_key, online_sales_fact.product_version, online_sales_fact.customer_key, online_sales_fact.call_center_key, online_sales_fact.online_page_key, online_sales_fact.shipping_key)",
-                            "projection_size": "182385 KB",
+                            "projection_size": "0 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
