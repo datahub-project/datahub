@@ -40,6 +40,7 @@ import {
 import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
+import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -120,9 +121,9 @@ export default function SubscriptionDrawer({
         const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
         const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
         const isSlackAndSubscriptionEnabled = slackSinkEnabled && sinkTypes.includes(NotificationSinkType.Slack);
-        const hasUpstreamSubscription = !!subscription?.subscriptionTypes?.includes(
-            SubscriptionType.UpstreamEntityChange,
-        );
+        const hasUpstreamSubscription =
+            ENABLE_UPSTREAM_NOTIFICATIONS &&
+            !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
 
         setCheckedKeys(entityChangeTypes);
         setSubscribeToUpstream(hasUpstreamSubscription);
@@ -261,8 +262,7 @@ export default function SubscriptionDrawer({
             {showBottomDrawerSection && (
                 <>
                     <NotificationTypesSection checkedKeys={checkedKeys} setCheckedKeys={setCheckedKeys} />
-                    {/* todo - this is disabled until we have a proper implementation */}
-                    {false && (
+                    {ENABLE_UPSTREAM_NOTIFICATIONS && (
                         <UpstreamSection
                             entityUrn={entityUrn}
                             entityType={entityType}
