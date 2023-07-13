@@ -48,6 +48,7 @@ from datahub.utilities.sqlglot_lineage import (
     SqlParsingResult,
     sqlglot_lineage,
 )
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ class SnowflakeLineageExtractor(
         view_definitions: MutableMapping[str, str],
     ) -> Iterable[MetadataWorkUnit]:
         views_processed = set()
-        if self.config.include_column_lineage:
+        if self.config.include_view_column_lineage:
             with PerfTimer() as timer:
                 for view_identifier, view_definition in view_definitions.items():
                     result = self._run_sql_parser(
@@ -213,12 +214,10 @@ class SnowflakeLineageExtractor(
             results = self._fetch_upstream_lineages_for_views()
             self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
 
-        if not results:
-            return
-
-        yield from self._gen_workunits_from_query_result(
-            set(discovered_views) - views_processed, results, upstream_for_view=True
-        )
+        if results:
+            yield from self._gen_workunits_from_query_result(
+                set(discovered_views) - views_processed, results, upstream_for_view=True
+            )
         logger.info(
             f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
         )
@@ -316,10 +315,13 @@ class SnowflakeLineageExtractor(
         for column_lineage in result.column_lineage or []:
             out_column = column_lineage.downstream.column
             for upstream_column_info in column_lineage.upstreams:
+                upstream_table_name = DatasetUrn.create_from_string(
+                    upstream_column_info.table
+                ).get_dataset_name()
                 fine_lineage[out_column].add(
                     SnowflakeColumnId(
                         columnName=upstream_column_info.column,
-                        objectName=upstream_column_info.table,
+                        objectName=upstream_table_name,
                         objectDomain=SnowflakeObjectDomain.VIEW.value,
                     )
                 )
