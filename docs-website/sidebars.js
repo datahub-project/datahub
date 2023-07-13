@@ -620,7 +620,6 @@ module.exports = {
     //"docs/demo/graph-onboarding",
     //"metadata-ingestion-modules/airflow-plugin/README"
     //"metadata-ingestion-modules/prefect-datahub/README"
-    //"metadata-ingestion-modules/prefect-datahub/MAINTAINERS"
     //"metadata-ingestion-modules/prefect-datahub/docs/concept_mapping"
     //"metadata-ingestion-modules/prefect-datahub/docs/datahub_emitter"
     // "metadata-ingestion/schedule_docs/datahub", // we can delete this
