@@ -757,7 +757,7 @@ class SnowflakeV2Source(
             )
             self.db_tables[schema_name] = tables
 
-            if self.config.include_technical_schema:
+            if self.config.include_technical_schema or self.config.parse_view_ddl:
                 for table in tables:
                     yield from self._process_table(table, schema_name, db_name)
 
@@ -768,7 +768,7 @@ class SnowflakeV2Source(
                     key = self.get_dataset_identifier(view.name, schema_name, db_name)
                     self.view_definitions[key] = view.view_definition
 
-            if self.config.include_technical_schema:
+            if self.config.include_technical_schema or self.config.parse_view_ddl:
                 for view in views:
                     yield from self._process_view(view, schema_name, db_name)
 
@@ -865,7 +865,16 @@ class SnowflakeV2Source(
                 for tag in table.column_tags[column_name]:
                     yield from self._process_tag(tag)
 
-        yield from self.gen_dataset_workunits(table, schema_name, db_name)
+            yield from self.gen_dataset_workunits(table, schema_name, db_name)
+        elif self.config.parse_view_ddl:
+            dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
+            dataset_urn = self.gen_dataset_urn(dataset_name)
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                urn=dataset_urn,
+                schema_metadata=self.get_schema_metadata(
+                    table, dataset_name, dataset_urn
+                ),
+            )
 
     def fetch_sample_data_for_classification(
         self, table, schema_name, db_name, dataset_name
@@ -981,7 +990,16 @@ class SnowflakeV2Source(
                 for tag in view.column_tags[column_name]:
                     yield from self._process_tag(tag)
 
-        yield from self.gen_dataset_workunits(view, schema_name, db_name)
+            yield from self.gen_dataset_workunits(view, schema_name, db_name)
+        elif self.config.parse_view_ddl:
+            dataset_name = self.get_dataset_identifier(view.name, schema_name, db_name)
+            dataset_urn = self.gen_dataset_urn(dataset_name)
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                urn=dataset_urn,
+                schema_metadata=self.get_schema_metadata(
+                    view, dataset_name, dataset_urn
+                ),
+            )
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         tag_identifier = tag.identifier()
@@ -1016,6 +1034,13 @@ class SnowflakeV2Source(
         ).as_workunit()
 
         schema_metadata = self.get_schema_metadata(table, dataset_name, dataset_urn)
+        if self.config.parse_view_ddl:
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                urn=dataset_urn,
+                schema_metadata=self.get_schema_metadata(
+                    table, dataset_name, dataset_urn
+                ),
+            )
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
@@ -1173,11 +1198,6 @@ class SnowflakeV2Source(
             ],
             foreignKeys=foreign_keys,
         )
-
-        if self.config.parse_view_ddl and isinstance(table, SnowflakeView):
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                dataset_urn, schema_metadata
-            )
 
         # TODO: classification is only run for snowflake tables.
         # Should we run classification for snowflake views as well?
