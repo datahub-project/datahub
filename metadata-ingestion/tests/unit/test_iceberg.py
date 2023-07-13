@@ -5,29 +5,31 @@ from typing import Any, Optional
 
 import pytest
 from pydantic import ValidationError
-from pyiceberg.schema import Schema
-from pyiceberg.types import (
-    BinaryType,
-    BooleanType,
-    DateType,
-    DecimalType,
-    DoubleType,
-    FixedType,
-    FloatType,
-    IcebergType,
-    IntegerType,
-    ListType,
-    LongType,
-    MapType,
-    NestedField,
-    PrimitiveType,
-    StringType,
-    StructType,
-    TimestampType,
-    TimestamptzType,
-    TimeType,
-    UUIDType,
-)
+
+if sys.version_info >= (3, 8):
+    from pyiceberg.schema import Schema
+    from pyiceberg.types import (
+        BinaryType,
+        BooleanType,
+        DateType,
+        DecimalType,
+        DoubleType,
+        FixedType,
+        FloatType,
+        IcebergType,
+        IntegerType,
+        ListType,
+        LongType,
+        MapType,
+        NestedField,
+        PrimitiveType,
+        StringType,
+        StructType,
+        TimestampType,
+        TimestamptzType,
+        TimeType,
+        UUIDType,
+    )
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.iceberg.iceberg import (
