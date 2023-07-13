@@ -118,7 +118,11 @@ export const SinkSettingsSection = ({
 
     return (
         <SinkSettings>
-            <Switch checked={allowEditing} disabled={!sinkEnabled} onChange={(checked) => setAllowEditing(checked)} />
+            <Switch
+                disabled={!sinkEnabled}
+                checked={allowEditing && sinkEnabled}
+                onChange={(checked) => setAllowEditing(checked)}
+            />
             <SinkTextContainer>
                 <SinkTitle strong>{`${sinkName} Notifications`}</SinkTitle>
                 <SinkDescription>{sinkEnabled ? sinkEnabledDescription : sinkDisabledDescription}</SinkDescription>

@@ -31,12 +31,15 @@ import {
     useUpdateSubscriptionMutation,
 } from '../../../../graphql/subscriptions.generated';
 import {
+    useGetGlobalSettingsQuery,
     useGetGroupNotificationSettingsQuery,
     useGetUserNotificationSettingsQuery,
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
 import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
+import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
+import { isSinkEnabled } from '../../../settings/utils';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -85,6 +88,10 @@ export default function SubscriptionDrawer({
     refetchEntitySubscriptionSummary,
     onDeleteSubscription,
 }: Props) {
+    const { data: globalSettings } = useGetGlobalSettingsQuery();
+    const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
+    const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+
     const [checkedKeys, setCheckedKeys] = useState<Key[]>([]);
     const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(false);
     const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
@@ -112,7 +119,7 @@ export default function SubscriptionDrawer({
     useEffect(() => {
         const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
         const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
-        const hasSlackSinkType = sinkTypes.includes(NotificationSinkType.Slack);
+        const isSlackAndSubscriptionEnabled = slackSinkEnabled && sinkTypes.includes(NotificationSinkType.Slack);
         const hasUpstreamSubscription = !!subscription?.subscriptionTypes?.includes(
             SubscriptionType.UpstreamEntityChange,
         );
@@ -120,9 +127,10 @@ export default function SubscriptionDrawer({
         setCheckedKeys(entityChangeTypes);
         setSubscribeToUpstream(hasUpstreamSubscription);
         setNotificationSinkTypes(sinkTypes);
-        setAllowEditing(hasSlackSinkType);
+        setAllowEditing(isSlackAndSubscriptionEnabled);
     }, [
         entityType,
+        slackSinkEnabled,
         subscription?.entityChangeTypes,
         subscription?.notificationConfig?.sinkTypes,
         subscription?.subscriptionTypes,
@@ -253,13 +261,16 @@ export default function SubscriptionDrawer({
             {showBottomDrawerSection && (
                 <>
                     <NotificationTypesSection checkedKeys={checkedKeys} setCheckedKeys={setCheckedKeys} />
-                    <UpstreamSection
-                        entityUrn={entityUrn}
-                        entityType={entityType}
-                        subscribeToUpstream={subscribeToUpstream}
-                        setSubscribeToUpstream={setSubscribeToUpstream}
-                        upstreamCount={upstreamCount}
-                    />
+                    {/* todo - this is disabled until we have a proper implementation */}
+                    {false && (
+                        <UpstreamSection
+                            entityUrn={entityUrn}
+                            entityType={entityType}
+                            subscribeToUpstream={subscribeToUpstream}
+                            setSubscribeToUpstream={setSubscribeToUpstream}
+                            upstreamCount={upstreamCount}
+                        />
+                    )}
                     <NotificationRecipientSection
                         isPersonal={isPersonal}
                         slackSinkDefaultValue={slackSinkDefaultValue}
