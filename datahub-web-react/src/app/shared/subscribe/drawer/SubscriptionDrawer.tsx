@@ -150,14 +150,16 @@ export default function SubscriptionDrawer({
 
     const entityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
 
-    const notificationSettings: NotificationSettingsInput | undefined = customSlackSink
-        ? {
-              slackSettings: {
-                  userHandle: isPersonal ? customSlackSink : undefined,
-                  channels: isPersonal ? undefined : [customSlackSink],
-              },
-          }
-        : undefined;
+    // todo - may want to check saveSlackSinkAsDefault as well so we don't store unecessary slack overrides...
+    const notificationSettings: NotificationSettingsInput | undefined =
+        customSlackSink && !saveSlackSinkAsDefault
+            ? {
+                  slackSettings: {
+                      userHandle: isPersonal ? customSlackSink : undefined,
+                      channels: isPersonal ? undefined : [customSlackSink],
+                  },
+              }
+            : undefined;
 
     const onCreateSubscription = () => {
         createSubscriptionFunction(
@@ -225,9 +227,7 @@ export default function SubscriptionDrawer({
     // Final update functions
     const onUpdateFooter = () => {
         onUpsertSubscription();
-        if (saveSlackSinkAsDefault) {
-            updateSinkSetting(customSlackSink || '');
-        }
+        if (customSlackSink && saveSlackSinkAsDefault) updateSinkSetting(customSlackSink);
         onClose();
     };
 
