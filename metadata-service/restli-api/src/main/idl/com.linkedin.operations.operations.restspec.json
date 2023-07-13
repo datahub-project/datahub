@@ -76,6 +76,14 @@
         "name" : "timeoutSeconds",
         "type" : "long",
         "optional" : true
+      }, {
+        "name" : "forceDeleteByQuery",
+        "type" : "boolean",
+        "optional" : true
+      }, {
+        "name" : "forceReindex",
+        "type" : "boolean",
+        "optional" : true
       } ],
       "returns" : "string"
     } ],
