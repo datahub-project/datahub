@@ -51,9 +51,11 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 
-pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 8), reason="requires python 3.8 or higher"
-)
+
+@pytest.fixture(autouse=True)
+def skip_tests_if_python_before_3_8():
+    if sys.version_info < (3, 8):
+        pytest.skip("Requires python 3.8 or higher")
 
 
 def with_iceberg_source() -> IcebergSource:

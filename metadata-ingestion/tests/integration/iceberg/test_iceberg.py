@@ -15,13 +15,15 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 8), reason="requires python 3.8 or higher"
-)
-
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+
+
+@pytest.fixture(autouse=True)
+def skip_tests_if_python_before_3_8():
+    if sys.version_info < (3, 8):
+        pytest.skip("Requires python 3.8 or higher")
 
 
 def spark_submit(file_path: str, args: str = "") -> None:
