@@ -29,6 +29,11 @@ aws configure sso
 
 Once the access is set up, the scripts will read the credentials for you, so you will not need to authenticate in the instance you are running the perf tests against.
 
+You will also need to import requirements in order to run the Locustfile scripts:
+```shell
+pip3 install -r requirements.txt
+```
+
 ## Locustfiles
 
 [Locustfiles](./locustfiles) define how the users will behave once they are spawned. Refer to
