@@ -886,6 +886,11 @@ enum EntityType {
     A Custom Ownership Type
     """
     CUSTOM_OWNERSHIP_TYPE
+
+    """"
+    A Role from an organisation
+    """
+    ROLE
 }
 
 """
@@ -1261,6 +1266,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     domain: DomainAssociation
 
     """
+    The Roles and the properties to access the dataset
+    """
+    access: Access
+
+    """
     Statistics about how this Dataset is used
     The first parameter, `resource`, is deprecated and no longer needs to be provided
     """
@@ -1397,6 +1407,94 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+}
+
+type RoleAssociation {
+
+    """
+    The Role entity itself
+    """
+    role: Role!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
+
+}
+
+type Access {
+    roles: [RoleAssociation!]
+}
+
+type Role implements Entity {
+    """
+    A primary key of the Metadata Entity
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Id of the Role
+    """
+    id: String!
+
+    """
+    Role properties to include Request Access Url
+    """
+    properties: RoleProperties!
+
+    """
+    A standard Entity Type
+    """
+    actors: Actor!
+
+
+}
+
+type Actor {
+    """
+    List of users for which the role is provisioned
+    """
+    users: [RoleUser!]
+}
+
+type RoleUser {
+    """
+    Linked corp user of a role
+    """
+    user: CorpUser!
+}
+
+type RoleProperties {
+    """
+    Name of the Role in an organisation 
+    """
+    name: String!
+
+    """
+    Description about the role
+    """
+    description: String
+
+    """
+    Role type can be READ, WRITE or ADMIN
+    """
+    type: String
+
+    """
+    Url to request a role for a user in an organisation
+    """
+    requestUrl: String
 }
 
 type FineGrainedLineage {

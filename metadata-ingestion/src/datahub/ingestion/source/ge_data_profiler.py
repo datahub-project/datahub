@@ -579,16 +579,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         columns_profiling_queue: List[_SingleColumnSpec] = []
-        for column in all_columns:
-            column_profile = DatasetFieldProfileClass(fieldPath=column)
-            profile.fieldProfiles.append(column_profile)
+        if columns_to_profile:
+            for column in all_columns:
+                column_profile = DatasetFieldProfileClass(fieldPath=column)
+                profile.fieldProfiles.append(column_profile)
 
-            if column in columns_to_profile:
-                column_spec = _SingleColumnSpec(column, column_profile)
-                columns_profiling_queue.append(column_spec)
+                if column in columns_to_profile:
+                    column_spec = _SingleColumnSpec(column, column_profile)
+                    columns_profiling_queue.append(column_spec)
 
-                self._get_column_type(column_spec, column)
-                self._get_column_cardinality(column_spec, column)
+                    self._get_column_type(column_spec, column)
+                    self._get_column_cardinality(column_spec, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()

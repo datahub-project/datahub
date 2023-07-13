@@ -17,4 +17,9 @@ public class VisualConfiguration {
    * Queries tab related configurations
    */
   public QueriesTabConfig queriesTab;
+
+  /**
+   * Queries tab related configurations
+   */
+  public EntityProfileConfig entityProfile;
 }

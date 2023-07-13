@@ -40,6 +40,11 @@ query appConfig {
             queriesTab {
                 queriesTabResultSize
             }
+            entityProfiles {
+                domain {
+                    defaultTab
+                }
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging

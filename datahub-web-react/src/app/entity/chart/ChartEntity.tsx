@@ -131,14 +131,14 @@ export class ChartEntity implements Entity<Chart> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                },
+                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
                         hasTerms: true,
                     },
-                },
-                {
-                    component: SidebarOwnerSection,
                 },
                 {
                     component: SidebarDomainSection,

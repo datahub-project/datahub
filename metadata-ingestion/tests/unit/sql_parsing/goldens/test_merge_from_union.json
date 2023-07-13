@@ -1,0 +1,11 @@
+{
+    "query_type": "MERGE",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_ios,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.prep_from_web,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-pipelines-stg.referrer.base_union,PROD)"
+    ],
+    "column_lineage": null
+}

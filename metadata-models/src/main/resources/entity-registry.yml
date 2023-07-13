@@ -4,6 +4,12 @@ entities:
     keyAspect: dataPlatformKey
     aspects:
       - dataPlatformInfo
+  - name: role
+    category: core
+    keyAspect: roleKey
+    aspects:
+      - roleProperties
+      - actors
   - name: dataset
     doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
     category: core
@@ -35,6 +41,7 @@ entities:
       - browsePaths
       - dataPlatformInstance
       - browsePathsV2
+      - access
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
