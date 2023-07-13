@@ -150,7 +150,6 @@ export default function SubscriptionDrawer({
 
     const entityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
 
-    // todo - may want to check saveSlackSinkAsDefault as well so we don't store unecessary slack overrides...
     const notificationSettings: NotificationSettingsInput | undefined =
         customSlackSink && !saveSlackSinkAsDefault
             ? {

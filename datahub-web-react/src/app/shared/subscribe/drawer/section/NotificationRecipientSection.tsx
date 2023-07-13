@@ -137,14 +137,8 @@ export default function NotificationRecipientSection({
 
     const onFocusChannelInput = () => toggleUseDefaultSlackSink(false);
 
-    // what if check the bottom checkbox, desiring that we apply this one to the personal default
-    // we'll only pass the new value through if we aren't on the default option, which is correct
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
         setInputSlackValue(value);
-        // todo - we can probably remove this, but replace it with a validation check
-        // todo - the subscribe btn should be disabled unless we made a change on the form anywhere
-        // todo - disable subscribe btn if we have an invalid form somehow
-        // if (!useDefaultSlackSink) setCustomSlackSink(value);
         setCustomSlackSink(value);
     };
 
