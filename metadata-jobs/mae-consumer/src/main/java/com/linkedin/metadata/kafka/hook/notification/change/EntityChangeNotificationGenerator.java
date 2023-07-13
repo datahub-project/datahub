@@ -7,7 +7,6 @@ import com.datahub.notification.provider.SettingsProvider;
 import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.AuditStamp;

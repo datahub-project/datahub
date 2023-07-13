@@ -13,7 +13,7 @@ const NotificationTypeText = styled(Typography.Text)`
     margin-right: 8px;
 `;
 
-const ASSERTION_NODE_KEY = EntityChangeType.AssertionFailed;
+const ASSERTION_NODE_KEY = 'assertion_changes';
 const INCIDENTS_NODE_KEY = EntityChangeType.IncidentRaised;
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
 const DOCUMENTATION_NODE_KEY = EntityChangeType.DocumentationChange;
@@ -46,6 +46,7 @@ const NESTED_NODE_KEY_PARENTS = new Set([
     OWNERSHIP_CHANGE_NODE_KEY,
     GLOSSARY_TERM_CHANGE_NODE_KEY,
     TAG_CHANGE_NODE_KEY,
+    ASSERTION_NODE_KEY,
 ]);
 
 export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
@@ -65,8 +66,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
             break;
         default:
             return [
-                ASSERTION_NODE_KEY,
-                INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
                 DOCUMENTATION_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
@@ -99,8 +98,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
             break;
         default:
             return [
-                ASSERTION_NODE_KEY,
-                INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
                 DOCUMENTATION_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
@@ -122,9 +119,27 @@ const assertionsNode: DataNode = {
     key: ASSERTION_NODE_KEY,
     title: (
         <>
-            <NotificationTypeText>Failing assertions</NotificationTypeText>
+            <NotificationTypeText>Assertion status changes</NotificationTypeText>
         </>
     ),
+    children: [
+        {
+            key: EntityChangeType.AssertionFailed,
+            title: (
+                <>
+                    <NotificationTypeText>Failing assertions</NotificationTypeText>
+                </>
+            ),
+        },
+        {
+            key: EntityChangeType.AssertionPassed,
+            title: (
+                <>
+                    <NotificationTypeText>Passing assertions</NotificationTypeText>
+                </>
+            ),
+        },
+    ],
 };
 
 const incidentsNode: DataNode = {

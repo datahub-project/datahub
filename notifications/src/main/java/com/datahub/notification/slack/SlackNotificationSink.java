@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
@@ -529,11 +530,11 @@ public class SlackNotificationSink implements NotificationSink {
 private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     final String entityName = request.getMessage().getParameters().get("entityName");
     final String entityPath = request.getMessage().getParameters().get("entityPath");
-    final String entityUrl = String.format("%s%s", this.baseUrl, entityPath);
+    final String entityUrl = String.format("%s%s/Validation", this.baseUrl, entityPath);
     final String result = request.getMessage().getParameters().get("result");
 
-    String resultString = result.equals(EntityChangeType.ASSERTION_PASSED.toString()) ? "passing" : "failing";
-    String emojiString = result.equals(EntityChangeType.ASSERTION_PASSED.toString()) ? ":white_check_mark:" : ":warning:";
+    String resultString = result.equals(AssertionResultType.SUCCESS.toString()) ? "passing" : "failing";
+    String emojiString = result.equals(AssertionResultType.SUCCESS.toString()) ? ":white_check_mark:" : ":warning:";
 
     /*
      * Example:
