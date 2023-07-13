@@ -30,14 +30,14 @@ if sys.version_info >= (3, 8):
         TimeType,
         UUIDType,
     )
+    from datahub.ingestion.source.iceberg.iceberg import (
+        IcebergProfiler,
+        IcebergSource,
+        IcebergSourceConfig,
+    )
+    from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.iceberg.iceberg import (
-    IcebergProfiler,
-    IcebergSource,
-    IcebergSourceConfig,
-)
-from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
