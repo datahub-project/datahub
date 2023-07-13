@@ -90,9 +90,6 @@ class MySQLSource(TwoTierSQLAlchemySource):
             for row in conn.execute(
                 "SELECT table_schema, table_name, data_length from information_schema.tables"
             ):
-                table_schema = row.table_schema
-                table_name = row.table_name
-                data_length = row.data_length
                 self.profile_metadata_info.dataset_name_to_storage_bytes[
-                    f"{table_schema}.{table_name}"
-                ] = data_length
+                    f"{row.table_schema}.{row.table_name}"
+                ] = row.data_length

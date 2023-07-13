@@ -310,7 +310,7 @@ config_options_to_report = [
 
 
 @dataclass
-class ProfileMetadataInfo:
+class ProfileMetadata:
     """
     A class to hold information about the table for profile enrichment
     """
@@ -326,7 +326,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
-        self.profile_metadata_info: ProfileMetadataInfo = ProfileMetadataInfo()
+        self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -497,10 +497,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 try:
                     self.add_profile_metadata(inspector)
                 except Exception as e:
-                    logger.error(
-                        f"Failed to get enrichment data for profiler \n{traceback.format_exc()}",
+                    logger.warning(
+                        f"Failed to get enrichment data for profiler", exc_info=True
                     )
-                    self.report.report_failure(
+                    self.report.report_warning(
                         "profile_metadata",
                         f"Failed to get enrichment data for profile {e}",
                     )
@@ -1120,7 +1120,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         """
-        Method to add profile metadata in a sub-class that can be used to enrich profile metadata
+        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
+        This is meant to change self.profile_metadata_info in the sub-class.
         """
         pass
 
