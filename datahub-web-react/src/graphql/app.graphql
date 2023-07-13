@@ -65,11 +65,11 @@ query appConfig {
             showBrowseV2
             assertionMonitorsEnabled
             datasetHealthDashboardEnabled
+            showAcrylInfo
         }
         chromeExtensionConfig {
             enabled
             lineageEnabled
-            showAcrylInfo
         }
     }
 }
