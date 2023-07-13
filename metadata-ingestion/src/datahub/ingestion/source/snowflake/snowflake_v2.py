@@ -4,7 +4,7 @@ import os
 import os.path
 import platform
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Union
 
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
@@ -128,8 +128,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.sqlglot_lineage import SchemaResolver
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -283,6 +285,11 @@ class SnowflakeV2Source(
 
         # Caches tables for a single database. Consider moving to disk or S3 when possible.
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
+
+        self.sql_parser_schema_resolver = SchemaResolver(
+            platform=self.platform, env=self.config.env
+        )
+        self.view_definitions: FileBackedDict[str] = FileBackedDict()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -555,7 +562,10 @@ class SnowflakeV2Source(
 
         if self.config.include_table_lineage:
             yield from self.lineage_extractor.get_workunits(
-                discovered_tables, discovered_views
+                discovered_tables=discovered_tables,
+                discovered_views=discovered_views,
+                schema_resolver=self.sql_parser_schema_resolver,
+                view_definitions=self.view_definitions,
             )
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
@@ -753,6 +763,10 @@ class SnowflakeV2Source(
 
         if self.config.include_views:
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
+            if self.config.parse_view_ddl:
+                for view in views:
+                    key = self.get_dataset_identifier(view.name, schema_name, db_name)
+                    self.view_definitions[key] = view.view_definition
 
             if self.config.include_technical_schema:
                 for view in views:
@@ -1064,15 +1078,11 @@ class SnowflakeV2Source(
                 entityUrn=dataset_urn, aspect=global_tags
             ).as_workunit()
 
-        if (
-            isinstance(table, SnowflakeView)
-            and cast(SnowflakeView, table).view_definition is not None
-        ):
-            view = cast(SnowflakeView, table)
+        if isinstance(table, SnowflakeView) and table.view_definition is not None:
             view_properties_aspect = ViewProperties(
-                materialized=False,
+                materialized=table.materialized,
                 viewLanguage="SQL",
-                viewLogic=view.view_definition,
+                viewLogic=table.view_definition,
             )
 
             yield MetadataChangeProposalWrapper(
@@ -1163,6 +1173,11 @@ class SnowflakeV2Source(
             ],
             foreignKeys=foreign_keys,
         )
+
+        if self.config.parse_view_ddl and isinstance(table, SnowflakeView):
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
 
         # TODO: classification is only run for snowflake tables.
         # Should we run classification for snowflake views as well?
@@ -1572,6 +1587,8 @@ class SnowflakeV2Source(
     def close(self) -> None:
         super().close()
         StatefulIngestionSourceBase.close(self)
+        self.view_definitions.close()
+        self.sql_parser_schema_resolver.close()
         if hasattr(self, "lineage_extractor"):
             self.lineage_extractor.close()
         if hasattr(self, "usage_extractor"):
