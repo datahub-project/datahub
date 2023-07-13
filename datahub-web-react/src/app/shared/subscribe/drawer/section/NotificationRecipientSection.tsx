@@ -2,6 +2,7 @@ import uniq from 'lodash/uniq';
 import React, { useState } from 'react';
 import { Checkbox, Form, Input, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
+import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NotificationSinkType } from '../../../../../types.generated';
@@ -68,6 +69,7 @@ const StyledInput = styled(Input)`
 
 const StyledCheckbox = styled(Checkbox)`
     grid-column: 2;
+    margin-left: 24px;
     border: 0.3px solid #ffffff;
 `;
 
@@ -87,7 +89,6 @@ interface Props {
     allowEditing: boolean;
     setAllowEditing: (allowEditing: boolean) => void;
     setCustomSlackSink: (customSlackSink: string | undefined) => void;
-    saveSlackSinkAsDefault: boolean;
     setSaveSlackSinkAsDefault: (saveSlackSinkAsDefault: boolean) => void;
 }
 
@@ -99,7 +100,6 @@ export default function NotificationRecipientSection({
     allowEditing,
     setAllowEditing,
     setCustomSlackSink,
-    saveSlackSinkAsDefault,
     setSaveSlackSinkAsDefault,
 }: Props) {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -113,25 +113,29 @@ export default function NotificationRecipientSection({
         ? isUserSlackHandleValid(inputSlackValue)
         : isGroupSlackChannelValid(inputSlackValue);
 
+    const toggleUseDefaultSlackSink = (value: boolean) => {
+        if (value) {
+            setUseDefaultSlackSink(true);
+            setCustomSlackSink(undefined);
+            setSaveSlackSinkAsDefault(false);
+        } else {
+            setUseDefaultSlackSink(false);
+            setCustomSlackSink(inputSlackValue);
+            setSaveSlackSinkAsDefault(false);
+        }
+    };
+
     const onChangeSlackSwitch = (checked: boolean) => {
         setAllowEditing(checked);
         setNotificationSinkTypes(uniq(checked ? [...notificationSinkTypes, NotificationSinkType.Slack] : []));
     };
 
     const onChangeSlackRadioGroup = ({ target: { value } }: RadioChangeEvent) => {
-        if (value === 'default') {
-            setUseDefaultSlackSink(true);
-            setCustomSlackSink(undefined);
-        } else if (value === 'custom') {
-            setUseDefaultSlackSink(false);
-            setCustomSlackSink(inputSlackValue);
-        }
+        if (value === 'default') toggleUseDefaultSlackSink(true);
+        else if (value === 'custom') toggleUseDefaultSlackSink(false);
     };
 
-    const onFocusChannelInput = () => {
-        setUseDefaultSlackSink(false);
-        setCustomSlackSink(inputSlackValue);
-    };
+    const onFocusChannelInput = () => toggleUseDefaultSlackSink(false);
 
     // what if check the bottom checkbox, desiring that we apply this one to the personal default
     // we'll only pass the new value through if we aren't on the default option, which is correct
@@ -140,13 +144,13 @@ export default function NotificationRecipientSection({
         // todo - we can probably remove this, but replace it with a validation check
         // todo - the subscribe btn should be disabled unless we made a change on the form anywhere
         // todo - disable subscribe btn if we have an invalid form somehow
-        if (!useDefaultSlackSink) setCustomSlackSink(value);
+        // if (!useDefaultSlackSink) setCustomSlackSink(value);
+        setCustomSlackSink(value);
     };
 
-    const onChangeDefaultCheckbox = () => {
-        const newSaveSlackSinkAsDefault = !saveSlackSinkAsDefault;
-        setSaveSlackSinkAsDefault(newSaveSlackSinkAsDefault);
-        setCustomSlackSink(newSaveSlackSinkAsDefault ? inputSlackValue : undefined);
+    const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
+        setSaveSlackSinkAsDefault(checked);
+        setCustomSlackSink(checked ? inputSlackValue : undefined);
     };
 
     return (
@@ -202,8 +206,8 @@ export default function NotificationRecipientSection({
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {!slackSinkDefaultValue && (
-                        <StyledCheckbox onChange={onChangeDefaultCheckbox}>
+                    {!slackSinkDefaultValue && !useDefaultSlackSink && (
+                        <StyledCheckbox onChange={onChangeSaveAsDefaultCheckbox}>
                             <SaveAsDefaultText>Save as default</SaveAsDefaultText>
                         </StyledCheckbox>
                     )}

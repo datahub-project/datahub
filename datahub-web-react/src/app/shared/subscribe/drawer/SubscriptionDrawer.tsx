@@ -280,7 +280,6 @@ export default function SubscriptionDrawer({
                         setNotificationSinkTypes={setNotificationSinkTypes}
                         allowEditing={allowEditing}
                         setAllowEditing={setAllowEditing}
-                        saveSlackSinkAsDefault={saveSlackSinkAsDefault}
                         setSaveSlackSinkAsDefault={setSaveSlackSinkAsDefault}
                     />
                 </>
