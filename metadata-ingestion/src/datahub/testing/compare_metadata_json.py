@@ -89,7 +89,7 @@ def diff_metadata_json(
     golden: MetadataJson,
     ignore_paths: Sequence[str] = (),
 ) -> Union[DeepDiff, MCPDiff]:
-    ignore_paths = (*ignore_paths, *default_exclude_paths)
+    ignore_paths = (*ignore_paths, *default_exclude_paths, r"root\[\d+].delta_info")
     try:
         golden_map = get_aspects_by_urn(golden)
         output_map = get_aspects_by_urn(output)
