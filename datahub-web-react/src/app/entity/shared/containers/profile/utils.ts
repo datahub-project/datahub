@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 import queryString from 'query-string';
 import { isEqual } from 'lodash';
-import { EntityType } from '../../../../../types.generated';
+import { AppConfig, EntityType } from '../../../../../types.generated';
 import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
@@ -201,4 +201,23 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
         default:
             return [];
     }
+}
+
+function sortTabsWithDefaultTabId(tabs: EntityTab[], defaultTabId: string) {
+    return tabs.sort((tabA, tabB) => {
+        if (tabA.id === defaultTabId) return -1;
+        if (tabB.id === defaultTabId) return 1;
+        return 0;
+    });
+}
+
+export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityType, tabs: EntityTab[]) {
+    const sortedTabs = [...tabs];
+
+    if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
+        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain.defaultTab;
+        sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
+    }
+
+    return sortedTabs;
 }

@@ -992,11 +992,14 @@ class DataHubGraph(DatahubRestEmitter):
 
         return sqlglot_lineage(
             sql,
-            platform=platform,
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
         )
+
+    def close(self) -> None:
+        self._make_schema_resolver.cache_clear()
+        super().close()
 
 
 def get_default_graph() -> DataHubGraph:
