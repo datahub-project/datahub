@@ -280,6 +280,7 @@ import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
+import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
@@ -395,6 +396,9 @@ public class GmsGraphQLEngine {
     private final ViewsConfiguration viewsConfiguration;
 
     private final DatasetType datasetType;
+
+    private final RoleType roleType;
+
     private final CorpUserType corpUserType;
     private final CorpGroupType corpGroupType;
     private final ChartType chartType;
@@ -503,6 +507,7 @@ public class GmsGraphQLEngine {
         this.featureFlags = args.featureFlags;
 
         this.datasetType = new DatasetType(entityClient);
+        this.roleType = new RoleType(entityClient);
         this.corpUserType = new CorpUserType(entityClient, featureFlags);
         this.corpGroupType = new CorpGroupType(entityClient);
         this.chartType = new ChartType(entityClient);
@@ -538,6 +543,7 @@ public class GmsGraphQLEngine {
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
+            roleType,
             corpUserType,
             corpGroupType,
             dataPlatformType,
@@ -634,6 +640,7 @@ public class GmsGraphQLEngine {
         configureContainerResolvers(builder);
         configureDataPlatformInstanceResolvers(builder);
         configureGlossaryTermResolvers(builder);
+        configureOrganisationRoleResolvers(builder);
         configureGlossaryNodeResolvers(builder);
         configureDomainResolvers(builder);
         configureAssertionResolvers(builder);
@@ -651,6 +658,23 @@ public class GmsGraphQLEngine {
         configurePluginResolvers(builder);
     }
 
+    private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
+        builder.type("Role", typeWiring -> typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+        );
+        builder.type("RoleAssociation", typeWiring -> typeWiring
+                .dataFetcher("role",
+                        new LoadableTypeResolver<>(roleType,
+                                (env) -> ((com.linkedin.datahub.graphql.generated.RoleAssociation)
+                                                env.getSource()).getRole().getUrn()))
+        );
+        builder.type("RoleUser", typeWiring -> typeWiring
+                .dataFetcher("user",
+                        new LoadableTypeResolver<>(corpUserType,
+                                (env) -> ((com.linkedin.datahub.graphql.generated.RoleUser)
+                                        env.getSource()).getUser().getUrn()))
+        );
+    }
 
     public GraphQLEngine.Builder builder() {
         final GraphQLEngine.Builder builder = GraphQLEngine.builder();
@@ -771,6 +795,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("browse", new BrowseResolver(browsableTypes))
             .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
             .dataFetcher("dataset", getResolver(datasetType))
+            .dataFetcher("role", getResolver(roleType))
             .dataFetcher("versionedDataset", getResolver(versionedDatasetType,
                 (env) -> new VersionedUrn().setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
                     .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
