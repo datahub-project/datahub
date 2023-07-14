@@ -99,15 +99,16 @@ export default function SubscriptionDrawer({
     const [allowEditing, setAllowEditing] = useState<boolean>(false);
 
     const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
-    const [customSlackSink, setCustomSlackSink] = useState<string | undefined>(undefined);
+    const [customSlackSink, setCustomSlackSink] = useState<string>();
     const [createSubscription] = useCreateSubscriptionMutation();
     const [updateSubscription] = useUpdateSubscriptionMutation();
     const subscriptionTypes = subscribeToUpstream
         ? [SubscriptionType.EntityChange, SubscriptionType.UpstreamEntityChange]
         : [SubscriptionType.EntityChange];
 
-    // Fetch the lineage counts for the entity.
+    // Skipping until we want to enable upstreams
     const { data: lineageCountData } = useGetLineageCountsQuery({
+        skip: true,
         variables: {
             urn: entityUrn,
         },
@@ -116,6 +117,11 @@ export default function SubscriptionDrawer({
     const upstreamTotal = (lineageCountData?.entity as any)?.upstream?.total || 0;
     const upstreamFiltered = (lineageCountData?.entity as any)?.upstream?.filtered || 0;
     const upstreamCount = upstreamTotal - upstreamFiltered;
+
+    const subUserHandle = subscription?.notificationConfig?.notificationSettings?.slackSettings.userHandle || undefined;
+    const subChannels = subscription?.notificationConfig?.notificationSettings?.slackSettings?.channels;
+    const subGroupChannel = subChannels?.length ? subChannels[0] : undefined;
+    const slackSinkSubscriptionValue = isPersonal ? subUserHandle : subGroupChannel;
 
     useEffect(() => {
         const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
@@ -129,13 +135,8 @@ export default function SubscriptionDrawer({
         setSubscribeToUpstream(hasUpstreamSubscription);
         setNotificationSinkTypes(sinkTypes);
         setAllowEditing(isSlackAndSubscriptionEnabled);
-    }, [
-        entityType,
-        slackSinkEnabled,
-        subscription?.entityChangeTypes,
-        subscription?.notificationConfig?.sinkTypes,
-        subscription?.subscriptionTypes,
-    ]);
+        setCustomSlackSink(slackSinkSubscriptionValue);
+    }, [slackSinkSubscriptionValue, entityType, slackSinkEnabled, subscription]);
 
     useEffect(() => {
         if (isPersonal) {
@@ -197,10 +198,11 @@ export default function SubscriptionDrawer({
             variables: { input: { groupUrn: groupUrn || '' } },
         });
 
-    const userHandle = userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
-    const channels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
-    const groupChannel = channels?.length ? channels[0] : undefined;
-    const slackSinkDefaultValue = isPersonal ? userHandle : groupChannel;
+    const settingsUserHandle =
+        userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
+    const settingsChannels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+    const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0] : undefined;
+    const slackSinkSettingsValue = isPersonal ? settingsUserHandle : settingsGroupChannel;
 
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
@@ -272,12 +274,14 @@ export default function SubscriptionDrawer({
                         />
                     )}
                     <NotificationRecipientSection
-                        isPersonal={isPersonal}
-                        slackSinkDefaultValue={slackSinkDefaultValue}
-                        setCustomSlackSink={setCustomSlackSink}
-                        notificationSinkTypes={notificationSinkTypes}
-                        setNotificationSinkTypes={setNotificationSinkTypes}
                         allowEditing={allowEditing}
+                        customSlackSink={customSlackSink}
+                        isPersonal={isPersonal}
+                        slackSinkSubscriptionValue={slackSinkSubscriptionValue}
+                        slackSinkSettingsValue={slackSinkSettingsValue}
+                        notificationSinkTypes={notificationSinkTypes}
+                        setCustomSlackSink={setCustomSlackSink}
+                        setNotificationSinkTypes={setNotificationSinkTypes}
                         setAllowEditing={setAllowEditing}
                         setSaveSlackSinkAsDefault={setSaveSlackSinkAsDefault}
                     />
