@@ -148,6 +148,17 @@ public interface TimeseriesAspectService {
       @Nonnull final BatchWriteOperationsOptions options);
 
   /**
+   * Reindex the index represented by entityName and aspect name, applying the filter
+   * @param entityName The name of the entity.
+   * @param aspectName  The name of the aspect.
+   * @param filter A filter to be used when reindexing
+   * @param options Options to control reindex parameters
+   * @return The Job ID of the reindex operation
+   */
+  String reindexAsync(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options);
+
+  /**
    * Rollback the Time-Series aspects associated with a particular runId. This is invoked as a part of an
    * ingestion rollback process.
    *
