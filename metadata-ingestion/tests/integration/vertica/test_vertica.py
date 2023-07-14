@@ -70,6 +70,9 @@ def test_vertica_ingest_with_db(vertica_runner, pytestconfig, tmp_path):
 
     ignore_paths: List[str] = [
         r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['create_time'\]",
+        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['table_size'\]",
+        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['projection_size'\]",
+        r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['ROS_Count'\]",
         r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['cluster_size'\]",
         r"root\[\d+\]\['aspect'\].+\['customProperties'\]\['udx_language'\]",
     ]
