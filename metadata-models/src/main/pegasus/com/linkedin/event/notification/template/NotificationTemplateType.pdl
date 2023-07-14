@@ -9,7 +9,7 @@ enum NotificationTemplateType {
     */
     OWNERSHIP_CHANGE
     /**
-    * Ownership change notification template.
+    * Assertion change notification template.
     */
     BROADCAST_ASSERTION_STATUS_CHANGE
 
