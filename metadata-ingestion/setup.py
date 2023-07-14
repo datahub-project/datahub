@@ -57,8 +57,7 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    # jsonschema drops python 3.7 support in v4.18.0
-    "jsonschema<=4.17.3",
+    "jsonschema",
     "ruamel.yaml",
 }
 
@@ -212,7 +211,7 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
-microsoft_common = {"msal==1.22.0"}
+microsoft_common = {"msal==1.16.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -389,7 +388,7 @@ plugins: Dict[str, Set[str]] = {
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
     "unity-catalog": databricks | sqllineage_lib,
     "dagster": {
-        "dagster",
+        "dagster>=1.3.3",
         *rest_common,
     },
 }
