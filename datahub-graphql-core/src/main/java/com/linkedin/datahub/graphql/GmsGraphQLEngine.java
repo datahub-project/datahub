@@ -2,9 +2,9 @@ package com.linkedin.datahub.graphql;
 
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.group.GroupService;
-import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.post.PostService;
+import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.AuthorizationConfiguration;
@@ -42,11 +42,8 @@ import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpGroupInfo;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserInfo;
-import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
-import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
-import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.Dashboard;
 import com.linkedin.datahub.graphql.generated.DashboardInfo;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
@@ -61,6 +58,7 @@ import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
@@ -76,9 +74,9 @@ import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
-import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
+import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
@@ -91,8 +89,10 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
+import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
+import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
@@ -205,7 +205,6 @@ import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorReso
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
@@ -224,12 +223,6 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResol
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
-import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveLinkResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveOwnerResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.RemoveTagResolver;
@@ -239,9 +232,9 @@ import com.linkedin.datahub.graphql.resolvers.mutate.UpdateNameResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateParentNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.UpdateUserSettingResolver;
 import com.linkedin.datahub.graphql.resolvers.operation.ReportOperationResolver;
+import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.ListOwnershipTypesResolver;
-import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.UpdateOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
@@ -250,6 +243,13 @@ import com.linkedin.datahub.graphql.resolvers.policy.UpsertPolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.post.CreatePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.DeletePostResolver;
 import com.linkedin.datahub.graphql.resolvers.post.ListPostsResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.query.CreateQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.DeleteQueryResolver;
 import com.linkedin.datahub.graphql.resolvers.query.ListQueriesResolver;
@@ -281,10 +281,10 @@ import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
+import com.linkedin.datahub.graphql.resolvers.test.EntityTestResultsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.RunTestDefinitionResolver;
 import com.linkedin.datahub.graphql.resolvers.test.RunTestsResolver;
-import com.linkedin.datahub.graphql.resolvers.test.EntityTestResultsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.TestResultsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ValidateTestResolver;
@@ -331,7 +331,6 @@ import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
-import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
@@ -346,6 +345,7 @@ import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
 import com.linkedin.datahub.graphql.types.query.QueryType;
 import com.linkedin.datahub.graphql.types.role.DataHubRoleType;
+import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.schemafield.SchemaFieldType;
 import com.linkedin.datahub.graphql.types.tag.TagType;
 import com.linkedin.datahub.graphql.types.test.TestType;
@@ -370,12 +370,12 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataProductService;
-import com.linkedin.metadata.service.OwnershipTypeService;
+import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -538,7 +538,7 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
 
-        this.graphQLPlugins = List.of(
+        this.graphQLPlugins = ImmutableList.of(
             // Add new plugins here
         );
 
@@ -799,7 +799,6 @@ public class GmsGraphQLEngine {
             // Incidents not in OSS
             .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
-            .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
             // Connections not in OSS
             .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
             // Monitors not in OSS
