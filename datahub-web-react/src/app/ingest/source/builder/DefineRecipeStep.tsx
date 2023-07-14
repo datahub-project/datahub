@@ -45,12 +45,14 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
 
     const [stagedRecipeYml, setStagedRecipeYml] = useState(existingRecipeYaml || placeholderRecipe);
+    const [stagedRecipeName, setStagedRecipeName] = useState(state.name);
 
     useEffect(() => {
         if (existingRecipeYaml) {
+            setStagedRecipeName(state.name);
             setStagedRecipeYml(existingRecipeYaml);
         }
-    }, [existingRecipeYaml]);
+    }, [existingRecipeYaml, state.name]);
 
     const [stepComplete, setStepComplete] = useState(false);
 
@@ -104,6 +106,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 setStagedRecipe={setStagedRecipeYml}
                 onClickNext={onClickNext}
                 goToPrevious={prev}
+                stagedRecipeName={stagedRecipeName}
             />
         );
     }
