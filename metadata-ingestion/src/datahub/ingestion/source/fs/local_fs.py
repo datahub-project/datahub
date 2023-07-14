@@ -2,12 +2,13 @@ from datahub.ingestion.source.fs.fs_base import FileSystem, FileStatus
 from typing import Iterable
 import os
 import pathlib
+import smart_open
 
 
 class LocalFileSystem(FileSystem):
 
-    def open(self, path: str):
-        return open(path, "rb")
+    def open(self, path: str, **kwargs):
+        return smart_open.open(path, mode='rb', transport_params=kwargs)
 
     def list(self, path: str) -> Iterable[FileStatus]:
         p = pathlib.Path(path)

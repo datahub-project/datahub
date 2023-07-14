@@ -1,4 +1,5 @@
 import boto3
+import smart_open
 from dataclasses import dataclass
 from datahub.ingestion.source.fs.fs_base import FileSystem, FileStatus
 from datahub.ingestion.source.fs.s3_list_iterator import S3ListIterator
@@ -29,11 +30,9 @@ class S3FileSystem(FileSystem):
 
     _s3 = boto3.client('s3')
 
-    def open(self, path: str):
-        s3_path = parse_s3_path(path)
-        response = self._s3.get_object(Bucket=s3_path.bucket, Key=s3_path.key)
-        assert_ok_status(response)
-        return response['Body']
+    def open(self, path: str, **kwargs):
+        transport_params = kwargs.update({'client': self._s3})
+        return smart_open.open(path, mode='rb', transport_params=transport_params)
 
     def file_status(self, path: str) -> FileStatus:
         s3_path = parse_s3_path(path)

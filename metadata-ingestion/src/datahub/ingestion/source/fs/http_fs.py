@@ -1,13 +1,13 @@
 import requests
+import smart_open
 from typing import Iterable
 from datahub.ingestion.source.fs.fs_base import FileSystem, FileStatus
 
 
 class HttpFileSystem(FileSystem):
 
-    def open(self, path: str):
-        response = requests.get(path)
-        return response.content
+    def open(self, path: str, **kwargs):
+        return smart_open.open(path, mode='rb', transport_params=kwargs)
 
     def file_status(self, path: str) -> FileStatus:
         head = requests.head(path)

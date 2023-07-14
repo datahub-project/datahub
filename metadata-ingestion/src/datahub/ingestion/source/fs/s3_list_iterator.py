@@ -27,24 +27,16 @@ class S3ListIterator(Iterator):
                 raise StopIteration()
 
     def fetch(self):
+        params = dict(Bucket=self._bucket, Prefix=self._prefix, MaxKeys=self._max_keys)
         if self._token:
-            response = self._s3.list_objects_v2(
-                Bucket=self._bucket,
-                Prefix=self._prefix,
-                ContinuationToken=self._token,
-                MaxKeys=self._max_keys
-            )
-        else:
-            response = self._s3.list_objects_v2(
-                Bucket=self._bucket,
-                Prefix=self._prefix,
-                MaxKeys=self._max_keys
-            )
+            params.update(ContinuationToken=self._token)
+
+        response = self._s3.list_objects_v2(**params)
 
         s3_fs.assert_ok_status(response)
 
         self._file_statuses = iter([
             FileStatus(f"s3://{response['Name']}/{x['Key']}", x['Size'], is_file=True)
-            for x in response['Contents']
+            for x in response.get('Contents', [])
         ])
         self._token = response.get('NextContinuationToken')

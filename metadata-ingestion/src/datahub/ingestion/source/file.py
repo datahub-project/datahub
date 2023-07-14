@@ -231,8 +231,8 @@ class GenericFileSource(TestableSource):
         fs = FileSystem.get(file_status.path)
         self.report.current_file_name = file_status.path
         self.report.current_file_size = file_status.size
+        self.fp = fs.open(file_status.path)
         if self.config.count_all_before_starting:
-            self.fp = fs.open(file_status.path)
             count_start_time = datetime.datetime.now()
             parse_stream = ijson.parse(self.fp, use_float=True)
             total_elements = 0
@@ -241,9 +241,8 @@ class GenericFileSource(TestableSource):
             count_end_time = datetime.datetime.now()
             self.report.add_count_time(count_end_time - count_start_time)
             self.report.current_file_num_elements = total_elements
-            self.close_if_possible(self.fp)
+            self.fp.seek(0)
         self.report.current_file_elements_read = 0
-        self.fp = fs.open(file_status.path)
         parse_start_time = datetime.datetime.now()
         parse_stream = ijson.parse(self.fp, use_float=True)
         rows_yielded = 0

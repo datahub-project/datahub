@@ -19,7 +19,7 @@ class FileSystem:
         from datahub.ingestion.source.fs import fs_factory
         return fs_factory.get_fs(path)
 
-    def open(self, path: str):
+    def open(self, path: str, **kwargs):
         raise NotImplementedError("open method must be implemented in a subclass")
 
     def file_status(self, path: str) -> FileStatus:
