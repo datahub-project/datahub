@@ -1,2 +1,2 @@
-prefect>=2.0.0
+prefect
 acryl-datahub[datahub-rest]
