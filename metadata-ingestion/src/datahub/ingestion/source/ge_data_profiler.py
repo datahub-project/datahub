@@ -369,15 +369,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             dialect_name = self.dataset.engine.dialect.name.lower()
             if dialect_name == "postgresql":
                 get_estimate_script = sa.text(
-                            f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
-                        )
+                    f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
+                )
             elif dialect_name == "mysql":
                 get_estimate_script = sa.text(
-                        f"SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'"
-                    )
+                    f"SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'"
+                )
             else:
-                logger.debug(f"Dialect {dialect_name} not supported for feature "
-                             f"profile_table_row_count_estimate_only. Proceeding with full row count.")
+                logger.debug(
+                    f"Dialect {dialect_name} not supported for feature "
+                    f"profile_table_row_count_estimate_only. Proceeding with full row count."
+                )
                 dataset_profile.rowCount = self.dataset.get_row_count()
                 return
 
