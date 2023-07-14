@@ -16,18 +16,11 @@ const NotificationTypeText = styled(Typography.Text)`
 const ASSERTION_NODE_KEY = 'assertion_changes';
 const INCIDENTS_NODE_KEY = EntityChangeType.IncidentRaised;
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
-const DOCUMENTATION_NODE_KEY = EntityChangeType.DocumentationChange;
 const SCHEMA_NODE_KEY = 'schema_changes';
 const SCHEMA_NODE_CHILDREN = [
     EntityChangeType.OperationColumnAdded,
     EntityChangeType.OperationColumnRemoved,
     EntityChangeType.OperationColumnModified,
-];
-const OPERATIONAL_METADATA_NODE_KEY = 'operational_metadata';
-const OPERATIONAL_METADATA_NODE_CHILDREN = [
-    EntityChangeType.OperationRowsInserted,
-    EntityChangeType.OperationRowsRemoved,
-    EntityChangeType.OperationRowsUpdated,
 ];
 const OWNERSHIP_CHANGE_NODE_KEY = 'ownership_change';
 const OWNERSHIP_CHANGE_NODE_CHILDREN = [EntityChangeType.OwnerAdded, EntityChangeType.OwnerRemoved];
@@ -42,7 +35,6 @@ const TAG_CHANGE_NODE_CHILDREN = [EntityChangeType.TagAdded, EntityChangeType.Ta
 
 const NESTED_NODE_KEY_PARENTS = new Set([
     SCHEMA_NODE_KEY,
-    OPERATIONAL_METADATA_NODE_KEY,
     OWNERSHIP_CHANGE_NODE_KEY,
     GLOSSARY_TERM_CHANGE_NODE_KEY,
     TAG_CHANGE_NODE_KEY,
@@ -56,9 +48,7 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 ASSERTION_NODE_KEY,
                 INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
-                DOCUMENTATION_NODE_KEY,
                 SCHEMA_NODE_KEY,
-                OPERATIONAL_METADATA_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
@@ -67,7 +57,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
         default:
             return [
                 DEPRECATION_NODE_KEY,
-                DOCUMENTATION_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
@@ -83,11 +72,8 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 ASSERTION_NODE_KEY,
                 INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
-                DOCUMENTATION_NODE_KEY,
                 SCHEMA_NODE_KEY,
                 ...SCHEMA_NODE_CHILDREN,
-                OPERATIONAL_METADATA_NODE_KEY,
-                ...OPERATIONAL_METADATA_NODE_CHILDREN,
                 OWNERSHIP_CHANGE_NODE_KEY,
                 ...OWNERSHIP_CHANGE_NODE_CHILDREN,
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
@@ -99,7 +85,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
         default:
             return [
                 DEPRECATION_NODE_KEY,
-                DOCUMENTATION_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
                 ...OWNERSHIP_CHANGE_NODE_CHILDREN,
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
@@ -132,30 +117,19 @@ const assertionsNode: DataNode = {
 
 const incidentsNode: DataNode = {
     key: INCIDENTS_NODE_KEY,
-    title: (
-        <>
-            <NotificationTypeText>Raised incidents</NotificationTypeText>
-        </>
-    ),
+    title: <NotificationTypeText>Raised incidents</NotificationTypeText>,
 };
 
 const deprecationNode: DataNode = {
     key: DEPRECATION_NODE_KEY,
-    title: (
-        <>
-            <NotificationTypeText>Deprecation</NotificationTypeText>
-        </>
-    ),
+    title: <NotificationTypeText>Deprecation</NotificationTypeText>,
 };
 
-const documentationNode: DataNode = {
-    key: DOCUMENTATION_NODE_KEY,
-    title: (
-        <>
-            <NotificationTypeText>Documentation changes</NotificationTypeText>
-        </>
-    ),
-};
+// TODO: in V2 add documentation changes notifications
+// const documentationNode: DataNode = {
+//     key: DOCUMENTATION_NODE_KEY,
+//     title: <NotificationTypeText>Documentation changes</NotificationTypeText>,
+// };
 
 const schemaNode: DataNode = {
     key: SCHEMA_NODE_KEY,
@@ -176,24 +150,25 @@ const schemaNode: DataNode = {
     ],
 };
 
-const operationalMetadataNode: DataNode = {
-    key: OPERATIONAL_METADATA_NODE_KEY,
-    title: <NotificationTypeText>Operational change events</NotificationTypeText>,
-    children: [
-        {
-            key: EntityChangeType.OperationRowsInserted,
-            title: <NotificationTypeText>Rows are inserted</NotificationTypeText>,
-        },
-        {
-            key: EntityChangeType.OperationRowsUpdated,
-            title: <NotificationTypeText>Rows are updated</NotificationTypeText>,
-        },
-        {
-            key: EntityChangeType.OperationRowsRemoved,
-            title: <NotificationTypeText>Rows are removed</NotificationTypeText>,
-        },
-    ],
-};
+// TODO: in V2 add row-based operation metadata notifications
+// const operationalMetadataNode: DataNode = {
+//     key: OPERATIONAL_METADATA_NODE_KEY,
+//     title: <NotificationTypeText>Operational change events</NotificationTypeText>,
+//     children: [
+//         {
+//             key: EntityChangeType.OperationRowsInserted,
+//             title: <NotificationTypeText>Rows are inserted</NotificationTypeText>,
+//         },
+//         {
+//             key: EntityChangeType.OperationRowsUpdated,
+//             title: <NotificationTypeText>Rows are updated</NotificationTypeText>,
+//         },
+//         {
+//             key: EntityChangeType.OperationRowsRemoved,
+//             title: <NotificationTypeText>Rows are removed</NotificationTypeText>,
+//         },
+//     ],
+// };
 
 const ownershipChangeNode: DataNode = {
     key: OWNERSHIP_CHANGE_NODE_KEY,
@@ -255,9 +230,7 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 assertionsNode,
                 incidentsNode,
                 deprecationNode,
-                documentationNode,
                 schemaNode,
-                operationalMetadataNode,
                 ownershipChangeNode,
                 glossaryTermChangeNode,
                 tagChangeNode,
@@ -268,7 +241,6 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 assertionsNode,
                 incidentsNode,
                 deprecationNode,
-                documentationNode,
                 ownershipChangeNode,
                 glossaryTermChangeNode,
                 tagChangeNode,
