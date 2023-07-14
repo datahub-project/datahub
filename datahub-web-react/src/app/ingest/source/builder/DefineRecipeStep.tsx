@@ -99,6 +99,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     if (type && CONNECTORS_WITH_FORM.has(type)) {
         return (
             <RecipeBuilder
+                key={stagedRecipeName}
                 state={state}
                 isEditing={isEditing}
                 displayRecipe={displayRecipe}
@@ -106,7 +107,6 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
                 setStagedRecipe={setStagedRecipeYml}
                 onClickNext={onClickNext}
                 goToPrevious={prev}
-                stagedRecipeName={stagedRecipeName}
             />
         );
     }

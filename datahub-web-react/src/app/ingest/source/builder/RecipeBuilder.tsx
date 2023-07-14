@@ -57,22 +57,12 @@ interface Props {
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
     setStagedRecipe: (recipe: string) => void;
-    stagedRecipeName?: string;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeBuilder(props: Props) {
-    const {
-        state,
-        isEditing,
-        displayRecipe,
-        sourceConfigs,
-        setStagedRecipe,
-        onClickNext,
-        goToPrevious,
-        stagedRecipeName,
-    } = props;
+    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
     const { type } = state;
     const [isViewingForm, setIsViewingForm] = useState(true);
 
@@ -113,7 +103,6 @@ function RecipeBuilder(props: Props) {
                     setStagedRecipe={setStagedRecipe}
                     onClickNext={onClickNext}
                     goToPrevious={goToPrevious}
-                    stagedRecipeName={stagedRecipeName}
                 />
             )}
             {!isViewingForm && (

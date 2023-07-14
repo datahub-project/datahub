@@ -1,5 +1,5 @@
 import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
@@ -94,23 +94,13 @@ interface Props {
     isEditing: boolean;
     displayRecipe: string;
     sourceConfigs?: SourceConfig;
-    stagedRecipeName?: string;
     setStagedRecipe: (recipe: string) => void;
     onClickNext: () => void;
     goToPrevious?: () => void;
 }
 
 function RecipeForm(props: Props) {
-    const {
-        state,
-        isEditing,
-        displayRecipe,
-        sourceConfigs,
-        setStagedRecipe,
-        onClickNext,
-        goToPrevious,
-        stagedRecipeName,
-    } = props;
+    const { state, isEditing, displayRecipe, sourceConfigs, setStagedRecipe, onClickNext, goToPrevious } = props;
     const { type } = state;
     const version = state.config?.version;
     const { fields, advancedFields, filterFields, filterSectionTooltip, advancedSectionTooltip, defaultOpenSections } =
@@ -148,13 +138,6 @@ function RecipeForm(props: Props) {
         updateFormValues({ [fieldName]: fieldValue }, { [fieldName]: fieldValue });
         form.setFieldsValue({ [fieldName]: fieldValue });
     }
-
-    // in the case that were dealing with a different recipe, reset the form
-    useEffect(() => {
-        if (stagedRecipeName) {
-            setTimeout(() => form.resetFields(), 10);
-        }
-    }, [stagedRecipeName, form]);
 
     return (
         <Form
