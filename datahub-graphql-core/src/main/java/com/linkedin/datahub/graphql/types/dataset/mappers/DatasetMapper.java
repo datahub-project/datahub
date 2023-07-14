@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
+import com.linkedin.common.Access;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -32,6 +33,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UpstreamLineagesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
+import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
@@ -86,7 +88,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         mappingHelper.mapToResult(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
         mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
-            dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dataset, dataMap) ->
@@ -110,6 +112,8 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setEmbed(EmbedMapper.map(new Embed(dataMap))));
         mappingHelper.mapToResult(BROWSE_PATHS_V2_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
+        mappingHelper.mapToResult(ACCESS_DATASET_ASPECT_NAME, ((dataset, dataMap) ->
+                dataset.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
         return mappingHelper.getResult();
     }
 

@@ -290,6 +290,21 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
               label: "Evaluate Tests",
               id: "docs/api/restli/evaluate-tests",
             },
