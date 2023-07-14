@@ -1,16 +1,17 @@
-pytest
-black
-flake8
-mypy
+pytest>=6.2.2
+black>=21.12b0
+flake8>=3.8.3
+flake8-tidy-imports>=4.3.0
+mypy>=0.920
 mkdocs
 mkdocs-material
 mkdocstrings[python]
-isort
+isort>=5.7.0
 pre-commit
-pytest-asyncio
+pytest-asyncio>=0.16.0
 mock; python_version < '3.8'
 mkdocs-gen-files
 interrogate
-coverage
+coverage>=5.1
 pillow
 types-requests
