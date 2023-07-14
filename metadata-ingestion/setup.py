@@ -400,7 +400,7 @@ plugins: Dict[str, Set[str]] = {
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "dagster": {
-        "dagster>=1.3.3",
+        "dagster",
         *rest_common,
     },
 }
