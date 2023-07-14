@@ -287,7 +287,9 @@ class SnowflakeV2Source(
         self.db_tables: Dict[str, List[SnowflakeTable]] = {}
 
         self.sql_parser_schema_resolver = SchemaResolver(
-            platform=self.platform, env=self.config.env
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
         )
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
 
@@ -867,14 +869,7 @@ class SnowflakeV2Source(
 
             yield from self.gen_dataset_workunits(table, schema_name, db_name)
         elif self.config.parse_view_ddl:
-            dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
-            dataset_urn = self.gen_dataset_urn(dataset_name)
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                urn=dataset_urn,
-                schema_metadata=self.get_schema_metadata(
-                    table, dataset_name, dataset_urn
-                ),
-            )
+            self.gen_schema_metadata(table, schema_name, db_name)
 
     def fetch_sample_data_for_classification(
         self, table, schema_name, db_name, dataset_name
@@ -992,14 +987,7 @@ class SnowflakeV2Source(
 
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
         elif self.config.parse_view_ddl:
-            dataset_name = self.get_dataset_identifier(view.name, schema_name, db_name)
-            dataset_urn = self.gen_dataset_urn(dataset_name)
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                urn=dataset_urn,
-                schema_metadata=self.get_schema_metadata(
-                    view, dataset_name, dataset_urn
-                ),
-            )
+            self.gen_schema_metadata(view, schema_name, db_name)
 
     def _process_tag(self, tag: SnowflakeTag) -> Iterable[MetadataWorkUnit]:
         tag_identifier = tag.identifier()
@@ -1033,14 +1021,10 @@ class SnowflakeV2Source(
             entityUrn=dataset_urn, aspect=status
         ).as_workunit()
 
-        schema_metadata = self.get_schema_metadata(table, dataset_name, dataset_urn)
-        if self.config.parse_view_ddl:
-            self.sql_parser_schema_resolver.add_schema_metadata(
-                urn=dataset_urn,
-                schema_metadata=self.get_schema_metadata(
-                    table, dataset_name, dataset_urn
-                ),
-            )
+        schema_metadata = self.gen_schema_metadata(table, schema_name, db_name)
+        # TODO: classification is only run for snowflake tables.
+        # Should we run classification for snowflake views as well?
+        self.classify_snowflake_table(table, dataset_name, schema_metadata)
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
@@ -1152,12 +1136,15 @@ class SnowflakeV2Source(
             entityUrn=tag_urn, aspect=tag_properties_aspect
         ).as_workunit()
 
-    def get_schema_metadata(
+    def gen_schema_metadata(
         self,
         table: Union[SnowflakeTable, SnowflakeView],
-        dataset_name: str,
-        dataset_urn: str,
+        schema_name: str,
+        db_name: str,
     ) -> SchemaMetadata:
+        dataset_name = self.get_dataset_identifier(table.name, schema_name, db_name)
+        dataset_urn = self.gen_dataset_urn(dataset_name)
+
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
             foreign_keys = self.build_foreign_keys(table, dataset_urn, foreign_keys)
@@ -1199,9 +1186,10 @@ class SnowflakeV2Source(
             foreignKeys=foreign_keys,
         )
 
-        # TODO: classification is only run for snowflake tables.
-        # Should we run classification for snowflake views as well?
-        self.classify_snowflake_table(table, dataset_name, schema_metadata)
+        if self.config.parse_view_ddl:
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                urn=dataset_urn, schema_metadata=schema_metadata
+            )
 
         return schema_metadata
 
