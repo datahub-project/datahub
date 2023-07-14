@@ -11,7 +11,7 @@
                 "env": "PROD",
                 "database": "vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "130 GB",
+                "cluster_size": "129 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },
@@ -208,7 +208,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.570193+00:00",
+                            "create_time": "2023-07-14 06:41:35.472232+00:00",
                             "table_size": "2119 KB"
                         },
                         "name": "customer_dimension",
@@ -589,7 +589,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.580757+00:00",
+                            "create_time": "2023-07-14 06:41:35.483436+00:00",
                             "table_size": "138 KB"
                         },
                         "name": "date_dimension",
@@ -970,7 +970,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.587602+00:00",
+                            "create_time": "2023-07-14 06:41:35.490683+00:00",
                             "table_size": "327 KB"
                         },
                         "name": "employee_dimension",
@@ -1312,7 +1312,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.597189+00:00",
+                            "create_time": "2023-07-14 06:41:35.500723+00:00",
                             "table_size": "2566 KB"
                         },
                         "name": "inventory_fact",
@@ -1498,7 +1498,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.573959+00:00",
+                            "create_time": "2023-07-14 06:41:35.476111+00:00",
                             "table_size": "19 KB"
                         },
                         "name": "product_dimension",
@@ -1879,7 +1879,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.577351+00:00",
+                            "create_time": "2023-07-14 06:41:35.479799+00:00",
                             "table_size": "3 KB"
                         },
                         "name": "promotion_dimension",
@@ -2143,7 +2143,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.590921+00:00",
+                            "create_time": "2023-07-14 06:41:35.494174+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "shipping_dimension",
@@ -2303,7 +2303,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.584194+00:00",
+                            "create_time": "2023-07-14 06:41:35.487061+00:00",
                             "table_size": "1 KB"
                         },
                         "name": "vendor_dimension",
@@ -2515,7 +2515,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:51.793154+00:00",
+                            "create_time": "2023-07-14 06:42:05.074758+00:00",
                             "table_size": "0 KB"
                         },
                         "name": "vmart_load_success",
@@ -2636,7 +2636,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.594040+00:00",
+                            "create_time": "2023-07-14 06:41:35.497417+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "warehouse_dimension",
@@ -2826,7 +2826,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(date_dimension.date_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "138 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -3237,7 +3237,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(product_dimension.product_key, product_dimension.product_version)",
-                            "projection_size": "0 KB",
+                            "projection_size": "19 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -3648,7 +3648,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(promotion_dimension.promotion_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "3 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -3942,7 +3942,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(vendor_dimension.vendor_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "1 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -4184,7 +4184,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(customer_dimension.customer_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "2119 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -4595,7 +4595,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(employee_dimension.employee_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "327 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -4967,7 +4967,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(warehouse_dimension.warehouse_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "2 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -5183,7 +5183,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(shipping_dimension.shipping_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "1 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -5373,7 +5373,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(inventory_fact.date_key, inventory_fact.product_key, inventory_fact.product_version, inventory_fact.warehouse_key, inventory_fact.qty_in_stock)",
-                            "projection_size": "0 KB",
+                            "projection_size": "2566 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -5671,7 +5671,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.604361+00:00",
+                            "create_time": "2023-07-14 06:41:35.508225+00:00",
                             "table_size": "2 KB"
                         },
                         "name": "store_dimension",
@@ -6013,7 +6013,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.615630+00:00",
+                            "create_time": "2023-07-14 06:41:35.519919+00:00",
                             "table_size": "8648 KB"
                         },
                         "name": "store_orders_fact",
@@ -6368,8 +6368,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.607859+00:00",
-                            "table_size": "0 KB"
+                            "create_time": "2023-07-14 06:41:35.511763+00:00",
+                            "table_size": "225089 KB"
                         },
                         "name": "store_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -6701,7 +6701,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(store_dimension.store_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "2 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -7069,11 +7069,11 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "ROS_Count": "1",
+                            "ROS_Count": "2",
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(store_sales_fact.date_key, store_sales_fact.product_key, store_sales_fact.product_version, store_sales_fact.store_key, store_sales_fact.promotion_key, store_sales_fact.customer_key, store_sales_fact.employee_key, store_sales_fact.pos_transaction_number)",
-                            "projection_size": "0 KB",
+                            "projection_size": "225089 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -7432,7 +7432,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(store_orders_fact.product_key, store_orders_fact.product_version, store_orders_fact.store_key, store_orders_fact.vendor_key, store_orders_fact.employee_key, store_orders_fact.order_number, store_orders_fact.date_ordered, store_orders_fact.date_shipped)",
-                            "projection_size": "0 KB",
+                            "projection_size": "8648 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -7899,7 +7899,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.626223+00:00",
+                            "create_time": "2023-07-14 06:41:35.531026+00:00",
                             "table_size": "6 KB"
                         },
                         "name": "call_center_dimension",
@@ -8163,7 +8163,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.623032+00:00",
+                            "create_time": "2023-07-14 06:41:35.527606+00:00",
                             "table_size": "9 KB"
                         },
                         "name": "online_page_dimension",
@@ -8349,7 +8349,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-06-29 10:41:23.629569+00:00",
+                            "create_time": "2023-07-14 06:41:35.534498+00:00",
                             "table_size": "182385 KB"
                         },
                         "name": "online_sales_fact",
@@ -8721,7 +8721,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(online_page_dimension.online_page_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "9 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -8937,7 +8937,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(call_center_dimension.call_center_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "6 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
@@ -9231,7 +9231,7 @@
                             "Projection_Type": "is_super_projection",
                             "is_segmented": "True",
                             "Segmentation_key": "hash(online_sales_fact.sale_date_key, online_sales_fact.ship_date_key, online_sales_fact.product_key, online_sales_fact.product_version, online_sales_fact.customer_key, online_sales_fact.call_center_key, online_sales_fact.online_page_key, online_sales_fact.shipping_key)",
-                            "projection_size": "0 KB",
+                            "projection_size": "182385 KB",
                             "Partition_Key": "Not Available",
                             "Partition_Size": "0",
                             "Projection_Cached": "False"
