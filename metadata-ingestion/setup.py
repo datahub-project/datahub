@@ -57,7 +57,8 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    "jsonschema",
+    # jsonschema drops python 3.7 support in v4.18.0
+    "jsonschema<=4.17.3",
     "ruamel.yaml",
 }
 
@@ -211,7 +212,7 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
-microsoft_common = {"msal==1.16.0"}
+microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -412,7 +413,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]",
+    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.3",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",

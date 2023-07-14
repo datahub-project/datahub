@@ -1,6 +1,5 @@
 import asyncio
 import csv
-import functools
 import json
 import logging
 import os
@@ -123,9 +122,7 @@ def run(
 ) -> None:
     """Ingest metadata into DataHub."""
 
-    def run_pipeline_to_completion(
-        pipeline: Pipeline, structured_report: Optional[str] = None
-    ) -> int:
+    async def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(disable=no_spinner):
             try:
@@ -144,31 +141,6 @@ def run(
                 ret = pipeline.pretty_print_summary(warnings_as_failure=strict_warnings)
                 return ret
 
-    async def run_pipeline_async(pipeline: Pipeline) -> int:
-        loop = asyncio._get_running_loop()
-        return await loop.run_in_executor(
-            None, functools.partial(run_pipeline_to_completion, pipeline)
-        )
-
-    async def run_func_check_upgrade(pipeline: Pipeline) -> None:
-        version_stats_future = asyncio.ensure_future(
-            upgrade.retrieve_version_stats(pipeline.ctx.graph)
-        )
-        the_one_future = asyncio.ensure_future(run_pipeline_async(pipeline))
-        ret = await the_one_future
-
-        # the one future has returned
-        if ret == 0:
-            try:
-                # we check the other futures quickly on success
-                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
-                upgrade.maybe_print_upgrade_message(version_stats=version_stats)
-            except Exception as e:
-                logger.debug(
-                    f"timed out with {e} waiting for version stats to be computed... skipping ahead."
-                )
-        sys.exit(ret)
-
     # main function begins
     logger.info("DataHub CLI version: %s", datahub_package.nice_version_name())
 
@@ -183,19 +155,47 @@ def run(
     if test_source_connection:
         _test_source_connection(report_to, pipeline_config)
 
-    # logger.debug(f"Using config: {pipeline_config}")
-    pipeline = Pipeline.create(
-        pipeline_config,
-        dry_run,
-        preview,
-        preview_workunits,
-        report_to,
-        no_default_report,
-        raw_pipeline_config,
-    )
+    async def run_ingestion_and_check_upgrade() -> int:
+        # TRICKY: We want to make sure that the Pipeline.create() call happens on the
+        # same thread as the rest of the ingestion. As such, we must initialize the
+        # pipeline inside the async function so that it happens on the same event
+        # loop, and hence the same thread.
+
+        # logger.debug(f"Using config: {pipeline_config}")
+        pipeline = Pipeline.create(
+            pipeline_config,
+            dry_run,
+            preview,
+            preview_workunits,
+            report_to,
+            no_default_report,
+            raw_pipeline_config,
+        )
+
+        version_stats_future = asyncio.ensure_future(
+            upgrade.retrieve_version_stats(pipeline.ctx.graph)
+        )
+        ingestion_future = asyncio.ensure_future(run_pipeline_to_completion(pipeline))
+        ret = await ingestion_future
+
+        # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
+        if ret == 0:
+            try:
+                # we check the other futures quickly on success
+                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
+                upgrade.maybe_print_upgrade_message(version_stats=version_stats)
+            except Exception as e:
+                logger.debug(
+                    f"timed out with {e} waiting for version stats to be computed... skipping ahead."
+                )
+
+        return ret
 
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(run_func_check_upgrade(pipeline))
+    ret = loop.run_until_complete(run_ingestion_and_check_upgrade())
+    if ret:
+        sys.exit(ret)
+    # don't raise SystemExit if there's no error
 
 
 def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
