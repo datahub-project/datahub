@@ -369,7 +369,7 @@ plugins: Dict[str, Set[str]] = {
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake": snowflake_common | usage_common,
+    "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-beta": (
         snowflake_common | usage_common
     ),  # deprecated, but keeping the extra for backwards compatibility
