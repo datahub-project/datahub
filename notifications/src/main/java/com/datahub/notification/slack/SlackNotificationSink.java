@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetails;
@@ -72,7 +73,8 @@ public class SlackNotificationSink implements NotificationSink {
       NotificationTemplateType.BROADCAST_NEW_PROPOSAL,
       NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
       NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
-      NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE
+      NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
+      NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE
   );
   // TODO: consolidate this fricken duplicated mess
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
@@ -210,6 +212,9 @@ public class SlackNotificationSink implements NotificationSink {
         break;
       case BROADCAST_INGESTION_RUN_CHANGE:
         sendBroadcastNotification(notificationRequest.getRecipients(), buildIngestionRunChangeMessage(notificationRequest));
+        break;
+      case BROADCAST_ASSERTION_STATUS_CHANGE:
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildAssertionStatusChangeMessage(notificationRequest));
         break;
       default:
         throw new UnsupportedOperationException(String.format(
@@ -519,6 +524,28 @@ public class SlackNotificationSink implements NotificationSink {
         sourceType,
         statusText,
         ingestionUrl
+    );
+  }
+
+private String buildAssertionStatusChangeMessage(NotificationRequest request) {
+    final String entityName = request.getMessage().getParameters().get("entityName");
+    final String entityPath = request.getMessage().getParameters().get("entityPath");
+    final String entityUrl = String.format("%s%s/Validation", this.baseUrl, entityPath);
+    final String result = request.getMessage().getParameters().get("result");
+
+    String resultString = result.equals(AssertionResultType.SUCCESS.toString()) ? "passing" : "failing";
+    String emojiString = result.equals(AssertionResultType.SUCCESS.toString()) ? ":white_check_mark:" : ":warning:";
+
+    /*
+     * Example:
+     *     - Assertion now failing on SampleHiveDataset
+     *     - Assertion now passing on SampleHiveDataset
+     */
+    return String.format("%s  Assertion now *%s* on *<%s|%s>*",
+        emojiString,
+        resultString,
+        entityUrl,
+        entityName
     );
   }
 

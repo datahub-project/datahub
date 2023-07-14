@@ -13,7 +13,7 @@ const NotificationTypeText = styled(Typography.Text)`
     margin-right: 8px;
 `;
 
-const ASSERTION_NODE_KEY = EntityChangeType.AssertionFailed;
+const ASSERTION_NODE_KEY = 'assertion_changes';
 const INCIDENTS_NODE_KEY = EntityChangeType.IncidentRaised;
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
 const DOCUMENTATION_NODE_KEY = EntityChangeType.DocumentationChange;
@@ -46,6 +46,7 @@ const NESTED_NODE_KEY_PARENTS = new Set([
     OWNERSHIP_CHANGE_NODE_KEY,
     GLOSSARY_TERM_CHANGE_NODE_KEY,
     TAG_CHANGE_NODE_KEY,
+    ASSERTION_NODE_KEY,
 ]);
 
 export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
@@ -65,8 +66,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
             break;
         default:
             return [
-                ASSERTION_NODE_KEY,
-                INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
                 DOCUMENTATION_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
@@ -99,8 +98,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
             break;
         default:
             return [
-                ASSERTION_NODE_KEY,
-                INCIDENTS_NODE_KEY,
                 DEPRECATION_NODE_KEY,
                 DOCUMENTATION_NODE_KEY,
                 OWNERSHIP_CHANGE_NODE_KEY,
@@ -120,11 +117,17 @@ export const getEntityChangeTypesFromCheckedKeys = (checkedKeys: Key[]): EntityC
 
 const assertionsNode: DataNode = {
     key: ASSERTION_NODE_KEY,
-    title: (
-        <>
-            <NotificationTypeText>Failing assertions</NotificationTypeText>
-        </>
-    ),
+    title: <NotificationTypeText>Assertion status changes</NotificationTypeText>,
+    children: [
+        {
+            key: EntityChangeType.AssertionFailed,
+            title: <NotificationTypeText>Failing assertions</NotificationTypeText>,
+        },
+        {
+            key: EntityChangeType.AssertionPassed,
+            title: <NotificationTypeText>Passing assertions</NotificationTypeText>,
+        },
+    ],
 };
 
 const incidentsNode: DataNode = {
@@ -160,27 +163,15 @@ const schemaNode: DataNode = {
     children: [
         {
             key: EntityChangeType.OperationColumnAdded,
-            title: (
-                <>
-                    <NotificationTypeText>A column is added</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A column is added</NotificationTypeText>,
         },
         {
             key: EntityChangeType.OperationColumnRemoved,
-            title: (
-                <>
-                    <NotificationTypeText>A column is removed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A column is removed</NotificationTypeText>,
         },
         {
             key: EntityChangeType.OperationColumnModified,
-            title: (
-                <>
-                    <NotificationTypeText>A column is modified</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A column is modified</NotificationTypeText>,
         },
     ],
 };
@@ -191,27 +182,15 @@ const operationalMetadataNode: DataNode = {
     children: [
         {
             key: EntityChangeType.OperationRowsInserted,
-            title: (
-                <>
-                    <NotificationTypeText>Rows are inserted</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>Rows are inserted</NotificationTypeText>,
         },
         {
             key: EntityChangeType.OperationRowsUpdated,
-            title: (
-                <>
-                    <NotificationTypeText>Rows are updated</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>Rows are updated</NotificationTypeText>,
         },
         {
             key: EntityChangeType.OperationRowsRemoved,
-            title: (
-                <>
-                    <NotificationTypeText>Rows are removed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>Rows are removed</NotificationTypeText>,
         },
     ],
 };
@@ -222,19 +201,11 @@ const ownershipChangeNode: DataNode = {
     children: [
         {
             key: EntityChangeType.OwnerAdded,
-            title: (
-                <>
-                    <NotificationTypeText>An owner is added</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>An owner is added</NotificationTypeText>,
         },
         {
             key: EntityChangeType.OwnerRemoved,
-            title: (
-                <>
-                    <NotificationTypeText>An owner is removed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>An owner is removed</NotificationTypeText>,
         },
     ],
 };
@@ -245,27 +216,15 @@ const glossaryTermChangeNode: DataNode = {
     children: [
         {
             key: EntityChangeType.GlossaryTermAdded,
-            title: (
-                <>
-                    <NotificationTypeText>A glossary term is added</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A glossary term is added</NotificationTypeText>,
         },
         {
             key: EntityChangeType.GlossaryTermRemoved,
-            title: (
-                <>
-                    <NotificationTypeText>A glossary term is removed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A glossary term is removed</NotificationTypeText>,
         },
         {
             key: EntityChangeType.GlossaryTermProposed,
-            title: (
-                <>
-                    <NotificationTypeText>A glossary term is proposed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A glossary term is proposed</NotificationTypeText>,
         },
     ],
 };
@@ -276,27 +235,15 @@ const tagChangeNode: DataNode = {
     children: [
         {
             key: EntityChangeType.TagAdded,
-            title: (
-                <>
-                    <NotificationTypeText>A tag is added</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A tag is added</NotificationTypeText>,
         },
         {
             key: EntityChangeType.TagRemoved,
-            title: (
-                <>
-                    <NotificationTypeText>A tag is removed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A tag is removed</NotificationTypeText>,
         },
         {
             key: EntityChangeType.TagProposed,
-            title: (
-                <>
-                    <NotificationTypeText>A tag is proposed</NotificationTypeText>
-                </>
-            ),
+            title: <NotificationTypeText>A tag is proposed</NotificationTypeText>,
         },
     ],
 };
