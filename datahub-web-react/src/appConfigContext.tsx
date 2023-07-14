@@ -49,11 +49,11 @@ export const DEFAULT_APP_CONFIG = {
         showBrowseV2: true,
         assertionMonitorsEnabled: false,
         datasetHealthDashboardEnabled: false,
+        showAcrylInfo: false,
     },
     chromeExtensionConfig: {
         enabled: false,
         lineageEnabled: false,
-        showAcrylInfo: false,
     },
 };
 
