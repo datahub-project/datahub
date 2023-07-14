@@ -235,6 +235,26 @@ function Docs() {
             content={featureGuideContent}
             seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }}
           />
+          <div className={clsx("card", styles.quickLinks)}>
+            <div className={styles.quickLinksLabel}>
+              <QuestionCircleOutlined />
+              DataHub GitHub Repos
+            </div>
+            <Link to="https://github.com/datahub-project/datahub">datahub</Link>
+            <Link to="https://github.com/acryldata/datahub-actions">
+              datahub-actions
+            </Link>
+            <Link to="https://github.com/acryldata/datahub-helm">
+              datahub-helm
+            </Link>
+            <Link to="https://github.com/acryldata/meta-world">meta-world</Link>
+            <Link to="https://github.com/acryldata/dbt-impact-action">
+              dbt-impact-action
+            </Link>
+            <Link to="https://github.com/acryldata/business-glossary-sync-action">
+              business-glossary-sync-action
+            </Link>
+          </div>
         </div>
       </header>
     </Layout>
