@@ -26,12 +26,12 @@ import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
 
-const SearchResultsWrapper = styled.div<{ showUpdatedStyles: boolean }>`
+const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
     flex: 1;
 
     ${(props) =>
-        props.showUpdatedStyles &&
+        props.v2Styles &&
         `
         overflow: hidden;
     `}
@@ -45,11 +45,13 @@ const SearchBody = styled.div`
     overflow: auto;
 `;
 
-const ResultContainer = styled.div<{ displayUpdatedStyles: boolean }>`
+const ResultContainer = styled.div<{ v2Styles: boolean }>`
+    display: flex;
+    flex-direction: column;
     flex: 1;
     overflow: auto;
     ${(props) =>
-        props.displayUpdatedStyles
+        props.v2Styles
             ? `
         background-color: #F8F9FA;
     `
@@ -64,7 +66,7 @@ const PaginationControlContainer = styled.div`
     text-align: center;
 `;
 
-const PaginationInfoContainer = styled.div`
+const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
     padding-left: 24px;
     padding-right: 32px;
     height: 47px;
@@ -73,6 +75,7 @@ const PaginationInfoContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
+    ${({ v2Styles }) => v2Styles && `background-color: white;`}
 `;
 
 const LeftControlsContainer = styled.div`
@@ -91,6 +94,11 @@ const StyledTabToolbar = styled(TabToolbar)`
 `;
 
 const SearchMenuContainer = styled.div``;
+
+const SearchResultListContainer = styled.div`
+    flex: 1;
+    overflow: auto;
+`;
 
 interface Props {
     unionType?: UnionType;
@@ -163,7 +171,7 @@ export const SearchResults = ({
     return (
         <>
             {loading && <Message type="loading" content="Loading..." style={{ marginTop: '10%' }} />}
-            <SearchResultsWrapper showUpdatedStyles={showSearchFiltersV2}>
+            <SearchResultsWrapper v2Styles={showSearchFiltersV2}>
                 <SearchBody>
                     {!showSearchFiltersV2 && (
                         <div id={SEARCH_RESULTS_FILTERS_ID} data-testid="search-filters-v1">
@@ -184,8 +192,8 @@ export const SearchResults = ({
                             </BrowseProvider>
                         </SidebarProvider>
                     )}
-                    <ResultContainer displayUpdatedStyles={showSearchFiltersV2}>
-                        <PaginationInfoContainer>
+                    <ResultContainer v2Styles={showSearchFiltersV2}>
+                        <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                             <LeftControlsContainer>
                                 {showBrowseV2 && <ToggleSidebarButton isOpen={isSidebarOpen} onClick={toggleSidebar} />}
                                 <Typography.Text>
@@ -223,7 +231,7 @@ export const SearchResults = ({
                         )}
                         {(error && <ErrorSection />) ||
                             (!loading && (
-                                <>
+                                <SearchResultListContainer>
                                     <SearchResultList
                                         query={query}
                                         searchResults={combinedSiblingSearchResults}
@@ -253,7 +261,7 @@ export const SearchResults = ({
                                             />
                                         </SearchResultsRecommendationsContainer>
                                     )}
-                                </>
+                                </SearchResultListContainer>
                             ))}
                     </ResultContainer>
                 </SearchBody>

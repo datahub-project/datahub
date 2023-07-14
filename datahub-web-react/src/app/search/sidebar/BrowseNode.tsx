@@ -41,11 +41,10 @@ const BrowseNode = () => {
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
-    const { trackToggleNodeEvent } = useSidebarAnalytics();
     const { count, entity } = browseResultGroup;
     const hasEntityLink = !!entity;
     const displayName = useBrowseDisplayName();
-    const { trackSelectNodeEvent } = useSidebarAnalytics();
+    const { trackSelectNodeEvent, trackToggleNodeEvent } = useSidebarAnalytics();
 
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: isBrowsePathPrefix && !isBrowsePathSelected,
