@@ -371,7 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-beta": (
-        snowflake_common | usage_common
+        snowflake_common | usage_common | sqlglot_lib
     ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
