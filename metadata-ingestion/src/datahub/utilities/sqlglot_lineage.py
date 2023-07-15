@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaMetadataClass
@@ -223,7 +224,7 @@ def _table_level_lineage(
     return tables, modified
 
 
-class SchemaResolver:
+class SchemaResolver(Closeable):
     def __init__(
         self,
         *,
@@ -339,6 +340,9 @@ class SchemaResolver:
         }
 
     # TODO add a method to load all from graphql
+
+    def close(self) -> None:
+        self._schema_cache.close()
 
 
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
