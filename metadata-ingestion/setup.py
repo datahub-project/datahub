@@ -57,7 +57,8 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    "jsonschema",
+    # jsonschema drops python 3.7 support in v4.18.0
+    "jsonschema<=4.17.3",
     "ruamel.yaml",
 }
 
@@ -133,6 +134,12 @@ sqllineage_lib = {
     "sqlparse==0.4.3",
 }
 
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
+    "acryl-sqlglot==16.7.6.dev6",
+}
+
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -205,7 +212,7 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
-microsoft_common = {"msal==1.16.0"}
+microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -227,7 +234,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1",
+    "pydeequ>=1.0.1, <1.1",
     "pyspark==3.0.3",
 }
 
@@ -269,6 +276,8 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | sqllineage_lib,
+    # Misc plugins.
+    "sql-parser": sqlglot_lib,
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -276,7 +285,9 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
+        # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
@@ -285,6 +296,7 @@ plugins: Dict[str, Set[str]] = {
     | bigquery_common
     | {
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
     },  # deprecated, but keeping the extra for backwards compatibility
@@ -357,9 +369,9 @@ plugins: Dict[str, Set[str]] = {
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake": snowflake_common | usage_common,
+    "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-beta": (
-        snowflake_common | usage_common
+        snowflake_common | usage_common | sqlglot_lib
     ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
@@ -401,7 +413,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]",
+    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.3",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
@@ -412,6 +424,11 @@ mypy_stubs = {
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
 }
+
+
+pytest_dep = "pytest>=6.2.2"
+deepdiff_dep = "deepdiff"
+test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
 
 base_dev_requirements = {
     *base_requirements,
@@ -431,11 +448,12 @@ base_dev_requirements = {
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
-    "pytest>=6.2.2",
+    *test_api_requirements,
+    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=1.0.1",
-    "deepdiff",
+    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -686,6 +704,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
+        "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
     },
 )

@@ -1,4 +1,5 @@
 import enum
+import functools
 import json
 import logging
 import textwrap
@@ -16,7 +17,7 @@ from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
+from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -44,6 +45,7 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
+    from datahub.utilities.sqlglot_lineage import SchemaResolver, SqlParsingResult
 
 
 logger = logging.getLogger(__name__)
@@ -954,6 +956,49 @@ class DataHubGraph(DatahubRestEmitter):
         reference_count = response.get("total", 0)
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
+
+    @functools.lru_cache()
+    def _make_schema_resolver(
+        self, platform: str, platform_instance: Optional[str], env: str
+    ) -> "SchemaResolver":
+        from datahub.utilities.sqlglot_lineage import SchemaResolver
+
+        return SchemaResolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=self,
+        )
+
+    def parse_sql_lineage(
+        self,
+        sql: str,
+        *,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = DEFAULT_ENV,
+        default_db: Optional[str] = None,
+        default_schema: Optional[str] = None,
+    ) -> "SqlParsingResult":
+        from datahub.utilities.sqlglot_lineage import sqlglot_lineage
+
+        # Cache the schema resolver to make bulk parsing faster.
+        schema_resolver = self._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+        return sqlglot_lineage(
+            sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+
+    def close(self) -> None:
+        self._make_schema_resolver.cache_clear()
+        super().close()
 
 
 def get_default_graph() -> DataHubGraph:
