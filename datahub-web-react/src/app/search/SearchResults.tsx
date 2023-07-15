@@ -46,13 +46,13 @@ const SearchBody = styled.div`
 `;
 
 const ResultContainer = styled.div<{ v2Styles: boolean }>`
-    display: flex;
-    flex-direction: column;
     flex: 1;
     overflow: auto;
     ${(props) =>
         props.v2Styles
             ? `
+        display: flex;
+        flex-direction: column;
         background-color: #F8F9FA;
     `
             : `
@@ -95,9 +95,13 @@ const StyledTabToolbar = styled(TabToolbar)`
 
 const SearchMenuContainer = styled.div``;
 
-const SearchResultListContainer = styled.div`
-    flex: 1;
-    overflow: auto;
+const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
+    ${({ v2Styles }) =>
+        v2Styles &&
+        `
+        flex: 1;
+        overflow: auto;
+    `}
 `;
 
 interface Props {
@@ -231,7 +235,7 @@ export const SearchResults = ({
                         )}
                         {(error && <ErrorSection />) ||
                             (!loading && (
-                                <SearchResultListContainer>
+                                <SearchResultListContainer v2Styles={showSearchFiltersV2}>
                                     <SearchResultList
                                         query={query}
                                         searchResults={combinedSiblingSearchResults}
