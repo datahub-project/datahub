@@ -40,7 +40,7 @@ services:
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
              --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
         #
-        curl -k -SL "https://maven.aliyun.com/repository/central/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
+        curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/
         #             
         echo "Launching Kafka Connect worker"
