@@ -60,7 +60,7 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dataProduct, dataMap) ->
         dataProduct.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataProduct, dataMap) ->
-        dataProduct.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        dataProduct.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
 
     return result;
   }

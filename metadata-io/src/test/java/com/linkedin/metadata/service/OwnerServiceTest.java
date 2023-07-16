@@ -29,6 +29,8 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import static com.linkedin.metadata.service.OwnerService.*;
+
 
 public class OwnerServiceTest {
 
@@ -63,6 +65,7 @@ public class OwnerServiceTest {
         ImmutableList.of(
             new Owner().setOwner(TEST_OWNER_URN_1).setType(OwnershipType.NONE),
             new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)
+                .setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.toString()))
         ));
 
     MetadataChangeProposal event1 = events.get(0);
@@ -102,7 +105,8 @@ public class OwnerServiceTest {
         mockAuthentication());
 
     OwnerArray expectedOwners = new OwnerArray(
-        ImmutableList.of(new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)));
+        ImmutableList.of(new Owner().setOwner(newOwnerUrn).setType(OwnershipType.NONE)
+            .setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.toString()))));
 
     MetadataChangeProposal event1 = events.get(0);
     Assert.assertEquals(event1.getAspectName(), Constants.OWNERSHIP_ASPECT_NAME);

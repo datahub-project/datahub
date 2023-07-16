@@ -75,7 +75,7 @@ public class VersionedDatasetMapper implements ModelMapper<EntityResponse, Versi
     mappingHelper.mapToResult(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME, this::mapEditableDatasetProperties);
     mappingHelper.mapToResult(VIEW_PROPERTIES_ASPECT_NAME, this::mapViewProperties);
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
-        dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (dataset, dataMap) ->
         dataset.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(STATUS_ASPECT_NAME, (dataset, dataMap) ->

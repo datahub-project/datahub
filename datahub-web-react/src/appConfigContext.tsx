@@ -27,6 +27,9 @@ export const DEFAULT_APP_CONFIG = {
         queriesTab: {
             queriesTabResultSize: 5,
         },
+        entityProfile: {
+            domainDefaultTab: null,
+        },
     },
     authConfig: {
         tokenAuthEnabled: false,
@@ -46,6 +49,7 @@ export const DEFAULT_APP_CONFIG = {
         showBrowseV2: true,
         assertionMonitorsEnabled: false,
         datasetHealthDashboardEnabled: false,
+        showAcrylInfo: false,
     },
     chromeExtensionConfig: {
         enabled: false,

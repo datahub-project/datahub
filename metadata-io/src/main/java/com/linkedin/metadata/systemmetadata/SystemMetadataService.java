@@ -5,7 +5,10 @@ import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.elasticsearch.client.tasks.GetTaskResponse;
 
 
 public interface SystemMetadataService {
@@ -16,6 +19,8 @@ public interface SystemMetadataService {
    * @param aspect the aspect to delete
    */
   void deleteAspect(String urn, String aspect);
+
+  Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId);
 
   void deleteUrn(String finalOldUrn);
 
