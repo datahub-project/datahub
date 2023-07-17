@@ -34,7 +34,7 @@ base_requirements = {
 framework_common = {
     "click>=7.1.2",
     "click-default-group",
-    "PyYAML",
+    "PyYAML>=6.0",
     "toml>=0.10.0",
     "entrypoints",
     "docker",
