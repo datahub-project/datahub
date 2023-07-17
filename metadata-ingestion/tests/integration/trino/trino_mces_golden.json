@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -142,6 +157,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:57aba13b10c1691508600999cd411c25"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -308,6 +343,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -436,6 +495,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -530,6 +613,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
             ]
         }
     },
@@ -682,6 +789,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
             ]
         }
     },

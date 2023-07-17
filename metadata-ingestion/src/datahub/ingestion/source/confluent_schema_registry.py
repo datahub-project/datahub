@@ -80,8 +80,21 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         # Subject name format when the schema registry subject name strategy is
         #  (a) TopicNameStrategy(default strategy): <topic name>-<key/value>
         #  (b) TopicRecordNameStrategy: <topic name>-<fully-qualified record name>-<key/value>
+        #  there's a third case
+        #  (c) TopicNameStrategy differing by environment name suffixes.
+        #       e.g "a.b.c.d-value" and "a.b.c.d.qa-value"
+        #       For such instances, the wrong schema registry entries could picked by the previous logic.
         for subject in self.known_schema_registry_subjects:
-            if subject.startswith(topic) and subject.endswith(subject_key_suffix):
+            if (
+                self.source_config.disable_topic_record_naming_strategy
+                and subject == subject_key
+            ):
+                return subject
+            if (
+                (not self.source_config.disable_topic_record_naming_strategy)
+                and subject.startswith(topic)
+                and subject.endswith(subject_key_suffix)
+            ):
                 return subject
         return None
 
