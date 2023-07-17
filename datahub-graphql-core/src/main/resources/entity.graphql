@@ -190,11 +190,6 @@ type Query {
     getInviteToken(input: GetInviteTokenInput!): InviteToken
 
     """
-    List all Join
-    """
-    listJoin(input: ListJoinInput!): ListJoinResult
-
-    """
     List all Posts
     """
     listPosts(input: ListPostsInput!): ListPostsResult
@@ -235,54 +230,9 @@ type Query {
 }
 
 """
-Input provided when listing existing join
-"""
-input ListJoinInput {
-    """
-    The starting offset of the result set returned
-    """
-    start: Int
-
-    """
-    The maximum number of Roles to be returned in the result set
-    """
-    count: Int
-
-    """
-    Optional search query
-    """
-    query: String
-}
-"""
-The result obtained when listing Join
-"""
-type ListJoinResult {
-    """
-    The starting offset of the result set returned
-    """
-    start: Int!
-
-    """
-    The number of Join in the returned result set
-    """
-    count: Int!
-
-    """
-    The total number of Join in the result set
-    """
-    total: Int!
-
-    """
-    The Join themselves
-    """
-    join: [Join!]!
-}
-
-
-"""
 A Join is a high-level abstraction that dictates what datasets fields are joined.
 """
-type Join implements EntityWithRelationships & Entity & BrowsableEntity {
+type Join implements EntityWithRelationships & Entity {
     """
     The primary key of the role
     """
@@ -324,16 +274,6 @@ type Join implements EntityWithRelationships & Entity & BrowsableEntity {
     status: Status
 
     """
-    The parent container in which the entity resides
-    """
-    container: Container
-
-    """
-    Recursively get the lineage of containers for this entity
-    """
-    parentContainers: ParentContainersResult
-
-    """
     Tags used for searching dataset
     """
     tags: GlobalTags
@@ -347,19 +287,16 @@ type Join implements EntityWithRelationships & Entity & BrowsableEntity {
     List of relationships between the source Entity and some destination entities with a given types
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
-    """
-    Edges extending from this entity grouped by direction in the lineage graph
-    """
-    lineage(input: LineageInput!): EntityLineageResult
 
-    """
-    The browse paths corresponding to the dataset. If no Browse Paths have been generated before, this will be null.
-    """
-    browsePaths: [BrowsePath!]
     """
     Privileges given to a user relevant to this entity
     """
     privileges: EntityPrivileges
+
+    """
+    No-op required for the model
+    """
+    lineage(input: LineageInput!): EntityLineageResult
 }
 
 """
@@ -405,11 +342,6 @@ type JoinProperties {
     Created timestamp millis associated with the Join
     """
     createdTime: Long
-
-    """
-    Actor associated with the Join's created timestamp
-    """
-    createdActor: String
 }
 
 """
@@ -670,7 +602,7 @@ type Mutation {
     unsetDomain(entityUrn: String!): Boolean
 
     """
-    Create a new DataHub View (Saved Filter)
+    Create a Join
     """
     createJoin(
         "Input required to create a new Join"
@@ -3154,11 +3086,6 @@ Dataset properties that are editable via the UI This represents logical metadata
 as opposed to technical metadata
 """
 type DatasetEditableProperties {
-    """
-    Display name of the Dataset
-    """
-    name: String
-
     """
     Description of the Dataset
     """

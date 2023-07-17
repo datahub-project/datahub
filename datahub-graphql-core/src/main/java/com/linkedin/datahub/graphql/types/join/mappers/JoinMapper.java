@@ -8,7 +8,6 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Join;
@@ -63,7 +62,6 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
     mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (join, dataMap) -> this.mapGlobalTags(join, dataMap, entityUrn));
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (join, dataMap) ->
         join.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
     return mappingHelper.getResult();
   }
 
@@ -90,8 +88,8 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
-        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
-                ? joinProperties.getCreated().getActor().toString() : "")
+//        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
+//                ? joinProperties.getCreated().getActor().toString() : "")
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
                 ? joinProperties.getCreated().getTime() : 0)
         .build());
@@ -126,15 +124,6 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
   private void mapGlobalTags(@Nonnull Join join, @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
     join.setTags(globalTags);
-  }
-
-  private void mapContainers(@Nonnull Join join, @Nonnull DataMap dataMap) {
-    final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
-    join.setContainer(Container
-        .builder()
-        .setType(EntityType.CONTAINER)
-        .setUrn(gmsContainer.getContainer().toString())
-        .build());
   }
 
 }
