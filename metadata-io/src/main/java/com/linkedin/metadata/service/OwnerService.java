@@ -26,6 +26,8 @@ import static com.linkedin.metadata.entity.AspectUtils.*;
 @Slf4j
 public class OwnerService extends BaseService {
 
+  public static final String SYSTEM_ID = "__system__";
+
   public OwnerService(@Nonnull EntityClient entityClient, @Nonnull Authentication systemAuthentication) {
     super(entityClient, systemAuthentication);
   }
@@ -205,9 +207,15 @@ public class OwnerService extends BaseService {
     for (Urn ownerUrn : ownersToAdd) {
       Owner newOwner = new Owner();
       newOwner.setOwner(ownerUrn);
+      newOwner.setTypeUrn(mapOwnershipTypeToEntity(OwnershipType.NONE.name()));
       newOwner.setType(ownershipType);
       ownerAssociationArray.add(newOwner);
     }
+  }
+  @VisibleForTesting
+  static Urn mapOwnershipTypeToEntity(String type) {
+    final String typeName = SYSTEM_ID + type.toLowerCase();
+    return Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, typeName);
   }
 
   private static OwnerArray removeOwnersIfExists(Ownership owners, List<Urn> ownerUrns) {

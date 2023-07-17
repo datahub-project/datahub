@@ -212,7 +212,7 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
-microsoft_common = {"msal==1.16.0"}
+microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -369,9 +369,9 @@ plugins: Dict[str, Set[str]] = {
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake": snowflake_common | usage_common,
+    "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "snowflake-beta": (
-        snowflake_common | usage_common
+        snowflake_common | usage_common | sqlglot_lib
     ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
@@ -413,7 +413,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]",
+    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.3",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
