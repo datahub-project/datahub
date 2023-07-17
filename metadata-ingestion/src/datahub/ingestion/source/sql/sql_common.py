@@ -498,7 +498,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     self.add_profile_metadata(inspector)
                 except Exception as e:
                     logger.warning(
-                        f"Failed to get enrichment data for profiler", exc_info=True
+                        "Failed to get enrichment data for profiler", exc_info=True
                     )
                     self.report.report_warning(
                         "profile_metadata",

@@ -567,8 +567,7 @@
                         "3.8"
                     ]
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {
@@ -619,8 +618,7 @@
                     "stdev": "0.0",
                     "sampleValues": []
                 }
-            ],
-            "sizeInBytes": 16384
+            ]
         }
     },
     "systemMetadata": {

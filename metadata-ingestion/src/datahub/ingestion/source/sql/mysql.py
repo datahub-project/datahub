@@ -86,6 +86,8 @@ class MySQLSource(TwoTierSQLAlchemySource):
         return cls(config, ctx)
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
+        if not self.config.profiling.enabled:
+            return
         with inspector.engine.connect() as conn:
             for row in conn.execute(
                 "SELECT table_schema, table_name, data_length from information_schema.tables"
