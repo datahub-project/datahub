@@ -92,7 +92,8 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
-    RedundantRunSkipHandler,
+    RedundantLineageRunSkipHandler,
+    RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -132,7 +133,10 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlglot_lineage import SchemaResolver
-from datahub.utilities.time import datetime_to_ts_millis
+from datahub.utilities.time import (
+    datetime_to_ts_millis,
+    get_datetime_from_ts_millis_in_utc,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -224,7 +228,14 @@ class SnowflakeV2Source(
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
 
-        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+        self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
             source=self,
             config=self.config,
             pipeline_name=self.ctx.pipeline_name,
@@ -254,6 +265,11 @@ class SnowflakeV2Source(
                     config, self.report, dataset_urn_builder=self.gen_dataset_urn
                 )
 
+        self.sql_parser_schema_resolver = SchemaResolver(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
         if config.include_usage_stats or config.include_operational_stats:
             self.usage_extractor = SnowflakeUsageExtractor(
                 config, self.report, dataset_urn_builder=self.gen_dataset_urn
@@ -264,7 +280,7 @@ class SnowflakeV2Source(
         )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.store_last_profiling_timestamps:
+        if self.config.enable_stateful_profiling:
             self.profiling_state_handler = ProfilingHandler(
                 source=self,
                 config=self.config,
@@ -563,6 +579,24 @@ class SnowflakeV2Source(
         discovered_datasets = discovered_tables + discovered_views
 
         if self.config.include_table_lineage:
+            if self.config.enable_stateful_lineage_ingestion:
+                (
+                    skip,
+                    suggested_start_time,
+                    suggested_end_time,
+                ) = self.redundant_lineage_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                    if not self.config.ignore_start_time_lineage
+                    else 0,
+                    cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                )
+                self.lineage_extractor.lineage_start_time = (
+                    get_datetime_from_ts_millis_in_utc(suggested_start_time)
+                )
+                self.lineage_extractor.lineage_end_time = (
+                    get_datetime_from_ts_millis_in_utc(suggested_end_time)
+                )
+
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables=discovered_tables,
                 discovered_views=discovered_views,
@@ -571,25 +605,32 @@ class SnowflakeV2Source(
             )
 
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            if (
-                self.config.store_last_usage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            if self.config.enable_stateful_usage_ingestion:
+                (
+                    skip,
+                    suggested_start_time,
+                    suggested_end_time,
+                ) = self.redundant_usage_run_skip_handler.should_skip_this_run(
+                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
 
-            if self.config.store_last_usage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
+                if skip:
+                    # Skip this run
+                    self.report.report_warning(
+                        "usage-extraction",
+                        "Skip this run as there was already a run for current ingestion window.",
+                    )
+                    return
+
+                # TODO -  Update the checkpoint state for this run.
+                else:
+                    self.usage_extractor.usage_start_time = (
+                        get_datetime_from_ts_millis_in_utc(suggested_start_time)
+                    )
+                    self.usage_extractor.usage_end_time = (
+                        get_datetime_from_ts_millis_in_utc(suggested_end_time)
+                    )
 
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 

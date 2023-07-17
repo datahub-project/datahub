@@ -63,7 +63,8 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
-    RedundantRunSkipHandler,
+    RedundantLineageRunSkipHandler,
+    RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -297,7 +298,14 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=list(self.config.domain.keys()), graph=self.ctx.graph
             )
 
-        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+        self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
             source=self,
             config=self.config,
             pipeline_name=self.ctx.pipeline_name,
@@ -305,7 +313,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.store_last_profiling_timestamps:
+        if self.config.enable_stateful_profiling:
             self.profiling_state_handler = ProfilingHandler(
                 source=self,
                 config=self.config,
@@ -388,14 +396,18 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         all_tables = self.get_all_tables()
 
-        if (
-            self.config.store_last_lineage_extraction_timestamp
-            or self.config.store_last_usage_extraction_timestamp
-        ):
+        if self.config.enable_stateful_lineage_ingestion:
             # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
+            self.redundant_lineage_run_skip_handler.update_state(
                 start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
+        if self.config.enable_stateful_usage_ingestion:
+            # Update the checkpoint state for this run.
+            self.redundant_usage_run_skip_handler.update_state(
+                start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                bucket_duration=self.config.bucket_duration,
             )
 
         if self.config.include_table_lineage or self.config.include_copy_lineage:
@@ -842,10 +854,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         if (
-            self.config.store_last_usage_extraction_timestamp
-            and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-            )
+            self.config.enable_stateful_usage_ingestion
+            and self.redundant_usage_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )[0]
         ):
             # Skip this run
             self.report.report_warning(
@@ -873,10 +886,11 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         if (
-            self.config.store_last_lineage_extraction_timestamp
-            and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-            )
+            self.config.enable_stateful_lineage_ingestion
+            and self.redundant_lineage_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )[0]
         ):
             # Skip this run
             self.report.report_warning(

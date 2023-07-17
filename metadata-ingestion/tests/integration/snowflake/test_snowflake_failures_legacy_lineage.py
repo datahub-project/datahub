@@ -56,7 +56,7 @@ def snowflake_pipeline_legacy_lineage_config(tmp_path):
                 include_view_lineage=False,
                 include_usage_stats=False,
                 use_legacy_lineage_method=True,
-                start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
                 end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
@@ -228,7 +228,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
             default_query_results,
             [
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-                    1654499820000, 1654586220000, True
+                    1654473600000, 1654586220000, True
                 ),
             ],
             "Database 'SNOWFLAKE' does not exist or not authorized.",

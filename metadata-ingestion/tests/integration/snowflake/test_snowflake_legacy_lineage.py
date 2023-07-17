@@ -99,7 +99,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         use_legacy_lineage_method=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
-                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
@@ -178,7 +178,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         use_legacy_lineage_method=True,
                         include_usage_stats=False,
                         include_operational_stats=False,
-                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(

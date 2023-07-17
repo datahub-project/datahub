@@ -37,6 +37,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.time import get_datetime_from_ts_millis_in_utc
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -192,6 +193,13 @@ class SnowflakeLineageExtractor(
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
+
+        self.lineage_start_time = (
+            self.config.start_time
+            if not self.config.ignore_start_time_lineage
+            else get_datetime_from_ts_millis_in_utc(0)
+        )
+        self.lineage_end_time = self.config.end_time
 
     # Kwargs used by new snowflake lineage extractor need to be ignored here
     def get_workunits(
@@ -355,10 +363,8 @@ class SnowflakeLineageExtractor(
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
     def _populate_external_lineage_from_access_history(self):
         query: str = SnowflakeQuery.external_table_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
+            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
         )
 
         try:
@@ -397,10 +403,8 @@ class SnowflakeLineageExtractor(
 
     def _populate_lineage(self) -> None:
         query: str = SnowflakeQuery.table_to_table_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
+            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
             include_column_lineage=self.config.include_column_lineage,
         )
         self.report.num_table_to_table_edges_scanned = 0
@@ -507,10 +511,8 @@ class SnowflakeLineageExtractor(
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.
         view_lineage_query: str = SnowflakeQuery.view_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
+            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
             include_column_lineage=self.config.include_column_lineage,
         )
 

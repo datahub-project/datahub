@@ -74,7 +74,8 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
-    RedundantRunSkipHandler,
+    RedundantLineageRunSkipHandler,
+    RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -239,7 +240,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        self.redundant_run_skip_handler = RedundantRunSkipHandler(
+        self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+            source=self,
+            config=self.config,
+            pipeline_name=self.ctx.pipeline_name,
+            run_id=self.ctx.run_id,
+        )
+
+        self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
             source=self,
             config=self.config,
             pipeline_name=self.ctx.pipeline_name,
@@ -247,7 +255,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.store_last_profiling_timestamps:
+        if self.config.enable_stateful_profiling:
             self.profiling_state_handler = ProfilingHandler(
                 source=self,
                 config=self.config,
@@ -524,10 +532,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not self.config.include_usage_statistics:
             return False
 
-        if self.config.store_last_usage_extraction_timestamp:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-            ):
+        if self.config.enable_stateful_usage_ingestion:
+            if self.redundant_usage_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )[0]:
                 self.report.report_warning(
                     "usage-extraction",
                     f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
@@ -535,9 +544,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 return False
             else:
                 # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
+                self.redundant_usage_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                    bucket_duration=self.config.bucket_duration,
                 )
         return True
 
@@ -545,10 +555,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not self.config.include_table_lineage:
             return False
 
-        if self.config.store_last_lineage_extraction_timestamp:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-            ):
+        if self.config.enable_stateful_lineage_ingestion:
+            if self.redundant_lineage_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )[0]:
                 # Skip this run
                 self.report.report_warning(
                     "lineage-extraction",
@@ -557,7 +568,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 return False
             else:
                 # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
+                self.redundant_lineage_run_skip_handler.update_state(
                     start_time_millis=datetime_to_ts_millis(self.config.start_time),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )

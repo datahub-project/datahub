@@ -48,6 +48,7 @@ from datahub.utilities.sqlglot_lineage import (
     SqlParsingResult,
     sqlglot_lineage,
 )
+from datahub.utilities.time import get_datetime_from_ts_millis_in_utc
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -88,6 +89,13 @@ class SnowflakeLineageExtractor(
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
+
+        self.lineage_start_time = (
+            self.config.start_time
+            if not self.config.ignore_start_time_lineage
+            else get_datetime_from_ts_millis_in_utc(0)
+        )
+        self.lineage_end_time = self.config.end_time
 
     def get_workunits(
         self,
@@ -386,10 +394,8 @@ class SnowflakeLineageExtractor(
         self, discovered_tables: List[str]
     ) -> None:
         query: str = SnowflakeQuery.copy_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
+            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
             downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
@@ -429,10 +435,8 @@ class SnowflakeLineageExtractor(
 
     def _fetch_upstream_lineages_for_tables(self):
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
-            if not self.config.ignore_start_time_lineage
-            else 0,
-            end_time_millis=int(self.config.end_time.timestamp() * 1000),
+            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
+            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
             upstreams_deny_pattern=self.config.temporary_tables_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
