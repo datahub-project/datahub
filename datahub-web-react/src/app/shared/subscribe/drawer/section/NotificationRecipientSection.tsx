@@ -89,7 +89,8 @@ export default function NotificationRecipientSection() {
         isPersonal,
         slack: { enabled: allowEditing, subscription, settings, channelSelection },
     } = useFormStateContext();
-    const useDefault = channelSelection === 'settings';
+    const useSettings = channelSelection === 'settings';
+    console.log({ subscription });
 
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -101,20 +102,20 @@ export default function NotificationRecipientSection() {
     }, [form, subscription.channel]);
 
     useEffect(() => {
-        if (!useDefault) channelInputRef.current?.focus();
-    }, [useDefault]);
+        if (!useSettings) channelInputRef.current?.focus();
+    }, [useSettings]);
 
     const customSlackSinkIsValid = isPersonal
         ? isUserSlackHandleValid(subscription.channel ?? '')
         : isGroupSlackChannelValid(subscription.channel ?? '');
 
     const onChangeSlackSwitch = (checked: boolean) => {
-        dispatch({ type: 'toggleSlack', payload: checked });
+        // todo - move these types into helpers/enums/etc
+        dispatch({ type: 'setSlackEnabled', payload: checked });
     };
 
     const onChangeSlackRadioGroup = ({ target: { value } }: RadioChangeEvent) => {
-        if (value === 'default') dispatch({ type: 'setChannelSelection', payload: 'settings' });
-        else if (value === 'custom') dispatch({ type: 'setChannelSelection', payload: 'subscription' });
+        dispatch({ type: 'setChannelSelection', payload: value });
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,12 +141,12 @@ export default function NotificationRecipientSection() {
                     {slackSinkEnabled ? (
                         <StyledRadioGroup
                             disabled={!allowEditing || !slackSinkEnabled}
-                            value={useDefault && settings.channel ? 'default' : 'custom'}
+                            value={channelSelection}
                             onChange={onChangeSlackRadioGroup}
                         >
                             <Space direction="vertical">
-                                {settings.channel && <Radio value="default">Use default: {settings.channel}</Radio>}
-                                <Radio value="custom">
+                                {settings.channel && <Radio value="settings">Use default: {settings.channel}</Radio>}
+                                <Radio value="subscription">
                                     <Form form={form}>
                                         <StyledFormItem
                                             name="slackFormValue"
@@ -163,7 +164,7 @@ export default function NotificationRecipientSection() {
                                             <StyledInput
                                                 ref={channelInputRef}
                                                 placeholder={isPersonal ? '@user' : '#channel'}
-                                                disabled={!allowEditing || !slackSinkEnabled || useDefault}
+                                                disabled={!allowEditing || !slackSinkEnabled || useSettings}
                                                 value={subscription.channel}
                                                 status={customSlackSinkIsValid ? undefined : 'error'}
                                                 onChange={onChangeChannelInput}
@@ -178,9 +179,10 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {!useDefault && settings.channel && (
+                    {!useSettings && settings.channel && (
                         <StyledCheckbox
                             disabled={!allowEditing || !slackSinkEnabled}
+                            checked={subscription.saveAsDefault}
                             onChange={onChangeSaveAsDefaultCheckbox}
                         >
                             <SaveAsDefaultText>Save as default</SaveAsDefaultText>

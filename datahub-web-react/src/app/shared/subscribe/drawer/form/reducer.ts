@@ -36,6 +36,7 @@ export const reducer = (state: State, action: Action): State => {
 
             return {
                 ...state,
+                edited: false,
                 checkedKeys: entityChangeTypes,
                 subscribeToUpstream: hasUpstreamSubscription,
                 notificationSinkTypes,
@@ -53,7 +54,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case 'toggleSlack': {
+        case 'setSlackEnabled': {
             const newNotificationSinkTypes = uniq(
                 action.payload
                     ? [...state.notificationSinkTypes, NotificationSinkType.Slack]

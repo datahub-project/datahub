@@ -214,7 +214,9 @@ const SubscriptionDrawerContent = ({
     const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
     const resetAndClose = () => {
-        // todo - make a helper reset function/util we can use for both init and reset or something?
+        // todo - this is wrong, we'll end up reloading the "current" server state, rather than waiting for the new stuff from the refetch
+        // again, is there some way I can just push this stuff into context without being a part of the form reducer?
+        // I basically now have a reducer setup
         dispatch({
             type: 'initialize',
             payload: { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel },

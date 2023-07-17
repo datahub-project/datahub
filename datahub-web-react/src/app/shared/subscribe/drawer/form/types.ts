@@ -38,7 +38,7 @@ export type Action =
               settingsChannel?: string;
           };
       }
-    | { type: 'toggleSlack'; payload: boolean }
+    | { type: 'setSlackEnabled'; payload: boolean }
     | { type: 'setSubscriptionChannel'; payload?: string }
     | { type: 'setSaveAsDefault'; payload: boolean }
     | { type: 'setCheckedKeys'; payload: Array<Key> }
