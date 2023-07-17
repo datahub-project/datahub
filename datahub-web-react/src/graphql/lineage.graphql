@@ -174,7 +174,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
             qualifiedName
         }
         editableProperties {
-            name
             description
         }
         platform {
@@ -259,9 +258,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         glossaryTerms {
             ...glossaryTerms
-        }
-        browsePaths {
-            path
         }
     }
 }
@@ -425,7 +421,6 @@ fragment lineageNodePropertiesOptimized on EntityWithRelationships {
             qualifiedName
         }
         editableProperties {
-            name
             description
         }
         platform {

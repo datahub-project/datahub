@@ -69,7 +69,6 @@ import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
-import com.linkedin.datahub.graphql.generated.ListJoinResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.datahub.graphql.generated.MLFeature;
@@ -710,9 +709,6 @@ public class GmsGraphQLEngine {
 
     private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Query", typeWiring -> typeWiring
-            .dataFetcher("join", new AuthenticatedResolver<>(
-                new LoadableTypeResolver<>(joinType,
-                    (env) -> env.getArgument(URN_FIELD_NAME))))
             .dataFetcher("appConfig",
                 new AppConfigResolver(gitVersion, analyticsService != null,
                     this.ingestionConfiguration,
@@ -1004,12 +1000,6 @@ public class GmsGraphQLEngine {
                 .dataFetcher("domains", new LoadableTypeBatchResolver<>(domainType,
                     (env) -> ((ListDomainsResult) env.getSource()).getDomains().stream()
                         .map(Domain::getUrn)
-                        .collect(Collectors.toList())))
-            )
-            .type("ListJoinResult", typeWiring -> typeWiring
-                .dataFetcher("join", new LoadableTypeBatchResolver<>(joinType,
-                    (env) -> ((ListJoinResult) env.getSource()).getJoin().stream()
-                        .map(Join::getUrn)
                         .collect(Collectors.toList())))
             )
             .type("GetRootGlossaryTermsResult", typeWiring -> typeWiring
@@ -1424,15 +1414,7 @@ public class GmsGraphQLEngine {
         builder
             .type("Join", typeWiring -> typeWiring
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
-                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
-                .dataFetcher("browsePaths", new EntityBrowsePathsResolver(this.joinType))
-                .dataFetcher("container",
-                    new LoadableTypeResolver<>(containerType,
-                        (env) -> {
-                            final Join join = env.getSource();
-                            return join.getContainer() != null ? join.getContainer().getUrn() : null;
-                        })
-                ))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)))
             .type("JoinProperties", typeWiring -> typeWiring
                     .dataFetcher("datasetA",
                             new LoadableTypeResolver<>(datasetType,

@@ -13,7 +13,6 @@ query getBrowseResults($input: BrowseInput!) {
                 name
                 origin
                 properties {
-                    name
                     description
                 }
                 editableProperties {

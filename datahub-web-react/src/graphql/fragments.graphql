@@ -983,7 +983,6 @@ fragment joinPropertiesFields on JoinProperties {
         ...joinFieldMappingFields
     }
     createdTime
-    createdActor
 }
 
 fragment joinFieldMappingFields on JoinFieldMapping {
@@ -1007,7 +1006,6 @@ fragment datasetJoinFields on Dataset {
         description
     }
     editableProperties {
-        name
         description
     }
     schemaMetadata {

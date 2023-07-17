@@ -428,10 +428,8 @@ entities:
       - institutionalMemory
       - ownership
       - status
-      - container
       - globalTags
       - glossaryTerms
-      - browsePaths
   - name: query
     category: core
     keyAspect: queryKey

@@ -10,9 +10,5 @@ record JoinKey {
   /*
   * Unique guid for Join
   */
-  @Searchable = {
-    "fieldType": "TEXT",
-  }
   joinId: string
-
 }

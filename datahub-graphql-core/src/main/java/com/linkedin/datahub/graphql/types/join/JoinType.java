@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.JoinUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -51,6 +52,8 @@ import javax.annotation.Nullable;
 
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
+
+import static com.linkedin.common.urn.UrnUtils.getUrn;
 
 
 public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<Join, String>,
@@ -106,7 +109,7 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
   public List<DataFetcherResult<Join>> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context)
       throws Exception {
     final List<Urn> joinUrns = urns.stream()
-        .map(this::getUrn)
+        .map(UrnUtils::getUrn)
         .collect(Collectors.toList());
 
     try {
@@ -147,16 +150,6 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
         context.getAuthentication());
     return BrowseResultMapper.map(result);
   }
-
-  private Urn getUrn(final String urnStr) {
-    try {
-      return Urn.createFromString(urnStr);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to convert urn string %s into Urn", urnStr));
-    }
-  }
-
-
 
   @Nonnull
   @Override

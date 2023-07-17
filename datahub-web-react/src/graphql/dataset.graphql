@@ -113,7 +113,19 @@ fragment nonSiblingDatasetFields on Dataset {
     incoming: relationships(
         input: { types: ["joinA", "joinB"], direction: INCOMING, start: 0, count: 100 }
     ) {
-        ...fullRelationshipResults
+        start
+        count
+        total
+        relationships {
+            type
+            direction
+            entity {
+                ... on Join {
+                    urn
+                }
+
+            }
+        }
     }
     ...viewProperties
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {

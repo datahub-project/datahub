@@ -264,7 +264,6 @@ fragment searchResultFields on Entity {
             ...dataPlatformInstanceFields
         }
         editableProperties {
-            name
             description
         }
         platformNativeType
@@ -740,9 +739,6 @@ fragment searchResultFields on Entity {
         glossaryTerms {
             ...glossaryTerms
         }
-        browsePaths {
-            path
-        }
     }
 }
 
@@ -762,7 +758,6 @@ fragment searchResultFieldsWithRelationships on Entity {
             ...dataPlatformInstanceFields
         }
         editableProperties {
-            name
             description
         }
         platformNativeType
@@ -1132,9 +1127,6 @@ fragment searchResultFieldsWithRelationships on Entity {
         }
         glossaryTerms {
             ...glossaryTerms
-        }
-        browsePaths {
-            path
         }
     }
 }
