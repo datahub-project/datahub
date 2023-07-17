@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
@@ -68,7 +69,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 import static com.linkedin.metadata.utils.SearchUtil.*;
@@ -158,18 +158,7 @@ public class SearchRequestHandler {
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
 
-    boolean removedInOrFilter = false;
-    if (filter != null) {
-      removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
-      );
-    }
-    // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
-    if (!removedInOrFilter) {
-      filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
-    }
-
-    return filterQuery;
+    return filterSoftDeletedByDefault(filter, filterQuery);
   }
 
   /**
@@ -331,7 +320,7 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
+  public QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
     return _searchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
   }
 
