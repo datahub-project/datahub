@@ -5,6 +5,7 @@ import { DataNode } from 'antd/es/tree';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { getTreeDataForEntity } from '../utils';
+import { useFormDispatchContext, useFormStateContext } from '../form/context';
 
 const NotificationTypesContainer = styled.div`
     margin-top: 32px;
@@ -28,12 +29,9 @@ const TreeContainer = styled.div`
     }
 `;
 
-interface Props {
-    checkedKeys: Key[];
-    setCheckedKeys: (checkedKeys: Key[]) => void;
-}
-
-export default function NotificationTypesSection({ checkedKeys, setCheckedKeys }: Props) {
+export default function NotificationTypesSection() {
+    const { checkedKeys } = useFormStateContext();
+    const dispatch = useFormDispatchContext();
     const { entityType } = useEntityData();
     const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
     const [autoExpandParent, setAutoExpandParent] = useState<boolean>(true);
@@ -44,7 +42,7 @@ export default function NotificationTypesSection({ checkedKeys, setCheckedKeys }
     };
 
     const onCheck = (checkedKeysValue: any, _info: any) => {
-        setCheckedKeys(checkedKeysValue as Key[]);
+        dispatch({ type: 'setCheckedKeys', payload: checkedKeysValue as Key[] });
     };
 
     const treeData: DataNode[] = getTreeDataForEntity(entityType);

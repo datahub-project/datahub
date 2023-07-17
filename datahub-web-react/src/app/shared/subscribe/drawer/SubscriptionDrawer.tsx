@@ -1,4 +1,4 @@
-import React, { Key, useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
@@ -17,13 +17,13 @@ import {
     EntityChangeType,
     EntityType,
     NotificationSettingsInput,
-    NotificationSinkType,
     SubscriptionType,
 } from '../../../../types.generated';
 import {
     createSubscriptionFunction,
-    getDefaultCheckedKeys,
     getEntityChangeTypesFromCheckedKeys,
+    getSubscriptionChannel,
+    getUserSettingsChannel,
     updateSubscriptionFunction,
 } from './utils';
 import {
@@ -41,7 +41,7 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionFormProvider, { useFormActionContext } from './form/context';
+import SubscriptionFormProvider, { useFormDispatchContext, useFormStateContext } from './form/context';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -62,7 +62,6 @@ const SubscriptionTitle = styled(Typography.Text)`
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    isPersonal: boolean;
     groupUrn?: string;
     setGroupUrn?: (groupUrn: string | undefined) => void;
     entityUrn: string;
@@ -78,7 +77,6 @@ interface Props {
 const SubscriptionDrawerContent = ({
     isOpen,
     onClose,
-    isPersonal,
     groupUrn,
     setGroupUrn,
     entityUrn,
@@ -90,17 +88,23 @@ const SubscriptionDrawerContent = ({
     refetchEntitySubscriptionSummary,
     onDeleteSubscription,
 }: Props) => {
+    // todo - put this into the reducer somehow
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
-    const [checkedKeys, setCheckedKeys] = useState<Key[]>([]);
-    const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(false);
-    const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
-    const dispatch = useFormActionContext();
+    const {
+        // todo - this isn't a form value, it's just some global context we might want to pass around
+        isPersonal,
+        checkedKeys,
+        subscribeToUpstream,
+        notificationSinkTypes,
+        slack: {
+            subscription: { channel, saveAsDefault },
+        },
+    } = useFormStateContext();
+    const dispatch = useFormDispatchContext();
 
-    const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
-    const [customSlackSink, setCustomSlackSink] = useState<string>();
     const [createSubscription] = useCreateSubscriptionMutation();
     const [updateSubscription] = useUpdateSubscriptionMutation();
     const subscriptionTypes = subscribeToUpstream
@@ -119,28 +123,6 @@ const SubscriptionDrawerContent = ({
     const upstreamFiltered = (lineageCountData?.entity as any)?.upstream?.filtered || 0;
     const upstreamCount = upstreamTotal - upstreamFiltered;
 
-    const subUserHandle = subscription?.notificationConfig?.notificationSettings?.slackSettings.userHandle || undefined;
-    const subChannels = subscription?.notificationConfig?.notificationSettings?.slackSettings?.channels;
-    const subGroupChannel = subChannels?.length ? subChannels[0] : undefined;
-    const slackSinkSubscriptionValue = isPersonal ? subUserHandle : subGroupChannel;
-
-    useEffect(() => {
-        // todo - what if we just have an "initialize" dispatch that can setup the state based on the subscription we have here?
-        const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
-        const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
-        // todo - this is the slack specific one, maybe our reducer can handle the logic of enabling only when all children are enabled?
-        const hasUpstreamSubscription =
-            ENABLE_UPSTREAM_NOTIFICATIONS &&
-            !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
-
-        setCheckedKeys(entityChangeTypes);
-        setSubscribeToUpstream(hasUpstreamSubscription);
-        setNotificationSinkTypes(sinkTypes);
-        setCustomSlackSink(slackSinkSubscriptionValue);
-
-        dispatch({ type: 'initialize', payload: { slackSinkEnabled, entityType, subscription } });
-    }, [slackSinkSubscriptionValue, entityType, slackSinkEnabled, subscription, dispatch]);
-
     useEffect(() => {
         if (isPersonal) {
             setGroupUrn?.(undefined);
@@ -155,11 +137,11 @@ const SubscriptionDrawerContent = ({
     const entityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
 
     const notificationSettings: NotificationSettingsInput | undefined =
-        customSlackSink && !saveSlackSinkAsDefault
+        channel && !saveAsDefault
             ? {
                   slackSettings: {
-                      userHandle: isPersonal ? customSlackSink : undefined,
-                      channels: isPersonal ? undefined : [customSlackSink],
+                      userHandle: isPersonal ? channel : undefined,
+                      channels: isPersonal ? undefined : [channel],
                   },
               }
             : undefined;
@@ -192,7 +174,6 @@ const SubscriptionDrawerContent = ({
     const onUpsertSubscription = isSubscribed ? onUpdateSubscription : onCreateSubscription;
     const showBottomDrawerSection = isPersonal || groupUrn;
 
-    // Section for updating notification settings
     const { data: userNotificationSettings, refetch: refetchUserNotificationSettings } =
         useGetUserNotificationSettingsQuery({ skip: !isPersonal });
     const { data: groupNotificationSettings, refetch: refetchGroupNotificationSettings } =
@@ -201,11 +182,15 @@ const SubscriptionDrawerContent = ({
             variables: { input: { groupUrn: groupUrn || '' } },
         });
 
-    const settingsUserHandle =
-        userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
-    const settingsChannels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
-    const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0] : undefined;
-    const slackSinkSettingsValue = isPersonal ? settingsUserHandle : settingsGroupChannel;
+    const subscriptionChannel = getSubscriptionChannel(isPersonal, subscription);
+    const settingsChannel = getUserSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
+
+    useEffect(() => {
+        dispatch({
+            type: 'initialize',
+            payload: { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel },
+        });
+    }, [dispatch, entityType, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
 
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
@@ -231,7 +216,7 @@ const SubscriptionDrawerContent = ({
     // Final update functions
     const onUpdateFooter = () => {
         onUpsertSubscription();
-        if (customSlackSink && saveSlackSinkAsDefault) updateSinkSetting(customSlackSink);
+        if (channel && saveAsDefault) updateSinkSetting(channel);
         onClose();
     };
 
@@ -265,36 +250,23 @@ const SubscriptionDrawerContent = ({
             {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
             {showBottomDrawerSection && (
                 <>
-                    <NotificationTypesSection checkedKeys={checkedKeys} setCheckedKeys={setCheckedKeys} />
+                    <NotificationTypesSection />
                     {ENABLE_UPSTREAM_NOTIFICATIONS && (
-                        <UpstreamSection
-                            entityUrn={entityUrn}
-                            entityType={entityType}
-                            subscribeToUpstream={subscribeToUpstream}
-                            setSubscribeToUpstream={setSubscribeToUpstream}
-                            upstreamCount={upstreamCount}
-                        />
+                        <UpstreamSection entityUrn={entityUrn} entityType={entityType} upstreamCount={upstreamCount} />
                     )}
-                    <NotificationRecipientSection
-                        customSlackSink={customSlackSink}
-                        isPersonal={isPersonal}
-                        slackSinkSubscriptionValue={slackSinkSubscriptionValue}
-                        slackSinkSettingsValue={slackSinkSettingsValue}
-                        notificationSinkTypes={notificationSinkTypes}
-                        setCustomSlackSink={setCustomSlackSink}
-                        setNotificationSinkTypes={setNotificationSinkTypes}
-                        setSaveSlackSinkAsDefault={setSaveSlackSinkAsDefault}
-                    />
+                    {/* todo - push settings value into context? */}
+                    {/* maybe we don't need it if it's just some kinda fallback value or idk maybe we don't even need the subscriptionChannel on the form? */}
+                    <NotificationRecipientSection />
                 </>
             )}
         </SubscribeDrawer>
     );
 };
 
-const SubscriptionDrawer = (props: Props) => {
+const SubscriptionDrawer = ({ isPersonal, ...rest }: Props & { isPersonal: boolean }) => {
     return (
-        <SubscriptionFormProvider>
-            <SubscriptionDrawerContent {...props} />
+        <SubscriptionFormProvider isPersonal={isPersonal}>
+            <SubscriptionDrawerContent {...rest} />
         </SubscriptionFormProvider>
     );
 };

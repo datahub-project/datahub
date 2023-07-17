@@ -3,7 +3,11 @@ import { Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { EntityChangeType, EntityType } from '../../../../types.generated';
+import { DataHubSubscription, EntityChangeType, EntityType } from '../../../../types.generated';
+import {
+    GetGroupNotificationSettingsQuery,
+    GetUserNotificationSettingsQuery,
+} from '../../../../graphql/settings.generated';
 
 const NotificationTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -53,7 +57,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
             ];
-            break;
         default:
             return [
                 DEPRECATION_NODE_KEY,
@@ -61,7 +64,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
             ];
-            break;
     }
 };
 
@@ -81,7 +83,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 TAG_CHANGE_NODE_KEY,
                 ...TAG_CHANGE_NODE_CHILDREN,
             ];
-            break;
         default:
             return [
                 DEPRECATION_NODE_KEY,
@@ -92,7 +93,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 TAG_CHANGE_NODE_KEY,
                 ...TAG_CHANGE_NODE_CHILDREN,
             ];
-            break;
     }
 };
 
@@ -235,7 +235,6 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 glossaryTermChangeNode,
                 tagChangeNode,
             ];
-            break;
         default:
             return [
                 assertionsNode,
@@ -245,7 +244,6 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 glossaryTermChangeNode,
                 tagChangeNode,
             ];
-            break;
     }
 };
 
@@ -364,4 +362,23 @@ export const updateSubscriptionFunction = (
                 }
             });
     }
+};
+
+export const getSubscriptionChannel = (isPersonal: boolean, subscription?: DataHubSubscription) => {
+    const subUserHandle = subscription?.notificationConfig?.notificationSettings?.slackSettings.userHandle || undefined;
+    const subChannels = subscription?.notificationConfig?.notificationSettings?.slackSettings?.channels;
+    const subGroupChannel = subChannels?.length ? subChannels[0] : undefined;
+    return isPersonal ? subUserHandle : subGroupChannel;
+};
+
+export const getUserSettingsChannel = (
+    isPersonal: boolean,
+    userNotificationSettings?: GetUserNotificationSettingsQuery,
+    groupNotificationSettings?: GetGroupNotificationSettingsQuery,
+) => {
+    const settingsUserHandle =
+        userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
+    const settingsChannels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+    const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0] : undefined;
+    return isPersonal ? settingsUserHandle : settingsGroupChannel;
 };

@@ -1,12 +1,10 @@
-import uniq from 'lodash/uniq';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
-import { NotificationSinkType } from '../../../../../types.generated';
 import {
     isGroupSlackChannelValid,
     isUserSlackHandleValid,
@@ -15,7 +13,7 @@ import {
 } from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
-import { useFormActionContext, useFormStateContext } from '../form/context';
+import { useFormDispatchContext, useFormStateContext } from '../form/context';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -83,83 +81,48 @@ const SaveAsDefaultText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
 `;
 
-interface Props {
-    customSlackSink?: string;
-    isPersonal: boolean;
-    slackSinkSubscriptionValue?: string;
-    slackSinkSettingsValue?: string;
-    notificationSinkTypes: NotificationSinkType[];
-    setNotificationSinkTypes: (notificationSinkTypes: NotificationSinkType[]) => void;
-    setCustomSlackSink: (customSlackSink: string | undefined) => void;
-    setSaveSlackSinkAsDefault: (saveSlackSinkAsDefault: boolean) => void;
-}
-
-export default function NotificationRecipientSection({
-    customSlackSink,
-    isPersonal,
-    slackSinkSubscriptionValue,
-    slackSinkSettingsValue,
-    notificationSinkTypes,
-    setNotificationSinkTypes,
-    setCustomSlackSink,
-    setSaveSlackSinkAsDefault,
-}: Props) {
+export default function NotificationRecipientSection() {
     const [form] = useForm();
+    const dispatch = useFormDispatchContext();
+
     const {
-        slack: { enabled: allowEditing },
+        isPersonal,
+        slack: { enabled: allowEditing, subscription, settings, channelSelection },
     } = useFormStateContext();
-    const dispatch = useFormActionContext();
+    const useDefault = channelSelection === 'settings';
+
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
-    const [useDefaultSlackSink, setUseDefaultSlackSink] = useState<boolean>(false);
 
     useEffect(() => {
-        form.setFieldsValue({ slackFormValue: customSlackSink });
-    }, [customSlackSink, form]);
+        form.setFieldsValue({ slackFormValue: subscription.channel });
+    }, [form, subscription.channel]);
 
     useEffect(() => {
-        if (!useDefaultSlackSink) channelInputRef.current?.focus();
-    }, [useDefaultSlackSink]);
-
-    useEffect(() => {
-        setUseDefaultSlackSink(!!slackSinkSettingsValue && !slackSinkSubscriptionValue);
-        setSaveSlackSinkAsDefault(!slackSinkSettingsValue);
-    }, [setSaveSlackSinkAsDefault, slackSinkSettingsValue, slackSinkSubscriptionValue]);
+        if (!useDefault) channelInputRef.current?.focus();
+    }, [useDefault]);
 
     const customSlackSinkIsValid = isPersonal
-        ? isUserSlackHandleValid(customSlackSink ?? '')
-        : isGroupSlackChannelValid(customSlackSink ?? '');
-
-    const toggleUseDefaultSlackSink = (useDefault: boolean) => {
-        setUseDefaultSlackSink(useDefault);
-        setCustomSlackSink(useDefault ? undefined : slackSinkSubscriptionValue);
-        setSaveSlackSinkAsDefault(!slackSinkSettingsValue);
-    };
+        ? isUserSlackHandleValid(subscription.channel ?? '')
+        : isGroupSlackChannelValid(subscription.channel ?? '');
 
     const onChangeSlackSwitch = (checked: boolean) => {
         dispatch({ type: 'toggleSlack', payload: checked });
-        setNotificationSinkTypes(
-            uniq(
-                checked
-                    ? [...notificationSinkTypes, NotificationSinkType.Slack]
-                    : notificationSinkTypes.filter((sinkType) => sinkType !== NotificationSinkType.Slack),
-            ),
-        );
     };
 
     const onChangeSlackRadioGroup = ({ target: { value } }: RadioChangeEvent) => {
-        if (value === 'default') toggleUseDefaultSlackSink(true);
-        else if (value === 'custom') toggleUseDefaultSlackSink(false);
+        if (value === 'default') dispatch({ type: 'setChannelSelection', payload: 'settings' });
+        else if (value === 'custom') dispatch({ type: 'setChannelSelection', payload: 'subscription' });
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
-        setCustomSlackSink(value);
+        dispatch({ type: 'setSubscriptionChannel', payload: value });
     };
 
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
-        setSaveSlackSinkAsDefault(checked);
+        dispatch({ type: 'setSaveAsDefault', payload: checked });
     };
 
     return (
@@ -177,13 +140,11 @@ export default function NotificationRecipientSection({
                     {slackSinkEnabled ? (
                         <StyledRadioGroup
                             disabled={!allowEditing || !slackSinkEnabled}
-                            value={useDefaultSlackSink && slackSinkSettingsValue ? 'default' : 'custom'}
+                            value={useDefault && settings.channel ? 'default' : 'custom'}
                             onChange={onChangeSlackRadioGroup}
                         >
                             <Space direction="vertical">
-                                {slackSinkSettingsValue && (
-                                    <Radio value="default">Use default: {slackSinkSettingsValue}</Radio>
-                                )}
+                                {settings.channel && <Radio value="default">Use default: {settings.channel}</Radio>}
                                 <Radio value="custom">
                                     <Form form={form}>
                                         <StyledFormItem
@@ -202,8 +163,8 @@ export default function NotificationRecipientSection({
                                             <StyledInput
                                                 ref={channelInputRef}
                                                 placeholder={isPersonal ? '@user' : '#channel'}
-                                                disabled={!allowEditing || !slackSinkEnabled || useDefaultSlackSink}
-                                                value={customSlackSink}
+                                                disabled={!allowEditing || !slackSinkEnabled || useDefault}
+                                                value={subscription.channel}
                                                 status={customSlackSinkIsValid ? undefined : 'error'}
                                                 onChange={onChangeChannelInput}
                                             />
@@ -217,7 +178,7 @@ export default function NotificationRecipientSection({
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {!useDefaultSlackSink && slackSinkSettingsValue && (
+                    {!useDefault && settings.channel && (
                         <StyledCheckbox
                             disabled={!allowEditing || !slackSinkEnabled}
                             onChange={onChangeSaveAsDefaultCheckbox}
