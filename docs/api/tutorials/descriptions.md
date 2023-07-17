@@ -199,7 +199,7 @@ Expected Response:
 <Tabs>
 <TabItem value="graphQL" label="GraphQL">
 
-```json
+```graphql
 mutation updateDataset {
   updateDataset(
     urn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
