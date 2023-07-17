@@ -2,39 +2,38 @@ import React, { Dispatch, ReactNode, createContext, useContext, useReducer } fro
 import { Action, State } from './types';
 import { initialState, reducer } from './reducer';
 
-const DrawerStateContext = createContext<State | null>(null);
-const DrawerActionContext = createContext<Dispatch<Action> | null>(null);
+const FormStateContext = createContext<State | null>(null);
+const FormActionContext = createContext<Dispatch<Action> | null>(null);
 
-const DrawerStateProvider = ({ children, value }: { children: ReactNode; value: State }) => {
-    return <DrawerStateContext.Provider value={value}>{children}</DrawerStateContext.Provider>;
+const FormStateProvider = ({ children, value }: { children: ReactNode; value: State }) => {
+    return <FormStateContext.Provider value={value}>{children}</FormStateContext.Provider>;
 };
 
-const DrawerActionProvider = ({ children, value }: { children: ReactNode; value: Dispatch<Action> }) => {
-    return <DrawerActionContext.Provider value={value}>{children}</DrawerActionContext.Provider>;
+const FormActionProvider = ({ children, value }: { children: ReactNode; value: Dispatch<Action> }) => {
+    return <FormActionContext.Provider value={value}>{children}</FormActionContext.Provider>;
 };
 
-const SubscriptionDrawerProvider = ({ children }: { children: ReactNode }) => {
+const SubscriptionFormProvider = ({ children }: { children: ReactNode }) => {
     const [state, action] = useReducer(reducer, initialState);
 
     return (
-        <DrawerStateProvider value={state}>
-            <DrawerActionProvider value={action}>{children}</DrawerActionProvider>
-        </DrawerStateProvider>
+        <FormStateProvider value={state}>
+            <FormActionProvider value={action}>{children}</FormActionProvider>
+        </FormStateProvider>
     );
 };
 
-export const useDrawerStateContext = () => {
-    const context = useContext(DrawerStateContext);
-    if (context === null)
-        throw new Error(`${useDrawerStateContext.name} must be used under a ${DrawerStateProvider.name}`);
+export const useFormStateContext = () => {
+    const context = useContext(FormStateContext);
+    if (context === null) throw new Error(`${useFormStateContext.name} must be used under a ${FormStateProvider.name}`);
     return context;
 };
 
-export const useDrawerActionContext = () => {
-    const context = useContext(DrawerActionContext);
+export const useFormActionContext = () => {
+    const context = useContext(FormActionContext);
     if (context === null)
-        throw new Error(`${useDrawerActionContext.name} must be used under a ${DrawerActionProvider.name}`);
+        throw new Error(`${useFormActionContext.name} must be used under a ${FormActionProvider.name}`);
     return context;
 };
 
-export default SubscriptionDrawerProvider;
+export default SubscriptionFormProvider;

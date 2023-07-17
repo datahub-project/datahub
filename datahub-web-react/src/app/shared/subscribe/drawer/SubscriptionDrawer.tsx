@@ -41,7 +41,7 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionDrawerProvider from './form/context';
+import SubscriptionFormProvider from './form/context';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -294,9 +294,9 @@ const SubscriptionDrawerContent = ({
 
 const SubscriptionDrawer = (props: Props) => {
     return (
-        <SubscriptionDrawerProvider>
+        <SubscriptionFormProvider>
             <SubscriptionDrawerContent {...props} />
-        </SubscriptionDrawerProvider>
+        </SubscriptionFormProvider>
     );
 };
 
