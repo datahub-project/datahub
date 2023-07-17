@@ -213,11 +213,20 @@ const SubscriptionDrawerContent = ({
 
     const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
+    const resetAndClose = () => {
+        // todo - make a helper reset function/util we can use for both init and reset or something?
+        dispatch({
+            type: 'initialize',
+            payload: { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel },
+        });
+        onClose();
+    };
+
     // Final update functions
     const onUpdateFooter = () => {
         onUpsertSubscription();
         if (channel && saveAsDefault) updateSinkSetting(channel);
-        onClose();
+        resetAndClose();
     };
 
     const onCancelOrUnsubscribe = () => {
@@ -225,6 +234,7 @@ const SubscriptionDrawerContent = ({
             onDeleteSubscription();
         }
         onClose();
+        resetAndClose();
     };
 
     return (
@@ -238,12 +248,12 @@ const SubscriptionDrawerContent = ({
                 />
             }
             open={isOpen}
-            onClose={onClose}
+            onClose={resetAndClose}
             closable={false}
         >
             <SubscriptionTitleContainer>
                 <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
-                <Button type="link" onClick={onClose}>
+                <Button type="link" onClick={resetAndClose}>
                     <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
                 </Button>
             </SubscriptionTitleContainer>

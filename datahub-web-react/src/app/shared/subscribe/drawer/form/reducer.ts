@@ -5,12 +5,12 @@ import { getDefaultCheckedKeys } from '../utils';
 import { Action, State } from './types';
 
 export const createInitialState = (isPersonal: boolean): State => ({
+    edited: false,
     isPersonal,
     checkedKeys: [],
     subscribeToUpstream: false,
     notificationSinkTypes: [],
     slack: {
-        edited: false,
         enabled: false,
         channelSelection: 'subscription',
         settings: {},
@@ -22,8 +22,6 @@ export const createInitialState = (isPersonal: boolean): State => ({
 
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
-        // todo - can we pass the group stuff into here since it's also about initializing things technically?
-        // todo - enum/object these?
         case 'initialize': {
             const { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel } = action.payload;
 
@@ -64,10 +62,10 @@ export const reducer = (state: State, action: Action): State => {
 
             return {
                 ...state,
+                edited: true,
                 notificationSinkTypes: newNotificationSinkTypes,
                 slack: {
                     ...state.slack,
-                    edited: true,
                     enabled: action.payload,
                 },
             };
@@ -75,6 +73,7 @@ export const reducer = (state: State, action: Action): State => {
         case 'setChannelSelection': {
             return {
                 ...state,
+                edited: true,
                 slack: {
                     ...state.slack,
                     channelSelection: action.payload,
@@ -89,6 +88,7 @@ export const reducer = (state: State, action: Action): State => {
         case 'setSubscriptionChannel': {
             return {
                 ...state,
+                edited: true,
                 slack: {
                     ...state.slack,
                     subscription: {
@@ -101,6 +101,7 @@ export const reducer = (state: State, action: Action): State => {
         case 'setSaveAsDefault': {
             return {
                 ...state,
+                edited: true,
                 slack: {
                     ...state.slack,
                     subscription: {
@@ -113,12 +114,14 @@ export const reducer = (state: State, action: Action): State => {
         case 'setCheckedKeys': {
             return {
                 ...state,
+                edited: true,
                 checkedKeys: action.payload,
             };
         }
         case 'setSubscribeToUpstream': {
             return {
                 ...state,
+                edited: true,
                 subscribeToUpstream: action.payload,
             };
         }

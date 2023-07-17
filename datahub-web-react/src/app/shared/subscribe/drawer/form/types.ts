@@ -9,13 +9,13 @@ import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../
 // what about the gql values, do we even need that in state?
 
 export type State = {
+    edited: boolean;
     isPersonal: boolean;
     checkedKeys: Array<Key>;
     subscribeToUpstream: boolean;
     notificationSinkTypes: Array<NotificationSinkType>;
     slack: {
         enabled: boolean;
-        edited: boolean;
         channelSelection: 'settings' | 'subscription';
         settings: {
             channel?: string;
