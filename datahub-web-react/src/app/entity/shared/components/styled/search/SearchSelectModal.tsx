@@ -22,6 +22,7 @@ type Props = {
     onContinue: (entityUrns: string[]) => void;
     onCancel?: () => void;
     singleSelect?: boolean;
+    hideToolbar?: boolean;
 };
 
 /**
@@ -38,6 +39,7 @@ export const SearchSelectModal = ({
     onContinue,
     onCancel,
     singleSelect,
+    hideToolbar,
 }: Props) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
@@ -89,6 +91,7 @@ export const SearchSelectModal = ({
                     selectedEntities={selectedEntities}
                     setSelectedEntities={setSelectedEntities}
                     singleSelect={singleSelect}
+                    hideToolbar={hideToolbar}
                 />
             </StyledModal>
         </ClickOutside>

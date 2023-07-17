@@ -1,16 +1,13 @@
 @import "../../../../../../../node_modules/antd/dist/antd.less";
 
 .JoinPreview {
-    
-    .table-main-div{
-        min-width: 1140px;
-        max-width: 1140px;
-        align-items: left;
+    .preview-main-div{
+        display: flex;
+        justify-content: space-between;
     }
     .div-edit-img img {
         height: 15px;
         line-height: 15px;
-
         margin-top: 3px;
     }
     .div-view svg {
@@ -29,21 +26,20 @@
     }
     .div-edit-img {
         display: flex;
-        margin-left: 2px;
         height: 24px;
         line-height: 24px;
-        margin-top: 16px;
+        margin-top: 18px;
     }
     .div-edit {
         display: flex;
         margin-left: 3px;
+        margin-right: 10px;
         height: 24px;
         font-weight: 700;
         font-size: 12px;
         line-height: 24px;
     }
     .btn-edit {
-        width: 50px !important;
         font-style: normal;
         font-weight: 700 !important;
         font-size: 12px !important;
@@ -59,14 +55,6 @@
         margin: 0;
         margin-left: 8px;
     }
-    .div-view-dataset {
-        font-weight: 500;
-        font-size: 14px;
-        padding-top: 13px !important;
-        color: #1890FF;
-        display: inline-block;
-        margin-left: 8px;
-    }
     .div-view span{
         font-weight: 500;
         font-size: 14px;
@@ -79,9 +67,7 @@
         font-weight: 500;
         font-size: 14px;
         color: #1890FF;
-        display: inline-block;
-        padding: 0;
-        margin: 0;
+        line-height: 20px;
     }
 
     .all-content-heading{
@@ -100,7 +86,7 @@
         width: 720px;
         font-style: normal;
         font-weight: 400;
-        font-size: 14px;
+        font-size: 14px !important;
         line-height: 22px;
         color: rgba(0, 0, 0, 0.85);
     }
@@ -116,91 +102,57 @@
         color: #1B2F41;
         margin: 10px 0;
     }
-        
+    .extra-margin-rev {
+        margin-left: 4px;
+    }
     .JoinTable {
-        margin: 12px 0;
+        width: 100%;
         .ant-table-bordered{
-            margin: 12px 0;
-        }
-        .icon-image {
-            box-sizing: border-box;
-            width: 16px !important;
-            height: 0px;
-            border: 1px solid #000000;
+            margin-bottom: 12px;
+            margin-right: 12px;
         }
         .ant-table-thead > tr th {
-            font-style: normal;
-            font-weight: 700;
-            font-size: 14px;
-            line-height: 22px;
-            color: #1B2F41;
             padding: 16px;
             gap: 4px;
-            isolation: isolate;
-            height: 79px !important;
             background: #FFFFFF;
             border-width: 1px 0px 1px 1px;
             border-style: solid;
             border-color: rgba(0, 0, 0, 0.12);
+            line-height: 22px;
+            height: 79px;
         }
         .ant-table-tbody > tr td {
-            letter-spacing: 0.3px;
-            margin-left: 0px;
-            font-size: 12px;
+            font-size: 14px;
             line-height: 22px;
             font-family: 'Roboto Mono',monospace;
-            font-weight: 500;
+            font-weight: 400;
             background: white;
             font-style: normal;
             color: #000000D9;
             padding: 16px;
-            width: 675px;
-            height: 56px !important;;
             border-width: 0px 0px 1px 1px;
             border-style: solid;
             border-color: rgba(0, 0, 0, 0.12);
         }
-        td:nth-child(1), td:nth-child(3), th:nth-child(1), th:nth-child(3){
-            min-width: 585px !important;
-            max-width: 585px !important;
-            display: inline-block;
+        .firstRow{
+            display: flex;
+            justify-content: left;
         }
-
-        td:nth-child(2), th:nth-child(2){
-            min-width: 44px !important;
-            max-width: 44px !important;
+        .titleNameDisplay {
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 600;
+            line-height: 22px;
+            color: #1B2F41;
         }
-        th:nth-child(1), th:nth-child(3) {
-            .titleNameDisplay{
-                max-width: 390px;
-                overflow: hidden;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-                width: fit-content;
-                display: inline-block;
-                font-size: 14px;
-            }
-            .firstRow{
-                display: flex;
-                justify-content: left;
-            }
-            
-            .editableNameDisplay {
-                display: block;
-                overflow-wrap: break-word;
-                white-space: nowrap;
-                max-width: 390px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                height: 16px;
-                font-family: 'Arial';
-                font-style: normal;
-                font-weight: 400;
-                font-size: 14px;
-                line-height: 16px;
-                color: #595959;
-            }
-            }
+        .editableNameDisplay {
+            color: #595959;
+            font-family: Arial;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: normal;
+        }
         .SelectedRow {
             background-color: #ECF2F8;
         }

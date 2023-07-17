@@ -46,6 +46,7 @@ type Props = {
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
     singleSelect?: boolean;
+    hideToolbar?: boolean;
 };
 
 /**
@@ -61,6 +62,7 @@ export const SearchSelect = ({
     selectedEntities,
     setSelectedEntities,
     singleSelect,
+    hideToolbar,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
 
@@ -167,7 +169,7 @@ export const SearchSelect = ({
                     entityRegistry={entityRegistry}
                 />
             </SearchBarContainer>
-            {!singleSelect && (
+            {!hideToolbar && (
                 <TabToolbar>
                     <SearchSelectBar
                         isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
