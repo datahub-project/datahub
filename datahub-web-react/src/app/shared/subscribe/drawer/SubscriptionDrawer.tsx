@@ -41,6 +41,7 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
+import SubscriptionDrawerProvider from './form/context';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -74,7 +75,7 @@ interface Props {
     onDeleteSubscription: () => void;
 }
 
-export default function SubscriptionDrawer({
+const SubscriptionDrawerContent = ({
     isOpen,
     onClose,
     isPersonal,
@@ -88,7 +89,7 @@ export default function SubscriptionDrawer({
     refetchGetSubscription,
     refetchEntitySubscriptionSummary,
     onDeleteSubscription,
-}: Props) {
+}: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
@@ -289,4 +290,14 @@ export default function SubscriptionDrawer({
             )}
         </SubscribeDrawer>
     );
-}
+};
+
+const SubscriptionDrawer = (props: Props) => {
+    return (
+        <SubscriptionDrawerProvider>
+            <SubscriptionDrawerContent {...props} />
+        </SubscriptionDrawerProvider>
+    );
+};
+
+export default SubscriptionDrawer;
