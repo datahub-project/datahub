@@ -114,7 +114,9 @@ export default function NotificationRecipientSection({
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
     const [useDefaultSlackSink, setUseDefaultSlackSink] = useState<boolean>(false);
 
-    form.setFieldsValue({ slackFormValue: customSlackSink });
+    useEffect(() => {
+        form.setFieldsValue({ slackFormValue: customSlackSink });
+    }, [customSlackSink, form]);
 
     useEffect(() => {
         if (!useDefaultSlackSink) channelInputRef.current?.focus();
