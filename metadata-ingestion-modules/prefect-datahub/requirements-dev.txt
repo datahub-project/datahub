@@ -14,6 +14,20 @@ mkdocs-gen-files
 interrogate
 coverage>=5.1
 pillow
+# mypy stubs packages 
+types-dataclasses
+sqlalchemy-stubs
+types-six
+types-python-dateutil
 types-requests
+types-toml
+types-PyYAML
+types-freezegun
+types-cachetools
+# versions 0.1.13 and 0.1.14 seem to have issues
+types-click==0.1.12
+types-tabulate
+# avrogen package requires this
+types-pytz
 # For python 3.7 and importlib-metadata>=5.0.0, build failed with attribute error
 importlib-metadata>=4.4.0,<5.0.0; python_version < '3.8'
