@@ -55,20 +55,24 @@ public class CassandraRetentionService extends RetentionService {
 
   @Override
   @WithSpan
-  public void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Retention retentionPolicy, Optional<RetentionContext> retentionContext) {
-    log.debug("Applying retention to urn {}, aspectName {}", urn, aspectName);
-    // If no policies are set or has indefinite policy set, do not apply any retention
-    if (retentionPolicy.data().isEmpty()) {
-      return;
-    }
+  protected void applyRetention(List<RetentionContext> retentionContexts) {
 
-    if (retentionPolicy.hasVersion()) {
-      applyVersionBasedRetention(urn, aspectName, retentionPolicy.getVersion(), retentionContext.flatMap(RetentionService.RetentionContext::getMaxVersion));
-    }
+    List<RetentionContext> nonEmptyContexts = retentionContexts.stream()
+            .filter(context -> context.getRetentionPolicy().isPresent()
+                    && !context.getRetentionPolicy().get().data().isEmpty())
+            .collect(Collectors.toList());
 
-    if (retentionPolicy.hasTime()) {
-      applyTimeBasedRetention(urn, aspectName, retentionPolicy.getTime());
-    }
+    nonEmptyContexts.forEach(context -> {
+      if (context.getRetentionPolicy().map(Retention::hasVersion).orElse(false)) {
+        Retention retentionPolicy = context.getRetentionPolicy().get();
+        applyVersionBasedRetention(context.getUrn(), context.getAspectName(), retentionPolicy.getVersion(), context.getMaxVersion());
+      }
+
+      if (context.getRetentionPolicy().map(Retention::hasTime).orElse(false)) {
+        Retention retentionPolicy = context.getRetentionPolicy().get();
+        applyTimeBasedRetention(context.getUrn(), context.getAspectName(), retentionPolicy.getTime());
+      }
+    });
   }
 
   @Override
@@ -103,7 +107,12 @@ public class CassandraRetentionService extends RetentionService {
           .findFirst()
           .map(DataHubRetentionConfig::getRetention);
       retentionPolicy.ifPresent(retention ->
-          applyRetention(urn, aspectNameFromRecord, retention, Optional.of(new RetentionContext(Optional.of(id.getVersion())))));
+          applyRetention(List.of(RetentionContext.builder()
+                  .urn(urn)
+                  .aspectName(aspectNameFromRecord)
+                  .retentionPolicy(retentionPolicy)
+                  .maxVersion(Optional.of(id.getVersion()))
+                  .build())));
 
       i += 1;
       if (i % _batchSize == 0) {

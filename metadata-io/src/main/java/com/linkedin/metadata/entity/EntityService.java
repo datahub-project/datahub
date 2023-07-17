@@ -812,8 +812,12 @@ public class EntityService {
 
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldValue != updatedValue && oldValue != null && _retentionService != null) {
-      _retentionService.applyRetention(urn, aspectName,
-              Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+      _retentionService.applyRetentionWithPolicyDefaults(List.of(
+              RetentionService.RetentionContext.builder()
+                      .urn(urn)
+                      .aspectName(aspectName)
+                      .maxVersion(Optional.of(result.maxVersion))
+                      .build()));
     }
 
     // Produce MCL after a successful update
@@ -1019,8 +1023,12 @@ public class EntityService {
     RecordTemplate newAspect = result.getNewValue();
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
-      _retentionService.applyRetention(entityUrn, aspectSpec.getName(),
-          Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+      _retentionService.applyRetentionWithPolicyDefaults(List.of(
+              RetentionService.RetentionContext.builder()
+                      .urn(entityUrn)
+                      .aspectName(aspectSpec.getName())
+                      .maxVersion(Optional.of(result.maxVersion))
+                      .build()));
     }
     return result;
   }
@@ -1034,8 +1042,11 @@ public class EntityService {
     RecordTemplate newAspect = result.getNewValue();
     // Apply retention policies asynchronously if there was an update to existing aspect value
     if (oldAspect != newAspect && oldAspect != null && _retentionService != null) {
-      _retentionService.applyRetention(entityUrn, aspectSpec.getName(),
-          Optional.of(new RetentionService.RetentionContext(Optional.of(result.maxVersion))));
+      _retentionService.applyRetentionWithPolicyDefaults(List.of(RetentionService.RetentionContext.builder()
+              .urn(entityUrn)
+              .aspectName(aspectSpec.getName())
+              .maxVersion(Optional.of(result.maxVersion))
+              .build()));
     }
     return result;
   }

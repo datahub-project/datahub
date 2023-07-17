@@ -21,10 +21,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.Value;
 
@@ -65,7 +66,7 @@ public abstract class RetentionService {
   }
 
   // Get list of datahub retention keys that match the input entity name and aspect name
-  protected List<Urn> getRetentionKeys(@Nonnull String entityName, @Nonnull String aspectName) {
+  protected static List<Urn> getRetentionKeys(@Nonnull String entityName, @Nonnull String aspectName) {
     return ImmutableList.of(
             new DataHubRetentionKey().setEntityName(entityName).setAspectName(aspectName),
             new DataHubRetentionKey().setEntityName(entityName).setAspectName(ALL),
@@ -87,7 +88,7 @@ public abstract class RetentionService {
    */
   @SneakyThrows
   public boolean setRetention(@Nullable String entityName, @Nullable String aspectName,
-      @Nonnull DataHubRetentionConfig retentionConfig) {
+                              @Nonnull DataHubRetentionConfig retentionConfig) {
     validateRetention(retentionConfig.getRetention());
     DataHubRetentionKey retentionKey = new DataHubRetentionKey();
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
@@ -141,40 +142,39 @@ public abstract class RetentionService {
   }
 
   /**
-   * Apply retention policies given the urn and aspect name asynchronously
-   *
-   * @param urn Urn of the entity
-   * @param aspectName Name of the aspect
-   * @param context Additional context that could be used to apply retention
-   */
-  public void applyRetentionAsync(@Nonnull Urn urn, @Nonnull String aspectName, Optional<RetentionContext> context) {
-    CompletableFuture.runAsync(() -> applyRetention(urn, aspectName, context));
-  }
-
-  /**
    * Apply retention policies given the urn and aspect name
    *
-   * @param urn Urn of the entity
-   * @param aspectName Name of the aspect
-   * @param context Additional context that could be used to apply retention
+   * @param retentionContexts urn, aspect name, and additional context that could be used to apply retention
    */
-  public void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Optional<RetentionContext> context) {
-    Retention retentionPolicy = getRetention(urn.getEntityType(), aspectName);
-    if (retentionPolicy.data().isEmpty()) {
-      return;
-    }
-    applyRetention(urn, aspectName, retentionPolicy, context);
+  public void applyRetentionWithPolicyDefaults(List<RetentionContext> retentionContexts) {
+    List<RetentionContext> withDefaults = retentionContexts.stream()
+            .map(context -> {
+              if (context.getRetentionPolicy().isEmpty()) {
+                Retention retentionPolicy = getRetention(context.getUrn().getEntityType(), context.getAspectName());
+                return context.toBuilder()
+                        .retentionPolicy(Optional.of(retentionPolicy))
+                        .build();
+              } else {
+                return context;
+              }
+            })
+            .filter(context -> context.getRetentionPolicy().isPresent()
+                    && !context.getRetentionPolicy().get().data().isEmpty())
+            .collect(Collectors.toList());
+
+    applyRetention(withDefaults);
   }
 
   /**
-   * Apply retention policies given the urn and aspect name and policies
-   * @param urn Urn of the entity
-   * @param aspectName Name of the aspect
-   * @param retentionPolicy Retention policies to apply
-   * @param retentionContext Additional context that could be used to apply retention
+   * Apply retention policies given the urn and aspect name and policies. This protected
+   * method assumes that the policy is provided, however we likely need to fetch these
+   * from system configuration.
+   *
+   * Users of this should use {@link #applyRetentionWithPolicyDefaults(List<RetentionContext>)})
+   *
+   * @param retentionContexts Additional context that could be used to apply retention
    */
-  public abstract void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Retention retentionPolicy,
-      Optional<RetentionContext> retentionContext);
+  protected abstract void applyRetention(List<RetentionContext> retentionContexts);
 
   /**
    * Batch apply retention to all records that match the input entityName and aspectName
@@ -189,9 +189,16 @@ public abstract class RetentionService {
    */
   public abstract BulkApplyRetentionResult batchApplyRetentionEntities(@Nonnull BulkApplyRetentionArgs args);
 
-
   @Value
+  @Builder(toBuilder = true)
   public static class RetentionContext {
-    Optional<Long> maxVersion;
+    @Nonnull
+    Urn urn;
+    @Nonnull
+    String aspectName;
+    @Builder.Default
+    Optional<Retention> retentionPolicy = Optional.empty();
+    @Builder.Default
+    Optional<Long> maxVersion = Optional.empty();
   }
 }

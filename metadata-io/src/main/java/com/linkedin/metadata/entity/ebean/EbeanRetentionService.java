@@ -22,7 +22,6 @@ import io.ebeaninternal.server.expression.SimpleExpression;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,33 +49,50 @@ public class EbeanRetentionService extends RetentionService {
 
   @Override
   @WithSpan
-  public void applyRetention(@Nonnull Urn urn, @Nonnull String aspectName, Retention retentionPolicy,
-      Optional<RetentionContext> retentionContext) {
-    log.debug("Applying retention to urn {}, aspectName {}", urn, aspectName);
-    // If no policies are set or has indefinite policy set, do not apply any retention
-    if (retentionPolicy.data().isEmpty()) {
-      return;
-    }
-    ExpressionList<EbeanAspectV2> deleteQuery = _server.find(EbeanAspectV2.class)
-        .where()
-        .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-        .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-        .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION)
-        .or();
+  protected void applyRetention(List<RetentionContext> retentionContexts) {
 
-    List<Expression> filterList = new ArrayList<>();
-    if (retentionPolicy.hasVersion()) {
-      getVersionBasedRetentionQuery(urn, aspectName, retentionPolicy.getVersion(),
-          retentionContext.flatMap(RetentionService.RetentionContext::getMaxVersion)).ifPresent(filterList::add);
-    }
-    if (retentionPolicy.hasTime()) {
-      filterList.add(getTimeBasedRetentionQuery(retentionPolicy.getTime()));
-    }
+    List<RetentionContext> nonEmptyContexts = retentionContexts.stream()
+            .filter(context -> context.getRetentionPolicy().isPresent()
+                    && !context.getRetentionPolicy().get().data().isEmpty()).collect(Collectors.toList());
 
     // Only run delete if at least one of the retention policies are applicable
-    if (!filterList.isEmpty()) {
-      filterList.forEach(deleteQuery::add);
-      deleteQuery.endOr().delete();
+    if (!nonEmptyContexts.isEmpty()) {
+      ExpressionList<EbeanAspectV2> deleteQuery = _server.find(EbeanAspectV2.class)
+              .where()
+              .ne(EbeanAspectV2.VERSION_COLUMN, Constants.ASPECT_LATEST_VERSION)
+              .or();
+
+      boolean applied = false;
+      for (RetentionContext context : nonEmptyContexts) {
+        Retention retentionPolicy = context.getRetentionPolicy().get();
+
+        if (retentionPolicy.hasVersion()) {
+          boolean appliedVersion = getVersionBasedRetentionQuery(context.getUrn(), context.getAspectName(),
+                  retentionPolicy.getVersion(), context.getMaxVersion())
+                  .map(expr ->
+                          deleteQuery.and()
+                                  .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+                                  .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+                                  .add(expr)
+                                  .endAnd()
+                  ).isPresent();
+
+          applied = appliedVersion || applied;
+        }
+
+        if (retentionPolicy.hasTime()) {
+          deleteQuery.and()
+                  .eq(EbeanAspectV2.URN_COLUMN, context.getUrn().toString())
+                  .eq(EbeanAspectV2.ASPECT_COLUMN, context.getAspectName())
+                  .add(getTimeBasedRetentionQuery(retentionPolicy.getTime()))
+                  .endAnd();
+          applied = true;
+        }
+      }
+
+      if (applied) {
+        deleteQuery.endOr().delete();
+      }
     }
   }
 
@@ -121,33 +137,43 @@ public class EbeanRetentionService extends RetentionService {
     try (Transaction transaction = _server.beginTransaction()) {
       transaction.setBatchMode(true);
       transaction.setBatchSize(_batchSize);
-      for (EbeanAspectV2 row : rows.getList()) {
-        // Only run for cases where there's multiple versions of the aspect
-        if (row.getVersion() == 0) {
-          continue;
-        }
-        // 1. Extract an Entity type from the entity Urn
-        Urn urn;
-        try {
-          urn = Urn.createFromString(row.getUrn());
-        } catch (Exception e) {
-          log.error("Failed to serialize urn {}", row.getUrn(), e);
-          continue;
-        }
-        final String aspectNameFromRecord = row.getAspect();
-        log.debug("Handling urn {} aspect {}", row.getUrn(), row.getAspect());
-        // Get the retention policies to apply from the local retention policy map
-        Optional<Retention> retentionPolicy = getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
-                .map(key -> retentionPolicyMap.get(key.toString()))
-                .filter(Objects::nonNull)
-                .findFirst()
-                .map(DataHubRetentionConfig::getRetention);
-        retentionPolicy.ifPresent(retention -> applyRetention(urn, aspectNameFromRecord, retention,
-                Optional.of(new RetentionContext(Optional.of(row.getVersion())))));
-        if (applyRetentionResult != null) {
-          applyRetentionResult.rowsHandled += 1;
-        }
+
+      List<RetentionContext> retentionContexts = rows.getList().stream()
+              .filter(row -> row.getVersion() != 0)
+              .map(row -> {
+                // 1. Extract an Entity type from the entity Urn
+                Urn urn;
+                try {
+                  urn = Urn.createFromString(row.getUrn());
+                } catch (Exception e) {
+                  log.error("Failed to serialize urn {}", row.getUrn(), e);
+                  return null;
+                }
+
+                final String aspectNameFromRecord = row.getAspect();
+                log.debug("Handling urn {} aspect {}", row.getUrn(), row.getAspect());
+                // Get the retention policies to apply from the local retention policy map
+                Optional<Retention> retentionPolicy = getRetentionKeys(urn.getEntityType(), aspectNameFromRecord).stream()
+                        .map(key -> retentionPolicyMap.get(key.toString()))
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .map(DataHubRetentionConfig::getRetention);
+
+                return RetentionService.RetentionContext.builder()
+                        .urn(urn)
+                        .aspectName(aspectNameFromRecord)
+                        .retentionPolicy(retentionPolicy)
+                        .maxVersion(Optional.of(row.getVersion()))
+                        .build();
+              })
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
+
+      applyRetention(retentionContexts);
+      if (applyRetentionResult != null) {
+        applyRetentionResult.rowsHandled += retentionContexts.size();
       }
+
       transaction.commit();
     }
   }
