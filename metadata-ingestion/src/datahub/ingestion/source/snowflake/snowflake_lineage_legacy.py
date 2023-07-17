@@ -2,7 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Callable, Dict, FrozenSet, Iterable, List, Optional, Set
+from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Set
 
 from pydantic import Field
 from pydantic.error_wrappers import ValidationError
@@ -193,8 +193,9 @@ class SnowflakeLineageExtractor(
         self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
 
+    # Kwargs used by new snowflake lineage extractor need to be ignored here
     def get_workunits(
-        self, discovered_tables: List[str], discovered_views: List[str]
+        self, discovered_tables: List[str], discovered_views: List[str], **_kwargs: Any
     ) -> Iterable[MetadataWorkUnit]:
         self.connection = self.create_connection()
         if self.connection is None:
