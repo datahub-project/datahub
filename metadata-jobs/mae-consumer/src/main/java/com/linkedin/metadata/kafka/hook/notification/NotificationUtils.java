@@ -11,6 +11,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.pegasus2avro.subscription.SubscriptionType;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.metadata.AcrylConstants.*;
+import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 
 
 public class NotificationUtils {
@@ -169,6 +171,18 @@ public class NotificationUtils {
     entityCriterion.setCondition(Condition.EQUAL);
 
     return entityCriterion;
+  }
+
+  /**
+   * Takes in an MCL and determines whether this log is coming from an initial ingestion run (first time we're hearing about this entity).
+   * This is an initial ingestion run if there is no previous aspect and this MCL has a run ID not equal to DEFAULT_RUN_ID (coming from ingestion).
+   * This isn't perfect as it is possible that we run ingestion and then run ingestion again later and add a new aspect like owner or tags.
+   */
+  public static boolean isFromInitialIngestionRun(@Nonnull MetadataChangeLog event) {
+    return event.getPreviousAspectValue() == null
+        && event.hasSystemMetadata()
+        && event.getSystemMetadata().hasRunId()
+        && !event.getSystemMetadata().getRunId().equals(DEFAULT_RUN_ID);
   }
 
   private NotificationUtils() { }
