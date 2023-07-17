@@ -13,4 +13,4 @@ export type State = {
     };
 };
 
-export type Action = { type: 'enable' } | { type: 'disable' };
+export type Action = { type: 'toggleSlack'; payload: boolean };

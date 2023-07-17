@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Button, Typography } from 'antd';
+import { useFormStateContext } from '../form/context';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -26,12 +27,14 @@ const FooterButtonLabel = styled(Typography.Text)<{ color: string }>`
 
 interface Props {
     isSubscribed: boolean;
-    allowEditing: boolean;
     onCancelOrUnsubscribe: () => void;
     onUpdate: () => void;
 }
 
-export default function Footer({ isSubscribed, allowEditing, onCancelOrUnsubscribe, onUpdate }: Props) {
+export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }: Props) {
+    const {
+        slack: { enabled: allowEditing },
+    } = useFormStateContext();
     const leftButtonText: string = isSubscribed ? 'Unsubscribe' : 'Cancel';
     const leftButtonColor: string = isSubscribed ? '#FF4D4F' : 'rgba(0, 0, 0, 0.88)';
     const subscribeButtonText: string = isSubscribed ? 'Update' : 'Subscribe';

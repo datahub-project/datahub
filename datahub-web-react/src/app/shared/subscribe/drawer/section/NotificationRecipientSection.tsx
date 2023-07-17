@@ -15,6 +15,7 @@ import {
 } from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
+import { useFormActionContext, useFormStateContext } from '../form/context';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -83,31 +84,31 @@ const SaveAsDefaultText = styled(Typography.Text)`
 `;
 
 interface Props {
-    allowEditing: boolean;
     customSlackSink?: string;
     isPersonal: boolean;
     slackSinkSubscriptionValue?: string;
     slackSinkSettingsValue?: string;
     notificationSinkTypes: NotificationSinkType[];
     setNotificationSinkTypes: (notificationSinkTypes: NotificationSinkType[]) => void;
-    setAllowEditing: (allowEditing: boolean) => void;
     setCustomSlackSink: (customSlackSink: string | undefined) => void;
     setSaveSlackSinkAsDefault: (saveSlackSinkAsDefault: boolean) => void;
 }
 
 export default function NotificationRecipientSection({
-    allowEditing,
     customSlackSink,
     isPersonal,
     slackSinkSubscriptionValue,
     slackSinkSettingsValue,
     notificationSinkTypes,
     setNotificationSinkTypes,
-    setAllowEditing,
     setCustomSlackSink,
     setSaveSlackSinkAsDefault,
 }: Props) {
     const [form] = useForm();
+    const {
+        slack: { enabled: allowEditing },
+    } = useFormStateContext();
+    const dispatch = useFormActionContext();
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
@@ -138,7 +139,7 @@ export default function NotificationRecipientSection({
     };
 
     const onChangeSlackSwitch = (checked: boolean) => {
-        setAllowEditing(checked);
+        dispatch({ type: 'toggleSlack', payload: checked });
         setNotificationSinkTypes(
             uniq(
                 checked

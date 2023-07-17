@@ -41,7 +41,7 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionFormProvider from './form/context';
+import SubscriptionFormProvider, { useFormActionContext } from './form/context';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -97,7 +97,7 @@ const SubscriptionDrawerContent = ({
     const [checkedKeys, setCheckedKeys] = useState<Key[]>([]);
     const [subscribeToUpstream, setSubscribeToUpstream] = useState<boolean>(false);
     const [notificationSinkTypes, setNotificationSinkTypes] = useState<NotificationSinkType[]>([]);
-    const [allowEditing, setAllowEditing] = useState<boolean>(false);
+    const dispatch = useFormActionContext();
 
     const [saveSlackSinkAsDefault, setSaveSlackSinkAsDefault] = useState<boolean>(false);
     const [customSlackSink, setCustomSlackSink] = useState<string>();
@@ -127,6 +127,7 @@ const SubscriptionDrawerContent = ({
     useEffect(() => {
         const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
         const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
+        // todo - this is the slack specific one, maybe our reducer can handle the logic of enabling only when all children are enabled?
         const isSlackAndSubscriptionEnabled = slackSinkEnabled && sinkTypes.includes(NotificationSinkType.Slack);
         const hasUpstreamSubscription =
             ENABLE_UPSTREAM_NOTIFICATIONS &&
@@ -135,9 +136,9 @@ const SubscriptionDrawerContent = ({
         setCheckedKeys(entityChangeTypes);
         setSubscribeToUpstream(hasUpstreamSubscription);
         setNotificationSinkTypes(sinkTypes);
-        setAllowEditing(isSlackAndSubscriptionEnabled);
+        dispatch({ type: 'toggleSlack', payload: isSlackAndSubscriptionEnabled });
         setCustomSlackSink(slackSinkSubscriptionValue);
-    }, [slackSinkSubscriptionValue, entityType, slackSinkEnabled, subscription]);
+    }, [slackSinkSubscriptionValue, entityType, slackSinkEnabled, subscription, dispatch]);
 
     useEffect(() => {
         if (isPersonal) {
@@ -246,7 +247,6 @@ const SubscriptionDrawerContent = ({
             footer={
                 <Footer
                     isSubscribed={isSubscribed}
-                    allowEditing={allowEditing}
                     onCancelOrUnsubscribe={onCancelOrUnsubscribe}
                     onUpdate={onUpdateFooter}
                 />
@@ -275,7 +275,6 @@ const SubscriptionDrawerContent = ({
                         />
                     )}
                     <NotificationRecipientSection
-                        allowEditing={allowEditing}
                         customSlackSink={customSlackSink}
                         isPersonal={isPersonal}
                         slackSinkSubscriptionValue={slackSinkSubscriptionValue}
@@ -283,7 +282,6 @@ const SubscriptionDrawerContent = ({
                         notificationSinkTypes={notificationSinkTypes}
                         setCustomSlackSink={setCustomSlackSink}
                         setNotificationSinkTypes={setNotificationSinkTypes}
-                        setAllowEditing={setAllowEditing}
                         setSaveSlackSinkAsDefault={setSaveSlackSinkAsDefault}
                     />
                 </>

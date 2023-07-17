@@ -15,8 +15,14 @@ export const initialState: State = {
 
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
-        case 'enable': {
-            return { ...state, enabled: true };
+        case 'toggleSlack': {
+            return {
+                ...state,
+                slack: {
+                    ...state.slack,
+                    enabled: action.payload,
+                },
+            };
         }
         default: {
             return state;
