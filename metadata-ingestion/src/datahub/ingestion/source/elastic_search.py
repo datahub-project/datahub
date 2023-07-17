@@ -473,22 +473,26 @@ class ElasticsearchSource(Source):
                     ),
                 ),
             )
-        cat_response = self.client.cat.indices(
-            index=index, params={"format": "json", "bytes": "b"}
-        )
-        if len(cat_response) == 1:
-            index_res = cat_response[0]
-            docs_count = int(index_res["docs.count"])
-            size = int(index_res["store.size"])
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=DatasetProfileClass(
-                    timestampMillis=int(time.time() * 1000),
-                    rowCount=docs_count,
-                    columnCount=len(schema_fields),
-                    sizeInBytes=size,
-                ),
+
+        if self.source_config.profiling.enabled:
+            cat_response = self.client.cat.indices(
+                index=index, params={"format": "json", "bytes": "b"}
             )
+            if len(cat_response) == 1:
+                index_res = cat_response[0]
+                docs_count = int(index_res["docs.count"])
+                size = int(index_res["store.size"])
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=DatasetProfileClass(
+                        timestampMillis=int(time.time() * 1000),
+                        rowCount=docs_count,
+                        columnCount=len(schema_fields),
+                        sizeInBytes=size,
+                    ),
+                )
+            else:
+                logger.warning("Unexpected response from cat response with multiple rows")
 
     def get_report(self):
         return self.report
