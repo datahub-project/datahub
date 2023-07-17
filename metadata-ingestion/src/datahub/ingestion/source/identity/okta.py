@@ -59,15 +59,9 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
         description="The location of your Okta Domain, without a protocol. Can be found in Okta Developer console. e.g. dev-33231928.okta.com",
     )
     # Require: JWKS configuration for authentication
-    okta_private_key: str = Field(
-        description="Private RSA key"
-    )
-    okta_client_id: str = Field(
-        description="Client ID for the OAuth 2.0 token"
-    )
-    okta_kid: str = Field(
-        description="Key ID for the private RSA key"
-    )
+    okta_private_key: str = Field(description="Private RSA key")
+    okta_client_id: str = Field(description="Client ID for the OAuth 2.0 token")
+    okta_kid: str = Field(description="Key ID for the private RSA key")
 
     # Optional: Whether to ingest users, groups, or both.
     ingest_users: bool = Field(
@@ -420,12 +414,12 @@ class OktaSource(StatefulIngestionSourceBase):
     # Instantiates Okta SDK Client.
     def _create_okta_client(self):
         config = {
-            'orgUrl': f"https://{self.config.okta_domain}",
-            'authorizationMode': 'PrivateKey',
-            'clientId': f'{self.config.okta_client_id}',
-            'scopes': ['okta.users.read', 'okta.groups.read'],
-            'kid': f'{self.config.okta_kid}',
-            'privateKey': f'{self.config.okta_private_key}',
+            "orgUrl": f"https://{self.config.okta_domain}",
+            "authorizationMode": "PrivateKey",
+            "clientId": f"{self.config.okta_client_id}",
+            "scopes": ["okta.users.read", "okta.groups.read"],
+            "kid": f"{self.config.okta_kid}",
+            "privateKey": f"{self.config.okta_private_key}",
             "raiseException": True,
         }
         return OktaClient(config)

@@ -55,7 +55,6 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    KafkaSchemaClass,
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -248,9 +247,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
-
-        AVRO = "AVRO"
-        DOC_KEY = "doc"
 
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic

@@ -1318,7 +1318,13 @@ class TableauSource(StatefulIngestionSourceBase):
             if project and datasource_name:
                 browse_paths = BrowsePathsClass(
                     paths=[
-                        f"/{self.config.env.lower()}/{self.platform}/{project}/{datasource[tableau_constant.NAME]}"
+                        f"/{self.config.env.lower()}/{self.platform}"
+                        + (
+                            f"/{self.config.platform_instance}"
+                            if self.config.platform_instance
+                            else ""
+                        )
+                        + f"/{project}/{datasource[tableau_constant.NAME]}"
                     ]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
@@ -1751,7 +1757,15 @@ class TableauSource(StatefulIngestionSourceBase):
 
         if browse_path:
             browse_paths = BrowsePathsClass(
-                paths=[f"/{self.config.env.lower()}/{self.platform}/{browse_path}"]
+                paths=[
+                    f"/{self.config.env.lower()}/{self.platform}"
+                    + (
+                        f"/{self.config.platform_instance}"
+                        if self.config.platform_instance
+                        else ""
+                    )
+                    + f"/{browse_path}"
+                ]
             )
             dataset_snapshot.aspects.append(browse_paths)
 
@@ -1912,7 +1926,13 @@ class TableauSource(StatefulIngestionSourceBase):
             # Browse path
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.config.env.lower()}/{self.platform}/{path}"
+                    f"/{self.config.env.lower()}/{self.platform}"
+                    + (
+                        f"/{self.config.platform_instance}"
+                        if self.config.platform_instance
+                        else ""
+                    )
+                    + f"/{path}"
                     for path in sorted(database_table.paths, key=lambda p: (len(p), p))
                 ]
             )
@@ -2114,8 +2134,14 @@ class TableauSource(StatefulIngestionSourceBase):
         ):
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
-                    f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{self.platform}"
+                    + (
+                        f"/{self.config.platform_instance}"
+                        if self.config.platform_instance
+                        else ""
+                    )
+                    + f"/{self._project_luid_to_browse_path_name(project_luid)}"
+                    + f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
             chart_snapshot.aspects.append(browse_paths)
@@ -2419,8 +2445,14 @@ class TableauSource(StatefulIngestionSourceBase):
         ):
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{self._project_luid_to_browse_path_name(project_luid)}"
-                    f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{self.platform}"
+                    + (
+                        f"/{self.config.platform_instance}"
+                        if self.config.platform_instance
+                        else ""
+                    )
+                    + f"/{self._project_luid_to_browse_path_name(project_luid)}"
+                    + f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
             dashboard_snapshot.aspects.append(browse_paths)
@@ -2432,8 +2464,14 @@ class TableauSource(StatefulIngestionSourceBase):
             # browse path
             browse_paths = BrowsePathsClass(
                 paths=[
-                    f"/{self.platform}/{workbook[tableau_constant.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
-                    f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                    f"/{self.platform}"
+                    + (
+                        f"/{self.config.platform_instance}"
+                        if self.config.platform_instance
+                        else ""
+                    )
+                    + f"/{workbook[tableau_constant.PROJECT_NAME].replace('/', REPLACE_SLASH_CHAR)}"
+                    + f"/{workbook[tableau_constant.NAME].replace('/', REPLACE_SLASH_CHAR)}"
                 ]
             )
             dashboard_snapshot.aspects.append(browse_paths)
