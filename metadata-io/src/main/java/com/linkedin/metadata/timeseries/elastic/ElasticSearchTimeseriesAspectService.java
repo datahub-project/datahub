@@ -62,6 +62,7 @@ import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -138,6 +139,10 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
   @Override
   public List<ReindexConfig> getReindexConfigs() {
     return _indexBuilders.getReindexConfigs();
+  }
+  public String reindexAsync(String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
+      throws Exception {
+    return _indexBuilders.reindexAsync(index, filterQuery, options);
   }
 
   @Override
@@ -315,6 +320,19 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
     } else {
       log.error("Async delete query failed");
       throw new ESQueryException("Async delete query failed");
+    }
+  }
+
+  @Override
+  public String reindexAsync(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options) {
+    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
+    final BoolQueryBuilder filterQueryBuilder = ESUtils.buildFilterQuery(filter, true);
+    try {
+      return this.reindexAsync(indexName, filterQueryBuilder, options);
+    } catch (Exception e) {
+      log.error("Async reindex failed");
+      throw new ESQueryException("Async reindex failed", e);
     }
   }
 
