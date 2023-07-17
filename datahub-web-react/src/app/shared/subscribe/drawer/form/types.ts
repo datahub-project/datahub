@@ -1,5 +1,5 @@
 import { Key } from 'react';
-import { NotificationSinkType } from '../../../../../types.generated';
+import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
 
 export type State = {
     enabled: boolean;
@@ -13,4 +13,9 @@ export type State = {
     };
 };
 
-export type Action = { type: 'toggleSlack'; payload: boolean };
+export type Action =
+    | {
+          type: 'initialize';
+          payload: { slackSinkEnabled: boolean; entityType: EntityType; subscription?: DataHubSubscription };
+      }
+    | { type: 'toggleSlack'; payload: boolean };

@@ -125,10 +125,10 @@ const SubscriptionDrawerContent = ({
     const slackSinkSubscriptionValue = isPersonal ? subUserHandle : subGroupChannel;
 
     useEffect(() => {
+        // todo - what if we just have an "initialize" dispatch that can setup the state based on the subscription we have here?
         const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
         const sinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
         // todo - this is the slack specific one, maybe our reducer can handle the logic of enabling only when all children are enabled?
-        const isSlackAndSubscriptionEnabled = slackSinkEnabled && sinkTypes.includes(NotificationSinkType.Slack);
         const hasUpstreamSubscription =
             ENABLE_UPSTREAM_NOTIFICATIONS &&
             !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
@@ -136,8 +136,9 @@ const SubscriptionDrawerContent = ({
         setCheckedKeys(entityChangeTypes);
         setSubscribeToUpstream(hasUpstreamSubscription);
         setNotificationSinkTypes(sinkTypes);
-        dispatch({ type: 'toggleSlack', payload: isSlackAndSubscriptionEnabled });
         setCustomSlackSink(slackSinkSubscriptionValue);
+
+        dispatch({ type: 'initialize', payload: { slackSinkEnabled, entityType, subscription } });
     }, [slackSinkSubscriptionValue, entityType, slackSinkEnabled, subscription, dispatch]);
 
     useEffect(() => {
