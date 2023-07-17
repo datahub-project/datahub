@@ -971,48 +971,6 @@ fragment inputFieldsFields on InputFields {
     }
 }
 
-fragment joinPropertiesFields on JoinProperties {
-    name
-    datasetA {
-        ...datasetJoinFields
-    }
-    datasetB {
-        ...datasetJoinFields
-    }
-    joinFieldMappings {
-        ...joinFieldMappingFields
-    }
-    createdTime
-}
-
-fragment joinFieldMappingFields on JoinFieldMapping {
-    fieldMapping {
-        afield
-        bfield
-    }
-    details
-}
-
-fragment joinEditablePropertiesFields on JoinEditableProperties {
-    description
-    name
-}
-
-fragment datasetJoinFields on Dataset {
-    urn
-    name
-    properties {
-        name
-        description
-    }
-    editableProperties {
-        description
-    }
-    schemaMetadata {
-        ...schemaMetadataFields
-    }
-}
-
 fragment browsePathV2Fields on BrowsePathV2 {
     path {
         name
@@ -1153,5 +1111,47 @@ fragment entityDisplayNameFields on Entity {
         properties {
             name
         }
+    }
+}
+
+fragment joinPropertiesFields on JoinProperties {
+    name
+    datasetA {
+        ...datasetJoinFields
+    }
+    datasetB {
+        ...datasetJoinFields
+    }
+    joinFieldMappings {
+        ...joinFieldMappingFields
+    }
+    createdTime
+}
+
+fragment joinFieldMappingFields on JoinFieldMapping {
+    fieldMapping {
+        afield
+        bfield
+    }
+    details
+}
+
+fragment joinEditablePropertiesFields on JoinEditableProperties {
+    description
+    name
+}
+
+fragment datasetJoinFields on Dataset {
+    urn
+    name
+    properties {
+        name
+        description
+    }
+    editableProperties {
+        description
+    }
+    schemaMetadata {
+        ...schemaMetadataFields
     }
 }
