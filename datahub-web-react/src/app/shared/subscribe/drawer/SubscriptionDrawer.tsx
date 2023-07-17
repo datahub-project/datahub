@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
@@ -185,12 +185,16 @@ const SubscriptionDrawerContent = ({
     const subscriptionChannel = getSubscriptionChannel(isPersonal, subscription);
     const settingsChannel = getUserSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
 
-    useEffect(() => {
+    const initialize = useCallback(() => {
         dispatch({
             type: 'initialize',
             payload: { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel },
         });
     }, [dispatch, entityType, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
+
+    useEffect(() => {
+        initialize();
+    }, [initialize]);
 
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
@@ -213,14 +217,8 @@ const SubscriptionDrawerContent = ({
 
     const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
-    const resetAndClose = () => {
-        // todo - this is wrong, we'll end up reloading the "current" server state, rather than waiting for the new stuff from the refetch
-        // again, is there some way I can just push this stuff into context without being a part of the form reducer?
-        // I basically now have a reducer setup
-        dispatch({
-            type: 'initialize',
-            payload: { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel },
-        });
+    const initializeAndClose = () => {
+        initialize();
         onClose();
     };
 
@@ -228,7 +226,7 @@ const SubscriptionDrawerContent = ({
     const onUpdateFooter = () => {
         onUpsertSubscription();
         if (channel && saveAsDefault) updateSinkSetting(channel);
-        resetAndClose();
+        initializeAndClose();
     };
 
     const onCancelOrUnsubscribe = () => {
@@ -236,7 +234,7 @@ const SubscriptionDrawerContent = ({
             onDeleteSubscription();
         }
         onClose();
-        resetAndClose();
+        initializeAndClose();
     };
 
     return (
@@ -250,12 +248,12 @@ const SubscriptionDrawerContent = ({
                 />
             }
             open={isOpen}
-            onClose={resetAndClose}
+            onClose={initializeAndClose}
             closable={false}
         >
             <SubscriptionTitleContainer>
                 <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
-                <Button type="link" onClick={resetAndClose}>
+                <Button type="link" onClick={initializeAndClose}>
                     <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
                 </Button>
             </SubscriptionTitleContainer>
