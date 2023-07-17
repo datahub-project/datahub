@@ -36,8 +36,8 @@ const Count = styled(Typography.Text)`
 const PlatformNode = () => {
     const isPlatformSelected = useIsPlatformSelected();
     const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
-    const isPlatformSelectedPrefix = isPlatformSelected && hasBrowseFilter;
-    const isPlatformSelectedExact = isPlatformSelected && !hasBrowseFilter;
+    const isPlatformAndPathSelected = isPlatformSelected && hasBrowseFilter;
+    const isPlatformOnlySelected = isPlatformSelected && !hasBrowseFilter;
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
@@ -55,7 +55,7 @@ const PlatformNode = () => {
     );
 
     const { isOpen, isClosing, toggle } = useToggle({
-        initialValue: isPlatformSelectedPrefix,
+        initialValue: isPlatformAndPathSelected,
         closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'platform'),
     });
@@ -65,9 +65,9 @@ const PlatformNode = () => {
     };
 
     const onClickHeader = () => {
-        const isNowSelected = !isPlatformSelectedExact;
-        onSelectBrowsePath(isNowSelected, [BROWSE_PATH_V2_FILTER_NAME]);
-        trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'platform');
+        const isNowPlatformOnlySelected = !isPlatformOnlySelected;
+        onSelectBrowsePath(isNowPlatformOnlySelected, [BROWSE_PATH_V2_FILTER_NAME]);
+        trackSelectNodeEvent(isNowPlatformOnlySelected ? 'select' : 'deselect', 'platform');
     };
 
     const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
@@ -80,7 +80,7 @@ const PlatformNode = () => {
             header={
                 <ExpandableNode.SelectableHeader
                     isOpen={isOpen}
-                    isSelected={isPlatformSelectedExact}
+                    isSelected={isPlatformOnlySelected}
                     showBorder
                     onClick={onClickHeader}
                 >
