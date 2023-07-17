@@ -23,9 +23,9 @@ from datahub.metadata.schema_classes import (
 if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sagemaker.type_defs import (
-        DescribeFeatureGroupResponseTypeDef,
-        FeatureDefinitionTypeDef,
-        FeatureGroupSummaryTypeDef,
+        DescribeFeatureGroupResponseOutputTypeDef,
+        FeatureDefinitionOutputTypeDef,
+        FeatureGroupSummaryOutputTypeDef,
     )
 
 
@@ -35,7 +35,7 @@ class FeatureGroupProcessor:
     env: str
     report: SagemakerSourceReport
 
-    def get_all_feature_groups(self) -> List["FeatureGroupSummaryTypeDef"]:
+    def get_all_feature_groups(self) -> List["FeatureGroupSummaryOutputTypeDef"]:
         """
         List all feature groups in SageMaker.
         """
@@ -51,7 +51,7 @@ class FeatureGroupProcessor:
 
     def get_feature_group_details(
         self, feature_group_name: str
-    ) -> "DescribeFeatureGroupResponseTypeDef":
+    ) -> "DescribeFeatureGroupResponseOutputTypeDef":
         """
         Get details of a feature group (including list of component features).
         """
@@ -75,7 +75,7 @@ class FeatureGroupProcessor:
         return feature_group
 
     def get_feature_group_wu(
-        self, feature_group_details: "DescribeFeatureGroupResponseTypeDef"
+        self, feature_group_details: "DescribeFeatureGroupResponseOutputTypeDef"
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable workunit for a SageMaker feature group.
@@ -146,8 +146,8 @@ class FeatureGroupProcessor:
 
     def get_feature_wu(
         self,
-        feature_group_details: "DescribeFeatureGroupResponseTypeDef",
-        feature: "FeatureDefinitionTypeDef",
+        feature_group_details: "DescribeFeatureGroupResponseOutputTypeDef",
+        feature: "FeatureDefinitionOutputTypeDef",
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature workunit for a SageMaker feature.

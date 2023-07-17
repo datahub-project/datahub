@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.annotation.Nonnull;
@@ -25,6 +26,8 @@ import org.springframework.web.context.WebApplicationContext;
 @Slf4j
 @Component
 public class OnBootApplicationListener {
+ private static final Set<Integer> ACCEPTED_HTTP_CODES = Set.of(HttpStatus.SC_OK, HttpStatus.SC_MOVED_PERMANENTLY,
+         HttpStatus.SC_MOVED_TEMPORARILY, HttpStatus.SC_FORBIDDEN, HttpStatus.SC_UNAUTHORIZED);
 
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
 
@@ -60,8 +63,8 @@ public class OnBootApplicationListener {
             log.info("Sleeping for 1 second");
             Thread.sleep(1000);
             StatusLine statusLine = httpClient.execute(request).getStatusLine();
-            if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
-              log.info("Connected!");
+            if (ACCEPTED_HTTP_CODES.contains(statusLine.getStatusCode())) {
+              log.info("Connected! Authentication not tested.");
               openAPIServeletReady = true;
             }
           } catch (IOException | InterruptedException e) {

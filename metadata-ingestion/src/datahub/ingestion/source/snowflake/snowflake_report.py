@@ -26,6 +26,7 @@ class SnowflakeV2Report(
 
     usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1
+    view_lineage_parse_secs: float = -1
     view_upstream_lineage_query_secs: float = -1
     view_downstream_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
@@ -58,6 +59,10 @@ class SnowflakeV2Report(
     num_tables_with_external_upstreams_only: int = 0
     num_tables_with_upstreams: int = 0
     num_views_with_upstreams: int = 0
+
+    num_view_definitions_parsed: int = 0
+    num_view_definitions_failed_parsing: int = 0
+    num_view_definitions_failed_column_parsing: int = 0
 
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
