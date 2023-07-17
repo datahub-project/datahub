@@ -200,6 +200,39 @@ const quickLinkContent = [
   },
 ];
 
+const gitLinkContent = [
+  {
+    title: "datahub",
+    icon: <ThunderboltTwoTone />,
+    description: "Details on how to get DataHub up and running",
+    to: "/docs/quickstart",
+  },
+  {
+    title: "datahub-actions",
+    icon: <ApiTwoTone />,
+    description: "Details on how to get Metadata loaded into DataHub",
+    to: "/docs/metadata-ingestion",
+  },
+  {
+    title: "datahub-helm",
+    icon: <DeploymentUnitOutlined />,
+    description: "Details on how to utilize Metadata programmatically",
+    to: "docs/api/datahub-apis",
+  },
+  {
+    title: "meta-world",
+    icon: <SyncOutlined />,
+    description: "Step-by-step guides for acting on Metadata Events",
+    to: "docs/act-on-metadata",
+  },
+  {
+    title: "business-glossary-sync-action",
+    icon: <CodeTwoTone />,
+    description: "Interact with DataHub programmatically ",
+    to: "/docs/cli",
+  },
+];
+
 function Docs() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
@@ -235,26 +268,7 @@ function Docs() {
             content={featureGuideContent}
             seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }}
           />
-          <div className={clsx("card", styles.quickLinks)}>
-            <div className={styles.quickLinksLabel}>
-              <QuestionCircleOutlined />
-              DataHub GitHub Repos
-            </div>
-            <Link to="https://github.com/datahub-project/datahub">datahub</Link>
-            <Link to="https://github.com/acryldata/datahub-actions">
-              datahub-actions
-            </Link>
-            <Link to="https://github.com/acryldata/datahub-helm">
-              datahub-helm
-            </Link>
-            <Link to="https://github.com/acryldata/meta-world">meta-world</Link>
-            <Link to="https://github.com/acryldata/dbt-impact-action">
-              dbt-impact-action
-            </Link>
-            <Link to="https://github.com/acryldata/business-glossary-sync-action">
-              business-glossary-sync-action
-            </Link>
-          </div>
+          <GuideList title="Github Repositories" content={gitLinkContent} />
         </div>
       </header>
     </Layout>
