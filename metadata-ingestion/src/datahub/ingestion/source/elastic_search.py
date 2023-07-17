@@ -492,7 +492,9 @@ class ElasticsearchSource(Source):
                     ),
                 )
             else:
-                logger.warning("Unexpected response from cat response with multiple rows")
+                logger.warning(
+                    "Unexpected response from cat response with multiple rows"
+                )
 
     def get_report(self):
         return self.report
