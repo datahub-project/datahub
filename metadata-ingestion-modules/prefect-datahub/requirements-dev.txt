@@ -15,3 +15,5 @@ interrogate
 coverage>=5.1
 pillow
 types-requests
+# For python 3.7 and importlib-metadata>=5.0.0, build failed with attribute error
+importlib-metadata>=4.4.0,<5.0.0; python_version < '3.8'
