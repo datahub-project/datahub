@@ -40,7 +40,8 @@ public class UpdateJoinResolver implements DataFetcher<CompletableFuture<Boolean
     @Override
     public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
         final JoinUpdateInput input = bindArgument(environment.getArgument("input"), JoinUpdateInput.class);
-        JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
+        final String urn = bindArgument(environment.getArgument("urn"),String.class);
+        JoinUrn inputUrn = JoinUrn.createFromString(urn);
         QueryContext context = environment.getLocalContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
 
