@@ -15,6 +15,7 @@ import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/ty
 import { isSinkEnabled } from '../../../../settings/utils';
 import { useDrawerState } from '../state/context';
 import useDrawerActions from '../state/actions';
+import { SettingsSelection, SubscriptionSelection } from '../state/types';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -146,9 +147,9 @@ export default function NotificationRecipientSection() {
                         >
                             <Space direction="vertical">
                                 {slack.settings.channel && (
-                                    <Radio value="settings">Use default: {slack.settings.channel}</Radio>
+                                    <Radio value={SettingsSelection}>Use default: {slack.settings.channel}</Radio>
                                 )}
-                                <Radio value="subscription">
+                                <Radio value={SubscriptionSelection}>
                                     <Form form={form}>
                                         <StyledFormItem
                                             name="slackFormValue"

@@ -4,10 +4,13 @@ import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/not
 import { getDefaultCheckedKeys } from '../utils';
 import { Action, ActionTypes, State } from './types';
 
-export const createInitialState = (isPersonal: boolean): State => ({
+export const createInitialState = (): State => ({
     edited: false,
-    isPersonal,
-    checkedKeys: [],
+    isPersonal: true,
+    notificationTypes: {
+        checkedKeys: [],
+        expandedKeys: [],
+    },
     subscribeToUpstream: false,
     notificationSinkTypes: [],
     slack: {
@@ -23,7 +26,8 @@ export const createInitialState = (isPersonal: boolean): State => ({
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
         case ActionTypes.INITIALIZE: {
-            const { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel } = action.payload;
+            const { isPersonal, slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel } =
+                action.payload;
 
             const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
             const notificationSinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
@@ -36,8 +40,12 @@ export const reducer = (state: State, action: Action): State => {
 
             return {
                 ...state,
+                isPersonal,
                 edited: !subscription,
-                checkedKeys: entityChangeTypes,
+                notificationTypes: {
+                    checkedKeys: entityChangeTypes,
+                    expandedKeys: [],
+                },
                 subscribeToUpstream: hasUpstreamSubscription,
                 notificationSinkTypes,
                 slack: {
@@ -112,18 +120,31 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case ActionTypes.SET_CHECKED_KEYS: {
-            return {
-                ...state,
-                edited: true,
-                checkedKeys: action.payload,
-            };
-        }
         case ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM: {
             return {
                 ...state,
                 edited: true,
                 subscribeToUpstream: action.payload,
+            };
+        }
+        case ActionTypes.SET_NOTIFICATION_TYPES: {
+            return {
+                ...state,
+                edited: true,
+                notificationTypes: {
+                    ...state.notificationTypes,
+                    checkedKeys: action.payload,
+                },
+            };
+        }
+        case ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES: {
+            return {
+                ...state,
+                edited: true,
+                notificationTypes: {
+                    ...state.notificationTypes,
+                    expandedKeys: action.payload,
+                },
             };
         }
         default: {

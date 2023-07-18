@@ -5,12 +5,6 @@ import { createInitialState, reducer } from './reducer';
 const DrawerStateContext = createContext<State | null>(null);
 const DrawerDispatchContext = createContext<Dispatch<Action> | null>(null);
 
-// todo - we should have a dirty form state?
-// and then another state that's just like global state like isPersonal
-// and actions that modify that dirty state?
-// DrawerStateProvider
-// FormStateProvider
-// FormActionProvider
 const DrawerStateProvider = ({ children, value }: { children: ReactNode; value: State }) => {
     return <DrawerStateContext.Provider value={value}>{children}</DrawerStateContext.Provider>;
 };
@@ -19,8 +13,8 @@ const DrawerDispatchProvider = ({ children, value }: { children: ReactNode; valu
     return <DrawerDispatchContext.Provider value={value}>{children}</DrawerDispatchContext.Provider>;
 };
 
-const SubscriptionDrawerProvider = ({ children, isPersonal }: { children: ReactNode; isPersonal: boolean }) => {
-    const [state, dispatch] = useReducer(reducer, createInitialState(isPersonal));
+const SubscriptionDrawerProvider = ({ children }: { children: ReactNode }) => {
+    const [state, dispatch] = useReducer(reducer, createInitialState());
 
     return (
         <DrawerStateProvider value={state}>

@@ -16,9 +16,8 @@ type Props = {
 
 const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription, onSuccess }: Props) => {
     const {
-        // todo - this isn't a form value, it's just some global context we might want to pass around
         isPersonal,
-        checkedKeys,
+        notificationTypes: { checkedKeys },
         subscribeToUpstream,
         notificationSinkTypes,
         slack: {
@@ -34,8 +33,6 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
     const subscriptionTypes = subscribeToUpstream
         ? [SubscriptionType.EntityChange, SubscriptionType.UpstreamEntityChange]
         : [SubscriptionType.EntityChange];
-
-    // todo - add comments to unclear areas
 
     const notificationSettings: NotificationSettingsInput | undefined =
         channel && !saveAsDefault

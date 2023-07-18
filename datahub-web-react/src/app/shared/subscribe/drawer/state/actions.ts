@@ -25,11 +25,14 @@ const useDrawerActions = () => {
             setSaveAsDefault: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SAVE_AS_DEFAULT, payload });
             },
-            setCheckedKeys: (payload: Array<Key>) => {
-                dispatch({ type: ActionTypes.SET_CHECKED_KEYS, payload });
-            },
             setSubscribeToUpstream: (payload: boolean) => {
                 dispatch({ type: ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM, payload });
+            },
+            setNotificationTypes: (payload: Array<Key>) => {
+                dispatch({ type: ActionTypes.SET_NOTIFICATION_TYPES, payload });
+            },
+            setExpandedNotificationTypes: (payload: Array<Key>) => {
+                dispatch({ type: ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES, payload });
             },
         }),
         [dispatch],

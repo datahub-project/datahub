@@ -39,6 +39,7 @@ const SubscriptionTitle = styled(Typography.Text)`
 interface Props {
     isOpen: boolean;
     onClose: () => void;
+    isPersonal: boolean;
     // todo - audit where groupUrn and setGroupUrn are (not) passed in
     groupUrn?: string;
     setGroupUrn?: (groupUrn: string | undefined) => void;
@@ -55,6 +56,7 @@ interface Props {
 const SubscriptionDrawerContent = ({
     isOpen,
     onClose,
+    isPersonal,
     groupUrn,
     setGroupUrn,
     entityUrn,
@@ -71,8 +73,6 @@ const SubscriptionDrawerContent = ({
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
     const {
-        // todo - this isn't a form value, it's just some global context we might want to pass around
-        isPersonal,
         slack: {
             subscription: { channel, saveAsDefault },
         },
@@ -109,6 +109,7 @@ const SubscriptionDrawerContent = ({
         subscription,
         onSuccess: refetch,
     });
+
     const showBottomDrawerSection = isPersonal || groupUrn;
 
     const { settingsChannel, updateSinkSettings } = useSinkSettings({
@@ -116,12 +117,16 @@ const SubscriptionDrawerContent = ({
         groupUrn,
     });
 
-    // todo - make this less slack specific somehow?
-    const subscriptionChannel = getSubscriptionChannel(isPersonal, subscription);
-
     const initializeState = useCallback(() => {
-        actions.initialize({ slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel });
-    }, [entityType, actions, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
+        actions.initialize({
+            isPersonal,
+            slackSinkEnabled,
+            entityType,
+            subscription,
+            subscriptionChannel: getSubscriptionChannel(isPersonal, subscription),
+            settingsChannel,
+        });
+    }, [actions, entityType, isPersonal, settingsChannel, slackSinkEnabled, subscription]);
 
     useEffect(() => {
         initializeState();
@@ -142,7 +147,6 @@ const SubscriptionDrawerContent = ({
         if (isSubscribed) {
             onDeleteSubscription();
         }
-        onClose();
         resetAndClose();
     };
 
@@ -180,10 +184,10 @@ const SubscriptionDrawerContent = ({
     );
 };
 
-const SubscriptionDrawer = ({ isPersonal, ...rest }: Props & { isPersonal: boolean }) => {
+const SubscriptionDrawer = (props: Props) => {
     return (
-        <SubscriptionDrawerProvider isPersonal={isPersonal}>
-            <SubscriptionDrawerContent {...rest} />
+        <SubscriptionDrawerProvider>
+            <SubscriptionDrawerContent {...props} />
         </SubscriptionDrawerProvider>
     );
 };

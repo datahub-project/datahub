@@ -1,19 +1,18 @@
 import { Key } from 'react';
 import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
 
-// todo - declare a FormState type
-// in our context we have both a base, and a modified FormState
-// modiifed is a straight copy, with overrides, and a boolean for edited?
-// maybe we just keep a bool and can reset it
+export const SettingsSelection = 'settings';
+export const SubscriptionSelection = 'subscription';
 
-// what about the gql values, do we even need that in state?
-
-export type ChannelSelection = 'settings' | 'subscription';
+export type ChannelSelection = typeof SettingsSelection | typeof SubscriptionSelection;
 
 export type State = {
     edited: boolean;
     isPersonal: boolean;
-    checkedKeys: Array<Key>;
+    notificationTypes: {
+        checkedKeys: Array<Key>;
+        expandedKeys: Array<Key>;
+    };
     subscribeToUpstream: boolean;
     notificationSinkTypes: Array<NotificationSinkType>;
     slack: {
@@ -30,6 +29,7 @@ export type State = {
 };
 
 export type InitializeActionPayload = {
+    isPersonal: boolean;
     slackSinkEnabled: boolean;
     entityType: EntityType;
     subscription?: DataHubSubscription;
@@ -43,18 +43,17 @@ export const ActionTypes = {
     SET_CHANNEL_SELECTION: 'SET_CHANNEL_SELECTION',
     SET_SUBSCRIPTION_CHANNEL: 'SET_SUBSCRIPTION_CHANNEL',
     SET_SAVE_AS_DEFAULT: 'SET_SAVE_AS_DEFAULT',
-    SET_CHECKED_KEYS: 'SET_CHECKED_KEYS',
     SET_SUBSCRIBE_TO_UPSTREAM: 'SET_SUBSCRIBE_TO_UPSTREAM,',
+    SET_NOTIFICATION_TYPES: 'SET_NOTIFICATION_TYPES',
+    SET_EXPANDED_NOTIFICATION_TYPES: 'SET_EXPANDED_NOTIFICATION_TYPES',
 } as const;
 
 export type Action =
-    | {
-          type: typeof ActionTypes.INITIALIZE;
-          payload: InitializeActionPayload;
-      }
+    | { type: typeof ActionTypes.INITIALIZE; payload: InitializeActionPayload }
     | { type: typeof ActionTypes.SET_SLACK_ENABLED; payload: boolean }
     | { type: typeof ActionTypes.SET_CHANNEL_SELECTION; payload: ChannelSelection }
     | { type: typeof ActionTypes.SET_SUBSCRIPTION_CHANNEL; payload: string }
     | { type: typeof ActionTypes.SET_SAVE_AS_DEFAULT; payload: boolean }
-    | { type: typeof ActionTypes.SET_CHECKED_KEYS; payload: Array<Key> }
-    | { type: typeof ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM; payload: boolean };
+    | { type: typeof ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM; payload: boolean }
+    | { type: typeof ActionTypes.SET_NOTIFICATION_TYPES; payload: Array<Key> }
+    | { type: typeof ActionTypes.SET_EXPANDED_NOTIFICATION_TYPES; payload: Array<Key> };

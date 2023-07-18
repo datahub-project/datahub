@@ -1,4 +1,4 @@
-import React, { useState, Key } from 'react';
+import React, { Key } from 'react';
 import styled from 'styled-components/macro';
 import { Tree, Typography } from 'antd';
 import { DataNode } from 'antd/es/tree';
@@ -31,19 +31,18 @@ const TreeContainer = styled.div`
 `;
 
 export default function NotificationTypesSection() {
-    const { checkedKeys } = useDrawerState();
+    const {
+        notificationTypes: { checkedKeys, expandedKeys },
+    } = useDrawerState();
     const actions = useDrawerActions();
     const { entityType } = useEntityData();
-    const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
-    const [autoExpandParent, setAutoExpandParent] = useState<boolean>(true);
 
     const onExpand = (expandedKeysValue: Key[]) => {
-        setExpandedKeys(expandedKeysValue);
-        setAutoExpandParent(false);
+        actions.setExpandedNotificationTypes(expandedKeysValue);
     };
 
     const onCheck = (checkedKeysValue: any, _info: any) => {
-        actions.setCheckedKeys(checkedKeysValue);
+        actions.setNotificationTypes(checkedKeysValue);
     };
 
     const treeData: DataNode[] = getTreeDataForEntity(entityType);
@@ -58,7 +57,6 @@ export default function NotificationTypesSection() {
                     checkable
                     onExpand={onExpand}
                     expandedKeys={expandedKeys}
-                    autoExpandParent={autoExpandParent}
                     onCheck={onCheck}
                     checkedKeys={checkedKeys}
                     treeData={treeData}
