@@ -1,6 +1,6 @@
 import html
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from pydantic.fields import Field
 
@@ -574,15 +574,12 @@ def get_platform_instance(
     return None
 
 
-def make_table_urn(
-    env: str,
-    upstream_db: Optional[str],
+def get_overridden_info(
     connection_type: str,
-    schema: str,
-    full_name: str,
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
-) -> str:
+) -> Tuple[Optional[str], Optional[str], str, str]:
+
     original_platform = platform = get_platform(connection_type)
     if (
         lineage_overrides is not None
@@ -590,6 +587,8 @@ def make_table_urn(
         and original_platform in lineage_overrides.platform_override_map.keys()
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
+
+    upstream_db: Optional[str] = None
 
     if (
         lineage_overrides is not None
@@ -599,10 +598,37 @@ def make_table_urn(
     ):
         upstream_db = lineage_overrides.database_override_map[upstream_db]
 
-    table_name = get_fully_qualified_table_name(
-        original_platform, upstream_db, schema, full_name
-    )
     platform_instance = get_platform_instance(original_platform, platform_instance_map)
+
+    if original_platform in ("athena", "hive", "mysql"):  # Two tier databases
+        upstream_db = None
+
+    return upstream_db, platform_instance, platform, original_platform
+
+
+def make_table_urn(
+    env: str,
+    upstream_db: Optional[str],
+    connection_type: str,
+    schema: str,
+    full_name: str,
+    platform_instance_map: Optional[Dict[str, str]],
+    lineage_overrides: Optional[TableauLineageOverrides] = None,
+) -> str:
+
+    upstream_db, platform_instance, platform, original_platform = get_overridden_info(
+        connection_type=connection_type,
+        lineage_overrides=lineage_overrides,
+        platform_instance_map=platform_instance_map,
+    )
+
+    table_name = get_fully_qualified_table_name(
+        original_platform,
+        upstream_db if upstream_db is not None else "",
+        schema,
+        full_name,
+    )
+
     return builder.make_dataset_urn_with_platform_instance(
         platform, table_name, platform_instance, env
     )

@@ -11,7 +11,6 @@ import tableauserverclient as TSC
 from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import ConnectionError
-from sqllineage.runner import LineageRunner
 from tableauserverclient import (
     PersonalAccessTokenAuth,
     Server,
@@ -48,6 +47,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.source import tableau_constant
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -71,6 +71,7 @@ from datahub.ingestion.source.tableau_common import (
     dashboard_graphql_query,
     database_tables_graphql_query,
     embedded_datasource_graphql_query,
+    get_overridden_info,
     get_unique_custom_sql,
     make_table_urn,
     published_datasource_graphql_query,
@@ -1456,30 +1457,36 @@ class TableauSource(StatefulIngestionSourceBase):
             and tableau_constant.NAME in database
             and tableau_constant.CONNECTION_TYPE in database
         ):
+            upstream_db, platform_instance, platform, _ = get_overridden_info(
+                connection_type=database.get(tableau_constant.CONNECTION_TYPE, ""),
+                lineage_overrides=self.config.lineage_overrides,
+                platform_instance_map=self.config.platform_instance_map,
+            )
+
             upstream_tables = []
+            graph: DataHubGraph = get_default_graph()
+
             query = csql.get(tableau_constant.QUERY)
-            parser = LineageRunner(query)
+            if query is None:
+                logger.debug(f"raw sql query is not available for urn={csql_urn}")
+                return
+
+            logger.debug(f"Parsing sql={query}")
 
             try:
-                for table in parser.source_tables:
-                    split_table = str(table).split(".")
-                    if len(split_table) == 2:
-                        datset = make_table_urn(
-                            env=self.config.env,
-                            upstream_db=database.get(tableau_constant.NAME),
-                            connection_type=database.get(
-                                tableau_constant.CONNECTION_TYPE, ""
-                            ),
-                            schema=split_table[0],
-                            full_name=split_table[1],
-                            platform_instance_map=self.config.platform_instance_map,
-                            lineage_overrides=self.config.lineage_overrides,
+                parsed_result = graph.parse_sql_lineage(
+                    query,
+                    default_db=upstream_db,
+                    platform_instance=platform_instance,
+                    platform=platform,
+                )
+
+                for dataset_urn in parsed_result.in_tables:
+                    upstream_tables.append(
+                        UpstreamClass(
+                            type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn
                         )
-                        upstream_tables.append(
-                            UpstreamClass(
-                                type=DatasetLineageType.TRANSFORMED, dataset=datset
-                            )
-                        )
+                    )
             except Exception as e:
                 self.report.report_warning(
                     key="csql-lineage",
@@ -1487,7 +1494,9 @@ class TableauSource(StatefulIngestionSourceBase):
                     f"Query: {query} "
                     f"Reason: {str(e)} ",
                 )
+
             upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+
             yield self.get_metadata_change_proposal(
                 csql_urn,
                 aspect_name=tableau_constant.UPSTREAM_LINEAGE,
