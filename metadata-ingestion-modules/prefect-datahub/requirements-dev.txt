@@ -14,6 +14,11 @@ mkdocs-gen-files
 interrogate
 coverage>=5.1
 pillow
+dataclasses>=0.6; python_version < '3.7'
+typing_extensions>=3.10.0.2
+mypy_extensions>=0.4.3
+typing-inspect
+pydantic>=1.5.1
 # mypy stubs packages 
 types-dataclasses
 sqlalchemy-stubs
