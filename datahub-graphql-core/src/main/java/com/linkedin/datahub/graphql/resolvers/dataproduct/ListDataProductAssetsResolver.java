@@ -52,7 +52,7 @@ public class ListDataProductAssetsResolver implements DataFetcher<CompletableFut
   @Override
   public CompletableFuture<SearchResults> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    // get urn from either input our source (in the case of "entities" field)
+    // get urn from either input or source (in the case of "entities" field)
     final String urn = environment.getArgument("urn") != null ? environment.getArgument("urn") : ((DataProduct) environment.getSource()).getUrn();
     final Urn dataProductUrn = UrnUtils.getUrn(urn);
     final SearchAcrossEntitiesInput input =
