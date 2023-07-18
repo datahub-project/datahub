@@ -433,7 +433,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     platform=platform_urn,
                     platformSchema=KafkaSchema(
                         documentSchema=schema.schema_str if schema is not None else "",
+                        documentSchemaType=schema.schema_type if schema else None,
                         keySchema=key_schema.schema_str if key_schema else None,
+                        keySchemaType=key_schema.schema_type if key_schema else None,
                     ),
                     fields=key_fields + fields,
                 )
