@@ -60,7 +60,14 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
     return (
         <>
             {sortedFacets.map((facet) => {
-                return !filterRendererRegistry.hasRenderer(facet.field) ? (
+                return filterRendererRegistry.hasRenderer(facet.field) ? (
+                    filterRendererRegistry.render(facet.field, {
+                        scenario: FilterScenarioType.SEARCH_V1,
+                        filter: facet,
+                        activeFilters: selectedFilters,
+                        onChangeFilters: onFilterSelect,
+                    })
+                ) : (
                     <SimpleSearchFilter
                         key={`${facet.displayName}-${facet.field}`}
                         facet={facet}
@@ -68,13 +75,6 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
                         onFilterSelect={onFilterSelectAndSetCache}
                         defaultDisplayFilters={TOP_FILTERS.includes(facet.field)}
                     />
-                ) : (
-                    filterRendererRegistry.render(facet.field, {
-                        scenario: FilterScenarioType.SEARCH_V1,
-                        filter: facet,
-                        activeFilters: selectedFilters,
-                        onChangeFilters: onFilterSelect,
-                    })
                 );
             })}
         </>
