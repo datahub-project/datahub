@@ -1681,8 +1681,7 @@ public class GmsGraphQLEngine {
     private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {
         builder.type("DataProduct", typeWiring -> typeWiring
             .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)
-            )
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
     }
 
