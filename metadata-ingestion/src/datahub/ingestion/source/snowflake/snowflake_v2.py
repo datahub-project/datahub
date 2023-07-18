@@ -133,10 +133,6 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlglot_lineage import SchemaResolver
-from datahub.utilities.time import (
-    datetime_to_ts_millis,
-    get_datetime_from_ts_millis_in_utc,
-)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -228,20 +224,6 @@ class SnowflakeV2Source(
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
 
-        self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
-        self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -251,28 +233,53 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
-        self.lineage_extractor: Union[
-            SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
-        ]
-        if config.include_table_lineage:
+        self.lineage_extractor: Optional[
+            Union[SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor]
+        ] = None
+        if self.config.include_table_lineage:
+            redundant_lineage_run_skip_handler: Optional[
+                RedundantLineageRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_lineage_ingestion:
+                redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+                    source=self,
+                    config=self.config,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
+                )
             # For lineage
             if self.config.use_legacy_lineage_method:
                 self.lineage_extractor = SnowflakeLineageLegacyExtractor(
-                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                    config,
+                    self.report,
+                    dataset_urn_builder=self.gen_dataset_urn,
+                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 )
             else:
                 self.lineage_extractor = SnowflakeLineageExtractor(
-                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                    config,
+                    self.report,
+                    dataset_urn_builder=self.gen_dataset_urn,
+                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
                 )
 
-        self.sql_parser_schema_resolver = SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-        if config.include_usage_stats or config.include_operational_stats:
+        self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
+        if self.config.include_usage_stats or self.config.include_operational_stats:
+            redundant_usage_run_skip_handler: Optional[
+                RedundantUsageRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_usage_ingestion:
+                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                    source=self,
+                    config=self.config,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
+                )
             self.usage_extractor = SnowflakeUsageExtractor(
-                config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                config,
+                self.report,
+                dataset_urn_builder=self.gen_dataset_urn,
+                redundant_run_skip_handler=redundant_usage_run_skip_handler,
             )
 
         self.tag_extractor = SnowflakeTagExtractor(
@@ -288,7 +295,7 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-        if config.profiling.enabled:
+        if self.config.profiling.enabled:
             # For profiling
             self.profiler = SnowflakeProfiler(
                 config, self.report, self.profiling_state_handler
@@ -578,60 +585,18 @@ class SnowflakeV2Source(
 
         discovered_datasets = discovered_tables + discovered_views
 
-        if self.config.include_table_lineage:
-            if self.config.enable_stateful_lineage_ingestion:
-                (
-                    skip,
-                    suggested_start_time,
-                    suggested_end_time,
-                ) = self.redundant_lineage_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                    if not self.config.ignore_start_time_lineage
-                    else 0,
-                    cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-                self.lineage_extractor.lineage_start_time = (
-                    get_datetime_from_ts_millis_in_utc(suggested_start_time)
-                )
-                self.lineage_extractor.lineage_end_time = (
-                    get_datetime_from_ts_millis_in_utc(suggested_end_time)
-                )
-
+        if self.config.include_table_lineage and self.lineage_extractor:
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables=discovered_tables,
                 discovered_views=discovered_views,
                 schema_resolver=self.sql_parser_schema_resolver,
                 view_definitions=self.view_definitions,
             )
+            # TODO -  Update the checkpoint state for this lineage run if usage extraction is successful.
 
-        if self.config.include_usage_stats or self.config.include_operational_stats:
-            if self.config.enable_stateful_usage_ingestion:
-                (
-                    skip,
-                    suggested_start_time,
-                    suggested_end_time,
-                ) = self.redundant_usage_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
-                if skip:
-                    # Skip this run
-                    self.report.report_warning(
-                        "usage-extraction",
-                        "Skip this run as there was already a run for current ingestion window.",
-                    )
-                    return
-
-                # TODO -  Update the checkpoint state for this run.
-                else:
-                    self.usage_extractor.usage_start_time = (
-                        get_datetime_from_ts_millis_in_utc(suggested_start_time)
-                    )
-                    self.usage_extractor.usage_end_time = (
-                        get_datetime_from_ts_millis_in_utc(suggested_end_time)
-                    )
-
+        if (
+            self.config.include_usage_stats or self.config.include_operational_stats
+        ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
     def report_warehouse_failure(self):
@@ -1638,7 +1603,7 @@ class SnowflakeV2Source(
         StatefulIngestionSourceBase.close(self)
         self.view_definitions.close()
         self.sql_parser_schema_resolver.close()
-        if hasattr(self, "lineage_extractor"):
+        if hasattr(self, "lineage_extractor") and self.lineage_extractor:
             self.lineage_extractor.close()
-        if hasattr(self, "usage_extractor"):
+        if hasattr(self, "usage_extractor") and self.usage_extractor:
             self.usage_extractor.close()

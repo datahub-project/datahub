@@ -133,7 +133,6 @@ def _follow_column_lineage(
 def make_lineage_edges_from_parsing_result(
     sql_lineage: SqlParsingResult, audit_stamp: datetime, lineage_type: str
 ) -> List[LineageEdge]:
-
     # Note: This ignores the out_tables section of the sql parsing result.
     audit_stamp = datetime.now(timezone.utc)
 
@@ -218,6 +217,9 @@ timestamp < "{end_time}"
     def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
         self.config = config
         self.report = report
+
+        self.lineage_start_time = self.config.start_time
+        self.lineage_end_time = self.config.end_time
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -406,9 +408,9 @@ timestamp < "{end_time}"
     ) -> Iterable[AuditLogEntry]:
         self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
+        start_time = (
+            self.lineage_start_time - self.config.max_query_duration
+        ).strftime(BQ_DATETIME_FORMAT)
         self.report.log_entry_start_time = start_time
 
         end_time = (self.config.end_time + self.config.max_query_duration).strftime(
@@ -462,12 +464,12 @@ timestamp < "{end_time}"
             self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        corrected_start_time = self.lineage_start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        corrected_end_time = self.lineage_end_time + self.config.max_query_duration
         end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
         end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time

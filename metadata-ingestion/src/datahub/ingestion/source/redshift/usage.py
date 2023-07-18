@@ -176,6 +176,9 @@ class RedshiftUsageExtractor:
         self.connection = connection
         self.dataset_urn_builder = dataset_urn_builder
 
+        self.usage_start_time = self.config.start_time
+        self.usage_end_time = self.config.end_time
+
     def get_usage_workunits(
         self, all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]]
     ) -> Iterable[MetadataWorkUnit]:
@@ -209,8 +212,8 @@ class RedshiftUsageExtractor:
 
         # Generate aggregate events
         query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
-            start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            start_time=self.usage_start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            end_time=self.usage_end_time.strftime(REDSHIFT_DATETIME_FORMAT),
             database=self.config.database,
         )
         access_events_iterable: Iterable[
@@ -236,8 +239,8 @@ class RedshiftUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
         query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
-            start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            start_time=self.usage_start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            end_time=self.usage_end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
         access_events_iterable: Iterable[
             RedshiftAccessEvent

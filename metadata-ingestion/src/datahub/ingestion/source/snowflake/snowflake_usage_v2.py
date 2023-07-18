@@ -21,6 +21,9 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
 from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetFieldUsageCounts,
@@ -31,6 +34,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
+from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -107,12 +111,14 @@ class SnowflakeUsageExtractor(
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         dataset_urn_builder: Callable[[str], str],
+        redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler],
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
         self.dataset_urn_builder = dataset_urn_builder
         self.logger = logger
         self.connection: Optional[SnowflakeConnection] = None
+        self.redundant_run_skip_handler = redundant_run_skip_handler
 
         self.usage_start_time = self.config.start_time
         self.usage_end_time = self.config.end_time
@@ -120,6 +126,19 @@ class SnowflakeUsageExtractor(
     def get_usage_workunits(
         self, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_usage():
+            return
+
+        if (
+            self.config.enable_stateful_usage_ingestion
+            and self.redundant_run_skip_handler
+        ):
+            (
+                self.usage_start_time,
+                self.usage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -480,4 +499,25 @@ class SnowflakeUsageExtractor(
             obj.get("objectName"), obj.get("objectDomain")
         ):
             return False
+        return True
+
+    def _should_ingest_usage(self) -> bool:
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "usage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+        elif self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
         return True

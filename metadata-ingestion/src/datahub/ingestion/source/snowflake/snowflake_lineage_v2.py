@@ -35,6 +35,9 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakePermissionError,
     SnowflakeQueryMixin,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
@@ -48,7 +51,10 @@ from datahub.utilities.sqlglot_lineage import (
     SqlParsingResult,
     sqlglot_lineage,
 )
-from datahub.utilities.time import get_datetime_from_ts_millis_in_utc
+from datahub.utilities.time import (
+    datetime_to_ts_millis,
+    get_datetime_from_ts_millis_in_utc,
+)
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -82,6 +88,7 @@ class SnowflakeLineageExtractor(
         config: SnowflakeV2Config,
         report: SnowflakeV2Report,
         dataset_urn_builder: Callable[[str], str],
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler],
     ) -> None:
         self._external_lineage_map: Dict[str, Set[str]] = defaultdict(set)
         self.config = config
@@ -89,6 +96,7 @@ class SnowflakeLineageExtractor(
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
+        self.redundant_run_skip_handler = redundant_run_skip_handler
 
         self.lineage_start_time = (
             self.config.start_time
@@ -104,6 +112,19 @@ class SnowflakeLineageExtractor(
         schema_resolver: SchemaResolver,
         view_definitions: MutableMapping[str, str],
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_lineage():
+            return
+
+        if (
+            self.config.enable_stateful_lineage_ingestion
+            and self.redundant_run_skip_handler
+        ):
+            (
+                self.lineage_start_time,
+                self.lineage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -600,3 +621,26 @@ class SnowflakeLineageExtractor(
                 )
                 external_upstreams.append(external_upstream_table)
         return external_upstreams
+
+    def _should_ingest_lineage(self) -> bool:
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                if not self.config.ignore_start_time_lineage
+                else 0,
+                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "lineage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+        elif self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
+        return True

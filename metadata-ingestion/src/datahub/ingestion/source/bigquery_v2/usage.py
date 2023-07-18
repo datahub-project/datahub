@@ -384,6 +384,9 @@ class BigQueryUsageExtractor:
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
 
+        self.usage_start_time = self.config.start_time
+        self.usage_end_time = self.config.end_time
+
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
             table_ref is not None
@@ -583,7 +586,7 @@ class BigQueryUsageExtractor:
     ) -> bool:
         """Stores a usage event in `usage_state` and returns if an event was successfully processed."""
         if event.read_event and (
-            self.config.start_time <= event.read_event.timestamp < self.config.end_time
+            self.usage_start_time <= event.read_event.timestamp < self.usage_end_time
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
@@ -625,12 +628,12 @@ class BigQueryUsageExtractor:
         if self.config.bigquery_audit_metadata_datasets is None:
             return
 
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        corrected_start_time = self.usage_start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        corrected_end_time = self.usage_end_time + self.config.max_query_duration
         end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
         end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time
@@ -664,7 +667,6 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Iterable[AuditLogEntry]:
-
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 
@@ -707,11 +709,11 @@ class BigQueryUsageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
 
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+        start_time = (self.usage_start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_start_time = start_time
-        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
+        end_time = (self.usage_end_time + self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_end_time = end_time

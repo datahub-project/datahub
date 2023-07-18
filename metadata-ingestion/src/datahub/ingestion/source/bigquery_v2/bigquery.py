@@ -522,8 +522,22 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self.usage_extractor.get_usage_workunits(
                 [p.id for p in projects], self.table_refs
             )
+            if self.config.enable_stateful_usage_ingestion:
+                (
+                    self.usage_extractor.usage_start_time,
+                    self.usage_extractor.usage_end_time,
+                ) = self.redundant_usage_run_skip_handler.suggest_run_time_window(
+                    self.config.start_time, self.config.end_time
+                )
 
         if self._should_ingest_lineage():
+            if self.config.enable_stateful_lineage_ingestion:
+                (
+                    self.lineage_extractor.lineage_start_time,
+                    self.lineage_extractor.lineage_end_time,
+                ) = self.redundant_lineage_run_skip_handler.suggest_run_time_window(
+                    self.config.start_time, self.config.end_time
+                )
             for project in projects:
                 self.report.set_ingestion_stage(project.id, "Lineage Extraction")
                 yield from self.generate_lineage(project.id)
@@ -532,46 +546,50 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if not self.config.include_usage_statistics:
             return False
 
-        if self.config.enable_stateful_usage_ingestion:
-            if self.redundant_usage_run_skip_handler.should_skip_this_run(
+        if (
+            self.config.enable_stateful_usage_ingestion
+            and self.redundant_usage_run_skip_handler.should_skip_this_run(
                 cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )[0]:
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return False
-            else:
-                # Update the checkpoint state for this run.
-                self.redundant_usage_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                    bucket_duration=self.config.bucket_duration,
-                )
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "usage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+        elif self.config.enable_stateful_usage_ingestion:
+            # Update the checkpoint state for this run.
+            self.redundant_usage_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
+
         return True
 
     def _should_ingest_lineage(self) -> bool:
         if not self.config.include_table_lineage:
             return False
 
-        if self.config.enable_stateful_lineage_ingestion:
-            if self.redundant_lineage_run_skip_handler.should_skip_this_run(
+        if (
+            self.config.enable_stateful_lineage_ingestion
+            and self.redundant_lineage_run_skip_handler.should_skip_this_run(
                 cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )[0]:
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return False
-            else:
-                # Update the checkpoint state for this run.
-                self.redundant_lineage_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "lineage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+        elif self.config.enable_stateful_lineage_ingestion:
+            # Update the checkpoint state for this run.
+            self.redundant_lineage_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
+
         return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
