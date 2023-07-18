@@ -7,11 +7,13 @@ from prefect.utilities.importtools import to_qualified_name
 
 def find_module_blocks():
     blocks = get_registry_for_type(Block)
-    module_blocks = [
-        block
-        for block in blocks.values()
-        if to_qualified_name(block).startswith("prefect_datahub")
-    ]
+    module_blocks = []
+    if blocks is not None:
+        module_blocks = [
+            block
+            for block in blocks.values()
+            if to_qualified_name(block).startswith("prefect_datahub")
+        ]
     return module_blocks
 
 

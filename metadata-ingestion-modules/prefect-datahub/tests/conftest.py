@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Dict, List
+from typing import Dict, List, cast
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
@@ -9,6 +9,7 @@ import pytest
 from prefect.client.schemas import FlowRun, TaskRun, Workspace
 from prefect.futures import PrefectFuture
 from prefect.server.schemas.core import Flow
+from prefect.task_runners import SequentialTaskRunner
 from requests.models import Response
 
 mock_transform_task_json: Dict = {
@@ -369,24 +370,30 @@ mock_workspace_json: Dict = {
 
 
 async def mock_task_run_future():
-    extract_prefect_future = PrefectFuture(
+    extract_prefect_future: PrefectFuture = PrefectFuture(
         name=mock_extract_task_run_json["name"],
         key=UUID("4552629a-ac04-4590-b286-27642292739f"),
-        task_runner=None,
+        task_runner=SequentialTaskRunner(),
     )
-    extract_prefect_future.task_run = TaskRun.parse_obj(mock_extract_task_run_json)
-    transform_prefect_future = PrefectFuture(
+    extract_prefect_future.task_run = cast(
+        None, TaskRun.parse_obj(mock_extract_task_run_json)
+    )
+    transform_prefect_future: PrefectFuture = PrefectFuture(
         name=mock_transform_task_run_json["name"],
         key=UUID("40fff3e5-5ef4-4b8b-9cc8-786f91bcc656"),
-        task_runner=None,
+        task_runner=SequentialTaskRunner(),
     )
-    transform_prefect_future.task_run = TaskRun.parse_obj(mock_transform_task_run_json)
-    load_prefect_future = PrefectFuture(
+    transform_prefect_future.task_run = cast(
+        None, TaskRun.parse_obj(mock_transform_task_run_json)
+    )
+    load_prefect_future: PrefectFuture = PrefectFuture(
         name=mock_load_task_run_json["name"],
         key=UUID("7565f596-9eb0-4330-ba34-963e7839883e"),
-        task_runner=None,
+        task_runner=SequentialTaskRunner(),
     )
-    load_prefect_future.task_run = TaskRun.parse_obj(mock_load_task_run_json)
+    load_prefect_future.task_run = cast(
+        None, TaskRun.parse_obj(mock_load_task_run_json)
+    )
     return [extract_prefect_future, transform_prefect_future, load_prefect_future]
 
 
