@@ -439,7 +439,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419669000
+            "lastUpdatedTimestamp": 1586847610000
         }
     },
     "systemMetadata": {
@@ -1030,7 +1030,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847620000
         }
     },
     "systemMetadata": {
@@ -1213,7 +1213,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847630000
         }
     },
     "systemMetadata": {
@@ -1372,7 +1372,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847640000
         }
     },
     "systemMetadata": {
@@ -1555,7 +1555,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847650000
         }
     },
     "systemMetadata": {
@@ -1738,7 +1738,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847660000
         }
     },
     "systemMetadata": {
@@ -2233,7 +2233,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847670000
         }
     },
     "systemMetadata": {

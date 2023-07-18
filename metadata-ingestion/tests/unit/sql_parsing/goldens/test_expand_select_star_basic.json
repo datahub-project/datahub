@@ -1,0 +1,129 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "TOTAL_AGG"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "totalprice"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "ORDERKEY"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "orderkey"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "CUSTKEY"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "custkey"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "ORDERSTATUS"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "orderstatus"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "TOTALPRICE"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "totalprice"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "ORDERDATE"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "orderdate"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "ORDERPRIORITY"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "orderpriority"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "CLERK"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "clerk"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "SHIPPRIORITY"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "shippriority"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "COMMENT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
+                    "column": "comment"
+                }
+            ]
+        }
+    ]
+}
