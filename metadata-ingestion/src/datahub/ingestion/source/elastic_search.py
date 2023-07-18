@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -58,6 +59,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.utilities.config_clean import remove_protocol
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +202,34 @@ class ElasticProfiling(ConfigModel):
     )
 
 
+class CollapseUrns(ConfigModel):
+    urns_suffix_regex: List[str] = Field(
+        default_factory=list,
+        description="List of regex patterns to remove from the name of the URN. All of the indices before removal of URNs are considered as the same dataset.",
+    )
+
+
+def collapse_name(name: str, collapse_urns: CollapseUrns) -> str:
+    for suffix in collapse_urns.urns_suffix_regex:
+        name = re.sub(suffix, "", name)
+    return name
+
+
+def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
+    if len(collapse_urns.urns_suffix_regex) == 0:
+        return urn
+    urn_obj = DatasetUrn.create_from_string(urn)
+    name = collapse_name(name=urn_obj.get_dataset_name(), collapse_urns=collapse_urns)
+    data_platform_urn = urn_obj.get_data_platform_urn()
+    return str(
+        DatasetUrn.create_from_ids(
+            platform_id=data_platform_urn.get_entity_id_as_string(),
+            table_name=name,
+            env=urn_obj.get_env(),
+        )
+    )
+
+
 class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     host: str = Field(
         default="localhost:9200", description="The elastic search host URI."
@@ -261,6 +291,9 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     profiling: ElasticProfiling = Field(
         default_factory=ElasticProfiling,
     )
+    collapse_urns: CollapseUrns = Field(
+        default_factory=CollapseUrns,
+    )
 
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
@@ -308,6 +341,7 @@ class ElasticsearchSource(Source):
         self.report = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
+        self.profiling_info: Dict[str, DatasetProfileClass] = {}
 
     @classmethod
     def create(
@@ -330,6 +364,12 @@ class ElasticsearchSource(Source):
                     yield mcp.as_workunit()
             else:
                 self.report.report_dropped(index)
+        for urn, profiling_info in self.profiling_info.items():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=profiling_info,
+            ).as_workunit()
+        self.profiling_info = {}
 
         for mcp in self._get_data_stream_index_count_mcps():
             yield mcp.as_workunit()
@@ -349,6 +389,9 @@ class ElasticsearchSource(Source):
                 name=data_stream,
                 env=self.source_config.env,
                 platform_instance=self.source_config.platform_instance,
+            )
+            dataset_urn = collapse_urn(
+                urn=dataset_urn, collapse_urns=self.source_config.collapse_urns
             )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
@@ -377,6 +420,9 @@ class ElasticsearchSource(Source):
         else:
             raw_index = self.client.indices.get_template(name=index)
             raw_index_metadata = raw_index[index]
+        collapsed_index_name = collapse_name(
+            name=index, collapse_urns=self.source_config.collapse_urns
+        )
 
         # 1. Construct and emit the schemaMetadata aspect
         # 1.1 Generate the schema fields from ES mappings.
@@ -391,7 +437,7 @@ class ElasticsearchSource(Source):
 
         # 1.2 Generate the SchemaMetadata aspect
         schema_metadata = SchemaMetadata(
-            schemaName=index,
+            schemaName=collapsed_index_name,
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash=md5_hash,
@@ -405,6 +451,9 @@ class ElasticsearchSource(Source):
             name=index,
             platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
+        )
+        dataset_urn = collapse_urn(
+            urn=dataset_urn, collapse_urns=self.source_config.collapse_urns
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -479,15 +528,26 @@ class ElasticsearchSource(Source):
                 index_res = cat_response[0]
                 docs_count = int(index_res["docs.count"])
                 size = int(index_res["store.size"])
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dataset_urn,
-                    aspect=DatasetProfileClass(
-                        timestampMillis=int(time.time() * 1000),
-                        rowCount=docs_count,
-                        columnCount=len(schema_fields),
-                        sizeInBytes=size,
-                    ),
-                )
+                if len(self.source_config.collapse_urns.urns_suffix_regex) > 0:
+                    if dataset_urn not in self.profiling_info:
+                        self.profiling_info[dataset_urn] = DatasetProfileClass(
+                            timestampMillis=int(time.time() * 1000),
+                            rowCount=docs_count,
+                            columnCount=len(schema_fields),
+                            sizeInBytes=size,
+                        )
+                    else:
+                        existing_profile = self.profiling_info[dataset_urn]
+                        if existing_profile.rowCount is not None:
+                            docs_count = docs_count + existing_profile.rowCount
+                        if existing_profile.sizeInBytes is not None:
+                            size = size + existing_profile.sizeInBytes
+                        self.profiling_info[dataset_urn] = DatasetProfileClass(
+                            timestampMillis=int(time.time() * 1000),
+                            rowCount=docs_count,
+                            columnCount=len(schema_fields),
+                            sizeInBytes=size,
+                        )
             else:
                 logger.warning(
                     "Unexpected response from cat response with multiple rows"
