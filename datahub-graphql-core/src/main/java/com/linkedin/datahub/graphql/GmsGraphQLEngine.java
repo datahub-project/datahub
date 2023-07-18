@@ -280,6 +280,7 @@ import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
+import com.linkedin.datahub.graphql.types.rolemetadata.RoleType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
@@ -330,6 +331,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -394,6 +396,9 @@ public class GmsGraphQLEngine {
     private final ViewsConfiguration viewsConfiguration;
 
     private final DatasetType datasetType;
+
+    private final RoleType roleType;
+
     private final CorpUserType corpUserType;
     private final CorpGroupType corpGroupType;
     private final ChartType chartType;
@@ -427,6 +432,11 @@ public class GmsGraphQLEngine {
     private final OwnershipType ownershipType;
 
     /**
+     * A list of GraphQL Plugins that extend the core engine
+     */
+    private final List<GmsGraphQLPlugin> graphQLPlugins;
+
+    /**
      * Configures the graph objects that can be fetched primary key.
      */
     public final List<EntityType<?, ?>> entityTypes;
@@ -452,6 +462,12 @@ public class GmsGraphQLEngine {
     public final List<BrowsableEntityType<?, ?>> browsableTypes;
 
     public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
+
+        this.graphQLPlugins = List.of(
+            // Add new plugins here
+        );
+
+        this.graphQLPlugins.forEach(plugin -> plugin.init(args));
 
         this.entityClient = args.entityClient;
         this.graphClient = args.graphClient;
@@ -491,6 +507,7 @@ public class GmsGraphQLEngine {
         this.featureFlags = args.featureFlags;
 
         this.datasetType = new DatasetType(entityClient);
+        this.roleType = new RoleType(entityClient);
         this.corpUserType = new CorpUserType(entityClient, featureFlags);
         this.corpGroupType = new CorpGroupType(entityClient);
         this.chartType = new ChartType(entityClient);
@@ -526,6 +543,7 @@ public class GmsGraphQLEngine {
         // Init Lists
         this.entityTypes = ImmutableList.of(
             datasetType,
+            roleType,
             corpUserType,
             corpGroupType,
             dataPlatformType,
@@ -558,6 +576,14 @@ public class GmsGraphQLEngine {
             ownershipType
         );
         this.loadableTypes = new ArrayList<>(entityTypes);
+        // Extend loadable types with types from the plugins
+        // This allows us to offer search and browse capabilities out of the box for those types
+        for (GmsGraphQLPlugin plugin: this.graphQLPlugins) {
+            Collection<? extends LoadableType<?, ?>> pluginLoadableTypes = plugin.getLoadableTypes();
+            if (pluginLoadableTypes != null) {
+                this.loadableTypes.addAll(pluginLoadableTypes);
+            }
+        }
         this.ownerTypes = ImmutableList.of(corpUserType, corpGroupType);
         this.searchableTypes = loadableTypes.stream()
             .filter(type -> (type instanceof SearchableEntityType<?, ?>))
@@ -573,7 +599,7 @@ public class GmsGraphQLEngine {
      * Returns a {@link Supplier} responsible for creating a new {@link DataLoader} from
      * a {@link LoadableType}.
      */
-    public Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(final List<LoadableType<?, ?>> loadableTypes) {
+    public Map<String, Function<QueryContext, DataLoader<?, ?>>> loaderSuppliers(final Collection<? extends LoadableType<?, ?>> loadableTypes) {
         return loadableTypes
             .stream()
             .collect(Collectors.toMap(
@@ -581,6 +607,15 @@ public class GmsGraphQLEngine {
                 (graphType) -> (context) -> createDataLoader(graphType, context)
             ));
     }
+
+    /**
+     * Final call to wire up any extra resolvers the plugin might want to add on
+     * @param builder
+     */
+    private void configurePluginResolvers(final RuntimeWiring.Builder builder) {
+        this.graphQLPlugins.forEach(plugin -> plugin.configureExtraResolvers(builder));
+    }
+
 
     public void configureRuntimeWiring(final RuntimeWiring.Builder builder) {
         configureQueryResolvers(builder);
@@ -605,6 +640,7 @@ public class GmsGraphQLEngine {
         configureContainerResolvers(builder);
         configureDataPlatformInstanceResolvers(builder);
         configureGlossaryTermResolvers(builder);
+        configureOrganisationRoleResolvers(builder);
         configureGlossaryNodeResolvers(builder);
         configureDomainResolvers(builder);
         configureAssertionResolvers(builder);
@@ -619,10 +655,30 @@ public class GmsGraphQLEngine {
         configureViewResolvers(builder);
         configureQueryEntityResolvers(builder);
         configureOwnershipTypeResolver(builder);
+        configurePluginResolvers(builder);
+    }
+
+    private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
+        builder.type("Role", typeWiring -> typeWiring
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
+        );
+        builder.type("RoleAssociation", typeWiring -> typeWiring
+                .dataFetcher("role",
+                        new LoadableTypeResolver<>(roleType,
+                                (env) -> ((com.linkedin.datahub.graphql.generated.RoleAssociation)
+                                                env.getSource()).getRole().getUrn()))
+        );
+        builder.type("RoleUser", typeWiring -> typeWiring
+                .dataFetcher("user",
+                        new LoadableTypeResolver<>(corpUserType,
+                                (env) -> ((com.linkedin.datahub.graphql.generated.RoleUser)
+                                        env.getSource()).getUser().getUrn()))
+        );
     }
 
     public GraphQLEngine.Builder builder() {
-        return GraphQLEngine.builder()
+        final GraphQLEngine.Builder builder = GraphQLEngine.builder();
+        builder
             .addSchema(fileBasedSchema(GMS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(SEARCH_SCHEMA_FILE))
             .addSchema(fileBasedSchema(APP_SCHEMA_FILE))
@@ -633,10 +689,23 @@ public class GmsGraphQLEngine {
             .addSchema(fileBasedSchema(TIMELINE_SCHEMA_FILE))
             .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
             .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
-            .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
+            .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE));
+
+        for (GmsGraphQLPlugin plugin: this.graphQLPlugins) {
+            List<String> pluginSchemaFiles = plugin.getSchemaFiles();
+            if (pluginSchemaFiles != null) {
+                pluginSchemaFiles.forEach(schema -> builder.addSchema(fileBasedSchema(schema)));
+            }
+            Collection<? extends LoadableType<?, ?>> pluginLoadableTypes = plugin.getLoadableTypes();
+            if (pluginLoadableTypes != null) {
+                pluginLoadableTypes.forEach(loadableType -> builder.addDataLoaders(loaderSuppliers(pluginLoadableTypes)));
+            }
+        }
+            builder
             .addDataLoaders(loaderSuppliers(loadableTypes))
             .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
             .configureRuntimeWiring(this::configureRuntimeWiring);
+        return builder;
     }
 
     public static String fileBasedSchema(String fileName) {
@@ -726,6 +795,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("browse", new BrowseResolver(browsableTypes))
             .dataFetcher("browsePaths", new BrowsePathsResolver(browsableTypes))
             .dataFetcher("dataset", getResolver(datasetType))
+            .dataFetcher("role", getResolver(roleType))
             .dataFetcher("versionedDataset", getResolver(versionedDatasetType,
                 (env) -> new VersionedUrn().setUrn(UrnUtils.getUrn(env.getArgument(URN_FIELD_NAME)))
                     .setVersionStamp(env.getArgument(VERSION_STAMP_FIELD_NAME))))
