@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import partial
+from typing import Any
 from unittest import mock
 
 from freezegun import freeze_time
@@ -22,7 +23,7 @@ def mock_user_to_add(*args, **kwargs):
     return None
 
 
-def register_mock_api(request_mock, override_mock_data={}) -> None:
+def register_mock_api(request_mock: Any, override_mock_data: dict = {}) -> None:
     api_vs_response = {
         "https://host_port/Reports/api/v2.0/Reports": {
             "method": "GET",
