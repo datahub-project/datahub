@@ -7,17 +7,18 @@ import { scaleUtc } from '@vx/scale';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { ANTD_GRAY } from '../../../constants';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
+import { AssertionResultType } from '../../../../../../types.generated';
 
-export type BooleanResult = {
-    result: boolean;
+export type AssertionResult = {
+    type?: Maybe<AssertionResultType>;
     title: React.ReactNode;
     content: React.ReactNode;
     resultUrl?: Maybe<string>;
 };
 
-export type BooleanDataPoint = {
+export type AssertionDataPoint = {
     time: number;
-    result: BooleanResult;
+    result: AssertionResult;
 };
 
 export type TimeRange = {
@@ -26,18 +27,35 @@ export type TimeRange = {
 };
 
 type Props = {
-    data: Array<BooleanDataPoint>;
+    data: Array<AssertionDataPoint>;
     timeRange: TimeRange;
     width: number;
 };
 
 const SUCCESS_COLOR_HEX = '#52C41A';
 const FAILURE_COLOR_HEX = '#F5222D';
+const ERROR_COLOR_HEX = '#FAAD14';
+const INIT_COLOR_HEX = '#8C8C8C';
+
+const getFillColor = (type?: Maybe<AssertionResultType>) => {
+    switch (type) {
+        case AssertionResultType.Success:
+            return SUCCESS_COLOR_HEX;
+        case AssertionResultType.Failure:
+            return FAILURE_COLOR_HEX;
+        case AssertionResultType.Error:
+            return ERROR_COLOR_HEX;
+        case AssertionResultType.Init:
+            return INIT_COLOR_HEX;
+        default:
+            throw new Error(`Unsupported Assertion Result Type ${type} provided.`);
+    }
+};
 
 /**
- * True / false results displayed on a horizontal timeline.
+ * Assertion run results displayed on a horizontal timeline.
  */
-export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
+export const AssertionResultTimeline = ({ data, timeRange, width }: Props) => {
     const yMax = 60;
     const left = 0;
 
@@ -55,7 +73,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
             index: i,
             title: result.result.title,
             content: result.result.content,
-            result: result.result.result,
+            type: result.result.type,
             time: result.time,
             url: result.result.resultUrl,
         };
@@ -70,7 +88,7 @@ export const BooleanTimeline = ({ data, timeRange, width }: Props) => {
                         const barHeight = 18;
                         const barX = xScale(new Date(d.time));
                         const barY = yMax - barHeight;
-                        const fillColor = d.result ? SUCCESS_COLOR_HEX : FAILURE_COLOR_HEX;
+                        const fillColor = getFillColor(d.type);
                         return (
                             <LinkWrapper to={d.url} target="_blank">
                                 <Popover

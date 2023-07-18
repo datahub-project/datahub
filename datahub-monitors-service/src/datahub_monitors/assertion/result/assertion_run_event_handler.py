@@ -7,6 +7,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AssertionResultClass,
+    AssertionResultErrorClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionRunStatusClass,
@@ -19,6 +20,7 @@ from datahub_monitors.types import (
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
     AssertionEvaluationResult,
+    AssertionEvaluationResultError,
     AssertionResultType,
 )
 
@@ -48,6 +50,13 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
                 results["events"] = events_str
         return results
 
+    def _extract_error(
+        self, error: AssertionEvaluationResultError
+    ) -> AssertionResultErrorClass:
+        return AssertionResultErrorClass(
+            type=error.type.value, properties=error.properties
+        )
+
     def _extract_result(
         self,
         assertion: Assertion,
@@ -59,20 +68,28 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
         )  # TODO - debug
 
         parameters = result.parameters
+        error = None
         native_results = None
         if parameters is not None:
             native_results = self._parameters_to_native_results(parameters)
+        if result.error is not None:
+            error = self._extract_error(result.error)
 
         return AssertionResultClass(
             AssertionResultTypeClass.SUCCESS
             if result.type == AssertionResultType.SUCCESS
-            else AssertionResultTypeClass.FAILURE,
+            else AssertionResultTypeClass.FAILURE
+            if result.type == AssertionResultType.FAILURE
+            else AssertionResultTypeClass.INIT
+            if result.type == AssertionResultType.INIT
+            else AssertionResultTypeClass.ERROR,
             None,
             None,
             None,
             None,
             native_results,
             None,
+            error,
         )
 
     def handle(

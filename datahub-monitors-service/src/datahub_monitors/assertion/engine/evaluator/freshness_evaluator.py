@@ -2,6 +2,9 @@ import logging
 import time
 from typing import List, Optional, cast
 
+from datahub_monitors.assertion.engine.evaluator.error_utils import (
+    extract_assertion_evaluation_result_error,
+)
 from datahub_monitors.assertion.engine.evaluator.evaluator import AssertionEvaluator
 from datahub_monitors.assertion.engine.evaluator.freshness_utils import (
     get_event_type_parameters_from_parameters,
@@ -13,6 +16,11 @@ from datahub_monitors.assertion.engine.evaluator.time_utils import (
 )
 from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.provider import ConnectionProvider
+from datahub_monitors.exceptions import (
+    AssertionResultException,
+    InvalidParametersException,
+    SourceConnectionErrorException,
+)
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.types import (
     Assertion,
@@ -20,6 +28,8 @@ from datahub_monitors.types import (
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
     AssertionEvaluationResult,
+    AssertionEvaluationResultError,
+    AssertionResultErrorType,
     AssertionResultType,
     AssertionType,
     CronSchedule,
@@ -62,40 +72,36 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         entity_urn = assertion.entity.urn
-        try:
-            # Check whether any matching events have fallen into the bucket
-            event_type, source_params = get_event_type_parameters_from_parameters(
-                parameters
-            )
-            # This is where we drop into system-specific bits --> Need a way to do this for Snowflake first.
-            # TODO: Consider what it would take to batch queries. Maybe the client aggregates?
-            source = self.source_provider.create_source_from_connection(connection)
 
-            maybe_events = source.get_entity_events(
-                entity_urn, event_type, window, source_params
-            )
+        # Check whether any matching events have fallen into the bucket
+        event_type, source_params = get_event_type_parameters_from_parameters(
+            parameters
+        )
+        # This is where we drop into system-specific bits --> Need a way to do this for Snowflake first.
+        # TODO: Consider what it would take to batch queries. Maybe the client aggregates?
+        source = self.source_provider.create_source_from_connection(connection)
 
-            # Now verify whether there are any events in the window
-            if maybe_events is not None and len(maybe_events) > 0:
-                # We have some events within the expected window. That means the assertion has passed! Make sure we establish WHY the assertion has passed.
-                logger.error(
-                    "Found matching events within the provided window! Assertion is passing."
-                )
-                return AssertionEvaluationResult(
-                    AssertionResultType.SUCCESS, {"events": maybe_events}
-                )
-            else:
-                # No events are found. The assertion is failing!
-                logger.error(
-                    "No matching events found within the provided window! Assertion is failing."
-                )
-                return AssertionEvaluationResult(AssertionResultType.FAILURE, None)
+        maybe_events = source.get_entity_events(
+            entity_urn, event_type, window, source_params
+        )
 
-        except Exception as e:
+        # Now verify whether there are any events in the window
+        if maybe_events is not None and len(maybe_events) > 0:
+            # We have some events within the expected window. That means the assertion has passed! Make sure we establish WHY the assertion has passed.
             logger.error(
-                f"Failed to retrieve events of type {event_type} for entity with urn {entity_urn} in the following window {window} and with parameters {parameters}"
+                "Found matching events within the provided window! Assertion is passing."
             )
-            raise e
+            return AssertionEvaluationResult(
+                AssertionResultType.SUCCESS, parameters={"events": maybe_events}
+            )
+        else:
+            # No events are found. The assertion is failing!
+            logger.error(
+                "No matching events found within the provided window! Assertion is failing."
+            )
+            return AssertionEvaluationResult(
+                AssertionResultType.FAILURE, parameters=None
+            )
 
     def _evaluate_internal_cron(
         self,
@@ -189,8 +195,9 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 assertion, parameters, connection, context
             )
         else:
-            raise Exception(
-                f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {assertion.freshness_assertion.schedule.type} provided."
+            raise InvalidParametersException(
+                message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {assertion.freshness_assertion.schedule.type} provided.",
+                parameters=parameters.__dict__,
             )
 
     def evaluate(
@@ -206,8 +213,9 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             )
 
             if connection is None:
-                raise Exception(
-                    f"Unable to resolve connection for urn {assertion.connection_urn}"
+                raise SourceConnectionErrorException(
+                    message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
+                    connection_urn=assertion.connection_urn,
                 )
 
             return self._evaluate_internal(
@@ -216,9 +224,27 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 connection,
                 context,
             )
+        except AssertionResultException as e:
+            error = extract_assertion_evaluation_result_error(e)
+            result = AssertionEvaluationResult(
+                AssertionResultType.ERROR,
+                error=error,
+            )
+            logger.exception(
+                f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Original message: {e}"
+            )
+            return result
         except Exception as e:
             logger.exception(
-                f"Failed to evaluate assertion with urn {assertion.urn}. Could not produce an assertion evaluation result."
+                f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Could not produce an assertion evaluation result. Original message: {e}"
             )
-            # Re-raise to caller.
-            raise e
+            return AssertionEvaluationResult(
+                AssertionResultType.ERROR,
+                error=AssertionEvaluationResultError(
+                    type=AssertionResultErrorType.UNKNOWN_ERROR,
+                    properties={
+                        "assertion_urn": assertion.urn,
+                        "parameters": parameters,
+                    },
+                ),
+            )

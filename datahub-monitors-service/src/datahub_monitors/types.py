@@ -26,6 +26,17 @@ class AssertionType(Enum):
     FRESHNESS = "FRESHNESS"
 
 
+class AssertionResultErrorType(Enum):
+    """Enumeration of assertion result error types"""
+
+    SOURCE_CONNECTION_ERROR = "SOURCE_CONNECTION_ERROR"
+    SOURCE_QUERY_FAILED = "SOURCE_QUERY_FAILED"
+    INVALID_PARAMETERS = "INVALID_PARAMETERS"
+    INVALID_SOURCE_TYPE = "INVALID_SOURCE_TYPE"
+    UNSUPPORTED_PLATFORM = "UNSUPPORTED_PLATFORM"
+    UNKNOWN_ERROR = "UNKNOWN_ERROR"
+
+
 class FreshnessAssertionType(Enum):
     """Enumeration of freshness assertion types."""
 
@@ -67,8 +78,10 @@ class PartitionKeyFieldTransform(Enum):
 class AssertionResultType(Enum):
     """Enumeration of assertion result types."""
 
+    INIT = "INIT"
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
+    ERROR = "ERROR"
 
 
 class DatasetFreshnessSourceType(Enum):
@@ -379,12 +392,28 @@ class AssertionEvaluationContext:
         self.dry_run = dry_run
 
 
+class AssertionEvaluationResultError:
+    """The error associated with an assertion evaluation result."""
+
+    def __init__(
+        self, type: AssertionResultErrorType, properties: Optional[Dict[str, Any]]
+    ):
+        self.type = type
+        self.properties = properties
+
+
 class AssertionEvaluationResult:
     """The result of evaluating an assertion."""
 
-    def __init__(self, type: AssertionResultType, parameters: Optional[dict]):
+    def __init__(
+        self,
+        type: AssertionResultType,
+        parameters: Optional[dict] = None,
+        error: Optional[AssertionEvaluationResultError] = None,
+    ):
         self.type = type
         self.parameters = parameters
+        self.error = error
 
 
 class ConnectionDetails:
