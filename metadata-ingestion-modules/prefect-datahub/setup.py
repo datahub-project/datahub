@@ -29,8 +29,8 @@ setup(
     install_requires=install_requires,
     extras_require={"dev": dev_requires},
     entry_points={
-        "prefect.collections": [
-            "prefect_datahub = prefect_datahub",
+        "prefect.datahub": [
+            "prefect_datahub = prefect_datahub.datahub_emitter:DatahubEmitter",
         ]
     },
     classifiers=[

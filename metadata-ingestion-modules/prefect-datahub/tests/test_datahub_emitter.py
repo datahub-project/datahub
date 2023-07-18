@@ -1,9 +1,10 @@
 import asyncio
+from typing import List, Optional
 from unittest.mock import Mock, patch
 
 from datahub.api.entities.datajob import DataJob
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub_provider.entities import Dataset
+from datahub_provider.entities import Dataset, _Entity
 
 from prefect_datahub.datahub_emitter import DatahubEmitter
 
@@ -37,8 +38,8 @@ def test_add_task(mock_emit, mock_run_context):
     mock_emit.return_value = mock_emitter
 
     datahub_emitter = DatahubEmitter()
-    inputs = [Dataset("snowflake", "mydb.schema.tableA")]
-    outputs = [Dataset("snowflake", "mydb.schema.tableC")]
+    inputs: Optional[List[_Entity]] = [Dataset("snowflake", "mydb.schema.tableA")]
+    outputs: Optional[List[_Entity]] = [Dataset("snowflake", "mydb.schema.tableC")]
     datahub_emitter.add_task(
         inputs=inputs,
         outputs=outputs,
