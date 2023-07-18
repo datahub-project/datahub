@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import dateutil.parser as dp
 import pydantic
@@ -126,7 +126,9 @@ class MetabaseSource(Source):
         super().__init__(ctx)
         self.config = config
         self.report = SourceReport()
+        self.setup_session()
 
+    def setup_session(self) -> None:
         login_response = requests.post(
             f"{self.config.connect_uri}/api/session",
             None,
@@ -539,6 +541,36 @@ class MetabaseSource(Source):
         return None, None
 
     @lru_cache(maxsize=None)
+    def get_platform_instance(
+        self, platform: Union[str, None] = None, datasource_id: Union[int, None] = None
+    ) -> Union[str, None]:
+        """
+        Method will attempt to detect `platform_instance` by checking
+        `database_id_to_instance_map` and `platform_instance_map` mappings.
+        If `database_id_to_instance_map` is defined it is first checked for
+        `datasource_id` extracted from Metabase. If this mapping is not defined
+        or corresponding key is not found, `platform_instance_map` mapping
+        is checked for datasource platform. If no mapping found `None`
+        is returned.
+        :param str platform: DataHub platform name (e.g. `postgres` or `clickhouse`)
+        :param int datasource_id: Numeric datasource ID received from Metabase API
+        :return: platform instance name or None
+        """
+        platform_instance = None
+        # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
+        if datasource_id is not None and self.config.database_id_to_instance_map:
+            platform_instance = self.config.database_id_to_instance_map.get(
+                str(datasource_id)
+            )
+
+        # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
+        # Set platform_instance if configuration provides a mapping from platform name to instance
+        if platform and self.config.platform_instance_map and platform_instance is None:
+            platform_instance = self.config.platform_instance_map.get(platform)
+
+        return platform_instance
+
+    @lru_cache(maxsize=None)
     def get_datasource_from_id(self, datasource_id):
         try:
             dataset_response = self.session.get(
@@ -578,20 +610,8 @@ class MetabaseSource(Source):
                 reason=f"Platform was not found in DataHub. Using {platform} name as is",
             )
 
-        # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
-        datasource_id_in_metabase = dataset_json.get("id")
-        platform_instance = (
-            self.config.database_id_to_instance_map.get(str(datasource_id_in_metabase))
-            if datasource_id_in_metabase and self.config.database_id_to_instance_map
-            else None
-        )
-
-        # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
-        # Set platform_instance if configuration provides a mapping from platform name to instance
-        platform_instance = (
-            self.config.platform_instance_map.get(platform)
-            if self.config.platform_instance_map and platform_instance is None
-            else None
+        platform_instance = self.get_platform_instance(
+            platform, dataset_json.get("id", None)
         )
 
         field_for_dbname_mapping = {
