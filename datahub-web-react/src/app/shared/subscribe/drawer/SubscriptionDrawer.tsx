@@ -15,8 +15,8 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionFormProvider, { useFormState } from './form/context';
-import useFormActions from './form/actions';
+import SubscriptionDrawerProvider, { useDrawerState } from './state/context';
+import useDrawerActions from './state/actions';
 import useSinkSettings from './useSinkSettings';
 import useUpsertSubscription from './useUpsertSubscription';
 
@@ -76,8 +76,8 @@ const SubscriptionDrawerContent = ({
         slack: {
             subscription: { channel, saveAsDefault },
         },
-    } = useFormState();
-    const formActions = useFormActions();
+    } = useDrawerState();
+    const actions = useDrawerActions();
 
     // Skipping until we want to enable upstreams
     const { data: lineageCountData } = useGetLineageCountsQuery({
@@ -120,15 +120,15 @@ const SubscriptionDrawerContent = ({
     const subscriptionChannel = getSubscriptionChannel(isPersonal, subscription);
 
     const initializeState = useCallback(() => {
-        formActions.initialize({ slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel });
-    }, [entityType, formActions, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
+        actions.initialize({ slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel });
+    }, [entityType, actions, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
 
     useEffect(() => {
         initializeState();
     }, [initializeState]);
 
     const resetAndClose = () => {
-        initializeState();
+        setTimeout(initializeState, 250);
         onClose();
     };
 
@@ -182,9 +182,9 @@ const SubscriptionDrawerContent = ({
 
 const SubscriptionDrawer = ({ isPersonal, ...rest }: Props & { isPersonal: boolean }) => {
     return (
-        <SubscriptionFormProvider isPersonal={isPersonal}>
+        <SubscriptionDrawerProvider isPersonal={isPersonal}>
             <SubscriptionDrawerContent {...rest} />
-        </SubscriptionFormProvider>
+        </SubscriptionDrawerProvider>
     );
 };
 

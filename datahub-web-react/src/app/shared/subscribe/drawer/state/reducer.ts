@@ -2,9 +2,8 @@ import uniq from 'lodash/uniq';
 import { NotificationSinkType, SubscriptionType } from '../../../../../types.generated';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/notifications/constants';
 import { getDefaultCheckedKeys } from '../utils';
-import { Action, State } from './types';
+import { Action, ActionTypes, State } from './types';
 
-// todo - make this look more form-like, for ex, maybe name the ui controls involved here?
 export const createInitialState = (isPersonal: boolean): State => ({
     edited: false,
     isPersonal,
@@ -23,7 +22,7 @@ export const createInitialState = (isPersonal: boolean): State => ({
 
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
-        case 'initialize': {
+        case ActionTypes.INITIALIZE: {
             const { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel } = action.payload;
 
             const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
@@ -55,7 +54,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case 'setSlackEnabled': {
+        case ActionTypes.SET_SLACK_ENABLED: {
             const newNotificationSinkTypes = uniq(
                 action.payload
                     ? [...state.notificationSinkTypes, NotificationSinkType.Slack]
@@ -72,7 +71,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case 'setChannelSelection': {
+        case ActionTypes.SET_CHANNEL_SELECTION: {
             return {
                 ...state,
                 edited: true,
@@ -87,7 +86,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case 'setSubscriptionChannel': {
+        case ActionTypes.SET_SUBSCRIPTION_CHANNEL: {
             return {
                 ...state,
                 edited: true,
@@ -100,7 +99,7 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case 'setSaveAsDefault': {
+        case ActionTypes.SET_SAVE_AS_DEFAULT: {
             return {
                 ...state,
                 edited: true,
@@ -113,14 +112,14 @@ export const reducer = (state: State, action: Action): State => {
                 },
             };
         }
-        case 'setCheckedKeys': {
+        case ActionTypes.SET_CHECKED_KEYS: {
             return {
                 ...state,
                 edited: true,
                 checkedKeys: action.payload,
             };
         }
-        case 'setSubscribeToUpstream': {
+        case ActionTypes.SET_SUBSCRIBE_TO_UPSTREAM: {
             return {
                 ...state,
                 edited: true,

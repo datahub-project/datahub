@@ -3,7 +3,7 @@ import {
     useUpdateSubscriptionMutation,
 } from '../../../../graphql/subscriptions.generated';
 import { DataHubSubscription, NotificationSettingsInput, SubscriptionType } from '../../../../types.generated';
-import { useFormState } from './form/context';
+import { useDrawerState } from './state/context';
 import { createSubscriptionFunction, getEntityChangeTypesFromCheckedKeys, updateSubscriptionFunction } from './utils';
 
 type Props = {
@@ -24,7 +24,7 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
         slack: {
             subscription: { channel, saveAsDefault },
         },
-    } = useFormState();
+    } = useDrawerState();
 
     const [createSubscription] = useCreateSubscriptionMutation();
     const [updateSubscription] = useUpdateSubscriptionMutation();

@@ -13,8 +13,8 @@ import {
 } from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
-import { useFormState } from '../form/context';
-import useFormActions from '../form/actions';
+import { useDrawerState } from '../state/context';
+import useDrawerActions from '../state/actions';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -84,9 +84,9 @@ const SaveAsDefaultText = styled(Typography.Text)`
 
 export default function NotificationRecipientSection() {
     const [form] = useForm();
-    const formActions = useFormActions();
+    const actions = useDrawerActions();
 
-    const { isPersonal, slack } = useFormState();
+    const { isPersonal, slack } = useDrawerState();
 
     const [isSettingsChannel, isSubscriptionChannel] = [
         slack.channelSelection === 'settings',
@@ -98,9 +98,6 @@ export default function NotificationRecipientSection() {
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
-    // the crux of the issue
-    // is how do we perform state updates around this component tree, where we need refs to a query
-    // and we need refs to the internal state of the form
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
     }, [form, slack.subscription.channel]);
@@ -114,19 +111,19 @@ export default function NotificationRecipientSection() {
         : isGroupSlackChannelValid(slack.subscription.channel ?? '');
 
     const onChangeSlackSwitch = (checked: boolean) => {
-        formActions.setSlackEnabled(checked);
+        actions.setSlackEnabled(checked);
     };
 
     const onChangeSlackRadioGroup = ({ target: { value } }: RadioChangeEvent) => {
-        formActions.setChannelSelection(value);
+        actions.setChannelSelection(value);
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
-        formActions.setSubscriptionChannel(value);
+        actions.setSubscriptionChannel(value);
     };
 
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
-        formActions.setSaveAsDefault(checked);
+        actions.setSaveAsDefault(checked);
     };
 
     return (
