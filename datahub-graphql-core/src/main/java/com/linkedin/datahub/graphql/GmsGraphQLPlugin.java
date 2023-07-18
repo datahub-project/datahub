@@ -37,7 +37,7 @@ public interface GmsGraphQLPlugin {
    * Optional callback that a plugin can implement to configure any Query, Mutation or Type specific resolvers.
    * @param wiringBuilder
    */
-  default void configureExtraResolvers(final RuntimeWiring.Builder wiringBuilder) {
+  default void configureExtraResolvers(final RuntimeWiring.Builder wiringBuilder, final GmsGraphQLEngine baseEngine) {
 
   }
 
