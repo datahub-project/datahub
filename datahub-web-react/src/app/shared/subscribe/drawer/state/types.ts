@@ -26,6 +26,7 @@ export type State = {
             saveAsDefault: boolean;
         };
     };
+    // other sink types go here
 };
 
 export type InitializeActionPayload = {
