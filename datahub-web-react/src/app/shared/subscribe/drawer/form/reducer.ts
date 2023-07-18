@@ -4,6 +4,7 @@ import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/not
 import { getDefaultCheckedKeys } from '../utils';
 import { Action, State } from './types';
 
+// todo - make this look more form-like, for ex, maybe name the ui controls involved here?
 export const createInitialState = (isPersonal: boolean): State => ({
     edited: false,
     isPersonal,
@@ -36,7 +37,7 @@ export const reducer = (state: State, action: Action): State => {
 
             return {
                 ...state,
-                edited: false,
+                edited: !subscription,
                 checkedKeys: entityChangeTypes,
                 subscribeToUpstream: hasUpstreamSubscription,
                 notificationSinkTypes,

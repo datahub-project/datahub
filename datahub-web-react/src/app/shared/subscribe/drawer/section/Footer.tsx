@@ -1,11 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Button, Typography } from 'antd';
+import { Button } from 'antd';
 import { useFormStateContext } from '../form/context';
 
 const FooterContainer = styled.div`
     display: flex;
-    flex-direction: row;
     justify-content: flex-end;
     margin-top: 16px;
     margin-right: 24px;
@@ -13,17 +12,7 @@ const FooterContainer = styled.div`
     gap: 8px;
 `;
 
-const FooterButton = styled(Button)`
-    display: inline-flex;
-    align-items: center;
-`;
-
-const FooterButtonLabel = styled(Typography.Text)<{ color: string }>`
-    font-family: 'Manrope', sans-serif;
-    font-size: 14px;
-    font-weight: 400;
-    color: ${({ color }) => color};
-`;
+const FooterButton = styled(Button)``;
 
 interface Props {
     isSubscribed: boolean;
@@ -32,21 +21,16 @@ interface Props {
 }
 
 export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }: Props) {
-    const {
-        slack: { enabled: allowEditing },
-    } = useFormStateContext();
-    const leftButtonText: string = isSubscribed ? 'Unsubscribe' : 'Cancel';
-    const leftButtonColor: string = isSubscribed ? '#FF4D4F' : 'rgba(0, 0, 0, 0.88)';
-    const subscribeButtonText: string = isSubscribed ? 'Update' : 'Subscribe';
-    const allowSubscribe: boolean = isSubscribed || allowEditing;
+    const { edited, slack } = useFormStateContext();
+    const canSubmit = edited && (isSubscribed || slack.enabled);
 
     return (
         <FooterContainer>
-            <FooterButton onClick={onCancelOrUnsubscribe}>
-                <FooterButtonLabel color={leftButtonColor}>{leftButtonText}</FooterButtonLabel>
+            <FooterButton danger={isSubscribed} onClick={onCancelOrUnsubscribe}>
+                {isSubscribed ? 'Unsubscribe' : 'Cancel'}
             </FooterButton>
-            <FooterButton type="primary" onClick={onUpdate} disabled={!allowSubscribe}>
-                <FooterButtonLabel color="white">{subscribeButtonText}</FooterButtonLabel>
+            <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit}>
+                {isSubscribed ? 'Update' : 'Subscribe'}
             </FooterButton>
         </FooterContainer>
     );

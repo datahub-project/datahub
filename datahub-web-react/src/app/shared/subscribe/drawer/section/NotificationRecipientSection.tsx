@@ -89,8 +89,11 @@ export default function NotificationRecipientSection() {
         isPersonal,
         slack: { enabled: allowEditing, subscription, settings, channelSelection },
     } = useFormStateContext();
-    const useSettings = channelSelection === 'settings';
-    console.log({ subscription });
+
+    const [isSettingsChannel, isSubscriptionChannel] = [
+        channelSelection === 'settings',
+        channelSelection === 'subscription',
+    ];
 
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -102,8 +105,8 @@ export default function NotificationRecipientSection() {
     }, [form, subscription.channel]);
 
     useEffect(() => {
-        if (!useSettings) channelInputRef.current?.focus();
-    }, [useSettings]);
+        if (isSubscriptionChannel) channelInputRef.current?.focus();
+    }, [isSubscriptionChannel]);
 
     const customSlackSinkIsValid = isPersonal
         ? isUserSlackHandleValid(subscription.channel ?? '')
@@ -164,7 +167,7 @@ export default function NotificationRecipientSection() {
                                             <StyledInput
                                                 ref={channelInputRef}
                                                 placeholder={isPersonal ? '@user' : '#channel'}
-                                                disabled={!allowEditing || !slackSinkEnabled || useSettings}
+                                                disabled={!allowEditing || !slackSinkEnabled || isSettingsChannel}
                                                 value={subscription.channel}
                                                 status={customSlackSinkIsValid ? undefined : 'error'}
                                                 onChange={onChangeChannelInput}
@@ -179,7 +182,7 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {!useSettings && settings.channel && (
+                    {isSubscriptionChannel && settings.channel && (
                         <StyledCheckbox
                             disabled={!allowEditing || !slackSinkEnabled}
                             checked={subscription.saveAsDefault}

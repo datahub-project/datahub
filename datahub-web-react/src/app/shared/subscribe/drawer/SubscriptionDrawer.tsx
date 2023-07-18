@@ -222,7 +222,6 @@ const SubscriptionDrawerContent = ({
         onClose();
     };
 
-    // Final update functions
     const onUpdateFooter = () => {
         onUpsertSubscription();
         if (channel && saveAsDefault) updateSinkSetting(channel);
