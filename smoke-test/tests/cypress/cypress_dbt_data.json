@@ -135,7 +135,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -155,7 +155,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -359,7 +359,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "subTypes",
@@ -521,7 +521,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -541,7 +541,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -804,7 +804,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -824,7 +824,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_customers,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -967,7 +967,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -987,7 +987,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1150,7 +1150,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1170,7 +1170,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_payments,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1333,7 +1333,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1353,7 +1353,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_customers,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1537,7 +1537,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1557,7 +1557,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_orders,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1761,7 +1761,7 @@
 {
     "auditHeader": null,
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
     "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1781,7 +1781,7 @@
     "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.stg_payments,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers_source,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {

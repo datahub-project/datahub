@@ -124,28 +124,19 @@ def ingest_data():
 
     print_now()
     print("ingesting test data")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
-    ingest_time_lineage()
     print_now()
     print("completed ingesting test data")
 
 
-@pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data():
     ingest_data()
-    yield
     print_now()
+    cleanup_data_only()
+
+def cleanup_data_only():
     print("removing test data")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
     delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
-    delete_urns(get_time_lineage_urns())
-
-
     print_now()
     print("deleting onboarding data file")
     if os.path.exists(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"):
