@@ -116,6 +116,25 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
+def get_or_raise_value_error(
+    response: requests.Response, error_message: str, log_messages: List[str] = []
+) -> dict:
+    if response.status_code != 200:
+        for message in log_messages:
+            LOGGER.warning(message)
+        raise ValueError(error_message)
+
+    result_dict: dict = {}
+    try:
+        result_dict = response.json()
+    except (requests.exceptions.JSONDecodeError, requests.JSONDecodeError) as e:
+        LOGGER.debug(msg=error_message, exc_info=e)
+        LOGGER.debug(f"text received from server = {response.text}")
+        raise ValueError(error_message)
+
+    return result_dict
+
+
 class PowerBiReportServerAPI:
     # API endpoints of PowerBI Report Server to fetch reports, datasets
 
@@ -144,14 +163,20 @@ class PowerBiReportServerAPI:
                 url=url_http,
                 auth=self.get_auth_credentials,
             )
-        # Check if we got response from PowerBi Report Server
-        if response.status_code != 200:
-            message: str = "Failed to fetch Report from powerbi-report-server for"
-            LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.ReportId, content_type))
-            raise ValueError(message)
 
-        return response.json()
+        error_message: str = (
+            f"Failed to fetch {content_type} Report from powerbi-report-server"
+        )
+        log_messages: List[str] = [
+            error_message,
+            "{}={}".format(Constant.ReportId, content_type),
+        ]
+
+        return get_or_raise_value_error(
+            response=response,
+            error_message=error_message,
+            log_messages=log_messages,
+        )
 
     def get_all_reports(self) -> List[Any]:
         """
