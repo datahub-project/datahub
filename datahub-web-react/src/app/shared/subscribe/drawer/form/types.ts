@@ -27,16 +27,18 @@ export type State = {
     };
 };
 
+export type InitializeActionPayload = {
+    slackSinkEnabled: boolean;
+    entityType: EntityType;
+    subscription?: DataHubSubscription;
+    subscriptionChannel?: string;
+    settingsChannel?: string;
+};
+
 export type Action =
     | {
           type: 'initialize';
-          payload: {
-              slackSinkEnabled: boolean;
-              entityType: EntityType;
-              subscription?: DataHubSubscription;
-              subscriptionChannel?: string;
-              settingsChannel?: string;
-          };
+          payload: InitializeActionPayload;
       }
     | { type: 'setSlackEnabled'; payload: boolean }
     | { type: 'setSubscriptionChannel'; payload?: string }

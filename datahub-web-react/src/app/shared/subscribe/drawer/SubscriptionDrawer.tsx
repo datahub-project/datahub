@@ -41,7 +41,8 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionFormProvider, { useFormDispatchContext, useFormStateContext } from './form/context';
+import SubscriptionFormProvider, { useFormStateContext } from './form/context';
+import useFormActions from './form/actions';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -103,7 +104,7 @@ const SubscriptionDrawerContent = ({
             subscription: { channel, saveAsDefault },
         },
     } = useFormStateContext();
-    const dispatch = useFormDispatchContext();
+    const formActions = useFormActions();
 
     const [createSubscription] = useCreateSubscriptionMutation();
     const [updateSubscription] = useUpdateSubscriptionMutation();
@@ -182,19 +183,17 @@ const SubscriptionDrawerContent = ({
             variables: { input: { groupUrn: groupUrn || '' } },
         });
 
+    // todo - make this less slack specific somehow?
     const subscriptionChannel = getSubscriptionChannel(isPersonal, subscription);
     const settingsChannel = getUserSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
 
-    const initialize = useCallback(() => {
-        dispatch({
-            type: 'initialize',
-            payload: { slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel },
-        });
-    }, [dispatch, entityType, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
+    const initializeState = useCallback(() => {
+        formActions.initialize({ slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel });
+    }, [entityType, formActions, settingsChannel, slackSinkEnabled, subscription, subscriptionChannel]);
 
     useEffect(() => {
-        initialize();
-    }, [initialize]);
+        initializeState();
+    }, [initializeState]);
 
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
@@ -218,7 +217,7 @@ const SubscriptionDrawerContent = ({
     const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
     const initializeAndClose = () => {
-        initialize();
+        initializeState();
         onClose();
     };
 

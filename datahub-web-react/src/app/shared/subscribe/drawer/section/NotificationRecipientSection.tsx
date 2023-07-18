@@ -13,7 +13,8 @@ import {
 } from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
-import { useFormDispatchContext, useFormStateContext } from '../form/context';
+import { useFormStateContext } from '../form/context';
+import useFormActions from '../form/actions';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -83,16 +84,13 @@ const SaveAsDefaultText = styled(Typography.Text)`
 
 export default function NotificationRecipientSection() {
     const [form] = useForm();
-    const dispatch = useFormDispatchContext();
+    const formActions = useFormActions();
 
-    const {
-        isPersonal,
-        slack: { enabled: allowEditing, subscription, settings, channelSelection },
-    } = useFormStateContext();
+    const { isPersonal, slack } = useFormStateContext();
 
     const [isSettingsChannel, isSubscriptionChannel] = [
-        channelSelection === 'settings',
-        channelSelection === 'subscription',
+        slack.channelSelection === 'settings',
+        slack.channelSelection === 'subscription',
     ];
 
     const channelInputRef = useRef<InputRef>(null);
@@ -101,32 +99,31 @@ export default function NotificationRecipientSection() {
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
     useEffect(() => {
-        form.setFieldsValue({ slackFormValue: subscription.channel });
-    }, [form, subscription.channel]);
+        form.setFieldsValue({ slackFormValue: slack.subscription.channel });
+    }, [form, slack.subscription.channel]);
 
     useEffect(() => {
         if (isSubscriptionChannel) channelInputRef.current?.focus();
     }, [isSubscriptionChannel]);
 
     const customSlackSinkIsValid = isPersonal
-        ? isUserSlackHandleValid(subscription.channel ?? '')
-        : isGroupSlackChannelValid(subscription.channel ?? '');
+        ? isUserSlackHandleValid(slack.subscription.channel ?? '')
+        : isGroupSlackChannelValid(slack.subscription.channel ?? '');
 
     const onChangeSlackSwitch = (checked: boolean) => {
-        // todo - move these types into helpers/enums/etc
-        dispatch({ type: 'setSlackEnabled', payload: checked });
+        formActions.setSlackEnabled(checked);
     };
 
     const onChangeSlackRadioGroup = ({ target: { value } }: RadioChangeEvent) => {
-        dispatch({ type: 'setChannelSelection', payload: value });
+        formActions.setChannelSelection(value);
     };
 
     const onChangeChannelInput = ({ target: { value } }: React.ChangeEvent<HTMLInputElement>) => {
-        dispatch({ type: 'setSubscriptionChannel', payload: value });
+        formActions.setSubscriptionChannel(value);
     };
 
     const onChangeSaveAsDefaultCheckbox = ({ target: { checked } }: CheckboxChangeEvent) => {
-        dispatch({ type: 'setSaveAsDefault', payload: checked });
+        formActions.setSaveAsDefault(checked);
     };
 
     return (
@@ -137,18 +134,20 @@ export default function NotificationRecipientSection() {
                     <StyledSwitch
                         disabled={!slackSinkEnabled}
                         size="small"
-                        checked={allowEditing}
+                        checked={slack.enabled}
                         onChange={onChangeSlackSwitch}
                     />
                     <NotificationTypeText>Slack Notifications</NotificationTypeText>
                     {slackSinkEnabled ? (
                         <StyledRadioGroup
-                            disabled={!allowEditing || !slackSinkEnabled}
-                            value={channelSelection}
+                            disabled={!slack.enabled || !slackSinkEnabled}
+                            value={slack.channelSelection}
                             onChange={onChangeSlackRadioGroup}
                         >
                             <Space direction="vertical">
-                                {settings.channel && <Radio value="settings">Use default: {settings.channel}</Radio>}
+                                {slack.settings.channel && (
+                                    <Radio value="settings">Use default: {slack.settings.channel}</Radio>
+                                )}
                                 <Radio value="subscription">
                                     <Form form={form}>
                                         <StyledFormItem
@@ -167,8 +166,8 @@ export default function NotificationRecipientSection() {
                                             <StyledInput
                                                 ref={channelInputRef}
                                                 placeholder={isPersonal ? '@user' : '#channel'}
-                                                disabled={!allowEditing || !slackSinkEnabled || isSettingsChannel}
-                                                value={subscription.channel}
+                                                disabled={!slack.enabled || !slackSinkEnabled || isSettingsChannel}
+                                                value={slack.subscription.channel}
                                                 status={customSlackSinkIsValid ? undefined : 'error'}
                                                 onChange={onChangeChannelInput}
                                             />
@@ -182,10 +181,10 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {isSubscriptionChannel && settings.channel && (
+                    {isSubscriptionChannel && slack.settings.channel && (
                         <StyledCheckbox
-                            disabled={!allowEditing || !slackSinkEnabled}
-                            checked={subscription.saveAsDefault}
+                            disabled={!slack.enabled || !slackSinkEnabled}
+                            checked={slack.subscription.saveAsDefault}
                             onChange={onChangeSaveAsDefaultCheckbox}
                         >
                             <SaveAsDefaultText>Save as default</SaveAsDefaultText>
