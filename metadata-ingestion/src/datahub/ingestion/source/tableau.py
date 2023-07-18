@@ -1613,7 +1613,6 @@ class TableauSource(StatefulIngestionSourceBase):
                     tableau_constant.EXTRACT_LAST_REFRESH_TIME,
                     tableau_constant.EXTRACT_LAST_INCREMENTAL_UPDATE_TIME,
                     tableau_constant.EXTRACT_LAST_UPDATE_TIME,
-                    tableau_constant.TYPE,
                 ],
             ),
         )
