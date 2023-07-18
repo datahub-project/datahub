@@ -2,7 +2,7 @@ import uniq from 'lodash/uniq';
 import { NotificationSinkType, SubscriptionType } from '../../../../../types.generated';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/notifications/constants';
 import { getDefaultCheckedKeys } from '../utils';
-import { Action, ActionTypes, State } from './types';
+import { Action, ActionTypes, SettingsSelection, State } from './types';
 
 export const createInitialState = (): State => ({
     edited: false,
@@ -88,7 +88,7 @@ export const reducer = (state: State, action: Action): State => {
                     channelSelection: action.payload,
                     subscription: {
                         ...state.slack.subscription,
-                        channel: action.payload ? undefined : state.slack.subscription.channel,
+                        channel: action.payload === SettingsSelection ? undefined : state.slack.subscription.channel,
                         saveAsDefault: !state.slack.settings.channel,
                     },
                 },
