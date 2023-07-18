@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Button } from 'antd';
-import { useFormStateContext } from '../form/context';
+import { useFormState } from '../form/context';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }: Props) {
-    const { edited, slack } = useFormStateContext();
+    const { edited, slack } = useFormState();
     const canSubmit = edited && (isSubscribed || slack.enabled);
 
     return (

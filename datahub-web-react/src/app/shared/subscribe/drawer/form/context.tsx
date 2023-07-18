@@ -29,16 +29,15 @@ const SubscriptionFormProvider = ({ children, isPersonal }: { children: ReactNod
     );
 };
 
-export const useFormStateContext = () => {
+export const useFormState = () => {
     const context = useContext(FormStateContext);
-    if (context === null) throw new Error(`${useFormStateContext.name} must be used under a ${FormStateProvider.name}`);
+    if (context === null) throw new Error(`${useFormState.name} must be used under a ${FormStateProvider.name}`);
     return context;
 };
 
-export const useFormDispatchContext = () => {
+export const useFormDispatch = () => {
     const context = useContext(FormDispatchContext);
-    if (context === null)
-        throw new Error(`${useFormDispatchContext.name} must be used under a ${FormDispatchProvider.name}`);
+    if (context === null) throw new Error(`${useFormDispatch.name} must be used under a ${FormDispatchProvider.name}`);
     return context;
 };
 

@@ -6,7 +6,7 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { getEntityPath } from '../../../../entity/shared/containers/profile/utils';
 import { EntityType } from '../../../../../types.generated';
 import { ReactComponent as LinkOut } from '../../../../../images/link-out.svg';
-import { useFormDispatchContext, useFormStateContext } from '../form/context';
+import { useFormDispatch, useFormState } from '../form/context';
 
 const UpstreamContainer = styled.div`
     margin-top: 32px;
@@ -61,8 +61,8 @@ export default function UpstreamSection({ entityUrn, entityType, upstreamCount }
         },
     );
 
-    const dispatch = useFormDispatchContext();
-    const { subscribeToUpstream } = useFormStateContext();
+    const dispatch = useFormDispatch();
+    const { subscribeToUpstream } = useFormState();
 
     return (
         <>

@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
-import { useFormDispatchContext } from './context';
+import { Key, useMemo } from 'react';
+import { useFormDispatch } from './context';
 import { InitializeActionPayload, State } from './types';
 
 const useFormActions = () => {
-    const dispatch = useFormDispatchContext();
+    const dispatch = useFormDispatch();
 
     return useMemo(
         () => ({
@@ -24,6 +24,9 @@ const useFormActions = () => {
             },
             setSaveAsDefault: (payload: boolean) => {
                 dispatch({ type: 'setSaveAsDefault', payload });
+            },
+            setCheckedKeys: (payload: Array<Key>) => {
+                dispatch({ type: 'setCheckedKeys', payload });
             },
         }),
         [dispatch],

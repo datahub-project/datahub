@@ -13,7 +13,7 @@ import {
 } from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
-import { useFormStateContext } from '../form/context';
+import { useFormState } from '../form/context';
 import useFormActions from '../form/actions';
 
 const NotificationRecipientContainer = styled.div`
@@ -86,7 +86,7 @@ export default function NotificationRecipientSection() {
     const [form] = useForm();
     const formActions = useFormActions();
 
-    const { isPersonal, slack } = useFormStateContext();
+    const { isPersonal, slack } = useFormState();
 
     const [isSettingsChannel, isSubscriptionChannel] = [
         slack.channelSelection === 'settings',
@@ -98,6 +98,9 @@ export default function NotificationRecipientSection() {
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
+    // the crux of the issue
+    // is how do we perform state updates around this component tree, where we need refs to a query
+    // and we need refs to the internal state of the form
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
     }, [form, slack.subscription.channel]);
