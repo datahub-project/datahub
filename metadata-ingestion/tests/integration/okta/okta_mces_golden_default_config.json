@@ -106,37 +106,6 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:john.doe",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "active": true,
-                        "displayName": "JDoe",
-                        "email": "john.doe@test.com",
-                        "firstName": "John",
-                        "lastName": "Doe",
-                        "fullName": "John Doe"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": [
-                            "urn:li:corpGroup:All%20Employees",
-                            "urn:li:corpGroup:Engineering"
-                        ]
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "test-okta-usage"
-    }
-},
-{
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:john.doe",
     "changeType": "UPSERT",
@@ -174,7 +143,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "active": true,
+                        "customProperties": {
+                            "department": "Engineering"
+                        },
+                        "active": false,
                         "displayName": "Mary Jane",
                         "email": "mary.jane@test.com",
                         "title": "Software Engineer",
@@ -241,7 +213,10 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "active": true,
+                        "customProperties": {
+                            "department": "Marketing"
+                        },
+                        "active": false,
                         "displayName": "Good Test",
                         "email": "good.test@test.com",
                         "title": "Manager",
