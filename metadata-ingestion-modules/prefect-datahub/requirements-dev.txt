@@ -19,6 +19,14 @@ typing_extensions>=3.10.0.2
 mypy_extensions>=0.4.3
 typing-inspect
 pydantic>=1.5.1
+tox
+deepdiff
+requests-mock
+freezegun
+jsonpickle
+build
+twine
+packaging
 # mypy stubs packages 
 types-dataclasses
 sqlalchemy-stubs
