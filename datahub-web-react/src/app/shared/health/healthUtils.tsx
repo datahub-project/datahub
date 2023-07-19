@@ -6,8 +6,8 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import React from 'react';
-import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
 import styled from 'styled-components';
+import { HealthStatus, HealthStatusType, Health } from '../../../types.generated';
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 
