@@ -3,6 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional
 
+from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -72,7 +73,7 @@ class MetadataPatchProposal:
                     value=json.dumps(
                         pre_json_transform(_recursive_to_obj(patches))
                     ).encode(),
-                    contentType="application/json-patch+json",
+                    contentType=JSON_PATCH_CONTENT_TYPE,
                 ),
                 auditHeader=self.audit_header,
                 systemMetadata=self.system_metadata,

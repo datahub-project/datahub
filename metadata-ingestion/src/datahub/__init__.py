@@ -23,3 +23,10 @@ if sys.version_info < (3, 7):
         FutureWarning,
         stacklevel=2,
     )
+elif sys.version_info < (3, 8):
+    warnings.warn(
+        "DataHub will require Python 3.8 or newer soon. "
+        "Please upgrade your Python version to continue using DataHub.",
+        FutureWarning,
+        stacklevel=2,
+    )

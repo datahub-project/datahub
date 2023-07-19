@@ -245,7 +245,7 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
  */
 export interface BrowseV2SelectNodeEvent extends BaseEvent {
     type: EventType.BrowseV2SelectNodeEvent;
-    targetNode: 'browse';
+    targetNode: 'browse' | 'platform';
     action: 'select' | 'deselect';
     entity: string;
     environment?: string;
