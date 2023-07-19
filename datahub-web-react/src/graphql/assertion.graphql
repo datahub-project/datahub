@@ -68,6 +68,13 @@ fragment assertionRunEventDetails on AssertionRunEvent {
             key
             value
         }
+        error {
+            type
+            properties {
+                key
+                value
+            }
+        }
     }
 }
 
@@ -79,6 +86,7 @@ query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long,
             total
             failed
             succeeded
+            errored
             runEvents {
                 ...assertionRunEventDetails
             }
