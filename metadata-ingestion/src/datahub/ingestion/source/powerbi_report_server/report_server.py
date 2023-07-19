@@ -116,7 +116,7 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
-def get_or_raise_value_error(
+def get_response_dict(
     response: requests.Response, error_message: str, log_messages: List[str] = []
 ) -> dict:
     if response.status_code != 200:
@@ -130,7 +130,7 @@ def get_or_raise_value_error(
     except (requests.exceptions.JSONDecodeError, requests.JSONDecodeError) as e:
         LOGGER.debug(msg=error_message, exc_info=e)
         LOGGER.debug(f"text received from server = {response.text}")
-        raise ValueError(error_message)
+        LOGGER.warning(error_message)
 
     return result_dict
 
@@ -172,7 +172,7 @@ class PowerBiReportServerAPI:
             "{}={}".format(Constant.ReportId, content_type),
         ]
 
-        return get_or_raise_value_error(
+        return get_response_dict(
             response=response,
             error_message=error_message,
             log_messages=log_messages,
@@ -199,15 +199,17 @@ class PowerBiReportServerAPI:
             report_get_endpoint_https = report_get_endpoint.format(
                 PBIRS_BASE_URL=self.__config.get_base_api_https_url,
             )
+
             response_dict = self.requests_get(
                 url_http=report_get_endpoint_http,
                 url_https=report_get_endpoint_https,
                 content_type=report_type,
-            )["value"]
-            if response_dict:
+            )
+
+            if response_dict.get("value"):
                 reports.extend(
                     report_types_mapping[report_type].parse_obj(report)
-                    for report in response_dict
+                    for report in response_dict.get("value")
                 )
 
         return reports

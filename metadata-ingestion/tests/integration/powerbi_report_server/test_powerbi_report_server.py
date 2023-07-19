@@ -1,6 +1,4 @@
 from datetime import datetime
-from functools import partial
-from typing import Any
 from unittest import mock
 
 from freezegun import freeze_time
@@ -23,7 +21,7 @@ def mock_user_to_add(*args, **kwargs):
     return None
 
 
-def register_mock_api(request_mock: Any, override_mock_data: dict = {}) -> None:
+def register_mock_api(request_mock):
     api_vs_response = {
         "https://host_port/Reports/api/v2.0/Reports": {
             "method": "GET",
@@ -143,20 +141,13 @@ def register_mock_api(request_mock: Any, override_mock_data: dict = {}) -> None:
         },
     }
 
-    api_vs_response.update(override_mock_data)
-
     for url in api_vs_response.keys():
-        register_uri_partial = partial(
-            request_mock.register_uri,
-            method=api_vs_response[url]["method"],
-            url=url,
+        request_mock.register_uri(
+            api_vs_response[url]["method"],
+            url,
+            json=api_vs_response[url]["json"],
             status_code=api_vs_response[url]["status_code"],
         )
-
-        if api_vs_response[url].get("json") is not None:
-            register_uri_partial(json=api_vs_response[url]["json"])
-        else:
-            register_uri_partial(text=api_vs_response[url]["text"])
 
 
 def default_source_config():
@@ -214,53 +205,3 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
         output_path=tmp_path / "powerbi_report_server_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
-
-
-@freeze_time(FROZEN_TIME)
-@mock.patch("requests_ntlm.HttpNtlmAuth")
-def test_value_error_for_invalid_json(
-    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
-):
-
-    register_mock_api(
-        request_mock=requests_mock,
-        override_mock_data={
-            "https://host_port/Reports/api/v2.0/PowerBIReports": {
-                "method": "GET",
-                "status_code": 200,
-                "text": "I not responding with JSON",
-            },
-        },
-    )
-
-    pipeline = Pipeline.create(
-        {
-            "run_id": "powerbi-report-server-test",
-            "source": {
-                "type": "powerbi-report-server",
-                "config": {
-                    **default_source_config(),
-                },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/powerbi_report_server_mces.json",
-                },
-            },
-        }
-    )
-    pipeline.ctx.graph = mock.MagicMock()
-    pipeline.ctx.graph.get_ownership = mock.MagicMock()
-    pipeline.ctx.graph.get_ownership.side_effect = mock_existing_users
-    pipeline.ctx.graph.get_aspect_v2 = mock.MagicMock()
-    pipeline.ctx.graph.get_aspect_v2.side_effect = mock_user_to_add
-
-    try:
-        pipeline.run()
-        pipeline.raise_from_status()
-    except ValueError as e:
-        assert (
-            "Failed to fetch POWERBI_REPORTS Report from powerbi-report-server"
-            in str(e)
-        )
