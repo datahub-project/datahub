@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -15,6 +16,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.sql.Timestamp;
 import java.util.Objects;
 import java.util.Optional;
@@ -71,11 +74,13 @@ public class AspectsBatchItem {
             aspectSpec(AspectUtils.validate(this.entitySpec, this.aspectName));
             log.debug("aspect spec = {}", this.aspectSpec);
 
-            RecordTemplate aspect = this.lambda.apply(null);
-            AspectUtils.validateRecordTemplate(entityRegistry, this.entitySpec, this.urn, aspect);
+            if (this.lambda != null) {
+                RecordTemplate aspect = this.lambda.apply(null);
+                AspectUtils.validateRecordTemplate(entityRegistry, this.entitySpec, this.urn, aspect);
+            }
 
-            return new AspectsBatchItem(this.urn, this.aspectName, this.systemMetadata, this.lambda, this.mcp,
-                    this.entitySpec, this.aspectSpec);
+            return new AspectsBatchItem(this.urn, this.aspectName, generateSystemMetadataIfEmpty(this.systemMetadata),
+                    this.lambda, this.mcp, this.entitySpec, this.aspectSpec);
         }
 
         private AspectsBatchItemBuilder entitySpec(EntitySpec entitySpec) {
@@ -87,6 +92,16 @@ public class AspectsBatchItem {
             this.aspectSpec = aspectSpec;
             return this;
         }
+
+        @Nonnull
+        private SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
+            if (systemMetadata == null) {
+                systemMetadata = new SystemMetadata();
+                systemMetadata.setRunId(EntityService.DEFAULT_RUN_ID);
+                systemMetadata.setLastObserved(System.currentTimeMillis());
+            }
+            return systemMetadata;
+        }
     }
 
     @Override
@@ -97,16 +112,32 @@ public class AspectsBatchItem {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
+
         AspectsBatchItem that = (AspectsBatchItem) o;
-        return urn.equals(that.urn) && aspectName.equals(that.aspectName)
-                && Objects.equals(systemMetadata, that.systemMetadata)
-                && lambda.apply(null).equals(that.lambda.apply(null))
-                && Objects.equals(mcp, that.mcp);
+
+        if (!urn.equals(that.urn)) {
+            return false;
+        }
+        if (!aspectName.equals(that.aspectName)) {
+            return false;
+        }
+        if (!systemMetadata.equals(that.systemMetadata)) {
+            return false;
+        }
+        if (!Objects.equals(lambda, that.lambda)) {
+            return false;
+        }
+        return mcp.equals(that.mcp);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(urn, aspectName, systemMetadata, lambda.apply(null), mcp);
+        int result = urn.hashCode();
+        result = 31 * result + aspectName.hashCode();
+        result = 31 * result + systemMetadata.hashCode();
+        result = 31 * result + (lambda != null ? lambda.hashCode() : 0);
+        result = 31 * result + mcp.hashCode();
+        return result;
     }
 
     @Override

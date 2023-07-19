@@ -584,9 +584,8 @@ public class EntityService {
 
                 final UpdateAspectResult result;
                 if (overwrite || latest == null) {
-                  SystemMetadata systemMetadata = generateSystemMetadataIfEmpty(item.getSystemMetadata());
                   result = ingestAspectToLocalDBNoTransaction(item.getUrn(), item.getAspectName(), item.getLambda(),
-                          auditStamp, systemMetadata, latest, nextVersion);
+                          auditStamp, item.getSystemMetadata(), latest, nextVersion);
 
                   // support inner-batch upserts
                   latestAspects.computeIfAbsent(urnStr, key -> new HashMap<>()).put(item.getAspectName(), item.toLatestEntityAspect(auditStamp));
@@ -678,16 +677,6 @@ public class EntityService {
         throw new IllegalStateException(e);
       }
     }, DEFAULT_MAX_TRANSACTION_RETRY);
-  }
-
-  @Nonnull
-  protected SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
-    if (systemMetadata == null) {
-      systemMetadata = new SystemMetadata();
-      systemMetadata.setRunId(DEFAULT_RUN_ID);
-      systemMetadata.setLastObserved(System.currentTimeMillis());
-    }
-    return systemMetadata;
   }
 
   /**

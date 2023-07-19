@@ -54,8 +54,6 @@ public class AspectsBatch {
             log.debug("entity type = {}", mcp.getEntityType());
             EntitySpec entitySpec = entityRegistry.getEntitySpec(mcp.getEntityType());
             AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
-            RecordTemplate aspect = convertToRecordTemplate(mcp, aspectSpec);
-            log.debug("aspect = {}", aspect);
 
             if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
                 throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType()
@@ -67,13 +65,17 @@ public class AspectsBatch {
                 urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
             }
 
-            return AspectsBatchItem.builder()
+            AspectsBatchItem.AspectsBatchItemBuilder builder = AspectsBatchItem.builder()
                     .urn(urn)
                     .aspectName(mcp.getAspectName())
                     .systemMetadata(mcp.getSystemMetadata())
-                    .mcp(mcp)
-                    .value(aspect)
-                    .build(entityRegistry);
+                    .mcp(mcp);
+
+            if (!mcp.getChangeType().equals(ChangeType.PATCH)) {
+                builder.value(convertToRecordTemplate(mcp, aspectSpec));
+            }
+
+            return builder.build(entityRegistry);
         }
 
         private static RecordTemplate convertToRecordTemplate(MetadataChangeProposal mcp, AspectSpec aspectSpec) {
