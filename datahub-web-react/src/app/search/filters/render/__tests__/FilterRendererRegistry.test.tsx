@@ -1,7 +1,5 @@
 import React from 'react';
 import FilterRendererRegistry from '../FilterRendererRegistry';
-import { FilterRenderer } from '../FilterRenderer';
-import { FilterRenderProps } from '../types';
 
 describe('FilterRendererRegistry', () => {
     let registry;
