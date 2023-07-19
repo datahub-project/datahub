@@ -153,12 +153,12 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
       health.setType(HealthStatusType.ASSERTIONS);
       if (failingAssertionUrns.size() > 0) {
         health.setStatus(HealthStatus.FAIL);
-        health.setMessage(String.format("Dataset is failing %s/%s assertions.", failingAssertionUrns.size(),
+        health.setMessage(String.format("%s of %s failing", failingAssertionUrns.size(),
             activeAssertionUrns.size()));
         health.setCauses(failingAssertionUrns);
       } else {
         health.setStatus(HealthStatus.PASS);
-        health.setMessage("Dataset is passing all assertions.");
+        health.setMessage("Passing all assertions");
       }
       return health;
 
