@@ -133,7 +133,7 @@ const SubscriptionDrawerContent = ({
     }, [initializeState]);
 
     const resetAndClose = () => {
-        setTimeout(() => initializeState(), 250);
+        setTimeout(initializeState, 250);
         onClose();
     };
 
