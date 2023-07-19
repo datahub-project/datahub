@@ -13,6 +13,7 @@ const Sidebar = styled.div<{ visible: boolean; width: number }>`
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
     background-color: #f8f9fa;
+    background: white;
 `;
 
 const SidebarHeader = styled.div`
