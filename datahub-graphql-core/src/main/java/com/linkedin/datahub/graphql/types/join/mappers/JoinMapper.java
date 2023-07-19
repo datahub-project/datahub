@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.Join;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -88,8 +89,8 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
-//        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
-//                ? joinProperties.getCreated().getActor().toString() : "")
+        .setCreatedActor(joinProperties.hasCreated() && joinProperties.hasCreatedActor()
+                ? UrnToEntityMapper.map(joinProperties.getCreatedActor()) : null)
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
                 ? joinProperties.getCreated().getTime() : 0)
         .build());

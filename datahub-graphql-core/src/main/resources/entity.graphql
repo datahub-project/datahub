@@ -342,6 +342,11 @@ type JoinProperties {
     Created timestamp millis associated with the Join
     """
     createdTime: Long
+
+    """
+    Actor associated with the Join's created timestamp
+    """
+    createdActor: Entity
 }
 
 """
