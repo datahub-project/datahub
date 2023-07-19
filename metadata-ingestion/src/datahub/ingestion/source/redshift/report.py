@@ -2,12 +2,13 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict
 from datahub.utilities.stats_collections import TopKDict
 
 
 @dataclass
-class RedshiftReport(ProfilingSqlReport):
+class RedshiftReport(ProfilingSqlReport, IngestionStageReport):
     num_usage_workunits_emitted: Optional[int] = None
     num_operational_stats_workunits_emitted: Optional[int] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)

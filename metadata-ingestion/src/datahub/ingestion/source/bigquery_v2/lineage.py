@@ -29,6 +29,9 @@ from datahub.ingestion.source.bigquery_v2.common import (
     _make_gcp_logging_client,
     get_bigquery_client,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
@@ -214,12 +217,27 @@ AND
 timestamp < "{end_time}"
 """.strip()
 
-    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
+    ):
         self.config = config
         self.report = report
 
         self.lineage_start_time = self.config.start_time
         self.lineage_end_time = self.config.end_time
+
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+
+        if self.redundant_run_skip_handler:
+            (
+                self.lineage_start_time,
+                self.lineage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -665,6 +683,7 @@ timestamp < "{end_time}"
                 "lineage",
                 f"{project_id}: {e}",
             )
+            self.report_status(f"{project_id}-lineage", False)
             lineage_metadata = {}
 
         self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
@@ -834,3 +853,7 @@ timestamp < "{end_time}"
             )
             for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

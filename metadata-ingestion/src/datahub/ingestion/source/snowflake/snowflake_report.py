@@ -4,13 +4,18 @@ from typing import Dict, MutableSet, Optional
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
 from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
 
 
 @dataclass
 class SnowflakeV2Report(
-    SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport, ClassificationReportMixin
+    SnowflakeReport,
+    SnowflakeUsageReport,
+    ProfilingSqlReport,
+    ClassificationReportMixin,
+    IngestionStageReport,
 ):
     account_locator: Optional[str] = None
     region: Optional[str] = None
@@ -94,3 +99,6 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
+
+    def set_ingestion_stage(self, database: str, stage: str) -> None:
+        self.report_ingestion_stage_start(f"{database}: {stage}")

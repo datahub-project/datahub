@@ -101,6 +101,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    PROFILING,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     GlobalTags,
     Status,
@@ -533,6 +538,7 @@ class SnowflakeV2Source(
 
         for snowflake_db in databases:
             try:
+                self.report.set_ingestion_stage(snowflake_db.name, METADATA_EXTRACTION)
                 yield from self._process_database(snowflake_db)
 
             except SnowflakePermissionError as e:
@@ -586,6 +592,7 @@ class SnowflakeV2Source(
         discovered_datasets = discovered_tables + discovered_views
 
         if self.config.include_table_lineage and self.lineage_extractor:
+            self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables=discovered_tables,
                 discovered_views=discovered_views,
@@ -708,6 +715,7 @@ class SnowflakeV2Source(
             yield from self._process_schema(snowflake_schema, db_name)
 
         if self.config.profiling.enabled and self.db_tables:
+            self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(self, snowflake_db, db_name):

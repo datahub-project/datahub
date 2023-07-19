@@ -1,7 +1,8 @@
 import logging
 from abc import ABCMeta, abstractmethod
+from collections import defaultdict
 from datetime import datetime
-from typing import Optional, Tuple, cast
+from typing import Dict, Optional, Tuple, cast
 
 import pydantic
 
@@ -55,6 +56,9 @@ class RedundantRunSkipHandler(
         self._job_id = self._init_job_id()
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
+        # step -> step status
+        self.status: Dict[str, bool] = defaultdict(lambda: True)
+
     def _ignore_new_state(self) -> bool:
         return (
             self.stateful_ingestion_config is not None
@@ -100,6 +104,17 @@ class RedundantRunSkipHandler(
                 end_timestamp_millis=self.INVALID_TIMESTAMP_VALUE,
             ),
         )
+
+    def report_current_run_status(self, step: str, status: bool) -> None:
+        """
+        A helper to track status of all steps of current run.
+        This will be used to decide overall status of the run.
+        Checkpoint state will not be updated/committed for current run if there are any failures.
+        """
+        self.status[step] = status
+
+    def is_current_run_succeessful(self) -> bool:
+        return all(self.status)
 
     def update_state(
         self,
@@ -239,3 +254,12 @@ class RedundantLineageRunSkipHandler(RedundantRunSkipHandler):
 class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
     def get_job_name_suffix(self):
         return "_usage"
+
+    def update_state(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        bucket_duration: BucketDuration | None = None,
+    ) -> None:
+        assert bucket_duration is not None
+        return super().update_state(start_time, end_time, bucket_duration)

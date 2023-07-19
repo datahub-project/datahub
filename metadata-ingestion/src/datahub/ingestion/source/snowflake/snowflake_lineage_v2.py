@@ -59,6 +59,10 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+EXTERNAL_LINEAGE = "external_lineage"
+TABLE_LINEAGE = "table_lineage"
+VIEW_LINEAGE = "view_lineage"
+
 
 @dataclass(frozen=True)
 class SnowflakeColumnId:
@@ -103,7 +107,16 @@ class SnowflakeLineageExtractor(
             if not self.config.ignore_start_time_lineage
             else get_datetime_from_ts_millis_in_utc(0)
         )
+
         self.lineage_end_time = self.config.end_time
+
+        if self.redundant_run_skip_handler:
+            (
+                self.lineage_start_time,
+                self.lineage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
 
     def get_workunits(
         self,
@@ -115,16 +128,6 @@ class SnowflakeLineageExtractor(
         if not self._should_ingest_lineage():
             return
 
-        if (
-            self.config.enable_stateful_lineage_ingestion
-            and self.redundant_run_skip_handler
-        ):
-            (
-                self.lineage_start_time,
-                self.lineage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -145,6 +148,15 @@ class SnowflakeLineageExtractor(
 
         if self._external_lineage_map:  # Some external lineage is yet to be emitted
             yield from self.get_table_external_upstream_workunits()
+
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.is_current_run_succeessful()
+        ):
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
 
     def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
         for (
@@ -406,6 +418,7 @@ class SnowflakeLineageExtractor(
                 "external_lineage",
                 f"Populating external table lineage from Snowflake failed due to error {e}.",
             )
+            self.report_status(EXTERNAL_LINEAGE, False)
 
     # Handles the case where a table is populated from an external stage/s3 location via copy.
     # Eg: copy into category_english from @external_s3_stage;
@@ -433,6 +446,7 @@ class SnowflakeLineageExtractor(
                     "external_lineage",
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(EXTERNAL_LINEAGE, False)
 
     def _process_external_lineage_result_row(self, db_row, discovered_tables):
         # key is the down-stream table name
@@ -475,6 +489,7 @@ class SnowflakeLineageExtractor(
                     "table-upstream-lineage",
                     f"Extracting lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(TABLE_LINEAGE, False)
 
     def map_query_result_upstreams(self, upstream_tables):
         if not upstream_tables:
@@ -560,6 +575,7 @@ class SnowflakeLineageExtractor(
                     "view-upstream-lineage",
                     f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(VIEW_LINEAGE, False)
 
     def build_finegrained_lineage(
         self,
@@ -638,9 +654,8 @@ class SnowflakeLineageExtractor(
                 "Skip this run as there was already a run for current ingestion window.",
             )
             return False
-        elif self.redundant_run_skip_handler:
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
-            )
         return True
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

@@ -25,6 +25,10 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
+from datahub.ingestion.source_report.ingestion_stage import (
+    USAGE_EXTRACTION_OPERATIONAL_STATS,
+    USAGE_EXTRACTION_USAGE_AGGREGATION,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetFieldUsageCounts,
     DatasetUsageStatistics,
@@ -123,22 +127,22 @@ class SnowflakeUsageExtractor(
         self.usage_start_time = self.config.start_time
         self.usage_end_time = self.config.end_time
 
-    def get_usage_workunits(
-        self, discovered_datasets: List[str]
-    ) -> Iterable[MetadataWorkUnit]:
-        if not self._should_ingest_usage():
-            return
-
-        if (
-            self.config.enable_stateful_usage_ingestion
-            and self.redundant_run_skip_handler
-        ):
+        if self.redundant_run_skip_handler:
             (
                 self.usage_start_time,
                 self.usage_end_time,
             ) = self.redundant_run_skip_handler.suggest_run_time_window(
                 self.config.start_time, self.config.end_time
             )
+
+    def get_usage_workunits(
+        self, discovered_datasets: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_usage():
+            return
+
+        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_USAGE_AGGREGATION)
+
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -173,6 +177,8 @@ class SnowflakeUsageExtractor(
                 },
             )
 
+        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_OPERATIONAL_STATS)
+
         if self.config.include_operational_stats:
             # Generate the operation workunits.
             access_events = self._get_snowflake_history()
@@ -180,6 +186,17 @@ class SnowflakeUsageExtractor(
                 yield from self._get_operation_aspect_work_unit(
                     event, discovered_datasets
                 )
+
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.is_current_run_succeessful()
+        ):
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time,
+                self.config.end_time,
+                self.config.bucket_duration,
+            )
 
     def _get_workunits_internal(
         self, discovered_datasets: List[str]
@@ -199,11 +216,13 @@ class SnowflakeUsageExtractor(
                 )
             except Exception as e:
                 logger.debug(e, exc_info=e)
-                self.report_warning(
+                self.warn_if_stateful_else_error(
                     "usage-statistics",
                     f"Populating table usage statistics from Snowflake failed due to error {e}.",
                 )
+                self.report_status(USAGE_EXTRACTION_USAGE_AGGREGATION, False)
                 return
+
             self.report.usage_aggregation_query_secs = timer.elapsed_seconds()
 
         for row in results:
@@ -311,10 +330,11 @@ class SnowflakeUsageExtractor(
                 results = self.query(query)
             except Exception as e:
                 logger.debug(e, exc_info=e)
-                self.report_warning(
+                self.warn_if_stateful_else_error(
                     "operation",
                     f"Populating table operation history from Snowflake failed due to error {e}.",
                 )
+                self.report_status(USAGE_EXTRACTION_OPERATIONAL_STATS, False)
                 return
             self.report.access_history_query_secs = round(timer.elapsed_seconds(), 2)
 
@@ -342,6 +362,7 @@ class SnowflakeUsageExtractor(
                         "usage",
                         f"Extracting the date range for usage data from Snowflake failed due to error {e}.",
                     )
+                self.report_status("date-range-check", False)
             else:
                 for db_row in results:
                     if (
@@ -515,9 +536,9 @@ class SnowflakeUsageExtractor(
                 "Skip this run as there was already a run for current ingestion window.",
             )
             return False
-        elif self.redundant_run_skip_handler:
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
-            )
+
         return True
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

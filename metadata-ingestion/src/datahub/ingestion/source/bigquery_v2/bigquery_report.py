@@ -90,4 +90,4 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport):
     usage_state_size: Optional[str] = None
 
     def set_ingestion_stage(self, project_id: str, stage: str) -> None:
-        self.report_ingestion_stage(f"{project_id}: {stage}")
+        self.report_ingestion_stage_start(f"{project_id}: {stage}")

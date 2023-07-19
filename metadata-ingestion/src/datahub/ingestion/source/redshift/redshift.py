@@ -72,6 +72,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    PROFILING,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import SubTypes, TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
@@ -298,19 +303,16 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=list(self.config.domain.keys()), graph=self.ctx.graph
             )
 
-        self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
-        self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
+        self.redundant_lineage_run_skip_handler: Optional[
+            RedundantLineageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_lineage_ingestion:
+            self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.enable_stateful_profiling:
@@ -375,6 +377,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         connection = RedshiftSource.get_redshift_connection(self.config)
         database = get_db_name(self.config)
         logger.info(f"Processing db {self.config.database} with name {database}")
+        self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
         # self.add_config_to_report()
         self.db_tables[database] = defaultdict()
         self.db_views[database] = defaultdict()
@@ -397,6 +400,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         all_tables = self.get_all_tables()
 
         if self.config.include_table_lineage or self.config.include_copy_lineage:
+            self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
             yield from self.extract_lineage(
                 connection=connection, all_tables=all_tables, database=database
             )
@@ -407,6 +411,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         if self.config.profiling.enabled:
+            self.report.report_ingestion_stage_start(PROFILING)
             profiler = RedshiftProfiler(
                 config=self.config,
                 report=self.report,
@@ -839,49 +844,30 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database: str,
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
-        if self._should_ingest_usage():
-            with PerfTimer() as timer:
-                usage_extractor = RedshiftUsageExtractor(
+        with PerfTimer() as timer:
+            redundant_usage_run_skip_handler: Optional[
+                RedundantUsageRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_usage_ingestion:
+                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                    source=self,
                     config=self.config,
-                    connection=connection,
-                    report=self.report,
-                    dataset_urn_builder=self.gen_dataset_urn,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
                 )
-                if self.config.enable_stateful_usage_ingestion:
-                    (
-                        usage_extractor.usage_start_time,
-                        usage_extractor.usage_end_time,
-                    ) = self.redundant_usage_run_skip_handler.suggest_run_time_window(
-                        self.config.start_time, self.config.end_time
-                    )
-
-                yield from usage_extractor.get_usage_workunits(all_tables=all_tables)
-
-                self.report.usage_extraction_sec[database] = round(
-                    timer.elapsed_seconds(), 2
-                )
-
-    def _should_ingest_usage(self):
-        if (
-            self.config.enable_stateful_usage_ingestion
-            and self.redundant_usage_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
-        ):
-            # Skip this run
-            self.report.report_warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
-            )
-            return False
-        elif self.config.enable_stateful_usage_ingestion:
-            # Update the checkpoint state for this run.
-            self.redundant_usage_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
+            usage_extractor = RedshiftUsageExtractor(
+                config=self.config,
+                connection=connection,
+                report=self.report,
+                dataset_urn_builder=self.gen_dataset_urn,
+                redundant_run_skip_handler=redundant_usage_run_skip_handler,
             )
 
-        return True
+            yield from usage_extractor.get_usage_workunits(all_tables=all_tables)
+
+            self.report.usage_extraction_sec[database] = round(
+                timer.elapsed_seconds(), 2
+            )
 
     def extract_lineage(
         self,
@@ -895,14 +881,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.lineage_extractor = RedshiftLineageExtractor(
             config=self.config,
             report=self.report,
+            redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
         )
-        if self.config.enable_stateful_lineage_ingestion:
-            (
-                self.lineage_extractor.lineage_start_time,
-                self.lineage_extractor.lineage_end_time,
-            ) = self.redundant_lineage_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
 
         with PerfTimer() as timer:
             self.lineage_extractor.populate_lineage(
@@ -914,9 +894,18 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
             yield from self.generate_lineage(database)
 
+            if (
+                self.redundant_lineage_run_skip_handler
+                and self.redundant_lineage_run_skip_handler.is_current_run_succeessful()
+            ):
+                # Update the checkpoint state for this run.
+                self.redundant_lineage_run_skip_handler.update_state(
+                    self.config.start_time, self.config.end_time
+                )
+
     def _should_ingest_lineage(self) -> bool:
         if (
-            self.config.enable_stateful_lineage_ingestion
+            self.redundant_lineage_run_skip_handler
             and self.redundant_lineage_run_skip_handler.should_skip_this_run(
                 cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
@@ -925,14 +914,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             # Skip this run
             self.report.report_warning(
                 "lineage-extraction",
-                f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                "Skip this run as there was already a run for current ingestion window.",
             )
             return False
-        elif self.config.enable_stateful_lineage_ingestion:
-            # Update the checkpoint state for this run.
-            self.redundant_lineage_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
-            )
+
         return True
 
     def generate_lineage(self, database: str) -> Iterable[MetadataWorkUnit]:

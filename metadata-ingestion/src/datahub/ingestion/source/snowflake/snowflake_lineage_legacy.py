@@ -18,6 +18,11 @@ from datahub.ingestion.source.snowflake.constants import (
     SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
+    EXTERNAL_LINEAGE,
+    TABLE_LINEAGE,
+    VIEW_LINEAGE,
+)
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
@@ -209,6 +214,14 @@ class SnowflakeLineageExtractor(
         )
         self.lineage_end_time = self.config.end_time
 
+        if self.redundant_run_skip_handler:
+            (
+                self.lineage_start_time,
+                self.lineage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+
     # Kwargs used by new snowflake lineage extractor need to be ignored here
     def get_workunits(
         self, discovered_tables: List[str], discovered_views: List[str], **_kwargs: Any
@@ -216,16 +229,6 @@ class SnowflakeLineageExtractor(
         if not self._should_ingest_lineage():
             return
 
-        if (
-            self.config.enable_stateful_lineage_ingestion
-            and self.redundant_run_skip_handler
-        ):
-            (
-                self.lineage_start_time,
-                self.lineage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
         self.connection = self.create_connection()
         if self.connection is None:
             return
@@ -249,6 +252,15 @@ class SnowflakeLineageExtractor(
 
         yield from self.get_table_upstream_workunits(discovered_tables)
         yield from self.get_view_upstream_workunits(discovered_views)
+
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.is_current_run_succeessful()
+        ):
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
+            )
 
     def _populate_table_lineage(self):
         if self.report.edition == SnowflakeEdition.STANDARD:
@@ -401,6 +413,7 @@ class SnowflakeLineageExtractor(
                     "external_lineage",
                     f"Populating table external lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(EXTERNAL_LINEAGE, False)
 
     def _process_external_lineage_result_row(self, db_row):
         # key is the down-stream table name
@@ -442,6 +455,7 @@ class SnowflakeLineageExtractor(
                     "table-lineage",
                     f"Extracting lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(TABLE_LINEAGE, False)
         logger.info(
             f"A total of {self.report.num_table_to_table_edges_scanned} Table->Table edges found"
             f" for {len(self._lineage_map)} downstream tables.",
@@ -496,6 +510,7 @@ class SnowflakeLineageExtractor(
                     "view-upstream-lineage",
                     f"Extracting the upstream view lineage from Snowflake failed due to error {e}.",
                 )
+            self.report_status(VIEW_LINEAGE, False)
         logger.info(
             f"A total of {self.report.num_table_to_view_edges_scanned} View upstream edges found."
         )
@@ -552,6 +567,7 @@ class SnowflakeLineageExtractor(
                     "view-downstream-lineage",
                     f"Extracting the view lineage from Snowflake failed due to error {e}.",
                 )
+                self.report_status(VIEW_LINEAGE, False)
 
         logger.info(
             f"Found {self.report.num_view_to_table_edges_scanned} View->Table edges."
@@ -702,10 +718,9 @@ class SnowflakeLineageExtractor(
                 "Skip this run as there was already a run for current ingestion window.",
             )
             return False
-        elif self.redundant_run_skip_handler:
-            # Update the checkpoint state for this run.
-            self.redundant_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
-            )
 
         return True
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

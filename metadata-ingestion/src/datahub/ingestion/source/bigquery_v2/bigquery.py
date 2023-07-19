@@ -83,6 +83,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    PROFILING,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
     SubTypes,
@@ -228,10 +233,36 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
+        self.redundant_lineage_run_skip_handler: Optional[
+            RedundantLineageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_lineage_ingestion:
+            self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         # For database, schema, tables, views, etc
-        self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
+        self.lineage_extractor = BigqueryLineageExtractor(
+            config, self.report, self.redundant_lineage_run_skip_handler
+        )
+
+        redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None
+        if self.config.enable_stateful_usage_ingestion:
+            redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         self.usage_extractor = BigQueryUsageExtractor(
-            config, self.report, dataset_urn_builder=self.gen_dataset_urn_from_ref
+            config,
+            self.report,
+            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
         self.domain_registry: Optional[DomainRegistry] = None
@@ -239,20 +270,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
-
-        self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
-        self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
         if self.config.enable_stateful_profiling:
@@ -514,65 +531,35 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return
 
         for project_id in projects:
-            self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
+            self.report.set_ingestion_stage(project_id.id, METADATA_EXTRACTION)
             logger.info(f"Processing project: {project_id.id}")
             yield from self._process_project(conn, project_id)
 
-        if self._should_ingest_usage():
+        if self.config.include_usage_statistics:
             yield from self.usage_extractor.get_usage_workunits(
                 [p.id for p in projects], self.table_refs
             )
-            if self.config.enable_stateful_usage_ingestion:
-                (
-                    self.usage_extractor.usage_start_time,
-                    self.usage_extractor.usage_end_time,
-                ) = self.redundant_usage_run_skip_handler.suggest_run_time_window(
-                    self.config.start_time, self.config.end_time
-                )
 
         if self._should_ingest_lineage():
-            if self.config.enable_stateful_lineage_ingestion:
-                (
-                    self.lineage_extractor.lineage_start_time,
-                    self.lineage_extractor.lineage_end_time,
-                ) = self.redundant_lineage_run_skip_handler.suggest_run_time_window(
-                    self.config.start_time, self.config.end_time
-                )
             for project in projects:
-                self.report.set_ingestion_stage(project.id, "Lineage Extraction")
+                self.report.set_ingestion_stage(project.id, LINEAGE_EXTRACTION)
                 yield from self.generate_lineage(project.id)
 
-    def _should_ingest_usage(self) -> bool:
-        if not self.config.include_usage_statistics:
-            return False
-
-        if (
-            self.config.enable_stateful_usage_ingestion
-            and self.redundant_usage_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
-            )
-        ):
-            # Skip this run
-            self.report.report_warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
-            )
-            return False
-        elif self.config.enable_stateful_usage_ingestion:
-            # Update the checkpoint state for this run.
-            self.redundant_usage_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
-            )
-
-        return True
+            if (
+                self.redundant_lineage_run_skip_handler
+                and self.redundant_lineage_run_skip_handler.is_current_run_succeessful()
+            ):
+                # Update the checkpoint state for this run.
+                self.redundant_lineage_run_skip_handler.update_state(
+                    self.config.start_time, self.config.end_time
+                )
 
     def _should_ingest_lineage(self) -> bool:
         if not self.config.include_table_lineage:
             return False
 
         if (
-            self.config.enable_stateful_lineage_ingestion
+            self.redundant_lineage_run_skip_handler
             and self.redundant_lineage_run_skip_handler.should_skip_this_run(
                 cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
                 cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
@@ -584,11 +571,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 "Skip this run as there was already a run for current ingestion window.",
             )
             return False
-        elif self.config.enable_stateful_lineage_ingestion:
-            # Update the checkpoint state for this run.
-            self.redundant_lineage_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
-            )
 
         return True
 
@@ -690,7 +672,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.profiling.enabled:
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_ingestion_stage(project_id, "Profiling")
+            self.report.set_ingestion_stage(project_id, PROFILING)
             yield from self.profiler.get_workunits(
                 project_id=project_id,
                 tables=db_tables,
