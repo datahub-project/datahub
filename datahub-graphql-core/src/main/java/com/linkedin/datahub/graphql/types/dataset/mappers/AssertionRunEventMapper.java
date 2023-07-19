@@ -2,6 +2,8 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.datahub.graphql.generated.AssertionResult;
+import com.linkedin.datahub.graphql.generated.AssertionResultError;
+import com.linkedin.datahub.graphql.generated.AssertionResultErrorType;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.BatchSpec;
@@ -79,7 +81,21 @@ public class AssertionRunEventMapper
       datasetAssertionResult.setNativeResults(StringMapMapper.map(gmsResult.getNativeResults()));
     }
 
+    if (gmsResult.hasError()) {
+      datasetAssertionResult.setError(mapAssertionResultError(gmsResult.getError()));
+    }
+
     return datasetAssertionResult;
+  }
+
+  private AssertionResultError mapAssertionResultError(com.linkedin.assertion.AssertionResultError gmsResult) {
+    AssertionResultError datasetAssertionResultError = new AssertionResultError();
+    datasetAssertionResultError.setType(AssertionResultErrorType.valueOf(gmsResult.getType().name()));
+
+    if (gmsResult.hasProperties()) {
+      datasetAssertionResultError.setProperties(StringMapMapper.map(gmsResult.getProperties()));
+    }
+    return datasetAssertionResultError;
   }
 
   private BatchSpec mapBatchSpec(com.linkedin.assertion.BatchSpec gmsBatchSpec) {

@@ -6725,7 +6725,7 @@ The result of evaluating an assertion.
 """
 type AssertionResult {
     """
-    The final result, e.g. either SUCCESS or FAILURE.
+    The final result, e.g. either INIT, SUCCESS, FAILURE, or ERROR.
     """
     type: AssertionResultType!
 
@@ -6759,6 +6759,61 @@ type AssertionResult {
     """
     nativeResults: [StringMapEntry!]
 
+    """
+    Error details, if type is ERROR
+    """
+    error: AssertionResultError
+
+}
+
+"""
+An error encountered when evaluating an AssertionResult
+"""
+type AssertionResultError {
+    """
+    The type of error encountered
+    """
+    type: AssertionResultErrorType!
+
+    """
+    Additional metadata depending on the type of error
+    """
+    properties: [StringMapEntry!]
+}
+
+"""
+The type of error encountered when evaluating an AssertionResult
+"""
+enum AssertionResultErrorType {
+    """
+    Source is unreachable
+    """
+    SOURCE_CONNECTION_ERROR
+
+    """
+    Source query failed to execute
+    """
+    SOURCE_QUERY_FAILED
+
+    """
+    Invalid parameters were detected
+    """
+    INVALID_PARAMETERS
+
+    """
+    Event type not supported by the specified source
+    """
+    INVALID_SOURCE_TYPE
+
+    """
+    Platform not supported
+    """
+    UNSUPPORTED_PLATFORM
+
+    """
+    Unknown error
+    """
+    UNKNOWN_ERROR
 }
 
 type BatchSpec {
@@ -6788,6 +6843,11 @@ The result type of an assertion, success or failure.
 """
 enum AssertionResultType {
     """
+    The assertion has not yet been fully evaluated.
+    """
+    INIT
+
+    """
     The assertion succeeded.
     """
     SUCCESS
@@ -6796,6 +6856,11 @@ enum AssertionResultType {
     The assertion failed.
     """
     FAILURE
+
+    """
+    The assertion errored.
+    """
+    ERROR
 }
 
 """
@@ -7060,6 +7125,11 @@ type AssertionRunEventsResult {
   The number of succeeded run events
   """
   succeeded: Int!
+
+  """
+  The number of errored run events
+  """
+  errored: Int!
 
   """
   The run events themselves
