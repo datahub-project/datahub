@@ -119,7 +119,7 @@ public class EbeanRetentionService extends RetentionService {
           BulkApplyRetentionResult applyRetentionResult
   ) {
     try (Transaction transaction = _server.beginTransaction()) {
-      transaction.setBatchMode(false);
+      transaction.setBatchMode(true);
       transaction.setBatchSize(_batchSize);
       for (EbeanAspectV2 row : rows.getList()) {
         // Only run for cases where there's multiple versions of the aspect
