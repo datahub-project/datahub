@@ -58,7 +58,7 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
         updateEmbed(embed, input);
 
         final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(entityUrn, EMBED_ASPECT_NAME, embed);
-        _entityService.ingestProposal(
+        _entityService.ingestSingleProposal(
             proposal,
             new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()),
             false

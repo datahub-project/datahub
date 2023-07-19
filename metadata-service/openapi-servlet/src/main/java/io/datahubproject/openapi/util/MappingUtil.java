@@ -20,6 +20,8 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -48,6 +50,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
@@ -265,10 +268,17 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
-      Urn urn = proposalResult.getUrn();
-      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
-      return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
+      Stream<com.linkedin.mxe.MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(serviceProposal),
+              AspectUtils.getAdditionalChanges(serviceProposal, entityService).stream());
+
+      AspectsBatch batch = AspectsBatch.builder().mcps(proposalStream.collect(Collectors.toList()),
+              entityService.getEntityRegistry()).build();
+
+      Set<Pair<AspectsBatchItem, EntityService.IngestProposalResult>> proposalResult =
+              entityService.ingestProposal(batch, auditStamp, false);
+
+      Urn urn = proposalResult.stream().findFirst().get().getSecond().getUrn();
+      return new Pair<>(urn.toString(), proposalResult.stream().anyMatch(resultPair -> resultPair.getSecond().isDidUpdate()));
     } catch (ValidationException ve) {
       exceptionally = ve;
       throw HttpClientErrorException.create(HttpStatus.UNPROCESSABLE_ENTITY, ve.getMessage(), null, null, null);

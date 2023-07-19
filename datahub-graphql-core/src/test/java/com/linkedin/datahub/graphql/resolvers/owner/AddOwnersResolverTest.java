@@ -30,7 +30,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -75,7 +75,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessExistingOwners() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -120,7 +120,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetFailureOwnerDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -148,7 +148,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -176,7 +176,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
 
@@ -195,7 +195,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),

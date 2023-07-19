@@ -126,7 +126,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     proposal.setChangeType(ChangeType.UPSERT);
     proposal.setSystemMetadata(new SystemMetadata().setRunId(EntityService.DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(newPaths));
-    _entityService.ingestProposal(
+    _entityService.ingestSingleProposal(
         proposal,
         auditStamp,
         false

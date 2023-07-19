@@ -25,6 +25,7 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -50,6 +51,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -60,6 +62,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -534,8 +537,16 @@ public class JavaEntityClient implements EntityClient {
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, async).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, async));
+        Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                additionalChanges.stream());
+        AspectsBatch batch = AspectsBatch.builder()
+                .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                .build();
+
+        EntityService.IngestProposalResult one = _entityService.ingestProposal(batch, auditStamp, async).stream()
+                .findFirst().map(Pair::getSecond).get();
+
+        Urn urn = one.getUrn();
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
         return urn.toString();
     }

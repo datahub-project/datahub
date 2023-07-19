@@ -13,6 +13,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.Date;
 import java.util.Map;
+
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -173,5 +175,9 @@ public class StatefulTokenServiceTest {
 
     // Validation should fail.
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
+  }
+
+  private void mockStateful() {
+
   }
 }

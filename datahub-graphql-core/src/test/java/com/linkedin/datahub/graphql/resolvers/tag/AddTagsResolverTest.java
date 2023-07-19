@@ -32,7 +32,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTags() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -82,7 +82,7 @@ public class AddTagsResolverTest {
         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN))))
     );
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -128,7 +128,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetFailureTagDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -156,7 +156,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -184,7 +184,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     AddTagsResolver resolver = new AddTagsResolver(mockService);
 
@@ -203,7 +203,7 @@ public class AddTagsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
         Mockito.any(),

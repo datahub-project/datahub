@@ -6,17 +6,24 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.Entity;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+
 import static com.linkedin.metadata.entity.EntityService.*;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 @Slf4j
@@ -24,6 +31,9 @@ public class EntityUtils {
 
   private EntityUtils() {
   }
+
+  public static final int URN_NUM_BYTES_LIMIT = 512;
+  public static final String URN_DELIMITER_SEPARATOR = "␟";
 
   @Nonnull
   public static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
@@ -95,4 +105,34 @@ public class EntityUtils {
       return false;
     }
   }
+
+  public static RecordTemplate buildKeyAspect(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    final EntitySpec spec = entityRegistry.getEntitySpec(urnToEntityName(urn));
+    final AspectSpec keySpec = spec.getKeyAspectSpec();
+    return EntityKeyUtils.convertUrnToEntityKey(urn, keySpec);
+  }
+
+  public static void validateUrn(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
+    validator.setCurrentEntitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
+    RecordTemplateValidator.validate(EntityUtils.buildKeyAspect(entityRegistry, urn), validationResult -> {
+      throw new IllegalArgumentException("Invalid urn: " + urn + "\n Cause: "
+              + validationResult.getMessages()); }, validator);
+
+    if (urn.toString().trim().length() != urn.toString().length()) {
+      throw new IllegalArgumentException("Error: cannot provide an URN with leading or trailing whitespace");
+    }
+    if (URLEncoder.encode(urn.toString()).length() > URN_NUM_BYTES_LIMIT) {
+      throw new IllegalArgumentException("Error: cannot provide an URN longer than " + Integer.toString(URN_NUM_BYTES_LIMIT) + " bytes (when URL encoded)");
+    }
+    if (urn.toString().contains(URN_DELIMITER_SEPARATOR)) {
+      throw new IllegalArgumentException("Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
+    }
+    try {
+      Urn.createFromString(urn.toString());
+    } catch (URISyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
+  }
+
 }

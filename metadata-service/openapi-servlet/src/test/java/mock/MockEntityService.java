@@ -136,12 +136,6 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
-  public EnvelopedAspect getEnvelopedAspect(@Nonnull String entityName, @Nonnull Urn urn, @Nonnull String aspectName,
-      long version) throws Exception {
-    return null;
-  }
-
-  @Override
   public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
     return null;
   }
@@ -152,7 +146,7 @@ public class MockEntityService extends EntityService {
     return null;
   }
 
-  @Nonnull
+/*  @Nonnull
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
@@ -167,7 +161,7 @@ public class MockEntityService extends EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata providedSystemMetadata) {
     return Collections.emptyList();
-  }
+  }*/
 
   @Nullable
   @Override

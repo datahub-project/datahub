@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -270,10 +271,8 @@ public class OwnerUtils {
   }
 
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false);
-    }
+    entityService.ingestProposal(AspectsBatch.builder()
+            .mcps(changes, entityService.getEntityRegistry()).build(), getAuditStamp(actor), false);
   }
 
   public static void addCreatorAsOwner(

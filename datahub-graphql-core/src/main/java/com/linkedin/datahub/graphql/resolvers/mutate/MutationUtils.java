@@ -29,7 +29,7 @@ public class MutationUtils {
 
   public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
     final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
-    entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+    entityService.ingestSingleProposal(proposal, getAuditStamp(actor), false);
   }
 
   /**

@@ -8,6 +8,8 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -37,9 +39,13 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -199,18 +205,26 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
-        Urn responseUrn = result.getUrn();
+        Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
 
-        if (!asyncBool) {
-          AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
-              .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
-        }
+        AspectsBatch batch = AspectsBatch.builder()
+                .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                .build();
 
-        if (!result.isQueued()) {
-          tryIndexRunId(responseUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+        Set<Pair<AspectsBatchItem, EntityService.IngestProposalResult>> results =
+                _entityService.ingestProposal(batch, auditStamp, asyncBool);
+
+        EntityService.IngestProposalResult one = results.stream()
+                .map(Pair::getSecond)
+                .findFirst()
+                .get();
+
+        // Update runIds
+        if (!one.isQueued()) {
+          tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
-        return responseUrn.toString();
+        return urn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }

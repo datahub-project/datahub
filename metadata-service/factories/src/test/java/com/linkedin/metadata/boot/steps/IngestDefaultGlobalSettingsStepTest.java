@@ -38,7 +38,7 @@ public class IngestDefaultGlobalSettingsStepTest {
     GlobalSettingsInfo expectedResult = new GlobalSettingsInfo();
     expectedResult.setViews(new GlobalViewsSettings().setDefaultView(UrnUtils.getUrn("urn:li:dataHubView:test")));
 
-    Mockito.verify(entityService, times(1)).ingestProposal(
+    Mockito.verify(entityService, times(1)).ingestSingleProposal(
         Mockito.eq(buildUpdateSettingsProposal(expectedResult)),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
@@ -65,7 +65,7 @@ public class IngestDefaultGlobalSettingsStepTest {
     GlobalSettingsInfo expectedResult = new GlobalSettingsInfo();
     expectedResult.setViews(new GlobalViewsSettings().setDefaultView(UrnUtils.getUrn("urn:li:dataHubView:custom")));
 
-    Mockito.verify(entityService, times(1)).ingestProposal(
+    Mockito.verify(entityService, times(1)).ingestSingleProposal(
         Mockito.eq(buildUpdateSettingsProposal(expectedResult)),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)

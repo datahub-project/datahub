@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.key.DataHubRetentionKey;
@@ -94,6 +95,7 @@ public abstract class RetentionService {
     retentionKey.setEntityName(entityName != null ? entityName : ALL);
     retentionKey.setAspectName(aspectName != null ? aspectName : ALL);
     Urn retentionUrn = EntityKeyUtils.convertEntityKeyToUrn(retentionKey, Constants.DATAHUB_RETENTION_ENTITY);
+
     MetadataChangeProposal keyProposal = new MetadataChangeProposal();
     GenericAspect keyAspect = GenericRecordUtils.serializeAspect(retentionKey);
     keyProposal.setAspect(keyAspect);
@@ -101,15 +103,20 @@ public abstract class RetentionService {
     keyProposal.setEntityType(Constants.DATAHUB_RETENTION_ENTITY);
     keyProposal.setChangeType(ChangeType.UPSERT);
     keyProposal.setEntityUrn(retentionUrn);
-    AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    getEntityService().ingestProposal(keyProposal, auditStamp, false);
+
     MetadataChangeProposal aspectProposal = keyProposal.clone();
     GenericAspect retentionAspect = GenericRecordUtils.serializeAspect(retentionConfig);
     aspectProposal.setAspect(retentionAspect);
     aspectProposal.setAspectName(Constants.DATAHUB_RETENTION_ASPECT);
-    aspectProposal.setChangeType(ChangeType.UPSERT);
-    return getEntityService().ingestProposal(aspectProposal, auditStamp, false).isDidUpdate();
+
+    AuditStamp auditStamp =
+            new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+    AspectsBatch batch = AspectsBatch.builder()
+            .mcps(List.of(keyProposal, aspectProposal), getEntityService().getEntityRegistry())
+            .build();
+
+    return getEntityService().ingestProposal(batch, auditStamp, false).stream()
+            .anyMatch(resultPair -> resultPair.getSecond().isDidUpdate());
   }
 
   /**
@@ -146,7 +153,7 @@ public abstract class RetentionService {
    *
    * @param retentionContexts urn, aspect name, and additional context that could be used to apply retention
    */
-  public void applyRetentionWithPolicyDefaults(List<RetentionContext> retentionContexts) {
+  public void applyRetentionWithPolicyDefaults(@Nonnull List<RetentionContext> retentionContexts) {
     List<RetentionContext> withDefaults = retentionContexts.stream()
             .map(context -> {
               if (context.getRetentionPolicy().isEmpty()) {

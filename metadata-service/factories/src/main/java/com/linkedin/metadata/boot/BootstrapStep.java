@@ -63,6 +63,6 @@ public interface BootstrapStep {
     upgradeProposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    entityService.ingestSingleProposal(upgradeProposal, auditStamp, false);
   }
 }

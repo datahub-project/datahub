@@ -17,13 +17,11 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.util.Pair;
 import io.ebean.EbeanServer;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -154,7 +152,7 @@ public class DataMigrationStep implements UpgradeStep {
               browsePathsStamp.setActor(Urn.createFromString(Constants.SYSTEM_ACTOR));
               browsePathsStamp.setTime(System.currentTimeMillis());
 
-              _entityService.ingestAspect(urn, BROWSE_PATHS_ASPECT_NAME, browsePaths, browsePathsStamp, null);
+              _entityService.ingestAspects(urn, List.of(Pair.of(BROWSE_PATHS_ASPECT_NAME, browsePaths)), browsePathsStamp, null);
               urnsWithBrowsePath.add(urn);
 
             } catch (URISyntaxException e) {
