@@ -48,6 +48,7 @@ const ResultWrapper = styled.div<{ showUpdatedStyles: boolean }>`
         margin: 0 auto 8px auto;
         padding: 8px 16px;
         max-width: 1200px;
+        border-bottom: 1px solid ${ANTD_GRAY[5]};
     `}
 `;
 
