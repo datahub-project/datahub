@@ -5,7 +5,7 @@ import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getFilterIconAndLabel } from '../filters/utils';
-import { PLATFORM_FILTER_NAME } from '../utils/constants';
+import { BROWSE_PATH_V2_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import useBrowsePagination from './useBrowsePagination';
 import BrowseNode from './BrowseNode';
 import SidebarLoadingError from './SidebarLoadingError';
@@ -15,9 +15,11 @@ import {
     useEntityAggregation,
     useIsPlatformSelected,
     useMaybeEnvironmentAggregation,
+    useOnSelectBrowsePath,
     usePlatformAggregation,
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
+import { useHasFilterField } from './SidebarContext';
 
 const PlatformIconContainer = styled.div`
     width: 16px;
@@ -28,23 +30,21 @@ const PlatformIconContainer = styled.div`
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
-`;
-
-const BrowseGroupListContainer = styled.div`
-    background: white;
-    border-radius: 8px;
-    padding-bottom: 8px;
     padding-right: 8px;
 `;
 
 const PlatformNode = () => {
-    const isSelected = useIsPlatformSelected();
+    const isPlatformSelected = useIsPlatformSelected();
+    const hasBrowseFilter = useHasFilterField(BROWSE_PATH_V2_FILTER_NAME);
+    const isPlatformAndPathSelected = isPlatformSelected && hasBrowseFilter;
+    const isPlatformOnlySelected = isPlatformSelected && !hasBrowseFilter;
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useMaybeEnvironmentAggregation();
     const platformAggregation = usePlatformAggregation();
     const { count } = platformAggregation;
     const registry = useEntityRegistry();
-    const { trackToggleNodeEvent } = useSidebarAnalytics();
+    const { trackToggleNodeEvent, trackSelectNodeEvent } = useSidebarAnalytics();
+    const onSelectBrowsePath = useOnSelectBrowsePath();
 
     const { icon, label } = getFilterIconAndLabel(
         PLATFORM_FILTER_NAME,
@@ -55,16 +55,22 @@ const PlatformNode = () => {
     );
 
     const { isOpen, isClosing, toggle } = useToggle({
-        initialValue: isSelected,
+        initialValue: isPlatformAndPathSelected,
         closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'platform'),
     });
 
-    const onClickHeader = () => {
+    const onClickTriangle = () => {
         if (count) toggle();
     };
 
-    const { error, groups, loaded, observable, path, refetch } = useBrowsePagination({ skip: !isOpen });
+    const onClickHeader = () => {
+        const isNowPlatformOnlySelected = !isPlatformOnlySelected;
+        onSelectBrowsePath(isNowPlatformOnlySelected, [BROWSE_PATH_V2_FILTER_NAME]);
+        trackSelectNodeEvent(isNowPlatformOnlySelected ? 'select' : 'deselect', 'platform');
+    };
+
+    const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
     const color = '#000';
 
@@ -72,40 +78,43 @@ const PlatformNode = () => {
         <ExpandableNode
             isOpen={isOpen && !isClosing && loaded}
             header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader} style={{ paddingTop: 8 }}>
+                <ExpandableNode.SelectableHeader
+                    isOpen={isOpen}
+                    isSelected={isPlatformOnlySelected}
+                    showBorder
+                    onClick={onClickHeader}
+                >
                     <ExpandableNode.HeaderLeft>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen && !isClosing}
                             isVisible={!!platformAggregation.count}
-                            onClick={onClickHeader}
+                            onClick={onClickTriangle}
                             dataTestId={`browse-platform-${label}`}
                         />
                         <PlatformIconContainer>{icon}</PlatformIconContainer>
-                        <ExpandableNode.Title color={color} size={14}>
+                        <ExpandableNode.Title color={color} size={14} padLeft>
                             {label}
                         </ExpandableNode.Title>
                     </ExpandableNode.HeaderLeft>
                     <Count color={color}>{formatNumber(platformAggregation.count)}</Count>
-                </ExpandableNode.Header>
+                </ExpandableNode.SelectableHeader>
             }
             body={
                 <ExpandableNode.Body>
-                    <BrowseGroupListContainer>
-                        {groups.map((group) => (
-                            <BrowseProvider
-                                key={group.name}
-                                entityAggregation={entityAggregation}
-                                environmentAggregation={environmentAggregation}
-                                platformAggregation={platformAggregation}
-                                browseResultGroup={group}
-                                parentPath={path}
-                            >
-                                <BrowseNode />
-                            </BrowseProvider>
-                        ))}
-                        {error && <SidebarLoadingError onClickRetry={refetch} />}
-                        {observable}
-                    </BrowseGroupListContainer>
+                    {groups.map((group) => (
+                        <BrowseProvider
+                            key={group.name}
+                            entityAggregation={entityAggregation}
+                            environmentAggregation={environmentAggregation}
+                            platformAggregation={platformAggregation}
+                            browseResultGroup={group}
+                            parentPath={path}
+                        >
+                            <BrowseNode />
+                        </BrowseProvider>
+                    ))}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
+                    {observable}
                 </ExpandableNode.Body>
             }
         />

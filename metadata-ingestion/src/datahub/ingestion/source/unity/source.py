@@ -196,7 +196,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 table_urn_builder=self.gen_dataset_urn,
                 user_urn_builder=self.gen_user_urn,
             )
-            yield from usage_extractor.run(self.table_refs | self.view_refs)
+            yield from usage_extractor.get_usage_workunits(
+                self.table_refs | self.view_refs
+            )
 
         if self.config.profiling.enabled:
             assert wait_on_warehouse

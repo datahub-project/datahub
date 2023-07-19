@@ -19,6 +19,7 @@ import useSidebarAnalytics from './useSidebarAnalytics';
 const Count = styled(Typography.Text)`
     font-size: 12px;
     color: ${(props) => props.color};
+    padding-right: 8px;
 `;
 
 const EnvironmentNode = () => {
@@ -37,7 +38,7 @@ const EnvironmentNode = () => {
         if (count) toggle();
     };
 
-    const { loaded, error, platformAggregations } = useAggregationsQuery({
+    const { loaded, error, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [PLATFORM_FILTER_NAME],
     });
@@ -64,7 +65,7 @@ const EnvironmentNode = () => {
             }
             body={
                 <ExpandableNode.Body>
-                    {platformAggregations.map((platformAggregation) => (
+                    {platformAggregations?.map((platformAggregation) => (
                         <BrowseProvider
                             key={platformAggregation.value}
                             entityAggregation={entityAggregation}
@@ -74,7 +75,7 @@ const EnvironmentNode = () => {
                             <PlatformNode />
                         </BrowseProvider>
                     ))}
-                    {error && <SidebarLoadingError />}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
                 </ExpandableNode.Body>
             }
         />

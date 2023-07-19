@@ -95,7 +95,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_view_lineage=True,
-                        include_usage_stats=False,
+                        include_usage_stats=True,
                         use_legacy_lineage_method=True,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
