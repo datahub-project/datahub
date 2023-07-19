@@ -30,7 +30,9 @@ def default_recipe(output_file_path):
             "type": "okta",
             "config": {
                 "okta_domain": "mock-domain.okta.com",
-                "okta_api_token": "mock-okta-token",
+                "okta_private_key": "mock-okta-private-key",
+                "okta_client_id": "mock-okta-client-id",
+                "okta_kid": "mock-okta-kid",
                 "ingest_users": "True",
                 "ingest_groups": "True",
                 "ingest_group_membership": "True",
@@ -80,12 +82,19 @@ def run_ingest(
 
 def test_okta_config():
     config = OktaConfig.parse_obj(
-        dict(okta_domain="test.okta.com", okta_api_token="test-token")
+        dict(
+            okta_domain="test.okta.com",
+            okta_private_key="mock-okta-private-key",
+            okta_client_id="mock-okta-client-id",
+            okta_kid="mock-okta-kid",
+        )
     )
 
     # Sanity on required configurations
     assert config.okta_domain == "test.okta.com"
-    assert config.okta_api_token == "test-token"
+    assert config.okta_private_key == "mock-okta-private-key"
+    assert config.okta_client_id == "mock-okta-client-id"
+    assert config.okta_kid == "mock-okta-kid"
 
     # Assert on default configurations
     assert config.ingest_users is True

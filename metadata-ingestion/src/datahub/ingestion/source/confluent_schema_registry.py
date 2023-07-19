@@ -5,7 +5,6 @@ from hashlib import md5
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import avro.schema
-import confluent_kafka
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
@@ -421,7 +420,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     platform=platform_urn,
                     platformSchema=KafkaSchema(
                         documentSchema=schema.schema_str if schema is not None else "",
+                        documentSchemaType=schema.schema_type if schema else None,
                         keySchema=key_schema.schema_str if key_schema else None,
+                        keySchemaType=key_schema.schema_type if key_schema else None,
                     ),
                     fields=key_fields + fields,
                 )

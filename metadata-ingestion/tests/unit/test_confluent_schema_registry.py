@@ -168,7 +168,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             )
 
     @patch(
-        "datahub.ingestion.source.confluent_schema_registry.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+        "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
         autospec=True,
     )
     def test_get_aspects_from_schema_avro(self, mock_schema_registry_client):
