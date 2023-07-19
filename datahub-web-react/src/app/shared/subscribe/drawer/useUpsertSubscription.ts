@@ -11,7 +11,7 @@ type Props = {
     isSubscribed: boolean;
     groupUrn?: string;
     subscription?: DataHubSubscription;
-    onSuccess: () => void;
+    onSuccess?: () => void;
 };
 
 const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription, onSuccess }: Props) => {
@@ -47,25 +47,25 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
     const onCreateSubscription = () => {
         createSubscriptionFunction(
             createSubscription,
-            onSuccess,
             groupUrn || undefined,
             entityUrn,
             subscriptionTypes,
             entityChangeTypes,
             notificationSinkTypes,
             notificationSettings,
+            onSuccess,
         );
     };
 
     const onUpdateSubscription = () => {
         updateSubscriptionFunction(
             updateSubscription,
-            onSuccess,
             subscription,
             subscriptionTypes,
             entityChangeTypes,
             notificationSinkTypes,
             notificationSettings,
+            onSuccess,
         );
     };
 

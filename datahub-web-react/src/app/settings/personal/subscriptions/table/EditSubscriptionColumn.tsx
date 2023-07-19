@@ -5,8 +5,7 @@ import styled from 'styled-components/macro';
 import { DataHubSubscription, EntityType } from '../../../../../types.generated';
 import SubscriptionDrawer from '../../../../shared/subscribe/drawer/SubscriptionDrawer';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useDeleteSubscriptionMutation } from '../../../../../graphql/subscriptions.generated';
-import { deleteSubscriptionFunction } from '../../../../shared/subscribe/drawer/utils';
+import useDeleteSubscription from '../../../../shared/subscribe/useDeleteSubscription';
 
 const EditSubscriptionColumnContainer = styled.div`
     display: flex;
@@ -31,21 +30,22 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
     const entityUrn = entity.urn;
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
 
-    const [deleteSubscription] = useDeleteSubscriptionMutation();
-    const onDeleteSubscription = () => {
-        if (subscription && subscription.subscriptionUrn) {
-            deleteSubscriptionFunction(subscription.subscriptionUrn, deleteSubscription, refetchListSubscriptions);
-        }
-    };
+    const deleteSubscription = useDeleteSubscription({
+        subscriptionUrn: subscription.subscriptionUrn,
+        onSuccess: refetchListSubscriptions,
+    });
+
+    const onClickEdit = () => setDrawerIsOpen(true);
+    const onClickClose = () => setDrawerIsOpen(false);
 
     return (
         <EditSubscriptionColumnContainer>
-            <Button type="text" onClick={() => setDrawerIsOpen(true)}>
+            <Button type="text" onClick={onClickEdit}>
                 <EditOutlined />
             </Button>
             <SubscriptionDrawer
                 isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
+                onClose={onClickClose}
                 isPersonal={isPersonal}
                 groupUrn={groupUrn}
                 entityUrn={entityUrn}
@@ -53,8 +53,8 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
                 entityType={entityType}
                 isSubscribed
                 subscription={subscription}
-                refetchGetSubscription={refetchListSubscriptions}
-                onDeleteSubscription={onDeleteSubscription}
+                refetch={refetchListSubscriptions}
+                onDeleteSubscription={deleteSubscription}
             />
         </EditSubscriptionColumnContainer>
     );

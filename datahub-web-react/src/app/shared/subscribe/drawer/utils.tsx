@@ -249,7 +249,7 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
     }
 };
 
-export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch: () => void) => {
+export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch?: () => void) => {
     deleteSubscription({
         variables: {
             input: { subscriptionUrn },
@@ -262,7 +262,7 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
                 placement: 'bottomLeft',
                 duration: 3,
             });
-            window.setTimeout(refetch, REFETCH_DELAY);
+            if (refetch) window.setTimeout(refetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -277,13 +277,13 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
 
 export const createSubscriptionFunction = (
     createSubscription,
-    refetch: () => void,
     groupUrn,
     entityUrn,
     subscriptionTypes,
     entityChangeTypes,
     sinkTypes,
     notificationSettings,
+    refetch?: () => void,
 ) => {
     createSubscription({
         variables: {
@@ -307,7 +307,7 @@ export const createSubscriptionFunction = (
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
             });
-            window.setTimeout(refetch, REFETCH_DELAY);
+            if (refetch) window.setTimeout(refetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -319,12 +319,12 @@ export const createSubscriptionFunction = (
 
 export const updateSubscriptionFunction = (
     updateSubscription,
-    refetch: () => void,
     subscription,
     subscriptionTypes,
     entityChangeTypes,
     sinkTypes,
     notificationSettings,
+    refetch?: () => void,
 ) => {
     if (subscription && subscription.subscriptionUrn) {
         updateSubscription({
@@ -348,7 +348,7 @@ export const updateSubscriptionFunction = (
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
                 });
-                window.setTimeout(refetch, REFETCH_DELAY);
+                if (refetch) window.setTimeout(refetch, REFETCH_DELAY);
             })
             .catch((e: unknown) => {
                 message.destroy();

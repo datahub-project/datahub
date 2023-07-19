@@ -42,14 +42,13 @@ interface Props {
     isPersonal: boolean;
     // todo - audit where groupUrn and setGroupUrn are (not) passed in
     groupUrn?: string;
-    setGroupUrn?: (groupUrn: string | undefined) => void;
+    setGroupUrn?: (groupUrn?: string) => void;
     entityUrn: string;
     entityName: string;
     entityType: EntityType;
     isSubscribed: boolean;
-    subscription: DataHubSubscription | undefined;
-    refetchGetSubscription?: () => void;
-    refetchEntitySubscriptionSummary?: () => void;
+    subscription?: DataHubSubscription;
+    refetch?: () => void;
     onDeleteSubscription: () => void;
 }
 
@@ -64,8 +63,7 @@ const SubscriptionDrawerContent = ({
     entityType,
     isSubscribed,
     subscription,
-    refetchGetSubscription,
-    refetchEntitySubscriptionSummary,
+    refetch,
     onDeleteSubscription,
 }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -91,16 +89,12 @@ const SubscriptionDrawerContent = ({
     const upstreamFiltered = (lineageCountData?.entity as any)?.upstream?.filtered || 0;
     const upstreamCount = upstreamTotal - upstreamFiltered;
 
+    // todo - maybe make this a useSubscriptionMode hook that can be used in multiple places
     useEffect(() => {
         if (isPersonal) {
             setGroupUrn?.(undefined);
         }
     }, [isPersonal, setGroupUrn]);
-
-    const refetch = () => {
-        refetchEntitySubscriptionSummary?.();
-        refetchGetSubscription?.();
-    };
 
     const upsertSubscription = useUpsertSubscription({
         entityUrn,
@@ -137,16 +131,14 @@ const SubscriptionDrawerContent = ({
         onClose();
     };
 
-    const onUpdateFooter = () => {
+    const onUpdate = () => {
         upsertSubscription();
         if (channel && saveAsDefault) updateSinkSettings(channel);
         resetAndClose();
     };
 
     const onCancelOrUnsubscribe = () => {
-        if (isSubscribed) {
-            onDeleteSubscription();
-        }
+        if (isSubscribed) onDeleteSubscription();
         resetAndClose();
     };
 
@@ -154,11 +146,7 @@ const SubscriptionDrawerContent = ({
         <SubscribeDrawer
             width={512}
             footer={
-                <Footer
-                    isSubscribed={isSubscribed}
-                    onCancelOrUnsubscribe={onCancelOrUnsubscribe}
-                    onUpdate={onUpdateFooter}
-                />
+                <Footer isSubscribed={isSubscribed} onCancelOrUnsubscribe={onCancelOrUnsubscribe} onUpdate={onUpdate} />
             }
             open={isOpen}
             onClose={resetAndClose}

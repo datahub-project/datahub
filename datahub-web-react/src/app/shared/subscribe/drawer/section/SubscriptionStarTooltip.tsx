@@ -37,20 +37,20 @@ const GroupContainer = styled.div`
 `;
 
 interface Props {
-    isSubscribed: boolean;
+    isUserSubscribed: boolean;
     numUserSubscriptions: number;
     numGroupSubscriptions: number;
     groupNames: string[];
 }
 
 export default function SubscriptionStarTooltip({
-    isSubscribed,
+    isUserSubscribed,
     numUserSubscriptions,
     numGroupSubscriptions,
     groupNames,
 }: Props) {
     const userText = numUserSubscriptions === 1 ? 'user' : 'users';
-    const isUserSubscribedText = isSubscribed ? '' : 'not ';
+    const isUserSubscribedText = isUserSubscribed ? '' : 'not ';
     const userSubscriptionText = `${numUserSubscriptions} ${userText} subscribed - ${isUserSubscribedText} including you`;
     const groupText = numGroupSubscriptions === 1 ? 'group is' : 'groups are';
     const groupSubscriptionText = `${numGroupSubscriptions} ${groupText} subscribed`;
