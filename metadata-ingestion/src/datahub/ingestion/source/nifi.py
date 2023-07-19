@@ -139,7 +139,7 @@ class NifiSourceConfig(EnvConfigMixin):
             NifiAuthType.BASIC_AUTH,
         ) and (not values.get("username") or not values.get("password")):
             raise ValueError(
-                f"Config `username` and `password` is required for {values.get('auth')} auth"
+                f"Config `username` and `password` is required for {values.get('auth').value} auth"
             )
         return values
 
