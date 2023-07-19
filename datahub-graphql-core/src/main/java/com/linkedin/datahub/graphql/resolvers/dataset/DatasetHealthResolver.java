@@ -158,7 +158,7 @@ public class DatasetHealthResolver implements DataFetcher<CompletableFuture<List
         health.setCauses(failingAssertionUrns);
       } else {
         health.setStatus(HealthStatus.PASS);
-        health.setMessage("Passing all assertions");
+        health.setMessage("All assertions are passing");
       }
       return health;
 
