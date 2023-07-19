@@ -81,6 +81,12 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
     return _taskId;
   }
 
+  @Override
+  public String reindexAsync(@Nonnull String entityName, @Nonnull String aspectName, @Nonnull Filter filter,
+      @Nonnull BatchWriteOperationsOptions options) {
+    return _taskId;
+  }
+
   @Nonnull
   @Override
   public DeleteAspectValuesResult rollbackTimeseriesAspects(@Nonnull String runId) {
