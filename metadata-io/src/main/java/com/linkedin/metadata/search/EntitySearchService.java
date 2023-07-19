@@ -84,7 +84,7 @@ public interface EntitySearchService {
    * Safe for non-structured, user input, queries with an attempt to provide some advanced features
    * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
    *
-   * @param entityNames names of the entity
+   * @param entityNames names of the entities
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results

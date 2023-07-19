@@ -59,7 +59,6 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
   private ElasticSearchService _elasticSearchService;
 
   private static final String ENTITY_NAME = "testEntity";
-  private static final String ENTITY_NAME_2 = "testEntity2";
 
   @BeforeClass
   public void setup() {
