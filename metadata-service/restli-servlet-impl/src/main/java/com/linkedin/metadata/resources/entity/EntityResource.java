@@ -332,7 +332,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             () -> {
               final SearchResult result;
               // This API is not used by the frontend for search bars so we default to structured
-              result = _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, searchFlags);
+              result = _entitySearchService.search(List.of(entityName), input, filter, sortCriterion, start, count, searchFlags);
               return validateSearchResult(result, _entityService);
             },
             MetricRegistry.name(this.getClass(), "search"));
