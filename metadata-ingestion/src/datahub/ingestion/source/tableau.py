@@ -1458,9 +1458,10 @@ class TableauSource(StatefulIngestionSourceBase):
             and tableau_constant.CONNECTION_TYPE in database
         ):
             upstream_db, platform_instance, platform, _ = get_overridden_info(
+                upstream_db=database.get(tableau_constant.NAME),
                 connection_type=database.get(tableau_constant.CONNECTION_TYPE, ""),
-                lineage_overrides=self.config.lineage_overrides,
                 platform_instance_map=self.config.platform_instance_map,
+                lineage_overrides=self.config.lineage_overrides,
             )
 
             upstream_tables = []
@@ -1477,8 +1478,8 @@ class TableauSource(StatefulIngestionSourceBase):
                 parsed_result = graph.parse_sql_lineage(
                     query,
                     default_db=upstream_db,
-                    platform_instance=platform_instance,
                     platform=platform,
+                    platform_instance=platform_instance,
                 )
 
                 for dataset_urn in parsed_result.in_tables:

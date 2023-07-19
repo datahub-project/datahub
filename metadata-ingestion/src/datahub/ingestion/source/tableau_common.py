@@ -576,6 +576,7 @@ def get_platform_instance(
 
 def get_overridden_info(
     connection_type: str,
+    upstream_db: Optional[str],
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
@@ -587,8 +588,6 @@ def get_overridden_info(
         and original_platform in lineage_overrides.platform_override_map.keys()
     ):
         platform = lineage_overrides.platform_override_map[original_platform]
-
-    upstream_db: Optional[str] = None
 
     if (
         lineage_overrides is not None
@@ -618,6 +617,7 @@ def make_table_urn(
 
     upstream_db, platform_instance, platform, original_platform = get_overridden_info(
         connection_type=connection_type,
+        upstream_db=upstream_db,
         lineage_overrides=lineage_overrides,
         platform_instance_map=platform_instance_map,
     )
