@@ -503,7 +503,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     T result = null;
     do {
       try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
-        transaction.setBatchMode(true);
+        transaction.setBatchMode(false);
         result = block.get();
         transaction.commit();
         lastException = null;
