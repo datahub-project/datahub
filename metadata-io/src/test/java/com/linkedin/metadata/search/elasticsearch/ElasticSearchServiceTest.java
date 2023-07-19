@@ -23,6 +23,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import java.util.List;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
@@ -58,6 +59,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
   private ElasticSearchService _elasticSearchService;
 
   private static final String ENTITY_NAME = "testEntity";
+  private static final String ENTITY_NAME_2 = "testEntity2";
 
   @BeforeClass
   public void setup() {
@@ -93,7 +95,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testElasticSearchServiceStructuredQuery() throws Exception {
-    SearchResult searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, new SearchFlags().setFulltext(false));
+    SearchResult searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test", null, null, 0, 10, new SearchFlags().setFulltext(false));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     BrowseResult browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
@@ -110,10 +112,10 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_bulkProcessor);
 
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, new SearchFlags().setFulltext(false));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test", null, null, 0, 10, new SearchFlags().setFulltext(false));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "foreignKey:Node", null, null, 0, 10, new SearchFlags().setFulltext(false));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "foreignKey:Node", null, null, 0, 10, new SearchFlags().setFulltext(false));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
@@ -135,7 +137,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(_bulkProcessor);
 
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test2", null, null, 0, 10, new SearchFlags().setFulltext(false));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test2", null, null, 0, 10, new SearchFlags().setFulltext(false));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
@@ -152,7 +154,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_bulkProcessor);
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test2", null, null, 0, 10, new SearchFlags().setFulltext(false));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test2", null, null, 0, 10, new SearchFlags().setFulltext(false));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     browseResult = _elasticSearchService.browse(ENTITY_NAME, "", null, 0, 10);
     assertEquals(browseResult.getMetadata().getTotalNumEntities().longValue(), 0);
@@ -162,7 +164,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testElasticSearchServiceFulltext() throws Exception {
-    SearchResult searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
+    SearchResult searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
 
     Urn urn = new TestEntityUrn("test", "urn1", "VALUE_1");
@@ -175,7 +177,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
     syncAfterWrite(_bulkProcessor);
 
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
 
@@ -192,7 +194,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.upsertDocument(ENTITY_NAME, document2.toString(), urn2.toString());
     syncAfterWrite(_bulkProcessor);
 
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test2", null, null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test2", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 1);
     assertEquals(searchResult.getEntities().get(0).getEntity(), urn2);
 
@@ -203,7 +205,7 @@ public class ElasticSearchServiceTest extends AbstractTestNGSpringContextTests {
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
     _elasticSearchService.deleteDocument(ENTITY_NAME, urn2.toString());
     syncAfterWrite(_bulkProcessor);
-    searchResult = _elasticSearchService.search(ENTITY_NAME, "test2", null, null, 0, 10, new SearchFlags().setFulltext(true));
+    searchResult = _elasticSearchService.search(List.of(ENTITY_NAME), "test2", null, null, 0, 10, new SearchFlags().setFulltext(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
 
     assertEquals(_elasticSearchService.docCount(ENTITY_NAME), 0);

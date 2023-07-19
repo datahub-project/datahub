@@ -71,7 +71,6 @@ public class SearchUtils {
           EntityType.CONTAINER,
           EntityType.DOMAIN,
           EntityType.DATA_PRODUCT,
-          EntityType.ROLE,
           EntityType.NOTEBOOK);
 
 
