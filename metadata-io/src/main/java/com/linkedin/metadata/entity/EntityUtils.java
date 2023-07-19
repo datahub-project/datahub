@@ -6,7 +6,6 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.entity.Entity;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
