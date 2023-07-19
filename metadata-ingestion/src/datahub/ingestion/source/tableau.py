@@ -872,15 +872,16 @@ class TableauSource(StatefulIngestionSourceBase):
             f"A total of {len(upstream_tables)} upstream table edges found for datasource {datasource[tableau_constant.ID]}"
         )
 
-        if datasource.get(tableau_constant.FIELDS):
-            datasource_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=datasource[tableau_constant.ID],
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
+        
+        datasource_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datasource[tableau_constant.ID],
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
-            if self.config.extract_column_level_lineage:
+        if self.config.extract_column_level_lineage:
+            if datasource.get(tableau_constant.FIELDS):
                 # Find fine grained lineage for datasource column to datasource column edge,
                 # upstream columns may be from same datasource
                 upstream_fields = self.get_upstream_fields_of_field_in_datasource(
@@ -899,6 +900,13 @@ class TableauSource(StatefulIngestionSourceBase):
                 logger.debug(
                     f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource[tableau_constant.ID]}"
                 )
+            elif datasource.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL):
+                # Find upstream lineage from custom sql
+                upstream_fields = self.get_upstream_fields_from_custom_sql(
+                    datasource, datasource_urn
+                )
+                fine_grained_lineages.extend(upstream_fields)
+
 
         return upstream_tables, fine_grained_lineages
 
@@ -1140,6 +1148,55 @@ class TableauSource(StatefulIngestionSourceBase):
                     )
                 )
         return fine_grained_lineages
+    
+    def get_upstream_fields_from_custom_sql(self, datasource, datasource_urn):
+        fine_grained_lineages = []
+        database = datasource.get(tableau_constant.DATABASE) or {}
+        if (
+            datasource.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
+            and tableau_constant.NAME in database
+            and tableau_constant.CONNECTION_TYPE in database
+        ):
+
+            graph: DataHubGraph = get_default_graph()
+
+            query = datasource.get(tableau_constant.QUERY)
+            if query is None:
+                logger.debug(f"raw sql query is not available for urn={datasource_urn}")
+                return []
+
+            logger.debug(f"Parsing sql={query}")
+
+            try:
+                parsed_result = graph.parse_sql_lineage(
+                    query,
+                    default_db=database.get(tableau_constant.NAME),
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+
+                for cll_info in parsed_result.column_lineage:
+                    downstreams = [builder.make_schema_field_urn(datasource_urn, cll_info.downstream.column)] if cll_info.downstream is not None and cll_info.downstream.column is not None else []
+                    upstreams = [builder.make_schema_field_urn(column_ref.table, column_ref.column) for column_ref in cll_info.upstreams]
+                    fine_grained_lineages.append(
+                        FineGrainedLineage(
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=downstreams,
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=upstreams,
+                        )
+                    )
+
+            except Exception as e:
+                self.report.report_warning(
+                    key="cll-lineage",
+                    reason=f"Unable to retrieve column level lineage from query. "
+                    f"Query: {query} "
+                    f"Reason: {str(e)} ",
+                )
+
+            return fine_grained_lineages
 
     def get_transform_operation(self, field):
         field_type = field[tableau_constant.TYPE_NAME]
