@@ -64,7 +64,7 @@ public class AspectsBatch {
 
             Urn urn = mcp.getEntityUrn();
             if (urn == null) {
-                urn = EntityKeyUtils.getUrnFromProposal(mcp, aspectSpec);
+                urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
             }
 
             return AspectsBatchItem.builder()

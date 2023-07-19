@@ -142,6 +142,7 @@ public class IngestDataPlatformInstancesStepTest {
     when(migrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME)).thenReturn(false);
     when(migrationsDao.countEntities()).thenReturn((long) allUrnsInDB.size());
     when(migrationsDao.listAllUrns(anyInt(), anyInt())).thenReturn(allUrnsInDB);
+    when(entityService.getEntityRegistry()).thenReturn(entityRegistry);
   }
 
   private List<Urn> insertMockEntities(int count, String entity, String urnTemplate, EntityRegistry entityRegistry, EntityService entityService) {

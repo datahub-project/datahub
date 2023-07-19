@@ -159,6 +159,7 @@ public class StatefulTokenServiceTest {
             DataHubTokenAuthenticatorTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yaml"));
     final AspectSpec keyAspectSpec = configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
 
+    Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
     Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME))).thenReturn(keyAspectSpec);
     Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
     final RollbackRunResult result = new RollbackRunResult(ImmutableList.of(), 0);

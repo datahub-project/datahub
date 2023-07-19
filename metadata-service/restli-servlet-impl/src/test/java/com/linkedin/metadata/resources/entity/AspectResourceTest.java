@@ -22,6 +22,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
+import java.util.List;
+
 import mock.MockEntityRegistry;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -77,7 +79,12 @@ public class AspectResourceTest {
     reset(_producer, _aspectDao);
 
     when(_aspectDao.runInTransactionWithRetry(any(), anyInt()))
-        .thenReturn(new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0));
+        .thenReturn(List.of(
+                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
+                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
+                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
+                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
+                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0)));
     _aspectResource.ingestProposal(mcp, "false");
     verify(_producer, times(5)).produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(_producer);

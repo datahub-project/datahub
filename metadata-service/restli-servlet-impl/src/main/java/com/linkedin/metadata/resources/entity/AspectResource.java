@@ -43,6 +43,7 @@ import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -184,7 +185,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async) throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
-    boolean asyncBool;
+    final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
     } else {
@@ -205,12 +206,20 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
-                AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
+        final AspectsBatch batch;
+        if (asyncBool) {
+          // if async we'll expand the additional changes later, no need to do this early
+          batch = AspectsBatch.builder()
+                  .mcps(List.of(metadataChangeProposal), _entityService.getEntityRegistry())
+                  .build();
+        } else {
+          Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                  AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
 
-        AspectsBatch batch = AspectsBatch.builder()
-                .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
-                .build();
+          batch = AspectsBatch.builder()
+                  .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                  .build();
+        }
 
         Set<Pair<AspectsBatchItem, EntityService.IngestProposalResult>> results =
                 _entityService.ingestProposal(batch, auditStamp, asyncBool);
@@ -221,10 +230,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                 .get();
 
         // Update runIds
+        Urn resultUrn = one.getUrn();
         if (!one.isQueued()) {
-          tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+          tryIndexRunId(resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
-        return urn.toString();
+        return resultUrn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }
