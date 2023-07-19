@@ -8,6 +8,11 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from datahub_monitors.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
 )
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    InvalidSourceTypeException,
+    SourceQueryFailedException,
+)
 from datahub_monitors.source.snowflake.time_utils import (
     convert_millis_to_timestamp_type,
 )
@@ -37,10 +42,16 @@ class SnowflakeSource(Source):
     def __init__(self, connection: SnowflakeConnection):
         super().__init__(connection)
 
-        # Set our default timezone to UTC so that comparisons with
-        # timezone columns are always peformed in UTC.
-        cur = self.connection.get_client().cursor()
-        cur.execute("ALTER SESSION SET TIMEZONE = 'UTC';")
+        try:
+            # Set our default timezone to UTC so that comparisons with
+            # timezone columns are always peformed in UTC.
+            cur = self.connection.get_client().cursor()
+            query = "ALTER SESSION SET TIMEZONE = 'UTC';"
+            cur.execute(query)
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Query failed with error: {e}", query=query
+            )
 
     def _get_operation_types_filter(self, parameters: dict) -> str:
         if parameters is not None:
@@ -135,8 +146,13 @@ class SnowflakeSource(Source):
 
         logger.debug(query)
 
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Query failed with error: {e}", query=query
+            )
 
         # Fetch results
         rows = cur.fetchall()
@@ -184,8 +200,13 @@ class SnowflakeSource(Source):
 
         logger.debug(query)
 
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Query failed with error: {e}", query=query
+            )
 
         # Fetch results
         rows = cur.fetchall()
@@ -241,8 +262,9 @@ class SnowflakeSource(Source):
             column_type = parameters["native_type"]
 
             if column_type.upper() not in SUPPORTED_COLUMN_TYPES:
-                raise Exception(
-                    f"Unsupported date column type {column_type} provided. Failing assertion evaluation!"
+                raise InvalidParametersException(
+                    message=f"Unsupported date column type {column_type} provided. Failing assertion evaluation!",
+                    parameters=parameters,
                 )
 
             # Convert the window timestamps into values that are suitable for comparison.
@@ -265,8 +287,13 @@ class SnowflakeSource(Source):
 
             logger.debug(query)
 
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
+            try:
+                cur = self.connection.get_client().cursor()
+                cur.execute(query)
+            except Exception as e:
+                raise SourceQueryFailedException(
+                    message=f"Query failed with error: {e}", query=query
+                )
 
             # Fetch results
             rows = cur.fetchall()
@@ -289,10 +316,15 @@ class SnowflakeSource(Source):
 
             return results
 
-        raise Exception("Missing required inputs: column path and column type.")
+        raise InvalidParametersException(
+            message="Missing required inputs: column path and column type.",
+            parameters=parameters,
+        )
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
     )
     def _try_get_entity_events(
         self,
@@ -311,8 +343,9 @@ class SnowflakeSource(Source):
             # Build and issue a query!
             return self._get_field_last_updated_events(entity_urn, window, parameters)
         else:
-            raise Exception(
-                f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events."
+            raise InvalidSourceTypeException(
+                message=f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events.",
+                source_type=event_type,
             )
 
     def get_entity_events(

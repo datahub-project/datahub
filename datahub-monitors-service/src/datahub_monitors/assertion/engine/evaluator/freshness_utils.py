@@ -1,5 +1,9 @@
 from typing import Dict, Tuple
 
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    InvalidSourceTypeException,
+)
 from datahub_monitors.types import (
     AssertionEvaluationParameters,
     DatasetFreshnessSourceType,
@@ -33,10 +37,12 @@ def get_event_type_parameters_from_parameters(
             params = dataset_freshness_parameters.audit_log.__dict__
             return (entity_event_type, params)
         else:
-            raise Exception(
-                f"Failed to extract EntityEntityEventType & Parameters from Dataset FRESHNESS Assertion. Unsupported source type found {source_type}"
+            raise InvalidSourceTypeException(
+                message=f"Failed to extract EntityEntityEventType & Parameters from Dataset FRESHNESS Assertion. Unsupported source type found {source_type}",
+                source_type=source_type,
             )
 
-    raise Exception(
-        "Failed to extract EntityEventType & Parameters from Dataset FRESHNESS Assertion. Malformed assertion type found. Missing dataset_freshness_parameters."
+    raise InvalidParametersException(
+        message="Failed to extract EntityEventType & Parameters from Dataset FRESHNESS Assertion. Malformed assertion type found. Missing dataset_freshness_parameters.",
+        parameters=parameters.__dict__,
     )

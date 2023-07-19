@@ -10,8 +10,8 @@ import { getFixedLookbackWindow, getLocaleTimezone } from '../../../../../shared
 import { ANTD_GRAY } from '../../../constants';
 import PrefixedSelect from '../Stats/historical/shared/PrefixedSelect';
 import { LOOKBACK_WINDOWS } from '../Stats/lookbackWindows';
-import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
-import { BooleanTimeline } from './BooleanTimeline';
+import { getResultColor, getResultErrorMessage, getResultIcon, getResultText } from './assertionUtils';
+import { AssertionResultTimeline } from './AssertionResultTimeline';
 import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -34,6 +34,16 @@ const AssertionResultDetailsContainer = styled.div`
     margin-bottom: 4px;
 `;
 
+const AssertionResultErrorMessage = styled.div`
+    max-width: 250px;
+    margin-bottom: 4px;
+`;
+
+const AssertionResultInitializingMessage = styled.div`
+    max-width: 250px;
+    margin-bottom: 4px;
+`;
+
 const ContentContainer = styled.div`
     width: 100%;
     padding-left: 52px;
@@ -50,7 +60,7 @@ const EvaluationsHeader = styled.div`
 `;
 
 const EvaluationsSummary = styled.div`
-    width: 260px;
+    width: 300px;
     display: flex;
     align-items: center;
     justify-content: left;
@@ -66,6 +76,15 @@ const SucceededEvaluationsCount = styled.span`
 
 const FailedEvaluationsCount = styled.span`
     margin-right: 12px;
+`;
+
+const ErrorEvaluationsContainer = styled.span`
+    margin-right: 12px;
+`;
+
+const ErrorEvaluationsCount = styled(Typography.Text)`
+    font-weight: 600;
+    color: ${getResultColor(AssertionResultType.Error)};
 `;
 
 type Props = {
@@ -134,6 +153,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
      */
     const succeededCount = data?.assertion?.runEvents?.succeeded;
     const failedCount = data?.assertion?.runEvents?.failed;
+    const errorCount = data?.assertion?.runEvents?.errored;
 
     /**
      * Data for the chart of assertion results.
@@ -145,6 +165,8 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
             const localTime = resultTime.toLocaleString();
             const gmtTime = resultTime.toUTCString();
             const resultUrl = result?.externalUrl;
+            const isInitializing = result?.type === AssertionResultType.Init;
+            const errorMessage = result && getResultErrorMessage(result);
             const platformName = data?.assertion?.platform
                 ? entityRegistry.getDisplayName(EntityType.DataPlatform, data?.assertion?.platform)
                 : undefined;
@@ -155,7 +177,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
             return {
                 time: runEvent.timestampMillis,
                 result: {
-                    result: result?.type !== AssertionResultType.Failure,
+                    type: result?.type,
                     resultUrl,
                     title: (
                         <>
@@ -172,6 +194,12 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                                     <DatasetAssertionResultDetails result={result} />
                                 </AssertionResultDetailsContainer>
                             )}
+                            {isInitializing && (
+                                <AssertionResultInitializingMessage>
+                                    Collecting the information required to evaluate this assertion.
+                                </AssertionResultInitializingMessage>
+                            )}
+                            {errorMessage && <AssertionResultErrorMessage>{errorMessage}</AssertionResultErrorMessage>}
                             <div>
                                 <Tooltip title={`${gmtTime}`}>
                                     <Typography.Text type="secondary">{localTime}</Typography.Text>
@@ -218,6 +246,12 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                                     </Typography.Text>{' '}
                                     failed
                                 </FailedEvaluationsCount>
+                                {errorCount ? (
+                                    <ErrorEvaluationsContainer>
+                                        <ErrorEvaluationsCount>{formatNumber(errorCount)}</ErrorEvaluationsCount> error
+                                        {errorCount > 1 ? 's' : ''}
+                                    </ErrorEvaluationsContainer>
+                                ) : null}
                             </div>
                         </EvaluationsSummary>
                         <PrefixedSelect
@@ -227,7 +261,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
                             setValue={onChangeLookbackWindow}
                         />
                     </EvaluationsHeader>
-                    <BooleanTimeline
+                    <AssertionResultTimeline
                         width={RESULT_CHART_WIDTH_PX}
                         data={assertionResultsChartData}
                         timeRange={selectedWindowTimeRange}

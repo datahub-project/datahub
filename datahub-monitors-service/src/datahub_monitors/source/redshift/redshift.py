@@ -6,6 +6,11 @@ from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from datahub_monitors.connection.redshift.redshift_connection import RedshiftConnection
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    InvalidSourceTypeException,
+    SourceQueryFailedException,
+)
 from datahub_monitors.source.redshift.time_utils import convert_millis_to_timestamp_type
 from datahub_monitors.source.source import Source
 from datahub_monitors.types import EntityEvent, EntityEventType
@@ -124,8 +129,13 @@ class RedshiftSource(Source):
 
         logger.debug(query)
 
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Query failed with error: {e}", query=query
+            )
 
         # Fetch results
         rows = cur.fetchall()
@@ -218,8 +228,13 @@ class RedshiftSource(Source):
 
             logger.debug(query)
 
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
+            try:
+                cur = self.connection.get_client().cursor()
+                cur.execute(query)
+            except Exception as e:
+                raise SourceQueryFailedException(
+                    message=f"Query failed with error: {e}", query=query
+                )
 
             # Fetch results
             rows = cur.fetchall()
@@ -242,10 +257,15 @@ class RedshiftSource(Source):
 
             return results
 
-        raise Exception("Missing required inputs: column path and column type.")
+        raise InvalidParametersException(
+            message="Missing required inputs: column path and column type.",
+            parameters=parameters,
+        )
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
     )
     def _try_get_entity_events(
         self,
@@ -264,8 +284,9 @@ class RedshiftSource(Source):
             # Build and issue a query!
             return self._get_field_last_updated_events(entity_urn, window, parameters)
         else:
-            raise Exception(
-                f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events."
+            raise InvalidSourceTypeException(
+                message=f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events.",
+                source_type=event_type,
             )
 
     def get_entity_events(

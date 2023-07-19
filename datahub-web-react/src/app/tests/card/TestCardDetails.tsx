@@ -95,7 +95,7 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
             });
     };
 
-    const deleteTest = async (urn: string) => {
+    const deleteTest = (urn: string) => {
         deleteTestMutation({
             variables: { urn },
         })

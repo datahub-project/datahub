@@ -11,6 +11,11 @@ from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    InvalidSourceTypeException,
+    SourceQueryFailedException,
+)
 from datahub_monitors.source.bigquery.time_utils import convert_millis_to_timestamp_type
 from datahub_monitors.source.source import Source
 from datahub_monitors.types import EntityEvent, EntityEventType
@@ -203,7 +208,12 @@ class BigQuerySource(Source):
 
         logger.debug(query)
 
-        query_job = self.connection.get_client().query(query)  # API request
+        try:
+            query_job = self.connection.get_client().query(query)  # API request
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Query failed with error: {e}", query=query
+            )
 
         results = []
 
@@ -277,7 +287,12 @@ class BigQuerySource(Source):
                 ORDER BY {date_column} DESC
             ;"""
 
-            query_job = self.connection.get_client().query(query)  # API request
+            try:
+                query_job = self.connection.get_client().query(query)  # API request
+            except Exception as e:
+                raise SourceQueryFailedException(
+                    message=f"Query failed with error: {e}", query=query
+                )
 
             results = []
 
@@ -301,10 +316,15 @@ class BigQuerySource(Source):
 
             return results
 
-        raise Exception("Missing required inputs: column path and column type.")
+        raise InvalidParametersException(
+            message="Missing required inputs: column path and column type.",
+            parameters=parameters,
+        )
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
     )
     def _try_get_entity_events(
         self,
@@ -323,8 +343,9 @@ class BigQuerySource(Source):
             # Build and issue a query!
             return self._get_field_last_updated_events(entity_urn, window, parameters)
         else:
-            raise Exception(
-                f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events."
+            raise InvalidSourceTypeException(
+                message=f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events.",
+                source_type=event_type,
             )
 
     def get_entity_events(
