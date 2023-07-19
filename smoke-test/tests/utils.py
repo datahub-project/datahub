@@ -120,7 +120,7 @@ def ingest_file_via_rest(filename: str) -> Pipeline:
             },
             "sink": {
                 "type": "datahub-rest",
-                "config": {"server": get_gms_url()},
+                "config": {"server": get_gms_url(), "max_threads": 1},
             },
         }
     )
