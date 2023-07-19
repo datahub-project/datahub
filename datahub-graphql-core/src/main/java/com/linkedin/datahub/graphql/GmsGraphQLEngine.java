@@ -340,6 +340,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.dataloader.BatchLoaderContextProvider;
@@ -355,6 +356,7 @@ import static graphql.scalars.ExtendedScalars.*;
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
  */
 @Slf4j
+@Getter
 public class GmsGraphQLEngine {
 
     private final EntityClient entityClient;
@@ -613,7 +615,7 @@ public class GmsGraphQLEngine {
      * @param builder
      */
     private void configurePluginResolvers(final RuntimeWiring.Builder builder) {
-        this.graphQLPlugins.forEach(plugin -> plugin.configureExtraResolvers(builder));
+        this.graphQLPlugins.forEach(plugin -> plugin.configureExtraResolvers(builder, this));
     }
 
 
