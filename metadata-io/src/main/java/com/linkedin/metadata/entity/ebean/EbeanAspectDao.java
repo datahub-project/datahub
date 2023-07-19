@@ -497,12 +497,12 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
     validateConnection();
-    int retryCount = 0;
+    int retryCount = -1;
     Exception lastException;
 
     T result = null;
     do {
-      try (Transaction transaction = _server.beginTransaction(TxScope.never().setIsolation(TxIsolation.REPEATABLE_READ))) {
+      try (Transaction transaction = _server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
         transaction.setBatchMode(true);
         result = block.get();
         transaction.commit();
