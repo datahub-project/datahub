@@ -689,9 +689,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
                     )
                     self.report.num_view_definitions_failed_parsing += 1
+                    self.report.view_definitions_parsing_failures.append(
+                        f"Table-level sql parsing error for view {view}: {raw_view_lineage.debug_info.table_error}"
+                    )
                     continue
                 elif raw_view_lineage.debug_info.column_error:
                     self.report.num_view_definitions_failed_column_parsing += 1
+                    self.report.view_definitions_parsing_failures.append(
+                        f"Column-level sql parsing error for view {view}: {raw_view_lineage.debug_info.column_error}"
+                    )
                 else:
                     self.report.num_view_definitions_parsed += 1
 
