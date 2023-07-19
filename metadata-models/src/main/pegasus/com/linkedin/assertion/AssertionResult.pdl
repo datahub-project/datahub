@@ -5,10 +5,14 @@ namespace com.linkedin.assertion
  */
 record AssertionResult {
   /**
-  *  The final result, e.g. either SUCCESS or FAILURE.
+  *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
   */
   @TimeseriesField = {}
   type: enum AssertionResultType {
+    /**
+    *  The Assertion has not yet been fully evaluated
+    */
+    INIT
     /**
     *  The Assertion Succeeded
     */
@@ -17,6 +21,10 @@ record AssertionResult {
     *  The Assertion Failed
     */
     FAILURE
+    /**
+    *  The Assertion encountered an Error
+    */
+    ERROR
   }
 
   /**
@@ -48,5 +56,10 @@ record AssertionResult {
    * URL where full results are available
    */
   externalUrl: optional string
+
+  /**
+   *  The error object if AssertionResultType is an Error
+   */
+  error: optional AssertionResultError
 
 }
