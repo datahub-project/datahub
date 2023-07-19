@@ -9,6 +9,8 @@ import {
     GetUserNotificationSettingsQuery,
 } from '../../../../graphql/settings.generated';
 
+const REFETCH_DELAY = 3000;
+
 const NotificationTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
@@ -247,20 +249,20 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
     }
 };
 
-export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch) => {
+export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch: () => void) => {
     deleteSubscription({
         variables: {
             input: { subscriptionUrn },
         },
     })
         .then(() => {
-            refetch?.();
             notification.success({
                 message: `Success`,
                 description: 'You have unsubscribed from this entity.',
                 placement: 'bottomLeft',
                 duration: 3,
             });
+            window.setTimeout(refetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -275,7 +277,7 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
 
 export const createSubscriptionFunction = (
     createSubscription,
-    refetch,
+    refetch: () => void,
     groupUrn,
     entityUrn,
     subscriptionTypes,
@@ -305,9 +307,7 @@ export const createSubscriptionFunction = (
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
             });
-            setTimeout(() => {
-                refetch();
-            }, 3000);
+            window.setTimeout(refetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -319,7 +319,7 @@ export const createSubscriptionFunction = (
 
 export const updateSubscriptionFunction = (
     updateSubscription,
-    refetch,
+    refetch: () => void,
     subscription,
     subscriptionTypes,
     entityChangeTypes,
@@ -348,9 +348,7 @@ export const updateSubscriptionFunction = (
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
                 });
-                setTimeout(() => {
-                    refetch();
-                }, 3000);
+                window.setTimeout(refetch, REFETCH_DELAY);
             })
             .catch((e: unknown) => {
                 message.destroy();

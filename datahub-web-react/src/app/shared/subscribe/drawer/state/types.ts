@@ -1,10 +1,12 @@
 import { Key } from 'react';
 import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
 
-export const SettingsSelection = 'settings';
-export const SubscriptionSelection = 'subscription';
+export const ChannelSelections = {
+    SETTINGS: 'SETTINGS',
+    SUBSCRIPTION: 'SUBSCRIPTION',
+} as const;
 
-export type ChannelSelection = typeof SettingsSelection | typeof SubscriptionSelection;
+export type ChannelSelection = typeof ChannelSelections[keyof typeof ChannelSelections];
 
 export type State = {
     edited: boolean;

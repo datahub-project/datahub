@@ -15,7 +15,7 @@ import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/ty
 import { isSinkEnabled } from '../../../../settings/utils';
 import { useDrawerState } from '../state/context';
 import useDrawerActions from '../state/actions';
-import { SettingsSelection, SubscriptionSelection } from '../state/types';
+import { ChannelSelections } from '../state/types';
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -89,9 +89,9 @@ export default function NotificationRecipientSection() {
 
     const { isPersonal, slack } = useDrawerState();
 
-    const [isSettingsChannel, isSubscriptionChannel] = [
-        slack.channelSelection === 'settings',
-        slack.channelSelection === 'subscription',
+    const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
+        slack.channelSelection === ChannelSelections.SETTINGS,
+        slack.channelSelection === ChannelSelections.SUBSCRIPTION,
     ];
 
     const channelInputRef = useRef<InputRef>(null);
@@ -104,8 +104,8 @@ export default function NotificationRecipientSection() {
     }, [form, slack.subscription.channel]);
 
     useEffect(() => {
-        if (isSubscriptionChannel) channelInputRef.current?.focus();
-    }, [isSubscriptionChannel]);
+        if (isSubscriptionChannelSelected) channelInputRef.current?.focus();
+    }, [isSubscriptionChannelSelected]);
 
     const customSlackSinkIsValid = isPersonal
         ? isUserSlackHandleValid(slack.subscription.channel ?? '')
@@ -147,9 +147,11 @@ export default function NotificationRecipientSection() {
                         >
                             <Space direction="vertical">
                                 {slack.settings.channel && (
-                                    <Radio value={SettingsSelection}>Use default: {slack.settings.channel}</Radio>
+                                    <Radio value={ChannelSelections.SETTINGS}>
+                                        Use default: {slack.settings.channel}
+                                    </Radio>
                                 )}
-                                <Radio value={SubscriptionSelection}>
+                                <Radio value={ChannelSelections.SUBSCRIPTION}>
                                     <Form form={form}>
                                         <StyledFormItem
                                             name="slackFormValue"
@@ -167,7 +169,9 @@ export default function NotificationRecipientSection() {
                                             <StyledInput
                                                 ref={channelInputRef}
                                                 placeholder={isPersonal ? '@user' : '#channel'}
-                                                disabled={!slack.enabled || !slackSinkEnabled || isSettingsChannel}
+                                                disabled={
+                                                    !slack.enabled || !slackSinkEnabled || isSettingsChannelSelected
+                                                }
                                                 value={slack.subscription.channel}
                                                 status={customSlackSinkIsValid ? undefined : 'error'}
                                                 onChange={onChangeChannelInput}
@@ -182,7 +186,7 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {isSubscriptionChannel && slack.settings.channel && (
+                    {isSubscriptionChannelSelected && slack.settings.channel && (
                         <StyledCheckbox
                             disabled={!slack.enabled || !slackSinkEnabled}
                             checked={slack.subscription.saveAsDefault}

@@ -2,7 +2,7 @@ import uniq from 'lodash/uniq';
 import { NotificationSinkType, SubscriptionType } from '../../../../../types.generated';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/notifications/constants';
 import { getDefaultCheckedKeys } from '../utils';
-import { Action, ActionTypes, SettingsSelection, State } from './types';
+import { Action, ActionTypes, ChannelSelections, State } from './types';
 
 export const createInitialState = (): State => ({
     edited: false,
@@ -15,7 +15,7 @@ export const createInitialState = (): State => ({
     notificationSinkTypes: [],
     slack: {
         enabled: false,
-        channelSelection: 'subscription',
+        channelSelection: ChannelSelections.SUBSCRIPTION,
         settings: {},
         subscription: {
             saveAsDefault: false,
@@ -36,7 +36,8 @@ export const reducer = (state: State, action: Action): State => {
             const hasUpstreamSubscription =
                 ENABLE_UPSTREAM_NOTIFICATIONS &&
                 !!subscription?.subscriptionTypes?.includes(SubscriptionType.UpstreamEntityChange);
-            const channelSelection = !!settingsChannel && !subscriptionChannel ? 'settings' : 'subscription';
+            const channelSelection =
+                !!settingsChannel && !subscriptionChannel ? ChannelSelections.SETTINGS : ChannelSelections.SUBSCRIPTION;
 
             return {
                 ...state,
@@ -88,7 +89,10 @@ export const reducer = (state: State, action: Action): State => {
                     channelSelection: action.payload,
                     subscription: {
                         ...state.slack.subscription,
-                        channel: action.payload === SettingsSelection ? undefined : state.slack.subscription.channel,
+                        channel:
+                            action.payload === ChannelSelections.SETTINGS
+                                ? undefined
+                                : state.slack.subscription.channel,
                         saveAsDefault: !state.slack.settings.channel,
                     },
                 },

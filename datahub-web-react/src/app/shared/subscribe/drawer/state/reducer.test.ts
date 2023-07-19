@@ -1,7 +1,7 @@
 import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
 import { getDefaultCheckedKeys } from '../utils';
 import { createInitialState, reducer } from './reducer';
-import { ActionTypes, ChannelSelection, SettingsSelection, SubscriptionSelection } from './types';
+import { ActionTypes, ChannelSelections } from './types';
 
 const entityType = EntityType.Dataset;
 const slackSubscription: Partial<DataHubSubscription> = {
@@ -11,15 +11,15 @@ const slackSubscription: Partial<DataHubSubscription> = {
 };
 
 const getInitializedState = ({
+    slackSinkEnabled,
     subscription,
     settingsChannel,
     subscriptionChannel,
-    slackSinkEnabled,
 }: {
+    slackSinkEnabled: boolean;
     subscription?: Partial<DataHubSubscription>;
     settingsChannel?: string;
     subscriptionChannel?: string;
-    slackSinkEnabled: boolean;
 }) => {
     const state = createInitialState();
     const action = {
@@ -38,9 +38,14 @@ const getInitializedState = ({
 };
 
 describe('reducer', () => {
-    describe('initialize with slack globally disabled', () => {
-        it('set initial state', () => {
-            const newState = getInitializedState({ slackSinkEnabled: false, subscription: undefined });
+    describe(`${ActionTypes.INITIALIZE} with slack globally disabled`, () => {
+        it('should set state', () => {
+            const newState = getInitializedState({
+                slackSinkEnabled: false,
+                subscription: undefined,
+                settingsChannel: undefined,
+                subscriptionChannel: undefined,
+            });
 
             expect(newState).toEqual({
                 edited: true,
@@ -53,7 +58,7 @@ describe('reducer', () => {
                 notificationSinkTypes: [],
                 slack: {
                     enabled: false,
-                    channelSelection: 'subscription',
+                    channelSelection: ChannelSelections.SUBSCRIPTION,
                     settings: {
                         channel: undefined,
                     },
@@ -66,40 +71,13 @@ describe('reducer', () => {
         });
     });
 
-    describe('initialize with slack globally enabled and personal notifications disabled', () => {
-        it('set initial state', () => {
-            const newState = getInitializedState({ slackSinkEnabled: true, subscription: undefined });
-
-            expect(newState).toEqual({
-                edited: true,
-                isPersonal: true,
-                notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
-                    expandedKeys: [],
-                },
-                subscribeToUpstream: false,
-                notificationSinkTypes: [],
-                slack: {
-                    enabled: false,
-                    channelSelection: 'subscription',
-                    settings: {
-                        channel: undefined,
-                    },
-                    subscription: {
-                        channel: undefined,
-                        saveAsDefault: true,
-                    },
-                },
-            });
-        });
-    });
-
-    describe('initialize with slack globally enabled and personal notifications enabled', () => {
-        it('should set initial state without an existing subscription', () => {
+    describe(`${ActionTypes.INITIALIZE} with slack globally enabled and personal notifications disabled`, () => {
+        it('should set state', () => {
             const newState = getInitializedState({
                 slackSinkEnabled: true,
-                settingsChannel: 'abc',
                 subscription: undefined,
+                settingsChannel: undefined,
+                subscriptionChannel: undefined,
             });
 
             expect(newState).toEqual({
@@ -113,7 +91,40 @@ describe('reducer', () => {
                 notificationSinkTypes: [],
                 slack: {
                     enabled: false,
-                    channelSelection: 'settings',
+                    channelSelection: ChannelSelections.SUBSCRIPTION,
+                    settings: {
+                        channel: undefined,
+                    },
+                    subscription: {
+                        channel: undefined,
+                        saveAsDefault: true,
+                    },
+                },
+            });
+        });
+    });
+
+    describe(`${ActionTypes.INITIALIZE} with slack globally enabled and personal notifications enabled`, () => {
+        it('should set state without an existing subscription', () => {
+            const newState = getInitializedState({
+                slackSinkEnabled: true,
+                subscription: undefined,
+                settingsChannel: 'abc',
+                subscriptionChannel: undefined,
+            });
+
+            expect(newState).toEqual({
+                edited: true,
+                isPersonal: true,
+                notificationTypes: {
+                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    expandedKeys: [],
+                },
+                subscribeToUpstream: false,
+                notificationSinkTypes: [],
+                slack: {
+                    enabled: false,
+                    channelSelection: ChannelSelections.SETTINGS,
                     settings: {
                         channel: 'abc',
                     },
@@ -125,12 +136,12 @@ describe('reducer', () => {
             });
         });
 
-        it('should set initial state with an existing subscription', () => {
+        it('should set state with an existing subscription', () => {
             const newState = getInitializedState({
                 slackSinkEnabled: true,
+                subscription: slackSubscription,
                 settingsChannel: 'abc',
                 subscriptionChannel: 'xyz',
-                subscription: slackSubscription,
             });
 
             expect(newState).toEqual({
@@ -144,7 +155,7 @@ describe('reducer', () => {
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
-                    channelSelection: 'subscription',
+                    channelSelection: ChannelSelections.SUBSCRIPTION,
                     settings: {
                         channel: 'abc',
                     },
@@ -157,13 +168,13 @@ describe('reducer', () => {
         });
     });
 
-    describe('set slack enabled', () => {
+    describe(`${ActionTypes.SET_SLACK_ENABLED}`, () => {
         it('should enable slack state', () => {
             const state = getInitializedState({
                 slackSinkEnabled: true,
+                subscription: slackSubscription,
                 settingsChannel: 'abc',
                 subscriptionChannel: undefined,
-                subscription: slackSubscription,
             });
 
             const action = {
@@ -184,7 +195,7 @@ describe('reducer', () => {
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
-                    channelSelection: SettingsSelection,
+                    channelSelection: ChannelSelections.SETTINGS,
                     settings: {
                         channel: 'abc',
                     },
@@ -197,19 +208,19 @@ describe('reducer', () => {
         });
     });
 
-    describe('set channel selection', () => {
+    describe(`${ActionTypes.SET_CHANNEL_SELECTION}`, () => {
         it('should set selection to settings', () => {
-            const action = {
-                type: ActionTypes.SET_CHANNEL_SELECTION,
-                payload: SettingsSelection as ChannelSelection,
-            };
-
             const state = getInitializedState({
                 slackSinkEnabled: true,
                 settingsChannel: 'abc',
                 subscriptionChannel: 'xyz',
                 subscription: slackSubscription,
             });
+
+            const action = {
+                type: ActionTypes.SET_CHANNEL_SELECTION,
+                payload: ChannelSelections.SETTINGS,
+            };
 
             const newState = reducer(state, action);
 
@@ -224,7 +235,7 @@ describe('reducer', () => {
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
-                    channelSelection: SettingsSelection,
+                    channelSelection: ChannelSelections.SETTINGS,
                     settings: {
                         channel: 'abc',
                     },
@@ -239,7 +250,7 @@ describe('reducer', () => {
         it('should set selection to subscription', () => {
             const action = {
                 type: ActionTypes.SET_CHANNEL_SELECTION,
-                payload: SubscriptionSelection as ChannelSelection,
+                payload: ChannelSelections.SUBSCRIPTION,
             };
 
             const state = getInitializedState({
@@ -261,7 +272,7 @@ describe('reducer', () => {
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
-                    channelSelection: SubscriptionSelection,
+                    channelSelection: ChannelSelections.SUBSCRIPTION,
                     settings: {
                         channel: 'abc',
                     },
