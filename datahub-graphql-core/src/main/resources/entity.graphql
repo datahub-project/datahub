@@ -342,6 +342,11 @@ type JoinProperties {
     Created timestamp millis associated with the Join
     """
     createdTime: Long
+
+    """
+    Created actor urn associated with the Join
+    """
+    createdActor: String
 }
 
 """

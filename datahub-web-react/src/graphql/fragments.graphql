@@ -971,6 +971,8 @@ fragment inputFieldsFields on InputFields {
     }
 }
 
+
+
 fragment browsePathV2Fields on BrowsePathV2 {
     path {
         name
@@ -1126,6 +1128,7 @@ fragment joinPropertiesFields on JoinProperties {
         ...joinFieldMappingFields
     }
     createdTime
+    createdActor
 }
 
 fragment joinFieldMappingFields on JoinFieldMapping {

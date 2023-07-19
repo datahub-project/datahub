@@ -88,8 +88,8 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
-//        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
-//                ? joinProperties.getCreated().getActor().toString() : "")
+        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
+                ? joinProperties.getCreated().getActor().toString() : "")
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
                 ? joinProperties.getCreated().getTime() : 0)
         .build());

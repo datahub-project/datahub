@@ -1,13 +1,11 @@
 package com.linkedin.datahub.graphql.types.join;
 
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.JoinUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -15,14 +13,11 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.Join;
-import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.join.mappers.JoinMapper;
-import com.linkedin.datahub.graphql.types.join.mappers.JoinUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
@@ -34,17 +29,13 @@ import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -53,12 +44,9 @@ import javax.annotation.Nullable;
 import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.metadata.Constants.*;
 
-import static com.linkedin.common.urn.UrnUtils.getUrn;
-
 
 public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<Join, String>,
-                                 BrowsableEntityType<Join, String>, SearchableEntityType<Join, String>,
-                                 MutableType<JoinUpdateInput, Join> {
+                                 BrowsableEntityType<Join, String>, SearchableEntityType<Join, String> {
 
 
   static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
@@ -90,10 +78,10 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
   }
 
 
-  @Override
-  public Class<JoinUpdateInput> inputClass() {
-    return JoinUpdateInput.class;
-  }
+//  @Override
+//  public Class<JoinUpdateInput> inputClass() {
+//    return JoinUpdateInput.class;
+//  }
 
   @Override
   public EntityType type() {
@@ -183,40 +171,40 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
     return AutoCompleteResultsMapper.map(result);
   }
 
-  @Override
-  public Join update(String urn, @Nonnull JoinUpdateInput input, @Nonnull QueryContext context)
-      throws Exception {
-    if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+  //@Override
+//  public Join update(String urn, @Nonnull JoinUpdateInput input, @Nonnull QueryContext context)
+//      throws Exception {
+//    if (isAuthorized(urn, input, context)) {
+//      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
+//
+//      // Same routine used by create - hence this check
+//      JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
+//      if (urn != null) {
+//        inputUrn = JoinUrn.createFromString(urn);
+//        if ("new".equals(inputUrn.getJoinIdEntity())) {
+//          inputUrn = new JoinUrn(UUID.randomUUID().toString());
+//        }
+//      } else {
+//        urn = inputUrn.toString();
+//      }
+//
+//      final JoinUrn updatedUrn = inputUrn;
+//
+//      final Collection<MetadataChangeProposal> proposals = JoinUpdateInputMapper.map(input, actor);
+//      proposals.forEach(proposal -> proposal.setEntityUrn(updatedUrn));
+//
+//      try {
+//        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
+//      } catch (RemoteInvocationException e) {
+//        throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
+//      }
+//
+//      return load(urn, context).getData();
+//    }
+//    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+//  }
 
-      // Same routine used by create - hence this check
-      JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
-      if (urn != null) {
-        inputUrn = JoinUrn.createFromString(urn);
-        if ("new".equals(inputUrn.getJoinIdEntity())) {
-          inputUrn = new JoinUrn(UUID.randomUUID().toString());
-        }
-      } else {
-        urn = inputUrn.toString();
-      }
-
-      final JoinUrn updatedUrn = inputUrn;
-
-      final Collection<MetadataChangeProposal> proposals = JoinUpdateInputMapper.map(input, actor);
-      proposals.forEach(proposal -> proposal.setEntityUrn(updatedUrn));
-
-      try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
-      } catch (RemoteInvocationException e) {
-        throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
-      }
-
-      return load(urn, context).getData();
-    }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-  }
-
-  private boolean isAuthorized(String urn, JoinUpdateInput input, QueryContext context) {
-    return true;
-  }
+  //private boolean isAuthorized(String urn, JoinUpdateInput input, QueryContext context) {
+    //return true;
+  //}
 }

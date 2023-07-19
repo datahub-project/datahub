@@ -6,16 +6,20 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.datahub.graphql.generated.*;
+import com.linkedin.datahub.graphql.generated.JoinFieldMappingInput;
+import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
+import com.linkedin.datahub.graphql.generated.JoinPropertiesInput;
+import com.linkedin.datahub.graphql.generated.JoinEditablePropertiesUpdate;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipUpdateMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.UpdateMappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.InputModelMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.TagAssociationUpdateMapper;
-import com.linkedin.join.*;
-import com.linkedin.join.FieldMap;
 import com.linkedin.join.JoinFieldMapping;
 import com.linkedin.join.JoinProperties;
+import com.linkedin.join.EditableJoinProperties;
+import com.linkedin.join.FieldMapArray;
+import com.linkedin.join.FieldMap;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -96,7 +100,8 @@ public class JoinUpdateInputMapper
       if (inputProperties.getCreated() != null && inputProperties.getCreated()) {
         joinProperties.setCreated(timestamp);
       } else {
-        if (inputProperties.getCreatedBy().trim().length() > 0 && inputProperties.getCreatedAt() != 0) {
+        if (inputProperties.getCreatedBy() != null
+                && inputProperties.getCreatedBy().trim().length() > 0 && inputProperties.getCreatedAt() != 0) {
           final TimeStamp timestampEdit = new TimeStamp();
           try {
             timestampEdit.setActor(Urn.createFromString(inputProperties.getCreatedBy()));
@@ -112,7 +117,7 @@ public class JoinUpdateInputMapper
     return joinProperties;
   }
 
-  public static JoinFieldMapping joinFieldMappingSettings(JoinFieldMappingInput joinFieldMapping){
+  public static JoinFieldMapping joinFieldMappingSettings(JoinFieldMappingInput joinFieldMapping) {
     JoinFieldMapping joinFieldMappingUnit = new JoinFieldMapping();
     if (joinFieldMapping.getDetails() != null) {
       joinFieldMappingUnit.setDetails(joinFieldMapping.getDetails());
@@ -134,7 +139,7 @@ public class JoinUpdateInputMapper
     }
     return joinFieldMappingUnit;
   }
-  public static EditableJoinProperties joinEditablePropsSettings(JoinEditablePropertiesUpdate editPropsInput){
+  public static EditableJoinProperties joinEditablePropsSettings(JoinEditablePropertiesUpdate editPropsInput) {
     final EditableJoinProperties editableJoinProperties = new EditableJoinProperties();
     if (editPropsInput.getName() != null
             && editPropsInput.getName().trim().length() > 0) {
