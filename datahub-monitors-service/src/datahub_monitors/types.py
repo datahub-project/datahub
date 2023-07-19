@@ -84,6 +84,12 @@ class AssertionResultType(Enum):
     ERROR = "ERROR"
 
 
+class DatasetFilterType(Enum):
+    """Enumeration of Filter types."""
+
+    SQL = "SQL"
+
+
 class DatasetFreshnessSourceType(Enum):
     """Enumeration of Dataset FRESHNESS source types result types."""
 
@@ -122,12 +128,25 @@ class AssertionEvaluationParametersType(Enum):
     DATASET_FRESHNESS = "DATASET_FRESHNESS"
 
 
+class FreshnessFieldKind(Enum):
+    LAST_MODIFIED = "LAST_MODIFIED"
+    HIGH_WATERMARK = "HIGH_WATERMARK"
+
+
 class CronSchedule(PermissiveBaseModel):
     """The cron string"""
 
     cron: str
 
     timezone: str
+
+
+class DatasetFilter(PermissiveBaseModel):
+    """Filter applied to dataset"""
+
+    type: DatasetFilterType
+
+    sql: Optional[str] = None
 
 
 class FreshnessCronSchedule(PermissiveBaseModel):
@@ -171,6 +190,8 @@ class SchemaFieldSpec(PermissiveBaseModel):
     # The native type of the field collected from source
     native_type: Optional[str] = Field(alias="nativeType")
 
+    kind: Optional[FreshnessFieldKind]
+
 
 class AuditLogSpec(PermissiveBaseModel):
     """The type of operation. If not provided all operations will be considered."""
@@ -198,6 +219,8 @@ class FreshnessAssertion(PermissiveBaseModel):
     type: FreshnessAssertionType
 
     schedule: FreshnessAssertionSchedule
+
+    filter: Optional[DatasetFilter] = None
 
 
 class AssertionEntity(PermissiveBaseModel):
@@ -291,6 +314,9 @@ class Assertion(PermissiveBaseModel):
 
     # The type of the assertion
     type: AssertionType
+
+    # The subType of the assertion
+    # sub_type: AssertionSubType = Field(alias="subType")
 
     # The entity being asserted on
     entity: AssertionEntity
@@ -388,8 +414,11 @@ class AssertionEvaluationContext:
 
     dry_run: bool = False
 
-    def __init__(self, dry_run: bool = False):
+    monitor_urn: Optional[str] = Field(alias="monitorUrn")
+
+    def __init__(self, dry_run: bool = False, monitor_urn: Optional[str] = None):
         self.dry_run = dry_run
+        self.monitor_urn = monitor_urn
 
 
 class AssertionEvaluationResultError:

@@ -27,7 +27,12 @@ export const ASSERTION_TYPES = [
     },
 ];
 
-export const TIMESTAMP_FIELD_TYPES = new Set([SchemaFieldDataType.Date, SchemaFieldDataType.Time]);
+export const LAST_MODIFIED_FIELD_TYPES = new Set([SchemaFieldDataType.Date, SchemaFieldDataType.Time]);
+export const HIGH_WATERMARK_FIELD_TYPES = new Set([
+    SchemaFieldDataType.Number,
+    SchemaFieldDataType.Date,
+    SchemaFieldDataType.Time,
+]);
 
 // Default state used to initialize the Assertion Monitor Builder.
 export const DEFAULT_BUILDER_STATE = {

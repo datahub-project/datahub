@@ -74,6 +74,10 @@ fragment AssertionDetails on Assertion {
                   multiple
               }
           }
+          filter {
+            type
+            sql
+          }
       }
       source {
           type
@@ -120,6 +124,7 @@ fragment MonitorSearchResults on SearchResults {
                     type
                     nativeType
                     path
+                    kind
                   }
                   auditLog {
                     operationTypes

@@ -5,13 +5,12 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
-    SchemaFieldSpec,
+    FreshnessFieldSpec,
 } from '../../../../../../../../../../types.generated';
 import { FieldValueSourceBuilder } from './FieldValueSourceBuilder';
-import { getSourceTypesForPlatform, SOURCE_TYPE_TO_INFO } from '../../utils';
-import { TIMESTAMP_FIELD_TYPES } from '../../constants';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
+import { SourceOption, getSourceOption, getSourceOptions } from '../../utils';
 
 const Form = styled.div``;
 
@@ -48,6 +47,7 @@ type Props = {
 export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, onChange }: Props) => {
     const sourceType = value?.sourceType || DatasetFreshnessSourceType.AuditLog;
     const field = value?.field;
+    const fieldKind = field?.kind;
 
     const { data } = useGetDatasetSchemaQuery({
         variables: {
@@ -56,36 +56,42 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         fetchPolicy: 'cache-first',
     });
 
+    const sourceOptions = getSourceOptions(platformUrn);
+    const selectedSourceOption = getSourceOption(sourceType, fieldKind);
+
     /**
      * Extract the schema fields eligible for selection. These must be timestamp type fields.
      */
-    const dateFields =
-        data?.dataset?.schemaMetadata?.fields?.filter((f) => TIMESTAMP_FIELD_TYPES.has(f.type) && f.nativeDataType) ||
-        [];
-    const dateFieldSpecs = dateFields.map((f) => ({
+    const eligibleFields =
+        data?.dataset?.schemaMetadata?.fields?.filter(
+            (f) => selectedSourceOption?.field?.dataTypes?.has(f.type) && f.nativeDataType,
+        ) || [];
+    const eligibleFieldSpecs = eligibleFields.map((f) => ({
         path: f.fieldPath,
         type: f.type,
         nativeType: f.nativeDataType as string,
     }));
 
-    /**
-     * Extract the source type options on a per-platform basis, as some data platforms
-     * do not support all of them. In the future, we may want a better place to declare these.
-     */
-    const sourceTypes = getSourceTypesForPlatform(platformUrn).filter((st) => SOURCE_TYPE_TO_INFO.has(st));
-    const selectedSourceTypeInfo = SOURCE_TYPE_TO_INFO.get(sourceType);
-
-    const updateSourceType = (newSourceType: DatasetFreshnessSourceType) => {
+    const updateSourceType = (newSourceOption: SourceOption) => {
+        const newField = newSourceOption.field
+            ? {
+                  kind: newSourceOption.field.kind,
+              }
+            : undefined;
         onChange({
             ...value,
-            sourceType: newSourceType,
+            sourceType: newSourceOption.type,
+            field: newField as FreshnessFieldSpec,
         });
     };
 
-    const updateFieldSpec = (newSpec: SchemaFieldSpec) => {
+    const updateFieldSpec = (newSpec: Partial<FreshnessFieldSpec>) => {
         onChange({
             ...value,
-            field: newSpec,
+            field: {
+                ...field,
+                ...newSpec,
+            },
         } as any);
     };
 
@@ -96,18 +102,19 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
                 Select the mechanism used to determine whether a change has been made to this dataset.
             </Typography.Paragraph>
             <Radio.Group value={sourceType} onChange={(e) => updateSourceType(e.target.value)}>
-                {sourceTypes.map((st) => (
-                    <Radio.Button value={SOURCE_TYPE_TO_INFO.get(st).type}>
-                        {SOURCE_TYPE_TO_INFO.get(st).name}
-                    </Radio.Button>
+                {sourceOptions.map((option) => (
+                    <Radio.Button value={option}>{option.name}</Radio.Button>
                 ))}
             </Radio.Group>
             <SourceDescription>
                 <StyledInfoCircleOutlined />
-                {selectedSourceTypeInfo.description}
+                {selectedSourceOption.description}
             </SourceDescription>
             {sourceType === DatasetFreshnessSourceType.FieldValue && (
-                <FieldValueSourceBuilder fields={dateFieldSpecs} value={field} onChange={updateFieldSpec} />
+                <FieldValueSourceBuilder fields={eligibleFieldSpecs} value={field} onChange={updateFieldSpec} />
+            )}
+            {selectedSourceOption.secondaryDescription && (
+                <Typography.Text type="secondary">{selectedSourceOption.secondaryDescription}</Typography.Text>
             )}
         </Form>
     );

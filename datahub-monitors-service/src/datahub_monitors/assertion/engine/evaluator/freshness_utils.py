@@ -1,17 +1,29 @@
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from datahub_monitors.exceptions import (
     InvalidParametersException,
     InvalidSourceTypeException,
 )
 from datahub_monitors.types import (
+    Assertion,
     AssertionEvaluationParameters,
     DatasetFreshnessSourceType,
     EntityEventType,
 )
 
 
+def get_filter_parameters(assertion: Assertion) -> Optional[Dict]:
+    """
+    Extracts filter information from SLA Assertion and returns it as a dictionary to use with entity_event parameters
+    """
+    freshness_assertion = assertion.freshness_assertion
+    if freshness_assertion is not None and freshness_assertion.filter is not None:
+        return freshness_assertion.filter.__dict__
+    return None
+
+
 def get_event_type_parameters_from_parameters(
+    assertion: Assertion,
     parameters: AssertionEvaluationParameters,
 ) -> Tuple[EntityEventType, Dict]:
     """
@@ -28,6 +40,10 @@ def get_event_type_parameters_from_parameters(
         if source_type == DatasetFreshnessSourceType.FIELD_VALUE:
             entity_event_type = EntityEventType.FIELD_UPDATE
             params = dataset_freshness_parameters.field.__dict__
+            filter_params = get_filter_parameters(assertion)
+            if filter_params:
+                params["filter"] = filter_params
+
             return (entity_event_type, params)
         elif source_type == DatasetFreshnessSourceType.INFORMATION_SCHEMA:
             entity_event_type = EntityEventType.INFORMATION_SCHEMA_UPDATE

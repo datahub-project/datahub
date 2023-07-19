@@ -30,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionType;
 import com.linkedin.datahub.graphql.generated.FreshnessCronSchedule;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -200,6 +201,9 @@ public class AssertionMapper {
     freshnessAssertionInfo.setType(FreshnessAssertionType.valueOf(gmsFreshnessAssertionInfo.getType().name()));
     if (gmsFreshnessAssertionInfo.hasSchedule()) {
       freshnessAssertionInfo.setSchedule(mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule()));
+    }
+    if (gmsFreshnessAssertionInfo.hasFilter()) {
+      freshnessAssertionInfo.setFilter(DatasetFilterMapper.map(gmsFreshnessAssertionInfo.getFilter()));
     }
     return freshnessAssertionInfo;
   }

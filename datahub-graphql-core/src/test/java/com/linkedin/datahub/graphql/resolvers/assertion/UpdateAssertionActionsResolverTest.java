@@ -166,6 +166,7 @@ public class UpdateAssertionActionsResolverTest {
         Mockito.any(),
         Mockito.any(),
         Mockito.any(),
+        Mockito.any(),
         Mockito.any(Authentication.class)
     )).thenReturn(TEST_ASSERTION_URN);
 

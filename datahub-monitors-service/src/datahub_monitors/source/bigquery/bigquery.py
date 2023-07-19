@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, timezone
-from typing import Any, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional, Tuple
 
 import pytz
 from datahub.ingestion.source.bigquery_v2.common import (
@@ -356,3 +356,13 @@ class BigQuerySource(Source):
         parameters: dict,
     ) -> List[EntityEvent]:
         return self._try_get_entity_events(entity_urn, event_type, window, parameters)
+
+    def get_current_high_watermark_for_column(
+        self,
+        entity_urn: str,
+        event_type: EntityEventType,
+        window: List[int],
+        parameters: dict,
+        previous_value: Optional[str],
+    ) -> Tuple[str, int]:
+        raise Exception("Not implemented")

@@ -59,6 +59,10 @@ fragment assertionDetails on Assertion {
                     multiple
                 }
             }
+            filter {
+                type
+                sql
+            }
         }
         source {
             type

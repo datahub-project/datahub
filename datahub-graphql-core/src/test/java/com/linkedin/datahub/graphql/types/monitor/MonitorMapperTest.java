@@ -23,6 +23,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.assertion.FreshnessFieldKind;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import java.util.HashMap;
 import org.testng.Assert;
@@ -80,10 +81,14 @@ public class MonitorMapperTest {
 
       if (inputParams.hasField()) {
         FreshnessFieldSpec inputFieldSpec = inputParams.getField();
-        com.linkedin.datahub.graphql.generated.SchemaFieldSpec outputFieldSpec = outputParams.getField();
+        com.linkedin.datahub.graphql.generated.FreshnessFieldSpec outputFieldSpec = outputParams.getField();
         Assert.assertEquals(outputFieldSpec.getNativeType(), inputFieldSpec.getNativeType());
         Assert.assertEquals(outputFieldSpec.getType(), inputFieldSpec.getType());
         Assert.assertEquals(outputFieldSpec.getPath(), inputFieldSpec.getPath());
+
+        if (inputFieldSpec.hasKind()) {
+          Assert.assertEquals(outputFieldSpec.getKind().name(), inputFieldSpec.getKind().name());
+        }
       }
 
       if (inputParams.hasAuditLog()) {
@@ -148,7 +153,9 @@ public class MonitorMapperTest {
                     .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FRESHNESS)
                     .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
                         .setSourceType(DatasetFreshnessSourceType.FIELD_VALUE)
-                        .setField(new FreshnessFieldSpec().setNativeType("varchar").setType("STRING").setPath("name"))
+                        .setField(new FreshnessFieldSpec()
+                            .setNativeType("varchar").setType("STRING").setPath("name").setKind(FreshnessFieldKind.LAST_MODIFIED)
+                        )
                     )
                 )
           )

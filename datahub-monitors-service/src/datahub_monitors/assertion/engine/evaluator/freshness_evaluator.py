@@ -14,6 +14,7 @@ from datahub_monitors.assertion.engine.evaluator.time_utils import (
     get_next_cron_schedule_time,
     get_prev_cron_schedule_time,
 )
+from datahub_monitors.assertion.types import AssertionState, AssertionStateType
 from datahub_monitors.connection.connection import Connection
 from datahub_monitors.connection.provider import ConnectionProvider
 from datahub_monitors.exceptions import (
@@ -22,6 +23,8 @@ from datahub_monitors.exceptions import (
     SourceConnectionErrorException,
 )
 from datahub_monitors.source.provider import SourceProvider
+from datahub_monitors.source.source import Source
+from datahub_monitors.state.assertion_state_provider import AssertionStateProvider
 from datahub_monitors.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -35,10 +38,12 @@ from datahub_monitors.types import (
     CronSchedule,
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
+    EntityEventType,
     FixedIntervalSchedule,
     FreshnessAssertion,
     FreshnessAssertionScheduleType,
     FreshnessCronSchedule,
+    FreshnessFieldKind,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,6 +56,8 @@ DEFAULT_FRESHNESS_PARAMETERS = AssertionEvaluationParameters(
     ),
 )
 
+STATEFUL_ASSERTION_EVALUATION_BUFFER = 5 * 60 * 1000
+
 
 class FreshnessAssertionEvaluator(AssertionEvaluator):
     """Evaluator for FRESHNESS assertions."""
@@ -59,9 +66,15 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
     def type(self) -> AssertionType:
         return AssertionType.FRESHNESS
 
-    def __init__(self, connection_provider: ConnectionProvider):
+    def __init__(
+        self,
+        connection_provider: ConnectionProvider,
+        state_provider: AssertionStateProvider,
+        source_provider: SourceProvider,
+    ):
         self.connection_provider = connection_provider
-        self.source_provider = SourceProvider()
+        self.state_provider = state_provider
+        self.source_provider = source_provider
 
     def _evaluate_internal_window_event(
         self,
@@ -75,12 +88,45 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         # Check whether any matching events have fallen into the bucket
         event_type, source_params = get_event_type_parameters_from_parameters(
-            parameters
+            assertion, parameters
         )
         # This is where we drop into system-specific bits --> Need a way to do this for Snowflake first.
         # TODO: Consider what it would take to batch queries. Maybe the client aggregates?
         source = self.source_provider.create_source_from_connection(connection)
 
+        if (
+            parameters
+            and parameters.dataset_freshness_parameters
+            and parameters.dataset_freshness_parameters.field
+            and parameters.dataset_freshness_parameters.field.kind
+            == FreshnessFieldKind.HIGH_WATERMARK
+        ):
+            return self._evaluate_high_watermark_assertion(
+                source,
+                assertion,
+                entity_urn,
+                event_type,
+                window,
+                source_params,
+                context,
+            )
+
+        return self._evaluate_assertion(
+            source,
+            entity_urn,
+            event_type,
+            window,
+            source_params,
+        )
+
+    def _evaluate_assertion(
+        self,
+        source: Source,
+        entity_urn: str,
+        event_type: EntityEventType,
+        window: List[int],
+        source_params: dict,
+    ) -> AssertionEvaluationResult:
         maybe_events = source.get_entity_events(
             entity_urn, event_type, window, source_params
         )
@@ -92,16 +138,158 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 "Found matching events within the provided window! Assertion is passing."
             )
             return AssertionEvaluationResult(
-                AssertionResultType.SUCCESS, parameters={"events": maybe_events}
+                AssertionResultType.SUCCESS, {"events": maybe_events}
             )
         else:
             # No events are found. The assertion is failing!
             logger.error(
                 "No matching events found within the provided window! Assertion is failing."
             )
-            return AssertionEvaluationResult(
-                AssertionResultType.FAILURE, parameters=None
+            return AssertionEvaluationResult(AssertionResultType.FAILURE, None)
+
+    def _evaluate_high_watermark_freshness(
+        self,
+        assertion_urn: str,
+        prev_field_value: str,
+        prev_row_count: int,
+        curr_field_value: str,
+        curr_row_count: int,
+    ) -> bool:
+        # blank value means no data returned from when checking for new high watermark
+        # field value, return False
+        if curr_field_value == "":
+            logger.debug(
+                "New value is blank - marking assertion({assertion_urn}) FAILURE"
             )
+            return False
+
+        # row count is zero when checking for the new high watermark field value, data
+        # has not changed as expected, return False
+        if curr_row_count == 0:
+            logger.debug(
+                "New row count is zero - marking assertion({assertion_urn}) FAILURE"
+            )
+            return False
+
+        # high watermark field has a new value, data has changed as expected, return True
+        if curr_field_value != prev_field_value and prev_field_value != "":
+            logger.debug(
+                f"New value {curr_field_value} is different than previous value {prev_field_value} - marking assertion({assertion_urn}) SUCCESS"
+            )
+            return True
+
+        # high watermark field value has not changed, so we check the row count
+        # a new row count means data has changed as expected, return True
+        if curr_row_count != prev_row_count and prev_row_count != 0:
+            logger.debug(
+                f"New row count {curr_row_count} is different than previous row count {prev_row_count} - marking assertion({assertion_urn}) SUCCESS"
+            )
+            return True
+
+        logger.debug("Default - marking assertion({assertion_urn}) FAILURE")
+        return False
+
+    def _evaluate_high_watermark_assertion(
+        self,
+        source: Source,
+        assertion: Assertion,
+        entity_urn: str,
+        event_type: EntityEventType,
+        window: List[int],
+        source_params: dict,
+        context: AssertionEvaluationContext,
+    ) -> AssertionEvaluationResult:
+        [start_time, _] = window
+        start_time = start_time - STATEFUL_ASSERTION_EVALUATION_BUFFER
+
+        if not context.monitor_urn:
+            raise Exception(
+                f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn"
+            )
+
+        previous_state = self.state_provider.get_state(
+            context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
+        )
+        if (
+            previous_state
+            and previous_state.timestamp
+            and previous_state.timestamp < start_time
+        ):
+            # we last saved state for this assertion before our time window
+            # we don't want to trigger false assertions, let's treat this like there is no previous state
+            logger.debug(
+                f"_evaluate_high_watermark_assertion for {assertion.urn} - no previous state found"
+            )
+            previous_state = None
+
+        (
+            current_field_value,
+            current_row_count,
+        ) = source.get_current_high_watermark_for_column(
+            entity_urn,
+            event_type,
+            window,
+            source_params,
+            previous_state.properties.get("field_value") if previous_state else None,
+        )
+
+        last_state_change = (
+            int(previous_state.properties.get("last_state_change", "0"))
+            if previous_state
+            else None
+        )
+
+        current_evaluation_freshness = (
+            self._evaluate_high_watermark_freshness(
+                assertion.urn,
+                previous_state.properties.get("field_value", ""),
+                int(previous_state.properties.get("row_count", "0")),
+                current_field_value,
+                current_row_count,
+            )
+            if previous_state
+            else False
+        )
+
+        if (
+            previous_state is None
+            or (last_state_change and last_state_change > start_time)
+            or current_evaluation_freshness is True
+        ):
+            assertion_evaluation_result = AssertionEvaluationResult(
+                AssertionResultType.SUCCESS, {"events": []}
+            )
+        else:
+            assertion_evaluation_result = AssertionEvaluationResult(
+                AssertionResultType.FAILURE, None
+            )
+
+        # we store the current state regardless of assertion success/failure
+        time_now = int(time.time() * 1000)
+
+        if current_evaluation_freshness is True:
+            last_state_change_str = str(time_now)
+        else:
+            last_state_change_str = (
+                previous_state.properties.get("last_state_change", "0")
+                if previous_state
+                else "0"
+            )
+
+        self.state_provider.save_state(
+            context.monitor_urn,
+            AssertionState(
+                type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+                timestamp=time_now,
+                properties={
+                    "field_value": current_field_value,
+                    "row_count": str(current_row_count),
+                    "last_state_change": last_state_change_str,
+                },
+            ),
+        )
+
+        return assertion_evaluation_result
 
     def _evaluate_internal_cron(
         self,

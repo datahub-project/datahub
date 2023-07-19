@@ -85,6 +85,11 @@ input CreateFreshnessAssertionInput {
   schedule: FreshnessAssertionScheduleInput!
 
   """
+  Optional filter clause
+  """
+  filter: DatasetFilterInput
+
+  """
   Optional actions to apply on success or failure of the assertion
   """
   actions: AssertionActionsInput
@@ -134,6 +139,11 @@ input UpdateFreshnessAssertionInput {
   The Freshness assertion's schedule
   """
   schedule: FreshnessAssertionScheduleInput!
+
+  """
+  Optional filter clause
+  """
+  filter: DatasetFilterInput
 
   """
   Optional actions to apply on success or failure of the assertion
@@ -367,6 +377,11 @@ type FreshnessAssertionInfo {
   Produce FAIL Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule.
   """
   schedule: FreshnessAssertionSchedule!
+
+  """
+  A filter applied when querying an external Dataset or Table
+  """
+  filter: DatasetFilter
 }
 
 """

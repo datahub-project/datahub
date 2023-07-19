@@ -224,7 +224,7 @@ type DatasetFreshnessAssertionParameters {
     """
     Information about the field to use. Present when sourceType is FIELD_VALUE
     """
-    field: SchemaFieldSpec
+    field: FreshnessFieldSpec
 
     """
     Determine that a change has occurred by inspecting an audit log API
@@ -270,6 +270,43 @@ type SchemaFieldSpec {
   The native field type
   """
   nativeType: String!
+}
+
+"""
+Information about the field to use in a Freshness assertion
+"""
+type FreshnessFieldSpec {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+
+  """
+  The type of the field being used to verify the Freshness Assertion
+  """
+  kind: FreshnessFieldKind!
+}
+
+enum FreshnessFieldKind {
+  """
+  Determine that a change has occurred by inspecting a last modified field
+  """
+  LAST_MODIFIED
+
+  """
+  Determine that a change has occurred by inspecting an ascending number or date field
+  """
+  HIGH_WATERMARK
 }
 
 """
@@ -369,7 +406,7 @@ input DatasetFreshnessAssertionParametersInput {
     """
     Information about the field to use. Present when sourceType is FIELD_VALUE
     """
-    field: SchemaFieldSpecInput
+    field: FreshnessFieldSpecInput
 
     """
     Determine that a change has occurred by inspecting an audit log API
@@ -395,6 +432,31 @@ input SchemaFieldSpecInput {
     The native field type
     """
     nativeType: String!
+}
+
+"""
+Input for information about the field to use in a Freshness assertion
+"""
+input FreshnessFieldSpecInput {
+    """
+    The field path
+    """
+    path: String!
+
+    """
+    The DataHub standard schema field type.
+    """
+    type: String!
+
+    """
+    The native field type
+    """
+    nativeType: String!
+
+    """
+    The type of the field being used to verify the Freshness Assertion
+    """
+    kind: FreshnessFieldKind!
 }
 
 """

@@ -1,6 +1,6 @@
 import logging
 from datetime import date, datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -297,3 +297,13 @@ class RedshiftSource(Source):
         parameters: dict,
     ) -> List[EntityEvent]:
         return self._try_get_entity_events(entity_urn, event_type, window, parameters)
+
+    def get_current_high_watermark_for_column(
+        self,
+        entity_urn: str,
+        event_type: EntityEventType,
+        window: List[int],
+        parameters: dict,
+        previous_value: Optional[str],
+    ) -> Tuple[str, int]:
+        raise Exception("Not implemented")

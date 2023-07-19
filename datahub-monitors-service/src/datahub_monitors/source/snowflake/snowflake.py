@@ -1,10 +1,11 @@
 import logging
 from datetime import date, datetime, timezone
-from typing import List, Optional
+from typing import Any, List, Optional, Tuple
 
 from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
 )
@@ -19,18 +20,14 @@ from datahub_monitors.source.snowflake.time_utils import (
 from datahub_monitors.source.source import Source
 from datahub_monitors.types import EntityEvent, EntityEventType
 
-logger = logging.getLogger(__name__)
+from .types import (
+    DEFAULT_OPERATION_TYPES_FILTER,
+    SUPPORTED_HIGH_WATER_COLUMN_TYPES,
+    SUPPORTED_LAST_MODIFIED_COLUMN_TYPES,
+    SnowflakeOperationParams,
+)
 
-APPLICATION_NAME: str = "acryl_datahub_monitors"
-DEFAULT_OPERATION_TYPES_FILTER = "'INSERT', 'UPDATE', 'CREATE', 'CREATE_TABLE', 'CREATE_TABLE_AS_SELECT', 'COPY'"  # Note that Alter is not included :)
-SUPPORTED_COLUMN_TYPES = [
-    "DATE",
-    "TIMESTAMP",
-    "TIMESTAMP_TZ",
-    "TIMESTAMP_LTZ",
-    "TIMESTAMP_NTZ",
-    "DATETIME",
-]
+logger = logging.getLogger(__name__)
 
 
 # Should we support snowflake Streams... We do support COPY...
@@ -54,11 +51,8 @@ class SnowflakeSource(Source):
             )
 
     def _get_operation_types_filter(self, parameters: dict) -> str:
-        if parameters is not None:
-            if (
-                "operation_types" in parameters
-                and parameters["operation_types"] is not None
-            ):
+        if parameters:
+            if "operation_types" in parameters and parameters["operation_types"]:
                 result = ""
                 operation_types = parameters["operation_types"]
                 for operation_type in operation_types:
@@ -67,10 +61,71 @@ class SnowflakeSource(Source):
         return DEFAULT_OPERATION_TYPES_FILTER
 
     def _get_user_name_filter(self, parameters: dict) -> Optional[str]:
-        if parameters is not None:
+        if parameters:
             if "user_name" in parameters and parameters["user_name"] is not None:
                 return parameters["user_name"].lower()
         return None
+
+    def _get_operation_params(
+        self, entity_urn: str, window: List[int]
+    ) -> SnowflakeOperationParams:
+        urn_obj = Urn.create_from_string(entity_urn)
+        dataset_name = urn_obj.get_entity_id()[1].lower()
+        dataset_name_parts = dataset_name.split(".")
+
+        if len(dataset_name_parts) > 3:
+            # Handle platform instance.
+            dataset_name_parts = dataset_name_parts[:3]
+
+        return SnowflakeOperationParams(
+            start_time_millis=window[0],
+            end_time_millis=window[1],
+            catalog_name=dataset_name_parts[0],
+            schema_name=dataset_name_parts[1],
+            table_name=dataset_name_parts[2],
+        )
+
+    def _execute_fetchall_query(self, query: str) -> Any:
+        cur = self.connection.get_client().cursor()
+        cur.execute(query)
+        return cur.fetchall()
+
+    def _execute_fetchone_query(self, query: str) -> Any:
+        cur = self.connection.get_client().cursor()
+        cur.execute(query)
+        return cur.fetchone()
+
+    def _build_audit_log_results(self, rows: Any) -> List[EntityEvent]:
+        return [
+            EntityEvent(EntityEventType.AUDIT_LOG_OPERATION, row[6]) for row in rows
+        ]
+
+    def _build_information_schema_results(self, rows: Any) -> List[EntityEvent]:
+        return [
+            EntityEvent(EntityEventType.INFORMATION_SCHEMA_UPDATE, row[2])
+            for row in rows
+        ]
+
+    def _build_field_update_results(self, rows: Any) -> List[EntityEvent]:
+        results = []
+
+        for row in rows:
+            datetime_obj = row[0]
+
+            # Check whether we are dealing with a date object (without any time)
+            # If yes, convert it.
+            if isinstance(row[0], date) and not isinstance(row[0], datetime):
+                datetime_obj = datetime.combine(row[0], datetime.min.time())
+
+            datetime_obj = datetime_obj.replace(tzinfo=timezone.utc)
+
+            # Convert to timestamp ms
+            timestamp = int(datetime_obj.timestamp() * 1000)
+
+            entity_event = EntityEvent(EntityEventType.FIELD_UPDATE, timestamp)
+            results.append(entity_event)
+
+        return results
 
     # Note that this method cannot effectively leverage partitions because it comes from the audit log.
     #
@@ -79,32 +134,15 @@ class SnowflakeSource(Source):
     #
     # For shorter time-frame assertions, column-values or information schema checks are recommended.
     def _get_audit_log_operation_events(
-        self, entity_urn: str, window: List[int], parameters: dict
+        self, operation_params: SnowflakeOperationParams, parameters: dict
     ) -> List[EntityEvent]:
         # TODO: Hit the cache first. --> Embedded data store. We really should not be issuing this query for every entity.
         # TODO: Make this class a singleton.
         # TODO: Do we need to support external audit logs?
 
-        # Define table and time range
-        start_time_millis = window[0]
-        end_time_millis = window[1]
-
         # Compute audit log filters based on parameters
         operation_types_filter = self._get_operation_types_filter(parameters)
         user_name_filter = self._get_user_name_filter(parameters)
-
-        urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1].lower()
-
-        dataset_name_parts = dataset_name.split(".")
-
-        if len(dataset_name_parts) > 3:
-            # Handle platform instance.
-            dataset_name_parts = dataset_name_parts[:3]
-
-        catalog = dataset_name_parts[0]
-        schema = dataset_name_parts[1]
-        table = dataset_name_parts[2]
 
         # Formulate query
         query = f"""
@@ -117,8 +155,8 @@ class SnowflakeSource(Source):
             FROM 
                 snowflake.account_usage.access_history access_history,
                 LATERAL FLATTEN(input => access_history.objects_modified) updated_objects
-            WHERE access_history.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                AND access_history.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+            WHERE access_history.query_start_time >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
+                AND access_history.query_start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3)
                 {f"AND LOWER(access_history.user_name) = '{user_name_filter}'" if user_name_filter is not None else ''}
             )
 
@@ -135,95 +173,44 @@ class SnowflakeSource(Source):
                 exploded_access_history as exploded_access_history
             INNER JOIN
                 (SELECT * FROM snowflake.account_usage.query_history 
-                WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3) 
+                WHERE query_history.start_time >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
+                    AND query_history.start_time < to_timestamp_ltz({operation_params.end_time_millis}, 3) 
                     AND query_history.query_type in ({operation_types_filter})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
-                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"\\'', '') in ('{catalog}.{schema}.{table}')
+                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"\\'', '') in ('{operation_params.catalog_name}.{operation_params.schema_name}.{operation_params.table_name}')
             ORDER BY query_history.start_time DESC
-        ;"""
+;"""
 
-        logger.debug(query)
-
-        try:
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
-        except Exception as e:
-            raise SourceQueryFailedException(
-                message=f"Query failed with error: {e}", query=query
-            )
-
-        # Fetch results
-        rows = cur.fetchall()
-        results = []
-        for row in rows:
-            # Build results!
-            timestamp = row[6]
-            entity_event = EntityEvent(EntityEventType.AUDIT_LOG_OPERATION, timestamp)
-            results.append(entity_event)
-
-        return results
+        return self._build_audit_log_results(self._execute_fetchall_query(query))
 
     # Note that this method cannot effectively leverage partitions because it comes from the information schema
     def _get_dataset_last_updated_events(
-        self, entity_urn: str, window: List[int], parameters: dict
+        self, operation_params: SnowflakeOperationParams
     ) -> List[EntityEvent]:
         # Can we cache this? We could also issue this query periodically without any filters, and save it locally.
         # Ideally the connector would do this for us!
         # What if we only run this if... The audit log tells us something?
 
-        # Define table and time range
-        start_time_millis = window[0]
-        end_time_millis = window[1]
-
-        urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1].lower()
-        dataset_name_parts = dataset_name.split(".")
-
-        if len(dataset_name_parts) > 3:
-            # Handle platform instance.
-            dataset_name_parts = dataset_name_parts[:3]
-
-        catalog = dataset_name_parts[0]
-        schema = dataset_name_parts[1]
-        table = dataset_name_parts[2]
-
         query = f"""
             SELECT table_name, table_type, (DATE_PART('EPOCH', last_altered) * 1000) as last_altered
-            FROM {catalog.upper()}.information_schema.tables
-            WHERE last_altered >= to_timestamp_ltz({start_time_millis}, 3)
-            AND last_altered < to_timestamp_ltz({end_time_millis}, 3)
-            AND table_name = '{table.upper()}'
-            AND table_schema = '{schema.upper()}' 
-            AND table_catalog = '{catalog.upper()}';"""
+            FROM {operation_params.catalog_name.upper()}.information_schema.tables
+            WHERE last_altered >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
+            AND last_altered < to_timestamp_ltz({operation_params.end_time_millis}, 3)
+            AND table_name = '{operation_params.table_name.upper()}'
+            AND table_schema = '{operation_params.schema_name.upper()}' 
+            AND table_catalog = '{operation_params.catalog_name.upper()}';"""
 
         logger.debug(query)
 
-        try:
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
-        except Exception as e:
-            raise SourceQueryFailedException(
-                message=f"Query failed with error: {e}", query=query
-            )
-
-        # Fetch results
-        rows = cur.fetchall()
-        results = []
-        for row in rows:
-            # Build results!
-            timestamp = row[2]
-            entity_event = EntityEvent(
-                EntityEventType.INFORMATION_SCHEMA_UPDATE, timestamp
-            )
-            results.append(entity_event)
-        return results
+        return self._build_information_schema_results(
+            self._execute_fetchall_query(query)
+        )
 
     # This is the ONLY approach which allows for partition spec definition.
     # TODO: Add support for partitioning.
     def _get_field_last_updated_events(
-        self, entity_urn: str, window: List[int], parameters: dict
+        self, operation_params: SnowflakeOperationParams, parameters: dict
     ) -> List[EntityEvent]:
         # Supported Column Types:
         # DATE: Represents a date (year, month, day). This type does not include a time component.
@@ -238,21 +225,6 @@ class SnowflakeSource(Source):
         # NUMBER -> Would need to collect a units.
         # What if we only run this if the audit log gives us information... The audit log tells us something?
 
-        start_time_millis = window[0]
-        end_time_millis = window[1]
-
-        urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1].lower()
-        dataset_name_parts = dataset_name.split(".")
-
-        if len(dataset_name_parts) > 3:
-            # Handle platform instance.
-            dataset_name_parts = dataset_name_parts[:3]
-
-        catalog = dataset_name_parts[0]
-        schema = dataset_name_parts[1]
-        table = dataset_name_parts[2]
-
         if (
             "path" in parameters
             and "type" in parameters
@@ -260,8 +232,9 @@ class SnowflakeSource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
+            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
 
-            if column_type.upper() not in SUPPORTED_COLUMN_TYPES:
+            if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(
                     message=f"Unsupported date column type {column_type} provided. Failing assertion evaluation!",
                     parameters=parameters,
@@ -269,52 +242,77 @@ class SnowflakeSource(Source):
 
             # Convert the window timestamps into values that are suitable for comparison.
             start_datetime = convert_millis_to_timestamp_type(
-                start_time_millis, column_type
+                operation_params.start_time_millis, column_type
             )
             end_datetime = convert_millis_to_timestamp_type(
-                end_time_millis, column_type
+                operation_params.end_time_millis, column_type
             )
 
             # The goal is to basically extract the high watermark for the column identified here.
             query = f"""
                 SELECT {date_column} as last_altered_date
-                FROM {catalog}.{schema}.{table}
+                FROM {operation_params.catalog_name}.{operation_params.schema_name}.{operation_params.table_name}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
+                {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
                 ;
             """
-
             logger.debug(query)
 
-            try:
-                cur = self.connection.get_client().cursor()
-                cur.execute(query)
-            except Exception as e:
-                raise SourceQueryFailedException(
-                    message=f"Query failed with error: {e}", query=query
+            return self._build_field_update_results(self._execute_fetchall_query(query))
+
+        raise InvalidParametersException(
+            message="Missing required inputs: column path and column type.",
+            parameters=parameters,
+        )
+
+    def _get_high_watermark_for_column(
+        self,
+        operation_params: SnowflakeOperationParams,
+        parameters: dict,
+        previous_value: Optional[str],
+    ) -> Tuple[str, int]:
+        if (
+            "path" in parameters
+            and "type" in parameters
+            and "native_type" in parameters
+        ):
+            column_name = parameters["path"]
+            column_type = parameters["native_type"]
+            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
+
+            if column_type.upper() not in SUPPORTED_HIGH_WATER_COLUMN_TYPES:
+                raise InvalidParametersException(
+                    message=f"Unsupported high watermark column {column_type} provided. Failing assertion evaluation!",
+                    parameters=parameters,
                 )
 
-            # Fetch results
-            rows = cur.fetchall()
-            results = []
-            for row in rows:
-                datetime_obj = row[0]
+            get_value_query = f"""
+                SELECT {column_name}
+                FROM {operation_params.catalog_name}.{operation_params.schema_name}.{operation_params.table_name}
+                {f"WHERE {column_name} >= '{previous_value}'" if previous_value else ''}
+                {f"AND {filter_sql}" if filter_sql else ''}
+                ORDER by {column_name} DESC
+                LIMIT 1;
+            """
+            logger.debug(get_value_query)
+            resp = self._execute_fetchone_query(get_value_query)
+            current_field_value = resp[0] if resp else None
+            if current_field_value is None:
+                return ("", 0)
 
-                # Check whether we are dealing with a date object (without any time)
-                # If yes, convert it.
-                if isinstance(row[0], date) and not isinstance(row[0], datetime):
-                    datetime_obj = datetime.combine(row[0], datetime.min.time())
+            get_count_query = f"""
+                SELECT COUNT(*)
+                FROM {operation_params.catalog_name}.{operation_params.schema_name}.{operation_params.table_name}
+                WHERE {column_name} = '{current_field_value}'
+                {f"AND {filter_sql}" if filter_sql else ''}
+            """
+            logger.debug(get_count_query)
+            resp = self._execute_fetchone_query(get_count_query)
+            current_row_count = resp[0] if resp else 0
 
-                datetime_obj = datetime_obj.replace(tzinfo=timezone.utc)
-
-                # Convert to timestamp ms
-                timestamp = int(datetime_obj.timestamp() * 1000)
-
-                entity_event = EntityEvent(EntityEventType.FIELD_UPDATE, timestamp)
-                results.append(entity_event)
-
-            return results
+            return (str(current_field_value), current_row_count)
 
         raise InvalidParametersException(
             message="Missing required inputs: column path and column type.",
@@ -328,23 +326,42 @@ class SnowflakeSource(Source):
     )
     def _try_get_entity_events(
         self,
-        entity_urn: str,
         event_type: EntityEventType,
-        window: List[int],
+        operation_params: SnowflakeOperationParams,
         parameters: dict,
     ) -> List[EntityEvent]:
         if event_type == EntityEventType.AUDIT_LOG_OPERATION:
             # Scan the audit log to see if there are any events falling into the previous window.
-            return self._get_audit_log_operation_events(entity_urn, window, parameters)
+            return self._get_audit_log_operation_events(operation_params, parameters)
         elif event_type == EntityEventType.INFORMATION_SCHEMA_UPDATE:
             # Hit something else!
-            return self._get_dataset_last_updated_events(entity_urn, window, parameters)
+            return self._get_dataset_last_updated_events(operation_params)
         elif event_type == EntityEventType.FIELD_UPDATE:
             # Build and issue a query!
-            return self._get_field_last_updated_events(entity_urn, window, parameters)
+            return self._get_field_last_updated_events(operation_params, parameters)
         else:
             raise InvalidSourceTypeException(
-                message=f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events.",
+                message=f"Unsupported entity event type {event_type} provided. Snowflake connector does not support retrieving these events.",
+                source_type=event_type,
+            )
+
+    @retry(
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+    )
+    def _try_get_current_high_watermark_for_column(
+        self,
+        event_type: EntityEventType,
+        operation_params: SnowflakeOperationParams,
+        parameters: dict,
+        previous_value: Optional[str],
+    ) -> Tuple[str, int]:
+        if event_type == EntityEventType.FIELD_UPDATE:
+            return self._get_high_watermark_for_column(
+                operation_params, parameters, previous_value
+            )
+        else:
+            raise InvalidSourceTypeException(
+                message=f"Unsupported entity event type {event_type} provided. Snowflake connector does not support retrieving these events.",
                 source_type=event_type,
             )
 
@@ -355,4 +372,18 @@ class SnowflakeSource(Source):
         window: List[int],
         parameters: dict,
     ) -> List[EntityEvent]:
-        return self._try_get_entity_events(entity_urn, event_type, window, parameters)
+        operation_params = self._get_operation_params(entity_urn, window)
+        return self._try_get_entity_events(event_type, operation_params, parameters)
+
+    def get_current_high_watermark_for_column(
+        self,
+        entity_urn: str,
+        event_type: EntityEventType,
+        window: List[int],
+        parameters: dict,
+        previous_value: Optional[str],
+    ) -> Tuple[str, int]:
+        operation_params = self._get_operation_params(entity_urn, window)
+        return self._try_get_current_high_watermark_for_column(
+            event_type, operation_params, parameters, previous_value
+        )
