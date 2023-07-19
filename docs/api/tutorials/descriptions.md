@@ -199,8 +199,67 @@ Expected Response:
 <Tabs>
 <TabItem value="graphQL" label="GraphQL">
 
-> 🚫 Adding Description on Dataset via `graphql` is currently not supported.
-> Please check out [API feature comparison table](/docs/api/datahub-apis.md#datahub-api-comparison) for more information,
+```graphql
+mutation updateDataset {
+  updateDataset(
+    urn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)",
+    input: {
+      editableProperties: {
+          description: "## The Real Estate Sales Dataset\nThis is a really important Dataset that contains all the relevant information about sales that have happened organized by address.\n"
+      }
+      institutionalMemory: {
+        elements: {
+          author: "urn:li:corpuser:jdoe"
+        	url: "https://wikipedia.com/real_estate"
+        	description: "This is the definition of what real estate means"
+        }
+      }
+    }
+  ) {
+    urn
+  }
+}
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "updateDataset": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+
+<TabItem value="curl" label="Curl" default>
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+  "query": "mutation updateDataset { updateDataset( urn:\"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)\", input: { editableProperties: { description: \"## The Real Estate Sales Dataset\nThis is a really important Dataset that contains all the relevant information about sales that have happened organized by address.\n\" } institutionalMemory: { elements: { author: \"urn:li:corpuser:jdoe\", url: \"https://wikipedia.com/real_estate\", description: \"This is the definition of what real estate means\" } } } ) { urn } }",
+  "variables": {}
+}'
+```
+
+Expected Response:
+
+```json
+{
+  "data": {
+    "updateDataset": {
+      "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"
+    }
+  },
+  "extensions": {}
+}
+```
 
 </TabItem>
 <TabItem value="python" label="Python" default>

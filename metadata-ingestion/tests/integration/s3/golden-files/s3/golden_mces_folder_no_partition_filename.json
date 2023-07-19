@@ -7,7 +7,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part1.csv"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part2.csv"
             },
             "name": "folder_aaa.food_csv",
             "description": "",
@@ -125,7 +125,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419673000
+            "lastUpdatedTimestamp": 1586847990000
         }
     },
     "systemMetadata": {
@@ -588,7 +588,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
             },
             "name": "folder_aaa.food_parquet",
             "description": "",
@@ -706,7 +706,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419671000
+            "lastUpdatedTimestamp": 1586847810000
         }
     },
     "systemMetadata": {
