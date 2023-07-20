@@ -79,7 +79,7 @@ describe('SearchPage', () => {
 
         const chartEntityBox = getByTestId('facet-_entityType-CHART');
         expect(chartEntityBox).toHaveProperty('checked', false);
-    }, 10000);
+    });
 
     it('renders multiple checked filters at once', async () => {
         const { getByTestId, queryByTestId } = render(
