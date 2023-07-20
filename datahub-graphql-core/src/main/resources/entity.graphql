@@ -344,9 +344,9 @@ type JoinProperties {
     createdTime: Long
 
     """
-    Actor associated with the Join's created timestamp
+    Created actor urn associated with the Join
     """
-    createdActor: Entity
+    createdActor: String
 }
 
 """

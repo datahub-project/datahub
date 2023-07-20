@@ -3,7 +3,6 @@ namespace com.linkedin.join
 import com.linkedin.common.TimeStamp
 import com.linkedin.common.DatasetUrn
 import com.linkedin.common.CustomProperties
-import com.linkedin.common.Urn
 
 /**
  * Properties associated with a Join
@@ -77,9 +76,4 @@ record JoinProperties includes CustomProperties {
     }
   }
   lastModified: optional TimeStamp
-
-  /**
-   * Urn of the actor that created this lineage relationship. Could be null.
-   */
-  createdActor: optional Urn
 }
