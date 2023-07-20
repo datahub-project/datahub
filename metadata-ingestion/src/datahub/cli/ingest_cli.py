@@ -249,7 +249,7 @@ def run(
     type=str,
     help=f"Timezone for the schedule. By default uses the timezone of the current system: {tzlocal.get_localzone_name()}.",
     required=False,
-    default=tzlocal.get_localzone_name()
+    default=tzlocal.get_localzone_name(),
 )
 def deploy(
     name: str,
