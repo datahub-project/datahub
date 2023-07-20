@@ -1,24 +1,28 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Generating Browse V2 Aspects
+# Generating Browse Paths (V2)
 
 <FeatureAvailability/>
 
-With the rollout of the new Browse experience (Browse V2) this guide is meant to help explain how you can generate your own custom Browse paths for entities in your instance.
+## Introduction
 
-The new Browse sidebar on our search results page utilizes a new aspect on entities called [browsePathsV2](https://datahubproject.io/docs/generated/metamodel/entities/dataset#browsepathsv2). Below, you can see an example of the sidebar with some new Browse paths.
+Browse (V2) is a way for users to explore and dive deeper into their data. Its integration with the search experience allows users to combine search queries and filters with entity type and platform nested folders.
+
+Most entities should have a browse path that allows users to navigate the left side panel on the search page to find groups of entities under different folders that come from these browse paths. Below, you can see an example of the sidebar with some new browse paths.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/browseV2/browseV2Sidebar.png"/>
 </p>
 
-This new Browse sidebar always starts with Entity Type, then optionally shows Environment (PROD, DEV, etc.) if there are 2 or more Environments, then Platform. Below the Platform level, we render out folders that come directly from entity's `browsePathsV2` aspects.
+This new browse sidebar always starts with Entity Type, then optionally shows Environment (PROD, DEV, etc.) if there are 2 or more Environments, then Platform. Below the Platform level, we render out folders that come directly from entity's [browsePathsV2](https://datahubproject.io/docs/generated/metamodel/entities/dataset#browsepathsv2) aspects.
 
-A `browsePathsV2` aspect has a field called `path` which contains a list of `BrowsePathEntry` objects. Each object in the path represents one level of the entity's Browse path where the first entry is the highest level and the last entry is the lowest level.
+## Generating Custom Browse Paths
 
-If an entity has this aspect filled out, their Browse path will show up in the Browse sidebar so that you can navigate its folders and select one to filter search results down.
+A `browsePathsV2` aspect has a field called `path` which contains a list of `BrowsePathEntry` objects. Each object in the path represents one level of the entity's browse path where the first entry is the highest level and the last entry is the lowest level.
 
-For example, in the Browse sidebar on the left of the image above, there are 10 Dataset entities from the BigQuery Platform that have `browsePathsV2` aspects that look like the following:
+If an entity has this aspect filled out, their browse path will show up in the browse sidebar so that you can navigate its folders and select one to filter search results down.
+
+For example, in the browse sidebar on the left of the image above, there are 10 Dataset entities from the BigQuery Platform that have `browsePathsV2` aspects that look like the following:
 
 ```
 [ { id: "bigquery-public-data" }, { id: "covid19_public_forecasts" } ]
@@ -26,7 +30,7 @@ For example, in the Browse sidebar on the left of the image above, there are 10 
 
 The `id` in a `BrowsePathEntry` is required and is what will be shown in the UI unless the optional `urn` field is populated. If the `urn` field is populated, we will try to resolve this path entry into an entity object and display that entity's name. We will also show a link to allow you to open up the entity profile.
 
-The `urn` field should only be populated if there is an entity in your DataHub instance that belongs in that entity's Browse path. This makes most sense for Datasets to have Container entities in the Browse paths as well as some other cases such as a DataFlow being part of a DataJob's Browse path. For any other situation, feel free to leave `urn` empty and populate `id` with the text you want to be shown in the UI for your entity's path.
+The `urn` field should only be populated if there is an entity in your DataHub instance that belongs in that entity's browse path. This makes most sense for Datasets to have Container entities in the browse paths as well as some other cases such as a DataFlow being part of a DataJob's browse path. For any other situation, feel free to leave `urn` empty and populate `id` with the text you want to be shown in the UI for your entity's path.
 
 ## Additional Resources
 
