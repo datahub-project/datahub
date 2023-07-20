@@ -4,6 +4,8 @@ import time
 
 import pytest
 
+os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
+
 # Enable debug logging.
 logging.getLogger().setLevel(logging.DEBUG)
 os.environ["DATAHUB_DEBUG"] = "1"
