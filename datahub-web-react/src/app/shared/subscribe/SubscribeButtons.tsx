@@ -21,19 +21,17 @@ const DROPDOWN_KEYS = {
     UNSUBSCRIBE_ME: 'UNSUBSCRIBE_ME',
 } as const;
 
-// todo - open subscribed group  drawer -> shows all 3 btns by mistake
-// - toggling the drawer, switches some global state state in here permanently
 export default function SubscribeButtons() {
     const { urn: entityUrn, entityData, entityType } = useEntityData();
     const entityName = entityData?.name || '';
-    const [drawerIsOpen, setDrawerIsOpen] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
 
     // This is a little bad feeling, because we're hoping our mutation will run before this...
     // callMutation() and setIsPersonal(true) ----- sometime later we actually take the mutation props?
     const onCloseDrawer = () => {
-        setDrawerIsOpen(false);
+        setIsDrawerOpen(false);
         setIsPersonal(true);
         setGroupUrn(undefined);
     };
@@ -47,27 +45,40 @@ export default function SubscribeButtons() {
         refetchSubscriptionSummary();
     };
 
-    // todo - we need to be careful here
     const deleteSubscription = useDeleteSubscription({
         subscriptionUrn: subscription?.subscriptionUrn,
         onSuccess: refetch,
     });
 
-    const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    const onClickMenuItem: MenuProps['onClick'] = ({ key }) => {
         if (key === DROPDOWN_KEYS.SUBSCRIBE_ME) {
             setIsPersonal(true);
-            setDrawerIsOpen(true);
+            setIsDrawerOpen(true);
         } else if (key === DROPDOWN_KEYS.SUBSCRIBE_GROUP) {
             setIsPersonal(false);
             setGroupUrn(undefined);
-            setDrawerIsOpen(true);
+            setIsDrawerOpen(true);
         } else if (key === DROPDOWN_KEYS.UNSUBSCRIBE_ME) {
             setIsPersonal(true);
             deleteSubscription();
         }
     };
 
-    let items: MenuProps['items'] = [
+    const onClickStar = () => {
+        setIsDrawerOpen(true);
+        setIsPersonal(true);
+        setGroupUrn(undefined);
+    };
+
+    const items: MenuProps['items'] = [
+        ...(isUserSubscribed
+            ? [
+                  {
+                      key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
+                      label: 'Unsubscribe Me',
+                  },
+              ]
+            : []),
         {
             key: DROPDOWN_KEYS.SUBSCRIBE_ME,
             label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
@@ -77,25 +88,14 @@ export default function SubscribeButtons() {
             label: 'Manage Group Subscriptions',
         },
     ];
-    if (isUserSubscribed) {
-        items = [
-            {
-                key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
-                label: 'Unsubscribe Me',
-            },
-            ...items,
-        ];
-    }
-
-    const menuProps = {
-        items,
-        onClick: handleMenuClick,
-    };
 
     return (
         <>
             <SubscribeDropdown
-                menu={menuProps}
+                menu={{
+                    items,
+                    onClick: onClickMenuItem,
+                }}
                 buttonsRender={([leftButton, rightButton]) => [
                     <Tooltip
                         title={
@@ -111,14 +111,14 @@ export default function SubscribeButtons() {
                     >
                         {leftButton}
                     </Tooltip>,
-                    React.cloneElement(rightButton as React.ReactElement<any, string>),
+                    rightButton,
                 ]}
-                onClick={() => setDrawerIsOpen(true)}
+                onClick={onClickStar}
             >
                 {isUserSubscribed ? <StyledStarFilled /> : <StarOutlined />}
             </SubscribeDropdown>
             <SubscriptionDrawer
-                isOpen={drawerIsOpen}
+                isOpen={isDrawerOpen}
                 onClose={onCloseDrawer}
                 isPersonal={isPersonal}
                 groupUrn={groupUrn}

@@ -63,9 +63,9 @@ export default function SubscriptionStarTooltip({
                 <HeadingText>{groupSubscriptionText}</HeadingText>
                 <GroupListContainer>
                     {groupNames.map((groupName) => (
-                        <GroupContainer>
+                        <GroupContainer key={groupName}>
                             <TeamOutlined />
-                            <HeadingText key={groupName}>{groupName}</HeadingText>
+                            <HeadingText>{groupName}</HeadingText>
                         </GroupContainer>
                     ))}
                 </GroupListContainer>
