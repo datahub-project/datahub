@@ -1,9 +1,9 @@
 package com.datahub.gms.servlet;
 
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.datahub.gms.util.CSVWriter;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;

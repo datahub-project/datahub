@@ -1,6 +1,7 @@
 package com.datahub.metadata.ingestion;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -17,7 +18,6 @@ import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
