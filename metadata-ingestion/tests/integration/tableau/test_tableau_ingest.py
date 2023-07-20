@@ -27,6 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -755,7 +756,14 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
     config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
     )
+
+    context.graph.parse_sql_lineage.return_value = SqlParsingResult(  # type:ignore
+        in_tables=[
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)"
+        ]
+    )
     source = TableauSource(config=config, ctx=context)
+
     lineage = source._create_lineage_from_unsupported_csql(
         csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
         csql={
