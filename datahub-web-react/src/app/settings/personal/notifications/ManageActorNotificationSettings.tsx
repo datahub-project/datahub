@@ -56,20 +56,20 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
     const groupChannel = channels?.length ? channels[0] : undefined;
 
     const onUpdateUserNotificationSettings = (newUserHandle: string) => {
-        updateUserNotificationSettingsFunction(
+        updateUserNotificationSettingsFunction({
             newUserHandle,
             updateUserNotificationSettings,
             refetchUserNotificationSettings,
-        );
+        });
     };
 
     const onUpdateGroupNotificationSettings = (newGroupChannel: string) => {
-        updateGroupNotificationSettingsFunction(
-            groupUrn || '',
+        updateGroupNotificationSettingsFunction({
+            groupUrn: groupUrn || '',
             newGroupChannel,
             updateGroupNotificationSettings,
             refetchGroupNotificationSettings,
-        );
+        });
     };
 
     const pageTitle = isPersonal ? 'My Notifications' : 'Group Notifications';
