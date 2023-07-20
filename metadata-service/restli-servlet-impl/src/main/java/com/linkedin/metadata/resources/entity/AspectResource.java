@@ -180,7 +180,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     boolean asyncBool;
     if (UNSET.equals(async)) {
-      asyncBool = false;
+      asyncBool = true;
     } else {
       asyncBool = Boolean.parseBoolean(async);
     }
