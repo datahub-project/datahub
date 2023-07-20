@@ -4,6 +4,7 @@ dependencies {
     compile project(path: ':metadata-models')
     compile project(path: ':metadata-io')
     compile project(path: ':metadata-service:restli-client')
+    compile project(':metadata-service:configuration')
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
