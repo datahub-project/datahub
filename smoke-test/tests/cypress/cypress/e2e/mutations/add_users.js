@@ -20,7 +20,7 @@ describe("add_user", () => {
         cy.visit("/settings/identities/users");
         cy.waitTextVisible("Invite Users");
 
-        cy.clickOptionWithText("Invite Users")
+        cy.clickOptionWithText("Invite Users").wait(1000);
 
         cy.waitTextVisible(/signup\?invite_token=\w+/).then(($elem) => {
             const inviteLink = $elem.text();
