@@ -611,7 +611,7 @@ type Mutation {
     """
     createJoin(
         "Input required to create a new Join"
-        input: JoinUpdateInput!): Join
+        input: JoinUpdateInput!): Boolean
 
     """
     Update a Join
@@ -620,7 +620,7 @@ type Mutation {
         "The urn of the Join to update"
         urn: String!,
         "Input required to updat an existing DataHub View"
-        input: JoinUpdateInput!): Join
+        input: JoinUpdateInput!): Boolean
 
     """
     Delete a Join
