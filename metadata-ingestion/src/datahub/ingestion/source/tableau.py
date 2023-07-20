@@ -4,7 +4,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
 
 import dateutil.parser as dp
 import tableauserverclient as TSC
@@ -1151,52 +1152,33 @@ class TableauSource(StatefulIngestionSourceBase):
     
     def get_upstream_fields_from_custom_sql(self, datasource, datasource_urn):
         fine_grained_lineages = []
-        database = datasource.get(tableau_constant.DATABASE) or {}
-        if (
-            datasource.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
-            and tableau_constant.NAME in database
-            and tableau_constant.CONNECTION_TYPE in database
-        ):
-
-            graph: DataHubGraph = get_default_graph()
-
-            query = datasource.get(tableau_constant.QUERY)
-            if query is None:
-                logger.debug(f"raw sql query is not available for urn={datasource_urn}")
-                return []
-
-            logger.debug(f"Parsing sql={query}")
-
-            try:
-                parsed_result = graph.parse_sql_lineage(
-                    query,
-                    default_db=database.get(tableau_constant.NAME),
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-
-                for cll_info in parsed_result.column_lineage:
-                    downstreams = [builder.make_schema_field_urn(datasource_urn, cll_info.downstream.column)] if cll_info.downstream is not None and cll_info.downstream.column is not None else []
-                    upstreams = [builder.make_schema_field_urn(column_ref.table, column_ref.column) for column_ref in cll_info.upstreams]
-                    fine_grained_lineages.append(
-                        FineGrainedLineage(
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                            downstreams=downstreams,
-                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                            upstreams=upstreams,
-                        )
-                    )
-
-            except Exception as e:
-                self.report.report_warning(
-                    key="cll-lineage",
-                    reason=f"Unable to retrieve column level lineage from query. "
-                    f"Query: {query} "
-                    f"Reason: {str(e)} ",
-                )
-
+        
+        parsed_result = self.parse_custom_sql(
+            datasource=datasource,
+            datasource_urn=datasource_urn,
+            env=self.config.env,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance, 
+            func_overridden_info=None, # Here we don't want to override any information from configuration
+        )
+        
+        if parsed_result is None: 
+            logger.info(f"Failed to extract column level lineage from datasource {datasource_urn}")
             return fine_grained_lineages
+
+        for cll_info in parsed_result.column_lineage:
+            downstreams = [builder.make_schema_field_urn(datasource_urn, cll_info.downstream.column)] if cll_info.downstream is not None and cll_info.downstream.column is not None else []
+            upstreams = [builder.make_schema_field_urn(column_ref.table, column_ref.column) for column_ref in cll_info.upstreams]
+            fine_grained_lineages.append(
+                FineGrainedLineage(
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=downstreams,
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+        
+        return fine_grained_lineages
 
     def get_transform_operation(self, field):
         field_type = field[tableau_constant.TYPE_NAME]
@@ -1505,61 +1487,97 @@ class TableauSource(StatefulIngestionSourceBase):
                 aspect=upstream_lineage,
             )
 
-    def _create_lineage_from_unsupported_csql(
-        self, csql_urn: str, csql: dict
-    ) -> Iterable[MetadataWorkUnit]:
-        database = csql.get(tableau_constant.DATABASE) or {}
-        if (
-            csql.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL, False)
-            and tableau_constant.NAME in database
-            and tableau_constant.CONNECTION_TYPE in database
-        ):
-            upstream_db, platform_instance, platform, _ = get_overridden_info(
-                upstream_db=database.get(tableau_constant.NAME),
-                connection_type=database.get(tableau_constant.CONNECTION_TYPE, ""),
+    def parse_custom_sql(
+            self, 
+            datasource: dict, 
+            datasource_urn: str,
+            platform: str, 
+            env: str,
+            platform_instance: Optional[str],
+            func_overridden_info: Optional[Callable[[str, Optional[str], Optional[Dict[str, str]], Optional[TableauLineageOverrides]], Tuple[Optional[str], Optional[str], str, str]]],
+    ) -> Optional["SqlParsingResult"]:
+
+        database_info = datasource.get(tableau_constant.DATABASE) or {}
+
+        if datasource.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL) in (None, False):
+            logger.debug(f"datasource {datasource_urn} is not created from custom sql")
+            return None   
+        
+        if tableau_constant.NAME not in database_info or tableau_constant.CONNECTION_TYPE not in database_info:
+            logger.debug(f"database information is missing from datasource {datasource_urn}")
+            return None   
+
+        graph: DataHubGraph = get_default_graph()
+
+        query = datasource.get(tableau_constant.QUERY)
+        if query is None:
+            logger.debug(f"raw sql query is not available for datasource {datasource_urn}")
+            return None
+
+        logger.debug(f"Parsing sql={query}")
+
+        upstream_db = database_info.get(tableau_constant.NAME)
+
+        if func_overridden_info is not None: 
+            # Override the information as per configuration
+            upstream_db, platform_instance, platform, _ = func_overridden_info(
+                upstream_db=database_info.get(tableau_constant.NAME),
+                connection_type=database_info.get(tableau_constant.CONNECTION_TYPE, ""),
                 platform_instance_map=self.config.platform_instance_map,
                 lineage_overrides=self.config.lineage_overrides,
             )
 
-            upstream_tables = []
-            graph: DataHubGraph = get_default_graph()
-
-            query = csql.get(tableau_constant.QUERY)
-            if query is None:
-                logger.debug(f"raw sql query is not available for urn={csql_urn}")
-                return
-
-            logger.debug(f"Parsing sql={query}")
-
-            try:
-                parsed_result = graph.parse_sql_lineage(
-                    query,
-                    default_db=upstream_db,
-                    platform=platform,
-                    platform_instance=platform_instance,
-                )
-
-                for dataset_urn in parsed_result.in_tables:
-                    upstream_tables.append(
-                        UpstreamClass(
-                            type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn
-                        )
-                    )
-            except Exception as e:
-                self.report.report_warning(
-                    key="csql-lineage",
-                    reason=f"Unable to retrieve lineage from query. "
-                    f"Query: {query} "
-                    f"Reason: {str(e)} ",
-                )
-
-            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
-
-            yield self.get_metadata_change_proposal(
-                csql_urn,
-                aspect_name=tableau_constant.UPSTREAM_LINEAGE,
-                aspect=upstream_lineage,
+        try:
+            parsed_result = graph.parse_sql_lineage(
+                query,
+                default_db=upstream_db,
+                platform=platform,
+                platform_instance=platform_instance,
             )
+            return parsed_result
+        except Exception as e:
+            self.report.report_warning(
+                key="csql-lineage",
+                reason=f"Unable to retrieve lineage from query. "
+                f"Query: {query} "
+                f"Reason: {str(e)} ",
+            )
+
+            
+    def _create_lineage_from_unsupported_csql(
+        self, csql_urn: str, csql: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        
+        
+        parsed_result = self.parse_custom_sql(
+            datasource=csql,
+            datasource_urn=csql_urn,
+            env=self.config.env,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance, 
+            func_overridden_info=get_overridden_info,
+        )
+        
+        if parsed_result is None: 
+            logger.info(f"Failed to extract table level lineage for datasource {dataset_urn}")        
+            return 
+        
+        upstream_tables = []
+        
+        for dataset_urn in parsed_result.in_tables:
+            upstream_tables.append(
+                UpstreamClass(
+                    type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn
+                )
+            )
+
+        upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+
+        yield self.get_metadata_change_proposal(
+            csql_urn,
+            aspect_name=tableau_constant.UPSTREAM_LINEAGE,
+            aspect=upstream_lineage,
+        )
 
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
