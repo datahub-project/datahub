@@ -174,7 +174,10 @@ class SQLServerSource(SQLAlchemySource):
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
         def handle_sql_variant_as_string(value):
-            return value.decode("utf-16le")
+            try:
+                return value.decode("utf-16le")
+            except UnicodeDecodeError:
+                return value.decode("Windows-1251")
 
         # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
         # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
@@ -618,6 +621,7 @@ class SQLServerSource(SQLAlchemySource):
         ).as_workunit()
         self.report.report_workunit(wu)
         yield wu
+        # TODO: Add SubType when it appear
 
     def construct_flow_workunits(
         self,
@@ -631,6 +635,7 @@ class SQLServerSource(SQLAlchemySource):
         ).as_workunit()
         self.report.report_workunit(wu)
         yield wu
+        # TODO: Add SubType when it appear
 
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
