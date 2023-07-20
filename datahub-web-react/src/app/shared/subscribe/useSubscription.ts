@@ -6,8 +6,9 @@ type Props = {
     groupUrn?: string;
 };
 const useSubscription = ({ isPersonal, entityUrn, groupUrn }: Props) => {
+    const skip = !isPersonal && !groupUrn;
     const { data: getSubscriptionData, refetch: refetchSubscription } = useGetSubscriptionQuery({
-        skip: !isPersonal && !groupUrn,
+        skip,
         variables: {
             input: {
                 entityUrn,
@@ -16,7 +17,7 @@ const useSubscription = ({ isPersonal, entityUrn, groupUrn }: Props) => {
         },
     });
 
-    const subscription = getSubscriptionData?.getSubscription ?? undefined;
+    const subscription = (!skip && getSubscriptionData?.getSubscription) || undefined;
     const isSubscribed = !!subscription;
 
     return { subscription, isSubscribed, refetchSubscription };
