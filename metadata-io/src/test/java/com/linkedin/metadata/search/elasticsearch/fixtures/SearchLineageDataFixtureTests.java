@@ -15,7 +15,6 @@ import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
 
-import static com.linkedin.metadata.ESTestUtils.searchAcrossEntities;
 import static com.linkedin.metadata.ESTestUtils.lineage;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

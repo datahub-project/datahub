@@ -816,13 +816,13 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     public void testSearchAcrossMultipleEntities() {
         String query = "logging_events";
         SearchResult result = search(searchService, query);
-        assertEquals((int)result.getNumEntities(), 8);
+        assertEquals((int) result.getNumEntities(), 8);
         result = search(searchService, List.of(DATASET_ENTITY_NAME, DATA_JOB_ENTITY_NAME), query);
-        assertEquals((int)result.getNumEntities(), 8);
+        assertEquals((int) result.getNumEntities(), 8);
         result = search(searchService, List.of(DATASET_ENTITY_NAME), query);
-        assertEquals((int)result.getNumEntities(), 4);
+        assertEquals((int) result.getNumEntities(), 4);
         result = search(searchService, List.of(DATA_JOB_ENTITY_NAME), query);
-        assertEquals((int)result.getNumEntities(), 4);
+        assertEquals((int) result.getNumEntities(), 4);
     }
 
     @Test
