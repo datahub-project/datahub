@@ -1,5 +1,3 @@
-from pydantic import BaseModel
-
 DEFAULT_OPERATION_TYPES_FILTER = "'INSERT', 'UPDATE', 'CREATE', 'CREATE_TABLE', 'CREATE_TABLE_AS_SELECT', 'COPY'"  # Note that Alter is not included :)
 
 SUPPORTED_LAST_MODIFIED_COLUMN_TYPES = [
@@ -11,7 +9,7 @@ SUPPORTED_LAST_MODIFIED_COLUMN_TYPES = [
     "DATETIME",
 ]
 
-SUPPORTED_HIGH_WATER_COLUMN_TYPES = [
+SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES = [
     "NUMBER",
     "DECIMAL",
     "NUMERIC",
@@ -34,11 +32,3 @@ SUPPORTED_HIGH_WATER_COLUMN_TYPES = [
     "TIMESTAMP_NTZ",
     "DATETIME",
 ]
-
-
-class SnowflakeOperationParams(BaseModel):
-    start_time_millis: int
-    end_time_millis: int
-    catalog_name: str
-    schema_name: str
-    table_name: str

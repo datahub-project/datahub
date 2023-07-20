@@ -2,7 +2,6 @@ import datetime
 from unittest.mock import Mock, call, patch
 
 import pytest
-from tenacity import RetryError
 
 from datahub_monitors.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
@@ -25,7 +24,9 @@ TEST_ENTITY_URN = (
 TEST_START = 1687643700064
 TEST_END = 1687644000064
 JAN_1_DATE = datetime.date(2023, 1, 1)
-JAN_1_DATETIME = datetime.datetime(2023, 1, 1, 0, 0)
+JAN_1_DATETIME = datetime.datetime(2023, 1, 1, 0, 0).replace(
+    tzinfo=datetime.timezone.utc
+)
 JAN_1_TIMESTAMP = 1672531200000
 
 TEST_AUDIT_LOG_QUERY_NO_USER_NAME_FILTER = f"""
@@ -154,27 +155,27 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 ;
             """
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
-                SELECT timestamp
-                FROM test_db.public.test_table
-                WHERE timestamp >= '{TEST_START}'
-                AND foo = 'bar'
-                ORDER by timestamp DESC
-                LIMIT 1;
-            """
+        SELECT timestamp
+        FROM test_db.public.test_table
+        WHERE timestamp >= '{TEST_START}'
+        AND foo = 'bar'
+        ORDER by timestamp DESC
+        LIMIT 1;
+    """
 TEST_HIGHWATERMARK_VALUE_NO_PREV_QUERY = """
-                SELECT timestamp
-                FROM test_db.public.test_table
-                
-                AND foo = 'bar'
-                ORDER by timestamp DESC
-                LIMIT 1;
-            """
+        SELECT timestamp
+        FROM test_db.public.test_table
+        
+        WHERE foo = 'bar'
+        ORDER by timestamp DESC
+        LIMIT 1;
+    """
 TEST_HIGHWATERMARK_COUNT_QUERY = f"""
-                SELECT COUNT(*)
-                FROM test_db.public.test_table
-                WHERE timestamp = '{TEST_END}'
-                AND foo = 'bar'
-            """
+        SELECT COUNT(*)
+        FROM test_db.public.test_table
+        WHERE timestamp = '{TEST_END}'
+        AND foo = 'bar'
+    """
 
 
 class TestSnowflakeSource:
@@ -396,7 +397,7 @@ class TestSnowflakeSource:
             )
 
     def test_get_current_high_watermark_for_column_invalid_type(self) -> None:
-        with pytest.raises(RetryError):
+        with pytest.raises(InvalidParametersException):
             self.snowflake_source.get_current_high_watermark_for_column(
                 TEST_ENTITY_URN,
                 EntityEventType.FIELD_UPDATE,
@@ -411,7 +412,7 @@ class TestSnowflakeSource:
             )
 
     def test_get_current_high_watermark_for_column_missing_inputs(self) -> None:
-        with pytest.raises(RetryError):
+        with pytest.raises(InvalidParametersException):
             self.snowflake_source.get_current_high_watermark_for_column(
                 TEST_ENTITY_URN,
                 EntityEventType.FIELD_UPDATE,
@@ -423,7 +424,7 @@ class TestSnowflakeSource:
     def test_get_current_high_watermark_for_column_unsupported_entity_type(
         self,
     ) -> None:
-        with pytest.raises(RetryError):
+        with pytest.raises(InvalidSourceTypeException):
             self.snowflake_source.get_current_high_watermark_for_column(
                 TEST_ENTITY_URN,
                 EntityEventType.DATA_JOB_RUN_COMPLETED_SUCCESS,
@@ -468,9 +469,9 @@ class TestSnowflakeSource:
         )
         assert operational_params.start_time_millis == TEST_START
         assert operational_params.end_time_millis == TEST_END
-        assert operational_params.catalog_name == "test_db"
-        assert operational_params.schema_name == "public"
-        assert operational_params.table_name == "test_table"
+        assert operational_params.catalog == "test_db"
+        assert operational_params.schema == "public"
+        assert operational_params.table == "test_table"
 
     def test_get_operational_params_platform_case(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_table.extra,PROD)"
@@ -479,9 +480,9 @@ class TestSnowflakeSource:
         )
         assert operational_params.start_time_millis == TEST_START
         assert operational_params.end_time_millis == TEST_END
-        assert operational_params.catalog_name == "test_db"
-        assert operational_params.schema_name == "public"
-        assert operational_params.table_name == "test_table"
+        assert operational_params.catalog == "test_db"
+        assert operational_params.schema == "public"
+        assert operational_params.table == "test_table"
 
     def test_build_audit_log_results(self) -> None:
         results = self.snowflake_source._build_audit_log_results(
@@ -500,13 +501,13 @@ class TestSnowflakeSource:
         assert results[0].event_type == EntityEventType.INFORMATION_SCHEMA_UPDATE
 
     def test_build_field_update_results_date(self) -> None:
-        results = self.snowflake_source._build_field_update_results([[JAN_1_DATE]])
+        results = self.snowflake_source._build_field_update_results([JAN_1_DATE])
         assert len(results) == 1
         assert results[0].event_time == JAN_1_TIMESTAMP
         assert results[0].event_type == EntityEventType.FIELD_UPDATE
 
     def test_build_field_update_results_datetime(self) -> None:
-        results = self.snowflake_source._build_field_update_results([[JAN_1_DATETIME]])
+        results = self.snowflake_source._build_field_update_results([JAN_1_DATETIME])
         assert len(results) == 1
         assert results[0].event_time == JAN_1_TIMESTAMP
         assert results[0].event_type == EntityEventType.FIELD_UPDATE
