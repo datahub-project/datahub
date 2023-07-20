@@ -10,7 +10,6 @@ const useDeleteSubscription = ({ subscriptionUrn, onSuccess }: Props) => {
     const [deleteSubscription] = useDeleteSubscriptionMutation();
 
     return () => {
-        console.log('delete', subscriptionUrn);
         if (subscriptionUrn) deleteSubscriptionFunction(subscriptionUrn, deleteSubscription, onSuccess);
     };
 };

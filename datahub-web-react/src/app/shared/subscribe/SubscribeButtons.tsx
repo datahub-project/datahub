@@ -28,14 +28,6 @@ export default function SubscribeButtons() {
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
 
-    // This is a little bad feeling, because we're hoping our mutation will run before this...
-    // callMutation() and setIsPersonal(true) ----- sometime later we actually take the mutation props?
-    const onCloseDrawer = () => {
-        setIsDrawerOpen(false);
-        setIsPersonal(true);
-        setGroupUrn(undefined);
-    };
-
     const { subscription, isSubscribed, refetchSubscription } = useSubscription({ isPersonal, entityUrn, groupUrn });
     const { isUserSubscribed, numUserSubscriptions, numGroupSubscriptions, groupNames, refetchSubscriptionSummary } =
         useSubscriptionSummary({ entityUrn });
@@ -66,6 +58,12 @@ export default function SubscribeButtons() {
 
     const onClickStar = () => {
         setIsDrawerOpen(true);
+        setIsPersonal(true);
+        setGroupUrn(undefined);
+    };
+
+    const onCloseDrawer = () => {
+        setIsDrawerOpen(false);
         setIsPersonal(true);
         setGroupUrn(undefined);
     };

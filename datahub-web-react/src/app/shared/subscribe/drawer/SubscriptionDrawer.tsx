@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
@@ -110,7 +110,7 @@ const SubscriptionDrawerContent = ({
         groupUrn,
     });
 
-    const initializeState = useCallback(() => {
+    useEffect(() => {
         actions.initialize({
             isPersonal,
             slackSinkEnabled,
@@ -120,10 +120,6 @@ const SubscriptionDrawerContent = ({
             settingsChannel,
         });
     }, [actions, entityType, isPersonal, settingsChannel, slackSinkEnabled, subscription]);
-
-    useEffect(() => {
-        initializeState();
-    }, [initializeState]);
 
     const onUpdate = () => {
         upsertSubscription();
