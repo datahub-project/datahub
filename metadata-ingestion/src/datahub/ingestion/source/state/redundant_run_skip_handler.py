@@ -187,13 +187,18 @@ class RedundantRunSkipHandler(
         # with floored bucket start time. This should be taken care of outside this scope.
 
         if cur_start_time_millis >= last_run_start_time:
-            if cur_start_time_millis > last_run_end_time and allow_expand:
-                # scenario of time gap between past successful run window and current run window - maybe due to failed past run
-                # Should we keep some configurable limits here to decide how much increase in time window is fine ?
-                suggested_start_time_millis = last_run_end_time
-                logger.info(
-                    f"{self.job_id} : Expanding time window. Changing start time to  {get_datetime_from_ts_millis_in_utc(last_run_end_time)}"
-                )
+            if cur_start_time_millis > last_run_end_time:
+                if allow_expand:
+                    # scenario of time gap between past successful run window and current run window - maybe due to failed past run
+                    # Should we keep some configurable limits here to decide how much increase in time window is fine ?
+                    suggested_start_time_millis = last_run_end_time
+                    logger.info(
+                        f"{self.job_id} : Expanding time window. Changing start time to  {get_datetime_from_ts_millis_in_utc(last_run_end_time)}"
+                    )
+                else:
+                    logger.warn(
+                        f"{self.job_id} : Observed gap in last run end time({get_datetime_from_ts_millis_in_utc(last_run_end_time)}) and current run start time({cur_start_time})."
+                    )
             elif cur_end_time_millis > last_run_end_time and allow_reduce:
                 # scenario of scheduled ingestions with default start, end times
                 suggested_start_time_millis = last_run_end_time
@@ -263,3 +268,9 @@ class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
     ) -> None:
         assert bucket_duration is not None
         return super().update_state(start_time, end_time, bucket_duration)
+
+    def get_last_run_time_window(
+        self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
+    ) -> Tuple[int, int]:
+        assert last_checkpoint.state.bucket_duration is not None
+        return super().get_last_run_time_window(last_checkpoint)
