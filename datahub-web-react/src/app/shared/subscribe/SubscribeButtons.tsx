@@ -8,7 +8,7 @@ import SubscriptionStarTooltip from './drawer/section/SubscriptionStarTooltip';
 import useSubscription from './useSubscription';
 import useDeleteSubscription from './useDeleteSubscription';
 import useSubscriptionSummary from './useSubscriptionSummary';
-import useRelationships from './useRelationships';
+import useGroupRelationships from './useGroupRelationships';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};
@@ -29,7 +29,7 @@ export default function SubscribeButtons() {
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
 
-    const { hasRelationships } = useRelationships({ count: 1 });
+    const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
     const { subscription, isSubscribed, refetchSubscription } = useSubscription({ isPersonal, entityUrn, groupUrn });
     const { isUserSubscribed, numUserSubscriptions, numGroupSubscriptions, groupNames, refetchSubscriptionSummary } =
         useSubscriptionSummary({ entityUrn });
@@ -87,7 +87,7 @@ export default function SubscribeButtons() {
                             key: DROPDOWN_KEYS.SUBSCRIBE_ME,
                             label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
                         },
-                        ...(hasRelationships
+                        ...(hasGroupRelationships
                             ? [
                                   {
                                       key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,

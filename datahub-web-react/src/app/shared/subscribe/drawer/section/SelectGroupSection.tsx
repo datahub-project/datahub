@@ -3,7 +3,7 @@ import { Select, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { CorpGroup, EntityRelationship } from '../../../../../types.generated';
 import { getGroupName } from '../../../../settings/personal/utils';
-import useRelationships from '../../useRelationships';
+import useGroupRelationships from '../../useGroupRelationships';
 
 const SelectGroupContainer = styled.div`
     margin-top: 32px;
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
-    const { relationships } = useRelationships();
+    const { relationships } = useGroupRelationships();
 
     const convertGroupRelationshipToOption = (relationship: EntityRelationship) => {
         const group: CorpGroup = relationship?.entity as CorpGroup;

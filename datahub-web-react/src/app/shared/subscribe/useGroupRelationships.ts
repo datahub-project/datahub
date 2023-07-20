@@ -1,7 +1,7 @@
 import { useGetUserGroupsQuery } from '../../../graphql/user.generated';
 import { useUserContext } from '../../context/useUserContext';
 
-const useRelationships = ({ count = 100 } = {}) => {
+const useGroupRelationships = ({ count = 100 } = {}) => {
     const authenticatedUserUrn = useUserContext()?.user?.urn;
     const { data: groupsData } = useGetUserGroupsQuery({
         skip: !authenticatedUserUrn,
@@ -10,9 +10,9 @@ const useRelationships = ({ count = 100 } = {}) => {
 
     const relationships = groupsData?.corpUser?.relationships?.relationships.filter((relationship) => !!relationship);
 
-    const hasRelationships = relationships && relationships.length > 0;
+    const hasGroupRelationships = relationships && relationships.length > 0;
 
-    return { hasRelationships, relationships } as const;
+    return { hasGroupRelationships, relationships } as const;
 };
 
-export default useRelationships;
+export default useGroupRelationships;
