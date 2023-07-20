@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.kafka;
 
-import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.time.Duration;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
