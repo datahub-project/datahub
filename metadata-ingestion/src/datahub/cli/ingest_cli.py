@@ -1,17 +1,18 @@
 import asyncio
-import click
-import click_spinner
 import csv
 import json
 import logging
 import os
 import sys
-import tzlocal
 import textwrap
-from click_default_group import DefaultGroup
 from datetime import datetime
-from tabulate import tabulate
 from typing import Optional
+
+import click
+import click_spinner
+import tzlocal
+from click_default_group import DefaultGroup
+from tabulate import tabulate
 
 import datahub as datahub_package
 from datahub.cli import cli_utils
