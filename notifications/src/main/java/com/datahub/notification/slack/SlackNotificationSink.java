@@ -22,6 +22,7 @@ import com.linkedin.event.notification.NotificationRecipientType;
 import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.metadata.connection.ConnectionService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
@@ -81,6 +82,10 @@ public class SlackNotificationSink implements NotificationSink {
   private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
+  private static final String NOTIFICATION_DROPPED_METRIC = "slack_notification_dropped";
+  private static final String RETRY_AFTER_HEADER = "retry-after";
+  private static final int RATE_LIMIT_ERROR_CODE = 429;
+  private static final int MAX_NUM_RETRIES = 2;
 
   private final Map<String, User> emailToSlackUser = new HashMap<>();
   private Slack slack = Slack.getInstance();
@@ -91,6 +96,7 @@ public class SlackNotificationSink implements NotificationSink {
   private String baseUrl;
   private String defaultChannel;
   private String botToken;
+  private long retryAfterTimestamp;
 
   @VisibleForTesting
   MethodsClient slackClient;
@@ -132,6 +138,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (cfg.getStaticConfig().containsKey(DEFAULT_CHANNEL_CONFIG_NAME)) {
       defaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
     }
+    retryAfterTimestamp = 0;
   }
 
   @Override
@@ -196,25 +203,25 @@ public class SlackNotificationSink implements NotificationSink {
         sendCustomNotification(notificationRequest);
         break;
       case BROADCAST_NEW_INCIDENT:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewIncidentMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewIncidentMessage(notificationRequest), true);
         break;
       case BROADCAST_INCIDENT_STATUS_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildIncidentStatusChangeMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildIncidentStatusChangeMessage(notificationRequest), true);
         break;
       case BROADCAST_NEW_PROPOSAL:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewProposalMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildNewProposalMessage(notificationRequest), false);
         break;
       case BROADCAST_PROPOSAL_STATUS_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildProposalStatusChangeMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildProposalStatusChangeMessage(notificationRequest), false);
         break;
       case BROADCAST_ENTITY_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildEntityChangeMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildEntityChangeMessage(notificationRequest), false);
         break;
       case BROADCAST_INGESTION_RUN_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildIngestionRunChangeMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildIngestionRunChangeMessage(notificationRequest), false);
         break;
       case BROADCAST_ASSERTION_STATUS_CHANGE:
-        sendBroadcastNotification(notificationRequest.getRecipients(), buildAssertionStatusChangeMessage(notificationRequest));
+        sendBroadcastNotification(notificationRequest.getRecipients(), buildAssertionStatusChangeMessage(notificationRequest), true);
         break;
       default:
         throw new UnsupportedOperationException(String.format(
@@ -228,7 +235,7 @@ public class SlackNotificationSink implements NotificationSink {
     final String title = request.getMessage().getParameters().get("title");
     final String body = request.getMessage().getParameters().get("body");
     final String messageText = String.format("*%s*\n\n%s", title, body);
-    sendNotificationToRecipients(request.getRecipients(), messageText);
+    sendNotificationToRecipients(request.getRecipients(), messageText, false);
   }
 
   private String buildEntityChangeMessage(NotificationRequest request) {
@@ -549,28 +556,28 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     );
   }
 
-  private void sendNotificationToRecipients(final List<NotificationRecipient> recipients, final String text) {
+  private void sendNotificationToRecipients(final List<NotificationRecipient> recipients, final String text, boolean shouldRetry) {
     // Send each recipient a message.
     for (NotificationRecipient recipient : recipients) {
-      sendNotificationToRecipient(recipient, text);
+      sendNotificationToRecipient(recipient, text, shouldRetry);
     }
   }
 
-  private void sendNotificationToRecipient(final NotificationRecipient recipient, final String text) {
+  private void sendNotificationToRecipient(final NotificationRecipient recipient, final String text, boolean shouldRetry) {
     // Try to sink message to each user.
     try {
       if (NotificationRecipientType.USER.equals(recipient.getType())) {
-        sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text);
+        sendNotificationToUser(UrnUtils.getUrn(recipient.getId()), text, shouldRetry);
       } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_DM_CUSTOM_TYPE.equals(recipient.getCustomType())) {
         if (!recipient.hasId() || recipient.getId() == null) {
           throw new UnsupportedOperationException(String.format("Tried to send a DM to user without ID set", recipient.getType()));
         }
-        sendMessage(recipient.getId(), text);
+        sendMessage(recipient.getId(), text, shouldRetry);
       } else if (NotificationRecipientType.CUSTOM.equals(recipient.getType()) && SLACK_CHANNEL_RECIPIENT_TYPE.equals(recipient.getCustomType())) {
         // We only support "SLACK_CHANNEL" as a custom type.
         String channel = getRecipientChannelOrDefault(recipient.getId(GetMode.NULL));
         if (channel != null) {
-          sendMessage(channel, text);
+          sendMessage(channel, text, shouldRetry);
         } else {
           log.warn(String.format(
               "Failed to resolve channel for recipient of type %s. No default or provided channel.",
@@ -585,52 +592,99 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     }
   }
 
-  private void sendNotificationToUser(final Urn userUrn, final String text) throws Exception {
+  private void sendNotificationToUser(final Urn userUrn, final String text, boolean shouldRetry) throws Exception {
     final IdentityProvider.User user = this.identityProvider.getUser(userUrn); // Retrieve DataHub User
     if (user != null && user.getEmail() != null) {
       User slackUser = getSlackUserFromEmail(user.getEmail());
       if (slackUser != null) {
-        sendMessage(slackUser.getId(), text);
+        sendMessage(slackUser.getId(), text, shouldRetry);
       }
     } else {
       log.warn(String.format("Failed to send notification to user with urn %s. Failed to find user with valid email in DataHub.", userUrn));
     }
   }
 
-  private void sendBroadcastNotification(final List<NotificationRecipient> recipients, final String text) {
+  private void sendBroadcastNotification(final List<NotificationRecipient> recipients, final String text, boolean shouldRetry) {
     // In the case of a broadcast, if there are no recipients explicitly provided we fallback to sending to the default configured channel.
     if (recipients.size() > 0) {
       // Send to each recipient in the list as normal.
-      sendNotificationToRecipients(recipients, text);
+      sendNotificationToRecipients(recipients, text, shouldRetry);
     } else {
       // Broadcast to the default configured channel.
       NotificationRecipient defaultChannelRecipient = new NotificationRecipient()
           .setType(NotificationRecipientType.CUSTOM)
           .setCustomType(SLACK_CHANNEL_RECIPIENT_TYPE);
-      sendNotificationToRecipient(defaultChannelRecipient, text);
+      sendNotificationToRecipient(defaultChannelRecipient, text, shouldRetry);
     }
   }
 
-  private void sendMessage(@Nonnull final String channel, @Nonnull final String text) throws Exception {
+  private void sendMessage(@Nonnull final String channel, @Nonnull final String text, boolean shouldRetry) throws Exception {
     final ChatPostMessageRequest msgRequest = ChatPostMessageRequest.builder()
         .channel(channel)
         .text(text)
         .iconUrl(String.format("%s%s", this.baseUrl, ACRYL_LOGO_FILE_PATH))
         .build();
-    final ChatPostMessageResponse response = sendMessage(msgRequest);
-    if (response.isOk()) {
-      log.debug(String.format("Successfully sent Slack notification to channel %s", channel));
-    } else {
-      log.error(String.format("Failed to sink Slack notification to channel %s. Received error from Slack API: %s", channel, response.getError()));
+    final ChatPostMessageResponse response = sendMessage(msgRequest, shouldRetry);
+    if (response != null) {
+      if (response.isOk()) {
+        log.debug(String.format("Successfully sent Slack notification to channel %s", channel));
+      } else {
+        log.error(String.format("Failed to sink Slack notification to channel %s. Received error from Slack API: %s", channel, response.getError()));
+      }
     }
   }
 
-  private ChatPostMessageResponse sendMessage(final ChatPostMessageRequest request) throws Exception {
+  @Nullable
+  private ChatPostMessageResponse sendMessage(final ChatPostMessageRequest request, boolean shouldRetry) throws Exception {
+    return sendMessage(request, 0, shouldRetry);
+  }
+
+  @Nullable
+  private ChatPostMessageResponse sendMessage(final ChatPostMessageRequest request, int retryAttempt, boolean shouldRetry) throws Exception {
+    if (System.currentTimeMillis() < this.retryAfterTimestamp) {
+      return optionallyRetrySendMessage(request, retryAttempt, shouldRetry);
+    }
     try {
       return slackClient.chatPostMessage(request);
     } catch (IOException | SlackApiException e) {
-      throw new Exception("Caught exception while attempting to send slack message", e);
+      if (e instanceof SlackApiException && ((SlackApiException) e).getResponse().code() == RATE_LIMIT_ERROR_CODE) {
+        return handleRateLimitResponse((SlackApiException) e, request, retryAttempt, shouldRetry);
+      } else {
+        throw new Exception("Caught exception while attempting to send slack message", e);
+      }
     }
+  }
+
+  private ChatPostMessageResponse handleRateLimitResponse(
+      SlackApiException e,
+      final ChatPostMessageRequest request,
+      int retryAttempt,
+      boolean shouldRetry
+  ) throws Exception {
+    String retryAfter = e.getResponse().header(RETRY_AFTER_HEADER);
+    log.info(String.format("Reached Slack API rate limit. No new notifications will be sent for %s second(s)", retryAfter));
+    if (retryAfter != null) {
+      try {
+        int retryAfterInt = Integer.parseInt(retryAfter);
+        this.retryAfterTimestamp = System.currentTimeMillis() + retryAfterInt * 1000L;
+        return optionallyRetrySendMessage(request, retryAttempt, shouldRetry);
+      } catch (NumberFormatException exc) {
+        log.debug("Issue parsing retryAfter from slack API response headers", exc);
+      }
+    }
+    MetricUtils.counter(this.getClass(), NOTIFICATION_DROPPED_METRIC).inc();
+    return null;
+  }
+
+  private ChatPostMessageResponse optionallyRetrySendMessage(final ChatPostMessageRequest request, int retryAttempt, boolean shouldRetry) throws Exception {
+    // TODO make this feature flaggable
+    if (shouldRetry && retryAttempt < MAX_NUM_RETRIES) {
+      Thread.sleep(this.retryAfterTimestamp - System.currentTimeMillis());
+      return sendMessage(request, retryAttempt + 1, shouldRetry);
+    }
+    log.debug("Skipping sending notification for request {}. Pausing due to hitting our rate limit", request);
+    MetricUtils.counter(this.getClass(), NOTIFICATION_DROPPED_METRIC).inc();
+    return null;
   }
 
   private String createUsersTagString(final List<IdentityProvider.User> users) {

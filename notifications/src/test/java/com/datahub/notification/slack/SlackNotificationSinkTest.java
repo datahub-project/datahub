@@ -25,12 +25,14 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.SlackIntegrationSettings;
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
+import com.slack.api.methods.SlackApiException;
 import com.slack.api.methods.request.chat.ChatPostMessageRequest;
 import com.slack.api.methods.request.users.UsersLookupByEmailRequest;
 import com.slack.api.methods.response.chat.ChatPostMessageResponse;
 import com.slack.api.methods.response.users.UsersLookupByEmailResponse;
 import com.slack.api.model.User;
 import java.util.Collections;
+import okhttp3.Response;
 import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -408,7 +410,11 @@ public class SlackNotificationSinkTest {
 
     ChatPostMessageRequest dmMsgRequest = ChatPostMessageRequest.builder()
         .channel("12345")
-        .text(String.format("%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"))
+        .text(
+            String.format(
+                "%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"
+            )
+        )
         .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
         .build();
     ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();
@@ -462,6 +468,104 @@ public class SlackNotificationSinkTest {
     sink.send(notificationRequest, new NotificationContext());
 
     Mockito.verify(mockSlackClient, Mockito.times(1))
+        .chatPostMessage(Mockito.eq(dmMsgRequest));
+  }
+
+  @Test
+  public void testAssertionNotificationWithRetry() throws Exception {
+    /*
+     * This test verifies that sending a notification for assertion changes makes
+     * requests that are expected and retries up to 3 extra time on rate limit response
+     */
+    SettingsProvider mockSettingsProvider = Mockito.mock(SettingsProvider.class);
+    Mockito.when(mockSettingsProvider.getGlobalSettings()).thenReturn(
+        enabledSettings()
+    );
+    ConnectionService mockConnectionService = Mockito.mock(ConnectionService.class);
+    Mockito.when(mockConnectionService.getConnectionDetails(Mockito.any(Urn.class)))
+        .thenReturn(
+            null
+        );
+    IdentityProvider mockIdentityProvider = Mockito.mock(IdentityProvider.class);
+    Mockito.when(mockIdentityProvider.getUser(TEST_USER_URN)).thenReturn(testUser());
+    SecretProvider mockSecretProvider = Mockito.mock(SecretProvider.class);
+
+    // Init the slack client mock
+    MethodsClient mockSlackClient = Mockito.mock(MethodsClient.class);
+    UsersLookupByEmailRequest lookupRequests = UsersLookupByEmailRequest.builder()
+        .email("test@gmail.com")
+        .build();
+    UsersLookupByEmailResponse lookupResponse = new UsersLookupByEmailResponse();
+    lookupResponse.setOk(true);
+    User slackUser = new User();
+    slackUser.setId("test-id");
+    lookupResponse.setUser(slackUser);
+    Mockito.when(mockSlackClient.usersLookupByEmail(Mockito.eq(lookupRequests))).thenReturn(lookupResponse);
+
+    ChatPostMessageRequest dmMsgRequest = ChatPostMessageRequest.builder()
+        .channel("12345")
+        .text(
+            String.format(
+                "%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"
+            )
+        )
+        .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
+        .build();
+
+    Response response = Mockito.mock(Response.class);
+    Mockito.when(response.code()).thenReturn(429);
+    Mockito.when(response.header("retry-after")).thenReturn("1");
+    SlackApiException e = new SlackApiException(response, "");
+    Mockito.when(mockSlackClient.chatPostMessage(Mockito.eq(dmMsgRequest))).thenThrow(e);
+
+    // Init with a mock slack client.
+    SlackNotificationSink sink = new SlackNotificationSink(mockSlackClient);
+    sink.init(new NotificationSinkConfig(
+        ImmutableMap.of(
+            "botToken",
+            "abc",
+            "defaultChannel",
+            "#test"
+        ),
+        mockSettingsProvider,
+        mockIdentityProvider,
+        mockSecretProvider,
+        mockConnectionService,
+        TEST_BASE_URL
+    ));
+
+    // Now, construct an assertion message request and verify that it is sent to the slack client.
+    NotificationRequest notificationRequest = new NotificationRequest();
+    notificationRequest.setMessage(new NotificationMessage()
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+            NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name()))
+        .setParameters(new StringMap(
+            ImmutableMap.of(
+                "entityName",
+                "SampleName",
+                "entityPath",
+                "/datasets/test",
+                "result",
+                "SUCCESS"
+            )
+        ))
+    );
+
+    notificationRequest.setRecipients(new NotificationRecipientArray(
+        ImmutableList.of(
+            // Custom DM recipient
+            new NotificationRecipient()
+                .setType(NotificationRecipientType.CUSTOM)
+                .setCustomType("SLACK_DM")
+                .setId("12345")
+        )
+    ));
+
+    // Send the request
+    sink.send(notificationRequest, new NotificationContext());
+
+    // should retry a maximum number of 2 time so 3 times total even if we keep hitting the rate limit
+    Mockito.verify(mockSlackClient, Mockito.times(3))
         .chatPostMessage(Mockito.eq(dmMsgRequest));
   }
 
