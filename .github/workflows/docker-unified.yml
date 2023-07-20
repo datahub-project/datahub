@@ -65,7 +65,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Pre-build artifacts for docker image
+      - nafetch-depth: 800artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
           mv ./metadata-service/war/build/libs/war.war .
@@ -127,7 +127,7 @@ jobs:
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
           mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
-      - name: Build and push
+      - nafetch-depth: 800push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
@@ -189,7 +189,7 @@ jobs:
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
-            ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
+          fetch-depth: 800HUB_MCE_CONSUMER_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -251,7 +251,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
+          fetch-depth: 800eeds.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -313,7 +313,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
-          file: ./docker/datahub-frontend/Dockerfile
+          fetch-depth: 800/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
@@ -377,7 +377,7 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
-        with:
+        wifetch-depth: 800
           fetch-depth: 0
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
@@ -399,7 +399,7 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
-        with:
+        wifetch-depth: 800
           fetch-depth: 0
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
@@ -421,7 +421,7 @@ jobs:
       fail-fast: false
       matrix:
         test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
-    needs:
+    needs:fetch-depth: 800
       [
         setup,
         gms_build,
