@@ -103,6 +103,7 @@ services:
     - PE_CONSUMER_ENABLED=true
     - UI_INGESTION_ENABLED=true
     - METADATA_SERVICE_AUTH_ENABLED=false
+    - ASYNC_INGESTION_DEFAULT=true
     healthcheck:
       interval: 1s
       retries: 3
