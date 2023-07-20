@@ -64,8 +64,8 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
-      - nafetch-depth: 800artifacts for docker image
+          fetch-depth: 800
+      - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
           mv ./metadata-service/war/build/libs/war.war .
@@ -122,12 +122,12 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
           mv ./metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar .
-      - nafetch-depth: 800push
+      - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
@@ -180,7 +180,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -189,7 +189,7 @@ jobs:
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
-          fetch-depth: 800HUB_MCE_CONSUMER_IMAGE }}
+            ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -238,7 +238,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -251,7 +251,7 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          fetch-depth: 800eeds.setup.outputs.publish }}
+          publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -296,7 +296,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -313,7 +313,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
-          fetch-depth: 800/datahub-frontend/Dockerfile
+          file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
@@ -356,7 +356,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -377,8 +377,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
-        wifetch-depth: 800
-          fetch-depth: 0
+        with:
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -399,8 +399,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
-        wifetch-depth: 800
-          fetch-depth: 0
+        with:
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -421,7 +421,7 @@ jobs:
       fail-fast: false
       matrix:
         test_strategy: ["no_cypress", "cypress_suite1", "cypress_rest"]
-    needs:fetch-depth: 800
+    needs:
       [
         setup,
         gms_build,
