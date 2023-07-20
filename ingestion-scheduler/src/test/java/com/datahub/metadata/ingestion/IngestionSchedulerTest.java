@@ -1,6 +1,7 @@
 package com.datahub.metadata.ingestion;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.UrnArray;
@@ -10,7 +11,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.client.JavaEntityClient;
-import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
