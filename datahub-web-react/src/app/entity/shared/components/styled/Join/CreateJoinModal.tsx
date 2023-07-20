@@ -230,7 +230,7 @@ export const CreateJoinModal = ({
                             dataSetA: table1Dataset?.urn || '',
                             datasetB: table2Dataset?.urn || '',
                             name: joinName,
-                            // createdBy: editJoin?.properties?.createdActor || '',
+                            createdBy: editJoin?.properties?.createdActor || '',
                             createdAt: editJoin?.properties?.createdTime || 0,
                             joinFieldmappings: {
                                 details,

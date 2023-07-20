@@ -528,6 +528,7 @@ public class PoliciesConfig {
       CORP_USER_PRIVILEGES,
       NOTEBOOK_PRIVILEGES,
       DATA_PRODUCT_PRIVILEGES
+      //JOIN_PRIVILEGES
   );
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
@@ -538,7 +539,18 @@ public class PoliciesConfig {
       ENTITY_RESOURCE_PRIVILEGES.stream().flatMap(resourcePrivileges -> resourcePrivileges.getPrivileges().stream()).distinct().collect(
           Collectors.toList())
   );
-
+//  public static final Privilege EDIT_JOIN_PRIVILEGE = Privilege.of(
+//          "EDIT_ENTITY_JOIN",
+//          "Edit join",
+//          "The ability to add or update join of an entity.");
+//
+//  // Join Privileges
+//  public static final ResourcePrivileges JOIN_PRIVILEGES = ResourcePrivileges.of(
+//          "join",
+//          "Join",
+//          "Create or update privileges for joins",
+//          ImmutableList.of(EDIT_JOIN_PRIVILEGE)
+//  );
   public static final List<ResourcePrivileges> RESOURCE_PRIVILEGES =
       ImmutableList.<ResourcePrivileges>builder().addAll(ENTITY_RESOURCE_PRIVILEGES)
           .add(ALL_RESOURCE_PRIVILEGES)

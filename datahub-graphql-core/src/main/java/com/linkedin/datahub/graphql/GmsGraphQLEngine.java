@@ -94,7 +94,6 @@ import com.linkedin.datahub.graphql.generated.SiblingProperties;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
 import com.linkedin.datahub.graphql.generated.UserUsageCounts;
-import com.linkedin.datahub.graphql.resolvers.AuthenticatedResolver;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
@@ -285,6 +284,8 @@ import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
+import com.linkedin.datahub.graphql.types.join.CreateJoinResolver;
+import com.linkedin.datahub.graphql.types.join.UpdateJoinResolver;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -851,8 +852,8 @@ public class GmsGraphQLEngine {
             .dataFetcher("updateDataFlow", new MutableTypeResolver<>(dataFlowType))
             .dataFetcher("updateCorpUserProperties", new MutableTypeResolver<>(corpUserType))
             .dataFetcher("updateCorpGroupProperties", new MutableTypeResolver<>(corpGroupType))
-            .dataFetcher("updateJoin", new AuthenticatedResolver<>(new MutableTypeResolver<>(joinType)))
-            .dataFetcher("createJoin", new MutableTypeResolver<>(joinType))
+            .dataFetcher("updateJoin", new UpdateJoinResolver(this.entityClient))
+            .dataFetcher("createJoin", new CreateJoinResolver(this.entityClient))
             .dataFetcher("addTag", new AddTagResolver(entityService))
             .dataFetcher("addTags", new AddTagsResolver(entityService))
             .dataFetcher("batchAddTags", new BatchAddTagsResolver(entityService))

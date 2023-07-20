@@ -89,6 +89,7 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
+        // TODO: check if assigning null is ok?
         .setCreatedActor(joinProperties.hasCreated() && joinProperties.hasCreatedActor()
                 ? UrnToEntityMapper.map(joinProperties.getCreatedActor()) : null)
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
