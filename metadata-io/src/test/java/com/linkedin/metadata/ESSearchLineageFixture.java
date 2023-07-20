@@ -1,15 +1,15 @@
 package com.linkedin.metadata;
 
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -226,7 +226,7 @@ public class ESSearchLineageFixture {
         PreProcessHooks preProcessHooks = new PreProcessHooks();
         preProcessHooks.setUiEnabled(true);
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry, true, null,
+                new EntityServiceImpl(null, null, entityRegistry, true, null,
                     preProcessHooks),
                 null,
                 entitySearchService,
