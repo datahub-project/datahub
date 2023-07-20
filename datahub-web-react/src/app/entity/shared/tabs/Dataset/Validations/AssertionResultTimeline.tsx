@@ -10,7 +10,7 @@ import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 import { AssertionResultType } from '../../../../../../types.generated';
 
 export type AssertionResult = {
-    type?: Maybe<AssertionResultType>;
+    type: AssertionResultType;
     title: React.ReactNode;
     content: React.ReactNode;
     resultUrl?: Maybe<string>;
@@ -37,7 +37,7 @@ const FAILURE_COLOR_HEX = '#F5222D';
 const ERROR_COLOR_HEX = '#FAAD14';
 const INIT_COLOR_HEX = '#8C8C8C';
 
-const getFillColor = (type?: Maybe<AssertionResultType>) => {
+const getFillColor = (type: AssertionResultType) => {
     switch (type) {
         case AssertionResultType.Success:
             return SUCCESS_COLOR_HEX;

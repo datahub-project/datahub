@@ -116,8 +116,9 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
     };
 
     const completeAssertionRunEvents =
-        data?.assertion?.runEvents?.runEvents.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) ||
-        [];
+        data?.assertion?.runEvents?.runEvents.filter(
+            (runEvent) => runEvent.status === AssertionRunStatus.Complete && runEvent.result,
+        ) || [];
 
     /**
      * Last evaluated timestamp
@@ -157,12 +158,15 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
     const assertionResultsChartData =
         completeAssertionRunEvents.map((runEvent) => {
             const { result } = runEvent;
+
+            if (!result) throw new Error('Completed assertion run event does not have a result.');
+
             const resultTime = new Date(runEvent.timestampMillis);
             const localTime = resultTime.toLocaleString();
             const gmtTime = resultTime.toUTCString();
-            const resultUrl = result?.externalUrl;
-            const isInitializing = result?.type === AssertionResultType.Init;
-            const errorMessage = result && getResultErrorMessage(result);
+            const resultUrl = result.externalUrl;
+            const isInitializing = result.type === AssertionResultType.Init;
+            const errorMessage = getResultErrorMessage(result);
 
             /**
              * Create a "result" to render in the timeline chart.
@@ -170,23 +174,19 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
             return {
                 time: runEvent.timestampMillis,
                 result: {
-                    type: result?.type,
+                    type: result.type,
                     resultUrl,
                     title: (
                         <>
-                            {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-                            <AssertionResultIcon>{getResultIcon(result!.type)}</AssertionResultIcon>
-                            {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-                            <Typography.Text strong>{getResultText(result!.type)}</Typography.Text>
+                            <AssertionResultIcon>{getResultIcon(result.type)}</AssertionResultIcon>
+                            <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
                         </>
                     ),
                     content: (
                         <>
-                            {result && (
-                                <AssertionResultDetailsContainer>
-                                    <DatasetAssertionResultDetails result={result} />
-                                </AssertionResultDetailsContainer>
-                            )}
+                            <AssertionResultDetailsContainer>
+                                <DatasetAssertionResultDetails result={result} />
+                            </AssertionResultDetailsContainer>
                             {isInitializing && (
                                 <AssertionResultInitializingMessage>
                                     Collecting the information required to evaluate this assertion.
