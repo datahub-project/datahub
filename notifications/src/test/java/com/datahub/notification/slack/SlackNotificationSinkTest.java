@@ -79,7 +79,9 @@ public class SlackNotificationSinkTest {
             "botToken",
             "abc",
             "defaultChannel",
-            "#test"
+            "#test",
+            "retryEnabled",
+            "true"
         ),
         mockSettingsProvider,
         mockIdentityProvider,

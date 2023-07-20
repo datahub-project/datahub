@@ -140,7 +140,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (cfg.getStaticConfig().containsKey(DEFAULT_CHANNEL_CONFIG_NAME)) {
       defaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
     }
-    retryEnabled = Boolean.parseBoolean((String) cfg.getStaticConfig().getOrDefault(RETRY_ENABLED_CONFIG_NAME, true));
+    retryEnabled = Boolean.parseBoolean((String) cfg.getStaticConfig().getOrDefault(RETRY_ENABLED_CONFIG_NAME, "true"));
     retryAfterTimestamp = 0;
   }
 
