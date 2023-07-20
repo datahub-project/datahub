@@ -295,6 +295,8 @@ notifications:
       configs:
         botToken: ${SLACK_BOT_TOKEN}
         defaultChannel: ${SLACK_DEFAULT_CHANNEL:datahub-slack-notifications}
+        # Whether we should attempt to retry sending important Slack notifications
+        retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:

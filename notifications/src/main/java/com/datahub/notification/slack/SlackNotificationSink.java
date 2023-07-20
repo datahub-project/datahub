@@ -81,6 +81,7 @@ public class SlackNotificationSink implements NotificationSink {
   private static final String SLACK_CHANNEL_RECIPIENT_TYPE = "SLACK_CHANNEL";
   private static final String SLACK_DM_CUSTOM_TYPE = "SLACK_DM";
   private static final String BOT_TOKEN_CONFIG_NAME = "botToken";
+  private static final String RETRY_ENABLED_CONFIG_NAME = "retryEnabled";
   private static final String DEFAULT_CHANNEL_CONFIG_NAME = "defaultChannel";
   private static final String NOTIFICATION_DROPPED_METRIC = "slack_notification_dropped";
   private static final String RETRY_AFTER_HEADER = "retry-after";
@@ -96,6 +97,7 @@ public class SlackNotificationSink implements NotificationSink {
   private String baseUrl;
   private String defaultChannel;
   private String botToken;
+  private boolean retryEnabled;
   private long retryAfterTimestamp;
 
   @VisibleForTesting
@@ -138,6 +140,7 @@ public class SlackNotificationSink implements NotificationSink {
     if (cfg.getStaticConfig().containsKey(DEFAULT_CHANNEL_CONFIG_NAME)) {
       defaultChannel = (String) cfg.getStaticConfig().get(DEFAULT_CHANNEL_CONFIG_NAME);
     }
+    retryEnabled = Boolean.parseBoolean((String) cfg.getStaticConfig().getOrDefault(RETRY_ENABLED_CONFIG_NAME, true));
     retryAfterTimestamp = 0;
   }
 
@@ -677,8 +680,7 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
   }
 
   private ChatPostMessageResponse optionallyRetrySendMessage(final ChatPostMessageRequest request, int retryAttempt, boolean shouldRetry) throws Exception {
-    // TODO make this feature flaggable
-    if (shouldRetry && retryAttempt < MAX_NUM_RETRIES) {
+    if (this.retryEnabled && shouldRetry && retryAttempt < MAX_NUM_RETRIES) {
       Thread.sleep(this.retryAfterTimestamp - System.currentTimeMillis());
       return sendMessage(request, retryAttempt + 1, shouldRetry);
     }
