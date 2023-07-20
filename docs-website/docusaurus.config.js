@@ -18,7 +18,9 @@ module.exports = {
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || 'IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA',
+    markpromptProjectKey:
+      process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY ||
+      "IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA",
   },
   themeConfig: {
     ...(!isSaas && {
@@ -68,6 +70,26 @@ module.exports = {
           href: "https://feature-requests.datahubproject.io/roadmap",
           label: "Roadmap",
           position: "right",
+        },
+        {
+          type: "dropdown",
+          label: "v0.10.4",
+          position: "right",
+          items: [
+            {
+              label: "v0.10.3",
+              href: "https://docs-website-lgy6es9n7-acryldata.vercel.app/docs/",
+            },
+            {
+              label: "v0.10.2",
+              href: "https://docs-website-10gvx2fdd-acryldata.vercel.app/docs/",
+            },
+            {
+              label: "v0.10.1",
+              href: "https://docs-website-6pjz04cbm-acryldata.vercel.app/docs/",
+            },
+          ],
+          dropdownActiveClassDisabled: false,
         },
         {
           href: "https://slack.datahubproject.io",
