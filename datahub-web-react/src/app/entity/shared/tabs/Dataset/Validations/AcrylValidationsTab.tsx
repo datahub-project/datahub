@@ -5,12 +5,12 @@ import styled from 'styled-components';
 import { FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
 import { TestResults } from './TestResults';
-import { Assertions } from './Assertions';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
 import { useGetDatasetAssertionsQuery } from '../../../../../../graphql/dataset.generated';
 import { AssertionSourceType } from '../../../../../../types.generated';
+import { AcrylAssertions } from './AcrylAssertions';
 
 const TabTitle = styled.span`
     margin-left: 4px;
@@ -32,9 +32,9 @@ const DEFAULT_TAB = TabPaths.ASSERTIONS;
  * Acryl-specific component used for rendering the Entity Validations Tab.
  */
 export const AcrylValidationsTab = () => {
-    const { urn, entityData } = useEntityData();
     const history = useHistory();
     const { pathname } = useLocation();
+    const { urn, entityData } = useEntityData();
 
     const { data: assertionsData } = useGetDatasetAssertionsQuery({ variables: { urn }, fetchPolicy: 'cache-first' });
     const totalAssertions =
@@ -44,8 +44,8 @@ export const AcrylValidationsTab = () => {
         ).length || 0;
 
     const passingTests = (entityData as any)?.testResults?.passing || [];
-    const maybeFailingTests = (entityData as any)?.testResults?.failing || [];
-    const totalTests = maybeFailingTests.length + passingTests.length;
+    const failingTests = (entityData as any)?.testResults?.failing || [];
+    const totalTests = failingTests.length + passingTests.length;
 
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
 
@@ -70,7 +70,7 @@ export const AcrylValidationsTab = () => {
             ),
             path: TabPaths.ASSERTIONS,
             disabled: totalAssertions === 0,
-            content: <Assertions />,
+            content: <AcrylAssertions />,
         },
         {
             title: (
@@ -81,7 +81,7 @@ export const AcrylValidationsTab = () => {
             ),
             path: TabPaths.TESTS,
             disabled: totalTests === 0,
-            content: <TestResults passing={passingTests} failing={maybeFailingTests} />,
+            content: <TestResults passing={passingTests} failing={failingTests} />,
         },
     ];
 

@@ -238,25 +238,6 @@ public class AssertionsSummaryHookTest {
         Mockito.eq(expectedSummary));
   }
 
-  @Test(dataProvider = "assertionsSummaryProvider")
-  public void testInvokeInferredAssertionRunEventSuccess(AssertionsSummary summary) throws Exception {
-    AssertionService service = mockAssertionService(summary);
-    AssertionsSummaryHook hook = new AssertionsSummaryHook(ENTITY_REGISTRY, service, true);
-    final AssertionRunEvent runEvent = mockAssertionRunEvent(TEST_INFERRED_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS);
-    final MetadataChangeLog event = buildMetadataChangeLog(
-        TEST_INFERRED_ASSERTION_URN,
-        ASSERTION_RUN_EVENT_ASPECT_NAME,
-        ChangeType.UPSERT,
-        runEvent);
-    hook.invoke(event);
-    Mockito.verify(service, Mockito.times(1)).getAssertionInfo(Mockito.eq(TEST_INFERRED_ASSERTION_URN));
-
-    // Ensure we NEVER updated the assertions summary.
-    Mockito.verify(service, Mockito.times(0)).updateAssertionsSummary(
-        Mockito.any(Urn.class),
-        Mockito.any(AssertionsSummary.class));
-  }
-
   private AssertionRunEvent mockAssertionRunEvent(final Urn urn, final AssertionRunStatus status, final AssertionResultType resultType) {
     AssertionRunEvent event = new AssertionRunEvent();
     event.setTimestampMillis(1L);

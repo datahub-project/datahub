@@ -48,6 +48,7 @@ import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
@@ -67,6 +68,7 @@ import com.linkedin.datahub.graphql.resolvers.test.RunTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.TestResultsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.ValidateTestResolver;
+import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.anomaly.AnomalyType;
 import com.linkedin.datahub.graphql.types.connection.DataHubConnectionType;
@@ -100,47 +102,42 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   public static final String CONSTRAINTS_SCHEMA_FILE = "constraints.graphql";
   public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
   public static final String ACTIONS_SCHEMA_FILE = "actions.graphql";
-
   public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
   public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
 
-  private GraphClient graphClient;
-
-  private MonitorService monitorService; // Acryl-only
-
+  // OSS Types
   private GlossaryTermType glossaryTermType;
   private GlossaryNodeType glossaryNodeType;
   private TagType tagType;
 
-
-
+  // Acryl Types
   private DataHubConnectionType connectionType; // Saas-ONLY
   private MonitorType monitorType; // SaaS only
   private IncidentType incidentType; // SaaS only
-
-  // SaaS only
   private AnomalyType anomalyType;
-  private ProposalService proposalService;
 
-  private boolean initialized;
-  private EntityClient entityClient;
+  private List<EntityType<?, ?>> entityTypes;
 
   private EntityService entityService;
   private ConnectionService connectionService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
-
+  private ProposalService proposalService;
   private AssertionService assertionService;
   private EntitySearchService entitySearchService;
+  private MonitorService monitorService; // Acryl-only
 
+  // Clients
   private UsageClient usageClient;
+  private EntityClient entityClient;
+  private GraphClient graphClient;
 
   private TestEngine testEngine;
+  private boolean initialized;
 
   public AcrylGraphQLPlugin() {
     this.initialized = false;
   }
-
 
   @Override
   public void init(GmsGraphQLEngineArgs args) {
@@ -158,17 +155,24 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.entitySearchService = args.getEntitySearchService();
     this.testEngine = args.getTestEngine();
 
+    this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
+    this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
+    this.tagType = new TagType(args.getEntityClient());
 
     this.connectionType = new DataHubConnectionType(args.getEntityClient(), args.getSecretService()); // SaaS only
     this.monitorType = new MonitorType(args.getEntityClient()); // SaaS only
     this.incidentType = new IncidentType(args.getEntityClient()); // SaaS only
     this.anomalyType = new AnomalyType(args.getEntityClient()); // SaaS only
 
-    this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
-    this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
-    this.tagType = new TagType(args.getEntityClient());
-    this.initialized = true;
+    // New saas types
+    this.entityTypes = ImmutableList.of(
+        this.connectionType,
+        this.monitorType,
+        this.incidentType,
+        this.anomalyType
+    );
 
+    this.initialized = true;
   }
 
   @Override
@@ -196,6 +200,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     );
   }
 
+  @Override
+  public Collection<? extends EntityType<?, ?>> getEntityTypes() {
+    return this.entityTypes;
+  }
+
   private void configureMutationResolvers(final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
     builder.type("Mutation", typeWiring -> typeWiring
         .dataFetcher("createTermConstraint", new CreateTermConstraintResolver(this.entityClient))
@@ -219,7 +228,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("runTests", new RunTestsResolver(this.testEngine))
         .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(baseEngine.getRoleService()))
     );
-
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -231,16 +239,13 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("validateTest", new ValidateTestResolver(testEngine)));
   }
 
-
-
-    private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
+  private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
     builder.type("Container", typeWiring -> typeWiring
         // Proposals not in OSS
         .dataFetcher("proposals", new ProposalsResolver((env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
   }
 
-
-    private void configureActionRequestResolvers(final RuntimeWiring.Builder builder) {
+  private void configureActionRequestResolvers(final RuntimeWiring.Builder builder) {
     builder.type("GlossaryTermProposalParams", typeWiring -> typeWiring
         .dataFetcher("glossaryTerm",
             new LoadableTypeResolver<>(glossaryTermType,
@@ -326,21 +331,21 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
       builder.type(entity, typeWiring -> typeWiring
           .dataFetcher("incidents", new EntityIncidentsResolver(entityClient)));
     }
-
-
   }
-
 
   private void configureIntegrationResolvers(final RuntimeWiring.Builder builder) {
     builder.type("Query", typeWiring -> typeWiring.dataFetcher("getLinkPreview", new GetLinkPreviewResolver(this.integrationsService)));
   }
-
 
   private void configureMonitorResolvers(final RuntimeWiring.Builder builder, GmsGraphQLEngine baseEngine) {
     builder.type("Mutation", typeWiring -> typeWiring
         .dataFetcher("deleteMonitor", new DeleteMonitorResolver(entityClient, entityService))
         .dataFetcher("createAssertionMonitor", new CreateAssertionMonitorResolver(monitorService))
         .dataFetcher("updateSystemMonitors", new UpdateSystemMonitorsResolver(
+            this.monitorService,
+            this.entityClient
+        ))
+        .dataFetcher("updateMonitorStatus", new UpdateMonitorStatusResolver(
             this.monitorService,
             this.entityClient
         ))
@@ -380,7 +385,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             new LoadableTypeResolver<>(baseEngine.getCorpUserType(), (env) -> ((ResolvedAuditStamp) env.getSource()).getActor().getUrn()))
     );
   }
-
 
   private void configureGlobalSettingsResolvers(final RuntimeWiring.Builder builder) {
     builder.type("Query", typeWiring -> typeWiring
@@ -483,6 +487,5 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("assertions", new EntityAssertionsResolver(entityClient, graphClient))
         .dataFetcher("incidents", new EntityIncidentsResolver(entityClient))
     );
-
   }
 }

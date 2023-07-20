@@ -3,7 +3,7 @@ import React from 'react';
 import { Button } from 'antd';
 import { AssertionTypeOption } from './AssertionTypeOption';
 import { AssertionBuilderStep, StepProps } from '../types';
-import { getAssertionTypesForEntityType } from '../utils';
+import { getAssertionTypesForEntityType } from '../../../acrylUtils';
 import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
 import {
     DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
@@ -41,7 +41,7 @@ const CancelButton = styled(Button)`
  * Step for selecting the type of assertion
  */
 export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) => {
-    const filteredTypes = getAssertionTypesForEntityType(state.entityType as EntityType);
+    const filteredTypes = getAssertionTypesForEntityType(state.entityType as EntityType).filter((type) => type.visible);
 
     const selectAssertionType = (type: AssertionType) => {
         let newState = { ...state };
@@ -81,8 +81,9 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                             key={type.type}
                             name={type.name}
                             description={type.description}
-                            imageSrc={type.imageSrc}
-                            onClick={() => selectAssertionType(type.type)}
+                            icon={type.icon}
+                            enabled={type.enabled}
+                            onClick={(type.type && (() => selectAssertionType(type.type))) || (() => null)}
                         />
                     ))}
                 </TypeListContainer>

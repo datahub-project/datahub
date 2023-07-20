@@ -33,7 +33,6 @@ export const FreshnessAssertionDescription = ({ assertionInfo }: Props) => {
     return (
         <div>
             <Typography.Text>
-                <b>Freshness</b>:{' '}
                 {freshnessType === FreshnessAssertionType.DatasetChange
                     ? 'Dataset is updated '
                     : 'Data Task is run successfully '}

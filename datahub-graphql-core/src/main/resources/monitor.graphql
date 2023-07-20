@@ -20,6 +20,11 @@ extend type Mutation {
   Updates the state of a "system" (e.g. anomaly) monitor.
   """
   updateSystemMonitors(input: UpdateSystemMonitorsInput!): Boolean!
+
+  """
+  Updates the state of a monitor, returns the updated monitor
+  """
+  updateMonitorStatus(input: UpdateMonitorStatusInput!): Monitor!
 }
 
 """
@@ -77,6 +82,21 @@ input UpdateSystemMonitorsInput {
   in the set has a different SystemMonitorType.
   """
   monitors: [UpdateSystemMonitorInput!]!
+}
+
+"""
+Input required to update a Monitor's statu
+"""
+input UpdateMonitorStatusInput {
+  """
+  The urn of the monitor to update.
+  """
+  urn: String!
+
+  """
+  The new mode / status of the monitor.
+  """
+  mode: MonitorMode!
 }
 
 """
