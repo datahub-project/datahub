@@ -20,7 +20,7 @@ class ExtractDatasetTagsConfig(TransformerSemanticsConfigModel):
 
 
 class ExtractDatasetTags(DatasetTagsTransformer):
-    """Transformer that add tags to datasets according to configuration by extracting from metadata."""
+    """Transformer that add tags to datasets according to configuration by extracting from metadata. Currently only extracts from name."""
 
     def __init__(self, config: ExtractDatasetTagsConfig, ctx: PipelineContext):
         super().__init__()
