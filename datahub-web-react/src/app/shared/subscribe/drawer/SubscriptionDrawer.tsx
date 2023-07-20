@@ -48,7 +48,7 @@ interface Props {
     entityType: EntityType;
     isSubscribed: boolean;
     subscription?: DataHubSubscription;
-    refetch?: () => void;
+    onRefetch?: () => void;
     onDeleteSubscription: () => void;
 }
 
@@ -63,7 +63,7 @@ const SubscriptionDrawerContent = ({
     entityType,
     isSubscribed,
     subscription,
-    refetch,
+    onRefetch,
     onDeleteSubscription,
 }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -100,7 +100,7 @@ const SubscriptionDrawerContent = ({
         isSubscribed,
         groupUrn,
         subscription,
-        onSuccess: refetch,
+        onRefetch,
     });
 
     const showBottomDrawerSection = isPersonal || groupUrn;

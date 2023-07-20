@@ -39,7 +39,7 @@ export default function SubscribeButtons() {
 
     const deleteSubscription = useDeleteSubscription({
         subscriptionUrn: subscription?.subscriptionUrn,
-        onSuccess: refetch,
+        onRefetch: refetch,
     });
 
     const onClickMenuItem: MenuProps['onClick'] = ({ key }) => {
@@ -124,7 +124,7 @@ export default function SubscribeButtons() {
                 entityType={entityType}
                 isSubscribed={isSubscribed}
                 subscription={subscription}
-                refetch={refetch}
+                onRefetch={refetch}
                 onDeleteSubscription={deleteSubscription}
             />
         </>

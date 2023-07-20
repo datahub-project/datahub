@@ -3,11 +3,23 @@ import { Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { DataHubSubscription, EntityChangeType, EntityType } from '../../../../types.generated';
+import {
+    DataHubSubscription,
+    EntityChangeType,
+    EntityType,
+    NotificationSettingsInput,
+    NotificationSinkType,
+    SubscriptionType,
+} from '../../../../types.generated';
 import {
     GetGroupNotificationSettingsQuery,
     GetUserNotificationSettingsQuery,
 } from '../../../../graphql/settings.generated';
+import {
+    useCreateSubscriptionMutation,
+    useDeleteSubscriptionMutation,
+    useUpdateSubscriptionMutation,
+} from '../../../../graphql/subscriptions.generated';
 
 const REFETCH_DELAY = 3000;
 
@@ -249,7 +261,15 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
     }
 };
 
-export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch?: () => void) => {
+export const deleteSubscriptionFunction = ({
+    subscriptionUrn,
+    deleteSubscription,
+    onRefetch,
+}: {
+    subscriptionUrn: string;
+    deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
+    onRefetch?: () => void;
+}) => {
     deleteSubscription({
         variables: {
             input: { subscriptionUrn },
@@ -262,7 +282,7 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
                 placement: 'bottomLeft',
                 duration: 3,
             });
-            if (refetch) window.setTimeout(refetch, REFETCH_DELAY);
+            if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -275,7 +295,7 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
         });
 };
 
-export const createSubscriptionFunction = (
+export const createSubscriptionFunction = ({
     createSubscription,
     groupUrn,
     entityUrn,
@@ -283,8 +303,17 @@ export const createSubscriptionFunction = (
     entityChangeTypes,
     sinkTypes,
     notificationSettings,
-    refetch?: () => void,
-) => {
+    onRefetch,
+}: {
+    createSubscription: ReturnType<typeof useCreateSubscriptionMutation>[0];
+    groupUrn: string | undefined;
+    entityUrn: string;
+    subscriptionTypes: Array<SubscriptionType>;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    notificationSettings: NotificationSettingsInput | undefined;
+    onRefetch?: () => void;
+}) => {
     createSubscription({
         variables: {
             input: {
@@ -307,7 +336,7 @@ export const createSubscriptionFunction = (
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
             });
-            if (refetch) window.setTimeout(refetch, REFETCH_DELAY);
+            if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -317,15 +346,23 @@ export const createSubscriptionFunction = (
         });
 };
 
-export const updateSubscriptionFunction = (
+export const updateSubscriptionFunction = ({
     updateSubscription,
     subscription,
     subscriptionTypes,
     entityChangeTypes,
     sinkTypes,
     notificationSettings,
-    refetch?: () => void,
-) => {
+    onRefetch,
+}: {
+    updateSubscription: ReturnType<typeof useUpdateSubscriptionMutation>[0];
+    subscription: DataHubSubscription | undefined;
+    subscriptionTypes: Array<SubscriptionType>;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    notificationSettings: NotificationSettingsInput | undefined;
+    onRefetch?: () => void;
+}) => {
     if (subscription && subscription.subscriptionUrn) {
         updateSubscription({
             variables: {
@@ -348,7 +385,7 @@ export const updateSubscriptionFunction = (
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
                 });
-                if (refetch) window.setTimeout(refetch, REFETCH_DELAY);
+                if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
             })
             .catch((e: unknown) => {
                 message.destroy();

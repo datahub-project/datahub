@@ -3,14 +3,14 @@ import { deleteSubscriptionFunction } from './drawer/utils';
 
 type Props = {
     subscriptionUrn?: string;
-    onSuccess: () => void;
+    onRefetch?: () => void;
 };
 
-const useDeleteSubscription = ({ subscriptionUrn, onSuccess }: Props) => {
+const useDeleteSubscription = ({ subscriptionUrn, onRefetch }: Props) => {
     const [deleteSubscription] = useDeleteSubscriptionMutation();
 
     return () => {
-        if (subscriptionUrn) deleteSubscriptionFunction(subscriptionUrn, deleteSubscription, onSuccess);
+        if (subscriptionUrn) deleteSubscriptionFunction({ subscriptionUrn, deleteSubscription, onRefetch });
     };
 };
 

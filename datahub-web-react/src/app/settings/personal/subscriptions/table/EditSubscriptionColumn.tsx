@@ -32,7 +32,7 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
 
     const deleteSubscription = useDeleteSubscription({
         subscriptionUrn: subscription.subscriptionUrn,
-        onSuccess: refetchListSubscriptions,
+        onRefetch: refetchListSubscriptions,
     });
 
     const onClickEdit = () => setDrawerIsOpen(true);
@@ -53,7 +53,7 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
                 entityType={entityType}
                 isSubscribed
                 subscription={subscription}
-                refetch={refetchListSubscriptions}
+                onRefetch={refetchListSubscriptions}
                 onDeleteSubscription={deleteSubscription}
             />
         </EditSubscriptionColumnContainer>
