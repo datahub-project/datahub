@@ -68,30 +68,28 @@ export default function SubscribeButtons() {
         setGroupUrn(undefined);
     };
 
-    const items: MenuProps['items'] = [
-        ...(isUserSubscribed
-            ? [
-                  {
-                      key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
-                      label: 'Unsubscribe Me',
-                  },
-              ]
-            : []),
-        {
-            key: DROPDOWN_KEYS.SUBSCRIBE_ME,
-            label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
-        },
-        {
-            key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
-            label: 'Manage Group Subscriptions',
-        },
-    ];
-
     return (
         <>
             <SubscribeDropdown
                 menu={{
-                    items,
+                    items: [
+                        ...(isUserSubscribed
+                            ? [
+                                  {
+                                      key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
+                                      label: 'Unsubscribe Me',
+                                  },
+                              ]
+                            : []),
+                        {
+                            key: DROPDOWN_KEYS.SUBSCRIBE_ME,
+                            label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
+                        },
+                        {
+                            key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
+                            label: 'Manage Group Subscriptions',
+                        },
+                    ],
                     onClick: onClickMenuItem,
                 }}
                 buttonsRender={([leftButton, rightButton]) => [
