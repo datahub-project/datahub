@@ -71,7 +71,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String PARAM_LATEST_VALUE = "latestValue";
   private static final String PARAM_ASYNC = "async";
 
-  private static final String ASYNC_INGEST_DEFAULT_NAME = "ASYNC_INGEST_DEFAULT";
   private static final String UNSET = "unset";
 
   private final Clock _clock = Clock.systemUTC();
@@ -181,7 +180,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
     boolean asyncBool;
     if (UNSET.equals(async)) {
-      asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
+      asyncBool = false;
     } else {
       asyncBool = Boolean.parseBoolean(async);
     }
