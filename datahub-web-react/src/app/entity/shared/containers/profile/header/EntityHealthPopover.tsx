@@ -72,10 +72,9 @@ export const EntityHealthPopover = ({ health, baseUrl, children }: Props) => {
                     ))}
                 </>
             }
-            showArrow={false}
+            overlayStyle={popoverStyle}
             placement="right"
             zIndex={10000000}
-            overlayInnerStyle={popoverStyle}
         >
             {children}
         </Popover>
