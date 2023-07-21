@@ -1,13 +1,92 @@
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { keyBy } from 'lodash';
 import {
+    DatasetFilterType,
     DatasetFreshnessSourceType,
     EntityType,
+    FreshnessFieldKind,
+    SchemaFieldDataType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     AssertionActionType,
 } from '../../../../../../../../types.generated';
 import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
-import { ASSERTION_TYPES } from './constants';
+import { ASSERTION_TYPES, HIGH_WATERMARK_FIELD_TYPES, LAST_MODIFIED_FIELD_TYPES } from './constants';
+
+/** Configuration object used to display each source option */
+export type SourceOption = {
+    type: DatasetFreshnessSourceType;
+    name: string;
+    description: string;
+    secondaryDescription?: string;
+    field?: {
+        kind?: FreshnessFieldKind;
+        dataTypes?: Set<SchemaFieldDataType>;
+    };
+};
+
+/** Different platforms may allow only certain source types. In the future, we may want a better place to declare these. */
+const allowedPlatformSourceTypes = {
+    [SNOWFLAKE_URN]: [
+        DatasetFreshnessSourceType.AuditLog,
+        DatasetFreshnessSourceType.InformationSchema,
+        DatasetFreshnessSourceType.FieldValue,
+    ],
+    [BIGQUERY_URN]: [
+        DatasetFreshnessSourceType.AuditLog,
+        DatasetFreshnessSourceType.InformationSchema,
+        DatasetFreshnessSourceType.FieldValue,
+    ],
+    [REDSHIFT_URN]: [DatasetFreshnessSourceType.AuditLog, DatasetFreshnessSourceType.FieldValue],
+};
+
+/** Configuration object for all possible source options */
+const allSourceOptions: SourceOption[] = [
+    {
+        type: DatasetFreshnessSourceType.AuditLog,
+        name: 'Audit Log',
+        description: 'Use operations logged in the platform audit log to determine whether the dataset has changed',
+    },
+    {
+        type: DatasetFreshnessSourceType.InformationSchema,
+        name: 'Information Schema',
+        description:
+            'Use the information schema or system metadata tables to determine whether the dataset has changed',
+    },
+    {
+        type: DatasetFreshnessSourceType.FieldValue,
+        name: 'Last Modified Column',
+        description:
+            'Use an audit column which represents the "last modified" time of an individual row to determine whether the dataset has changed.',
+        secondaryDescription:
+            'Select the column representing the latest update time for a given row. This column must have type TIMESTAMP, DATE, or DATETIME.',
+        field: {
+            kind: FreshnessFieldKind.LastModified,
+            dataTypes: LAST_MODIFIED_FIELD_TYPES,
+        },
+    },
+    {
+        type: DatasetFreshnessSourceType.FieldValue,
+        name: 'High Watermark Column',
+        description:
+            'Use a sortable column with a continuously increasing value, such as a partition date, timestamp, or an incrementing id, to determine whether the dataset has changed.',
+        secondaryDescription:
+            'Select the sortable, incrementing column used to track changes in the dataset. This column must have type INTEGER, TIMESTAMP, DATE, or DATETIME.',
+        field: {
+            kind: FreshnessFieldKind.HighWatermark,
+            dataTypes: HIGH_WATERMARK_FIELD_TYPES,
+        },
+    },
+];
+
+/** Create a unique identifier for each source config option */
+const getSourceOptionKey = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
+    return `${type}.${kind || ''}`;
+};
+
+/** Map of all source options to allow constant lookup by Source Type and Field Kind */
+const sourceOptionsByKey = keyBy(allSourceOptions, ({ type, field }) => getSourceOptionKey(type, field?.kind));
 
 export const builderStateToUpdateFreshnessAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
     return {
@@ -18,6 +97,12 @@ export const builderStateToUpdateFreshnessAssertionVariables = (builderState: As
                 cron: builderState.assertion?.freshnessAssertion?.schedule?.cron,
                 fixedInterval: builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval,
             },
+            filter: builderState.assertion?.freshnessAssertion?.filter
+                ? {
+                      type: builderState.assertion?.freshnessAssertion?.filter.type as DatasetFilterType,
+                      sql: builderState.assertion?.freshnessAssertion?.filter.sql,
+                  }
+                : undefined,
             actions: builderState.assertion?.actions
                 ? {
                       onSuccess: builderState.assertion?.actions?.onSuccess || [],
@@ -55,50 +140,13 @@ export const getAssertionTypesForEntityType = (entityType: EntityType) => {
     return ASSERTION_TYPES.filter((type) => type.entityTypes.includes(entityType));
 };
 
-export const SOURCE_TYPES = [
-    {
-        type: DatasetFreshnessSourceType.AuditLog,
-        name: 'Audit Log',
-        description: 'Use operations logged in the platform audit log to determine whether the dataset has changed',
-    },
-    {
-        type: DatasetFreshnessSourceType.InformationSchema,
-        name: 'Information Schema',
-        description:
-            'Use the information schema or system metadata tables to determine whether the dataset has changed',
-    },
-    {
-        type: DatasetFreshnessSourceType.FieldValue,
-        name: 'Date Column',
-        description:
-            'Check the maximum value of a timestamp or date column to determine whether the dataset has changed',
-    },
-];
+export const getSourceOptions = (platformUrn: string) => {
+    const allowedSourceTypes = allowedPlatformSourceTypes[platformUrn] || [];
+    return allSourceOptions.filter((option) => allowedSourceTypes.includes(option.type));
+};
 
-export const SOURCE_TYPE_TO_INFO = new Map();
-SOURCE_TYPES.forEach((type) => {
-    SOURCE_TYPE_TO_INFO.set(type.type, type);
-});
-
-export const getSourceTypesForPlatform = (platformUrn: string) => {
-    switch (platformUrn) {
-        case SNOWFLAKE_URN:
-            return [
-                DatasetFreshnessSourceType.AuditLog,
-                DatasetFreshnessSourceType.InformationSchema,
-                DatasetFreshnessSourceType.FieldValue,
-            ];
-        case BIGQUERY_URN:
-            return [
-                DatasetFreshnessSourceType.AuditLog,
-                DatasetFreshnessSourceType.InformationSchema,
-                DatasetFreshnessSourceType.FieldValue,
-            ];
-        case REDSHIFT_URN:
-            return [DatasetFreshnessSourceType.AuditLog, DatasetFreshnessSourceType.FieldValue];
-        default:
-            return []; // No types supported.
-    }
+export const getSourceOption = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
+    return sourceOptionsByKey[getSourceOptionKey(type, kind)];
 };
 
 /**

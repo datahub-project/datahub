@@ -18,6 +18,7 @@ import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
@@ -172,6 +173,7 @@ public class AssertionService extends BaseService {
       @Nonnull final Urn entityUrn,
       @Nonnull final FreshnessAssertionType type,
       @Nonnull final FreshnessAssertionSchedule schedule,
+      @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
@@ -184,7 +186,8 @@ public class AssertionService extends BaseService {
     final FreshnessAssertionInfo freshnessInfo = new FreshnessAssertionInfo()
       .setEntity(entityUrn)
       .setType(type)
-      .setSchedule(schedule, SetMode.IGNORE_NULL);
+      .setSchedule(schedule, SetMode.IGNORE_NULL)
+      .setFilter(filter, SetMode.IGNORE_NULL);
 
     final AssertionInfo assertion = new AssertionInfo();
     assertion.setFreshnessAssertion(freshnessInfo);
@@ -269,6 +272,7 @@ public class AssertionService extends BaseService {
   public Urn updateFreshnessAssertion(
       @Nonnull final Urn assertionUrn,
       @Nonnull final FreshnessAssertionSchedule schedule,
+      @Nullable final DatasetFilter filter,
       @Nullable final AssertionActions actions,
       @Nonnull final Authentication authentication) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
@@ -294,6 +298,7 @@ public class AssertionService extends BaseService {
 
     // 2. Apply changes to existing Assertion Info
     existingFreshnessAssertion.setSchedule(schedule, SetMode.IGNORE_NULL);
+    existingFreshnessAssertion.setFilter(filter, SetMode.IGNORE_NULL);
 
     final List<MetadataChangeProposal> aspects = new ArrayList<>();
     aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, existingInfo));

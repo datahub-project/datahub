@@ -470,13 +470,6 @@ public class GmsGraphQLEngine {
 
     public GmsGraphQLEngine(final GmsGraphQLEngineArgs args) {
 
-        this.graphQLPlugins = ImmutableList.of(
-            // Add new plugins here
-            new AcrylGraphQLPlugin()
-        );
-
-        this.graphQLPlugins.forEach(plugin -> plugin.init(args));
-
         this.entityClient = args.entityClient;
         this.graphClient = args.graphClient;
         this.usageClient = args.usageClient;
@@ -550,7 +543,7 @@ public class GmsGraphQLEngine {
         this.ownershipType = new OwnershipType(entityClient);
 
         // Init Lists
-        this.entityTypes = ImmutableList.of(
+        this.entityTypes = new ArrayList<>(ImmutableList.of(
             datasetType,
             roleType,
             corpUserType,
@@ -583,11 +576,18 @@ public class GmsGraphQLEngine {
             queryType,
             dataProductType,
             ownershipType
-        );
+        ));
         this.loadableTypes = new ArrayList<>(entityTypes);
+
+        this.graphQLPlugins = ImmutableList.of(
+            // Add new plugins here
+            new AcrylGraphQLPlugin()
+        );
+        this.graphQLPlugins.forEach(plugin -> plugin.init(args));
         // Extend loadable types with types from the plugins
         // This allows us to offer search and browse capabilities out of the box for those types
         for (GmsGraphQLPlugin plugin: this.graphQLPlugins) {
+            this.entityTypes.addAll(plugin.getEntityTypes());
             Collection<? extends LoadableType<?, ?>> pluginLoadableTypes = plugin.getLoadableTypes();
             if (pluginLoadableTypes != null) {
                 this.loadableTypes.addAll(pluginLoadableTypes);
@@ -602,7 +602,6 @@ public class GmsGraphQLEngine {
             .filter(type -> (type instanceof BrowsableEntityType<?, ?>))
             .map(type -> (BrowsableEntityType<?, ?>) type)
             .collect(Collectors.toList());
-
     }
 
     /**
@@ -1823,5 +1822,4 @@ public class GmsGraphQLEngine {
                 })
             ));
     }
-
 }

@@ -42,6 +42,7 @@
         "antd": "4.24.7",
         "color-hash": "^2.0.1",
         "craco-antd": "^1.19.0",
+        "cron-parser": "^4.8.1",
         "cronstrue": "^1.122.0",
         "d3-scale": "^3.3.0",
         "dayjs": "^1.11.7",

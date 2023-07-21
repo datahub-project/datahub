@@ -14,8 +14,8 @@ import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.service.MonitorService;
@@ -24,6 +24,7 @@ import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.assertion.FreshnessFieldKind;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -114,7 +115,7 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
     }
     if (DatasetFreshnessSourceType.FIELD_VALUE.equals(result.getSourceType())) {
       if (input.getField() != null) {
-        result.setField(createFieldSpec(input.getField()));
+        result.setField(createFreshnessFieldSpec(input.getField()));
       } else {
         throw new DataHubGraphQLException(
             "Invalid input. Field info is required if type FRESHNESS source type is FIELD_VALUE.",
@@ -135,11 +136,20 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
     return result;
   }
 
-  private FreshnessFieldSpec createFieldSpec(@Nonnull final SchemaFieldSpecInput input) {
+  private FreshnessFieldSpec createFreshnessFieldSpec(@Nonnull final FreshnessFieldSpecInput input) {
     final FreshnessFieldSpec result = new FreshnessFieldSpec();
     result.setType(input.getType());
     result.setNativeType(input.getNativeType(), SetMode.IGNORE_NULL);
     result.setPath(input.getPath(), SetMode.IGNORE_NULL);
+
+    if (input.getKind() != null) {
+        result.setKind(FreshnessFieldKind.valueOf(input.getKind().toString()));
+    } else {
+        throw new DataHubGraphQLException(
+            "Invalid input. Freshness Field Kind info is required if type Freshness source type is FIELD_VALUE.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+  
     return result;
   }
 }

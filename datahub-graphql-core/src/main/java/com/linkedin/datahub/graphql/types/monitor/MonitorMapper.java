@@ -11,12 +11,13 @@ import com.linkedin.datahub.graphql.generated.CronSchedule;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
+import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.MonitorInfo;
 import com.linkedin.datahub.graphql.generated.MonitorType;
 import com.linkedin.datahub.graphql.generated.MonitorStatus;
 import com.linkedin.datahub.graphql.generated.MonitorMode;
-import com.linkedin.datahub.graphql.generated.SchemaFieldSpec;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -111,7 +112,7 @@ public class MonitorMapper {
     datasetFreshnessAssertionParameters.setSourceType(
         DatasetFreshnessSourceType.valueOf(backendDatasetFreshnessAssertionParameters.getSourceType().name()));
     if (backendDatasetFreshnessAssertionParameters.hasField()) {
-      datasetFreshnessAssertionParameters.setField(mapSchemaFieldSpec(backendDatasetFreshnessAssertionParameters.getField()));
+      datasetFreshnessAssertionParameters.setField(mapFreshnessFieldSpec(backendDatasetFreshnessAssertionParameters.getField()));
     }
     if (backendDatasetFreshnessAssertionParameters.hasAuditLog()) {
       datasetFreshnessAssertionParameters.setAuditLog(mapAuditLogSpec(backendDatasetFreshnessAssertionParameters.getAuditLog()));
@@ -119,12 +120,15 @@ public class MonitorMapper {
     return datasetFreshnessAssertionParameters;
   }
 
-  private static SchemaFieldSpec mapSchemaFieldSpec(com.linkedin.assertion.FreshnessFieldSpec backendSchemaFieldSpec) {
-    SchemaFieldSpec schemaFieldSpec = new SchemaFieldSpec();
-    schemaFieldSpec.setPath(backendSchemaFieldSpec.getPath());
-    schemaFieldSpec.setType(backendSchemaFieldSpec.getType());
-    schemaFieldSpec.setNativeType(backendSchemaFieldSpec.getNativeType());
-    return schemaFieldSpec;
+  private static FreshnessFieldSpec mapFreshnessFieldSpec(com.linkedin.assertion.FreshnessFieldSpec backendFreshnessFieldSpec) {
+    FreshnessFieldSpec freshnessFieldSpec = new FreshnessFieldSpec();
+    freshnessFieldSpec.setPath(backendFreshnessFieldSpec.getPath());
+    freshnessFieldSpec.setType(backendFreshnessFieldSpec.getType());
+    freshnessFieldSpec.setNativeType(backendFreshnessFieldSpec.getNativeType());
+    if (backendFreshnessFieldSpec.hasKind()) {
+      freshnessFieldSpec.setKind(FreshnessFieldKind.valueOf(backendFreshnessFieldSpec.getKind().name()));
+    }
+    return freshnessFieldSpec;
   }
 
   private static AuditLogSpec mapAuditLogSpec(com.linkedin.monitor.AuditLogSpec backendAuditLogSpec) {

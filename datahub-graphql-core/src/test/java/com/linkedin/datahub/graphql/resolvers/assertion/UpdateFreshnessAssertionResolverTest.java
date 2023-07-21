@@ -19,10 +19,13 @@ import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionInput;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
 import com.linkedin.datahub.graphql.generated.AssertionActionsInput;
+import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
+import com.linkedin.datahub.graphql.generated.DatasetFilterType;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleInput;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleType;
 import com.linkedin.datahub.graphql.generated.FreshnessCronScheduleInput;
 import com.linkedin.datahub.graphql.generated.UpdateFreshnessAssertionInput;
+import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -51,6 +54,10 @@ public class UpdateFreshnessAssertionResolverTest {
           new FreshnessCronScheduleInput("* * * * *", "America / Los Angeles", null),
           null
       ),
+      new DatasetFilterInput(
+          DatasetFilterType.SQL,
+          "some_condition = True"
+      ),
       new AssertionActionsInput(
           ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
           ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))
@@ -69,6 +76,10 @@ public class UpdateFreshnessAssertionResolverTest {
                       .setCron("* * * * *")
                       .setTimezone("America / Los Angeles")
                   )
+              )
+              .setFilter(new DatasetFilter()
+                  .setType(com.linkedin.dataset.DatasetFilterType.SQL)
+                  .setSql("some_condition = True")
               )
       );
 
@@ -101,6 +112,7 @@ public class UpdateFreshnessAssertionResolverTest {
     Mockito.verify(mockService, Mockito.times(1)).updateFreshnessAssertion(
         Mockito.eq(TEST_ASSERTION_URN),
         Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getSchedule()),
+        Mockito.eq(TEST_ASSERTION_INFO.getFreshnessAssertion().getFilter()),
         Mockito.eq(TEST_ASSERTION_ACTIONS),
         Mockito.any(Authentication.class));
   }
@@ -161,6 +173,7 @@ public class UpdateFreshnessAssertionResolverTest {
         Mockito.any(),
         Mockito.any(),
         Mockito.any(),
+        Mockito.any(),
         Mockito.any(Authentication.class));
 
     UpdateFreshnessAssertionResolver resolver = new UpdateFreshnessAssertionResolver(mockService);
@@ -178,6 +191,7 @@ public class UpdateFreshnessAssertionResolverTest {
   private AssertionService initMockService() {
     AssertionService service = Mockito.mock(AssertionService.class);
     Mockito.when(service.updateFreshnessAssertion(
+        Mockito.any(),
         Mockito.any(),
         Mockito.any(),
         Mockito.any(),

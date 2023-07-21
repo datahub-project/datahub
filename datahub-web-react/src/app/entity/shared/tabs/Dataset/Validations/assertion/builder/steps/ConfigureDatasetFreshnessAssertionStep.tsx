@@ -5,6 +5,7 @@ import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersType,
     CronSchedule,
+    DatasetFilter,
     DatasetFreshnessAssertionParameters,
     FixedIntervalSchedule,
     FreshnessAssertionScheduleType,
@@ -12,6 +13,7 @@ import {
 import { FixedIntervalScheduleBuilder } from './freshness/FixedIntervalSchedulerBuilder';
 import { CronScheduleBuilder } from './freshness/CronScheduleBuilder';
 import { DatasetFreshnessSourceBuilder } from './freshness/DatasetFreshnessSourceBuilder';
+import { DatasetFreshnessFilterBuilder } from './freshness/DatasetFreshnessFilterBuilder';
 
 const TypeLabel = styled(Typography.Title)`
     && {
@@ -49,6 +51,7 @@ const SourceDescription = styled(Typography.Paragraph)`
  */
 export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goTo, prev }: StepProps) => {
     const freshnessAssertion = state.assertion?.freshnessAssertion;
+    const freshnessFilter = freshnessAssertion?.filter;
     const freshnessSchedule = freshnessAssertion?.schedule;
     const freshnessScheduleType = freshnessSchedule?.type;
     const freshnessScheduleCron = freshnessSchedule?.cron;
@@ -117,6 +120,19 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
         });
     };
 
+    const updateSlaAssertionFilter = (filter?: DatasetFilter) => {
+        updateState({
+            ...state,
+            assertion: {
+                ...state.assertion,
+                freshnessAssertion: {
+                    ...state.assertion?.freshnessAssertion,
+                    filter,
+                },
+            },
+        });
+    };
+
     return (
         <Step>
             <Form>
@@ -156,6 +172,11 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
                                 platformUrn={state.platformUrn as string}
                                 value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
                                 onChange={updateDatasetFreshnessAssertionParameters}
+                            />
+                            <DatasetFreshnessFilterBuilder
+                                value={freshnessFilter as DatasetFilter}
+                                onChange={updateSlaAssertionFilter}
+                                sourceType={datasetFreshnessParameters?.sourceType}
                             />
                         </Collapse.Panel>
                     </Collapse>

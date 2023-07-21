@@ -16,10 +16,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleInput;
 import com.linkedin.datahub.graphql.resolvers.AuthUtils;
+import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.timeseries.CalendarInterval;
 import java.util.stream.Collectors;
@@ -67,6 +71,23 @@ public class AssertionUtils {
           .setMultiple(schedule.getFixedInterval().getMultiple())
           .setUnit(CalendarInterval.valueOf(schedule.getFixedInterval().getUnit().toString()))
       );
+    }
+    return result;
+  }
+
+  @Nonnull
+  public static com.linkedin.dataset.DatasetFilter createFreshnessAssertionFilter(@Nonnull final DatasetFilterInput filter) {
+    final com.linkedin.dataset.DatasetFilter result = new com.linkedin.dataset.DatasetFilter();
+    result.setType(DatasetFilterType.valueOf(filter.getType().toString()));
+
+    if (DatasetFilterType.SQL.equals(result.getType())) {
+      if (filter.getSql() != null) {
+        result.setSql(filter.getSql());
+      } else {
+        throw new DataHubGraphQLException(
+            "Invalid input. SQL string is required if type Freshness filter type is SQL.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+      }
     }
     return result;
   }

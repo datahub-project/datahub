@@ -8,6 +8,8 @@ import {
     SchemaFieldDataType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
+    FreshnessFieldKind,
+    DatasetFilterType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -92,6 +94,21 @@ export interface AssertionMonitorBuilderState {
                     multiple?: number;
                 } | null;
             } | null;
+
+            /**
+             * An optional filter used to further partition the dataset
+             */
+            filter?: {
+                /**
+                 * The filter type
+                 */
+                type?: DatasetFilterType | null;
+
+                /**
+                 * The raw query if using a SQL FilterType
+                 */
+                sql?: string | null;
+            } | null;
         } | null;
 
         /**
@@ -166,6 +183,11 @@ export interface AssertionMonitorBuilderState {
                  * The native type of the field
                  */
                 nativeType?: string | null;
+
+                /**
+                 * The type of the field being used to verify the Freshness Assertion
+                 */
+                kind?: FreshnessFieldKind | null;
             } | null;
 
             /**

@@ -17,6 +17,10 @@ from datahub_monitors.connection.datahub_ingestion_source_connection_provider im
 )
 from datahub_monitors.fetcher.fetcher import MonitorFetcher
 from datahub_monitors.manager.manager import MonitorManager
+from datahub_monitors.source.provider import SourceProvider
+from datahub_monitors.state.datahub_monitor_state_provider import (
+    DataHubMonitorStateProvider,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +49,15 @@ def start_async_monitors() -> None:
         # Create assertion result handler
         datahub_assertion_event_result_handler = AssertionRunEventResultHandler(graph)
 
+        # setup state provider
+        state_provider = DataHubMonitorStateProvider(graph)
+
         # Create assertion evaluators
         evaluators = [
             FreshnessAssertionEvaluator(
-                DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store])
+                DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+                state_provider,
+                SourceProvider(),
             ),
         ]
 

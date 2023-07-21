@@ -47,24 +47,30 @@ class MonitorManager:
         )
 
     def schedule_assertion_evaluation(
-        self, assertion_spec: AssertionEvaluationSpec
+        self,
+        assertion_spec: AssertionEvaluationSpec,
+        context: AssertionEvaluationContext,
     ) -> None:
         assertion = assertion_spec.assertion
         parameters = assertion_spec.parameters
         schedule = assertion_spec.schedule
         self.scheduler.remove_assertion(assertion)
         self.scheduler.add_assertion(
-            assertion, parameters, schedule, AssertionEvaluationContext()
+            assertion,
+            parameters,
+            schedule,
+            context,
         )
 
     def start_assertions_monitor(self, monitor: Monitor) -> None:
+        context = AssertionEvaluationContext(monitor_urn=monitor.urn)
         assertion_specs = (
             monitor.assertion_monitor.assertions
             if monitor.assertion_monitor is not None
             else []
         )
         for assertion_spec in assertion_specs:
-            self.schedule_assertion_evaluation(assertion_spec)
+            self.schedule_assertion_evaluation(assertion_spec, context)
 
     # TODO: implement a proper "monitor" class that takes a definition and
     # knows how to start the monitor, instead of starting it here.

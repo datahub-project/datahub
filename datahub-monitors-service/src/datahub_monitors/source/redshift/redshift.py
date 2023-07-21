@@ -1,32 +1,24 @@
 import logging
-from datetime import date, datetime, timezone
-from typing import List, Optional
-
-from datahub.utilities.urns.urn import Urn
-from tenacity import retry, stop_after_attempt, wait_exponential
+from datetime import timezone
+from typing import Any, List, Optional
 
 from datahub_monitors.connection.redshift.redshift_connection import RedshiftConnection
-from datahub_monitors.exceptions import (
-    InvalidParametersException,
-    InvalidSourceTypeException,
-    SourceQueryFailedException,
-)
+from datahub_monitors.exceptions import InvalidParametersException
 from datahub_monitors.source.redshift.time_utils import convert_millis_to_timestamp_type
 from datahub_monitors.source.source import Source
+from datahub_monitors.source.types import SourceOperationParams
 from datahub_monitors.types import EntityEvent, EntityEventType
 
-logger = logging.getLogger(__name__)
+from ..utils.sql import (
+    setup_high_watermark_field_value_query,
+    setup_high_watermark_row_count_query,
+)
+from .types import (
+    SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES,
+    SUPPORTED_LAST_MODIFIED_COLUMN_TYPES,
+)
 
-APPLICATION_NAME: str = "acryl_datahub_monitors"
-# Note that well need to handle casing.
-DEFAULT_OPERATION_TYPES_FILTER = "'INSERT', 'UPDATE', 'COPY', 'CREATE TABLE AS'"
-SUPPORTED_COLUMN_TYPES = [
-    "DATE",
-    "TIMESTAMP",
-    "TIMESTAMP WITHOUT TIME ZONE",
-    "TIMESTAMPTZ",
-    "TIMESTAMP WITH TIME ZONE",
-]
+logger = logging.getLogger(__name__)
 
 
 """
@@ -57,6 +49,7 @@ class RedshiftSource(Source):
     """A source for extracting information from Redshift"""
 
     connection: RedshiftConnection
+    source_name: str = "Redshift"
 
     def __init__(self, connection: RedshiftConnection):
         super().__init__(connection)
@@ -68,77 +61,17 @@ class RedshiftSource(Source):
                 return parameters["user_name"].lower()
         return None
 
-    # Note that this method cannot effectively leverage partitions because it comes from the audit log.
-    #
-    # Also, notice that this path may be quite expensive since we cannot filter the STL_INSERT table
-    # by the table id necessarily, and this requires multiple view-scans. In large deployments, we will need
-    # additional testing to verify the performance & cost characteristics.
-    def _get_audit_log_operation_events(
-        self, entity_urn: str, window: List[int], parameters: dict
-    ) -> List[EntityEvent]:
-        # We ONLY support inserts. If you're asking for other things, we'll simply ignore it.
-        if "operation_types" in parameters:
-            operation_types = parameters["operation_types"]
-            if "INSERT" not in operation_types:
-                logger.warn(
-                    "Found unexpected operation types requested for Redshift. Redshift only supports INSERT operation type. Adjusting."
-                )
+    def _execute_fetchall_query(self, query: str) -> List[Any]:
+        cur = self.connection.get_client().cursor()
+        cur.execute(query)
+        return cur.fetchall()
 
-        # Define table and time range
-        start_time_millis = window[0]
-        end_time_millis = window[1]
+    def _execute_fetchone_query(self, query: str) -> List[Any]:
+        cur = self.connection.get_client().cursor()
+        cur.execute(query)
+        return cur.fetchone()
 
-        # Compute audit log filters based on parameters
-        user_name_filter = self._get_user_name_filter(parameters)
-
-        urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1].lower()
-
-        dataset_name_parts = dataset_name.split(".")
-
-        if len(dataset_name_parts) > 3:
-            # Handle platform instance.
-            dataset_name_parts = dataset_name_parts[:3]
-
-        database = dataset_name_parts[0]
-        schema = dataset_name_parts[1]
-        table = dataset_name_parts[2]
-
-        # Formulate query for inserts. This might need to change for creates.
-        query = f"""
-            SELECT
-                sq.querytxt AS query,
-                sui.usename AS username,
-                si.endtime AS endtime
-            FROM stl_insert si
-                JOIN svv_table_info sti ON si.tbl = sti.table_id
-                JOIN stl_query sq ON si.query = sq.query
-                JOIN svl_user_info sui ON sq.userid = sui.usesysid
-            WHERE si.endtime >= (TIMESTAMP 'epoch' + {start_time_millis}/1000 * interval '1 second')
-                AND si.endtime < (TIMESTAMP 'epoch' + {end_time_millis}/1000 * interval '1 second')
-                AND sq.startTime >= (TIMESTAMP 'epoch' + {start_time_millis}/1000 * interval '1 second')
-                AND sq.endtime < (TIMESTAMP 'epoch' + {end_time_millis}/1000 * interval '1 second')
-                AND sq.aborted = 0
-                AND si.rows > 0
-                AND sti.database = '{database}'
-                AND sti.schema = '{schema}'
-                AND sti.table = '{table}'
-                {f"AND sui.usename = '{user_name_filter}'" if user_name_filter is not None else ''}
-            ORDER BY endtime DESC;
-        """
-
-        logger.debug(query)
-
-        try:
-            cur = self.connection.get_client().cursor()
-            cur.execute(query)
-        except Exception as e:
-            raise SourceQueryFailedException(
-                message=f"Query failed with error: {e}", query=query
-            )
-
-        # Fetch results
-        rows = cur.fetchall()
+    def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:
         results = []
         for row in rows:
             # Build results!
@@ -152,9 +85,56 @@ class RedshiftSource(Source):
 
         return results
 
+    # Note that this method cannot effectively leverage partitions because it comes from the audit log.
+    #
+    # Also, notice that this path may be quite expensive since we cannot filter the STL_INSERT table
+    # by the table id necessarily, and this requires multiple view-scans. In large deployments, we will need
+    # additional testing to verify the performance & cost characteristics.
+    def _get_audit_log_operation_events(
+        self, operation_params: SourceOperationParams, parameters: dict
+    ) -> List[EntityEvent]:
+        # We ONLY support inserts. If you're asking for other things, we'll simply ignore it.
+        if "operation_types" in parameters:
+            operation_types = parameters["operation_types"]
+            if operation_types is not None and "INSERT" not in operation_types:
+                raise InvalidParametersException(
+                    message="Found unexpected operation types requested for Redshift. Redshift only supports INSERT operation type. Adjusting.",
+                    parameters=parameters,
+                )
+
+        # Compute audit log filters based on parameters
+        user_name_filter = self._get_user_name_filter(parameters)
+
+        # Formulate query for inserts. This might need to change for creates.
+        query = f"""
+            SELECT
+                sq.querytxt AS query,
+                sui.usename AS username,
+                si.endtime AS endtime
+            FROM stl_insert si
+                JOIN svv_table_info sti ON si.tbl = sti.table_id
+                JOIN stl_query sq ON si.query = sq.query
+                JOIN svl_user_info sui ON sq.userid = sui.usesysid
+            WHERE si.endtime >= (TIMESTAMP 'epoch' + {operation_params.start_time_millis}/1000 * interval '1 second')
+                AND si.endtime < (TIMESTAMP 'epoch' + {operation_params.end_time_millis}/1000 * interval '1 second')
+                AND sq.startTime >= (TIMESTAMP 'epoch' + {operation_params.start_time_millis}/1000 * interval '1 second')
+                AND sq.endtime < (TIMESTAMP 'epoch' + {operation_params.end_time_millis}/1000 * interval '1 second')
+                AND sq.aborted = 0
+                AND si.rows > 0
+                AND sti.database = '{operation_params.database}'
+                AND sti.schema = '{operation_params.schema}'
+                AND sti.table = '{operation_params.table}'
+                {f"AND sui.usename = '{user_name_filter}'" if user_name_filter is not None else ''}
+            ORDER BY endtime DESC;
+        """
+
+        logger.debug(query)
+
+        return self._build_audit_log_results(self._execute_fetchall_query(query))
+
     # Note that this method cannot effectively leverage partitions because it comes from the audit log
     def _get_dataset_last_updated_events(
-        self, entity_urn: str, window: List[int], parameters: dict
+        self, operation_params: SourceOperationParams
     ) -> List[EntityEvent]:
         logger.warn(
             "Attempted to fetch Redshift Table last updated time, but this is not currently supported for the Redshift connector. Returning no results.."
@@ -164,7 +144,7 @@ class RedshiftSource(Source):
     # This is the ONLY approach which allows for partition spec definition.
     # TODO: Add support for partitioning.
     def _get_field_last_updated_events(
-        self, entity_urn: str, window: List[int], parameters: dict
+        self, operation_params: SourceOperationParams, parameters: dict
     ) -> List[EntityEvent]:
         # Supported Column Types:
         # DATE: Represents a calendar date; doesn't include time information.
@@ -174,26 +154,6 @@ class RedshiftSource(Source):
         # STRING, VARCHAR -> Would need to collect a date format.
         # NUMBER -> Would need to collect a units.
 
-        # Define table and time range
-        start_time_millis = window[0]
-        end_time_millis = window[1]
-
-        # Compute audit log filters based on parameters
-        self._get_user_name_filter(parameters)
-
-        urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1].lower()
-
-        dataset_name_parts = dataset_name.split(".")
-
-        if len(dataset_name_parts) > 3:
-            # Handle platform instance.
-            dataset_name_parts = dataset_name_parts[:3]
-
-        database = dataset_name_parts[0]
-        schema = dataset_name_parts[1]
-        table = dataset_name_parts[2]
-
         if (
             "path" in parameters
             and "type" in parameters
@@ -202,24 +162,25 @@ class RedshiftSource(Source):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
 
-            if column_type.upper() not in SUPPORTED_COLUMN_TYPES:
-                raise Exception(
-                    f"Unsupported date column type {column_type} provided. Failing assertion evaluation!"
+            if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
+                raise InvalidParametersException(
+                    message=f"Unsupported date column type {column_type} provided. Failing assertion evaluation!",
+                    parameters=parameters,
                 )
 
             # Convert our epoch time into datetime format that redshift can accept.
             # TODO: Support number, varchat time here as well (with format)
             start_datetime = convert_millis_to_timestamp_type(
-                start_time_millis, column_type
+                operation_params.start_time_millis, column_type
             )
             end_datetime = convert_millis_to_timestamp_type(
-                end_time_millis, column_type
+                operation_params.end_time_millis, column_type
             )
 
             # The goal is to basically extract the high watermark for the column identified here.
             query = f"""
                 SELECT {date_column} as last_altered_date
-                FROM {database}.{schema}.{table}
+                FROM {operation_params.database}.{operation_params.schema}.{operation_params.table}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
                 ORDER BY {date_column} DESC
@@ -228,72 +189,40 @@ class RedshiftSource(Source):
 
             logger.debug(query)
 
-            try:
-                cur = self.connection.get_client().cursor()
-                cur.execute(query)
-            except Exception as e:
-                raise SourceQueryFailedException(
-                    message=f"Query failed with error: {e}", query=query
-                )
-
-            # Fetch results
-            rows = cur.fetchall()
-            results = []
-            for row in rows:
-                # Build results!
-                datetime_obj = row[0]
-
-                # Check whether we are dealing with a date object (without any time)
-                # If yes, convert it.
-                if isinstance(row[0], date) and not isinstance(row[0], datetime):
-                    datetime_obj = datetime.combine(row[0], datetime.min.time())
-
-                datetime_obj = datetime_obj.replace(tzinfo=timezone.utc)
-
-                # Convert to timestamp ms
-                timestamp = int(datetime_obj.timestamp() * 1000)
-                entity_event = EntityEvent(EntityEventType.FIELD_UPDATE, timestamp)
-                results.append(entity_event)
-
-            return results
+            return self._build_field_update_results(
+                [row[0] for row in self._execute_fetchall_query(query)]
+            )
 
         raise InvalidParametersException(
             message="Missing required inputs: column path and column type.",
             parameters=parameters,
         )
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=2, min=4, max=10),
-        reraise=True,
-    )
-    def _try_get_entity_events(
-        self,
-        entity_urn: str,
-        event_type: EntityEventType,
-        window: List[int],
-        parameters: dict,
-    ) -> List[EntityEvent]:
-        if event_type == EntityEventType.AUDIT_LOG_OPERATION:
-            # Scan the audit log to see if there are any events falling into the previous window.
-            return self._get_audit_log_operation_events(entity_urn, window, parameters)
-        elif event_type == EntityEventType.INFORMATION_SCHEMA_UPDATE:
-            # Hit something else!
-            return self._get_dataset_last_updated_events(entity_urn, window, parameters)
-        elif event_type == EntityEventType.FIELD_UPDATE:
-            # Build and issue a query!
-            return self._get_field_last_updated_events(entity_urn, window, parameters)
-        else:
-            raise InvalidSourceTypeException(
-                message=f"Unsupported entity event type {event_type} provided. Redshift connector does not support retrieving these events.",
-                source_type=event_type,
-            )
+    def _get_supported_high_watermark_column_types(self) -> List[str]:
+        return SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES
 
-    def get_entity_events(
+    def _get_high_watermark_field_value(
         self,
-        entity_urn: str,
-        event_type: EntityEventType,
-        window: List[int],
-        parameters: dict,
-    ) -> List[EntityEvent]:
-        return self._try_get_entity_events(entity_urn, event_type, window, parameters)
+        column_name: str,
+        operation_params: SourceOperationParams,
+        filter_sql: str,
+        previous_value: Optional[str],
+    ) -> Optional[str]:
+        get_value_query = setup_high_watermark_field_value_query(
+            column_name, operation_params, filter_sql, previous_value
+        )
+        resp = self._execute_fetchone_query(get_value_query)
+        return resp[0] if resp else None
+
+    def _get_high_watermark_row_count(
+        self,
+        column_name: str,
+        operation_params: SourceOperationParams,
+        filter_sql: str,
+        current_field_value: str,
+    ) -> int:
+        get_count_query = setup_high_watermark_row_count_query(
+            column_name, operation_params, filter_sql, current_field_value
+        )
+        resp = self._execute_fetchone_query(get_count_query)
+        return resp[0] if resp else 0

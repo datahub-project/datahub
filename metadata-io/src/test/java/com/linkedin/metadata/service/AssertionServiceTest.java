@@ -25,6 +25,8 @@ import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.dataset.DatasetFilter;
+import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -159,7 +161,7 @@ public class AssertionServiceTest {
         Mockito.mock(Authentication.class));
 
     // Test method
-    Urn result = service.createFreshnessAssertion(entityUrn, freshnessAssertionType, schedule, null, Mockito.mock(Authentication.class));
+    Urn result = service.createFreshnessAssertion(entityUrn, freshnessAssertionType, schedule, null, null, Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -174,6 +176,9 @@ public class AssertionServiceTest {
     FreshnessAssertionSchedule schedule = new FreshnessAssertionSchedule()
         .setType(FreshnessAssertionScheduleType.FIXED_INTERVAL)
         .setFixedInterval(new FixedIntervalSchedule().setMultiple(2).setUnit(CalendarInterval.HOUR));
+    DatasetFilter filter = new DatasetFilter()
+        .setType(DatasetFilterType.SQL)
+        .setSql("some_condition = True");
     AssertionActions actions = new AssertionActions()
         .setOnSuccess(new AssertionActionArray())
         .setOnFailure(new AssertionActionArray());
@@ -189,7 +194,7 @@ public class AssertionServiceTest {
         Mockito.mock(Authentication.class));
 
     // Test method
-    Urn result = service.createFreshnessAssertion(entityUrn, freshnessAssertionType, schedule, actions, Mockito.mock(Authentication.class));
+    Urn result = service.createFreshnessAssertion(entityUrn, freshnessAssertionType, schedule, filter, actions, Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");
@@ -280,7 +285,7 @@ public class AssertionServiceTest {
         Mockito.mock(Authentication.class));
 
     // Test method
-    Urn result = service.updateFreshnessAssertion(assertionUrn, schedule, null, Mockito.mock(Authentication.class));
+    Urn result = service.updateFreshnessAssertion(assertionUrn, schedule, null, null, Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);
@@ -294,6 +299,9 @@ public class AssertionServiceTest {
     FreshnessAssertionSchedule schedule = new FreshnessAssertionSchedule()
         .setType(FreshnessAssertionScheduleType.FIXED_INTERVAL)
         .setFixedInterval(new FixedIntervalSchedule().setMultiple(2).setUnit(CalendarInterval.HOUR));
+    DatasetFilter filter = new DatasetFilter()
+        .setType(DatasetFilterType.SQL)
+        .setSql("some_condition = True");
     AssertionActions actions = new AssertionActions()
         .setOnSuccess(new AssertionActionArray())
         .setOnFailure(new AssertionActionArray());
@@ -309,7 +317,7 @@ public class AssertionServiceTest {
         Mockito.mock(Authentication.class));
 
     // Test method
-    Urn result = service.updateFreshnessAssertion(assertionUrn, schedule, actions, Mockito.mock(Authentication.class));
+    Urn result = service.updateFreshnessAssertion(assertionUrn, schedule, filter, actions, Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result, TEST_FRESHNESS_ASSERTION_URN);

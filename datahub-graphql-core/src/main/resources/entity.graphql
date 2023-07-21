@@ -11516,3 +11516,44 @@ input UpdateOwnershipTypeInput {
     """
     description: String
 }
+
+"""
+Describes a generic filter on a dataset
+"""
+type DatasetFilter {
+    """
+    Type of partition
+    """
+    type: DatasetFilterType!
+
+    """
+    The raw query if using a SQL FilterType
+    """
+    sql: String
+}
+
+"""
+Type of partition
+"""
+enum DatasetFilterType {
+  """
+  Use a SQL string to apply the filter
+  """
+  SQL
+}
+
+
+"""
+Input required to create or update a DatasetFilter
+"""
+input DatasetFilterInput {
+    """
+    Type of partition
+    """
+    type: DatasetFilterType!
+
+    """
+    The raw query if using a SQL FilterType
+    """
+    sql: String
+}

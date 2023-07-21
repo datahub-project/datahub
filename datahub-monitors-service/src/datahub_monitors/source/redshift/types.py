@@ -1,0 +1,31 @@
+# Note that well need to handle casing.
+SUPPORTED_LAST_MODIFIED_COLUMN_TYPES = [
+    "DATE",
+    "TIMESTAMP",
+    "TIMESTAMP WITHOUT TIME ZONE",
+    "TIMESTAMPTZ",
+    "TIMESTAMP WITH TIME ZONE",
+]
+
+SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES = [
+    "SMALLINT",
+    "INT2",
+    "INTEGER",
+    "INT",
+    "INT4",
+    "BIGINT",
+    "INT8",
+    "DECIMAL",
+    "NUMERIC",
+    "REAL",
+    "DOUBLE PRECISION",
+    "DECIMAL",
+    "FLOAT",
+    "FLOAT4",
+    "FLOAT8",
+    "DATE",
+    "TIMESTAMP",
+    "TIMESTAMP WITHOUT TIME ZONE",
+    "TIMESTAMPTZ",
+    "TIMESTAMP WITH TIME ZONE",
+]
