@@ -14,6 +14,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 `profile_table_level_only` together with `include_field_xyz` config options to ingest
 certain column-level metrics. Instead, set `profile_table_level_only` to `false` and
 individually enable / disable desired field metrics.
+- #8451: The `bigquery-beta` and `snowflake-beta` source aliases have been dropped. Use `bigquery` and `snowflake` as the source type instead.
 
 ### Potential Downtime
 
