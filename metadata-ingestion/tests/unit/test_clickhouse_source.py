@@ -40,10 +40,7 @@ def test_clickhouse_uri_native_secure():
             "uri_opts": {"secure": True}
         }
     )
-    assert (
-        config.get_sql_alchemy_url()
-        == "clickhouse+native://user:password@host:1111/db?secure=True"
-    )
+    assert (config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111/db?secure=True")
 
 
 def test_clickhouse_uri_default_password():
