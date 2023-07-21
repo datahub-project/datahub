@@ -43,6 +43,9 @@ source:
 # Example: using ingestion with configured SSL-TLS and uri_opts
 # See https://clickhouse.com/docs/en/guides/sre/configuring-ssl
 # ------------------------------------------------------------------------
+source:
+  type: clickhouse
+  config:
     # Url form, prefered
     sqlalchemy_uri: 'clickhouse+native://user:pass@localhost:9000/db?&ca_certs=ca.crt'
 
