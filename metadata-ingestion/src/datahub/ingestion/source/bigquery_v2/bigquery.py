@@ -1151,6 +1151,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                             field.description = col.comment
                             schema_fields[idx] = field
             else:
+                tags = []
+                if col.is_partition_column:
+                    tags.append(
+                        TagAssociationClass(make_tag_urn(Constants.TAG_PARTITION_KEY))
+                    )
+
+                if col.cluster_column_position is not None:
+                    tags.append(
+                        TagAssociationClass(
+                            make_tag_urn(
+                                f"CLUSTERING_COLUMN_{col.cluster_column_position}"
+                            )
+                        )
+                    )
+
                 field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
@@ -1160,15 +1175,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
-                    globalTags=GlobalTagsClass(
-                        tags=[
-                            TagAssociationClass(
-                                make_tag_urn(Constants.TAG_PARTITION_KEY)
-                            )
-                        ]
-                    )
-                    if col.is_partition_column
-                    else GlobalTagsClass(tags=[]),
+                    globalTags=GlobalTagsClass(tags=tags),
                 )
                 schema_fields.append(field)
             last_id = col.ordinal_position
