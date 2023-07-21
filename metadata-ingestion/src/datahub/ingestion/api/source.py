@@ -205,6 +205,8 @@ class Source(Closeable, metaclass=ABCMeta):
         stream: Iterable[MetadataWorkUnit],
     ) -> Iterable[MetadataWorkUnit]:
         for processor in workunit_processors:
+            print("processor is")
+            print(processor)
             if processor is not None:
                 stream = processor(stream)
         return stream
@@ -251,7 +253,7 @@ class Source(Closeable, metaclass=ABCMeta):
 
         platform_instance: Optional[str] = None
         if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
-            platform_instance = platform_instance
+            platform_instance = config.platform_instance
 
         return partial(
             auto_browse_path_v2,
