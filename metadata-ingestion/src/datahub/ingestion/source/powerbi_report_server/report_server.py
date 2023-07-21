@@ -4,7 +4,6 @@
 #
 #########################################################
 import logging
-import sys
 from dataclasses import dataclass, field as dataclass_field
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -116,10 +115,9 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
-def log_http_error(message: str) -> Any:
+def log_http_error(e: BaseException, message: str) -> Any:
     LOGGER.warning(message)
 
-    _, e, _ = sys.exc_info()
     if isinstance(e, requests.exceptions.HTTPError):
         LOGGER.warning(f"HTTP status-code = {e.response.status_code}")
 
@@ -134,8 +132,8 @@ def get_response_dict(response: requests.Response, error_message: str) -> dict:
     try:
         response.raise_for_status()
         result_dict = response.json()
-    except BaseException:
-        log_http_error(message=error_message)
+    except BaseException as e:
+        log_http_error(e=e, message=error_message)
 
     return result_dict
 
