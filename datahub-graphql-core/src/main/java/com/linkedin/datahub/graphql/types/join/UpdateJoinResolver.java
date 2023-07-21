@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.join;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.JoinUrn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
 import com.linkedin.datahub.graphql.types.join.mappers.JoinUpdateInputMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -30,7 +31,9 @@ public class UpdateJoinResolver implements DataFetcher<CompletableFuture<Boolean
         JoinUrn inputUrn = JoinUrn.createFromString(urn);
         QueryContext context = environment.getContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-
+        if (!JoinType.isAuthorizedToUpdateJoins(context, inputUrn)) {
+            throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
         return CompletableFuture.supplyAsync(() -> {
             try {
                 log.debug("Create Join input: {}", input);
