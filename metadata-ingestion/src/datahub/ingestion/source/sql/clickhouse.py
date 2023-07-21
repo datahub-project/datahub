@@ -10,7 +10,6 @@ import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 
 # Check the version of SQLAlchemy
-import sqlalchemy
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.class_validators import root_validator
