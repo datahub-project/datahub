@@ -260,7 +260,7 @@ class JsonSchemaTranslator:
                 fieldPath=field_path.expand_type("enum", schema).as_string(),
                 type=type_override or SchemaFieldDataTypeClass(type=EnumTypeClass()),
                 nativeDataType="Enum",
-                description=f"one of {','.join(schema_enums)}",
+                description=f"One of: {', '.join(schema_enums)}",
                 nullable=nullable,
                 jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
                     schema, required=required
