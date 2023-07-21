@@ -109,7 +109,7 @@ def register_mock_api(request_mock, override_mock_data={}):
             },
         },
     }
-    
+
     api_vs_response.update(override_mock_data)
 
     for url in api_vs_response.keys():
@@ -135,25 +135,23 @@ def default_source_config():
     }
 
 
-def get_default_recipe(output_path: str) -> dict: 
-    return  {
-                "run_id": "powerbi-report-server-test",
-                "source": {
-                    "type": "powerbi-report-server",
-                    "config": {
-                        **default_source_config(),
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": output_path #,
-                    },
-                },
-            }
+def get_default_recipe(output_path: str) -> dict:
+    return {
+        "run_id": "powerbi-report-server-test",
+        "source": {
+            "type": "powerbi-report-server",
+            "config": {
+                **default_source_config(),
+            },
+        },
+        "sink": {
+            "type": "file",
+            "config": {"filename": output_path},  # ,
+        },
+    }
 
 
-def add_mock_method_in_pipeline(pipeline: Pipeline):
+def add_mock_method_in_pipeline(pipeline: Pipeline) -> None:
     pipeline.ctx.graph = mock.MagicMock()
     pipeline.ctx.graph.get_ownership = mock.MagicMock()
     pipeline.ctx.graph.get_ownership.side_effect = mock_existing_users
@@ -171,8 +169,8 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
     register_mock_api(request_mock=requests_mock)
 
     pipeline = Pipeline.create(
-            get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
-        )
+        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
+    )
 
     add_mock_method_in_pipeline(pipeline=pipeline)
 
@@ -189,24 +187,27 @@ def test_powerbi_ingest(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
 
 @freeze_time(FROZEN_TIME)
 @mock.patch("requests_ntlm.HttpNtlmAuth")
-def test_powerbi_ingest_with_failure(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+def test_powerbi_ingest_with_failure(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/powerbi_report_server"
     )
 
-    register_mock_api(request_mock=requests_mock, override_mock_data={
-        "https://host_port/Reports/api/v2.0/LinkedReports": {
-            "method": "GET",
-            "status_code": 404,
-            "json": {
-                "error": "Request Failed"
-            } 
-        }
-    })
+    register_mock_api(
+        request_mock=requests_mock,
+        override_mock_data={
+            "https://host_port/Reports/api/v2.0/LinkedReports": {
+                "method": "GET",
+                "status_code": 404,
+                "json": {"error": "Request Failed"},
+            }
+        },
+    )
 
     pipeline = Pipeline.create(
-            get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
-        )
+        get_default_recipe(output_path=f"{tmp_path}/powerbi_report_server_mces.json")
+    )
 
     add_mock_method_in_pipeline(pipeline=pipeline)
 
