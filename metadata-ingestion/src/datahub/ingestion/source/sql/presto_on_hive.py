@@ -139,7 +139,7 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
     )
 
-    def gis_schema_simplifiableet_sql_alchemy_url(
+    def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
         if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
