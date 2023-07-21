@@ -292,7 +292,7 @@ def deploy(
         if not datahub_graph.exists(urn):
             logger.error(f"Could not find recipe for provided urn: {urn}")
             exit()
-        logger.info(f"Found recipe URN, will update recipe.")
+        logger.info("Found recipe URN, will update recipe.")
 
         graphql_query = textwrap.dedent(
             """
@@ -319,7 +319,7 @@ def deploy(
             """
         )
     else:
-        logger.info(f"No URN specified recipe urn, will create a new recipe.")
+        logger.info("No URN specified recipe urn, will create a new recipe.")
         graphql_query = textwrap.dedent(
             """
             mutation createIngestionSource(
