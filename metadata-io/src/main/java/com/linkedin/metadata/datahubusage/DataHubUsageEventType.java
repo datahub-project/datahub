@@ -79,7 +79,10 @@ public enum DataHubUsageEventType {
   CREATE_TEST_EVENT("CreateTestEvent"),
   UPDATE_TEST_EVENT("UpdateTestEvent"),
   DELETE_TEST_EVENT("DeleteTestEvent"),
-  CREATE_ASSERTION_MONITOR_EVENT("CreateAssertionMonitorEvent");
+  CREATE_ASSERTION_MONITOR_EVENT("CreateAssertionMonitorEvent"),
+  START_ASSERTION_MONITOR_EVENT("StartAssertionMonitorEvent"),
+  STOP_ASSERTION_MONITOR_EVENT("StopAssertionMonitorEvent");
+
 
   private final String type;
 

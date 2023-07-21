@@ -5,6 +5,7 @@ import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.
 import { useUpdateMonitorStatusMutation } from '../../../../../../graphql/monitor.generated';
 import { AssertionActionsBuilderModal } from './assertion/builder/AssertionActionsBuilderModal';
 import { AcrylAssertionsTable } from './AcrylAssertionsTable';
+import analytics, { EventType } from '../../../../../analytics';
 
 type Props = {
     assertions: Array<Assertion>;
@@ -79,6 +80,12 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                             ],
                         },
                     } as Assertion);
+                    analytics.event({
+                        type: EventType.StartAssertionMonitorEvent,
+                        monitorUrn,
+                        assertionUrn,
+                        assertionType: updatedAssertion?.info?.type as string,
+                    });
                 }
             })
             .catch(() => {
@@ -108,6 +115,12 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                             ],
                         },
                     } as Assertion);
+                    analytics.event({
+                        type: EventType.StopAssertionMonitorEvent,
+                        monitorUrn,
+                        assertionUrn,
+                        assertionType: updatedAssertion?.info?.type as string,
+                    });
                 }
             })
             .catch(() => {
