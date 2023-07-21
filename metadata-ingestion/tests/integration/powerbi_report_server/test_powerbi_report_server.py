@@ -52,37 +52,6 @@ def register_mock_api(request_mock):
                 ]
             },
         },
-        "https://host_port/Reports/api/v2.0/MobileReports": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {
-                "value": [
-                    {
-                        "Id": "ee56dc21-248a-4138-a446-ee5ab1fc938b",
-                        "Name": "Testb",
-                        "Description": None,
-                        "Path": "/path/to/Testb",
-                        "Type": "MobileReport",
-                        "Hidden": False,
-                        "Size": 1010101,
-                        "ModifiedBy": "TEST_USER",
-                        "ModifiedDate": str(datetime.now()),
-                        "CreatedBy": "TEST_USER",
-                        "CreatedDate": str(datetime.now()),
-                        "ParentFolderId": "47495172-89ab-455f-a446-fffd3cf239cb",
-                        "IsFavorite": False,
-                        "ContentType": None,
-                        "Content": "",
-                        "HasDataSources": True,
-                        "Roles": [],
-                        "HasSharedDataSets": True,
-                        "HasParameters": True,
-                        "AllowCaching": True,
-                        "Manifest": {"Resources": []},
-                    },
-                ]
-            },
-        },
         "https://host_port/Reports/api/v2.0/LinkedReports": {
             "method": "GET",
             "status_code": 200,
