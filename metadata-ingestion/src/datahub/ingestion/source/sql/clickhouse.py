@@ -1,4 +1,3 @@
-import importlib
 import json
 import textwrap
 from collections import defaultdict
@@ -9,6 +8,9 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 import clickhouse_driver  # noqa: F401
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
+
+# Check the version of SQLAlchemy
+import sqlalchemy
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.class_validators import root_validator
@@ -16,7 +18,7 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
+from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGERK
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
@@ -59,8 +61,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 
-# Check the version of SQLAlchemy
-sqlalchemy = importlib.import_module("sqlalchemy")
 sqlalchemy_version = sqlalchemy.__version__
 
 # Import make_url based on the version
