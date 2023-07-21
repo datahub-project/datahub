@@ -66,7 +66,7 @@ sqlalchemy_version = sqlalchemy.__version__
 try:
     # Try to import `make_url` from `sqlalchemy.engine` for version 1.4 and above
     from sqlalchemy.engine import make_url
-except:
+except ImportError:
     # If version is less than 1.4, import `make_url` from `sqlalchemy.engine.url`
     from sqlalchemy.engine.url import make_url
 
