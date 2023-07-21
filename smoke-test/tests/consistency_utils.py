@@ -6,11 +6,23 @@ _ELASTIC_BUFFER_WRITES_TIME_IN_SEC: int = 1
 USE_STATIC_SLEEP: bool = bool(os.getenv("USE_STATIC_SLEEP", False))
 ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 5))
 
+def check_consumer_group_exists(consumer_group: str) -> bool: 
+    completed_process = subprocess.run(
+        f"docker exec broker /bin/kafka-consumer-groups --bootstrap-server broker:29092 --group {consumer_group}" + " --describe | grep -v LAG",
+        capture_output=True,
+        shell=True,
+        text=True,
+    )
+
+    result = str(completed_process.stdout)
+    return not('does not exist' in result)
+   
+
 def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     if USE_STATIC_SLEEP:
         time.sleep(ELASTICSEARCH_REFRESH_INTERVAL_SECONDS)
         return
-    for consumer_group in ["generic-mcp-consumer-job-client", "generic-mae-consumer-job-client"]:
+    for consumer_group in ["generic-mce-consumer-job-client", "generic-mae-consumer-job-client"]:
         start_time = time.time()
         # get offsets
         lag_zero = False
