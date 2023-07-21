@@ -180,7 +180,7 @@ class ClickHouseConfig(
             logger.warning(
                 "uri_opts is not set but protocol or secure option is set."
                 " secure and  protocol options is deprecated, please use "
-                "project_pattern instead."
+                "uri_opts instead."
             )
             logger.info(
                 "Initializing uri_opts from deprecated secure or protocol options"
