@@ -43,10 +43,13 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
             .filter((runEvent) => !!runEvent.result)
             .map((runEvent) => {
                 const { result } = runEvent;
+
+                if (!result) throw new Error('Completed assertion run event does not have a result.');
+
                 const resultTime = new Date(runEvent.timestampMillis);
                 const localTime = resultTime.toLocaleString();
                 const gmtTime = resultTime.toUTCString();
-                const resultUrl = result?.externalUrl;
+                const resultUrl = result.externalUrl;
                 const platformName =
                     (platform && entityRegistry.getDisplayName(EntityType.DataPlatform, platform)) || undefined;
 
@@ -56,23 +59,19 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                 return {
                     time: runEvent.timestampMillis,
                     result: {
-                        type: result?.type,
+                        type: result.type,
                         resultUrl,
                         title: (
                             <>
-                                {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-                                <AssertionResultIcon>{getResultIcon(result!.type)}</AssertionResultIcon>
-                                {/* eslint-disable-next-line @typescript-eslint/no-non-null-assertion */}
-                                <Typography.Text strong>{getResultText(result!.type)}</Typography.Text>
+                                <AssertionResultIcon>{getResultIcon(result.type)}</AssertionResultIcon>
+                                <Typography.Text strong>{getResultText(result.type)}</Typography.Text>
                             </>
                         ),
                         content: (
                             <>
-                                {result && (
-                                    <AssertionResultDetailsContainer>
-                                        <DatasetAssertionResultDetails result={result} />
-                                    </AssertionResultDetailsContainer>
-                                )}
+                                <AssertionResultDetailsContainer>
+                                    <DatasetAssertionResultDetails result={result} />
+                                </AssertionResultDetailsContainer>
                                 <div>
                                     <Tooltip title={`${gmtTime}`}>
                                         <Typography.Text type="secondary">{localTime}</Typography.Text>
