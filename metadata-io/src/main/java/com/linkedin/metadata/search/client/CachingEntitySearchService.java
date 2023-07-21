@@ -154,8 +154,8 @@ public class CachingEntitySearchService {
         batchSize,
         querySize -> getRawSearchResults(entityNames, query, filters, sortCriterion, querySize.getFrom(),
                 querySize.getSize(), flags, facets),
-        querySize -> Quintet.with(entityNames, query, filters != null ? toJsonString(filters) : null,
-            sortCriterion != null ? toJsonString(sortCriterion) : null, querySize), flags, enableCache).getSearchResults(from, size);
+        querySize -> Sextet.with(entityNames, query, filters != null ? toJsonString(filters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null, facets, querySize), flags, enableCache).getSearchResults(from, size);
   }
 
 
