@@ -8,7 +8,7 @@ def test_clickhouse_uri_https():
             "password": "password",
             "host_port": "host:1111",
             "database": "db",
-            "uri_opts": {"protocol": "https"}
+            "uri_opts": {"protocol": "https"},
         }
     )
     assert (
@@ -26,7 +26,9 @@ def test_clickhouse_uri_native():
             "scheme": "clickhouse+native",
         }
     )
-    assert config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111/"
+    assert (
+        config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111/"
+    )
 
 
 def test_clickhouse_uri_native_secure():
@@ -37,10 +39,13 @@ def test_clickhouse_uri_native_secure():
             "host_port": "host:1111",
             "database": "db",
             "scheme": "clickhouse+native",
-            "uri_opts": {"secure": True}
+            "uri_opts": {"secure": True},
         }
     )
-    assert (config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111/db?secure=True")
+    assert (
+        config.get_sql_alchemy_url()
+        == "clickhouse+native://user:password@host:1111/db?secure=True"
+    )
 
 
 def test_clickhouse_uri_default_password():
