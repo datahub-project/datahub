@@ -16,7 +16,7 @@ import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.EntityService.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
