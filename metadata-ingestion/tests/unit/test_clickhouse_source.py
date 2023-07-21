@@ -8,7 +8,7 @@ def test_clickhouse_uri_https():
             "password": "password",
             "host_port": "host:1111",
             "database": "db",
-            "protocol": "https",
+            "uri_opts": {"protocol": "https"}
         }
     )
     assert (
@@ -37,7 +37,7 @@ def test_clickhouse_uri_native_secure():
             "host_port": "host:1111",
             "database": "db",
             "scheme": "clickhouse+native",
-            "secure": True,
+            "uri_opts": {"secure": True}
         }
     )
     assert (
