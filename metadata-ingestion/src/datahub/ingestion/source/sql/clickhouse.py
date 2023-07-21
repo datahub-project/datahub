@@ -63,10 +63,9 @@ from datahub.metadata.schema_classes import (
 
 sqlalchemy_version = sqlalchemy.__version__
 
-# Import make_url based on the version
-if sqlalchemy_version >= "1.4":
+try:
     from sqlalchemy.engine import make_url
-else:
+except:
     from sqlalchemy.engine.url import make_url
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
