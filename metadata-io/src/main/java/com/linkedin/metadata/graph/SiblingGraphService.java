@@ -43,7 +43,7 @@ public class SiblingGraphService {
             new HashSet<>(),
             null,
             null),
-        _entityService);
+            _entityService);
   }
 
   /**
