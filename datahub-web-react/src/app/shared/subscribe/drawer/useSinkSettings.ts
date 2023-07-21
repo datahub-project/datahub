@@ -8,7 +8,7 @@ import {
     updateGroupNotificationSettingsFunction,
     updateUserNotificationSettingsFunction,
 } from '../../../settings/personal/notifications/utils';
-import { getUserSettingsChannel } from './utils';
+import { getSettingsChannel } from './utils';
 
 type Props = {
     isPersonal: boolean;
@@ -46,7 +46,7 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
 
     const updateSinkSettings = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
-    const settingsChannel = getUserSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
+    const settingsChannel = getSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
 
     return { settingsChannel, updateSinkSettings } as const;
 };

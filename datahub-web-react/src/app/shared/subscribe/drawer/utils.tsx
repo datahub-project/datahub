@@ -322,6 +322,7 @@ export const createSubscriptionFunction = ({
                 subscriptionTypes,
                 entityChangeTypes,
                 notificationConfig: {
+                    // todo - move to notificationSettings before calling this
                     sinkTypes,
                     notificationSettings,
                 },
@@ -371,6 +372,7 @@ export const updateSubscriptionFunction = ({
                     subscriptionTypes,
                     entityChangeTypes,
                     notificationConfig: {
+                        // todo - move to notificationSettings before calling this
                         sinkTypes,
                         notificationSettings,
                     },
@@ -406,7 +408,7 @@ export const getSubscriptionChannel = (isPersonal: boolean, subscription?: DataH
     return isPersonal ? subUserHandle : subGroupChannel;
 };
 
-export const getUserSettingsChannel = (
+export const getSettingsChannel = (
     isPersonal: boolean,
     userNotificationSettings?: GetUserNotificationSettingsQuery,
     groupNotificationSettings?: GetGroupNotificationSettingsQuery,

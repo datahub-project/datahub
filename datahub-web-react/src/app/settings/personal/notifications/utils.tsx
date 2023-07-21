@@ -18,6 +18,9 @@ export const updateUserNotificationSettingsFunction = ({
         variables: {
             input: {
                 notificationSettings: {
+                    // todo - fill ink sinkTypes with SLACK[] if the switch was enabled
+                    // todo - implement disable slack functionality without clearing the channel
+                    sinkTypes: [],
                     slackSettings: {
                         userHandle: newUserHandle,
                     },
@@ -26,6 +29,7 @@ export const updateUserNotificationSettingsFunction = ({
         },
     })
         .then(() => {
+            // todo - refetch after 3s?
             refetchUserNotificationSettings();
         })
         .catch((e: unknown) => {
@@ -52,6 +56,9 @@ export const updateGroupNotificationSettingsFunction = ({
             input: {
                 groupUrn,
                 notificationSettings: {
+                    // todo - fill ink sinkTypes with SLACK[] if the switch was enabled
+                    // todo - implement disable slack functionality without clearing the channel
+                    sinkTypes: [],
                     slackSettings: {
                         channels: [newGroupChannel],
                     },
@@ -60,6 +67,7 @@ export const updateGroupNotificationSettingsFunction = ({
         },
     })
         .then(() => {
+            // todo - refetch after 3s?
             refetchGroupNotificationSettings();
         })
         .catch((e: unknown) => {

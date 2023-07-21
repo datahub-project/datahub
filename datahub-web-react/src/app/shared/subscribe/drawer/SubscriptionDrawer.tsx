@@ -123,6 +123,7 @@ const SubscriptionDrawerContent = ({
 
     const onUpdate = () => {
         upsertSubscription();
+        // todo - this should enable the SLACK sink type on personal notifications if it was previously off
         if (channel && saveAsDefault) updateSinkSettings(channel);
         onClose();
     };

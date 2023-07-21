@@ -30,7 +30,7 @@ export const reducer = (state: State, action: Action): State => {
                 action.payload;
 
             const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
-            const notificationSinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
+            const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
             const isSlackAndSubscriptionEnabled =
                 slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack);
             const hasUpstreamSubscription =

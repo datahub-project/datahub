@@ -1,11 +1,19 @@
 namespace com.linkedin.event.notification.settings
 
 import com.linkedin.common.Urn
+import com.linkedin.event.notification.NotificationSinkType
 
 /**
  * Notification settings for an actor or subscription.
  */
 record NotificationSettings {
+    // todo - do we have to make this optional for backwards compatibility?
+
+    /**
+     * Sink types that notifications are sent to.
+     */
+    sinkTypes: array[NotificationSinkType]
+
     /**
      * Slack Notification Settings
      */

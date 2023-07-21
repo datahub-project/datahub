@@ -72,6 +72,9 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
         });
     };
 
+    // todo - try to reuse the useSinkSettings hook we added to the drawer directory
+    // todo - implement switch on/off and persist the sinkTypes correctly
+
     const pageTitle = isPersonal ? 'My Notifications' : 'Group Notifications';
     const slackSinkTitle = 'Slack';
     const slackSinkSettingValue = isPersonal ? userHandle : groupChannel;
