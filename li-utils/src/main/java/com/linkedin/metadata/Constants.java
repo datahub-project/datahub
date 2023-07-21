@@ -354,6 +354,9 @@ public class Constants {
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
 
+  // DAO
+  public static final long LATEST_VERSION = 0;
+
   private Constants() {
   }
 }

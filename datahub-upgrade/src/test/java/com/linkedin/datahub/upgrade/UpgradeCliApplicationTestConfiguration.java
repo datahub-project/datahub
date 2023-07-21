@@ -22,7 +22,7 @@ public class UpgradeCliApplicationTestConfiguration {
     private EbeanServer ebeanServer;
 
     @MockBean
-    private EntityService entityService;
+    private EntityService _entityService;
 
     @MockBean
     private SearchService searchService;
