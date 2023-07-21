@@ -205,8 +205,6 @@ class Source(Closeable, metaclass=ABCMeta):
         stream: Iterable[MetadataWorkUnit],
     ) -> Iterable[MetadataWorkUnit]:
         for processor in workunit_processors:
-            print("processor is")
-            print(processor)
             if processor is not None:
                 stream = processor(stream)
         return stream
