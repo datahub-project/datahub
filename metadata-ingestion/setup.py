@@ -292,14 +292,6 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
-    "bigquery-beta": sql_common
-    | bigquery_common
-    | {
-        *sqllineage_lib,
-        *sqlglot_lib,
-        "sql_metadata",
-        "sqlalchemy-bigquery>=1.4.1",
-    },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
@@ -370,9 +362,6 @@ plugins: Dict[str, Set[str]] = {
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-beta": (
-        snowflake_common | usage_common | sqlglot_lib
-    ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
