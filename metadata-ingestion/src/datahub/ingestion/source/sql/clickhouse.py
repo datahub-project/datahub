@@ -18,7 +18,7 @@ from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGERK
+from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
