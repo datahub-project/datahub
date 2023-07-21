@@ -1,11 +1,15 @@
 package com.linkedin.datahub.graphql.types.join;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.JoinUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -24,6 +28,7 @@ import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -76,12 +81,6 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
   public Class<Join> objectClass() {
     return Join.class;
   }
-
-
-//  @Override
-//  public Class<JoinUpdateInput> inputClass() {
-//    return JoinUpdateInput.class;
-//  }
 
   @Override
   public EntityType type() {
@@ -171,40 +170,15 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
     return AutoCompleteResultsMapper.map(result);
   }
 
-  //@Override
-//  public Join update(String urn, @Nonnull JoinUpdateInput input, @Nonnull QueryContext context)
-//      throws Exception {
-//    if (isAuthorized(urn, input, context)) {
-//      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-//
-//      // Same routine used by create - hence this check
-//      JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
-//      if (urn != null) {
-//        inputUrn = JoinUrn.createFromString(urn);
-//        if ("new".equals(inputUrn.getJoinIdEntity())) {
-//          inputUrn = new JoinUrn(UUID.randomUUID().toString());
-//        }
-//      } else {
-//        urn = inputUrn.toString();
-//      }
-//
-//      final JoinUrn updatedUrn = inputUrn;
-//
-//      final Collection<MetadataChangeProposal> proposals = JoinUpdateInputMapper.map(input, actor);
-//      proposals.forEach(proposal -> proposal.setEntityUrn(updatedUrn));
-//
-//      try {
-//        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
-//      } catch (RemoteInvocationException e) {
-//        throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
-//      }
-//
-//      return load(urn, context).getData();
-//    }
-//    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-//  }
-
-  //private boolean isAuthorized(String urn, JoinUpdateInput input, QueryContext context) {
-    //return true;
-  //}
+  public static boolean isAuthorizedToUpdateJoins(@Nonnull QueryContext context, JoinUrn resourceUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+            new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.EDIT_JOIN_PRIVILEGE.getType()))
+    ));
+    return AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            resourceUrn.getEntityType(),
+            resourceUrn.toString(),
+            orPrivilegeGroups);
+  }
 }

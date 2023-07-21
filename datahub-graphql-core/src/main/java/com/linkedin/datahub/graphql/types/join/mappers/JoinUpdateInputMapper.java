@@ -75,7 +75,7 @@ public class JoinUpdateInputMapper
       }
     return proposals;
   }
-  public JoinProperties createJoinProperties(JoinPropertiesInput inputProperties, TimeStamp timestamp) {
+  private JoinProperties createJoinProperties(JoinPropertiesInput inputProperties, TimeStamp timestamp) {
     com.linkedin.join.JoinProperties joinProperties = new com.linkedin.join.JoinProperties();
     if (inputProperties.getName() != null) {
       joinProperties.setName(inputProperties.getName());
@@ -117,7 +117,7 @@ public class JoinUpdateInputMapper
     return joinProperties;
   }
 
-  public static JoinFieldMapping joinFieldMappingSettings(JoinFieldMappingInput joinFieldMapping) {
+  private static JoinFieldMapping joinFieldMappingSettings(JoinFieldMappingInput joinFieldMapping) {
     JoinFieldMapping joinFieldMappingUnit = new JoinFieldMapping();
     if (joinFieldMapping.getDetails() != null) {
       joinFieldMappingUnit.setDetails(joinFieldMapping.getDetails());
@@ -139,7 +139,7 @@ public class JoinUpdateInputMapper
     }
     return joinFieldMappingUnit;
   }
-  public static EditableJoinProperties joinEditablePropsSettings(JoinEditablePropertiesUpdate editPropsInput) {
+  private static EditableJoinProperties joinEditablePropsSettings(JoinEditablePropertiesUpdate editPropsInput) {
     final EditableJoinProperties editableJoinProperties = new EditableJoinProperties();
     if (editPropsInput.getName() != null
             && editPropsInput.getName().trim().length() > 0) {
