@@ -1,13 +1,13 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;

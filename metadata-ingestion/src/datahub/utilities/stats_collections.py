@@ -1,4 +1,4 @@
-from typing import Any, Callable, DefaultDict, Dict, Optional, TypeVar
+from typing import Any, Callable, DefaultDict, Dict, Optional, TypeVar, Union
 
 from typing_extensions import Protocol
 
@@ -43,7 +43,12 @@ class TopKDict(DefaultDict[_KT, _VT]):
                 )
             except TypeError:
                 trimmed_dict = dict(list(self.items())[: self.top_k])
-            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = ""  # type: ignore
+
+            try:
+                total_value: Union[_VT, str] = sum(trimmed_dict.values())  # type: ignore
+            except Exception:
+                total_value = ""
+            trimmed_dict[f"... top {self.top_k} of total {len(self)} entries"] = total_value  # type: ignore
             return trimmed_dict
 
 
