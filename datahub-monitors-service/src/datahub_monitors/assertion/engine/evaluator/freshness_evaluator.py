@@ -145,7 +145,9 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             logger.error(
                 "No matching events found within the provided window! Assertion is failing."
             )
-            return AssertionEvaluationResult(AssertionResultType.FAILURE, None)
+            return AssertionEvaluationResult(
+                AssertionResultType.FAILURE, parameters=None
+            )
 
     def _evaluate_high_watermark_freshness(
         self,
@@ -203,8 +205,9 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         start_time = start_time - STATEFUL_ASSERTION_EVALUATION_BUFFER
 
         if not context.monitor_urn:
-            raise Exception(
-                f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn"
+            raise InvalidParametersException(
+                f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn",
+                parameters=source_params,
             )
 
         previous_state = self.state_provider.get_state(
@@ -251,17 +254,33 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             else False
         )
 
-        if (
-            previous_state is None
-            or (last_state_change and last_state_change > start_time)
-            or current_evaluation_freshness is True
-        ):
+        """
+        here we evaluate the assertion, which can return one of three results
+            INIT - we return init if we don't have the data to decide on SUCCESS or FAILURE
+                this is either because we have no previous state or the previous state is too old
+                ie. previous_state.timestamp < start_time (above)
+            
+            SUCCESS - we return success if we evaluate the prev/curr state to be fresh
+                OR if we have a state change that falls within our evaluation window.
+                eg. if the assertion says "dataset is updated every 10 mins" but our cron checks every minute
+                    the current_evaluation_freshness may be false, but we still could have a valid change within
+                    the past 10 mins.
+
+            FAILURE - this is the default case if none of the above conditions are met
+        """
+        if previous_state is None:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.SUCCESS, {"events": []}
+                AssertionResultType.INIT, parameters=None
+            )
+        elif (
+            last_state_change and last_state_change > start_time
+        ) or current_evaluation_freshness is True:
+            assertion_evaluation_result = AssertionEvaluationResult(
+                AssertionResultType.SUCCESS, parameters={"events": []}
             )
         else:
             assertion_evaluation_result = AssertionEvaluationResult(
-                AssertionResultType.FAILURE, None
+                AssertionResultType.FAILURE, parameters=None
             )
 
         # we store the current state regardless of assertion success/failure

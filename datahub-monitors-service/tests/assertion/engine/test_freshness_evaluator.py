@@ -97,7 +97,7 @@ class TestFreshnessEvaluator:
             self.connection,
             self.context,
         )
-        assert eval_result.type == AssertionResultType.SUCCESS
+        assert eval_result.type == AssertionResultType.INIT
 
     def test_evaluate_high_watermark_assertion_old_previous_state(self) -> None:
         source_mock = Mock(spec=Source)
@@ -119,7 +119,7 @@ class TestFreshnessEvaluator:
             self.connection,
             self.context,
         )
-        assert eval_result.type == AssertionResultType.SUCCESS
+        assert eval_result.type == AssertionResultType.INIT
 
     def test_evaluate_high_watermark_assertion_no_change_assertion_fails(self) -> None:
         source_mock = Mock(spec=Source)
