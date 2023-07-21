@@ -264,7 +264,7 @@ class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
         self,
         start_time: datetime,
         end_time: datetime,
-        bucket_duration: BucketDuration | None = None,
+        bucket_duration: Optional[BucketDuration] = None,
     ) -> None:
         assert bucket_duration is not None
         return super().update_state(start_time, end_time, bucket_duration)

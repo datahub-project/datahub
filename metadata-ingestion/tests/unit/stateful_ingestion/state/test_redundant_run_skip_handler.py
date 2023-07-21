@@ -47,6 +47,22 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> SnowflakeV2Source:
     return source
 
 
+def test_redundant_run_job_ids(stateful_source: SnowflakeV2Source) -> None:
+    assert stateful_source.lineage_extractor is not None
+    assert stateful_source.lineage_extractor.redundant_run_skip_handler is not None
+    assert (
+        stateful_source.lineage_extractor.redundant_run_skip_handler.job_id
+        == "Snowflake_skip_redundant_run_lineage"
+    )
+
+    assert stateful_source.usage_extractor is not None
+    assert stateful_source.usage_extractor.redundant_run_skip_handler is not None
+    assert (
+        stateful_source.usage_extractor.redundant_run_skip_handler.job_id
+        == "Snowflake_skip_redundant_run_usage"
+    )
+
+
 # last run
 last_run_start_time = datetime(2023, 7, 2, tzinfo=timezone.utc)
 last_run_end_time = datetime(2023, 7, 3, 12, tzinfo=timezone.utc)
@@ -117,7 +133,7 @@ last_run_end_time = datetime(2023, 7, 3, 12, tzinfo=timezone.utc)
         ],
     ],
 )
-def test_redundant_run_skip_handler_basic(
+def test_redundant_run_skip_handler(
     stateful_source: SnowflakeV2Source,
     start_time: datetime,
     end_time: datetime,
