@@ -11,7 +11,7 @@ import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -97,23 +97,23 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
 
-    List<AspectsBatchItem> items = List.of(
-            AspectsBatchItem.builder()
+    List<UpsertBatchItem> items = List.of(
+            UpsertBatchItem.builder()
                     .urn(entityUrn1)
                     .aspectName(aspectName)
-                    .value(writeAspect1)
+                    .aspect(writeAspect1)
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry),
-            AspectsBatchItem.builder()
+            UpsertBatchItem.builder()
                     .urn(entityUrn2)
                     .aspectName(aspectName)
-                    .value(writeAspect2)
+                    .aspect(writeAspect2)
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry),
-            AspectsBatchItem.builder()
+            UpsertBatchItem.builder()
                     .urn(entityUrn3)
                     .aspectName(aspectName)
-                    .value(writeAspect3)
+                    .aspect(writeAspect3)
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry)
     );
@@ -161,23 +161,23 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
 
-    List<AspectsBatchItem> items = List.of(
-            AspectsBatchItem.builder()
+    List<UpsertBatchItem> items = List.of(
+            UpsertBatchItem.builder()
                     .urn(entityUrn1)
                     .aspectName(aspectName)
-                    .value(writeAspect1)
+                    .aspect(writeAspect1)
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry),
-            AspectsBatchItem.builder()
+            UpsertBatchItem.builder()
                     .urn(entityUrn2)
                     .aspectName(aspectName)
-                    .value(writeAspect2)
+                    .aspect(writeAspect2)
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry),
-            AspectsBatchItem.builder()
+            UpsertBatchItem.builder()
                     .urn(entityUrn3)
                     .aspectName(aspectName)
-                    .value(writeAspect3)
+                    .aspect(writeAspect3)
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry)
     );

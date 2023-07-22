@@ -171,13 +171,6 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
-  public RecordTemplate updateAspect(@Nonnull Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull AspectSpec aspectSpec, @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp,
-      @Nonnull long version, @Nonnull boolean emitMae) {
-    return null;
-  }
-
-  @Override
   public ListUrnsResult listUrns(@Nonnull String entityName, int start, int count) {
     return null;
   }

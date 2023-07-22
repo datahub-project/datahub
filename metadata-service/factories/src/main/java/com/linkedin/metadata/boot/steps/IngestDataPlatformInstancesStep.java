@@ -9,7 +9,7 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -65,16 +65,16 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
       log.info("Reading urns {} to {} from the aspects table to generate dataplatform instance aspects", start,
           start + BATCH_SIZE);
 
-      List<AspectsBatchItem> items = new LinkedList<>();
+      List<UpsertBatchItem> items = new LinkedList<>();
 
       for (String urnStr : _migrationsDao.listAllUrns(start, start + BATCH_SIZE)) {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance = getDataPlatformInstance(urn);
         if (dataPlatformInstance.isPresent()) {
-          items.add(AspectsBatchItem.builder()
+          items.add(UpsertBatchItem.builder()
                   .urn(urn)
                   .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                  .value(dataPlatformInstance.get())
+                  .aspect(dataPlatformInstance.get())
                   .build(_entityService.getEntityRegistry()));
         }
       }

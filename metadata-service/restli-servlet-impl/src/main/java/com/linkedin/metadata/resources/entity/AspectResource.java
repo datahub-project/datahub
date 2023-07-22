@@ -9,7 +9,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
 import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -39,7 +38,6 @@ import com.linkedin.restli.server.annotations.QueryParam;
 import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
-import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -221,17 +219,16 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                   .build();
         }
 
-        Set<Pair<AspectsBatchItem, EntityService.IngestProposalResult>> results =
+        Set<EntityService.IngestResult> results =
                 _entityService.ingestProposal(batch, auditStamp, asyncBool);
 
-        EntityService.IngestProposalResult one = results.stream()
-                .map(Pair::getSecond)
+        EntityService.IngestResult one = results.stream()
                 .findFirst()
                 .get();
 
-        // Update runIds
+        // Update runIds, only works for existing documents, so ES document must exist
         Urn resultUrn = one.getUrn();
-        if (!one.isQueued()) {
+        if (one.isProcessedMCL() || one.isUpdate()) {
           tryIndexRunId(resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
         return resultUrn.toString();

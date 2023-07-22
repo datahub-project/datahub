@@ -137,7 +137,7 @@ public class RestoreDbtSiblingsIndices implements BootstrapStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      _entityService.alwaysProduceMCLAsync(
           datasetUrn,
           DATASET_ENTITY_NAME,
           UPSTREAM_LINEAGE_ASPECT_NAME,

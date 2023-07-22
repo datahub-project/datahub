@@ -113,7 +113,7 @@ describe('siblings', () => {
     cy.clickOptionWithTestId('compress-lineage-toggle');
 
     // check the subtypes
-    cy.get('text:contains(View)').should('have.length', 2);
+    cy.get('text:contains(View)').should('have.length', 3);
     cy.get('text:contains(Table)').should('have.length', 0);
     cy.get('text:contains(Seed)').should('have.length', 1);
 

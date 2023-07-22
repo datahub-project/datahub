@@ -99,7 +99,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      _entityService.alwaysProduceMCLAsync(
           urn,
           Constants.DATASET_ENTITY_NAME,
           Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
@@ -150,7 +150,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      _entityService.alwaysProduceMCLAsync(
           urn,
           entityName,
           Constants.INPUT_FIELDS_ASPECT_NAME,

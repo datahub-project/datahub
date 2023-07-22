@@ -110,7 +110,7 @@ public class RestoreGlossaryIndicesTest {
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
         );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(glossaryTermUrn),
         Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
         Mockito.eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
@@ -122,7 +122,7 @@ public class RestoreGlossaryIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(glossaryNodeUrn),
         Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
         Mockito.eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
@@ -171,7 +171,7 @@ public class RestoreGlossaryIndicesTest {
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
         );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(glossaryTermUrn),
         Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
         Mockito.eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
@@ -183,7 +183,7 @@ public class RestoreGlossaryIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(glossaryNodeUrn),
         Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
         Mockito.eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),
@@ -232,7 +232,7 @@ public class RestoreGlossaryIndicesTest {
         Mockito.any(AuditStamp.class),
         Mockito.anyBoolean()
     );
-    Mockito.verify(mockService, Mockito.times(0)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(0)).alwaysProduceMCLAsync(
         Mockito.eq(glossaryTermUrn),
         Mockito.eq(Constants.GLOSSARY_TERM_ENTITY_NAME),
         Mockito.eq(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME),
@@ -244,7 +244,7 @@ public class RestoreGlossaryIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(0)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(0)).alwaysProduceMCLAsync(
         Mockito.eq(glossaryNodeUrn),
         Mockito.eq(Constants.GLOSSARY_NODE_ENTITY_NAME),
         Mockito.eq(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME),

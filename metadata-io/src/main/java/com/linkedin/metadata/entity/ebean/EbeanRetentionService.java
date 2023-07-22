@@ -17,6 +17,7 @@ import io.ebean.ExpressionList;
 import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.Transaction;
+import io.ebean.TxScope;
 import io.ebeaninternal.server.expression.Op;
 import io.ebeaninternal.server.expression.SimpleExpression;
 import io.opentelemetry.extension.annotations.WithSpan;
@@ -134,7 +135,7 @@ public class EbeanRetentionService extends RetentionService {
           Map<String, DataHubRetentionConfig> retentionPolicyMap,
           BulkApplyRetentionResult applyRetentionResult
   ) {
-    try (Transaction transaction = _server.beginTransaction()) {
+    try (Transaction transaction = _server.beginTransaction(TxScope.required())) {
       transaction.setBatchMode(true);
       transaction.setBatchSize(_batchSize);
 

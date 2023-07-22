@@ -116,7 +116,7 @@ public abstract class RetentionService {
             .build();
 
     return getEntityService().ingestProposal(batch, auditStamp, false).stream()
-            .anyMatch(resultPair -> resultPair.getSecond().isDidUpdate());
+            .anyMatch(EntityService.IngestResult::isSqlCommitted);
   }
 
   /**

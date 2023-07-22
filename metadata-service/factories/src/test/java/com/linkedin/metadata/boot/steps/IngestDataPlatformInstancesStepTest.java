@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -101,7 +102,7 @@ public class IngestDataPlatformInstancesStepTest {
               arg.getItems().stream()
                       .allMatch(item -> item.getUrn().getEntityType().equals("chart")
                               && item.getAspectName().equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                      && item.getAspect() instanceof DataPlatformInstance)
+                      && ((UpsertBatchItem) item).getAspect() instanceof DataPlatformInstance)
             ),
             any(),
             anyBoolean(),
@@ -111,7 +112,7 @@ public class IngestDataPlatformInstancesStepTest {
                 !arg.getItems().stream()
                         .allMatch(item -> item.getUrn().getEntityType().equals("chart")
                                 && item.getAspectName().equals(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
-                                && item.getAspect() instanceof DataPlatformInstance)
+                                && ((UpsertBatchItem) item).getAspect() instanceof DataPlatformInstance)
         ), any(), anyBoolean(), anyBoolean());
   }
 

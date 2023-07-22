@@ -113,7 +113,7 @@ public class IngestRolesStep implements BootstrapStep {
             new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
             false);
 
-    _entityService.produceMetadataChangeLog(roleUrn, DATAHUB_ROLE_ENTITY_NAME, DATAHUB_ROLE_INFO_ASPECT_NAME,
+    _entityService.alwaysProduceMCLAsync(roleUrn, DATAHUB_ROLE_ENTITY_NAME, DATAHUB_ROLE_INFO_ASPECT_NAME,
         roleInfoAspectSpec, null, dataHubRoleInfo, null, null, auditStamp, ChangeType.RESTATE);
   }
 }

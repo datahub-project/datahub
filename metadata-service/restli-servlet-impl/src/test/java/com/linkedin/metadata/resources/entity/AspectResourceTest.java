@@ -5,6 +5,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -14,6 +15,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -78,13 +80,34 @@ public class AspectResourceTest {
 
     reset(_producer, _aspectDao);
 
+    UpsertBatchItem req = UpsertBatchItem.builder()
+            .urn(urn)
+            .aspectName(mcp.getAspectName())
+            .aspect(mcp.getAspect())
+            .metadataChangeProposal(mcp)
+            .build(_entityRegistry);
     when(_aspectDao.runInTransactionWithRetry(any(), anyInt()))
         .thenReturn(List.of(
-                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
-                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
-                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
-                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0),
-                new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0)));
+                EntityService.UpdateAspectResult.builder().urn(urn)
+                        .newValue(new DatasetProperties().setName("name1"))
+                        .auditStamp(new AuditStamp())
+                        .request(req).build(),
+                EntityService.UpdateAspectResult.builder().urn(urn)
+                        .newValue(new DatasetProperties().setName("name2"))
+                        .auditStamp(new AuditStamp())
+                        .request(req).build(),
+                EntityService.UpdateAspectResult.builder().urn(urn)
+                        .newValue(new DatasetProperties().setName("name3"))
+                        .auditStamp(new AuditStamp())
+                        .request(req).build(),
+                EntityService.UpdateAspectResult.builder().urn(urn)
+                        .newValue(new DatasetProperties().setName("name4"))
+                        .auditStamp(new AuditStamp())
+                        .request(req).build(),
+                EntityService.UpdateAspectResult.builder().urn(urn)
+                        .newValue(new DatasetProperties().setName("name5"))
+                        .auditStamp(new AuditStamp())
+                        .request(req).build()));
     _aspectResource.ingestProposal(mcp, "false");
     verify(_producer, times(5)).produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(_producer);

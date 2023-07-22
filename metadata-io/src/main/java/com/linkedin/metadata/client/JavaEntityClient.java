@@ -51,7 +51,6 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
@@ -543,8 +542,8 @@ public class JavaEntityClient implements EntityClient {
                 .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
                 .build();
 
-        EntityService.IngestProposalResult one = _entityService.ingestProposal(batch, auditStamp, async).stream()
-                .findFirst().map(Pair::getSecond).get();
+        EntityService.IngestResult one = _entityService.ingestProposal(batch, auditStamp, async).stream()
+                .findFirst().get();
 
         Urn urn = one.getUrn();
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());

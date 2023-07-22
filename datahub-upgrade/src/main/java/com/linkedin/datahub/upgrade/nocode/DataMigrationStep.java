@@ -134,15 +134,11 @@ public class DataMigrationStep implements UpgradeStep {
 
           // 6. Write the row back using the EntityService
           boolean emitMae = oldAspect.getKey().getVersion() == 0L;
-          _entityService.updateAspect(
+          _entityService.ingestAspects(
               urn,
-              entityName,
-              newAspectName,
-              aspectSpec,
-              aspectRecord,
+              List.of(Pair.of(newAspectName, aspectRecord)),
               toAuditStamp(oldAspect),
-              oldAspect.getKey().getVersion(),
-              emitMae
+              null
           );
 
           // 7. If necessary, emit a browse path aspect.

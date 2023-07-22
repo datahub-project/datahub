@@ -99,7 +99,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      _entityService.alwaysProduceMCLAsync(
           termUrn,
           Constants.GLOSSARY_TERM_ENTITY_NAME,
           Constants.GLOSSARY_TERM_INFO_ASPECT_NAME,
@@ -142,7 +142,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      _entityService.alwaysProduceMCLAsync(
           nodeUrn,
           Constants.GLOSSARY_NODE_ENTITY_NAME,
           Constants.GLOSSARY_NODE_INFO_ASPECT_NAME,

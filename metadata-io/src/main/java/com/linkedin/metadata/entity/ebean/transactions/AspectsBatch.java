@@ -1,16 +1,8 @@
 package com.linkedin.metadata.entity.ebean.transactions;
 
-import com.datahub.util.exception.ModelConversionException;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.entity.validation.ValidationUtils;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.mxe.MetadataChangeProposal;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +17,7 @@ import java.util.stream.Collectors;
 @Getter
 @Builder(toBuilder = true)
 public class AspectsBatch {
-    private final List<AspectsBatchItem> items;
+    private final List<? extends AbstractBatchItem> items;
 
     public Map<String, Set<String>> getUrnAspectsMap() {
         return items.stream()
@@ -33,95 +25,31 @@ public class AspectsBatch {
                 .collect(Collectors.groupingBy(Map.Entry::getKey, Collectors.mapping(Map.Entry::getValue, Collectors.toSet())));
     }
 
-    public static class AspectsBatchBuilder {
+    public boolean containsDuplicateAspects() {
+        return items.stream().map(i -> String.format("%s_%s", i.getClass().getName(), i.hashCode()))
+                .distinct().count() != items.size();
+    }
 
+    public static class AspectsBatchBuilder {
         /**
          * Just one aspect record template
          * @param data aspect data
          * @return builder
          */
-        public AspectsBatchBuilder aspect(AspectsBatchItem data) {
+        public AspectsBatchBuilder one(AbstractBatchItem data) {
             this.items = List.of(data);
             return this;
         }
 
         public AspectsBatchBuilder mcps(List<MetadataChangeProposal> mcps, EntityRegistry entityRegistry) {
-            this.items = mcps.stream().map(mcp -> toAspectBatchItem(mcp, entityRegistry)).collect(Collectors.toList());
+            this.items = mcps.stream().map(mcp -> {
+                if (mcp.getChangeType().equals(ChangeType.PATCH)) {
+                    return PatchBatchItem.PatchBatchItemBuilder.build(mcp, entityRegistry);
+                } else {
+                    return UpsertBatchItem.UpsertBatchItemBuilder.build(mcp, entityRegistry);
+                }
+            }).collect(Collectors.toList());
             return this;
-        }
-
-        private static AspectsBatchItem toAspectBatchItem(MetadataChangeProposal mcp, EntityRegistry entityRegistry) {
-            log.debug("entity type = {}", mcp.getEntityType());
-            EntitySpec entitySpec = entityRegistry.getEntitySpec(mcp.getEntityType());
-            AspectSpec aspectSpec = validateAspect(mcp, entitySpec);
-
-            if (!isValidChangeType(mcp.getChangeType(), aspectSpec)) {
-                throw new UnsupportedOperationException("ChangeType not supported: " + mcp.getChangeType()
-                        + " for aspect " + mcp.getAspectName());
-            }
-
-            Urn urn = mcp.getEntityUrn();
-            if (urn == null) {
-                urn = EntityKeyUtils.getUrnFromProposal(mcp, entitySpec.getKeyAspectSpec());
-            }
-
-            AspectsBatchItem.AspectsBatchItemBuilder builder = AspectsBatchItem.builder()
-                    .urn(urn)
-                    .aspectName(mcp.getAspectName())
-                    .systemMetadata(mcp.getSystemMetadata())
-                    .mcp(mcp);
-
-            if (!mcp.getChangeType().equals(ChangeType.PATCH)) {
-                builder.value(convertToRecordTemplate(mcp, aspectSpec));
-            }
-
-            return builder.build(entityRegistry);
-        }
-
-        private static RecordTemplate convertToRecordTemplate(MetadataChangeProposal mcp, AspectSpec aspectSpec) {
-            RecordTemplate aspect;
-            try {
-                aspect = GenericRecordUtils.deserializeAspect(mcp.getAspect().getValue(),
-                        mcp.getAspect().getContentType(), aspectSpec);
-                ValidationUtils.validateOrThrow(aspect);
-            } catch (ModelConversionException e) {
-                throw new RuntimeException(
-                        String.format("Could not deserialize %s for aspect %s", mcp.getAspect().getValue(),
-                                mcp.getAspectName()));
-            }
-            log.debug("aspect = {}", aspect);
-            return aspect;
-        }
-
-        private static AspectSpec validateAspect(MetadataChangeProposal mcp, EntitySpec entitySpec) {
-            if (!mcp.hasAspectName() || !mcp.hasAspect()) {
-                throw new UnsupportedOperationException("Aspect and aspect name is required for create and update operations");
-            }
-
-            AspectSpec aspectSpec = entitySpec.getAspectSpec(mcp.getAspectName());
-
-            if (aspectSpec == null) {
-                throw new RuntimeException(
-                        String.format("Unknown aspect %s for entity %s", mcp.getAspectName(),
-                                mcp.getEntityType()));
-            }
-
-            return aspectSpec;
-        }
-
-        /**
-         * Validates that a change type is valid for the given aspect
-         * @param changeType
-         * @param aspectSpec
-         * @return
-         */
-        private static boolean isValidChangeType(ChangeType changeType, AspectSpec aspectSpec) {
-            if (aspectSpec.isTimeseries()) {
-                // Timeseries aspects only support UPSERT
-                return ChangeType.UPSERT.equals(changeType);
-            } else {
-                return (ChangeType.UPSERT.equals(changeType) || ChangeType.PATCH.equals(changeType));
-            }
         }
     }
 

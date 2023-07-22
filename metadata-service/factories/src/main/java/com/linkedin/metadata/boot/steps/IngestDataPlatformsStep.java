@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchItem;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -57,7 +57,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
     }
 
     // 2. For each JSON object, cast into a DataPlatformSnapshot object.
-    List<AspectsBatchItem> dataPlatformAspects =  StreamSupport.stream(
+    List<UpsertBatchItem> dataPlatformAspects =  StreamSupport.stream(
             Spliterators.spliteratorUnknownSize(dataPlatforms.iterator(), Spliterator.ORDERED), false)
             .map(dataPlatform -> {
               final String urnString;
@@ -73,10 +73,10 @@ public class IngestDataPlatformsStep implements BootstrapStep {
               final DataPlatformInfo info =
                       RecordUtils.toRecordTemplate(DataPlatformInfo.class, dataPlatform.get("aspect").toString());
 
-              return AspectsBatchItem.builder()
+              return UpsertBatchItem.builder()
                       .urn(urn)
                       .aspectName(PLATFORM_ASPECT_NAME)
-                      .value(info)
+                      .aspect(info)
                       .build(_entityService.getEntityRegistry());
             }).collect(Collectors.toList());
 

@@ -86,7 +86,7 @@ public class IndexDataPlatformsStep extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      _entityService.alwaysProduceMCLAsync(
           dpUrn,
           Constants.DATA_PLATFORM_ENTITY_NAME,
           Constants.DATA_PLATFORM_INFO_ASPECT_NAME,
