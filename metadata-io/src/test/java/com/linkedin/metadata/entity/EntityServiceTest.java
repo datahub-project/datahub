@@ -74,7 +74,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 /**
- * A class to test {@link EntityService}
+ * A class to test {@link EntityServiceImpl}
  *
  * This class is generic to allow same integration tests to be reused to test all supported storage backends.
  * If you're adding another storage backend - you should create a new test class that extends this one providing
@@ -89,7 +89,7 @@ import static org.testng.Assert.*;
  */
 abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends RetentionService> {
 
-    protected EntityService _entityService;
+    protected EntityServiceImpl _entityServiceImpl;
     protected T_AD _aspectDao;
     protected T_RS _retentionService;
 
@@ -126,10 +126,10 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
         // 1. Ingest Entity
-        _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
 
         // 2. Retrieve Entity
-        com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
+        com.linkedin.entity.Entity readEntity = _entityServiceImpl.getEntity(entityUrn, Collections.emptySet());
 
         // 3. Compare Entity Objects
         assertEquals(readEntity.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
@@ -160,10 +160,10 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
         // 1. Ingest Entity
-        _entityService.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestEntity(writeEntity, TEST_AUDIT_STAMP, metadata1);
 
         // 2. Retrieve Entity
-        com.linkedin.entity.Entity readEntity = _entityService.getEntity(entityUrn, Collections.emptySet());
+        com.linkedin.entity.Entity readEntity = _entityServiceImpl.getEntity(entityUrn, Collections.emptySet());
 
         // 3. Compare Entity Objects
         assertEquals(readEntity.getValue().getCorpUserSnapshot().getAspects().size(), 2); // Key + Info aspect.
@@ -198,12 +198,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1625792690, "run-123");
 
         // 1. Ingest Entities
-        _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
+        _entityServiceImpl.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
             ImmutableList.of(metadata1, metadata2));
 
         // 2. Retrieve Entities
         Map<Urn, Entity> readEntities =
-            _entityService.getEntities(ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
+            _entityServiceImpl.getEntities(ImmutableSet.of(entityUrn1, entityUrn2), Collections.emptySet());
 
         // 3. Compare Entity Objects
 
@@ -269,12 +269,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         String keyName = "corpUserKey";
 
         // 1. Ingest Entities
-        _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
+        _entityServiceImpl.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
             ImmutableList.of(metadata1, metadata2));
 
         // 2. Retrieve Entities
         Map<Urn, EntityResponse> readEntities =
-            _entityService.getEntitiesV2("corpuser", ImmutableSet.of(entityUrn1, entityUrn2), ImmutableSet.of(aspectName));
+            _entityServiceImpl.getEntitiesV2("corpuser", ImmutableSet.of(entityUrn1, entityUrn2), ImmutableSet.of(aspectName));
 
         // 3. Compare Entity Objects
 
@@ -331,12 +331,12 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         String keyName = "corpUserKey";
 
         // 1. Ingest Entities
-        _entityService.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
+        _entityServiceImpl.ingestEntities(ImmutableList.of(writeEntity1, writeEntity2), TEST_AUDIT_STAMP,
             ImmutableList.of(metadata1, metadata2));
 
         // 2. Retrieve Entities
         Map<Urn, EntityResponse> readEntities =
-            _entityService.getEntitiesVersionedV2(ImmutableSet.of(versionedUrn1, versionedUrn2), ImmutableSet.of(aspectName));
+            _entityServiceImpl.getEntitiesVersionedV2(ImmutableSet.of(versionedUrn1, versionedUrn2), ImmutableSet.of(aspectName));
 
         // 3. Compare Entity Objects
 
@@ -391,9 +391,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         pairToIngest.add(getAspectRecordPair(writeAspect2, CorpUserInfo.class));
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
-        Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
+        Map<String, RecordTemplate> latestAspects = _entityServiceImpl.getLatestAspectsForUrn(
             entityUrn,
             new HashSet<>(Arrays.asList(aspectName1, aspectName2))
         );
@@ -419,7 +419,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
-        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
         final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
         initialChangeLog.setEntityType(entityUrn.getEntityType());
@@ -444,7 +444,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         restateChangeLog.setPreviousAspectValue(aspect);
         restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
-        Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
+        Map<String, RecordTemplate> latestAspects = _entityServiceImpl.getLatestAspectsForUrn(
             entityUrn,
             new HashSet<>(List.of(aspectName1))
         );
@@ -456,7 +456,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
         clearInvocations(_mockProducer);
 
-        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(restateChangeLog));
@@ -478,7 +478,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
-        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
         final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
         initialChangeLog.setEntityType(entityUrn.getEntityType());
@@ -503,7 +503,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         restateChangeLog.setPreviousAspectValue(aspect);
         restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
-        Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
+        Map<String, RecordTemplate> latestAspects = _entityServiceImpl.getLatestAspectsForUrn(
             entityUrn,
             new HashSet<>(List.of(aspectName1))
         );
@@ -515,7 +515,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
         clearInvocations(_mockProducer);
 
-        _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(restateChangeLog));
@@ -544,7 +544,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         mcp1.setSystemMetadata(metadata1);
         mcp1.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
 
-        _entityService.ingestSingleProposal(mcp1, TEST_AUDIT_STAMP, false);
+        _entityServiceImpl.ingestSingleProposal(mcp1, TEST_AUDIT_STAMP, false);
 
         final MetadataChangeLog initialChangeLog = new MetadataChangeLog();
         initialChangeLog.setEntityType(entityUrn.getEntityType());
@@ -567,7 +567,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         restateChangeLog.setPreviousAspectValue(genericAspect);
         restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
-        Map<String, RecordTemplate> latestAspects = _entityService.getLatestAspectsForUrn(
+        Map<String, RecordTemplate> latestAspects = _entityServiceImpl.getLatestAspectsForUrn(
             entityUrn,
             new HashSet<>(List.of(aspectName1))
         );
@@ -579,7 +579,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         // Mockito detects the previous invocation and throws an error in verifying the second call unless invocations are cleared
         clearInvocations(_mockProducer);
 
-        _entityService.ingestSingleProposal(mcp1, TEST_AUDIT_STAMP, false);
+        _entityServiceImpl.ingestSingleProposal(mcp1, TEST_AUDIT_STAMP, false);
 
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.eq(restateChangeLog));
@@ -606,7 +606,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
-        _entityService.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, false);
+        _entityServiceImpl.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, false);
     }
 
     @Test
@@ -625,7 +625,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
-        _entityService.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, true);
+        _entityServiceImpl.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, true);
         verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any());
         verify(_mockProducer, times(1)).produceMetadataChangeProposal(Mockito.eq(entityUrn),
@@ -651,7 +651,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setValue(ByteString.unsafeWrap(datasetProfileSerialized));
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
-        _entityService.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, true);
+        _entityServiceImpl.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, true);
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), Mockito.any());
         verify(_mockProducer, times(0)).produceMetadataChangeProposal(Mockito.eq(entityUrn),
@@ -670,9 +670,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         CorpUserInfo writeAspect = AspectGenerationUtils.createCorpUserInfo("email@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityService.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect)), TEST_AUDIT_STAMP, null);
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect)), TEST_AUDIT_STAMP, null);
 
-        RecordTemplate readAspect1 = _entityService.getAspect(entityUrn, aspectName, 0);
+        RecordTemplate readAspect1 = _entityServiceImpl.getAspect(entityUrn, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect1));
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
             Mockito.any());
@@ -681,9 +681,9 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         writeAspect.setEmail("newemail@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #2
-        _entityService.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect)), TEST_AUDIT_STAMP, null);
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect)), TEST_AUDIT_STAMP, null);
 
-        RecordTemplate readAspect2 = _entityService.getAspect(entityUrn, aspectName, 0);
+        RecordTemplate readAspect2 = _entityServiceImpl.getAspect(entityUrn, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect, readAspect2));
         verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
                 Mockito.any());
@@ -704,18 +704,18 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
 
         // Validate retrieval of CorpUserInfo Aspect #1
-        _entityService.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect1)), TEST_AUDIT_STAMP, null);
+        _entityServiceImpl.ingestAspects(entityUrn, List.of(Pair.of(aspectName, writeAspect1)), TEST_AUDIT_STAMP, null);
 
         VersionedAspect writtenVersionedAspect1 = new VersionedAspect();
         writtenVersionedAspect1.setAspect(Aspect.create(writeAspect1));
         writtenVersionedAspect1.setVersion(0);
 
-        VersionedAspect readAspect1 = _entityService.getVersionedAspect(entityUrn, aspectName, 0);
+        VersionedAspect readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
             Mockito.any());
 
-        readAspect1 = _entityService.getVersionedAspect(entityUrn, aspectName, -1);
+        readAspect1 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, -1);
         assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspect1));
 
         // Validate retrieval of CorpUserInfo Aspect #2
@@ -725,7 +725,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         writtenVersionedAspect2.setAspect(Aspect.create(writeAspect2));
         writtenVersionedAspect2.setVersion(0);
 
-        VersionedAspect readAspectVersion2 = _entityService.getVersionedAspect(entityUrn, aspectName, 0);
+        VersionedAspect readAspectVersion2 = _entityServiceImpl.getVersionedAspect(entityUrn, aspectName, 0);
         assertFalse(DataTemplateUtil.areEqual(writtenVersionedAspect1, readAspectVersion2));
         assertTrue(DataTemplateUtil.areEqual(writtenVersionedAspect2, readAspectVersion2));
         verify(_mockProducer, times(2)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.eq(corpUserInfoSpec),
@@ -794,13 +794,13 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         rollbackOverwrittenAspect.setAspectName(aspectName);
         rollbackOverwrittenAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123", true);
+        _entityServiceImpl.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-123", true);
 
         // assert nothing was deleted
-        RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
+        RecordTemplate readAspectOriginal = _entityServiceImpl.getAspect(entityUrn1, aspectName, 1);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
 
-        RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
+        RecordTemplate readAspectOverwrite = _entityServiceImpl.getAspect(entityUrn1, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
 
         // this should delete the most recent aspect
@@ -809,10 +809,10 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         rollbackRecentAspect.setAspectName(aspectName);
         rollbackRecentAspect.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456", true);
+        _entityServiceImpl.rollbackRun(ImmutableList.of(rollbackOverwrittenAspect), "run-456", true);
 
         // assert the new most recent aspect is the original one
-        RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+        RecordTemplate readNewRecentAspect = _entityServiceImpl.getAspect(entityUrn1, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, readNewRecentAspect));
     }
 
@@ -824,7 +824,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
         String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
-        String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
+        String keyAspectName = _entityServiceImpl.getKeyAspectName(entityUrn1);
 
         // Ingest CorpUserInfo Aspect #1
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
@@ -862,13 +862,13 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         rollbackKeyWithWrongRunId.setAspectName("corpUserKey");
         rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456", true);
+        _entityServiceImpl.rollbackRun(ImmutableList.of(rollbackKeyWithWrongRunId), "run-456", true);
 
         // assert nothing was deleted
-        RecordTemplate readAspectOriginal = _entityService.getAspect(entityUrn1, aspectName, 1);
+        RecordTemplate readAspectOriginal = _entityServiceImpl.getAspect(entityUrn1, aspectName, 1);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1, readAspectOriginal));
 
-        RecordTemplate readAspectOverwrite = _entityService.getAspect(entityUrn1, aspectName, 0);
+        RecordTemplate readAspectOverwrite = _entityServiceImpl.getAspect(entityUrn1, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(writeAspect1Overwrite, readAspectOverwrite));
 
         // this should delete the most recent aspect
@@ -877,10 +877,10 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         rollbackKeyWithCorrectRunId.setAspectName("corpUserKey");
         rollbackKeyWithCorrectRunId.setUrn(entityUrn1.toString());
 
-        _entityService.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
+        _entityServiceImpl.rollbackRun(ImmutableList.of(rollbackKeyWithCorrectRunId), "run-123", true);
 
         // assert the new most recent aspect is null
-        RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+        RecordTemplate readNewRecentAspect = _entityServiceImpl.getAspect(entityUrn1, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
     }
 
@@ -894,10 +894,11 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
 
         String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
-        String keyAspectName = _entityService.getKeyAspectName(entityUrn1);
+        String keyAspectName = _entityServiceImpl.getKeyAspectName(entityUrn1);
 
         // Ingest CorpUserInfo Aspect #1
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
+        _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
         RecordTemplate writeKey1 = EntityUtils.buildKeyAspect(_testEntityRegistry, entityUrn1);
 
@@ -951,13 +952,13 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         rollbackKeyWithWrongRunId.setUrn(entityUrn1.toString());
 
         // this should delete all related aspects
-        _entityService.deleteUrn(UrnUtils.getUrn("urn:li:corpuser:test1"));
+        _entityServiceImpl.deleteUrn(UrnUtils.getUrn("urn:li:corpuser:test1"));
 
         // assert the new most recent aspect is null
-        RecordTemplate readNewRecentAspect = _entityService.getAspect(entityUrn1, aspectName, 0);
+        RecordTemplate readNewRecentAspect = _entityServiceImpl.getAspect(entityUrn1, aspectName, 0);
         assertTrue(DataTemplateUtil.areEqual(null, readNewRecentAspect));
 
-        RecordTemplate deletedKeyAspect = _entityService.getAspect(entityUrn1, "corpUserKey", 0);
+        RecordTemplate deletedKeyAspect = _entityServiceImpl.getAspect(entityUrn1, "corpUserKey", 0);
         assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
     }
 
@@ -1208,8 +1209,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         );
         _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
-        assertEquals(_entityService.getAspect(entityUrn, aspectName, 1), writeAspect1);
-        assertEquals(_entityService.getAspect(entityUrn, aspectName2, 1), writeAspect2);
+        assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName, 1), writeAspect1);
+        assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1), writeAspect2);
 
         _retentionService.setRetention(null, null, new DataHubRetentionConfig().setRetention(
             new Retention().setVersion(new VersionBasedRetention().setMaxVersions(2))));
@@ -1237,8 +1238,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         );
         _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
-        assertNull(_entityService.getAspect(entityUrn, aspectName, 1));
-        assertEquals(_entityService.getAspect(entityUrn, aspectName2, 1), writeAspect2);
+        assertNull(_entityServiceImpl.getAspect(entityUrn, aspectName, 1));
+        assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1), writeAspect2);
 
         // Reset retention policies
         _retentionService.setRetention(null, null, new DataHubRetentionConfig().setRetention(
@@ -1246,8 +1247,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _retentionService.deleteRetention("corpuser", "status");
         // Invoke batch apply
         _retentionService.batchApplyRetention(null, null);
-        assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
-        assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
+        assertEquals(_entityServiceImpl.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
+        assertEquals(_entityServiceImpl.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
     }
 
     @Test
@@ -1260,29 +1261,29 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         // Ingest CorpUserInfo Aspect
         CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
         CorpUserInfo writeAspect1a = AspectGenerationUtils.createCorpUserInfo("email_a@test.com");
-        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1a, TEST_AUDIT_STAMP, metadata1);
         CorpUserInfo writeAspect1b = AspectGenerationUtils.createCorpUserInfo("email_b@test.com");
-        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspectIfNotPresent(entityUrn, aspectName, writeAspect1b, TEST_AUDIT_STAMP, metadata1);
 
         String aspectName2 = AspectGenerationUtils.getAspectName(new Status());
         // Ingest Status Aspect
         Status writeAspect2 = new Status().setRemoved(true);
-        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2, TEST_AUDIT_STAMP, metadata1);
         Status writeAspect2a = new Status().setRemoved(false);
-        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2a, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2a, TEST_AUDIT_STAMP, metadata1);
         Status writeAspect2b = new Status().setRemoved(true);
-        _entityService.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2b, TEST_AUDIT_STAMP, metadata1);
+        _entityServiceImpl.ingestAspectIfNotPresent(entityUrn, aspectName2, writeAspect2b, TEST_AUDIT_STAMP, metadata1);
 
-        assertEquals(_entityService.getAspect(entityUrn, aspectName, 0), writeAspect1);
-        assertEquals(_entityService.getAspect(entityUrn, aspectName2, 0), writeAspect2);
+        assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName, 0), writeAspect1);
+        assertEquals(_entityServiceImpl.getAspect(entityUrn, aspectName2, 0), writeAspect2);
 
-        assertNull(_entityService.getAspect(entityUrn, aspectName, 1));
-        assertNull(_entityService.getAspect(entityUrn, aspectName2, 1));
+        assertNull(_entityServiceImpl.getAspect(entityUrn, aspectName, 1));
+        assertNull(_entityServiceImpl.getAspect(entityUrn, aspectName2, 1));
 
-        assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
-        assertEquals(_entityService.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
+        assertEquals(_entityServiceImpl.listLatestAspects(entityUrn.getEntityType(), aspectName, 0, 10).getTotalCount(), 1);
+        assertEquals(_entityServiceImpl.listLatestAspects(entityUrn.getEntityType(), aspectName2, 0, 10).getTotalCount(), 1);
     }
 
     /**
@@ -1311,7 +1312,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
             SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
 
-            _entityService.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
+            _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
             clearInvocations(_mockProducer);
 
@@ -1322,7 +1323,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             args.setBatchDelayMs(1L);
             args.setNumThreads(1);
             args.setUrn(urnStr);
-            _entityService.restoreIndices(args, obj -> {
+            _entityServiceImpl.restoreIndices(args, obj -> {
             });
 
             ArgumentCaptor<MetadataChangeLog> mclCaptor = ArgumentCaptor.forClass(MetadataChangeLog.class);
@@ -1450,7 +1451,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         genericAspect.setValue(ByteString.unsafeWrap(datasetPropertiesSerialized));
         genericAspect.setContentType("application/json");
         gmce.setAspect(genericAspect);
-        _entityService.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, false);
+        _entityServiceImpl.ingestSingleProposal(gmce, TEST_AUDIT_STAMP, false);
         ArgumentCaptor<MetadataChangeLog> captor = ArgumentCaptor.forClass(MetadataChangeLog.class);
         verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
             Mockito.any(), captor.capture());

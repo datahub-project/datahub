@@ -370,8 +370,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable List<String> facets) throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets),
-            _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets), _entityService);
     }
 
     @Nonnull
@@ -408,8 +407,7 @@ public class JavaEntityClient implements EntityClient {
         throws RemoteInvocationException {
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                        sortCriterion, start, count, startTimeMillis, endTimeMillis, searchFlags),
-                _entityService);
+                        sortCriterion, start, count, startTimeMillis, endTimeMillis, searchFlags), _entityService);
     }
 
     @Nonnull

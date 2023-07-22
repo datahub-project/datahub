@@ -5,7 +5,7 @@ ARG MAVEN_REPO="https://repo1.maven.org/maven2"
 ARG SNAKEYAML_VERSION="2.0"
 
 RUN rm /usr/share/java/cp-base-new/snakeyaml-*.jar \
-    && wget -P /usr/share/java/cp-base-new $MAVEN_REPO/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
+  && wget -P /usr/share/java/cp-base-new $MAVEN_REPO/org/yaml/snakeyaml/$SNAKEYAML_VERSION/snakeyaml-$SNAKEYAML_VERSION.jar
 
 # Based on https://github.com/blacktop's alpine kafka build
 FROM python:3-alpine
@@ -17,7 +17,7 @@ ENV SCALA_VERSION 2.13
 ENV CUB_CLASSPATH='"/usr/share/java/cp-base-new/*"'
 
 # Confluent Docker Utils Version (Namely the tag or branch to grab from git to install)
-ARG PYTHON_CONFLUENT_DOCKER_UTILS_VERSION="v0.0.58"
+ARG PYTHON_CONFLUENT_DOCKER_UTILS_VERSION="v0.0.60"
 
 # This can be overriden for an offline/air-gapped builds
 ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluentinc/confluent-docker-utils@${PYTHON_CONFLUENT_DOCKER_UTILS_VERSION}"
@@ -36,7 +36,9 @@ RUN mkdir -p /opt \
   && adduser -DH -s /sbin/nologin kafka \
   && chown -R kafka: /opt/kafka \
   && echo "===> Installing python packages ..."  \
-  && pip install --no-cache-dir jinja2 requests \
+  && pip install --no-cache-dir --upgrade pip wheel setuptools \
+  && pip install jinja2 requests \
+  && pip install "Cython<3.0" "PyYAML<6" --no-build-isolation \
   && pip install --prefer-binary --prefix=/usr/local --upgrade "${PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC}" \
   && rm -rf /tmp/* \
   && apk del --purge .build-deps
