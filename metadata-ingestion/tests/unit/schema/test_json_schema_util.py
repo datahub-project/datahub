@@ -722,7 +722,7 @@ def test_non_str_enums():
     fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
     expected_field_paths: List[str] = ["[version=2.0].[type=object].[type=enum].bar"]
     assert_field_paths_match(fields, expected_field_paths)
-    assert fields[0].description == "One of: 'baz', 1, None"
+    assert fields[0].description == 'One of: "baz", 1, null'
 
 
 def test_anyof_with_properties():
