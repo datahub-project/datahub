@@ -18,7 +18,7 @@ import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,7 +80,7 @@ public class IngestDataPlatformsStep implements BootstrapStep {
                       .build(_entityService.getEntityRegistry());
             }).collect(Collectors.toList());
 
-    _entityService.ingestAspects(AspectsBatch.builder().items(dataPlatformAspects).build(),
+    _entityService.ingestAspects(AspectsBatchImpl.builder().items(dataPlatformAspects).build(),
             new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
             true,
             false);

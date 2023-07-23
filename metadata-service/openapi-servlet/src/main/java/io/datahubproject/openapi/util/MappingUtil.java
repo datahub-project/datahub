@@ -19,8 +19,10 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -270,14 +272,14 @@ public class MappingUtil {
       Stream<com.linkedin.mxe.MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(serviceProposal),
               AspectUtils.getAdditionalChanges(serviceProposal, entityService).stream());
 
-      AspectsBatch batch = AspectsBatch.builder().mcps(proposalStream.collect(Collectors.toList()),
+      AspectsBatch batch = AspectsBatchImpl.builder().mcps(proposalStream.collect(Collectors.toList()),
               entityService.getEntityRegistry()).build();
 
-      Set<EntityService.IngestResult> proposalResult =
+      Set<IngestResult> proposalResult =
               entityService.ingestProposal(batch, auditStamp, false);
 
       Urn urn = proposalResult.stream().findFirst().get().getUrn();
-      return new Pair<>(urn.toString(), proposalResult.stream().anyMatch(EntityService.IngestResult::isSqlCommitted));
+      return new Pair<>(urn.toString(), proposalResult.stream().anyMatch(IngestResult::isSqlCommitted));
     } catch (ValidationException ve) {
       exceptionally = ve;
       throw HttpClientErrorException.create(HttpStatus.UNPROCESSABLE_ENTITY, ve.getMessage(), null, null, null);

@@ -14,8 +14,11 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
@@ -51,6 +54,13 @@ public class CassandraRetentionService extends RetentionService {
   @Override
   public EntityService getEntityService() {
     return _entityService;
+  }
+
+  @Override
+  protected AspectsBatch buildAspectsBatch(List<MetadataChangeProposal> mcps) {
+    return AspectsBatchImpl.builder()
+            .mcps(mcps, _entityService.getEntityRegistry())
+            .build();
   }
 
   @Override

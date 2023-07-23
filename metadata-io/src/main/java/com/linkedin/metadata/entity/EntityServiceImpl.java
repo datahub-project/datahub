@@ -34,14 +34,15 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
-import com.linkedin.metadata.entity.ebean.transactions.AbstractBatchItem;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
 import com.linkedin.metadata.entity.ebean.transactions.PatchBatchItem;
 import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -88,8 +89,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.EntityNotFoundException;
 
-import lombok.Builder;
-import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -133,34 +132,6 @@ public class EntityServiceImpl implements EntityService {
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
 
-  @Builder(toBuilder = true)
-  @Value
-  public static class UpdateAspectResult {
-    Urn urn;
-    UpsertBatchItem request;
-    RecordTemplate oldValue;
-    RecordTemplate newValue;
-    SystemMetadata oldSystemMetadata;
-    SystemMetadata newSystemMetadata;
-    MetadataAuditOperation operation;
-    AuditStamp auditStamp;
-    long maxVersion;
-    boolean processedMCL;
-    Future<?> mclFuture;
-  }
-
-  @Builder(toBuilder = true)
-  @Value
-  public static class IngestResult {
-    Urn urn;
-    AbstractBatchItem request;
-    boolean publishedMCL;
-    boolean processedMCL;
-    boolean publishedMCP;
-    boolean sqlCommitted;
-    boolean isUpdate; // update else insert
-  }
-
   private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   protected final AspectDao _aspectDao;
@@ -199,6 +170,7 @@ public class EntityServiceImpl implements EntityService {
    * @param aspectNames aspects to fetch for each urn in urns set
    * @return a map of provided {@link Urn} to a List containing the requested aspects.
    */
+  @Override
   public Map<Urn, List<RecordTemplate>> getLatestAspects(
       @Nonnull final Set<Urn> urns,
       @Nonnull final Set<String> aspectNames) {
@@ -517,7 +489,8 @@ public class EntityServiceImpl implements EntityService {
    * @param systemMetadata system metadata
    * @return update result
    */
-  public List<UpdateAspectResult> ingestAspects(Urn entityUrn,
+  @Override
+  public List<UpdateAspectResult> ingestAspects(@Nonnull Urn entityUrn,
                                                 List<Pair<String, RecordTemplate>> pairList,
                                                 @Nonnull final AuditStamp auditStamp,
                                                 SystemMetadata systemMetadata) {
@@ -529,7 +502,7 @@ public class EntityServiceImpl implements EntityService {
                     .systemMetadata(systemMetadata)
                     .build(_entityRegistry))
             .collect(Collectors.toList());
-    return ingestAspects(AspectsBatch.builder().items(items).build(), auditStamp, true, true);
+    return ingestAspects(AspectsBatchImpl.builder().items(items).build(), auditStamp, true, true);
   }
 
   /**
@@ -541,6 +514,7 @@ public class EntityServiceImpl implements EntityService {
    *                successful update
    * @return the {@link RecordTemplate} representation of the written aspect object
    */
+  @Override
   public List<UpdateAspectResult> ingestAspects(@Nonnull final AspectsBatch aspectsBatch,
                                                 @Nonnull final AuditStamp auditStamp,
                                                 boolean emitMCL,
@@ -719,7 +693,7 @@ public class EntityServiceImpl implements EntityService {
                                                  @Nonnull SystemMetadata systemMetadata) {
     log.debug("Invoked ingestAspectIfNotPresent with urn: {}, aspectName: {}, newValue: {}", urn, aspectName, newValue);
 
-    AspectsBatch aspectsBatch = AspectsBatch.builder()
+    AspectsBatchImpl aspectsBatch = AspectsBatchImpl.builder()
             .one(UpsertBatchItem.builder()
                     .urn(urn)
                     .aspectName(aspectName)
@@ -739,9 +713,10 @@ public class EntityServiceImpl implements EntityService {
    * @param async a flag to control whether we commit to primary store or just write to proposal log before returning
    * @return an {@link IngestResult} containing the results
    */
-  public IngestResult ingestSingleProposal(MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async) {
-    return ingestProposal(AspectsBatch.builder().mcps(List.of(proposal), getEntityRegistry()).build(), auditStamp, async)
-            .stream().findFirst().get();
+  @Override
+  public IngestResult ingestProposal(MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async) {
+    return ingestProposal(AspectsBatchImpl.builder().mcps(List.of(proposal), getEntityRegistry()).build(), auditStamp,
+            async).stream().findFirst().get();
   }
 
   /**
@@ -844,7 +819,7 @@ public class EntityServiceImpl implements EntityService {
   }
 
   private Stream<IngestResult> ingestProposalSync(AspectsBatch aspectsBatch, AuditStamp auditStamp) {
-    AspectsBatch nonTimeseries = AspectsBatch.builder()
+    AspectsBatchImpl nonTimeseries = AspectsBatchImpl.builder()
             .items(aspectsBatch.getItems().stream()
                     .filter(item -> !item.getAspectSpec().isTimeseries())
                     .collect(Collectors.toList()))
@@ -1085,12 +1060,14 @@ public class EntityServiceImpl implements EntityService {
         .collect(Collectors.toMap(Map.Entry::getKey, entry -> toEntity(entry.getValue())));
   }
 
+  @Override
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(@Nonnull final Urn urn, @Nonnull final AspectSpec aspectSpec,
                                                          @Nonnull final MetadataChangeLog metadataChangeLog) {
     Future<?> future = _producer.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
     return Pair.of(future, preprocessEvent(metadataChangeLog));
   }
 
+  @Override
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
                                                          @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
                                                          @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
@@ -1276,7 +1253,7 @@ public class EntityServiceImpl implements EntityService {
     aspectRecordsToIngest.addAll(generateDefaultAspectsIfMissing(urn,
         aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet())));
 
-    AspectsBatch aspectsBatch = AspectsBatch.builder()
+    AspectsBatchImpl aspectsBatch = AspectsBatchImpl.builder()
             .items(aspectRecordsToIngest.stream().map(pair -> UpsertBatchItem.builder()
                     .urn(urn)
                     .aspectName(pair.getKey())
@@ -1594,7 +1571,7 @@ public class EntityServiceImpl implements EntityService {
             gmce.setAspect(GenericRecordUtils.serializeAspect(statusAspect));
             final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
 
-            this.ingestSingleProposal(gmce, auditStamp, false);
+            this.ingestProposal(gmce, auditStamp, false);
           }
         } else {
           // Else, only delete the specific aspect.

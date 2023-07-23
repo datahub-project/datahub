@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -179,7 +180,7 @@ public class BatchRemoveTagsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
@@ -203,7 +204,7 @@ public class BatchRemoveTagsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
@@ -212,7 +213,7 @@ public class BatchRemoveTagsResolverTest {
     EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);

@@ -92,7 +92,7 @@ public abstract class UpgradeStep implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeRequest));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestSingleProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
   }
 
   private void ingestUpgradeResultAspect() throws URISyntaxException {
@@ -107,7 +107,7 @@ public abstract class UpgradeStep implements BootstrapStep {
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestSingleProposal(upgradeProposal, auditStamp, false);
+    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
   }
 
   private void cleanUpgradeAfterError(Exception e, String errorMessage) {

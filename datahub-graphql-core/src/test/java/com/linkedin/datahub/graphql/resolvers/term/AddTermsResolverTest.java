@@ -13,7 +13,7 @@ import com.linkedin.datahub.graphql.generated.AddTermsInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddTermsResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -58,7 +58,7 @@ public class AddTermsResolverTest {
 
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.eq(false)
     );
 
@@ -104,7 +104,7 @@ public class AddTermsResolverTest {
 
     // Unable to easily validate exact payload due to the injected timestamp
     Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.eq(false)
     );
 
@@ -143,7 +143,7 @@ public class AddTermsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
@@ -173,7 +173,7 @@ public class AddTermsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
@@ -194,7 +194,7 @@ public class AddTermsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
@@ -203,7 +203,7 @@ public class AddTermsResolverTest {
     EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     AddTermsResolver resolver = new AddTermsResolver(Mockito.mock(EntityService.class));

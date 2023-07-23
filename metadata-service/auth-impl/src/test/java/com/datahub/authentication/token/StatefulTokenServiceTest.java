@@ -14,7 +14,6 @@ import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.Date;
 import java.util.Map;
 
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 

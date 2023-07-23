@@ -14,6 +14,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -277,7 +278,7 @@ public class BatchSetDomainResolverTest {
     EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchSetDomainResolver resolver = new BatchSetDomainResolver(mockService);

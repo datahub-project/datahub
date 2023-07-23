@@ -8,7 +8,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
@@ -81,7 +81,7 @@ public class IngestDataPlatformInstancesStep implements BootstrapStep {
 
       final AuditStamp aspectAuditStamp =
               new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-      _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), aspectAuditStamp, true, true);
+      _entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), aspectAuditStamp, true, true);
 
       log.info("Finished ingesting DataPlatformInstance for urn {} to {}", start, start + BATCH_SIZE);
       start += BATCH_SIZE;

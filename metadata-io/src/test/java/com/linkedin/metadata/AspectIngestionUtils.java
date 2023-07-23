@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.key.CorpUserKey;
 import java.util.HashMap;
@@ -41,7 +41,7 @@ public class AspectIngestionUtils {
                       .systemMetadata(AspectGenerationUtils.createSystemMetadata())
               .build(entityService.getEntityRegistry()));
     }
-    entityService.ingestAspects(AspectsBatch.builder().items(items).build(), AspectGenerationUtils.createAuditStamp(), true, true);
+    entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), AspectGenerationUtils.createAuditStamp(), true, true);
     return aspects;
   }
 
@@ -67,7 +67,7 @@ public class AspectIngestionUtils {
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
               .build(entityService.getEntityRegistry()));
     }
-    entityService.ingestAspects(AspectsBatch.builder().items(items).build(), AspectGenerationUtils.createAuditStamp(), true, true);
+    entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), AspectGenerationUtils.createAuditStamp(), true, true);
     return aspects;
   }
 
@@ -94,7 +94,7 @@ public class AspectIngestionUtils {
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
               .build(entityService.getEntityRegistry()));
     }
-    entityService.ingestAspects(AspectsBatch.builder().items(items).build(), AspectGenerationUtils.createAuditStamp(), true, true);
+    entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), AspectGenerationUtils.createAuditStamp(), true, true);
     return aspects;
   }
 }

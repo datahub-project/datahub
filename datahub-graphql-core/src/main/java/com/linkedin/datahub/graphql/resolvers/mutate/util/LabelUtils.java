@@ -20,7 +20,7 @@ import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
@@ -559,7 +559,7 @@ public class LabelUtils {
   }
 
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    entityService.ingestProposal(AspectsBatch.builder()
+    entityService.ingestProposal(AspectsBatchImpl.builder()
                     .mcps(changes, entityService.getEntityRegistry()).build(), getAuditStamp(actor), false);
   }
 }

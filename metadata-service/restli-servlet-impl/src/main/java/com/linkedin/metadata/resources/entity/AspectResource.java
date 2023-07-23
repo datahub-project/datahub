@@ -8,7 +8,9 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -207,22 +209,22 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         final AspectsBatch batch;
         if (asyncBool) {
           // if async we'll expand the additional changes later, no need to do this early
-          batch = AspectsBatch.builder()
+          batch = AspectsBatchImpl.builder()
                   .mcps(List.of(metadataChangeProposal), _entityService.getEntityRegistry())
                   .build();
         } else {
           Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
                   AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
 
-          batch = AspectsBatch.builder()
+          batch = AspectsBatchImpl.builder()
                   .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
                   .build();
         }
 
-        Set<EntityService.IngestResult> results =
+        Set<IngestResult> results =
                 _entityService.ingestProposal(batch, auditStamp, asyncBool);
 
-        EntityService.IngestResult one = results.stream()
+        IngestResult one = results.stream()
                 .findFirst()
                 .get();
 

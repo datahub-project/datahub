@@ -4,17 +4,11 @@ import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.schema.validation.ValidationResult;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
-import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -25,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -137,35 +130,5 @@ public class AspectUtils {
     auditStamp.setTime(DateTimeUtils.currentTimeMillis());
     auditStamp.setActor(actor);
     return auditStamp;
-  }
-
-  public static AspectSpec validate(EntitySpec entitySpec, String aspectName) {
-    if (aspectName == null || aspectName.isEmpty()) {
-      throw new UnsupportedOperationException("Aspect name is required for create and update operations");
-    }
-
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
-
-    if (aspectSpec == null) {
-      throw new RuntimeException(
-              String.format("Unknown aspect %s for entity %s", aspectName, entitySpec.getName()));
-    }
-
-    return aspectSpec;
-  }
-
-  public static void validateRecordTemplate(EntityRegistry entityRegistry, EntitySpec entitySpec, Urn urn, RecordTemplate aspect) {
-    EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
-    validator.setCurrentEntitySpec(entitySpec);
-    Consumer<ValidationResult> resultFunction = validationResult -> {
-      throw new IllegalArgumentException("Invalid format for aspect: " + entitySpec.getName() + "\n Cause: "
-              + validationResult.getMessages()); };
-    RecordTemplateValidator.validate(EntityUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
-    RecordTemplateValidator.validate(aspect, resultFunction, validator);
-  }
-
-  public static void validateRecordTemplate(EntityRegistry entityRegistry, Urn urn, RecordTemplate aspect) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(urn.getEntityType());
-    validateRecordTemplate(entityRegistry, entitySpec, urn, aspect);
   }
 }

@@ -116,7 +116,7 @@ public class IngestDefaultGlobalSettingsStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(newSettings));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestSingleProposal(
+    _entityService.ingestProposal(
         proposal,
         new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
         false);

@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateDeprecationResol
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 
@@ -183,7 +184,7 @@ public class BatchUpdateDeprecationResolverTest {
     EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchUpdateDeprecationResolver resolver = new BatchUpdateDeprecationResolver(mockService);

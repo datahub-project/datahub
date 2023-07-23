@@ -10,7 +10,7 @@ import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -117,7 +117,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry)
     );
-    _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
     // List aspects
     ListResult<RecordTemplate> batch1 = _entityServiceImpl.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
@@ -181,7 +181,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
                     .systemMetadata(metadata1)
                     .build(_testEntityRegistry)
     );
-    _entityService.ingestAspects(AspectsBatch.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
+    _entityServiceImpl.ingestAspects(AspectsBatchImpl.builder().items(items).build(), TEST_AUDIT_STAMP, true, true);
 
     // List aspects urns
     ListUrnsResult batch1 = _entityServiceImpl.listUrns(entityUrn1.getEntityType(), 0, 2);

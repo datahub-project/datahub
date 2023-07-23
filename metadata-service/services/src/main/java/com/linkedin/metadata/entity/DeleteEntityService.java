@@ -270,7 +270,7 @@ public class DeleteEntityService {
         proposal.setAspect(GenericRecordUtils.serializeAspect(newAspect));
 
         final AuditStamp auditStamp = new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-        final EntityService.IngestResult ingestProposalResult = _entityService.ingestSingleProposal(proposal, auditStamp, false);
+        final IngestResult ingestProposalResult = _entityService.ingestProposal(proposal, auditStamp, false);
 
         if (!ingestProposalResult.isSqlCommitted()) {
             log.error("Failed to ingest aspect with references removed. Before {}, after: {}, please check MCP processor"

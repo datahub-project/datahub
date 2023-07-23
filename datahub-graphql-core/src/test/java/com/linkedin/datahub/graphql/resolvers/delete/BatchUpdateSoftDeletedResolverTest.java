@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResol
 import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 
@@ -165,7 +166,7 @@ public class BatchUpdateSoftDeletedResolverTest {
     EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);

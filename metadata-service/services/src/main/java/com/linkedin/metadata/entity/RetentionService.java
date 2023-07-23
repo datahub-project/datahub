@@ -7,9 +7,9 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.key.DataHubRetentionKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -111,13 +111,13 @@ public abstract class RetentionService {
 
     AuditStamp auditStamp =
             new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    AspectsBatch batch = AspectsBatch.builder()
-            .mcps(List.of(keyProposal, aspectProposal), getEntityService().getEntityRegistry())
-            .build();
+    AspectsBatch batch = buildAspectsBatch(List.of(keyProposal, aspectProposal));
 
     return getEntityService().ingestProposal(batch, auditStamp, false).stream()
-            .anyMatch(EntityService.IngestResult::isSqlCommitted);
+            .anyMatch(IngestResult::isSqlCommitted);
   }
+
+  protected abstract AspectsBatch buildAspectsBatch(List<MetadataChangeProposal> mcps);
 
   /**
    * Delete the retention policy set for given entity and aspect.

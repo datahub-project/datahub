@@ -5,9 +5,9 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
 import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -50,6 +50,11 @@ public class UpsertBatchItem extends AbstractBatchItem {
         return ChangeType.UPSERT;
     }
 
+    @Override
+    public void validateUrn(EntityRegistry entityRegistry, Urn urn) {
+        EntityUtils.validateUrn(entityRegistry, urn);
+    }
+
     public EntityAspect toLatestEntityAspect(AuditStamp auditStamp) {
         EntityAspect latest = new EntityAspect();
         latest.setAspect(getAspectName());
@@ -70,10 +75,10 @@ public class UpsertBatchItem extends AbstractBatchItem {
             entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
             log.debug("entity spec = {}", this.entitySpec);
 
-            aspectSpec(AspectUtils.validate(this.entitySpec, this.aspectName));
+            aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
             log.debug("aspect spec = {}", this.aspectSpec);
 
-            AspectUtils.validateRecordTemplate(entityRegistry, this.entitySpec, this.urn, this.aspect);
+            ValidationUtils.validateRecordTemplate(entityRegistry, this.entitySpec, this.urn, this.aspect);
 
             return new UpsertBatchItem(this.urn, this.aspectName, AbstractBatchItem.generateSystemMetadataIfEmpty(this.systemMetadata),
                     this.aspect, this.metadataChangeProposal, this.entitySpec, this.aspectSpec);

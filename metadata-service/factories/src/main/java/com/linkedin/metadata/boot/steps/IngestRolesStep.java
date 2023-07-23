@@ -10,7 +10,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -108,7 +108,7 @@ public class IngestRolesStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dataHubRoleInfo));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(AspectsBatch.builder()
+    _entityService.ingestProposal(AspectsBatchImpl.builder()
             .mcps(List.of(keyAspectProposal, proposal), _entityRegistry).build(),
             new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
             false);

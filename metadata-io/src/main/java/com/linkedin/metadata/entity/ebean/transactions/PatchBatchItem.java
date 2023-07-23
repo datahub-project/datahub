@@ -10,8 +10,9 @@ import com.github.fge.jsonpatch.Patch;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.entity.transactions.AbstractBatchItem;
+import com.linkedin.metadata.entity.validation.ValidationUtils;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -58,6 +59,11 @@ public class PatchBatchItem extends AbstractBatchItem {
         return ChangeType.PATCH;
     }
 
+    @Override
+    public void validateUrn(EntityRegistry entityRegistry, Urn urn) {
+        EntityUtils.validateUrn(entityRegistry, urn);
+    }
+
     public UpsertBatchItem applyPatch(EntityRegistry entityRegistry, RecordTemplate recordTemplate) {
         UpsertBatchItem.UpsertBatchItemBuilder builder = UpsertBatchItem.builder()
                 .urn(getUrn())
@@ -94,7 +100,7 @@ public class PatchBatchItem extends AbstractBatchItem {
             entitySpec(entityRegistry.getEntitySpec(this.urn.getEntityType()));
             log.debug("entity spec = {}", this.entitySpec);
 
-            aspectSpec(AspectUtils.validate(this.entitySpec, this.aspectName));
+            aspectSpec(ValidationUtils.validate(this.entitySpec, this.aspectName));
             log.debug("aspect spec = {}", this.aspectSpec);
 
             if (this.patch == null) {

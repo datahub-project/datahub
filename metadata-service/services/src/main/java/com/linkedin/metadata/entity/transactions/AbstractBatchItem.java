@@ -1,17 +1,19 @@
-package com.linkedin.metadata.entity.ebean.transactions;
-
+package com.linkedin.metadata.entity.transactions;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.template.AspectTemplateEngine;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import static com.linkedin.metadata.Constants.*;
+
 
 public abstract class AbstractBatchItem {
     // urn an urn associated with the new aspect
@@ -30,11 +32,13 @@ public abstract class AbstractBatchItem {
 
     public abstract MetadataChangeProposal getMetadataChangeProposal();
 
+    public abstract void validateUrn(EntityRegistry entityRegistry, Urn urn);
+
     @Nonnull
     protected static SystemMetadata generateSystemMetadataIfEmpty(@Nullable SystemMetadata systemMetadata) {
         if (systemMetadata == null) {
             systemMetadata = new SystemMetadata();
-            systemMetadata.setRunId(EntityService.DEFAULT_RUN_ID);
+            systemMetadata.setRunId(DEFAULT_RUN_ID);
             systemMetadata.setLastObserved(System.currentTimeMillis());
         }
         return systemMetadata;

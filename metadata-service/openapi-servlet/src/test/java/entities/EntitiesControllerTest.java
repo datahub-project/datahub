@@ -9,7 +9,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -66,8 +66,8 @@ public class EntitiesControllerTest {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
     Mockito.when(aspectDao.runInTransactionWithRetry(
-            ArgumentMatchers.<Function<Transaction, EntityService.UpdateAspectResult>>any(), anyInt())).thenAnswer(i ->
-            ((Function<Transaction, EntityService.UpdateAspectResult>) i.getArgument(0)).apply(Mockito.mock(Transaction.class))
+            ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), anyInt())).thenAnswer(i ->
+            ((Function<Transaction, UpdateAspectResult>) i.getArgument(0)).apply(Mockito.mock(Transaction.class))
     );
 
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);

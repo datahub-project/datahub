@@ -97,7 +97,7 @@ public class BackfillBrowsePathsV2StepTest {
         Mockito.eq(null)
     );
     // Verify that 11 aspects are ingested, 2 for the upgrade request / result, 9 for ingesting 1 of each entity type
-    Mockito.verify(mockService, Mockito.times(11)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(11)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(),
         Mockito.eq(false)
@@ -124,7 +124,7 @@ public class BackfillBrowsePathsV2StepTest {
     BackfillBrowsePathsV2Step backfillBrowsePathsV2Step = new BackfillBrowsePathsV2Step(mockService, mockSearchService);
     backfillBrowsePathsV2Step.execute();
 
-    Mockito.verify(mockService, Mockito.times(0)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(AuditStamp.class),
         Mockito.anyBoolean()

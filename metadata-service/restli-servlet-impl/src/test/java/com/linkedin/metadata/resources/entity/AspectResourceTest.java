@@ -15,9 +15,9 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.entity.EntityServiceImpl;
-import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -90,23 +90,23 @@ public class AspectResourceTest {
             .build(_entityRegistry);
     when(_aspectDao.runInTransactionWithRetry(any(), anyInt()))
         .thenReturn(List.of(
-                EntityService.UpdateAspectResult.builder().urn(urn)
+                UpdateAspectResult.builder().urn(urn)
                         .newValue(new DatasetProperties().setName("name1"))
                         .auditStamp(new AuditStamp())
                         .request(req).build(),
-                EntityService.UpdateAspectResult.builder().urn(urn)
+                UpdateAspectResult.builder().urn(urn)
                         .newValue(new DatasetProperties().setName("name2"))
                         .auditStamp(new AuditStamp())
                         .request(req).build(),
-                EntityService.UpdateAspectResult.builder().urn(urn)
+                UpdateAspectResult.builder().urn(urn)
                         .newValue(new DatasetProperties().setName("name3"))
                         .auditStamp(new AuditStamp())
                         .request(req).build(),
-                EntityService.UpdateAspectResult.builder().urn(urn)
+                UpdateAspectResult.builder().urn(urn)
                         .newValue(new DatasetProperties().setName("name4"))
                         .auditStamp(new AuditStamp())
                         .request(req).build(),
-                EntityService.UpdateAspectResult.builder().urn(urn)
+                UpdateAspectResult.builder().urn(urn)
                         .newValue(new DatasetProperties().setName("name5"))
                         .auditStamp(new AuditStamp())
                         .request(req).build()));

@@ -12,7 +12,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -129,7 +129,7 @@ public class StatefulTokenService extends StatelessTokenService {
     Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(proposal),
             AspectUtils.getAdditionalChanges(proposal, _entityService).stream());
 
-    _entityService.ingestProposal(AspectsBatch.builder()
+    _entityService.ingestProposal(AspectsBatchImpl.builder()
             .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
             .build(), auditStamp, false);
 

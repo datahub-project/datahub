@@ -138,7 +138,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     proposal.setChangeType(ChangeType.UPSERT);
     proposal.setSystemMetadata(new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
-    _entityService.ingestSingleProposal(
+    _entityService.ingestProposal(
         proposal,
         auditStamp,
         false

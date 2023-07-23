@@ -294,7 +294,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
         proposal.setAspect(GenericRecordUtils.serializeAspect(requestResult));
         proposal.setChangeType(ChangeType.UPSERT);
 
-        _entityService.ingestSingleProposal(proposal,
+        _entityService.ingestProposal(proposal,
             new AuditStamp().setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
       }
     } catch (Exception e) {

@@ -59,7 +59,7 @@ public class RestoreColumnLineageIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.CHART_ENTITY_NAME);
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.DASHBOARD_ENTITY_NAME);
     // creates upgradeRequest and upgradeResult aspects
-    Mockito.verify(mockService, Mockito.times(2)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
@@ -121,7 +121,7 @@ public class RestoreColumnLineageIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.CHART_ENTITY_NAME);
     Mockito.verify(mockRegistry, Mockito.times(1)).getEntitySpec(Constants.DASHBOARD_ENTITY_NAME);
     // creates upgradeRequest and upgradeResult aspects
-    Mockito.verify(mockService, Mockito.times(2)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(2)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
@@ -183,7 +183,7 @@ public class RestoreColumnLineageIndicesTest {
     Mockito.verify(mockRegistry, Mockito.times(0)).getEntitySpec(Constants.CHART_ENTITY_NAME);
     Mockito.verify(mockRegistry, Mockito.times(0)).getEntitySpec(Constants.DASHBOARD_ENTITY_NAME);
     // creates upgradeRequest and upgradeResult aspects
-    Mockito.verify(mockService, Mockito.times(0)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)

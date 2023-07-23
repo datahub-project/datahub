@@ -9,7 +9,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.ebean.transactions.AspectsBatch;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -104,7 +104,7 @@ public class TestUtils {
   }
 
   public static void verifyIngestProposal(EntityService mockService, int numberOfInvocations, List<MetadataChangeProposal> proposals) {
-      AspectsBatch batch = AspectsBatch.builder()
+    AspectsBatchImpl batch = AspectsBatchImpl.builder()
               .mcps(proposals, mockService.getEntityRegistry())
               .build();
       Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
@@ -115,7 +115,7 @@ public class TestUtils {
   }
 
   public static void verifySingleIngestProposal(EntityService mockService, int numberOfInvocations, MetadataChangeProposal proposal) {
-    Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
             Mockito.eq(proposal),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false)
@@ -124,14 +124,14 @@ public class TestUtils {
 
   public static void verifyIngestProposal(EntityService mockService, int numberOfInvocations) {
     Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
-        Mockito.any(AspectsBatch.class),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
   }
 
   public static void verifySingleIngestProposal(EntityService mockService, int numberOfInvocations) {
-    Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestSingleProposal(
+    Mockito.verify(mockService, Mockito.times(numberOfInvocations)).ingestProposal(
             Mockito.any(MetadataChangeProposal.class),
             Mockito.any(AuditStamp.class),
             Mockito.eq(false)
@@ -140,8 +140,7 @@ public class TestUtils {
 
   public static void verifyNoIngestProposal(EntityService mockService) {
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
-        Mockito.any(AuditStamp.class), Mockito.anyBoolean());
+        Mockito.any(AspectsBatchImpl.class), Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   private TestUtils() { }
