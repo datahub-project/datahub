@@ -9,7 +9,6 @@ import clickhouse_driver  # noqa: F401
 import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 
-# Check the version of SQLAlchemy
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.class_validators import root_validator
@@ -63,7 +62,7 @@ from datahub.metadata.schema_classes import (
 
 if sqlalchemy_version < "1.4.0":
     # Try to import `make_url` from `sqlalchemy.engine` for version 1.4.0 and above
-    from sqlalchemy.engine import make_url
+    from sqlalchemy.engine.url import make_url
 else:
     # If version is less than 1.4, import `make_url` from `sqlalchemy.engine.url`
     from sqlalchemy.engine.url import make_url
