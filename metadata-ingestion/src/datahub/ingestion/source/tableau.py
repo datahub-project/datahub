@@ -83,7 +83,9 @@ from datahub.ingestion.source.tableau_common import (
     embedded_datasource_graphql_query,
     get_overridden_info,
     get_unique_custom_sql,
+    make_fine_grained_lineage_class,
     make_table_urn,
+    make_upstream_class,
     published_datasource_graphql_query,
     query_metadata,
     sheet_graphql_query,
@@ -131,11 +133,15 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
     SubTypesClass,
-    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SchemaResolver,
+    SqlParsingResult,
+    sqlglot_lineage,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -890,8 +896,8 @@ class TableauSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-        if self.config.extract_column_level_lineage:
-            if datasource.get(tableau_constant.FIELDS):
+        if datasource.get(tableau_constant.FIELDS):
+            if self.config.extract_column_level_lineage:
                 # Find fine grained lineage for datasource column to datasource column edge,
                 # upstream columns may be from same datasource
                 upstream_fields = self.get_upstream_fields_of_field_in_datasource(
@@ -910,12 +916,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 logger.debug(
                     f"A total of {len(fine_grained_lineages)} upstream column edges found for datasource {datasource[tableau_constant.ID]}"
                 )
-            elif datasource.get(tableau_constant.IS_UNSUPPORTED_CUSTOM_SQL):
-                # Find upstream lineage from custom sql
-                upstream_fields = self.get_upstream_fields_from_custom_sql(
-                    datasource, datasource_urn
-                )
-                fine_grained_lineages.extend(upstream_fields)
 
         return upstream_tables, fine_grained_lineages
 
@@ -1245,6 +1245,9 @@ class TableauSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
+            import pdb
+
+            pdb.set_trace()
             dataset_snapshot = DatasetSnapshot(
                 urn=csql_urn,
                 aspects=[self.get_data_platform_instance()],
@@ -1292,14 +1295,20 @@ class TableauSource(StatefulIngestionSourceBase):
                         csql_urn, tables, datasource
                     )
                 elif self.config.extract_lineage_from_unsupported_custom_sql_queries:
+                    logger.debug("Extracting TLL & CLL from custom sql")
                     # custom sql tables may contain unsupported sql, causing incomplete lineage
                     # we extract the lineage from the raw queries
                     yield from self._create_lineage_from_unsupported_csql(
                         csql_urn, csql
                     )
-
             #  Schema Metadata
-            columns = csql.get(tableau_constant.COLUMNS, [])
+            # if condition is needed as graphQL return "cloumns": None
+            columns: List[Dict[Any, Any]] = (
+                cast(List[Dict[Any, Any]], csql.get(tableau_constant.COLUMNS))
+                if tableau_constant.COLUMNS in csql
+                and csql.get(tableau_constant.COLUMNS) is not None
+                else []
+            )
             schema_metadata = self.get_schema_metadata_for_custom_sql(columns)
             if schema_metadata is not None:
                 dataset_snapshot.aspects.append(schema_metadata)
@@ -1573,14 +1582,31 @@ class TableauSource(StatefulIngestionSourceBase):
 
         parsed_result: Optional["SqlParsingResult"] = None
         try:
-            if self.ctx.graph is not None:
-                parsed_result = self.ctx.graph.parse_sql_lineage(
-                    query,
-                    default_db=upstream_db,
+            schema_resolver = (
+                self.ctx.graph._make_schema_resolver(
                     platform=platform,
                     platform_instance=platform_instance,
-                    env=self.config.env,
+                    env=env,
                 )
+                if self.ctx.graph is not None
+                else SchemaResolver(
+                    platform=platform,
+                    platform_instance=platform_instance,
+                    env=env,
+                    graph=None,
+                )
+            )
+
+            if schema_resolver.graph is None:
+                logger.warning(
+                    "Column Level Lineage extraction would not work as DataHub graph client is None."
+                )
+
+            parsed_result = sqlglot_lineage(
+                query,
+                schema_resolver=schema_resolver,
+                default_db=upstream_db,
+            )
         except Exception as e:
             self.report.report_warning(
                 key="csql-lineage",
@@ -1610,16 +1636,21 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             return
 
-        upstream_tables = []
-
-        for dataset_urn in parsed_result.in_tables:
-            upstream_tables.append(
-                UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn)
-            )
+        upstream_tables = make_upstream_class(parsed_result)
 
         logger.debug(f"Upstream tables = {upstream_tables}")
 
-        upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+        fine_grained_lineages: List[FineGrainedLineage] = []
+        if self.config.extract_column_level_lineage:
+            logger.info("Extracting CLL from custom sql")
+            fine_grained_lineages = make_fine_grained_lineage_class(
+                parsed_result, csql_urn
+            )
+
+        upstream_lineage = UpstreamLineage(
+            upstreams=upstream_tables,
+            fineGrainedLineages=fine_grained_lineages,
+        )
 
         yield self.get_metadata_change_proposal(
             csql_urn,

@@ -6,6 +6,12 @@ from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -21,7 +27,9 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
+    UpstreamClass,
 )
+from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 
 class TableauLineageOverrides(ConfigModel):
@@ -644,6 +652,57 @@ def make_description_from_params(description, formula):
     if formula:
         final_description += f"formula: {formula}"
     return final_description
+
+
+def make_upstream_class(
+    parsed_result: Optional[SqlParsingResult],
+) -> List[UpstreamClass]:
+    upstream_tables: List[UpstreamClass] = []
+
+    if parsed_result is None:
+        return upstream_tables
+
+    for dataset_urn in parsed_result.in_tables:
+        upstream_tables.append(
+            UpstreamClass(type=DatasetLineageType.TRANSFORMED, dataset=dataset_urn)
+        )
+    return upstream_tables
+
+
+def make_fine_grained_lineage_class(
+    parsed_result: Optional[SqlParsingResult], dataset_urn: str
+) -> List[FineGrainedLineage]:
+    fine_grained_lineages: List[FineGrainedLineage] = []
+
+    if parsed_result is None:
+        return fine_grained_lineages
+
+    cll: List[ColumnLineageInfo] = (
+        parsed_result.column_lineage if parsed_result.column_lineage is not None else []
+    )
+
+    for cll_info in cll:
+        downstream = (
+            [builder.make_schema_field_urn(dataset_urn, cll_info.downstream.column)]
+            if cll_info.downstream is not None
+            and cll_info.downstream.column is not None
+            else []
+        )
+        upstreams = [
+            builder.make_schema_field_urn(column_ref.table, column_ref.column)
+            for column_ref in cll_info.upstreams
+        ]
+
+        fine_grained_lineages.append(
+            FineGrainedLineage(
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=downstream,
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=upstreams,
+            )
+        )
+
+    return fine_grained_lineages
 
 
 def get_unique_custom_sql(custom_sql_list: List[dict]) -> List[dict]:

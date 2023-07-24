@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import sys
-from typing import cast
+from typing import Any, Dict, cast
 from unittest import mock
 
 import pytest
@@ -287,6 +287,39 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         output_file_name,
         mock_datahub_graph,
         pipeline_name="test_tableau_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_mces_cll.json"
+    golden_file_name: str = "tableau_cll_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "extract_lineage_from_unsupported_custom_sql_queries": True,
+        "extract_column_level_lineage": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_cll_ingest",
+        pipeline_config=new_pipeline_config,
     )
 
 
@@ -757,36 +790,45 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
         database_override_map={"production database": "prod"}
     )
 
-    context.graph.parse_sql_lineage.return_value = SqlParsingResult(  # type:ignore
-        in_tables=[
-            "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)"
-        ]
-    )
-    source = TableauSource(config=config, ctx=context)
+    with mock.patch(
+        "datahub.ingestion.source.tableau.sqlglot_lineage"
+    ) as sqlglot_lineage:
 
-    lineage = source._create_lineage_from_unsupported_csql(
-        csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
-        csql={
-            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-            "isUnsupportedCustomSql": "true",
-            "database": {"name": "production database", "connectionType": "bigquery"},
-        },
-    )
+        sqlglot_lineage.return_value = SqlParsingResult(  # type:ignore
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)"
+            ],
+            out_tables=[],
+            column_lineage=None,
+        )
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+        source = TableauSource(config=config, ctx=context)
 
-    assert mcp.aspect == UpstreamLineage(
-        upstreams=[
-            UpstreamClass(
-                dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,prod.invent_dw.userdetail,PROD)",
-                type=DatasetLineageType.TRANSFORMED,
-            )
-        ]
-    )
-    assert (
-        mcp.entityUrn
-        == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
-    )
+        lineage = source._create_lineage_from_unsupported_csql(
+            csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
+            csql={
+                "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+                "isUnsupportedCustomSql": "true",
+                "database": {
+                    "name": "production database",
+                    "connectionType": "bigquery",
+                },
+            },
+        )
+        mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+
+        assert mcp.aspect == UpstreamLineage(
+            upstreams=[
+                UpstreamClass(
+                    dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)",
+                    type=DatasetLineageType.TRANSFORMED,
+                )
+            ]
+        )
+        assert (
+            mcp.entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
+        )
 
 
 @freeze_time(FROZEN_TIME)
