@@ -322,7 +322,7 @@ and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/facto
 .
 
 A mapping between the property name used in the above two files and the name used in docker/env file can be
-found [here](../../metadata-service/factories/src/main/resources/application.yml).
+found [here](../../metadata-service/configuration/src/main/resources/application.yml).
 
 ### Managed Streaming for Apache Kafka (MSK)
 

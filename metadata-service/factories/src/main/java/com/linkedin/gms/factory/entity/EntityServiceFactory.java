@@ -7,6 +7,7 @@ import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.TopicConvention;
@@ -38,7 +39,7 @@ public class EntityServiceFactory {
 
     final KafkaEventProducer eventProducer = new KafkaEventProducer(producer, convention, kafkaHealthChecker);
     FeatureFlags featureFlags = configurationProvider.getFeatureFlags();
-    return new EntityService(aspectDao, eventProducer, entityRegistry,
+    return new EntityServiceImpl(aspectDao, eventProducer, entityRegistry,
         featureFlags.isAlwaysEmitChangeLog(), updateIndicesService, featureFlags.getPreProcessHooks());
   }
 }

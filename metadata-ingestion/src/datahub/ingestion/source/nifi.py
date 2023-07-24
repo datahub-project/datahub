@@ -16,6 +16,7 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests import Response
 from requests.adapters import HTTPAdapter
+from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
@@ -66,6 +67,7 @@ class NifiAuthType(Enum):
     SINGLE_USER = "SINGLE_USER"
     CLIENT_CERT = "CLIENT_CERT"
     KERBEROS = "KERBEROS"
+    BASIC_AUTH = "BASIC_AUTH"
 
 
 class NifiSourceConfig(EnvConfigMixin):
@@ -132,17 +134,17 @@ class NifiSourceConfig(EnvConfigMixin):
             raise ValueError(
                 "Config `client_cert_file` is required for CLIENT_CERT auth"
             )
-        elif values.get("auth") is NifiAuthType.SINGLE_USER and (
-            not values.get("username") or not values.get("password")
-        ):
+        elif values.get("auth") in (
+            NifiAuthType.SINGLE_USER,
+            NifiAuthType.BASIC_AUTH,
+        ) and (not values.get("username") or not values.get("password")):
             raise ValueError(
-                "Config `username` and `password` is required for SINGLE_USER auth"
+                f"Config `username` and `password` is required for {values.get('auth').value} auth"
             )
         return values
 
     @root_validator(pre=False)
     def validator_site_url_to_site_name(cls, values):
-
         site_url_to_site_name = values.get("site_url_to_site_name")
         site_url = values.get("site_url")
         site_name = values.get("site_name")
@@ -667,41 +669,8 @@ class NifiSource(Source):
             of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
         )
 
-        older_version: bool = self.nifi_flow.version is not None and version.parse(
-            self.nifi_flow.version
-        ) < version.parse("1.13.0")
-
-        if older_version:
-            searchTerms = {
-                "ProcessorID": processor.id,
-                "EventType": eventType,
-            }
-        else:
-            searchTerms = {
-                "ProcessorID": {"value": processor.id},  # type: ignore
-                "EventType": {"value": eventType},  # type: ignore
-            }
-
-        payload = json.dumps(
-            {
-                "provenance": {
-                    "request": {
-                        "maxResults": 1000,
-                        "summarize": False,
-                        "searchTerms": searchTerms,
-                        "startDate": startDate.strftime("%m/%d/%Y %H:%M:%S %Z"),
-                        "endDate": (
-                            endDate.strftime("%m/%d/%Y %H:%M:%S %Z")
-                            if endDate
-                            else None
-                        ),
-                    }
-                }
-            }
-        )
-        logger.debug(payload)
-        provenance_response = self.session.post(
-            url=urljoin(self.rest_api_base_url, PROVENANCE_ENDPOINT), data=payload
+        provenance_response = self.submit_provenance_query(
+            processor, eventType, startDate, endDate
         )
 
         if provenance_response.ok:
@@ -758,6 +727,58 @@ class NifiSource(Source):
             )
             logger.warning(provenance_response.text)
         return
+
+    def submit_provenance_query(self, processor, eventType, startDate, endDate):
+        older_version: bool = self.nifi_flow.version is not None and version.parse(
+            self.nifi_flow.version
+        ) < version.parse("1.13.0")
+
+        if older_version:
+            searchTerms = {
+                "ProcessorID": processor.id,
+                "EventType": eventType,
+            }
+        else:
+            searchTerms = {
+                "ProcessorID": {"value": processor.id},  # type: ignore
+                "EventType": {"value": eventType},  # type: ignore
+            }
+
+        payload = json.dumps(
+            {
+                "provenance": {
+                    "request": {
+                        "maxResults": 1000,
+                        "summarize": False,
+                        "searchTerms": searchTerms,
+                        "startDate": startDate.strftime("%m/%d/%Y %H:%M:%S %Z"),
+                        "endDate": (
+                            endDate.strftime("%m/%d/%Y %H:%M:%S %Z")
+                            if endDate
+                            else None
+                        ),
+                    }
+                }
+            }
+        )
+        logger.debug(payload)
+        self.session.headers.update({})
+
+        self.session.headers.update({"Content-Type": "application/json"})
+        provenance_response = self.session.post(
+            url=urljoin(self.rest_api_base_url, PROVENANCE_ENDPOINT),
+            data=payload,
+        )
+
+        # Revert to default content-type if basic-auth
+        if self.config.auth is NifiAuthType.BASIC_AUTH:
+            self.session.headers.update(
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            )
+
+        return provenance_response
 
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
@@ -958,6 +979,19 @@ class NifiSource(Source):
             # Token not required
             return
 
+        if self.config.auth is NifiAuthType.BASIC_AUTH:
+            assert self.config.username is not None
+            assert self.config.password is not None
+            self.session.auth = HTTPBasicAuth(
+                self.config.username, self.config.password
+            )
+            self.session.headers.update(
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            )
+            return
+
         if self.config.auth is NifiAuthType.CLIENT_CERT:
             self.session.mount(
                 self.rest_api_base_url,
@@ -1000,8 +1034,6 @@ class NifiSource(Source):
             logger.error("Failed to authenticate", exc_info=e)
             self.report.report_failure(self.config.site_url, "Failed to authenticate")
             return
-
-        self.session.headers.update({"Content-Type": "application/json"})
 
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         try:
