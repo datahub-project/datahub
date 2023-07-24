@@ -1,8 +1,16 @@
 package com.linkedin.metadata.service;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.CronSchedule;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.key.MonitorKey;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
@@ -11,14 +19,6 @@ import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.key.MonitorKey;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,7 +46,7 @@ public class MonitorService extends BaseService {
    *
    * @param monitorUrn the urn of the Monitor
    *
-   * @return an instance of {@link com.linkedin.monitor.MonitorInfo} for the Monitor, null if it does not exist.
+   * @return an instance of {@link MonitorInfo} for the Monitor, null if it does not exist.
    */
   @Nullable
   public MonitorInfo getMonitorInfo(@Nonnull final Urn monitorUrn) {

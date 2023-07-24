@@ -1,6 +1,5 @@
 package com.linkedin.metadata.config.events;
 
-import com.linkedin.metadata.event.change.EntityChangeEventSink;
 import java.util.Map;
 import lombok.Data;
 
@@ -8,7 +7,7 @@ import lombok.Data;
 @Data
 public class EntityChangeEventSinkConfiguration {
   /**
-   * A fully-qualified class name for the {@link EntityChangeEventSink} implementation to be registered.
+   * A fully-qualified class name for the EntityChangeEventSink implementation to be registered.
    */
   private String type;
 

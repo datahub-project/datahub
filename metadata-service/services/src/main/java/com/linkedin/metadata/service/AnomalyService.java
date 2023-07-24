@@ -1,19 +1,19 @@
 package com.linkedin.metadata.service;
 
-import com.google.common.collect.ImmutableSet;
-import com.linkedin.anomaly.AnomalyStatusProperties;
-import com.linkedin.common.AuditStamp;
-import com.linkedin.common.AnomaliesSummary;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.anomaly.AnomalyInfo;
 import com.linkedin.anomaly.AnomalySource;
 import com.linkedin.anomaly.AnomalyState;
 import com.linkedin.anomaly.AnomalyStatus;
+import com.linkedin.anomaly.AnomalyStatusProperties;
 import com.linkedin.anomaly.AnomalyType;
+import com.linkedin.common.AnomaliesSummary;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AnomalyKey;
@@ -39,7 +39,7 @@ public class AnomalyService extends BaseService {
    *
    * @param anomalyUrn the urn of the Anomaly
    *
-   * @return an instance of {@link com.linkedin.anomaly.AnomalyInfo} for the Anomaly, null if it does not exist.
+   * @return an instance of {@link AnomalyInfo} for the Anomaly, null if it does not exist.
    */
   @Nullable
   public AnomalyInfo getAnomalyInfo(@Nonnull final Urn anomalyUrn) {
@@ -53,12 +53,12 @@ public class AnomalyService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link com.linkedin.common.AnomaliesSummary} for the specified Entity urn,
+   * Returns an instance of {@link AnomaliesSummary} for the specified Entity urn,
    * or null if one cannot be found.
    *
    * @param entityUrn the urn of the entity to retrieve the summary for
    *
-   * @return an instance of {@link com.linkedin.common.AnomaliesSummary} for the Entity, null if it does not exist.
+   * @return an instance of {@link AnomaliesSummary} for the Entity, null if it does not exist.
    */
   @Nullable
   public AnomaliesSummary getAnomaliesSummary(@Nonnull final Urn entityUrn) {

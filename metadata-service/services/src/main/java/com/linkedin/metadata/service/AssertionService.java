@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
@@ -21,7 +22,6 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.dataset.DatasetFilter;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.AssertionKey;
@@ -50,7 +50,7 @@ public class AssertionService extends BaseService {
    *
    * @param assertionUrn the urn of the Assertion
    *
-   * @return an instance of {@link com.linkedin.assertion.AssertionInfo} for the Assertion, null if it does not exist.
+   * @return an instance of {@link AssertionInfo} for the Assertion, null if it does not exist.
    */
   @Nullable
   public AssertionInfo getAssertionInfo(@Nonnull final Urn assertionUrn) {
@@ -64,12 +64,12 @@ public class AssertionService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link com.linkedin.common.AssertionsSummary} for the specified Entity urn,
+   * Returns an instance of {@link AssertionsSummary} for the specified Entity urn,
    * or null if one cannot be found.
    *
    * @param entityUrn the urn of the entity to retrieve the summary for
    *
-   * @return an instance of {@link com.linkedin.common.AssertionsSummary} for the Entity, null if it does not exist.
+   * @return an instance of {@link AssertionsSummary} for the Entity, null if it does not exist.
    */
   @Nullable
   public AssertionsSummary getAssertionsSummary(@Nonnull final Urn entityUrn) {

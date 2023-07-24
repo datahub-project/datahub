@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.IncidentsSummary;
@@ -8,7 +9,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.datahub.authentication.Authentication;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentState;
@@ -40,7 +40,7 @@ public class IncidentService extends BaseService {
    *
    * @param incidentUrn the urn of the Incident
    *
-   * @return an instance of {@link com.linkedin.incident.IncidentInfo} for the Incident, null if it does not exist.
+   * @return an instance of {@link IncidentInfo} for the Incident, null if it does not exist.
    */
   @Nullable
   public IncidentInfo getIncidentInfo(@Nonnull final Urn incidentUrn) {
@@ -54,12 +54,12 @@ public class IncidentService extends BaseService {
   }
 
   /**
-   * Returns an instance of {@link com.linkedin.common.IncidentsSummary} for the specified Entity urn,
+   * Returns an instance of {@link IncidentsSummary} for the specified Entity urn,
    * or null if one cannot be found.
    *
    * @param entityUrn the urn of the entity to retrieve the summary for
    *
-   * @return an instance of {@link com.linkedin.common.IncidentsSummary} for the Entity, null if it does not exist.
+   * @return an instance of {@link IncidentsSummary} for the Entity, null if it does not exist.
    */
   @Nullable
   public IncidentsSummary getIncidentsSummary(@Nonnull final Urn entityUrn) {
