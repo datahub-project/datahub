@@ -12,7 +12,7 @@ from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.class_validators import root_validator
 from pydantic.fields import Field
-from sqlalchemy import __version__ as sqlalchemy_version, create_engine, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
@@ -156,33 +156,30 @@ class ClickHouseConfig(
                 "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
             )
 
-        if current_db and sqlalchemy_version < "1.4.0":
-            self.scheme = url.drivername
-            self.username = url.username
-            self.password = (
-                pydantic.SecretStr(str(url.password))
-                if url.password
-                else pydantic.SecretStr("")
-            )
-            if url.host and url.port:
-                self.host_port = url.host + ":" + str(url.port)
-            elif url.host:
-                self.host_port = url.host
-            # untill released https://github.com/python/mypy/pull/15174
-            self.uri_opts = {str(k): str(v) for (k, v) in url.query.items()}
+        self.scheme = url.drivername
+        self.username = url.username
+        self.password = (
+            pydantic.SecretStr(str(url.password))
+            if url.password
+            else pydantic.SecretStr("")
+        )
+        if url.host and url.port:
+            self.host_port = url.host + ":" + str(url.port)
+        elif url.host:
+            self.host_port = url.host
+        # untill released https://github.com/python/mypy/pull/15174
+        self.uri_opts = {str(k): str(v) for (k, v) in url.query.items()}
 
-            url = make_url(
-                make_sqlalchemy_uri(
-                    self.scheme,
-                    self.username,
-                    self.password.get_secret_value() if self.password else None,
-                    self.host_port,
-                    current_db,
-                    uri_opts=self.uri_opts,
-                )
+        url = make_url(
+            make_sqlalchemy_uri(
+                self.scheme,
+                self.username,
+                self.password.get_secret_value() if self.password else None,
+                self.host_port,
+                current_db,
+                uri_opts=self.uri_opts,
             )
-        elif current_db:
-            url = url.set(database=current_db)
+        )
 
         return str(url)
 
