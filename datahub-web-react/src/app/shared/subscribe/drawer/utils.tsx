@@ -3,7 +3,13 @@ import { Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { EntityChangeType, EntityType } from '../../../../types.generated';
+import { DataHubSubscription, EntityChangeType, EntityType } from '../../../../types.generated';
+import {
+    GetGroupNotificationSettingsQuery,
+    GetUserNotificationSettingsQuery,
+} from '../../../../graphql/settings.generated';
+
+const REFETCH_DELAY = 3000;
 
 const NotificationTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -54,7 +60,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
             ];
-            break;
         default:
             return [
                 DEPRECATION_NODE_KEY,
@@ -62,7 +67,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
             ];
-            break;
     }
 };
 
@@ -82,7 +86,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 TAG_CHANGE_NODE_KEY,
                 ...TAG_CHANGE_NODE_CHILDREN,
             ];
-            break;
         default:
             return [
                 DEPRECATION_NODE_KEY,
@@ -93,7 +96,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 TAG_CHANGE_NODE_KEY,
                 ...TAG_CHANGE_NODE_CHILDREN,
             ];
-            break;
     }
 };
 
@@ -246,7 +248,6 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 glossaryTermChangeNode,
                 tagChangeNode,
             ];
-            break;
         default:
             return [
                 assertionsNode,
@@ -256,24 +257,23 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 glossaryTermChangeNode,
                 tagChangeNode,
             ];
-            break;
     }
 };
 
-export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch) => {
+export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch: () => void) => {
     deleteSubscription({
         variables: {
             input: { subscriptionUrn },
         },
     })
         .then(() => {
-            refetch?.();
             notification.success({
                 message: `Success`,
                 description: 'You have unsubscribed from this entity.',
                 placement: 'bottomLeft',
                 duration: 3,
             });
+            window.setTimeout(refetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -288,7 +288,7 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
 
 export const createSubscriptionFunction = (
     createSubscription,
-    refetch,
+    refetch: () => void,
     groupUrn,
     entityUrn,
     subscriptionTypes,
@@ -318,9 +318,7 @@ export const createSubscriptionFunction = (
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
             });
-            setTimeout(() => {
-                refetch();
-            }, 3000);
+            window.setTimeout(refetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -332,7 +330,7 @@ export const createSubscriptionFunction = (
 
 export const updateSubscriptionFunction = (
     updateSubscription,
-    refetch,
+    refetch: () => void,
     subscription,
     subscriptionTypes,
     entityChangeTypes,
@@ -361,9 +359,7 @@ export const updateSubscriptionFunction = (
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
                 });
-                setTimeout(() => {
-                    refetch();
-                }, 3000);
+                window.setTimeout(refetch, REFETCH_DELAY);
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -375,4 +371,23 @@ export const updateSubscriptionFunction = (
                 }
             });
     }
+};
+
+export const getSubscriptionChannel = (isPersonal: boolean, subscription?: DataHubSubscription) => {
+    const subUserHandle = subscription?.notificationConfig?.notificationSettings?.slackSettings.userHandle || undefined;
+    const subChannels = subscription?.notificationConfig?.notificationSettings?.slackSettings?.channels;
+    const subGroupChannel = subChannels?.length ? subChannels[0] : undefined;
+    return isPersonal ? subUserHandle : subGroupChannel;
+};
+
+export const getUserSettingsChannel = (
+    isPersonal: boolean,
+    userNotificationSettings?: GetUserNotificationSettingsQuery,
+    groupNotificationSettings?: GetGroupNotificationSettingsQuery,
+) => {
+    const settingsUserHandle =
+        userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
+    const settingsChannels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+    const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0] : undefined;
+    return isPersonal ? settingsUserHandle : settingsGroupChannel;
 };

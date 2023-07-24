@@ -1,10 +1,12 @@
-import React, { useState, Key } from 'react';
+import React, { Key } from 'react';
 import styled from 'styled-components/macro';
 import { Tree, Typography } from 'antd';
 import { DataNode } from 'antd/es/tree';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { getTreeDataForEntity } from '../utils';
+import { useDrawerState } from '../state/context';
+import useDrawerActions from '../state/actions';
 
 const NotificationTypesContainer = styled.div`
     margin-top: 32px;
@@ -28,23 +30,19 @@ const TreeContainer = styled.div`
     }
 `;
 
-interface Props {
-    checkedKeys: Key[];
-    setCheckedKeys: (checkedKeys: Key[]) => void;
-}
-
-export default function NotificationTypesSection({ checkedKeys, setCheckedKeys }: Props) {
+export default function NotificationTypesSection() {
+    const {
+        notificationTypes: { checkedKeys, expandedKeys },
+    } = useDrawerState();
+    const actions = useDrawerActions();
     const { entityType } = useEntityData();
-    const [expandedKeys, setExpandedKeys] = useState<Key[]>([]);
-    const [autoExpandParent, setAutoExpandParent] = useState<boolean>(true);
 
     const onExpand = (expandedKeysValue: Key[]) => {
-        setExpandedKeys(expandedKeysValue);
-        setAutoExpandParent(false);
+        actions.setExpandedNotificationTypes(expandedKeysValue);
     };
 
     const onCheck = (checkedKeysValue: any, _info: any) => {
-        setCheckedKeys(checkedKeysValue as Key[]);
+        actions.setNotificationTypes(checkedKeysValue);
     };
 
     const treeData: DataNode[] = getTreeDataForEntity(entityType);
@@ -59,7 +57,6 @@ export default function NotificationTypesSection({ checkedKeys, setCheckedKeys }
                     checkable
                     onExpand={onExpand}
                     expandedKeys={expandedKeys}
-                    autoExpandParent={autoExpandParent}
                     onCheck={onCheck}
                     checkedKeys={checkedKeys}
                     treeData={treeData}

@@ -6,6 +6,8 @@ import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { getEntityPath } from '../../../../entity/shared/containers/profile/utils';
 import { EntityType } from '../../../../../types.generated';
 import { ReactComponent as LinkOut } from '../../../../../images/link-out.svg';
+import { useDrawerState } from '../state/context';
+import useDrawerActions from '../state/actions';
 
 const UpstreamContainer = styled.div`
     margin-top: 32px;
@@ -42,18 +44,12 @@ const SubtitleText = styled(Typography.Text)`
 interface Props {
     entityUrn: string;
     entityType: EntityType;
-    subscribeToUpstream: boolean;
-    setSubscribeToUpstream: (subscribeToUpstream: boolean) => void;
     upstreamCount: number;
 }
 
-export default function UpstreamSection({
-    entityUrn,
-    entityType,
-    subscribeToUpstream,
-    setSubscribeToUpstream,
-    upstreamCount,
-}: Props) {
+export default function UpstreamSection({ entityUrn, entityType, upstreamCount }: Props) {
+    const { subscribeToUpstream } = useDrawerState();
+    const actions = useDrawerActions();
     const entityRegistry = useEntityRegistry();
     // TODO: The filter degree may need to be more than 1 in the future
     const upstreamLineageTabPath: string = getEntityPath(
@@ -74,7 +70,7 @@ export default function UpstreamSection({
                 <UpstreamSwitch
                     size="small"
                     checked={subscribeToUpstream}
-                    onChange={(checked) => setSubscribeToUpstream(checked)}
+                    onChange={(checked) => actions.setSubscribeToUpstream(checked)}
                 />
                 <TitleText>Subscribe to changes for all upstream entities</TitleText>
                 <SubtitleText>
