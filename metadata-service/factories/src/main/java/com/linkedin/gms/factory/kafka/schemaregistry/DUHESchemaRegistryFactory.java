@@ -1,9 +1,9 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.kafka.MockDUHEDeserializer;
 import com.linkedin.metadata.boot.kafka.MockDUHESerializer;
-import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
