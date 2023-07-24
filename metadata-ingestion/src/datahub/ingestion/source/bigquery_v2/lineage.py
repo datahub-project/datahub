@@ -153,13 +153,18 @@ def make_lineage_edges_from_parsing_result(
                 if upstream_column_info.table == table_urn
             )
 
-        table_name = str(
-            BigQueryTableRef.from_bigquery_table(
-                BigqueryTableIdentifier.from_string_name(
-                    DatasetUrn.create_from_string(table_urn).get_dataset_name()
+        try:
+            table_name = str(
+                BigQueryTableRef.from_bigquery_table(
+                    BigqueryTableIdentifier.from_string_name(
+                        DatasetUrn.create_from_string(table_urn).get_dataset_name()
+                    )
                 )
             )
-        )
+        except IndexError as e:
+            logger.debug(f"Unable to parse table urn {table_urn}: {e}")
+            continue
+
         table_edges[table_name] = LineageEdge(
             table=table_name,
             column_mapping=frozenset(
