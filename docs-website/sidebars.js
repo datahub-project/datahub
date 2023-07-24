@@ -640,6 +640,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // - "metadata-service/services/README"
     // ],
   ],
 };
