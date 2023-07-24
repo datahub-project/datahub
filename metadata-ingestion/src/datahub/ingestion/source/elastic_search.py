@@ -35,6 +35,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -199,6 +203,12 @@ class ElasticProfiling(ConfigModel):
         default=False,
         description="Whether to enable profiling for the elastic search source.",
     )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig, description="To specify operation configs."
+    )
+
+    def is_profiling_enabld(self) -> bool:
+        return self.enabled and is_profiling_enabled(self.operation_config)
 
 
 class CollapseUrns(ConfigModel):
@@ -511,7 +521,7 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.profiling.enabled:
+        if self.source_config.profiling.is_profiling_enabld():
             if self.cat_response is None:
                 self.cat_response = self.client.cat.indices(
                     params={
