@@ -101,7 +101,7 @@ public class JoinUpdateInputMapper
         joinProperties.setCreated(timestamp);
       } else {
         if (inputProperties.getCreatedBy() != null
-                && inputProperties.getCreatedBy().trim().length() > 0 && inputProperties.getCreatedAt() != 0) {
+                && inputProperties.getCreatedBy() != null && inputProperties.getCreatedAt() != 0) {
           final TimeStamp timestampEdit = new TimeStamp();
           try {
             timestampEdit.setActor(Urn.createFromString(inputProperties.getCreatedBy()));
