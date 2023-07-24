@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search;
 
+import com.codahale.metrics.Timer;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -8,6 +9,7 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -107,7 +109,15 @@ public class SearchService {
       facets = new ArrayList<>(facets);
       facets.add(INDEX_VIRTUAL_FIELD);
     }
-    SearchResult result = _cachingEntitySearchService.search(entities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
+    List<String> nonEmptyEntities;
+    List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
+      nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+    }
+    if (!entities.isEmpty()) {
+      nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
+    }
+    SearchResult result = _cachingEntitySearchService.search(nonEmptyEntities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg = result.getMetadata().getAggregations().stream().filter(
           aggMeta -> aggMeta.getName().equals(INDEX_VIRTUAL_FIELD)).findFirst();
