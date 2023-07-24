@@ -165,14 +165,14 @@ class ClickHouseConfig(
             )
 
         if current_db and sqlalchemy_version < "1.4.0":
-            url = make_sqlalchemy_uri(
+            url = make_url(make_sqlalchemy_uri(
                 self.scheme,
                 self.username,
                 self.password.get_secret_value() if self.password else None,
                 self.host_port,
                 current_db,
-                uri_opts=self.uri_optsuri_opts,
-            )
+                uri_opts=self.uri_opts
+            ))
         elif current_db:
             url = url.set(database=current_db)
 
