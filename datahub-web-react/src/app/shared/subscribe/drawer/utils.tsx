@@ -32,7 +32,7 @@ const NotificationTypeText = styled(Typography.Text)`
 `;
 
 const ASSERTION_NODE_KEY = 'assertion_changes';
-const INCIDENTS_NODE_KEY = EntityChangeType.IncidentRaised;
+const INCIDENTS_NODE_KEY = 'incident_changes';
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
 const SCHEMA_NODE_KEY = 'schema_changes';
 const SCHEMA_NODE_CHILDREN = [
@@ -57,6 +57,7 @@ const NESTED_NODE_KEY_PARENTS = new Set([
     GLOSSARY_TERM_CHANGE_NODE_KEY,
     TAG_CHANGE_NODE_KEY,
     ASSERTION_NODE_KEY,
+    INCIDENTS_NODE_KEY,
 ]);
 
 export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
@@ -120,23 +121,33 @@ const assertionsNode: DataNode = {
     children: [
         {
             key: EntityChangeType.AssertionFailed,
-            title: <NotificationTypeText>Failing assertions</NotificationTypeText>,
+            title: <NotificationTypeText>Changes to failing</NotificationTypeText>,
         },
         {
             key: EntityChangeType.AssertionPassed,
-            title: <NotificationTypeText>Passing assertions</NotificationTypeText>,
+            title: <NotificationTypeText>Changes to passing</NotificationTypeText>,
         },
     ],
 };
 
 const incidentsNode: DataNode = {
     key: INCIDENTS_NODE_KEY,
-    title: <NotificationTypeText>Raised incidents</NotificationTypeText>,
+    title: <NotificationTypeText>Incident status changes</NotificationTypeText>,
+    children: [
+        {
+            key: EntityChangeType.IncidentRaised,
+            title: <NotificationTypeText>Raised incidents</NotificationTypeText>,
+        },
+        {
+            key: EntityChangeType.IncidentResolved,
+            title: <NotificationTypeText>Resolved incidents</NotificationTypeText>,
+        },
+    ],
 };
 
 const deprecationNode: DataNode = {
     key: DEPRECATION_NODE_KEY,
-    title: <NotificationTypeText>Deprecation</NotificationTypeText>,
+    title: <NotificationTypeText>Entity has been deprecated</NotificationTypeText>,
 };
 
 // TODO: in V2 add documentation changes notifications
@@ -147,7 +158,7 @@ const deprecationNode: DataNode = {
 
 const schemaNode: DataNode = {
     key: SCHEMA_NODE_KEY,
-    title: <NotificationTypeText>Schema changes</NotificationTypeText>,
+    title: <NotificationTypeText>Schema change events</NotificationTypeText>,
     children: [
         {
             key: EntityChangeType.OperationColumnAdded,
@@ -213,7 +224,7 @@ const glossaryTermChangeNode: DataNode = {
         },
         {
             key: EntityChangeType.GlossaryTermProposed,
-            title: <NotificationTypeText>A glossary term is proposed</NotificationTypeText>,
+            title: <NotificationTypeText>A new glossary term is proposed</NotificationTypeText>,
         },
     ],
 };
@@ -232,7 +243,7 @@ const tagChangeNode: DataNode = {
         },
         {
             key: EntityChangeType.TagProposed,
-            title: <NotificationTypeText>A tag is proposed</NotificationTypeText>,
+            title: <NotificationTypeText>A new tag is proposed</NotificationTypeText>,
         },
     ],
 };
@@ -241,9 +252,9 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
     switch (entityType) {
         case EntityType.Dataset:
             return [
+                deprecationNode,
                 assertionsNode,
                 incidentsNode,
-                deprecationNode,
                 schemaNode,
                 ownershipChangeNode,
                 glossaryTermChangeNode,
