@@ -82,8 +82,6 @@ API_ENDPOINTS = {
     Constant.LINKED_REPORTS: "{PBIRS_BASE_URL}/LinkedReports",
     Constant.LINKED_REPORT: "{PBIRS_BASE_URL}/LinkedReports({LINKED_REPORT_ID})",
     Constant.ME: "{PBIRS_BASE_URLL}/Me",
-    Constant.MOBILE_REPORTS: "{PBIRS_BASE_URL}/MobileReports",
-    Constant.MOBILE_REPORT: "{PBIRS_BASE_URL}/MobileReports({MOBILE_REPORT_ID})",
     Constant.POWERBI_REPORTS: "{PBIRS_BASE_URL}/PowerBiReports",
     Constant.POWERBI_REPORT: "{PBIRS_BASE_URL}/PowerBiReports({POWERBI_REPORT_ID})",
     Constant.POWERBI_REPORT_DATASOURCES: "{PBIRS_BASE_URL}/PowerBiReports({ID})/DataSources",

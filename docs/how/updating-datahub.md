@@ -20,6 +20,8 @@ individually enable / disable desired field metrics.
 
 ### Deprecations
 
+- #8198: In the Python SDK, the `PlatformKey` class has been renamed to `ContainerKey`.
+
 ### Other notable Changes
 
 ## 0.10.4
