@@ -360,18 +360,22 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
         if self.config.profile_table_row_count_estimate_only:
-            schema_name = self.dataset_name.split(".")[1]
-            table_name = self.dataset_name.split(".")[2]
-            logger.debug(
-                f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
-            )
-
             dialect_name = self.dataset.engine.dialect.name.lower()
             if dialect_name == "postgresql":
+                schema_name = self.dataset_name.split(".")[1]
+                table_name = self.dataset_name.split(".")[2]
+                logger.debug(
+                    f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+                )
                 get_estimate_script = sa.text(
                     f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
                 )
             elif dialect_name == "mysql":
+                schema_name = self.dataset_name.split(".")[0]
+                table_name = self.dataset_name.split(".")[1]
+                logger.debug(
+                    f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+                )
                 get_estimate_script = sa.text(
                     f"SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'"
                 )

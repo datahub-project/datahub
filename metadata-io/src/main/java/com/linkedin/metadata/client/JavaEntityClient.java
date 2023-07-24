@@ -281,7 +281,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
 
-        return ValidationUtils.validateSearchResult(_entitySearchService.search(entity, input, newFilter(requestFilters),
+        return ValidationUtils.validateSearchResult(_entitySearchService.search(List.of(entity), input, newFilter(requestFilters),
                 null, start, count, searchFlags), _entityService);
     }
 
@@ -333,7 +333,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
         return ValidationUtils.validateSearchResult(
-                _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
+                _entitySearchService.search(List.of(entity), input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
 
     @Nonnull
