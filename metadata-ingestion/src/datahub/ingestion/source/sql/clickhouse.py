@@ -164,7 +164,7 @@ class ClickHouseConfig(
                 "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
             )
 
-        if current_db and sqlalchemy_version < '1.4.0':
+        if current_db and sqlalchemy_version < "1.4.0":
             url = make_sqlalchemy_uri(
                 self.scheme,
                 self.username,
