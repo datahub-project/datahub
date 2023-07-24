@@ -1062,17 +1062,17 @@ public class EntityServiceImpl implements EntityService {
 
   @Override
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(@Nonnull final Urn urn, @Nonnull final AspectSpec aspectSpec,
-                                                         @Nonnull final MetadataChangeLog metadataChangeLog) {
+                                                        @Nonnull final MetadataChangeLog metadataChangeLog) {
     Future<?> future = _producer.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
     return Pair.of(future, preprocessEvent(metadataChangeLog));
   }
 
   @Override
   public Pair<Future<?>, Boolean> alwaysProduceMCLAsync(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-                                                         @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
-                                                         @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
-                                                         @Nullable final SystemMetadata newSystemMetadata, @Nonnull AuditStamp auditStamp,
-                                                         @Nonnull final ChangeType changeType) {
+                                                        @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
+                                                        @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
+                                                        @Nullable final SystemMetadata newSystemMetadata, @Nonnull AuditStamp auditStamp,
+                                                        @Nonnull final ChangeType changeType) {
     final MetadataChangeLog metadataChangeLog = constructMCL(null, entityName, urn, changeType, aspectName, auditStamp,
         newAspectValue, newSystemMetadata, oldAspectValue, oldSystemMetadata);
     return alwaysProduceMCLAsync(urn, aspectSpec, metadataChangeLog);
@@ -1382,24 +1382,33 @@ public class EntityServiceImpl implements EntityService {
     List<AspectRowSummary> removedAspects = new ArrayList<>();
     AtomicInteger rowsDeletedFromEntityDeletion = new AtomicInteger(0);
 
-    aspectRows.forEach(aspectToRemove -> {
-
+    List<Future<?>> futures = aspectRows.stream().map(aspectToRemove -> {
       RollbackResult result = deleteAspect(aspectToRemove.getUrn(), aspectToRemove.getAspectName(),
           conditions, hardDelete);
       if (result != null) {
         Optional<AspectSpec> aspectSpec = getAspectSpec(result.entityName, result.aspectName);
         if (!aspectSpec.isPresent()) {
           log.error("Issue while rolling back: unknown aspect {} for entity {}", result.entityName, result.aspectName);
-          return;
+          return null;
         }
 
         rowsDeletedFromEntityDeletion.addAndGet(result.additionalRowsAffected);
         removedAspects.add(aspectToRemove);
-        alwaysProduceMCLAsync(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
+        return alwaysProduceMCLAsync(result.getUrn(), result.getEntityName(), result.getAspectName(), aspectSpec.get(),
             result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
             // TODO: use properly attributed audit stamp.
             createSystemAuditStamp(),
-            result.getChangeType());
+            result.getChangeType()).getFirst();
+      }
+
+      return null;
+    }).filter(Objects::nonNull).collect(Collectors.toList());
+
+    futures.forEach(f -> {
+      try {
+        f.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
       }
     });
 
@@ -1438,11 +1447,19 @@ public class EntityServiceImpl implements EntityService {
 
       rowsDeletedFromEntityDeletion = result.additionalRowsAffected;
       removedAspects.add(summary);
-      alwaysProduceMCLAsync(result.getUrn(), result.getEntityName(), result.getAspectName(), keySpec,
+      Future<?> future = alwaysProduceMCLAsync(result.getUrn(), result.getEntityName(), result.getAspectName(), keySpec,
           result.getOldValue(), result.getNewValue(), result.getOldSystemMetadata(), result.getNewSystemMetadata(),
           // TODO: Use a proper inferred audit stamp
           createSystemAuditStamp(),
-          result.getChangeType());
+          result.getChangeType()).getFirst();
+
+      if (future != null) {
+        try {
+          future.get();
+        } catch (InterruptedException | ExecutionException e) {
+          throw new RuntimeException(e);
+        }
+      }
     }
 
     return new RollbackRunResult(removedAspects, rowsDeletedFromEntityDeletion);
