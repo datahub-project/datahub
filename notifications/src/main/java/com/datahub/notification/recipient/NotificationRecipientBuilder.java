@@ -9,6 +9,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.settings.NotificationSettings;
+import com.linkedin.identity.CorpGroupSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.subscription.SubscriptionInfo;
 import java.util.ArrayList;
@@ -86,8 +87,6 @@ public abstract class NotificationRecipientBuilder {
     return notificationRecipients;
   }
 
-  // TODO: come back and clean this function up
-  //TODO: make this work for groups. it does not currently work for groups
   public List<NotificationSettings> getNotificationSettings(@Nonnull final String entityName,
       @Nonnull final Set<Urn> actorUrns, Predicate<? super NotificationSettings> predicate) {
     Map<Urn, EntityResponse> notificationSettingsMap;
@@ -106,15 +105,34 @@ public abstract class NotificationRecipientBuilder {
         .values()
         .stream()
         .filter(entityResponse -> entityResponse.getAspects().containsKey(aspectName))
-        .map(entityResponse -> {
-          CorpUserSettings corpUserSettings = new CorpUserSettings(entityResponse.getAspects().get(aspectName).getValue().data());
-          if (corpUserSettings.hasNotificationSettings()) {
-            return new NotificationSettings(corpUserSettings.getNotificationSettings().data());
-          }
-          return new NotificationSettings();
-        })
+        .map(entityResponse -> mapToNotificationSettings(aspectName, entityResponse))
         .filter(predicate)
         .collect(Collectors.toList());
+  }
+
+  private NotificationSettings mapToNotificationSettings(@Nonnull final String aspectName, @Nonnull final EntityResponse entityResponse) {
+    if (aspectName.equals(CORP_USER_SETTINGS_ASPECT_NAME)) {
+      return mapUserToNotificationSettings(entityResponse);
+    } else if (aspectName.equals(CORP_GROUP_SETTINGS_ASPECT_NAME)) {
+      return mapGroupToNotificationSettings(entityResponse);
+    }
+    return new NotificationSettings();
+  }
+
+  private NotificationSettings mapUserToNotificationSettings(@Nonnull final EntityResponse entityResponse) {
+    CorpUserSettings corpUserSettings = new CorpUserSettings(entityResponse.getAspects().get(CORP_USER_SETTINGS_ASPECT_NAME).getValue().data());
+    if (corpUserSettings.hasNotificationSettings()) {
+      return new NotificationSettings(corpUserSettings.getNotificationSettings().data());
+    }
+    return new NotificationSettings();
+  }
+
+  private NotificationSettings mapGroupToNotificationSettings(@Nonnull final EntityResponse entityResponse) {
+    CorpGroupSettings corpGroupSettings = new CorpGroupSettings(entityResponse.getAspects().get(CORP_GROUP_SETTINGS_ASPECT_NAME).getValue().data());
+    if (corpGroupSettings.hasNotificationSettings()) {
+      return new NotificationSettings(corpGroupSettings.getNotificationSettings().data());
+    }
+    return new NotificationSettings();
   }
 
   protected abstract List<NotificationRecipient> buildUserNotificationRecipients(
