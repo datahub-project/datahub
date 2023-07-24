@@ -19,6 +19,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestProposalResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
@@ -265,7 +266,7 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      EntityService.IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
+      IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
       Urn urn = proposalResult.getUrn();
       additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
       return new Pair<>(urn.toString(), proposalResult.isDidUpdate());

@@ -35,7 +35,6 @@ from datahub.ingestion.source.powerbi_report_server.constants import (
 from datahub.ingestion.source.powerbi_report_server.report_server_domain import (
     CorpUser,
     LinkedReport,
-    MobileReport,
     Owner,
     OwnershipData,
     PowerBiReport,
@@ -116,6 +115,29 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     chart_pattern: AllowDenyPattern = AllowDenyPattern.allow_all()
 
 
+def log_http_error(e: BaseException, message: str) -> Any:
+    LOGGER.warning(message)
+
+    if isinstance(e, requests.exceptions.HTTPError):
+        LOGGER.warning(f"HTTP status-code = {e.response.status_code}")
+
+    LOGGER.debug(msg=message, exc_info=e)
+
+    return e
+
+
+def get_response_dict(response: requests.Response, error_message: str) -> dict:
+
+    result_dict: dict = {}
+    try:
+        response.raise_for_status()
+        result_dict = response.json()
+    except BaseException as e:
+        log_http_error(e=e, message=error_message)
+
+    return result_dict
+
+
 class PowerBiReportServerAPI:
     # API endpoints of PowerBI Report Server to fetch reports, datasets
 
@@ -144,14 +166,15 @@ class PowerBiReportServerAPI:
                 url=url_http,
                 auth=self.get_auth_credentials,
             )
-        # Check if we got response from PowerBi Report Server
-        if response.status_code != 200:
-            message: str = "Failed to fetch Report from powerbi-report-server for"
-            LOGGER.warning(message)
-            LOGGER.warning("{}={}".format(Constant.ReportId, content_type))
-            raise ValueError(message)
 
-        return response.json()
+        error_message: str = (
+            f"Failed to fetch {content_type} Report from powerbi-report-server"
+        )
+
+        return get_response_dict(
+            response=response,
+            error_message=error_message,
+        )
 
     def get_all_reports(self) -> List[Any]:
         """
@@ -159,7 +182,6 @@ class PowerBiReportServerAPI:
         """
         report_types_mapping: Dict[str, Any] = {
             Constant.REPORTS: Report,
-            Constant.MOBILE_REPORTS: MobileReport,
             Constant.LINKED_REPORTS: LinkedReport,
             Constant.POWERBI_REPORTS: PowerBiReport,
         }
@@ -174,15 +196,17 @@ class PowerBiReportServerAPI:
             report_get_endpoint_https = report_get_endpoint.format(
                 PBIRS_BASE_URL=self.__config.get_base_api_https_url,
             )
+
             response_dict = self.requests_get(
                 url_http=report_get_endpoint_http,
                 url_https=report_get_endpoint_https,
                 content_type=report_type,
-            )["value"]
-            if response_dict:
+            )
+
+            if response_dict.get("value"):
                 reports.extend(
                     report_types_mapping[report_type].parse_obj(report)
-                    for report in response_dict
+                    for report in response_dict.get("value")
                 )
 
         return reports
@@ -487,7 +511,6 @@ class PowerBiReportServerDashboardSource(Source):
     Next types of report can be ingested:
        - PowerBI report(.pbix)
        - Paginated report(.rdl)
-       - Mobile report
        - Linked report
     """
 

@@ -1,13 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;

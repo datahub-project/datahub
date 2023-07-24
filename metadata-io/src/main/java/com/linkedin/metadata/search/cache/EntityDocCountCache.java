@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.cache;
 
-import com.google.common.base.Suppliers;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.google.common.base.Suppliers;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.utils.ConcurrencyUtils;

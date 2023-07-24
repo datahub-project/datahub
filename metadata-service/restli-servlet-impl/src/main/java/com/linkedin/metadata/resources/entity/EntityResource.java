@@ -428,7 +428,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
     return RestliUtil.toTask(() -> validateLineageScrollResult(
         _lineageSearchService.scrollAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService),
+            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags),
+            _entityService),
         "scrollAcrossLineage");
   }
 

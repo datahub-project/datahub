@@ -15,6 +15,9 @@ If nifi has been configured to use [Kerberos SPNEGO](https://nifi.apache.org/doc
    sudo apt install krb5-user
    kinit user@REALM
    ```
+#### Basic Authentication (`auth: BASIC_AUTH`)
+Connector will use [HTTPBasicAuth](https://requests.readthedocs.io/en/latest/user/authentication/#basic-authentication) with `username` and `password`.
+
 #### No Authentication (`auth: NO_AUTH`)
 
 This is useful for testing purposes.

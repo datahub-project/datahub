@@ -60,4 +60,5 @@ include 'metadata-service:schema-registry-api'
 include 'metadata-service:schema-registry-servlet'
 include 'metadata-integration:java:examples'
 include 'mock-entity-registry'
-
+include 'metadata-service:services'
+include 'metadata-service:configuration'

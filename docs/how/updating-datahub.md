@@ -14,10 +14,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 `profile_table_level_only` together with `include_field_xyz` config options to ingest
 certain column-level metrics. Instead, set `profile_table_level_only` to `false` and
 individually enable / disable desired field metrics.
+- #8451: The `bigquery-beta` and `snowflake-beta` source aliases have been dropped. Use `bigquery` and `snowflake` as the source type instead.
 
 ### Potential Downtime
 
 ### Deprecations
+
+- #8198: In the Python SDK, the `PlatformKey` class has been renamed to `ContainerKey`.
 
 ### Other notable Changes
 
@@ -107,7 +110,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 - #6243 apache-ranger authorizer is no longer the core part of DataHub GMS, and it is shifted as plugin. Please refer updated documentation [Configuring Authorization with Apache Ranger](./configuring-authorization-with-apache-ranger.md#configuring-your-datahub-deployment) for configuring `apache-ranger-plugin` in DataHub GMS.
 - #6243 apache-ranger authorizer as plugin is not supported in DataHub Kubernetes deployment.
-- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/factories/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
+- #6243 Authentication and Authorization plugins configuration are removed from [application.yml](../../metadata-service/configuration/src/main/resources/application.yml). Refer documentation [Migration Of Plugins From application.yml](../plugins.md#migration-of-plugins-from-applicationyml) for migrating any existing custom plugins.
 - `datahub check graph-consistency` command has been removed. It was a beta API that we had considered but decided there are better solutions for this. So removing this.
 - `graphql_url` option of `powerbi-report-server` source deprecated as the options is not used.
 - #6789 BigQuery ingestion: If `enable_legacy_sharded_table_support` is set to False, sharded table names will be suffixed with \_yyyymmdd to make sure they don't clash with non-sharded tables. This means if stateful ingestion is enabled then old sharded tables will be recreated with a new id and attached tags/glossary terms/etc will need to be added again. _This behavior is not enabled by default yet, but will be enabled by default in a future release._
