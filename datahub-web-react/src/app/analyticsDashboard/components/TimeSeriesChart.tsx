@@ -10,11 +10,6 @@ import { addInterval } from '../../shared/time/timeUtils';
 import { formatNumber } from '../../shared/formatNumber';
 import { AxisScaleOutput } from '@visx/axis';
 
-// type ScaleConfig = {
-//     type: 'time' | 'timeUtc' | 'linear' | 'band' | 'ordinal';
-//     includeZero?: boolean;
-// };
-
 type AxisConfig = {
     formatter: (tick: number) => string;
 };
