@@ -412,6 +412,7 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
+    "types-tzlocal",
 }
 
 
