@@ -9,6 +9,8 @@ import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateUserNotificationSettingsInput;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
+import com.linkedin.event.notification.NotificationSinkType;
+import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.service.SettingsService;
@@ -44,6 +46,9 @@ public class UpdateUserNotificationSettingsResolver implements DataFetcher<Compl
         final com.linkedin.event.notification.settings.NotificationSettings notificationSettings =
             corpUserSettings.hasNotificationSettings() ? corpUserSettings.getNotificationSettings()
                 : new com.linkedin.event.notification.settings.NotificationSettings();
+        NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
+        input.getNotificationSettings().getSinkTypes().forEach(type -> sinkTypes.add(NotificationSinkType.valueOf(type.toString())));
+        notificationSettings.setSinkTypes(sinkTypes);
 
         final SlackNotificationSettingsInput slackNotificationSettingsInput =
             notificationSettingsInput.getSlackSettings();

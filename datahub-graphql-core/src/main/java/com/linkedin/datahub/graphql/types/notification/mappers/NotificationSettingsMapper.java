@@ -6,6 +6,7 @@ import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 
@@ -23,6 +24,7 @@ public class NotificationSettingsMapper
   public NotificationSettings apply(
       @Nonnull final com.linkedin.event.notification.settings.NotificationSettings notificationSettings) {
     final NotificationSettings result = new NotificationSettings();
+    result.setSinkTypes(new ArrayList<>());
 
     if (notificationSettings.hasSinkTypes()) {
       result.setSinkTypes(notificationSettings.getSinkTypes().stream().map(v -> NotificationSinkType.valueOf(v.toString())).collect(Collectors.toList()));
