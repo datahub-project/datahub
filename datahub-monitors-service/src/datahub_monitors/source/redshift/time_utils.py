@@ -1,3 +1,6 @@
+from datahub_monitors.exceptions import InvalidParametersException
+
+
 def convert_millis_to_timestamp(millis: int) -> str:
     seconds = millis / 1000.0
     return f"TIMESTAMP 'epoch' + {seconds} * INTERVAL '1 second'"
@@ -20,4 +23,7 @@ def convert_millis_to_timestamp_type(millis: int, column_type: str) -> str:
         return convert_millis_to_timestamptz(millis)
     elif column_type == "DATE":
         return convert_millis_to_date(millis)
-    raise Exception(f"Unsupported column type {column_type} provided!")
+    raise InvalidParametersException(
+        message=f"Unsupported column type {column_type} provided!",
+        parameters={"column_type": column_type, "millis": millis},
+    )

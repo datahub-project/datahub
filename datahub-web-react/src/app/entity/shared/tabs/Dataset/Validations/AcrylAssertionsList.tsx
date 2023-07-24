@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { message, Modal } from 'antd';
 import { Assertion, Monitor, MonitorMode } from '../../../../../../types.generated';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
-import { useUpdateMonitorStatusMutation } from '../../../../../../graphql/monitor.generated';
+import { useUpdateMonitorStatusMutation, useDeleteMonitorMutation } from '../../../../../../graphql/monitor.generated';
 import { AssertionActionsBuilderModal } from './assertion/builder/AssertionActionsBuilderModal';
 import { AcrylAssertionsTable } from './AcrylAssertionsTable';
+import analytics, { EventType } from '../../../../../analytics';
 
 type Props = {
     assertions: Array<Assertion>;
@@ -20,19 +21,46 @@ type Props = {
  */
 export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onUpdatedAssertion }: Props) => {
     const [deleteAssertionMutation] = useDeleteAssertionMutation();
+    const [deleteMonitorMutation] = useDeleteMonitorMutation();
+
     const [updateMonitorStatusMutation] = useUpdateMonitorStatusMutation();
     const [managingAssertion, setManagingAssertion] = useState<Assertion | undefined>(undefined);
 
+    const deleteMonitor = async (urn: string) => {
+        try {
+            await deleteMonitorMutation({
+                variables: { urn },
+            });
+            await message.success({ content: 'Removed assertion.', duration: 2 });
+        } catch (e: unknown) {
+            message.destroy();
+            if (e instanceof Error) {
+                message.error({
+                    content: `Failed to remove assertion monitor. An unknown error occurred`,
+                    duration: 3,
+                });
+            }
+        }
+    };
+
     const deleteAssertion = async (urn: string) => {
+        const deletedAssertion = assertions.find((assertion) => assertion.urn === urn);
+        const monitorUrn =
+            (deletedAssertion as any)?.monitor?.relationships?.length &&
+            (deletedAssertion as any).monitor.relationships[0].entity?.urn;
         try {
             await deleteAssertionMutation({
                 variables: { urn },
             });
-            message.success({ content: 'Removed assertion.', duration: 2 });
+            if (monitorUrn) {
+                deleteMonitor(monitorUrn);
+            } else {
+                await message.success({ content: 'Removed assertion.', duration: 2 });
+            }
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
-                message.error({ content: `Failed to remove assertion: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `Failed to remove assertion. An unknown error occurred`, duration: 3 });
             }
         }
         onDeletedAssertion?.(urn);
@@ -79,6 +107,12 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                             ],
                         },
                     } as Assertion);
+                    analytics.event({
+                        type: EventType.StartAssertionMonitorEvent,
+                        monitorUrn,
+                        assertionUrn,
+                        assertionType: updatedAssertion?.info?.type as string,
+                    });
                 }
             })
             .catch(() => {
@@ -108,6 +142,12 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                             ],
                         },
                     } as Assertion);
+                    analytics.event({
+                        type: EventType.StopAssertionMonitorEvent,
+                        monitorUrn,
+                        assertionUrn,
+                        assertionType: updatedAssertion?.info?.type as string,
+                    });
                 }
             })
             .catch(() => {

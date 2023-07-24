@@ -58,7 +58,7 @@ export const AssertionMonitorBuilder = ({
         setBuilderState(DEFAULT_BUILDER_STATE);
     };
 
-    const createAssertionMonitor = useCreateAssertionMonitor(builderState, onCreateAssertionMonitor);
+    const createAssertionMonitor = useCreateAssertionMonitor(entityUrn, builderState, onCreateAssertionMonitor);
 
     /**
      * The current step id, e.g. SELECT_TYPE

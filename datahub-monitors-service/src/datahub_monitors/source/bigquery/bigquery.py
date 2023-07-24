@@ -9,7 +9,10 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
-from datahub_monitors.exceptions import InvalidParametersException
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    SourceQueryFailedException,
+)
 from datahub_monitors.source.bigquery.time_utils import convert_millis_to_timestamp_type
 from datahub_monitors.source.source import Source
 from datahub_monitors.source.types import SourceOperationParams
@@ -122,7 +125,12 @@ class BigQuerySource(Source):
             yield entry
 
     def _execute_query(self, query: str) -> List[Any]:
-        return self.connection.get_client().query(query)
+        try:
+            return self.connection.get_client().query(query)
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (BigQuery) failed with error: {e}", query=query
+            )
 
     def _build_audit_log_results(self, entries: Iterable[Any]) -> List[EntityEvent]:
         results = []

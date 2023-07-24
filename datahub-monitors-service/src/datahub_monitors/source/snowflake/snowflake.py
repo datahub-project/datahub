@@ -47,7 +47,7 @@ class SnowflakeSource(Source):
             cur.execute(query)
         except Exception as e:
             raise SourceQueryFailedException(
-                message=f"Query failed with error: {e}", query=query
+                message=f"Source query (Snowflake) failed with error: {e}", query=query
             )
 
     def _get_operation_types_filter(self, parameters: dict) -> str:
@@ -67,14 +67,24 @@ class SnowflakeSource(Source):
         return None
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
-        return cur.fetchall()
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+            return cur.fetchall()
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (Snowflake) failed with error: {e}", query=query
+            )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
-        return cur.fetchone()
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+            return cur.fetchone()
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (Snowflake) failed with error: {e}", query=query
+            )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:
         return [

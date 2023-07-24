@@ -206,8 +206,8 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         if not context.monitor_urn:
             raise InvalidParametersException(
-                f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn",
-                parameters=source_params,
+                message=f"_evaluate_high_watermark_assertion for {assertion.urn} requires a monitor_urn",
+                parameters={"source_params": source_params, "context": context},
             )
 
         previous_state = self.state_provider.get_state(
@@ -438,12 +438,12 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 error=error,
             )
             logger.exception(
-                f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Original message: {e}"
+                f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Caused by: {e}"
             )
             return result
         except Exception as e:
             logger.exception(
-                f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Could not produce an assertion evaluation result. Original message: {e}"
+                f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Caused by: {e}"
             )
             return AssertionEvaluationResult(
                 AssertionResultType.ERROR,

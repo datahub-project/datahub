@@ -8,6 +8,7 @@ from datahub.metadata.schema_classes import MonitorTimeseriesStateClass
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
+from datahub_monitors.exceptions import InvalidParametersException
 
 from .assertion_state_provider import AssertionStateProvider
 
@@ -19,7 +20,9 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
         self.graph = graph
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
     )
     def _get_latest_monitor_time_series_state(
         self,
@@ -40,7 +43,9 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
         )
 
     @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
     )
     def _save_monitor_time_series_state(
         self, entity_urn: str, state: AssertionState
@@ -55,10 +60,7 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
         )
 
         # Now emit an MCP
-        try:
-            self.graph.emit_mcp(save_state_mcp)
-        except Exception as e:
-            logger.error(f"Failed to emit AssertionState mcp {e}")
+        self.graph.emit_mcp(save_state_mcp)
 
     def get_state(
         self,
@@ -68,8 +70,9 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
         if assertion_state_type == AssertionStateType.MONITOR_TIMESERIES_STATE:
             return self._get_latest_monitor_time_series_state(entity_urn)
 
-        raise Exception(
-            f"Unsupported assertion state type {assertion_state_type} provided!"
+        raise InvalidParametersException(
+            message=f"Unsupported assertion state type {assertion_state_type} provided!",
+            parameters={"assertion_state_type": assertion_state_type},
         )
 
     def save_state(self, entity_urn: str, state: AssertionState) -> None:
@@ -77,4 +80,7 @@ class DataHubMonitorStateProvider(AssertionStateProvider):
             self._save_monitor_time_series_state(entity_urn, state)
             return
 
-        raise Exception(f"Unsupported assertion state type {state.type} provided!")
+        raise InvalidParametersException(
+            message=f"Unsupported assertion state type {state.type} provided!",
+            parameters={"assertion_state_type": state.type},
+        )
