@@ -235,7 +235,7 @@ export const HomePageHeader = () => {
                 <WelcomeText>
                     {!!user && (
                         <>
-                            Welcome back, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
+                            Datahub 欢迎您, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
                         </>
                     )}
                 </WelcomeText>

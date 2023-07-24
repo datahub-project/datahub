@@ -43,7 +43,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                             Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
                         </li>
                     </ul>
-                    <p>Let&apos;s get started! 🚀</p>
+                    <p>让我们开始吧! 🚀</p>
                     <div
                         style={{
                             backgroundColor: ANTD_GRAY[4],
@@ -67,35 +67,33 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: HOME_PAGE_INGESTION_ID,
         selector: `#${HOME_PAGE_INGESTION_ID}`,
-        title: 'Ingest Data',
+        title: '元数据集成',
         content: (
             <Typography.Paragraph>
-                Start integrating your data sources immediately by navigating to the <strong>Ingestion</strong> page.
+                点击 <strong>Ingestion</strong> . 开始您的元数据集成之旅吧！
             </Typography.Paragraph>
         ),
     },
     {
         id: HOME_PAGE_DOMAINS_ID,
         selector: `#${HOME_PAGE_DOMAINS_ID}`,
-        title: 'Explore by Domain',
+        title: '根据 Domain 浏览',
         content: (
             <Typography.Paragraph>
-                Here are your organization&apos;s <strong>Domains</strong>. Domains are collections of data assets -
-                such as Tables, Dashboards, and ML Models - that make it easy to discover information relevant to a
-                particular part of your organization.
+                这里是您组织内的 <strong>Domains</strong>. Domains 是您组织内数据资产的集合，
+                比如 Tables, Dashboards, 以及 ML Models。 让您更简便的探索特定领域内的数据及数据集.
             </Typography.Paragraph>
         ),
     },
     {
         id: HOME_PAGE_PLATFORMS_ID,
         selector: `#${HOME_PAGE_PLATFORMS_ID}`,
-        title: 'Explore by Platform',
+        title: '根据 Platform 浏览',
         content: (
             <Typography.Paragraph>
-                Here are your organization&apos;s <strong>Data Platforms</strong>. Data Platforms represent specific
-                third-party Data Systems or Tools. Examples include Data Warehouses like <strong>Snowflake</strong>,
-                Orchestrators like
-                <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
+                这里是您组织内的 <strong>Data Platforms</strong>. Data Platforms 代表着特定的第三方系统或着工具.
+                比如，类似<strong>Snowflake</strong> 的数据仓库, 像<strong>Airflow</strong>一样的调度工具 ，
+                以及仪表盘工具 <strong>Looker</strong>.
             </Typography.Paragraph>
         ),
     },
@@ -108,15 +106,14 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
     {
         id: HOME_PAGE_SEARCH_BAR_ID,
         selector: `#${HOME_PAGE_SEARCH_BAR_ID}`,
-        title: 'Find your Data 🔍',
+        title: '找到您关心的数据 🔍',
         content: (
             <Typography.Paragraph>
                 <p>
-                    This is the <strong>Search Bar</strong>. It will serve as your launch point for discovering and
-                    collaborating around the data most important to you.
+                    通过 <strong>Search Bar</strong> 开启您的 <strong>数据发现</strong> 之旅 .
                 </p>
                 <p>
-                    Not sure where to start? Click on <strong>Explore All</strong>!
+                    不确定从哪里开始? 点击 <strong>Explore All</strong>!
                 </p>
             </Typography.Paragraph>
         ),
