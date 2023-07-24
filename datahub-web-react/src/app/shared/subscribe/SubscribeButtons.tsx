@@ -1,18 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Dropdown, MenuProps, Tooltip } from 'antd';
 import { StarFilled, StarOutlined } from '@ant-design/icons';
 import SubscriptionDrawer from './drawer/SubscriptionDrawer';
-import {
-    useDeleteSubscriptionMutation,
-    useGetEntitySubscriptionSummaryQuery,
-    useGetSubscriptionQuery,
-} from '../../../graphql/subscriptions.generated';
 import { useEntityData } from '../../entity/shared/EntityContext';
 import SubscriptionStarTooltip from './drawer/section/SubscriptionStarTooltip';
-import { getGroupName } from '../../settings/personal/utils';
-import { CorpGroup, DataHubSubscription } from '../../../types.generated';
-import { deleteSubscriptionFunction } from './drawer/utils';
+import useSubscription from './useSubscription';
+import useDeleteSubscription from './useDeleteSubscription';
+import useSubscriptionSummary from './useSubscriptionSummary';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};
@@ -24,110 +19,84 @@ const DROPDOWN_KEYS = {
     SUBSCRIBE_ME: 'SUBSCRIBE_ME',
     SUBSCRIBE_GROUP: 'SUBSCRIBE_GROUP',
     UNSUBSCRIBE_ME: 'UNSUBSCRIBE_ME',
-};
+} as const;
 
 export default function SubscribeButtons() {
     const { urn: entityUrn, entityData, entityType } = useEntityData();
     const entityName = entityData?.name || '';
-    const [drawerIsOpen, setDrawerIsOpen] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
-    const [groupUrn, setGroupUrn] = useState<string | undefined>(undefined);
-    const [subscription, setSubscription] = useState<DataHubSubscription | undefined>(undefined);
-    const [isSubscribed, setIsSubscribed] = useState(false);
-    const { data: getSubscriptionData, refetch: refetchGetSubscription } = useGetSubscriptionQuery({
-        variables: {
-            input: {
-                entityUrn,
-                groupUrn: groupUrn || undefined,
-            },
-        },
+    const [groupUrn, setGroupUrn] = useState<string>();
+
+    const { subscription, isSubscribed, refetchSubscription } = useSubscription({ isPersonal, entityUrn, groupUrn });
+    const { isUserSubscribed, numUserSubscriptions, numGroupSubscriptions, groupNames, refetchSubscriptionSummary } =
+        useSubscriptionSummary({ entityUrn });
+
+    const refetch = () => {
+        refetchSubscription();
+        refetchSubscriptionSummary();
+    };
+
+    const deleteSubscription = useDeleteSubscription({
+        subscriptionUrn: subscription?.subscriptionUrn,
+        onRefetch: refetch,
     });
-    const { data: entitySubscriptionSummaryData, refetch: refetchEntitySubscriptionSummary } =
-        useGetEntitySubscriptionSummaryQuery({
-            variables: {
-                input: {
-                    entityUrn,
-                },
-            },
-        });
-    const isUserSubscribed = entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed || false;
-    const numUserSubscriptions = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.numUserSubscriptions || 0;
-    // Maxes out at 100 by default.
-    const numGroupSubscriptions =
-        entitySubscriptionSummaryData?.getEntitySubscriptionSummary.numGroupSubscriptions || 0;
-    const groupNames: string[] =
-        (entitySubscriptionSummaryData?.getEntitySubscriptionSummary.topGroups
-            .map((group) => getGroupName(group as CorpGroup))
-            .filter((name) => !!name) as string[]) || [];
 
-    const [deleteSubscription] = useDeleteSubscriptionMutation();
-    const refetchDeleteSubscription = () => {
-        refetchGetSubscription();
-        refetchEntitySubscriptionSummary();
-    };
-
-    const onDeleteSubscription = () => {
-        if (subscription && subscription.subscriptionUrn) {
-            deleteSubscriptionFunction(subscription.subscriptionUrn, deleteSubscription, refetchDeleteSubscription);
-        }
-    };
-
-    const handleMenuClick: MenuProps['onClick'] = (e) => {
-        const key = e.key as string;
+    const onClickMenuItem: MenuProps['onClick'] = ({ key }) => {
         if (key === DROPDOWN_KEYS.SUBSCRIBE_ME) {
             setIsPersonal(true);
-            setDrawerIsOpen(true);
+            setIsDrawerOpen(true);
         } else if (key === DROPDOWN_KEYS.SUBSCRIBE_GROUP) {
             setIsPersonal(false);
             setGroupUrn(undefined);
-            setSubscription(undefined);
-            setIsSubscribed(false);
-            setDrawerIsOpen(true);
+            setIsDrawerOpen(true);
         } else if (key === DROPDOWN_KEYS.UNSUBSCRIBE_ME) {
             setIsPersonal(true);
-            onDeleteSubscription();
+            deleteSubscription();
         }
     };
 
-    let items: MenuProps['items'] = [
-        {
-            key: DROPDOWN_KEYS.SUBSCRIBE_ME,
-            label: isSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
-        },
-        {
-            key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
-            label: 'Manage Group Subscriptions',
-        },
-    ];
-    if (isSubscribed) {
-        items = [
-            {
-                key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
-                label: 'Unsubscribe Me',
-            },
-            ...items,
-        ];
-    }
-
-    const menuProps = {
-        items,
-        onClick: handleMenuClick,
+    const onClickStar = () => {
+        setIsDrawerOpen(true);
+        setIsPersonal(true);
+        setGroupUrn(undefined);
     };
 
-    useEffect(() => {
-        setSubscription(getSubscriptionData?.getSubscription || undefined);
-        setIsSubscribed(!!getSubscriptionData?.getSubscription);
-    }, [getSubscriptionData]);
+    const onCloseDrawer = () => {
+        setIsDrawerOpen(false);
+        setIsPersonal(true);
+        setGroupUrn(undefined);
+    };
 
     return (
         <>
             <SubscribeDropdown
-                menu={menuProps}
+                menu={{
+                    items: [
+                        ...(isUserSubscribed
+                            ? [
+                                  {
+                                      key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
+                                      label: 'Unsubscribe Me',
+                                  },
+                              ]
+                            : []),
+                        {
+                            key: DROPDOWN_KEYS.SUBSCRIBE_ME,
+                            label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
+                        },
+                        {
+                            key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
+                            label: 'Manage Group Subscriptions',
+                        },
+                    ],
+                    onClick: onClickMenuItem,
+                }}
                 buttonsRender={([leftButton, rightButton]) => [
                     <Tooltip
                         title={
                             <SubscriptionStarTooltip
-                                isSubscribed={isSubscribed}
+                                isUserSubscribed={isUserSubscribed}
                                 numUserSubscriptions={numUserSubscriptions}
                                 numGroupSubscriptions={numGroupSubscriptions}
                                 groupNames={groupNames}
@@ -138,15 +107,15 @@ export default function SubscribeButtons() {
                     >
                         {leftButton}
                     </Tooltip>,
-                    React.cloneElement(rightButton as React.ReactElement<any, string>),
+                    rightButton,
                 ]}
-                onClick={() => setDrawerIsOpen(true)}
+                onClick={onClickStar}
             >
                 {isUserSubscribed ? <StyledStarFilled /> : <StarOutlined />}
             </SubscribeDropdown>
             <SubscriptionDrawer
-                isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
+                isOpen={isDrawerOpen}
+                onClose={onCloseDrawer}
                 isPersonal={isPersonal}
                 groupUrn={groupUrn}
                 setGroupUrn={setGroupUrn}
@@ -155,9 +124,8 @@ export default function SubscribeButtons() {
                 entityType={entityType}
                 isSubscribed={isSubscribed}
                 subscription={subscription}
-                refetchGetSubscription={refetchGetSubscription}
-                refetchEntitySubscriptionSummary={refetchEntitySubscriptionSummary}
-                onDeleteSubscription={onDeleteSubscription}
+                onRefetch={refetch}
+                onDeleteSubscription={deleteSubscription}
             />
         </>
     );
