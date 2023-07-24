@@ -10,10 +10,15 @@ import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.ExpressionList;
@@ -36,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -489,9 +495,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, final int maxTransactionRetry) {
+    return runInTransactionWithRetry(block, null, maxTransactionRetry);
+  }
+
+  @Override
+  @Nonnull
+  public <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, @Nullable AspectsBatch batch,
+                                         final int maxTransactionRetry) {
     validateConnection();
     int retryCount = 0;
-    Exception lastException;
+    Exception lastException = null;
 
     T result = null;
     do {
@@ -501,8 +514,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         transaction.commit();
         lastException = null;
         break;
-      } catch (RollbackException | DuplicateKeyException exception) {
+      } catch (RollbackException exception) {
         lastException = exception;
+      } catch (DuplicateKeyException exception) {
+        if (batch != null && batch.getItems().stream().allMatch(a -> a.getAspectName().equals(a.getEntitySpec().getKeyAspectSpec().getName()))) {
+          log.warn("Skipping DuplicateKeyException retry since aspect is the key aspect.");
+        } else {
+          lastException = exception;
+        }
       } catch (PersistenceException exception) {
         // TODO: replace this logic by catching SerializableConflictException above once the exception is available
         SpiServer pluginApi = _server.getPluginApi();
@@ -533,6 +552,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     } while (++retryCount <= maxTransactionRetry);
 
     if (lastException != null) {
+      incrementExceptionMetrics(batch, lastException);
       throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", lastException);
     }
 
@@ -683,5 +703,15 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .entrySet().stream()
             .map(e -> Map.entry(e.getKey(), toAspectMap(e.getValue())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private static void incrementExceptionMetrics(AspectsBatch batchOpt, Throwable failure) {
+    Optional.ofNullable(batchOpt).ifPresent(batch -> batch.getItems().stream()
+            .map(item -> buildMetricName(item.getEntitySpec(), item.getAspectSpec(), "retryLimitException"))
+            .forEach(metricName -> MetricUtils.exceptionCounter(BulkListener.class, metricName, failure)));
+  }
+
+  private static String buildMetricName(EntitySpec entitySpec, AspectSpec aspectSpec, String status) {
+    return String.join(MetricUtils.DELIMITER, List.of(entitySpec.getName(), aspectSpec.getName(), status.toLowerCase()));
   }
 }

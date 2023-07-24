@@ -66,7 +66,7 @@ public class EntitiesControllerTest {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
     Mockito.when(aspectDao.runInTransactionWithRetry(
-            ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), anyInt())).thenAnswer(i ->
+            ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), any(), anyInt())).thenAnswer(i ->
             ((Function<Transaction, UpdateAspectResult>) i.getArgument(0)).apply(Mockito.mock(Transaction.class))
     );
 

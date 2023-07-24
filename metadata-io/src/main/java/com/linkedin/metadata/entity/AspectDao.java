@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import io.ebean.PagedList;
 import io.ebean.Transaction;
 
@@ -130,4 +131,10 @@ public interface AspectDao {
 
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, final int maxTransactionRetry);
+
+    @Nonnull
+    default <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, AspectsBatch batch,
+                                            final int maxTransactionRetry) {
+        return runInTransactionWithRetry(block, maxTransactionRetry);
+    }
 }

@@ -635,7 +635,7 @@ public class EntityServiceImpl implements EntityService {
       }
 
       return upsertResults;
-    }, DEFAULT_MAX_TRANSACTION_RETRY);
+    }, aspectsBatch, DEFAULT_MAX_TRANSACTION_RETRY);
   }
 
   @Nonnull

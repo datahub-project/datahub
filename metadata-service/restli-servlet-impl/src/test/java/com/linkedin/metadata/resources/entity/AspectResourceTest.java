@@ -88,7 +88,7 @@ public class AspectResourceTest {
             .aspect(mcp.getAspect())
             .metadataChangeProposal(mcp)
             .build(_entityRegistry);
-    when(_aspectDao.runInTransactionWithRetry(any(), anyInt()))
+    when(_aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(List.of(
                 UpdateAspectResult.builder().urn(urn)
                         .newValue(new DatasetProperties().setName("name1"))
