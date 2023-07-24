@@ -16,6 +16,7 @@ from datahub_monitors.types import (
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
     Monitor,
+    MonitorMode,
     MonitorType,
 )
 
@@ -46,30 +47,79 @@ assertion_spec = AssertionEvaluationSpec(
     assertion=assertion, schedule=schedule, parameters=parameters
 )
 
-monitor = Monitor(
-    urn="urn:li:monitor:test",
-    type=MonitorType.ASSERTION,
-    assertion_monitor=AssertionMonitor(assertions=[assertion_spec]),
-)
 
+class TestMonitorManager:
+    def setup_method(self) -> None:
+        self.fetcher = Mock(spec=MonitorFetcher)
+        self.scheduler = Mock(spec=AssertionScheduler)
+        self.engine = Mock(spec=AssertionEngine)
+        Mock(spec=AssertionEntity)
 
-def test_refresh_assertions() -> None:
-    # Create mock objects
-    fetcher = Mock(spec=MonitorFetcher)
-    scheduler = Mock(spec=AssertionScheduler)
-    engine = Mock(spec=AssertionEngine)
-    Mock(spec=AssertionEntity)
+        self.monitor = Monitor(
+            urn="urn:li:monitor:test",
+            type=MonitorType.ASSERTION,
+            assertion_monitor=AssertionMonitor(assertions=[assertion_spec]),
+            mode=MonitorMode.ACTIVE,
+        )
+        self.manager = MonitorManager(self.fetcher, self.scheduler, self.engine)
 
-    fetcher.fetch_monitors.return_value = [monitor]
+    def test_scheduled_assertion(self) -> None:
+        self.manager.scheduled_monitors[self.monitor.urn] = self.monitor
+        self.fetcher.fetch_monitors.return_value = [self.monitor]
+        self.manager.refresh_monitors()
 
-    manager = MonitorManager(fetcher, scheduler, engine)
+        # Verify that the fetcher's refresh_monitors method was called
+        self.fetcher.fetch_monitors.assert_called_once()
 
-    manager.refresh_monitors()
+        # Verify that the scheduler's add_assertion method was called with the correct arguments
+        self.scheduler.add_assertion.assert_called_once_with(
+            assertion, parameters, schedule, ANY
+        )
 
-    # Verify that the fetcher's refresh_monitors method was called
-    fetcher.fetch_monitors.assert_called_once()
+    def test_inactive_assertion(self) -> None:
+        self.manager.scheduled_monitors[self.monitor.urn] = self.monitor
+        monitor = Monitor(
+            urn="urn:li:monitor:test",
+            type=MonitorType.ASSERTION,
+            assertion_monitor=AssertionMonitor(assertions=[assertion_spec]),
+            mode=MonitorMode.INACTIVE,
+        )
+        self.fetcher.fetch_monitors.return_value = [monitor]
+        self.manager.refresh_monitors()
 
-    # Verify that the scheduler's add_assertion method was called with the correct arguments
-    scheduler.add_assertion.assert_called_once_with(
-        assertion, parameters, schedule, ANY
-    )
+        # Verify that the fetcher's refresh_monitors method was called
+        self.fetcher.fetch_monitors.assert_called_once()
+
+        # Verify that the scheduler's add_assertion method was not called because this monitor is inactive
+        self.scheduler.add_assertion.assert_not_called()
+
+    def test_deleted_assertion(self) -> None:
+        self.manager.scheduled_monitors[self.monitor.urn] = self.monitor
+        monitor = Monitor(
+            urn="urn:li:monitor:test",
+            type=MonitorType.ASSERTION,
+            assertion_monitor=AssertionMonitor(assertions=[]),
+            mode=MonitorMode.INACTIVE,
+        )
+        self.fetcher.fetch_monitors.return_value = [monitor]
+        self.manager.refresh_monitors()
+
+        # Verify that the fetcher's refresh_monitors method was called
+        self.fetcher.fetch_monitors.assert_called_once()
+
+        # Verify that the scheduler's add_assertion method was not called because this monitor is inactive
+        self.scheduler.add_assertion.assert_not_called()
+        self.scheduler.remove_assertion.assert_called_once()
+
+    def test_deleted_missing_assertion(self) -> None:
+        # monitor in our list, but not returned (deleted on graphql side)
+        self.manager.scheduled_monitors[self.monitor.urn] = self.monitor
+        self.fetcher.fetch_monitors.return_value = []
+        self.manager.refresh_monitors()
+
+        # Verify that the fetcher's refresh_monitors method was called
+        self.fetcher.fetch_monitors.assert_called_once()
+
+        # Verify that the scheduler's add_assertion method was not called because this monitor is inactive
+        self.scheduler.add_assertion.assert_not_called()
+        self.scheduler.remove_assertion.assert_called_once()
