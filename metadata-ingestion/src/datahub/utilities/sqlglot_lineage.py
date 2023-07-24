@@ -7,7 +7,6 @@ import pathlib
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-import pydantic
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
@@ -23,7 +22,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.schema_classes import OperationTypeClass, SchemaMetadataClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -44,6 +43,22 @@ class QueryType(enum.Enum):
     MERGE = "MERGE"
 
     UNKNOWN = "UNKNOWN"
+
+    def to_operation_type(self) -> Optional[str]:
+        if self == QueryType.CREATE:
+            return OperationTypeClass.CREATE
+        elif self == QueryType.INSERT:
+            return OperationTypeClass.INSERT
+        elif self == QueryType.UPDATE:
+            return OperationTypeClass.UPDATE
+        elif self == QueryType.DELETE:
+            return OperationTypeClass.DELETE
+        elif self == QueryType.MERGE:
+            return OperationTypeClass.UPDATE
+        elif self == QueryType.SELECT:
+            return None
+        else:
+            return OperationTypeClass.UNKNOWN
 
 
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
@@ -238,6 +253,7 @@ class SchemaResolver(Closeable):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
+        self.urns: Optional[Set[str]] = None
 
         self.graph = graph
 
@@ -248,6 +264,9 @@ class SchemaResolver(Closeable):
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
         )
+
+    def set_include_urns(self, include_urns: Set[str]) -> None:
+        self.urns = include_urns
 
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
@@ -276,12 +295,13 @@ class SchemaResolver(Closeable):
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
 
-        schema_info = self._resolve_schema_info(urn)
-        if schema_info:
-            return urn, schema_info
+        if not (self.urns and urn not in self.urns):
+            schema_info = self._resolve_schema_info(urn)
+            if schema_info:
+                return urn, schema_info
 
         urn_lower = self.get_urn_for_table(table, lower=True)
-        if urn_lower != urn:
+        if not (self.urns and urn_lower not in self.urns) and urn_lower != urn:
             schema_info = self._resolve_schema_info(urn_lower)
             if schema_info:
                 return urn_lower, schema_info
@@ -631,7 +651,10 @@ def _sqlglot_lineage_inner(
 ) -> SqlParsingResult:
     # TODO: convert datahub platform names to sqlglot dialect
     # TODO: Pull the platform name from the schema resolver?
-    dialect = schema_resolver.platform
+    if schema_resolver.platform == "presto-on-hive":
+        dialect = "hive"
+    else:
+        dialect = schema_resolver.platform
 
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
@@ -755,6 +778,7 @@ def _sqlglot_lineage_inner(
     )
 
 
+@functools.lru_cache(maxsize=1000)
 def sqlglot_lineage(
     sql: str,
     schema_resolver: SchemaResolver,

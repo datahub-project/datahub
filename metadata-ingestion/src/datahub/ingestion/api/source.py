@@ -182,6 +182,9 @@ class Source(Closeable, metaclass=ABCMeta):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         """A list of functions that transforms the workunits produced by this source.
         Run in order, first in list is applied first. Be careful with order when overriding.
+
+        The last workunit processors should be the workunit reporter and
+        stale entity remover, if applicable.
         """
         browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
         if (

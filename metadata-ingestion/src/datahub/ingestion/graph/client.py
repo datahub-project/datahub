@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -39,6 +39,8 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
@@ -970,6 +972,49 @@ class DataHubGraph(DatahubRestEmitter):
             graph=self,
         )
 
+    def initialize_schema_resolver_from_datahub(
+        self, platform: str, platform_instance: Optional[str], env: str
+    ) -> Tuple["SchemaResolver", Set[str]]:
+        logger.info("Initializing schema resolver")
+
+        # TODO: Filter on platform instance?
+        logger.info(f"Fetching urns for platform {platform}, env {env}")
+        with PerfTimer() as timer:
+            urns = set(
+                self.get_urns_by_filter(
+                    entity_types=[DatasetUrn.ENTITY_TYPE],
+                    platform=platform,
+                    env=env,
+                    batch_size=3000,
+                )
+            )
+            logger.info(
+                f"Fetched {len(urns)} urns in {timer.elapsed_seconds()} seconds"
+            )
+
+        schema_resolver = self._make_schema_resolver(platform, platform_instance, env)
+        schema_resolver.set_include_urns(urns)
+
+        with PerfTimer() as timer:
+            count = 0
+            for i, urn in enumerate(urns):
+                if i % 1000 == 0:
+                    logger.debug(f"Loaded {i} schema metadata")
+                try:
+                    schema_metadata = self.get_aspect(urn, SchemaMetadataClass)
+                    if schema_metadata:
+                        schema_resolver.add_schema_metadata(urn, schema_metadata)
+                        count += 1
+                except Exception:
+                    logger.warning("Failed to load schema metadata", exc_info=True)
+            logger.info(
+                f"Loaded {count} schema metadata in {timer.elapsed_seconds()} seconds"
+            )
+
+        logger.info("Finished initializing schema resolver")
+
+        return schema_resolver, urns
+
     def parse_sql_lineage(
         self,
         sql: str,
@@ -984,9 +1029,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
+            platform=platform, platform_instance=platform_instance, env=env
         )
 
         return sqlglot_lineage(
