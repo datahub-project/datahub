@@ -14,7 +14,7 @@ from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
 from pydantic.class_validators import root_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, text
+from sqlalchemy import __version__ as sqlalchemy_version, create_engine, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
@@ -39,6 +39,7 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     register_custom_type,
 )
+from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -60,10 +61,10 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 
-try:
-    # Try to import `make_url` from `sqlalchemy.engine` for version 1.4 and above
+if sqlalchemy_version < "1.4.0":
+    # Try to import `make_url` from `sqlalchemy.engine` for version 1.4.0 and above
     from sqlalchemy.engine import make_url
-except ImportError:
+else:
     # If version is less than 1.4, import `make_url` from `sqlalchemy.engine.url`
     from sqlalchemy.engine.url import make_url
 
@@ -163,7 +164,16 @@ class ClickHouseConfig(
                 "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
             )
 
-        if current_db:
+        if current_db and sqlalchemy_version < '1.4.0':
+            url = make_sqlalchemy_uri(
+                self.scheme,
+                self.username,
+                self.password.get_secret_value() if self.password else None,
+                self.host_port,
+                current_db,
+                uri_opts=self.uri_optsuri_opts,
+            )
+        elif current_db:
             url = url.set(database=current_db)
 
         return str(url)

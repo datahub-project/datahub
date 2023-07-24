@@ -37,7 +37,7 @@ source:
     host_port: localhost:9440
     scheme: clickhouse+native
     uri_opts:
-      secure: "true"
+      secure: True
 
 #------------------------------------------------------------------------
 # Example: using ingestion with configured SSL-TLS and uri_opts
@@ -56,7 +56,7 @@ source:
     host_port: localhost:9000
 
     uri_opts:
-      secure: "true"
+      secure: True
       ca_certs: "ca.crt"
       certfile: "clickhouse.crt"
       keyfile: "clickhouse.key"
