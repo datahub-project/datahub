@@ -40,7 +40,7 @@ export function DomainNameColumn(logoIcon: JSX.Element) {
                 <DomainNameContainer>
                     <Typography.Text>{record.name}</Typography.Text>
                 </DomainNameContainer>
-                <Tooltip title={`There are ${record.entities} entities in this domain.`}>
+                <Tooltip title={`当前 domain 包含如下实体 ${record.entities} .`}>
                     <Tag>{record.entities} entities</Tag>
                 </Tooltip>
             </Link>

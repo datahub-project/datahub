@@ -41,7 +41,8 @@ module.exports = {
         '@typescript-eslint/no-empty-interface': 'off',
         "@typescript-eslint/explicit-module-boundary-types": "off",
         "@typescript-eslint/no-explicit-any": 'off',
-        "import/no-extraneous-dependencies": 'off'
+        "import/no-extraneous-dependencies": 'off',
+        "prettier/prettier":'off' // Add by walt for making translations to Chinese
     },
     settings: {
         react: {

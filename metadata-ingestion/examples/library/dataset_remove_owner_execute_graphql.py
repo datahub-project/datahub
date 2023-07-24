@@ -9,10 +9,11 @@ query = """
 mutation batchRemoveOwners {
     batchRemoveOwners(
       input: {
-        ownerUrns: ["urn:li:corpuser:jdoe"],
+        ownerUrns: ["urn:li:corpuser:nobody"],
         resources: [
           { resourceUrn:"urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)"} ,
-          { resourceUrn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"} ,]
+          { resourceUrn:"urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)"} ,
+          { resourceUrn:"urn:li:dataset:(urn:li:dataPlatform:hive,realestate_db.sales,PROD)"}]
       }
     )
 }

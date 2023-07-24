@@ -24,20 +24,20 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success('Deleted Domain!');
+                    message.success('成功删除 Domain!');
                     onDelete?.();
                 }
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: `Failed to delete Domain!: An unknown error occurred.`, duration: 3 });
+                message.error({ content: `删除 Domain 失败!: ❌ 未知错误.`, duration: 3 });
             });
     };
 
     const onConfirmDelete = () => {
         Modal.confirm({
-            title: `Delete Domain '${name}'`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(EntityType.Domain)}?`,
+            title: `删除 Domain '${name}'`,
+            content: `您确定要删除 ${entityRegistry.getEntityName(EntityType.Domain)}?`,
             onOk() {
                 deleteDomain();
             },

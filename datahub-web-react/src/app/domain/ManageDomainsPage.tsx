@@ -27,7 +27,7 @@ export const ManageDomainsPage = () => {
             <PageHeaderContainer>
                 <PageTitle level={3}>Domains</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View your DataHub Domains. Take administrative actions.
+                    查看您DataHub中的Domains. 需要管理员权限
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>
