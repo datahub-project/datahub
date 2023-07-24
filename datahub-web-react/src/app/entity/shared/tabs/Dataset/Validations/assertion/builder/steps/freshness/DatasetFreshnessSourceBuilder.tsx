@@ -101,9 +101,12 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
             <Typography.Paragraph type="secondary">
                 Select the mechanism used to determine whether a change has been made to this dataset.
             </Typography.Paragraph>
-            <Radio.Group value={sourceType} onChange={(e) => updateSourceType(e.target.value)}>
+            <Radio.Group value={selectedSourceOption} onChange={(e) => updateSourceType(e.target.value)}>
                 {sourceOptions.map((option) => (
-                    <Radio.Button value={option}>{option.name}</Radio.Button>
+                    // In order to access the entire object on change, we use the object reference as the value and then override the default checked behavior
+                    <Radio.Button value={option} checked={selectedSourceOption.name === option.name}>
+                        {option.name}
+                    </Radio.Button>
                 ))}
             </Radio.Group>
             <SourceDescription>

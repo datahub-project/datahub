@@ -225,7 +225,7 @@ export type StepProps = {
     updateState: (newState: AssertionMonitorBuilderState) => void;
     goTo: (step: AssertionBuilderStep) => void;
     prev?: () => void;
-    submit: () => void;
+    submit: () => Promise<void>;
     cancel: () => void;
 };
 

@@ -3,12 +3,13 @@ import styled from 'styled-components';
 import { Tooltip, Typography } from 'antd';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import {
+    AssertionResultType,
     AssertionRunEventsResult,
     AssertionRunStatus,
     DataPlatform,
     EntityType,
 } from '../../../../../../types.generated';
-import { getResultIcon, getResultText } from './assertionUtils';
+import { getResultErrorMessage, getResultIcon, getResultText } from './assertionUtils';
 import { AssertionResultTimeline, TimeRange } from './AssertionResultTimeline';
 import { DatasetAssertionResultDetails } from './DatasetAssertionResultDetails';
 import { LinkWrapper } from '../../../../../shared/LinkWrapper';
@@ -21,6 +22,16 @@ const AssertionResultIcon = styled.span`
 `;
 
 const AssertionResultDetailsContainer = styled.div`
+    margin-bottom: 4px;
+`;
+
+const AssertionResultErrorMessage = styled.div`
+    max-width: 250px;
+    margin-bottom: 4px;
+`;
+
+const AssertionResultInitializingMessage = styled.div`
+    max-width: 250px;
     margin-bottom: 4px;
 `;
 
@@ -50,6 +61,8 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                 const localTime = resultTime.toLocaleString();
                 const gmtTime = resultTime.toUTCString();
                 const resultUrl = result.externalUrl;
+                const isInitializing = result.type === AssertionResultType.Init;
+                const errorMessage = getResultErrorMessage(result);
                 const platformName =
                     (platform && entityRegistry.getDisplayName(EntityType.DataPlatform, platform)) || undefined;
 
@@ -72,6 +85,14 @@ export const AcrylAssertionResultsChartTimeline = ({ results, platform, timeRang
                                 <AssertionResultDetailsContainer>
                                     <DatasetAssertionResultDetails result={result} />
                                 </AssertionResultDetailsContainer>
+                                {isInitializing && (
+                                    <AssertionResultInitializingMessage>
+                                        Collecting the information required to evaluate this assertion.
+                                    </AssertionResultInitializingMessage>
+                                )}
+                                {errorMessage && (
+                                    <AssertionResultErrorMessage>{errorMessage}</AssertionResultErrorMessage>
+                                )}
                                 <div>
                                     <Tooltip title={`${gmtTime}`}>
                                         <Typography.Text type="secondary">{localTime}</Typography.Text>

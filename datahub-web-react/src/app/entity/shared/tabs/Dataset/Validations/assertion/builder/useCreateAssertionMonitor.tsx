@@ -8,7 +8,7 @@ import {
 } from './utils';
 import { useCreateAssertionMonitorMutation } from '../../../../../../../../graphql/monitor.generated';
 
-export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): (() => void) => {
+export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): (() => Promise<void>) => {
     /**
      * Mutations for creating Assertions, and the Monitor that evaluates them.
      */
@@ -81,19 +81,24 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
         const createAssertionVariables = getCreateAssertionVariables();
 
         if (createAssertionMutation && createAssertionVariables) {
-            createAssertionMutation({
+            return createAssertionMutation({
                 variables: createAssertionVariables as any,
             })
                 .then(({ data, errors }) => {
                     if (!errors) {
-                        createMonitor(data?.createFreshnessAssertion?.urn);
+                        return createMonitor(data?.createFreshnessAssertion?.urn);
                     }
+                    throw new Error('Encountered errors while creating assertion');
                 })
                 .catch(() => {
                     message.destroy();
                     message.error({ content: 'Failed to create Assertion Monitor! An unexpected error occurred' });
                 });
         }
+
+        message.destroy();
+        message.error({ content: 'Failed to create Assertion Monitor! An unexpected error occurred' });
+        return Promise.reject(new Error('Could not find createAssertionMutation or createAssertionVariables!'));
     };
 
     return createAssertionMonitor;
