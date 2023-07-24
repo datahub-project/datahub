@@ -4,11 +4,17 @@ import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
+import { NotificationSinkType } from '../../../../types.generated';
 import {
     updateGroupNotificationSettingsFunction,
     updateUserNotificationSettingsFunction,
 } from '../../../settings/personal/notifications/utils';
 import { getSettingsChannel } from './utils';
+
+export interface UpdateSettingsInput {
+    text: string;
+    sinkTypes: NotificationSinkType[];
+}
 
 type Props = {
     isPersonal: boolean;
@@ -27,18 +33,20 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
 
-    const onUpdateUserNotificationSettings = (newUserHandle: string) => {
+    const onUpdateUserNotificationSettings = ({ text, sinkTypes }: UpdateSettingsInput) => {
         updateUserNotificationSettingsFunction({
-            newUserHandle,
+            newUserHandle: text,
+            sinkTypes,
             updateUserNotificationSettings,
             refetchUserNotificationSettings,
         });
     };
 
-    const onUpdateGroupNotificationSettings = (newGroupChannel: string) => {
+    const onUpdateGroupNotificationSettings = ({ text, sinkTypes }: UpdateSettingsInput) => {
         updateGroupNotificationSettingsFunction({
             groupUrn: groupUrn || '',
-            newGroupChannel,
+            newGroupChannel: text,
+            sinkTypes,
             updateGroupNotificationSettings,
             refetchGroupNotificationSettings,
         });
@@ -47,8 +55,11 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     const updateSinkSettings = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
     const settingsChannel = getSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
+    const sinkTypes = isPersonal
+        ? userNotificationSettings?.getUserNotificationSettings?.sinkTypes
+        : groupNotificationSettings?.getGroupNotificationSettings?.sinkTypes;
 
-    return { settingsChannel, updateSinkSettings } as const;
+    return { settingsChannel, updateSinkSettings, sinkTypes } as const;
 };
 
 export default useSinkSettings;

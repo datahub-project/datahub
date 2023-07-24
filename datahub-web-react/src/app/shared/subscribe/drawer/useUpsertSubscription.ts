@@ -34,15 +34,13 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
         ? [SubscriptionType.EntityChange, SubscriptionType.UpstreamEntityChange]
         : [SubscriptionType.EntityChange];
 
-    const notificationSettings: NotificationSettingsInput | undefined =
-        channel && !saveAsDefault
-            ? {
-                  slackSettings: {
-                      userHandle: isPersonal ? channel : undefined,
-                      channels: isPersonal ? undefined : [channel],
-                  },
-              }
-            : undefined;
+    const notificationSettings: NotificationSettingsInput | undefined = {
+        sinkTypes: notificationSinkTypes,
+        slackSettings: {
+            userHandle: !saveAsDefault && isPersonal && channel ? channel : undefined,
+            channels: !saveAsDefault && !isPersonal && channel ? [channel] : undefined,
+        },
+    };
 
     const onCreateSubscription = () => {
         createSubscriptionFunction({
@@ -51,7 +49,6 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
             entityUrn,
             subscriptionTypes,
             entityChangeTypes,
-            sinkTypes: notificationSinkTypes,
             notificationSettings,
             onRefetch,
         });
@@ -63,7 +60,6 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
             subscription,
             subscriptionTypes,
             entityChangeTypes,
-            sinkTypes: notificationSinkTypes,
             notificationSettings,
             onRefetch,
         });

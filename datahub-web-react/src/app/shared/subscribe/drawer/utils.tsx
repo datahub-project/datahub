@@ -8,7 +8,6 @@ import {
     EntityChangeType,
     EntityType,
     NotificationSettingsInput,
-    NotificationSinkType,
     SubscriptionType,
 } from '../../../../types.generated';
 import {
@@ -312,7 +311,6 @@ export const createSubscriptionFunction = ({
     entityUrn,
     subscriptionTypes,
     entityChangeTypes,
-    sinkTypes,
     notificationSettings,
     onRefetch,
 }: {
@@ -321,7 +319,6 @@ export const createSubscriptionFunction = ({
     entityUrn: string;
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
-    sinkTypes: Array<NotificationSinkType>;
     notificationSettings: NotificationSettingsInput | undefined;
     onRefetch?: () => void;
 }) => {
@@ -333,8 +330,6 @@ export const createSubscriptionFunction = ({
                 subscriptionTypes,
                 entityChangeTypes,
                 notificationConfig: {
-                    // todo - move to notificationSettings before calling this
-                    sinkTypes,
                     notificationSettings,
                 },
             },
@@ -363,7 +358,6 @@ export const updateSubscriptionFunction = ({
     subscription,
     subscriptionTypes,
     entityChangeTypes,
-    sinkTypes,
     notificationSettings,
     onRefetch,
 }: {
@@ -371,7 +365,6 @@ export const updateSubscriptionFunction = ({
     subscription: DataHubSubscription | undefined;
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
-    sinkTypes: Array<NotificationSinkType>;
     notificationSettings: NotificationSettingsInput | undefined;
     onRefetch?: () => void;
 }) => {
@@ -383,8 +376,6 @@ export const updateSubscriptionFunction = ({
                     subscriptionTypes,
                     entityChangeTypes,
                     notificationConfig: {
-                        // todo - move to notificationSettings before calling this
-                        sinkTypes,
                         notificationSettings,
                     },
                 },
