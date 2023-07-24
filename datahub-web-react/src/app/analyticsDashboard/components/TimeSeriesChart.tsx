@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
+import { AxisScaleOutput } from '@visx/axis';
 import { Axis, LineSeries, XYChart, Tooltip, GlyphSeries } from '@visx/xychart';
 import { curveMonotoneX } from '@visx/curve';
 import { ScaleConfig, scaleOrdinal } from '@visx/scale';
@@ -8,7 +9,6 @@ import { lineColors } from './lineColors';
 import Legend from './Legend';
 import { addInterval } from '../../shared/time/timeUtils';
 import { formatNumber } from '../../shared/formatNumber';
-import { AxisScaleOutput } from '@visx/axis';
 
 type AxisConfig = {
     formatter: (tick: number) => string;
@@ -33,7 +33,7 @@ type Props = {
 
 const StyledTooltip = styled(Tooltip)`
     font-family: inherit !important;
-    font-weight: 400;
+    font-weight: 400 !important;
 `;
 
 const MARGIN = {
