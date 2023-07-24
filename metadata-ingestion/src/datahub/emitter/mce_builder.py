@@ -6,7 +6,17 @@ import re
 import time
 from enum import Enum
 from hashlib import md5
-from typing import Any, List, Optional, Type, TypeVar, Union, cast, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_type_hints,
+)
 
 import typing_inspect
 
@@ -49,6 +59,9 @@ UNKNOWN_USER = "urn:li:corpuser:unknown"
 DATASET_URN_TO_LOWER: bool = (
     os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false") == "true"
 )
+
+if TYPE_CHECKING:
+    from datahub.emitter.mcp_builder import DatahubKey
 
 
 # TODO: Delete this once lower-casing is the standard.
@@ -132,7 +145,11 @@ def dataset_key_to_urn(key: DatasetKeyClass) -> str:
     )
 
 
-def make_container_urn(guid: str) -> str:
+def make_container_urn(guid: Union[str, "DatahubKey"]) -> str:
+    from datahub.emitter.mcp_builder import DatahubKey
+
+    if isinstance(guid, DatahubKey):
+        guid = guid.guid()
     return f"urn:li:container:{guid}"
 
 
