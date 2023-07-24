@@ -36,9 +36,9 @@ import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.xcontent.NamedXContentRegistry;
+import org.elasticsearch.xcontent.XContentParser;
+import org.elasticsearch.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -342,7 +342,7 @@ public class SearchQueryBuilder {
           .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query));
       XContentParser parser = XContentType.JSON.xContent().createParser(X_CONTENT_REGISTRY,
           LoggingDeprecationHandler.INSTANCE, jsonFragment);
-      return BoolQueryBuilder.fromXContent(parser);
+      return BoolQueryBuilder.fromXContent(parser, -1);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

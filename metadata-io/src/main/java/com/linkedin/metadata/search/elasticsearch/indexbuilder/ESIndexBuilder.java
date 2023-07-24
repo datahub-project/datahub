@@ -50,7 +50,7 @@ import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
 import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.ReindexRequest;

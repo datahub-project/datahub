@@ -27,6 +27,7 @@ import org.apache.http.ssl.SSLContexts;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestHighLevelClientBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -86,7 +87,9 @@ public class RestHighLevelClientFactory {
   @Nonnull
   public RestHighLevelClient createInstance(RestClientBuilder restClientBuilder) {
 
-    return new RestHighLevelClient(restClientBuilder);
+    return new RestHighLevelClientBuilder(restClientBuilder.build())
+            .setApiCompatibilityMode(true)
+            .build();
   }
 
   @Bean

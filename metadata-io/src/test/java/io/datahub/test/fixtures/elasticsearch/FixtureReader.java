@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import org.apache.commons.io.FilenameUtils;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.common.xcontent.XContentType;
+import org.elasticsearch.xcontent.XContentType;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;

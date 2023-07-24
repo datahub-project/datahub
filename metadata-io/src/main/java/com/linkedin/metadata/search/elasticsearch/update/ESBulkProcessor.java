@@ -15,8 +15,7 @@ import org.elasticsearch.action.support.WriteRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.tasks.TaskSubmissionResponse;
-import org.elasticsearch.common.Nullable;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.reindex.BulkByScrollResponse;
 import org.elasticsearch.index.reindex.DeleteByQueryRequest;
@@ -24,6 +23,7 @@ import org.elasticsearch.index.reindex.DeleteByQueryRequest;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 
 @Slf4j
