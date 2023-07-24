@@ -178,6 +178,7 @@ public class SearchQueryBuilder {
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
       // Simple query string does not use per field analyzers
       // Group the fields by analyzer
+      // talvez aqui?
       Map<String, List<SearchFieldConfig>> analyzerGroup = entitySpecs.stream()
               .map(this::getStandardFields)
               .flatMap(Set::stream)
