@@ -3,7 +3,10 @@ from datetime import timezone
 from typing import Any, List, Optional
 
 from datahub_monitors.connection.redshift.redshift_connection import RedshiftConnection
-from datahub_monitors.exceptions import InvalidParametersException
+from datahub_monitors.exceptions import (
+    InvalidParametersException,
+    SourceQueryFailedException,
+)
 from datahub_monitors.source.redshift.time_utils import convert_millis_to_timestamp_type
 from datahub_monitors.source.source import Source
 from datahub_monitors.source.types import SourceOperationParams
@@ -62,14 +65,24 @@ class RedshiftSource(Source):
         return None
 
     def _execute_fetchall_query(self, query: str) -> List[Any]:
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
-        return cur.fetchall()
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+            return cur.fetchall()
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (Redshift) failed with error: {e}", query=query
+            )
 
     def _execute_fetchone_query(self, query: str) -> List[Any]:
-        cur = self.connection.get_client().cursor()
-        cur.execute(query)
-        return cur.fetchone()
+        try:
+            cur = self.connection.get_client().cursor()
+            cur.execute(query)
+            return cur.fetchone()
+        except Exception as e:
+            raise SourceQueryFailedException(
+                message=f"Source query (Redshift) failed with error: {e}", query=query
+            )
 
     def _build_audit_log_results(self, rows: List[Any]) -> List[EntityEvent]:
         results = []

@@ -8,7 +8,7 @@ import {
 } from './utils';
 import { useCreateAssertionMonitorMutation } from '../../../../../../../../graphql/monitor.generated';
 
-export const useCreateAssertionMonitor = (builderState, onCreate): (() => void) => {
+export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): (() => void) => {
     /**
      * Mutations for creating Assertions, and the Monitor that evaluates them.
      */
@@ -52,6 +52,7 @@ export const useCreateAssertionMonitor = (builderState, onCreate): (() => void) 
                     analytics.event({
                         type: EventType.CreateAssertionMonitorEvent,
                         assertionType: builderState.assertion?.type as string,
+                        entityUrn,
                     });
                     message.success({
                         content: `Created new Assertion Monitor!`,
