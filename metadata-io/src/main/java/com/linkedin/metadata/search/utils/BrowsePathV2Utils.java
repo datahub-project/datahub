@@ -142,7 +142,7 @@ public class BrowsePathV2Utils {
     BrowsePathEntryArray browsePathEntries = new BrowsePathEntryArray();
     if (datasetName.contains(delimiter.toString())) {
       final List<String> datasetNamePathParts = Arrays.stream(datasetName.split(Pattern.quote(delimiter.toString())))
-              .filter((name)-> !name.isEmpty())
+              .filter((name) -> !name.isEmpty())
               .collect(Collectors.toList());
       // Omit the name from the path.
       datasetNamePathParts.subList(0, datasetNamePathParts.size() - 1).forEach((part -> {
