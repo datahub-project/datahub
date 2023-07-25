@@ -1,3 +1,4 @@
+import { InfoCircleFilled } from '@ant-design/icons';
 import React, { useMemo, useState } from 'react';
 import { Divider, Typography, Card, Image, Checkbox, Tooltip, Alert, message } from 'antd';
 import styled from 'styled-components';
@@ -22,6 +23,7 @@ import {
 } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import { isSinkEnabled } from '../utils';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const Page = styled.div`
     width: 100%;
@@ -95,6 +97,25 @@ const NotificationSinkName = styled(Typography.Text)`
         margin-left: 4px;
         font-size: 14px;
     }
+`;
+
+const SubHeader = styled(Typography.Text)`
+    color: ${ANTD_GRAY[9]};
+    font-size: 16px;
+`;
+
+const GlobalNotificationsBanner = styled.div`
+    background: #f9f0ff;
+    border-radius: 8px;
+    border: 1px solid #984ecc;
+    padding: 8px 16px;
+    margin: 8px 0 25px;
+    font-size: 14px;
+`;
+
+const InfoIcon = styled(InfoCircleFilled)`
+    color: #7532a4;
+    margin-right: 8px;
 `;
 
 const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
@@ -301,8 +322,12 @@ export const PlatformNotifications = () => {
                 )}
                 {error && <Alert type="error" message={error?.message || `Failed to load notification settings!`} />}
                 <Typography.Title level={3}>Notifications</Typography.Title>
-                <Typography.Text type="secondary">Select when and where global notifications are sent</Typography.Text>
-                <Divider />
+                <SubHeader>Select when and where global notifications are sent.</SubHeader>
+                <GlobalNotificationsBanner>
+                    <InfoIcon />
+                    These notifications are global. To set up notifications for a specific entity, subscribe to that
+                    entity.
+                </GlobalNotificationsBanner>
                 <Card>
                     <SettingsHeader>
                         <SettingsTitle>Send a notification when...</SettingsTitle>
