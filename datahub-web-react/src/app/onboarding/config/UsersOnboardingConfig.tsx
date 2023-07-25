@@ -10,21 +10,21 @@ export const USERS_ASSIGN_ROLE_ID = 'users-assign-role';
 export const UsersOnboardingConfig: OnboardingStep[] = [
     {
         id: USERS_INTRO_ID,
-        title: 'Users',
+        title: '用户',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to DataHub <strong>Users</strong>!
+                    欢迎使用 <strong>用户</strong>!
                 </p>
                 <p>
-                    There are a few different ways to onboard new <strong>Users</strong> onto DataHub.
+                    DataHub提供多种方式来支持<strong>新用户</strong>使用该系统.
                 </p>
             </Typography.Paragraph>
         ),
     },
     {
         id: USERS_SSO_ID,
-        title: 'Configuring Single Sign-On (SSO)',
+        title: '配置点单登陆 (SSO)',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -32,7 +32,7 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
                     Currently, DataHub supports OIDC SSO.
                 </p>
                 <p>
-                    Learn more about how to configure <strong>Single Sign-On</strong>{' '}
+                    学习更多关于 <strong>Single Sign-On</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -48,15 +48,15 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
     {
         id: USERS_INVITE_LINK_ID,
         selector: `#${USERS_INVITE_LINK_ID}`,
-        title: 'Invite New Users',
+        title: '邀请新用户',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Easily share an invite link with your colleagues to onboard them onto DataHub. Optionally assign a{' '}
-                    <strong>Role</strong> to anyone who joins using the link.
+                    最简便的方式是通过分享 <strong>邀请链接</strong> 给要使用Datahub的用户.
+                    邀请的同时也可以通过链接来分配{' '}<strong>角色</strong>。
                 </p>
                 <p>
-                    Learn more about configuring invite links{' '}
+                    学习更多关于如何配置邀请链接{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -72,14 +72,14 @@ export const UsersOnboardingConfig: OnboardingStep[] = [
     {
         id: USERS_ASSIGN_ROLE_ID,
         selector: `#${USERS_ASSIGN_ROLE_ID}`,
-        title: 'Assigning Roles',
+        title: '分配角色',
         content: (
             <Typography.Paragraph>
                 <p>
-                    You can assign <strong>Roles</strong> to existing <strong>Users</strong> here.
+                    您可以为系统内已经<strong>存在用户</strong>分配<strong>角色</strong>.
                 </p>
                 <p>
-                    Learn more about <strong>Roles</strong>{' '}
+                    学习更多关于 <strong>角色</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"

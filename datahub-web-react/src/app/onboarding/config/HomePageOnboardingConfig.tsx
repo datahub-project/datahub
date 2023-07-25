@@ -22,25 +22,23 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     style={{ marginLeft: '50px' }}
                     src="https://datahubproject.io/assets/ideal-img/datahub-flow-diagram-light.5ce651b.1600.png"
                 />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
+                <Typography.Title level={3}>欢迎使用 DataHub! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
-                    <strong>DataHub</strong> helps you discover and organize the important data within your
-                    organization. You can:
+                    <strong>DataHub</strong> 可以高效的帮准您进行数据发现。您可以:
                 </Typography.Paragraph>
                 <Typography.Paragraph style={{ lineHeight: '24px' }}>
                     <ul>
                         <li>
-                            Quickly <strong>search</strong> for Datasets, Dashboards, Data Pipelines, and more
+                            使用 <strong>search</strong> 快速的查找数据资产，比如Datasets, Dashboards, Data Pipelines等;
                         </li>
                         <li>
-                            View and understand the full <strong>end-to-end Lineage</strong> of how data is created,
-                            transformed, and consumed
+                            使用 <mark>可视化的数据血缘</mark> 帮助您理解数据是如何生成，如何处理，以及如何使用的;
                         </li>
                         <li>
-                            Gain <strong>insights</strong> about how others within your organization are using data
+                            通过 <strong>分析</strong> 来知晓您组织内的其它人是如何使用这些数据及数据资产;
                         </li>
                         <li>
-                            Define <strong>ownership</strong> and capture <strong>knowledge</strong> to empower others
+                            定义 <strong>所有者</strong> 并分享 <strong>这些知识</strong> 赋能团队中的每个人！
                         </li>
                     </ul>
                     <p>让我们开始吧! 🚀</p>
@@ -70,7 +68,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
         title: '元数据集成',
         content: (
             <Typography.Paragraph>
-                点击 <strong>Ingestion</strong> . 开始您的元数据集成之旅吧！
+                点击 <strong>元数据集成</strong> . 开始您的元数据集成之旅吧！
             </Typography.Paragraph>
         ),
     },

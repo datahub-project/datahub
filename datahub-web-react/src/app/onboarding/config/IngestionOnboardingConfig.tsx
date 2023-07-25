@@ -9,16 +9,16 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
         id: INGESTION_CREATE_SOURCE_ID,
         selector: `#${INGESTION_CREATE_SOURCE_ID}`,
-        title: 'Create a new Ingestion Source',
+        title: '创建新的元数据集成数据源',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
-                    Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
-                    <strong>Snowflake</strong>, Dashboarding tools like <strong>Looker</strong>, and more!
+                    为 Datahub 提供元数据源，这些数据源将用于后续的元数据集成。 <strong>Data Platforms</strong>, 包括
+                    操作型数据库， 比如 <strong>MySQL</strong>,<strong>Oracle</strong> 数据仓库 比如 {' '}
+                    <strong>Snowflake</strong>, 仪表盘工具，比如 <strong>Looker</strong>, 等等!
                 </p>
                 <p>
-                    Learn more about ingestion and view the full list of supported Integrations{' '}
+                    学习更多，了解所有支持的数据源，请查看如下链接{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -34,10 +34,10 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
     {
         id: INGESTION_REFRESH_SOURCES_ID,
         selector: `#${INGESTION_REFRESH_SOURCES_ID}`,
-        title: 'Refresh Ingestion Sources',
+        title: '数据源刷新',
         content: (
             <Typography.Paragraph>
-                <p>Click to force a refresh of running ingestion sources.</p>
+                <p>点击进行数据源刷新</p>
             </Typography.Paragraph>
         ),
     },

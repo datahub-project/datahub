@@ -157,7 +157,7 @@ export const DomainsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     pagination={false}
-                    locale={{ emptyText: <Empty description="No Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+                    locale={{ emptyText: <Empty description="未找到 Domains!" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
                 />
                 <DomainsPaginationContainer>
                     <PaginationInfo>

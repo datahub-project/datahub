@@ -9,15 +9,15 @@ export const BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID = 'business-glossary-create-
 export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
     {
         id: BUSINESS_GLOSSARY_INTRO_ID,
-        title: 'Business Glossary 📖',
+        title: '数据字典 📖',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to the <strong>Business Glossary</strong>!
+                    欢迎使用 <strong>数据字典</strong>!
                 </p>
                 <p>
-                    The Glossary is a collection of structured, standarized labels you can use to categorize data
-                    assets. You can view and create both <strong>Terms</strong> and <strong>Term Groups</strong> here.
+                    数据字典采用结构化，标准化的名称来分类管理您的数据资产.
+                    您可以通过创建与使用 <strong>术语</strong> 和 <strong>术语组</strong> 进行管理.
                 </p>
             </Typography.Paragraph>
         ),
@@ -25,14 +25,14 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
     {
         id: BUSINESS_GLOSSARY_CREATE_TERM_ID,
         selector: `#${BUSINESS_GLOSSARY_CREATE_TERM_ID}`,
-        title: 'Glossary Terms',
+        title: '术语',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Click here to create a new <strong>Term</strong> .
+                    创建 <strong>术语</strong> .
                 </p>
                 <p>
-                    <strong>Terms</strong> are words or phrases with a specific business definition assigned to them.
+                    <strong>术语</strong> 是特定业务含义的专有名词或句子。
                 </p>
             </Typography.Paragraph>
         ),
@@ -40,21 +40,21 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
     {
         id: BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID,
         selector: `#${BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}`,
-        title: 'Glossary Term Groups',
+        title: '术语组',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Click here to create a new <strong>Term Group</strong>.
+                    创建 <strong>术语组</strong>.
                 </p>
                 <p>
-                    <strong>Term Groups</strong> act as folders, containing Terms and nested Term Groups.
+                    <strong>术语组</strong> 采用文件夹结构来管理术语及其它术语组。
                 </p>
                 <p>
-                    For example, there could be a <strong>PII Term Group</strong> containing Terms for different types
-                    of PII, such as <strong>Email</strong> or <strong>Phone Number</strong>.
+                    例如，术语组<strong>PII Term Group</strong> 可能包含不同类型的PII术语,
+                    比如 <strong>Email</strong> 或者 <strong>Phone Number</strong>.
                 </p>
                 <p>
-                    Learn more about the <strong>Business Glossary</strong>{' '}
+                    学习更多 <strong>术语</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"

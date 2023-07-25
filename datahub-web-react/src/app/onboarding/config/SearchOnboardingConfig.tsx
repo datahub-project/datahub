@@ -11,28 +11,28 @@ export const SearchOnboardingConfig: OnboardingStep[] = [
     {
         id: SEARCH_RESULTS_FILTERS_ID,
         selector: `#${SEARCH_RESULTS_FILTERS_ID}`,
-        title: '🕵️ Narrow your search',
+        title: '🕵️ 构建您的查询',
         content: (
             <Typography.Paragraph>
-                Quickly find relevant assets by applying one or more filters. Try filtering by <strong>Type</strong>,{' '}
-                <strong>Owner</strong>, and more!
+                通过设置一个或多个过滤器，您可以快速找到相关数据资产. 尝试一下在 <strong>Type</strong>,{' '}
+                <strong>Owner</strong>进行过滤, 您还可以过滤更多哦!
             </Typography.Paragraph>
         ),
     },
     {
         id: SEARCH_RESULTS_ADVANCED_SEARCH_ID,
         selector: `#${SEARCH_RESULTS_ADVANCED_SEARCH_ID}`,
-        title: '💪 Dive deeper with advanced filters',
+        title: '💪 使用高级过滤',
         content: (
             <Typography.Paragraph>
-                <strong>Advanced Filters</strong> offer additional capabilities to create more specific search queries.
+                <strong>高级过滤</strong> 为特殊查询需求提供额外的能力.
             </Typography.Paragraph>
         ),
     },
     {
         id: SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
         selector: `#${SEARCH_RESULTS_BROWSE_SIDEBAR_ID}`,
-        title: '🧭 Explore and refine your search by platform',
+        title: '🧭 通过 platform 浏览和查找',
         style: { minWidth: '425px' },
         content: (
             <Typography.Paragraph>

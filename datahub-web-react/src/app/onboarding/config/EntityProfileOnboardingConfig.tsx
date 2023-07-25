@@ -19,7 +19,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_ENTITIES_ID,
         selector: `[id^='rc-tabs'][id$='Entities']`,
-        title: 'Entities Tab',
+        title: '数据实体 Tab',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -31,7 +31,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_PROPERTIES_ID,
         selector: `[id^='rc-tabs'][id$='Properties']`,
-        title: 'Properties Tab',
+        title: '实体属性 Tab',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -47,7 +47,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_DOCUMENTATION_ID,
         selector: `[id^='rc-tabs'][id$='Documentation']`,
-        title: 'Documentation Tab',
+        title: '实体文档 Tab',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -63,7 +63,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_LINEAGE_ID,
         selector: `[id^='rc-tabs'][id$='Lineage']`,
-        title: 'Lineage Tab',
+        title: '数据血缘 Tab',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -82,7 +82,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_SCHEMA_ID,
         selector: `[id^='rc-tabs'][id$='Schema']`,
-        title: 'Schema Tab',
+        title: '数据模式 Tab',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -98,7 +98,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_OWNERS_ID,
         selector: `#${ENTITY_PROFILE_OWNERS_ID}`,
-        title: 'Owners',
+        title: '所有者',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -114,7 +114,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_TAGS_ID,
         selector: `#${ENTITY_PROFILE_TAGS_ID}`,
-        title: 'Tags',
+        title: '标签',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -137,7 +137,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
         id: ENTITY_PROFILE_GLOSSARY_TERMS_ID,
         selector: `#${ENTITY_PROFILE_GLOSSARY_TERMS_ID}`,
-        title: 'Glossary Terms',
+        title: '术语',
         content: (
             <Typography.Paragraph>
                 <p>

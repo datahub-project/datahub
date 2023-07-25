@@ -8,21 +8,20 @@ export const POLICIES_CREATE_POLICY_ID = 'policies-create-policy';
 export const PoliciesOnboardingConfig: OnboardingStep[] = [
     {
         id: POLICIES_INTRO_ID,
-        title: 'Policies',
+        title: '权限规则',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Welcome to DataHub <strong>Policies</strong>!
+                    欢迎使用 <strong>权限规则</strong>!
                 </p>
                 <p>
-                    In most cases, <strong>Roles</strong> are the best option for granting privileges to DataHub users.
+                    大多数情况下, <strong>角色</strong> 都是给Datahub用户授权的最好选择.
                 </p>
                 <p>
-                    When more fine-grained control over user and group permissions is required, then{' '}
-                    <strong>Policies</strong> will do the trick.
+                    但是当需要给用户和用户组提供更细粒度的权限控制时，{' '}<strong>权限规则</strong> 是最好的选择.
                 </p>
                 <p>
-                    Learn more about <strong>Policies</strong>{' '}
+                    学习更多关于 <strong>权限规则</strong>{' '}
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
@@ -38,11 +37,11 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
     {
         id: POLICIES_CREATE_POLICY_ID,
         selector: `#${POLICIES_CREATE_POLICY_ID}`,
-        title: 'Create a new Policy',
+        title: '创建新的规则',
         content: (
             <Typography.Paragraph>
                 <p>
-                    Click here to create a new <strong>Policy</strong>.
+                    点击这里创建 <strong>规则</strong>.
                 </p>
             </Typography.Paragraph>
         ),

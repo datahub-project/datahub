@@ -8,7 +8,7 @@ export const LINEAGE_GRAPH_TIME_FILTER_ID = 'lineage-graph-time-filter';
 export const LineageGraphOnboardingConfig: OnboardingStep[] = [
     {
         id: LINEAGE_GRAPH_INTRO_ID,
-        title: 'Lineage Graph',
+        title: '数据血缘',
         content: (
             <Typography.Paragraph>
                 <p>
@@ -34,7 +34,7 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
     {
         id: LINEAGE_GRAPH_TIME_FILTER_ID,
         selector: `#${LINEAGE_GRAPH_TIME_FILTER_ID}`,
-        title: 'Filter Lineage Edges by Date',
+        title: '通过日期过滤查看数据血缘',
         content: (
             <Typography.Paragraph>
                 <p>
