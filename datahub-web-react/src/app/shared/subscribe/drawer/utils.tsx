@@ -261,14 +261,7 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
                 tagChangeNode,
             ];
         default:
-            return [
-                assertionsNode,
-                incidentsNode,
-                deprecationNode,
-                ownershipChangeNode,
-                glossaryTermChangeNode,
-                tagChangeNode,
-            ];
+            return [deprecationNode, ownershipChangeNode, glossaryTermChangeNode, tagChangeNode];
     }
 };
 
