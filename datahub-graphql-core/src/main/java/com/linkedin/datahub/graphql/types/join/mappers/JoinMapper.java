@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.Join;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -83,13 +84,15 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
 
   private void mapProperties(@Nonnull Join join, @Nonnull DataMap dataMap) {
     final JoinProperties joinProperties = new JoinProperties(dataMap);
+    if (joinProperties.getCreated().getActor() == null) {
+      throw new RuntimeException("Failed to get entity");
+    }
     join.setProperties(com.linkedin.datahub.graphql.generated.JoinProperties.builder()
         .setName(joinProperties.getName())
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMapping(mapJoinFieldMappings(joinProperties))
-        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
-                ? joinProperties.getCreated().getActor().toString() : "")
+        .setCreatedActor(UrnToEntityMapper.map(joinProperties.getCreated().getActor()))
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
                 ? joinProperties.getCreated().getTime() : 0)
         .build());

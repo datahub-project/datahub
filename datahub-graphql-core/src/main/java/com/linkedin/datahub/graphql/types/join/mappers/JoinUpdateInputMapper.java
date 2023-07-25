@@ -101,8 +101,7 @@ public class JoinUpdateInputMapper
       if (inputProperties.getCreated() != null && inputProperties.getCreated()) {
         joinProperties.setCreated(auditstamp);
       } else {
-        if (inputProperties.getCreatedBy() != null
-                && inputProperties.getCreatedBy().trim().length() > 0 && inputProperties.getCreatedAt() != 0) {
+        if (inputProperties.getCreatedBy() != null && inputProperties.getCreatedAt() != 0) {
           final AuditStamp auditstampEdit = new AuditStamp();
           try {
             auditstampEdit.setActor(Urn.createFromString(inputProperties.getCreatedBy()));

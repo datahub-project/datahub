@@ -346,7 +346,7 @@ type JoinProperties {
     """
     Created actor urn associated with the Join
     """
-    createdActor: String
+    createdActor: Entity
 }
 
 """
