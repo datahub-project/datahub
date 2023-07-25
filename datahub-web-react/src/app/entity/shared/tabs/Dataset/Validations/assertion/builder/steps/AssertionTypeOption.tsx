@@ -68,7 +68,7 @@ export function AssertionTypeOption({ name, description, icon, enabled = true, o
     };
 
     return (
-        <Container onClick={handleOnClick} enabled={enabled}>
+        <Container onClick={handleOnClick} enabled={enabled} key={name}>
             <Header>
                 {icon}
                 <Title level={4} enabled={enabled}>

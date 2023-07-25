@@ -91,6 +91,7 @@ export const AcrylValidationsTab = () => {
                 <div>
                     {tabs.map((tab) => (
                         <TabButton
+                            key={tab.path}
                             type="text"
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}

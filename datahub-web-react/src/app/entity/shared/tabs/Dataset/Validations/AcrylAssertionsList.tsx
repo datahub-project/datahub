@@ -100,6 +100,7 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                     onUpdatedAssertion?.({
                         ...updatedAssertion,
                         monitor: {
+                            ...(updatedAssertion as any)?.monitor,
                             relationships: [
                                 {
                                     entity: data?.updateMonitorStatus as Monitor,
@@ -132,9 +133,7 @@ export const AcrylDatasetAssertionsList = ({ assertions, onDeletedAssertion, onU
                     onUpdateAssertion?.({
                         ...updatedAssertion,
                         monitor: {
-                            total: 1,
-                            start: 0,
-                            count: 1,
+                            ...(updatedAssertion as any)?.monitor,
                             relationships: [
                                 {
                                     entity: data?.updateMonitorStatus as Monitor,

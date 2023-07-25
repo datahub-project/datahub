@@ -1,7 +1,7 @@
 import { message } from 'antd';
 import analytics, { EventType } from '../../../../../../../analytics';
 import { useCreateFreshnessAssertionMutation } from '../../../../../../../../graphql/assertion.generated';
-import { AssertionType, Monitor } from '../../../../../../../../types.generated';
+import { AssertionType, Monitor, Assertion } from '../../../../../../../../types.generated';
 import {
     builderStateToCreateAssertionMonitorVariables,
     builderStateToCreateFreshnessAssertionVariables,
@@ -42,8 +42,8 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
     /**
      * Create a monitor to evaluate the new assertions
      */
-    const createMonitor = (assertionUrn) => {
-        const variables = builderStateToCreateAssertionMonitorVariables(assertionUrn, builderState);
+    const createMonitor = (assertion: Assertion) => {
+        const variables = builderStateToCreateAssertionMonitorVariables(assertion.urn, builderState);
         createAssertionMonitorMutation({
             variables: variables as any,
         })
@@ -58,8 +58,7 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
                         content: `Created new Assertion Monitor!`,
                         duration: 3,
                     });
-                    // TODO - Generalize.
-                    onCreate?.(data?.createAssertionMonitor as Monitor);
+                    onCreate?.(assertion, data?.createAssertionMonitor as Monitor);
                 }
             })
             .catch(() => {
@@ -86,7 +85,7 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
             })
                 .then(({ data, errors }) => {
                     if (!errors) {
-                        return createMonitor(data?.createFreshnessAssertion?.urn);
+                        return createMonitor(data?.createFreshnessAssertion as Assertion);
                     }
                     throw new Error('Encountered errors while creating assertion');
                 })

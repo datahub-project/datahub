@@ -4,7 +4,7 @@ import { Button, Modal, Typography } from 'antd';
 import { ExpandAltOutlined, ShrinkOutlined } from '@ant-design/icons';
 import { AssertionMonitorBuilder } from './AssertionMonitorBuilder';
 import { AssertionMonitorBuilderState } from './types';
-import { EntityType, Monitor } from '../../../../../../../../types.generated';
+import { EntityType, Monitor, Assertion } from '../../../../../../../../types.generated';
 import ClickOutside from '../../../../../../../shared/ClickOutside';
 
 const modalStyle = {};
@@ -26,7 +26,7 @@ type Props = {
     entityType: EntityType;
     platformUrn: string;
     initialState?: AssertionMonitorBuilderState;
-    onSubmit?: (result: Monitor) => void;
+    onSubmit?: (assertion: Assertion, monitor: Monitor) => void;
     onCancel?: () => void;
 };
 
