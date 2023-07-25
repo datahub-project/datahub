@@ -97,7 +97,7 @@ docker {
   load(true)
   push(false)
 }
-tasks.getByName("docker").dependsOn([bootJar])
+tasks.getByPath(":datahub-upgrade:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
   doLast {

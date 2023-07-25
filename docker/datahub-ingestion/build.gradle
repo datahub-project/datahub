@@ -28,7 +28,7 @@ docker {
     }
     buildArgs([DOCKER_VERSION: version])
 }
-tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
+tasks.getByPath(':docker:datahub-ingestion:docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
 
 task mkdirBuildDocker {
     doFirst {

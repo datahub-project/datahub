@@ -22,7 +22,7 @@ docker {
 
     buildx(false)
 }
-tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion:docker'])
+tasks.getByPath(':docker:datahub-ingestion-slim:docker').dependsOn(['build', ':docker:datahub-ingestion:docker'])
 
 task mkdirBuildDocker {
     doFirst {

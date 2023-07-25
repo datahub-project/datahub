@@ -24,7 +24,7 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByPath('docker').dependsOn('build')
+tasks.getByPath(':docker:kafka-setup:docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {

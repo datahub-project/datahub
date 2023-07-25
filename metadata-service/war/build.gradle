@@ -80,7 +80,7 @@ docker {
   load(true)
   push(false)
 }
-tasks.getByName("docker").dependsOn([build, war])
+tasks.getByPath(":metadata-service:war:docker").dependsOn([build, war])
 
 task cleanLocalDockerImages {
   doLast {
