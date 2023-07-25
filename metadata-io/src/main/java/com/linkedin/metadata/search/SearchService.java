@@ -62,7 +62,7 @@ public class SearchService {
   public SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
     SearchResult result =
-        _cachingEntitySearchService.search(entityNames, input, postFilters, sortCriterion, from, size, searchFlags, null);
+        _cachingEntitySearchService.search(getEntitiesToSearch(entityNames), input, postFilters, sortCriterion, from, size, searchFlags, null);
 
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
@@ -109,14 +109,7 @@ public class SearchService {
       facets = new ArrayList<>(facets);
       facets.add(INDEX_VIRTUAL_FIELD);
     }
-    List<String> nonEmptyEntities;
-    List<String> lowercaseEntities = entities.stream().map(String::toLowerCase).collect(Collectors.toList());
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
-      nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
-    }
-    if (!entities.isEmpty()) {
-      nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
-    }
+    List<String> nonEmptyEntities = getEntitiesToSearch(entities);
     SearchResult result = _cachingEntitySearchService.search(nonEmptyEntities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg = result.getMetadata().getAggregations().stream().filter(
@@ -145,6 +138,18 @@ public class SearchService {
     return result;
   }
 
+  private List<String> getEntitiesToSearch(@Nonnull List<String> inputEntities) {
+    List<String> nonEmptyEntities;
+    List<String> lowercaseEntities = inputEntities.stream().map(String::toLowerCase).collect(Collectors.toList());
+    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getNonEmptyEntities").time()) {
+      nonEmptyEntities = _entityDocCountCache.getNonEmptyEntities();
+    }
+    if (!inputEntities.isEmpty()) {
+      nonEmptyEntities = nonEmptyEntities.stream().filter(lowercaseEntities::contains).collect(Collectors.toList());
+    }
+    return nonEmptyEntities;
+  }
+
   /**
    * Gets a list of documents that match given search request across multiple entities. The results are aggregated and filters are applied to the
    * search hits and not the aggregation results.
@@ -165,6 +170,6 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, scrollId, size));
-    return _cachingEntitySearchService.scroll(entities, input, postFilters, sortCriterion, scrollId, keepAlive, size, searchFlags);
+    return _cachingEntitySearchService.scroll(getEntitiesToSearch(entities), input, postFilters, sortCriterion, scrollId, keepAlive, size, searchFlags);
   }
 }
