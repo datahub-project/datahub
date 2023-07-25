@@ -21,8 +21,8 @@ function RecipeViewerModal({ recipe, onCancel }: Props) {
             visible
             onCancel={onCancel}
             width={800}
-            title="View Ingestion Recipe"
-            footer={<Button onClick={onCancel}>Done</Button>}
+            title="查看接入脚本"
+            footer={<Button onClick={onCancel}>完成</Button>}
         >
             <YamlWrapper>
                 <Editor

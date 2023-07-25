@@ -68,7 +68,7 @@ function GlossarySearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search Glossary"
+                    placeholderText="查询数据字典"
                     suggestions={[]}
                     hideRecommendations
                     style={{

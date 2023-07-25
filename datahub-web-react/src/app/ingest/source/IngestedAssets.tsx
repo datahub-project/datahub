@@ -101,7 +101,7 @@ export default function IngestedAssets({ id }: Props) {
             {error && <Message type="error" content="" />}
             <HeaderContainer>
                 <TitleContainer>
-                    <Typography.Title level={5}>Ingested Assets</Typography.Title>
+                    <Typography.Title level={5}>已接入的数据资产</Typography.Title>
                     {(loading && <Typography.Text type="secondary">Loading...</Typography.Text>) || (
                         <>
                             {(total > 0 && (

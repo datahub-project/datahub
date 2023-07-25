@@ -93,14 +93,14 @@ function BusinessGlossaryPage() {
             />
             <GlossaryWrapper>
                 {(termsLoading || nodesLoading) && (
-                    <Message type="loading" content="Loading Glossary..." style={{ marginTop: '10%' }} />
+                    <Message type="loading" content="加载数据字典..." style={{ marginTop: '10%' }} />
                 )}
                 {(termsError || nodesError) && (
-                    <Message type="error" content="Failed to load glossary! An unexpected error occurred." />
+                    <Message type="error" content="数据字典加载失败! 发生未知错误." />
                 )}
                 <MainContentWrapper>
                     <HeaderWrapper>
-                        <Typography.Title level={3}>Business Glossary</Typography.Title>
+                        <Typography.Title level={3}>数据字典</Typography.Title>
                         <div>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_ID}
@@ -108,7 +108,7 @@ function BusinessGlossaryPage() {
                                 type="text"
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
-                                <PlusOutlined /> Add Term
+                                <PlusOutlined /> 新建术语
                             </Button>
                             <Button
                                 id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
@@ -116,15 +116,15 @@ function BusinessGlossaryPage() {
                                 type="text"
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
-                                <PlusOutlined /> Add Term Group
+                                <PlusOutlined /> 新建术语组
                             </Button>
                         </div>
                     </HeaderWrapper>
                     {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
                     {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                         <EmptyGlossarySection
-                            title="Empty Glossary"
-                            description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
+                            title="空的数据字典"
+                            description="为您的组织创建可共享的术语和术语组吧."
                             refetchForTerms={refetchForTerms}
                             refetchForNodes={refetchForNodes}
                         />

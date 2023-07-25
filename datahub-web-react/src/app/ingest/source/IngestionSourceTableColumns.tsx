@@ -148,7 +148,7 @@ export function ActionsColumn({
     return (
         <ActionButtonContainer>
             {navigator.clipboard && (
-                <Tooltip title="Copy Ingestion Source URN">
+                <Tooltip title="复制集成数据源 URN">
                     <Button
                         style={{ marginRight: 16 }}
                         icon={<CopyOutlined />}
@@ -160,12 +160,12 @@ export function ActionsColumn({
             )}
             {!record.cliIngestion && (
                 <Button style={{ marginRight: 16 }} onClick={() => onEdit(record.urn)}>
-                    EDIT
+                    编辑
                 </Button>
             )}
             {record.cliIngestion && (
                 <Button style={{ marginRight: 16 }} onClick={() => onView(record.urn)}>
-                    VIEW
+                    查看
                 </Button>
             )}
             {record.lastExecStatus !== RUNNING && (
@@ -174,12 +174,12 @@ export function ActionsColumn({
                     style={{ marginRight: 16 }}
                     onClick={() => onExecute(record.urn)}
                 >
-                    RUN
+                    执行
                 </Button>
             )}
             {record.lastExecStatus === RUNNING && (
                 <Button style={{ marginRight: 16 }} onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
-                    DETAILS
+                    查看明细
                 </Button>
             )}
             <Button data-testid="delete-button" onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
