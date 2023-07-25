@@ -84,7 +84,7 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
             footer={null}
             title={
                 <Typography.Text>
-                    <b>Reset User Password</b>
+                    <b>密码重制</b>
                 </Typography.Text>
             }
             visible={visible}
@@ -92,10 +92,10 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
         >
             {hasGeneratedResetToken ? (
                 <ModalSection>
-                    <ModalSectionHeader strong>Share reset link</ModalSectionHeader>
+                    <ModalSectionHeader strong>分享密码重制链接</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        Share this reset link to reset the credentials for {username}.
-                        <b>This link will expire in 24 hours.</b>
+                        分享该密码重制链接给用户 {username}.
+                        <b>该链接将在 24 小时后失效.</b>
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>
@@ -103,16 +103,16 @@ export default function ViewResetTokenModal({ visible, userUrn, username, onClos
                 </ModalSection>
             ) : (
                 <ModalSection>
-                    <ModalSectionHeader strong>A new link must be generated</ModalSectionHeader>
+                    <ModalSectionHeader strong>必须提供新的链接</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        You cannot view any old reset links. Please generate a new one below.
+                        您无法使用旧的的密码重制链接，请重新生成密码重制链接。
                     </ModalSectionParagraph>
                 </ModalSection>
             )}
             <ModalSection>
-                <ModalSectionHeader strong>Generate a new link</ModalSectionHeader>
+                <ModalSectionHeader strong>创建新的链接</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    Generate a new reset link! Note, any old links will <b>cease to be active</b>.
+                    将重新生成新的密码重制链接，旧链接将<b>失效</b>.
                 </ModalSectionParagraph>
                 <CreateResetTokenButton onClick={createNativeUserResetToken} size="small" type="text">
                     <RedoOutlined style={{}} />

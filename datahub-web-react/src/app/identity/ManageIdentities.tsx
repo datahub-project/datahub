@@ -37,6 +37,8 @@ const Content = styled.div`
 enum TabType {
     Users = 'Users',
     Groups = 'Groups',
+    UsersZh = '用户',
+    GroupsZh = '用户组'
 }
 const ENABLED_TAB_TYPES = [TabType.Users, TabType.Groups];
 
@@ -48,7 +50,7 @@ export const ManageIdentities = () => {
     const getTabs = () => {
         return [
             {
-                name: TabType.Users,
+                name: TabType.UsersZh,
                 path: TabType.Users.toLocaleLowerCase(),
                 content: <UserList />,
                 display: {
@@ -56,7 +58,7 @@ export const ManageIdentities = () => {
                 },
             },
             {
-                name: TabType.Groups,
+                name: TabType.GroupsZh,
                 path: TabType.Groups.toLocaleLowerCase(),
                 content: <GroupList />,
                 display: {
@@ -72,9 +74,9 @@ export const ManageIdentities = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Users & Groups</PageTitle>
+                <PageTitle level={3}>管理用户和用户组</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View your DataHub users & groups. Take administrative actions.
+                    查看与管理您DataHub中的用户和用户组.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>

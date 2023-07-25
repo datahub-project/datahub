@@ -35,7 +35,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         type: EventType.CreateGroupEvent,
                     });
                     message.success({
-                        content: `Created group!`,
+                        content: `创建用户组!`,
                         duration: 3,
                     });
                     // TODO: Get a full corp group back from create endpoint.
@@ -51,7 +51,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `用户组创建失败!: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 setStagedName('');
@@ -67,16 +67,16 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            title="Create new group"
+            title="创建用户组"
             visible
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        取消
                     </Button>
                     <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-                        Create
+                        创建
                     </Button>
                 </>
             }
@@ -89,14 +89,14 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new group a name.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>名称</Typography.Text>}>
+                    <Typography.Paragraph>提供用户组名称.</Typography.Paragraph>
                     <Form.Item
-                        name="name"
+                        name="名称"
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a Group name.',
+                                message: '输入用户组名称.',
                             },
                             { whitespace: true },
                             { min: 1, max: 50 },
@@ -104,40 +104,38 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input
-                            placeholder="A name for your group"
+                            placeholder="用户组名称"
                             value={stagedName}
                             onChange={(event) => setStagedName(event.target.value)}
                         />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>用户组说明</Typography.Text>}>
+                    <Typography.Paragraph>用户组说明（可选）</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                         <Input
-                            placeholder="A description for your group"
+                            placeholder="用户组说明"
                             value={stagedDescription}
                             onChange={(event) => setStagedDescription(event.target.value)}
                         />
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                    <Collapse.Panel header={<Typography.Text type="secondary">高级选项</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Group Id</Typography.Text>}>
                             <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this group. If
-                                you&apos;d like to provide a custom id instead to more easily keep track of this group,
-                                you may provide it here. Be careful, you cannot easily change the group id after
-                                creation.
+                                默认情况下，Datahub 将使用 UUID 随机生成唯一的用户组ID。 您也可以使用自定义的用户组ID，
+                                使用自定义用户组ID时，请确保唯一性！
                             </Typography.Paragraph>
                             <Form.Item
-                                name="groupId"
+                                name="用户组ID"
                                 rules={[
                                     () => ({
                                         validator(_, value) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Please enter correct Group name'));
+                                            return Promise.reject(new Error('请输入正确的用户组'));
                                         },
                                     }),
                                 ]}

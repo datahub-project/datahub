@@ -65,7 +65,7 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return 'The user has logged in.';
+                return '该用户已登陆.';
             default:
                 return '';
         }
@@ -122,10 +122,10 @@ export default function UserListItem({ user, canManageUserCredentials, selectRol
                     overlay={
                         <Menu>
                             <Menu.Item disabled={!shouldShowPasswordReset} onClick={() => setIsViewingResetToken(true)}>
-                                <UnlockOutlined /> &nbsp; Reset user password
+                                <UnlockOutlined /> &nbsp; 重制密码
                             </Menu.Item>
                             <Menu.Item onClick={onDeleteEntity}>
-                                <DeleteOutlined /> &nbsp;Delete
+                                <DeleteOutlined /> &nbsp;删除
                             </Menu.Item>
                         </Menu>
                     }

@@ -61,7 +61,7 @@ export default function GroupListItem({ group, onDelete }: Props) {
                 <GroupItemButtonGroup>
                     {isExternalGroup && (
                         <Tooltip
-                            title={`Membership for this group cannot be edited as it is synced from ${externalGroupType}.`}
+                            title={`外部用户组 ${externalGroupType} 无法修改成员信息.`}
                         >
                             <LockOutlined />
                         </Tooltip>

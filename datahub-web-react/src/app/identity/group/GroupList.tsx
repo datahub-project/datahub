@@ -72,16 +72,16 @@ export const GroupList = () => {
     return (
         <>
             <OnboardingTour stepIds={[GROUPS_INTRO_ID, GROUPS_CREATE_GROUP_ID]} />
-            {!data && loading && <Message type="loading" content="Loading groups..." />}
-            {error && <Message type="error" content="Failed to load groups! An unexpected error occurred." />}
+            {!data && loading && <Message type="loading" content="加载用户组..." />}
+            {error && <Message type="error" content="加载用户组失败! 发生未知错误." />}
             <GroupContainer>
                 <TabToolbar>
                     <Button id={GROUPS_CREATE_GROUP_ID} type="text" onClick={() => setIsCreatingGroup(true)}>
-                        <UsergroupAddOutlined /> Create group
+                        <UsergroupAddOutlined /> 创建用户组
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search groups..."
+                        placeholderText="查询用户组..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,

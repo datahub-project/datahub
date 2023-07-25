@@ -41,8 +41,8 @@ export default function AssignRoleConfirmation({
                     });
                     message.success({
                         content: roleToAssign
-                            ? `Assigned role ${roleToAssign?.name} to user ${username}!`
-                            : `Removed role from user ${username}!`,
+                            ? `分配角色 ${roleToAssign?.name} 给用户 ${username}!`
+                            : `为用户${username} 移除角色!`,
                         duration: 2,
                     });
                     onConfirm();
@@ -52,16 +52,16 @@ export default function AssignRoleConfirmation({
                 message.destroy();
                 message.error({
                     content: roleToAssign
-                        ? `Failed to assign role ${roleToAssign?.name} to ${username}: \n ${e.message || ''}`
-                        : `Failed to remove role from ${username}: \n ${e.message || ''}`,
+                        ? `分配角色 ${roleToAssign?.name} 给用户 ${username}时失败，失败信息: \n ${e.message || ''}`
+                        : `为用户 ${username} 移除角色时失败，失败信息: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
     };
 
     const assignRoleText = roleToAssign
-        ? `Would you like to assign the role ${roleToAssign?.name} to ${username}?`
-        : `Would you like to remove ${username}'s existing role?`;
+        ? `您确认要将角色 ${roleToAssign?.name} 分配给该用户 ${username} 吗?`
+        : `您确认要将该用户 ${username} 的角色移除吗?`;
 
     return <Popconfirm title={assignRoleText} visible={visible} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

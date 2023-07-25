@@ -144,13 +144,13 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                         roleUrn,
                     });
                     setInviteToken(data?.createInviteToken?.inviteToken || '');
-                    message.success('Generated new invite link');
+                    message.success('新邀请链接创建成功');
                 }
             })
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to create Invite Token for role ${selectedRole?.name} : \n ${e.message || ''}`,
+                    content: `为角色 ${selectedRole?.name} 创建邀请链接失败，失败信息: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -164,7 +164,7 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
             footer={null}
             title={
                 <Typography.Text>
-                    <b>Share Invite Link</b>
+                    <b>分享邀请链接</b>
                 </Typography.Text>
             }
             visible={visible}
@@ -191,29 +191,28 @@ export default function ViewInviteTokenModal({ visible, onClose }: Props) {
                     <CopyText>
                         <pre>{inviteLink}</pre>
                     </CopyText>
-                    <Tooltip title="Copy invite link.">
+                    <Tooltip title="复制邀请链接.">
                         <CopyButton
                             onClick={() => {
                                 navigator.clipboard.writeText(inviteLink);
-                                message.success('Copied invite link to clipboard');
+                                message.success('邀请链接已复制到剪切板');
                             }}
                         >
-                            COPY
+                            复制
                         </CopyButton>
                     </Tooltip>
-                    <Tooltip title="Generate a new link. Any old links will no longer be valid.">
+                    <Tooltip title="创建新的邀请链接，旧链接将失效.">
                         <RefreshButton
                             onClick={() => {
                                 createInviteToken(selectedRole?.urn);
                             }}
                         >
-                            REFRESH
+                            刷新
                         </RefreshButton>
                     </Tooltip>
                 </InviteLinkDiv>
                 <ModalSectionFooter type="secondary">
-                    Copy an invite link to send to your users. When they join, users will be automatically assigned to
-                    the selected role.
+                    复制您的邀请链接给用户，当用户加入Datahub时，将自动被分配到选定的角色中。
                 </ModalSectionFooter>
             </ModalSection>
         </Modal>

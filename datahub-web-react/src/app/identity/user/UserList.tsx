@@ -108,8 +108,8 @@ export const UserList = () => {
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+            {!usersData && loading && <Message type="loading" content="加载用户..." />}
+            {error && <Message type="error" content="加载用户失败! 发生未知错误." />}
             <UserContainer>
                 <TabToolbar>
                     <div>
@@ -119,12 +119,12 @@ export const UserList = () => {
                             type="text"
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> Invite Users
+                            <UsergroupAddOutlined /> 邀请用户
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search users..."
+                        placeholderText="查询用户..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -143,7 +143,7 @@ export const UserList = () => {
                 <UserStyledList
                     bordered
                     locale={{
-                        emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="未找到用户!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     dataSource={users}
                     renderItem={(item: any) => (
