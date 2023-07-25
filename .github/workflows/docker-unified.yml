@@ -426,7 +426,7 @@ jobs:
         setup,
         gms_build,
         frontend_build,
-        kafka_setup_build,
+#        kafka_setup_build,
         mysql_setup_build,
         elasticsearch_setup_build,
 #        mae_consumer_build,
@@ -460,11 +460,11 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download Kafka Setup image
-        uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+#      - name: Download Kafka Setup image
+#        uses: ishworkh/docker-image-artifact-download@v1
+#        if: ${{ needs.setup.outputs.publish != 'true' }}
+#        with:
+#          image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Mysql Setup image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
