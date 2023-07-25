@@ -87,7 +87,7 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
         .setName(joinProperties.getName())
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
-        .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
+        .setJoinFieldMapping(mapJoinFieldMappings(joinProperties))
         .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
                 ? joinProperties.getCreated().getActor().toString() : "")
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
@@ -105,9 +105,9 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
   }
   private com.linkedin.datahub.graphql.generated.JoinFieldMapping mapJoinFieldMappings(JoinProperties joinProperties) {
     return com.linkedin.datahub.graphql.generated.JoinFieldMapping.builder()
-        .setDetails(joinProperties.getJoinFieldMappings().getDetails())
-        .setFieldMapping(joinProperties.getJoinFieldMappings()
-            .getFieldMapping()
+        .setDetails(joinProperties.getJoinFieldMapping().getDetails())
+        .setFieldMappings(joinProperties.getJoinFieldMapping()
+            .getFieldMappings()
             .stream()
             .map(this::mapFieldMap)
             .collect(Collectors.toList()))

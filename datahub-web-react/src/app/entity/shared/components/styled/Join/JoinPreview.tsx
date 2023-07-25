@@ -58,14 +58,14 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
     function getFieldMap(): JoinRecord[] {
         const newData = [] as JoinRecord[];
         if (shuffleFlag && prePageType !== 'Join') {
-            joinData?.properties?.joinFieldMappings?.fieldMapping?.map((item) => {
+            joinData?.properties?.joinFieldMapping?.fieldMappings?.map((item) => {
                 return newData.push({
                     afield: item.bfield,
                     bfield: item.afield,
                 });
             });
         } else {
-            joinData?.properties?.joinFieldMappings?.fieldMapping?.map((item) => {
+            joinData?.properties?.joinFieldMapping?.fieldMappings?.map((item) => {
                 return newData.push({
                     afield: item.afield,
                     bfield: item.bfield,
@@ -132,7 +132,7 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
 
     return (
         <div className="JoinPreview">
-            {joinData?.properties?.joinFieldMappings !== undefined && (
+            {joinData?.properties?.joinFieldMapping !== undefined && (
                 <CreateJoinModal
                     visible={modalVisible}
                     setModalVisible={setModalVisible}
@@ -181,7 +181,7 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
                 />
             </Row>
             <p className="all-content-heading">Join details</p>
-            <p className="all-content-info">{joinData?.properties?.joinFieldMappings?.details}</p>
+            <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
         </div>
     );
 };

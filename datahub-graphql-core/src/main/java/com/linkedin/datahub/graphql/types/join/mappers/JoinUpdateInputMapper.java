@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.join.mappers;
 
 import com.linkedin.common.TagAssociationArray;
-import com.linkedin.common.TimeStamp;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -44,11 +44,11 @@ public class JoinUpdateInputMapper
     final Collection<MetadataChangeProposal> proposals = new ArrayList<>(8);
     final UpdateMappingHelper updateMappingHelper = new UpdateMappingHelper(JOIN_ENTITY_NAME);
     final long currentTime = System.currentTimeMillis();
-    final TimeStamp timestamp = new TimeStamp();
-    timestamp.setActor(actor, SetMode.IGNORE_NULL);
-    timestamp.setTime(currentTime);
+    final AuditStamp auditstamp = new AuditStamp();
+    auditstamp.setActor(actor, SetMode.IGNORE_NULL);
+    auditstamp.setTime(currentTime);
     if (input.getProperties() != null) {
-      com.linkedin.join.JoinProperties joinProperties = createJoinProperties(input.getProperties(), timestamp);
+      com.linkedin.join.JoinProperties joinProperties = createJoinProperties(input.getProperties(), auditstamp);
       proposals.add(updateMappingHelper.aspectToProposal(joinProperties, JOIN_PROPERTIES_ASPECT_NAME));
     }
       if (input.getOwnership() != null) {
@@ -75,7 +75,7 @@ public class JoinUpdateInputMapper
       }
     return proposals;
   }
-  private JoinProperties createJoinProperties(JoinPropertiesInput inputProperties, TimeStamp timestamp) {
+  private JoinProperties createJoinProperties(JoinPropertiesInput inputProperties, AuditStamp auditstamp) {
     com.linkedin.join.JoinProperties joinProperties = new com.linkedin.join.JoinProperties();
     if (inputProperties.getName() != null) {
       joinProperties.setName(inputProperties.getName());
@@ -91,28 +91,29 @@ public class JoinUpdateInputMapper
       e.printStackTrace();
     }
 
-    if (inputProperties.getJoinFieldmappings() != null) {
-      JoinFieldMappingInput joinFieldMapping = inputProperties.getJoinFieldmappings();
-      if (joinFieldMapping.getDetails() != null || (joinFieldMapping.getFieldMapping() != null && joinFieldMapping.getFieldMapping().size() > 0)) {
+    if (inputProperties.getJoinFieldmapping() != null) {
+      JoinFieldMappingInput joinFieldMapping = inputProperties.getJoinFieldmapping();
+      if (joinFieldMapping.getDetails() != null || (joinFieldMapping.getFieldMappings() != null
+              && joinFieldMapping.getFieldMappings().size() > 0)) {
         JoinFieldMapping joinFieldMappingUnit = joinFieldMappingSettings(joinFieldMapping);
-        joinProperties.setJoinFieldMappings(joinFieldMappingUnit);
+        joinProperties.setJoinFieldMapping(joinFieldMappingUnit);
       }
       if (inputProperties.getCreated() != null && inputProperties.getCreated()) {
-        joinProperties.setCreated(timestamp);
+        joinProperties.setCreated(auditstamp);
       } else {
         if (inputProperties.getCreatedBy() != null
                 && inputProperties.getCreatedBy().trim().length() > 0 && inputProperties.getCreatedAt() != 0) {
-          final TimeStamp timestampEdit = new TimeStamp();
+          final AuditStamp auditstampEdit = new AuditStamp();
           try {
-            timestampEdit.setActor(Urn.createFromString(inputProperties.getCreatedBy()));
+            auditstampEdit.setActor(Urn.createFromString(inputProperties.getCreatedBy()));
           } catch (URISyntaxException e) {
             throw new RuntimeException(e);
           }
-          timestampEdit.setTime(inputProperties.getCreatedAt());
-          joinProperties.setCreated(timestampEdit);
+          auditstampEdit.setTime(inputProperties.getCreatedAt());
+          joinProperties.setCreated(auditstampEdit);
         }
       }
-      joinProperties.setLastModified(timestamp);
+      joinProperties.setLastModified(auditstamp);
     }
     return joinProperties;
   }
@@ -123,9 +124,9 @@ public class JoinUpdateInputMapper
       joinFieldMappingUnit.setDetails(joinFieldMapping.getDetails());
     }
 
-    if (joinFieldMapping.getFieldMapping() != null && joinFieldMapping.getFieldMapping().size() > 0) {
+    if (joinFieldMapping.getFieldMappings() != null && joinFieldMapping.getFieldMappings().size() > 0) {
       com.linkedin.join.FieldMapArray fieldMapArray = new FieldMapArray();
-      joinFieldMapping.getFieldMapping().forEach(fieldMappingInput -> {
+      joinFieldMapping.getFieldMappings().forEach(fieldMappingInput -> {
         FieldMap fieldMap = new FieldMap();
         if (fieldMappingInput.getAfield() != null) {
           fieldMap.setAfield(fieldMappingInput.getAfield());
@@ -135,7 +136,7 @@ public class JoinUpdateInputMapper
         }
         fieldMapArray.add(fieldMap);
       });
-      joinFieldMappingUnit.setFieldMapping(fieldMapArray);
+      joinFieldMappingUnit.setFieldMappings(fieldMapArray);
     }
     return joinFieldMappingUnit;
   }

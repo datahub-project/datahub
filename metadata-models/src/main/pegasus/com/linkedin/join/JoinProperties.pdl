@@ -1,6 +1,6 @@
 namespace com.linkedin.join
 
-import com.linkedin.common.TimeStamp
+import com.linkedin.common.AuditStamp
 import com.linkedin.common.DatasetUrn
 import com.linkedin.common.CustomProperties
 
@@ -53,7 +53,7 @@ record JoinProperties includes CustomProperties {
   /**
    * JoinFieldMapping (in future we can make it an array)
    */
-  joinFieldMappings: JoinFieldMapping
+  joinFieldMapping: JoinFieldMapping
 
   /**
    * A timestamp documenting when the asset was created in the source Data Platform (not on DataHub)
@@ -64,7 +64,7 @@ record JoinProperties includes CustomProperties {
       "fieldType": "DATETIME"
     }
   }
-  created: optional TimeStamp
+  created: optional AuditStamp
 
   /**
    * A timestamp documenting when the asset was last modified in the source Data Platform (not on DataHub)
@@ -75,5 +75,5 @@ record JoinProperties includes CustomProperties {
       "fieldType": "DATETIME"
     }
   }
-  lastModified: optional TimeStamp
+  lastModified: optional AuditStamp
 }

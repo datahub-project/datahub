@@ -512,17 +512,17 @@ public class PoliciesConfig {
           EDIT_USER_PROFILE_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE)
   );
-  public static final Privilege EDIT_JOIN_PRIVILEGE = Privilege.of(
-        "EDIT_ENTITY_JOIN",
-        "Edit join",
-        "The ability to add or update join of an entity.");
+//  public static final Privilege EDIT_JOIN_PRIVILEGE = Privilege.of(
+//        "EDIT_ENTITY_JOIN",
+//        "Edit join",
+//        "The ability to add or update join of an entity.");
 
   // Join Privileges
   public static final ResourcePrivileges JOIN_PRIVILEGES = ResourcePrivileges.of(
           "join",
           "Join",
           "Create or update privileges for joins",
-          ImmutableList.of(EDIT_JOIN_PRIVILEGE)
+          COMMON_ENTITY_PRIVILEGES
   );
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
