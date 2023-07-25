@@ -281,7 +281,7 @@ class SalesforceSource(Source):
                 )
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         sObjects = self.get_salesforce_objects()
 
         for sObject in sObjects:
