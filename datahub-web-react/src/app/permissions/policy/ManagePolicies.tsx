@@ -447,10 +447,10 @@ export const ManagePolicies = () => {
         <PageContainer>
             <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
             {policiesLoading && !policiesData && (
-                <Message type="loading" content="Loading policies..." style={{ marginTop: '10%' }} />
+                <Message type="loading" content="加载规则..." style={{ marginTop: '10%' }} />
             )}
-            {policiesError && <Message type="error" content="Failed to load policies! An unexpected error occurred." />}
-            {updateError && message.error('Failed to update policies. An unexpected error occurred.')}
+            {policiesError && <Message type="error" content="规则加载失败! 发生未知错误." />}
+            {updateError && message.error('规则更新失败. 发生未知错误.')}
             <SourceContainer>
                 <TabToolbar>
                     <div>
@@ -460,12 +460,12 @@ export const ManagePolicies = () => {
                             onClick={onClickNewPolicy}
                             data-testid="add-policy-button"
                         >
-                            <PlusOutlined /> Create new policy
+                            <PlusOutlined /> 创建规则
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search policies..."
+                        placeholderText="查找规则..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -486,7 +486,7 @@ export const ManagePolicies = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Policies!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="未找到规则!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />

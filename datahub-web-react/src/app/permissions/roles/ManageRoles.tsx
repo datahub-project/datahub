@@ -218,9 +218,9 @@ export const ManageRoles = () => {
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
             {rolesLoading && !rolesData && (
-                <Message type="loading" content="Loading roles..." style={{ marginTop: '10%' }} />
+                <Message type="loading" content="加载角色..." style={{ marginTop: '10%' }} />
             )}
-            {rolesError && message.error('Failed to load roles! An unexpected error occurred.')}
+            {rolesError && message.error('角色加载失败! 发生未知错误.')}
             <SourceContainer>
                 <TabToolbar>
                     <div />
