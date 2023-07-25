@@ -68,13 +68,13 @@ export const SecretsList = () => {
             variables: { urn },
         })
             .then(() => {
-                message.success({ content: 'Removed secret.', duration: 2 });
+                message.success({ content: '移除密钥.', duration: 2 });
                 removeSecretFromListSecretsCache(urn, client, page, pageSize);
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove secret: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `密钥移除失败: \n ${e.message || ''}`, duration: 3 });
                 }
             });
     };
@@ -96,7 +96,7 @@ export const SecretsList = () => {
         })
             .then((res) => {
                 message.success({
-                    content: `Successfully created Secret!`,
+                    content: `成功创建密钥!`,
                     duration: 3,
                 });
                 resetBuilderState();
@@ -114,7 +114,7 @@ export const SecretsList = () => {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to update ingestion source!: \n ${e.message || ''}`,
+                    content: `元数据源更新失败!: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -122,13 +122,13 @@ export const SecretsList = () => {
 
     const onDeleteSecret = (urn: string) => {
         Modal.confirm({
-            title: `Confirm Secret Removal`,
-            content: `Are you sure you want to remove this secret? Sources that use it may no longer work as expected.`,
+            title: `确认移除密钥`,
+            content: `确实要移除此密钥吗?使用此密钥的元数据源可能会出现错误.`,
             onOk() {
                 deleteSecret(urn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: '确认',
             maskClosable: true,
             closable: true,
         });
@@ -136,17 +136,17 @@ export const SecretsList = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: '名称',
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => <Typography.Text strong>{name}</Typography.Text>,
         },
         {
-            title: 'Description',
+            title: '描述',
             dataIndex: 'description',
             key: 'description',
             render: (description: any) => {
-                return <>{description || <Typography.Text type="secondary">No description</Typography.Text>}</>;
+                return <>{description || <Typography.Text type="secondary">空描述</Typography.Text>}</>;
             },
         },
         {
@@ -171,18 +171,18 @@ export const SecretsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading secrets..." />}
-            {error && message.error({ content: `Failed to load secrets! \n ${error.message || ''}`, duration: 3 })}
+            {!data && loading && <Message type="加载中" content="加载密钥中..." />}
+            {error && message.error({ content: `加载密钥失败! \n ${error.message || ''}`, duration: 3 })}
             <div>
                 <TabToolbar>
                     <div>
                         <Button type="text" onClick={() => setIsCreatingSecret(true)}>
-                            <PlusOutlined /> Create new secret
+                            <PlusOutlined /> 创建密钥
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search secrets..."
+                        placeholderText="查询密钥..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -203,7 +203,7 @@ export const SecretsList = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Secrets found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="未找到密钥!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />

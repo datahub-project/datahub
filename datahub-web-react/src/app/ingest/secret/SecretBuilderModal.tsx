@@ -30,7 +30,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
     return (
         <Modal
             width={540}
-            title={<Typography.Text>Create a new Secret</Typography.Text>}
+            title={<Typography.Text>创建密钥</Typography.Text>}
             visible={visible}
             onCancel={onCancel}
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
@@ -53,7 +53,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                         }
                         disabled={!createButtonEnabled}
                     >
-                        Create
+                        创建
                     </Button>
                 </>
             }
@@ -66,55 +66,55 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>名称</Typography.Text>}>
                     <Typography.Paragraph>
-                        Give your secret a name. This is what you&apos;ll use to reference the secret from your recipes.
+                        密钥名称. This is what you&apos;ll use to reference the secret from your recipes.
                     </Typography.Paragraph>
                     <Form.Item
                         name={NAME_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a name.',
+                                message: '输入名称.',
                             },
                             { whitespace: false },
                             { min: 1, max: 50 },
-                            { pattern: /^[^\s\t${}\\,'"]+$/, message: 'This secret name is not allowed.' },
+                            { pattern: /^[^\s\t${}\\,'"]+$/, message: '不允许的密钥名称.' },
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder="A name for your secret" />
+                        <Input placeholder="密钥名称" />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>密钥</Typography.Text>}>
                     <Typography.Paragraph>
-                        The value of your secret, which will be encrypted and stored securely within DataHub.
+                        密钥具体的值，该密钥会以加密的形式保存在DataHub中.
                     </Typography.Paragraph>
                     <Form.Item
                         name={VALUE_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a value.',
+                                message: '输入密钥.',
                             },
                             // { whitespace: true },
                             { min: 1 },
                         ]}
                         hasFeedback
                     >
-                        <Input.TextArea placeholder="The value of your secret" autoComplete="false" />
+                        <Input.TextArea placeholder="密钥" autoComplete="false" />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>描述</Typography.Text>}>
                     <Typography.Paragraph>
-                        An optional description to help keep track of your secret.
+                        密钥的描述（可选）.
                     </Typography.Paragraph>
                     <Form.Item
                         name={DESCRIPTION_FIELD_NAME}
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
-                        <Input.TextArea placeholder="A description for your secret" />
+                        <Input.TextArea placeholder="密钥的描述" />
                     </Form.Item>
                 </Form.Item>
             </Form>
