@@ -5,6 +5,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.SearchResult;
 import java.util.Objects;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
@@ -21,6 +22,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 @Builder
 @Getter
 @Accessors(fluent = true)
+@EqualsAndHashCode
 public class SearchFieldConfig {
     public static final float DEFAULT_BOOST = 1.0f;
 
@@ -148,27 +150,6 @@ public class SearchFieldConfig {
         } else {
             throw new IllegalStateException(String.format("Unknown analyzer for fieldName: %s, fieldType: %s", fieldName, fieldType));
         }
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SearchFieldConfig that = (SearchFieldConfig) o;
-        return hasKeywordSubfield == that.hasKeywordSubfield && hasDelimitedSubfield == that.hasDelimitedSubfield
-            && isQueryByDefault == that.isQueryByDefault && isDelimitedSubfield == that.isDelimitedSubfield
-            && isKeywordSubfield == that.isKeywordSubfield && fieldName.equals(that.fieldName) && shortName.equals(
-            that.shortName) && Objects.equals(boost, that.boost) && Objects.equals(analyzer, that.analyzer);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(fieldName, shortName, boost, analyzer, hasKeywordSubfield, hasDelimitedSubfield,
-            isQueryByDefault, isDelimitedSubfield, isKeywordSubfield);
     }
 
     public static class SearchFieldConfigBuilder {
