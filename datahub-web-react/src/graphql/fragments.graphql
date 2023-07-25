@@ -1128,7 +1128,9 @@ fragment joinPropertiesFields on JoinProperties {
         ...joinFieldMappingFields
     }
     createdTime
-    createdActor
+    createdActor {
+        urn
+    }
 }
 
 fragment joinFieldMappingFields on JoinFieldMapping {
