@@ -83,6 +83,10 @@ class DeltaInfoOperator(BaseOperator):
 AspectsByUrn = Dict[str, Dict[str, List[AspectForDiff]]]
 
 
+class CannotCompareMCPs(Exception):
+    pass
+
+
 def get_aspects_by_urn(obj: object) -> AspectsByUrn:
     """Restructure a list of serialized MCPs by urn and aspect.
     Retains information like the original dict and index to facilitate `apply_delta` later.
@@ -95,7 +99,7 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
     for i, entry in enumerate(obj):
         assert isinstance(entry, dict), entry
         if "proposedSnapshot" in entry:
-            raise AssertionError("Found MCEs in output")
+            raise CannotCompareMCPs("Found MCEs")
         elif "entityUrn" in entry and "aspectName" in entry and "aspect" in entry:
             urn = entry["entityUrn"]
             aspect_name = entry["aspectName"]
