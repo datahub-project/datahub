@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional, Set, Tuple, Union
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -104,7 +104,7 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
-        self.workspace_key: PlatformKey
+        self.workspace_key: ContainerKey
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -256,7 +256,6 @@ class Mapper:
         self,
         table: powerbi_data_classes.Table,
     ) -> SchemaMetadataClass:
-
         fields = []
         table_fields = (
             [self.to_datahub_schema_field(column) for column in table.columns]

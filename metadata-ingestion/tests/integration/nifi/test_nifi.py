@@ -107,7 +107,7 @@ def test_nifi_ingest_standalone(
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.slow_integration
-def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, test_resources_dir):
+def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, tmp_path, test_resources_dir):
     # Wait for nifi cluster to execute all lineage processors, max wait time 120 seconds
     url = "http://localhost:9080/nifi-api/flow/process-groups/root"
     for i in range(23):
@@ -124,37 +124,39 @@ def test_nifi_ingest_cluster(loaded_nifi, pytestconfig, test_resources_dir):
                 logging.info(f"Waited for time {i*5} seconds")
                 break
     test_resources_dir = pytestconfig.rootpath / "tests/integration/nifi"
-    # Run nifi ingestion run.
-    pipeline = Pipeline.create(
-        {
-            "run_id": "nifi-test-cluster",
-            "source": {
-                "type": "nifi",
-                "config": {
-                    "site_url": "http://localhost:9080/nifi/",
-                    "auth": "NO_AUTH",
-                    "site_url_to_site_name": {
-                        "http://nifi01:9080/nifi/": "default",
-                        "http://nifi02:9081/nifi/": "default",
-                        "http://nifi03:9082/nifi/": "default",
+    # Run the metadata ingestion pipeline.
+    with fs_helpers.isolated_filesystem(tmp_path):
+        # Run nifi ingestion run.
+        pipeline = Pipeline.create(
+            {
+                "run_id": "nifi-test-cluster",
+                "source": {
+                    "type": "nifi",
+                    "config": {
+                        "site_url": "http://localhost:9080/nifi/",
+                        "auth": "NO_AUTH",
+                        "site_url_to_site_name": {
+                            "http://nifi01:9080/nifi/": "default",
+                            "http://nifi02:9081/nifi/": "default",
+                            "http://nifi03:9082/nifi/": "default",
+                        },
                     },
                 },
-            },
-            "sink": {
-                "type": "file",
-                "config": {"filename": "./nifi_mces_cluster.json"},
-            },
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
+                "sink": {
+                    "type": "file",
+                    "config": {"filename": "./nifi_mces_cluster.json"},
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
 
-    # Verify the output.
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path="nifi_mces_cluster.json",
-        golden_path=test_resources_dir / "nifi_mces_golden_cluster.json",
-        ignore_paths=[
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_event_time'\]",
-        ],
-    )
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path="nifi_mces_cluster.json",
+            golden_path=test_resources_dir / "nifi_mces_golden_cluster.json",
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_event_time'\]",
+            ],
+        )
