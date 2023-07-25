@@ -2,8 +2,6 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.search.SearchResult;
-import java.util.Objects;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
