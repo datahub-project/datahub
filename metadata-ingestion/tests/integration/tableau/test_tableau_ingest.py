@@ -648,8 +648,8 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
-
-    assert len(difference_dataset_urns) == 33
+    
+    assert len(difference_dataset_urns) == 34
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
@@ -684,6 +684,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.campaignstable,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
@@ -815,6 +816,9 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                 },
             },
         )
+        
+        print(f"MOHD = {lineage}")
+
         mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
 
         assert mcp.aspect == UpstreamLineage(
@@ -823,7 +827,8 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                     dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)",
                     type=DatasetLineageType.TRANSFORMED,
                 )
-            ]
+            ],
+            fineGrainedLineages=[],
         )
         assert (
             mcp.entityUrn
