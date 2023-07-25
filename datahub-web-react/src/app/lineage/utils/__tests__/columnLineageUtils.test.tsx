@@ -2,8 +2,12 @@ import {
     decodeSchemaField,
     encodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
+    getPopulatedColumnsByUrn,
     getSourceUrnFromSchemaFieldUrn,
 } from '../columnLineageUtils';
+import { dataJob1, dataset1, dataset2 } from '../../../../Mocks';
+import { FetchedEntity } from '../../types';
+import { FineGrainedLineage, SchemaFieldDataType } from '../../../../types.generated';
 
 describe('getSourceUrnFromSchemaFieldUrn', () => {
     it('should get the source urn for a chart schemaField', () => {
@@ -80,5 +84,45 @@ describe('encodeSchemaField', () => {
         const decodedSchemaField = decodeSchemaField(encodedSchemaField);
         expect(encodedSchemaField).toBe('Adults%2C men %28% of pop%29');
         expect(decodedSchemaField).toBe(schemaField);
+    });
+});
+
+describe('getPopulatedColumnsByUrn', () => {
+    it('should update columns by urn with data job fine grained data so that the data job appears to have the upstream columns', () => {
+        const dataJobWithCLL = {
+            ...dataJob1,
+            name: '',
+            fineGrainedLineages: [
+                {
+                    upstreams: [{ urn: dataset1.urn, path: 'test1' }],
+                    downstreams: [{ urn: dataset2.urn, path: 'test2' }],
+                },
+                {
+                    upstreams: [{ urn: dataset1.urn, path: 'test3' }],
+                    downstreams: [{ urn: dataset2.urn, path: 'test4' }],
+                },
+            ] as FineGrainedLineage[],
+        };
+        const fetchedEntities = {
+            [dataJobWithCLL.urn]: dataJobWithCLL as FetchedEntity,
+        };
+        const columnsByUrn = getPopulatedColumnsByUrn({}, fetchedEntities);
+
+        expect(columnsByUrn).toMatchObject({
+            [dataJobWithCLL.urn]: [
+                {
+                    fieldPath: 'test1',
+                    nullable: false,
+                    recursive: false,
+                    type: SchemaFieldDataType.String,
+                },
+                {
+                    fieldPath: 'test3',
+                    nullable: false,
+                    recursive: false,
+                    type: SchemaFieldDataType.String,
+                },
+            ],
+        });
     });
 });

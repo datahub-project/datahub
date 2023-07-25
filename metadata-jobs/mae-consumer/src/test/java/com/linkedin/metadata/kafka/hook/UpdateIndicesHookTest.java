@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hook;
 
+import com.linkedin.metadata.config.SystemUpdateConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFieldArray;
@@ -20,8 +22,6 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
@@ -29,7 +29,6 @@ import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.key.ChartKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -54,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
@@ -88,8 +88,6 @@ public class UpdateIndicesHookTest {
   @BeforeMethod
   public void setupTest() {
     _actorUrn = UrnUtils.getUrn(TEST_ACTOR_URN);
-    EntityRegistry registry = new ConfigEntityRegistry(
-        UpdateIndicesHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     _mockGraphService = Mockito.mock(ElasticSearchGraphService.class);
     _mockEntitySearchService = Mockito.mock(EntitySearchService.class);
     _mockTimeseriesAspectService = Mockito.mock(TimeseriesAspectService.class);
@@ -106,7 +104,7 @@ public class UpdateIndicesHookTest {
         _mockEntitySearchService,
         _mockTimeseriesAspectService,
         _mockSystemMetadataService,
-        registry,
+        ENTITY_REGISTRY,
         _searchDocumentTransformer
     );
     _updateIndicesHook = new UpdateIndicesHook(
