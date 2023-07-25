@@ -14,7 +14,7 @@ from deepdiff import DeepDiff
 
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import read_metadata_file
-from datahub.testing.mcp_diff import MCPDiff, get_aspects_by_urn
+from datahub.testing.mcp_diff import CannotCompareMCPs, MCPDiff, get_aspects_by_urn
 
 logger = logging.getLogger(__name__)
 
@@ -98,12 +98,15 @@ def diff_metadata_json(
             output=output_map,
             ignore_paths=ignore_paths,
         )
+    except CannotCompareMCPs as e:
+        logger.info(f"{e}, falling back to MCE diff")
     except AssertionError as e:
         logger.warning(f"Reverting to old diff method: {e}")
         logger.debug("Error with new diff method", exc_info=True)
-        return DeepDiff(
-            golden,
-            output,
-            exclude_regex_paths=ignore_paths,
-            ignore_order=True,
-        )
+
+    return DeepDiff(
+        golden,
+        output,
+        exclude_regex_paths=ignore_paths,
+        ignore_order=True,
+    )
