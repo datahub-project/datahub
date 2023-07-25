@@ -176,7 +176,7 @@ class ClickHouseConfig(
                 self.username,
                 self.password.get_secret_value() if self.password else None,
                 self.host_port,
-                current_db,
+                current_db if current_db else self.database,
                 uri_opts=self.uri_opts,
             )
         )
