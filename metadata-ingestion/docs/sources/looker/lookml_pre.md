@@ -29,7 +29,7 @@ There's two ways to configure this:
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
 You need to ensure that the API key is attached to a user that has Admin privileges.
 
-If you don't want to provide admin API credentials, you can manually populate the `connection_to_platform_map` in the ingestion configuration.
+If you don't want to provide admin API credentials, you can manually populate the `connection_to_platform_map` and `project_name` in the ingestion configuration.
 
 ### Ingestion Options
 
