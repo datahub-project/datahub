@@ -120,7 +120,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
         });
     };
 
-    const updateSlaAssertionFilter = (filter?: DatasetFilter) => {
+    const updateAssertionSqlFilter = (filter?: DatasetFilter) => {
         updateState({
             ...state,
             assertion: {
@@ -175,7 +175,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
                             />
                             <DatasetFreshnessFilterBuilder
                                 value={freshnessFilter as DatasetFilter}
-                                onChange={updateSlaAssertionFilter}
+                                onChange={updateAssertionSqlFilter}
                                 sourceType={datasetFreshnessParameters?.sourceType}
                             />
                         </Collapse.Panel>

@@ -9,7 +9,7 @@ const Form = styled.div`
     padding-bottom: 12px;
 `;
 const ColumnSelect = styled(Select)`
-    width: 200px;
+    width: 340px;
 `;
 
 type Props = {
