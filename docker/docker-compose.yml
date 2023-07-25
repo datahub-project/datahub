@@ -24,7 +24,7 @@ services:
   datahub-actions:
     container_name: datahub-actions
     hostname: actions
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
     env_file: datahub-actions/env/docker.env
     depends_on:
       datahub-gms:

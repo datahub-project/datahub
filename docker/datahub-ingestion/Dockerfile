@@ -21,6 +21,10 @@ RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to
     ./gradlew :metadata-events:mxe-schemas:build
 
 FROM base as prod-codegen
+
+COPY ./docker/datahub-ingestion/requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+
 COPY --from=prod-build /datahub-src /datahub-src
 RUN cd /datahub-src/metadata-ingestion && \
     pip install -e ".[base]" && \

@@ -16,9 +16,7 @@ ENV CONFLUENT_KAFKA_VERSION=1.6.1
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && apt-get install -y \
-    && apt-get install -y -qq \
-    #    gcc \
+RUN apt-get update && apt-get install -y -qq \
     make \
     python3-ldap \
     libldap2-dev \
@@ -31,7 +29,7 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     ldap-utils \
-    openjdk-11-jre-headless \
+    default-jre-headless \
     && python -m pip install --upgrade pip wheel setuptools==57.5.0 \
     && curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
     &&  tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
