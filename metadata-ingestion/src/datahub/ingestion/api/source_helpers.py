@@ -269,6 +269,15 @@ def auto_browse_path_v2(
                         path=_prepend_platform_instance([], platform, platform_instance)
                     ),
                 ).as_workunit()
+        else:
+            emitted_urns.add(urn)
+            if not dry_run:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=BrowsePathsV2Class(
+                        path=_prepend_platform_instance([], platform, platform_instance)
+                    ),
+                ).as_workunit()
 
     if num_out_of_batch or num_out_of_order:
         properties = {
