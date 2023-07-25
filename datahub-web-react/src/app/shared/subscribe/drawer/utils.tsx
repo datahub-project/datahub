@@ -35,21 +35,9 @@ const ASSERTION_NODE_KEY = 'assertion_changes';
 const INCIDENTS_NODE_KEY = 'incident_changes';
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
 const SCHEMA_NODE_KEY = 'schema_changes';
-const SCHEMA_NODE_CHILDREN = [
-    EntityChangeType.OperationColumnAdded,
-    EntityChangeType.OperationColumnRemoved,
-    EntityChangeType.OperationColumnModified,
-];
 const OWNERSHIP_CHANGE_NODE_KEY = 'ownership_change';
-const OWNERSHIP_CHANGE_NODE_CHILDREN = [EntityChangeType.OwnerAdded, EntityChangeType.OwnerRemoved];
 const GLOSSARY_TERM_CHANGE_NODE_KEY = 'glossary_term_change';
-const GLOSSARY_TERM_CHANGE_NODE_CHILDREN = [
-    EntityChangeType.GlossaryTermAdded,
-    EntityChangeType.GlossaryTermRemoved,
-    EntityChangeType.GlossaryTermProposed,
-];
 const TAG_CHANGE_NODE_KEY = 'tag_change';
-const TAG_CHANGE_NODE_CHILDREN = [EntityChangeType.TagAdded, EntityChangeType.TagRemoved, EntityChangeType.TagProposed];
 
 const NESTED_NODE_KEY_PARENTS = new Set([
     SCHEMA_NODE_KEY,
@@ -59,57 +47,6 @@ const NESTED_NODE_KEY_PARENTS = new Set([
     ASSERTION_NODE_KEY,
     INCIDENTS_NODE_KEY,
 ]);
-
-export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
-    switch (entityType) {
-        case EntityType.Dataset:
-            return [
-                ASSERTION_NODE_KEY,
-                INCIDENTS_NODE_KEY,
-                DEPRECATION_NODE_KEY,
-                SCHEMA_NODE_KEY,
-                OWNERSHIP_CHANGE_NODE_KEY,
-                GLOSSARY_TERM_CHANGE_NODE_KEY,
-                TAG_CHANGE_NODE_KEY,
-            ];
-        default:
-            return [
-                DEPRECATION_NODE_KEY,
-                OWNERSHIP_CHANGE_NODE_KEY,
-                GLOSSARY_TERM_CHANGE_NODE_KEY,
-                TAG_CHANGE_NODE_KEY,
-            ];
-    }
-};
-
-export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
-    switch (entityType) {
-        case EntityType.Dataset:
-            return [
-                ASSERTION_NODE_KEY,
-                INCIDENTS_NODE_KEY,
-                DEPRECATION_NODE_KEY,
-                SCHEMA_NODE_KEY,
-                ...SCHEMA_NODE_CHILDREN,
-                OWNERSHIP_CHANGE_NODE_KEY,
-                ...OWNERSHIP_CHANGE_NODE_CHILDREN,
-                GLOSSARY_TERM_CHANGE_NODE_KEY,
-                ...GLOSSARY_TERM_CHANGE_NODE_CHILDREN,
-                TAG_CHANGE_NODE_KEY,
-                ...TAG_CHANGE_NODE_CHILDREN,
-            ];
-        default:
-            return [
-                DEPRECATION_NODE_KEY,
-                OWNERSHIP_CHANGE_NODE_KEY,
-                ...OWNERSHIP_CHANGE_NODE_CHILDREN,
-                GLOSSARY_TERM_CHANGE_NODE_KEY,
-                ...GLOSSARY_TERM_CHANGE_NODE_CHILDREN,
-                TAG_CHANGE_NODE_KEY,
-                ...TAG_CHANGE_NODE_CHILDREN,
-            ];
-    }
-};
 
 export const getEntityChangeTypesFromCheckedKeys = (checkedKeys: Key[]): EntityChangeType[] => {
     return checkedKeys.filter((key) => !NESTED_NODE_KEY_PARENTS.has(key as string)) as EntityChangeType[];

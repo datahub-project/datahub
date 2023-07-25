@@ -1,5 +1,4 @@
 import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../../types.generated';
-import { getDefaultCheckedKeys } from '../utils';
 import { createInitialState, reducer } from './reducer';
 import { ActionTypes, ChannelSelections } from './types';
 
@@ -51,7 +50,7 @@ describe('reducer', () => {
                 edited: true,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
@@ -84,7 +83,7 @@ describe('reducer', () => {
                 edited: true,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
@@ -117,7 +116,7 @@ describe('reducer', () => {
                 edited: true,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
@@ -148,7 +147,7 @@ describe('reducer', () => {
                 edited: false,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
@@ -188,7 +187,7 @@ describe('reducer', () => {
                 edited: true,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
@@ -228,7 +227,7 @@ describe('reducer', () => {
                 edited: true,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
@@ -265,7 +264,7 @@ describe('reducer', () => {
                 edited: true,
                 isPersonal: true,
                 notificationTypes: {
-                    checkedKeys: getDefaultCheckedKeys(entityType),
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: false,
