@@ -434,6 +434,8 @@ jobs:
         datahub_upgrade_build,
       ]
     steps:
+      - name: Check disk space 1
+        run: df . -h
       - name: Check out the repo
         uses: actions/checkout@v3
       - name: Set up JDK 11
@@ -445,11 +447,15 @@ jobs:
         with:
           python-version: "3.7"
           cache: "pip"
+      - name: Check disk space 2
+        run: df . -h
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
+      - name: Check disk space 3
+        run: df . -h
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -490,6 +496,8 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Check disk space 4
+        run: df . -h
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -501,6 +509,8 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
+      - name: Check disk space 5
+        run: df . -h
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
