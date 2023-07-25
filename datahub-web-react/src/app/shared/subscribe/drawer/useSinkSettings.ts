@@ -28,20 +28,20 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
 
     const onUpdateUserNotificationSettings = (newUserHandle: string) => {
-        updateUserNotificationSettingsFunction(
+        updateUserNotificationSettingsFunction({
             newUserHandle,
             updateUserNotificationSettings,
             refetchUserNotificationSettings,
-        );
+        });
     };
 
     const onUpdateGroupNotificationSettings = (newGroupChannel: string) => {
-        updateGroupNotificationSettingsFunction(
-            groupUrn || '',
+        updateGroupNotificationSettingsFunction({
+            groupUrn: groupUrn || '',
             newGroupChannel,
             updateGroupNotificationSettings,
             refetchGroupNotificationSettings,
-        );
+        });
     };
 
     const updateSinkSettings = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;

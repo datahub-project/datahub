@@ -1,11 +1,19 @@
 import { message } from 'antd';
 import { useAppConfig } from '../../../useAppConfig';
+import {
+    useUpdateGroupNotificationSettingsMutation,
+    useUpdateUserNotificationSettingsMutation,
+} from '../../../../graphql/settings.generated';
 
-export const updateUserNotificationSettingsFunction = (
-    newUserHandle: string,
+export const updateUserNotificationSettingsFunction = ({
+    newUserHandle,
     updateUserNotificationSettings,
     refetchUserNotificationSettings,
-) => {
+}: {
+    newUserHandle: string;
+    updateUserNotificationSettings: ReturnType<typeof useUpdateUserNotificationSettingsMutation>[0];
+    refetchUserNotificationSettings: () => void;
+}) => {
     updateUserNotificationSettings({
         variables: {
             input: {
@@ -28,12 +36,17 @@ export const updateUserNotificationSettingsFunction = (
         });
 };
 
-export const updateGroupNotificationSettingsFunction = (
-    groupUrn: string,
-    newGroupChannel: string,
+export const updateGroupNotificationSettingsFunction = ({
+    groupUrn,
+    newGroupChannel,
     updateGroupNotificationSettings,
     refetchGroupNotificationSettings,
-) => {
+}: {
+    groupUrn: string;
+    newGroupChannel: string;
+    updateGroupNotificationSettings: ReturnType<typeof useUpdateGroupNotificationSettingsMutation>[0];
+    refetchGroupNotificationSettings: () => void;
+}) => {
     updateGroupNotificationSettings({
         variables: {
             input: {

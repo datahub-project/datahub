@@ -11,10 +11,10 @@ type Props = {
     isSubscribed: boolean;
     groupUrn?: string;
     subscription?: DataHubSubscription;
-    onSuccess: () => void;
+    onRefetch?: () => void;
 };
 
-const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription, onSuccess }: Props) => {
+const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription, onRefetch }: Props) => {
     const {
         isPersonal,
         notificationTypes: { checkedKeys },
@@ -45,28 +45,28 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
             : undefined;
 
     const onCreateSubscription = () => {
-        createSubscriptionFunction(
+        createSubscriptionFunction({
             createSubscription,
-            onSuccess,
-            groupUrn || undefined,
+            groupUrn: groupUrn || undefined,
             entityUrn,
             subscriptionTypes,
             entityChangeTypes,
-            notificationSinkTypes,
+            sinkTypes: notificationSinkTypes,
             notificationSettings,
-        );
+            onRefetch,
+        });
     };
 
     const onUpdateSubscription = () => {
-        updateSubscriptionFunction(
+        updateSubscriptionFunction({
             updateSubscription,
-            onSuccess,
             subscription,
             subscriptionTypes,
             entityChangeTypes,
-            notificationSinkTypes,
+            sinkTypes: notificationSinkTypes,
             notificationSettings,
-        );
+            onRefetch,
+        });
     };
 
     return isSubscribed ? onUpdateSubscription : onCreateSubscription;

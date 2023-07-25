@@ -57,20 +57,20 @@ const BoldText = styled.span`
 const MAX_DISPLAYED_GROUPS = 5;
 
 interface Props {
-    isSubscribed: boolean;
+    isUserSubscribed: boolean;
     numUserSubscriptions: number;
     numGroupSubscriptions: number;
     groupNames: string[];
 }
 
 export default function SubscriptionStarTooltip({
-    isSubscribed,
+    isUserSubscribed,
     numUserSubscriptions,
     numGroupSubscriptions,
     groupNames,
 }: Props) {
     const userText = numUserSubscriptions === 1 ? 'user' : 'users';
-    const userSubscriptionText = isSubscribed
+    const userSubscriptionText = isUserSubscribed
         ? `${userText} including you ${numUserSubscriptions === 1 ? 'is' : 'are'} subscribed`
         : `${userText} ${numUserSubscriptions === 1 ? 'is' : 'are'} subscribed ${
               numUserSubscriptions > 0 ? `- not including you` : ''
@@ -81,7 +81,7 @@ export default function SubscriptionStarTooltip({
     return (
         <TextContainer>
             <HeadingText>
-                {isSubscribed && <StyledCheck />}
+                {isUserSubscribed && <StyledCheck />}
                 <span>
                     <BoldText>{numUserSubscriptions}</BoldText> {userSubscriptionText}
                 </span>
@@ -95,9 +95,9 @@ export default function SubscriptionStarTooltip({
                 </HeadingText>
                 <GroupListContainer>
                     {groupNames.map((groupName) => (
-                        <GroupContainer>
+                        <GroupContainer key={groupName}>
                             <TeamOutlined />
-                            <HeadingText key={groupName}>{groupName}</HeadingText>
+                            <HeadingText>{groupName}</HeadingText>
                         </GroupContainer>
                     ))}
                 </GroupListContainer>

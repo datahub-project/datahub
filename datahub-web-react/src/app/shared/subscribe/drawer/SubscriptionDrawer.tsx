@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 import { Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
@@ -19,6 +19,7 @@ import SubscriptionDrawerProvider, { useDrawerState } from './state/context';
 import useDrawerActions from './state/actions';
 import useSinkSettings from './useSinkSettings';
 import useUpsertSubscription from './useUpsertSubscription';
+import useDelayedKey from './useDelayedKey';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -40,16 +41,14 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     isPersonal: boolean;
-    // todo - audit where groupUrn and setGroupUrn are (not) passed in
     groupUrn?: string;
-    setGroupUrn?: (groupUrn: string | undefined) => void;
+    setGroupUrn?: (groupUrn?: string) => void;
     entityUrn: string;
     entityName: string;
     entityType: EntityType;
     isSubscribed: boolean;
-    subscription: DataHubSubscription | undefined;
-    refetchGetSubscription?: () => void;
-    refetchEntitySubscriptionSummary?: () => void;
+    subscription?: DataHubSubscription;
+    onRefetch?: () => void;
     onDeleteSubscription: () => void;
 }
 
@@ -64,8 +63,7 @@ const SubscriptionDrawerContent = ({
     entityType,
     isSubscribed,
     subscription,
-    refetchGetSubscription,
-    refetchEntitySubscriptionSummary,
+    onRefetch,
     onDeleteSubscription,
 }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -97,17 +95,12 @@ const SubscriptionDrawerContent = ({
         }
     }, [isPersonal, setGroupUrn]);
 
-    const refetch = () => {
-        refetchEntitySubscriptionSummary?.();
-        refetchGetSubscription?.();
-    };
-
     const upsertSubscription = useUpsertSubscription({
         entityUrn,
         isSubscribed,
         groupUrn,
         subscription,
-        onSuccess: refetch,
+        onRefetch,
     });
 
     const showBottomDrawerSection = isPersonal || groupUrn;
@@ -117,7 +110,7 @@ const SubscriptionDrawerContent = ({
         groupUrn,
     });
 
-    const initializeState = useCallback(() => {
+    useEffect(() => {
         actions.initialize({
             isPersonal,
             slackSinkEnabled,
@@ -128,45 +121,30 @@ const SubscriptionDrawerContent = ({
         });
     }, [actions, entityType, isPersonal, settingsChannel, slackSinkEnabled, subscription]);
 
-    useEffect(() => {
-        initializeState();
-    }, [initializeState]);
-
-    const resetAndClose = () => {
-        setTimeout(initializeState, 250);
+    const onUpdate = () => {
+        upsertSubscription();
+        if (channel && saveAsDefault) updateSinkSettings(channel);
         onClose();
     };
 
-    const onUpdateFooter = () => {
-        upsertSubscription();
-        if (channel && saveAsDefault) updateSinkSettings(channel);
-        resetAndClose();
-    };
-
     const onCancelOrUnsubscribe = () => {
-        if (isSubscribed) {
-            onDeleteSubscription();
-        }
-        resetAndClose();
+        if (isSubscribed) onDeleteSubscription();
+        onClose();
     };
 
     return (
         <SubscribeDrawer
             width={512}
             footer={
-                <Footer
-                    isSubscribed={isSubscribed}
-                    onCancelOrUnsubscribe={onCancelOrUnsubscribe}
-                    onUpdate={onUpdateFooter}
-                />
+                <Footer isSubscribed={isSubscribed} onCancelOrUnsubscribe={onCancelOrUnsubscribe} onUpdate={onUpdate} />
             }
             open={isOpen}
-            onClose={resetAndClose}
+            onClose={onClose}
             closable={false}
         >
             <SubscriptionTitleContainer>
                 <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
-                <Button type="link" onClick={resetAndClose}>
+                <Button type="link" onClick={onClose}>
                     <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
                 </Button>
             </SubscriptionTitleContainer>
@@ -185,8 +163,10 @@ const SubscriptionDrawerContent = ({
 };
 
 const SubscriptionDrawer = (props: Props) => {
+    const key = useDelayedKey({ condition: !props.isOpen });
+
     return (
-        <SubscriptionDrawerProvider>
+        <SubscriptionDrawerProvider key={key}>
             <SubscriptionDrawerContent {...props} />
         </SubscriptionDrawerProvider>
     );
