@@ -251,7 +251,7 @@ class Source(Closeable, metaclass=ABCMeta):
 
         platform_instance: Optional[str] = None
         if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
-            platform_instance = platform_instance
+            platform_instance = config.platform_instance
 
         return partial(
             auto_browse_path_v2,
