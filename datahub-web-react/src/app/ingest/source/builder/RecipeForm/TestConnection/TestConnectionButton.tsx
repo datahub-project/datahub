@@ -110,7 +110,7 @@ function TestConnectionButton(props: Props) {
         <>
             <Button onClick={testConnection}>
                 <CheckCircleOutlined style={{ color: green[5] }} />
-                Test Connection
+                测试连接
             </Button>
             {isModalVisible && (
                 <TestConnectionModal

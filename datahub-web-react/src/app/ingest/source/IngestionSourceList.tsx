@@ -153,7 +153,7 @@ export const IngestionSourceList = () => {
                     type: EventType.ExecuteIngestionSourceEvent,
                 });
                 message.success({
-                    content: `Successfully submitted ingestion execution request!`,
+                    content: `提交作业执行请求成功!`,
                     duration: 3,
                 });
                 setTimeout(() => onRefresh(), 3000);
@@ -161,7 +161,7 @@ export const IngestionSourceList = () => {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to submit ingestion execution request!: \n ${e.message || ''}`,
+                    content: `提交执行作业请求失败!: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -188,7 +188,7 @@ export const IngestionSourceList = () => {
                         interval: input.schedule?.interval,
                     });
                     message.success({
-                        content: `Successfully updated ingestion source!`,
+                        content: `更新数据源成功!`,
                         duration: 3,
                     });
                     onCreateOrUpdateIngestionSourceSuccess();
@@ -198,7 +198,7 @@ export const IngestionSourceList = () => {
                 .catch((e) => {
                     message.destroy();
                     message.error({
-                        content: `Failed to update ingestion source!: \n ${e.message || ''}`,
+                        content: `更新数据源失败!: \n ${e.message || ''}`,
                         duration: 3,
                     });
                 });
@@ -206,7 +206,7 @@ export const IngestionSourceList = () => {
             // Create
             createIngestionSource({ variables: { input } })
                 .then((result) => {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: '加载中...', duration: 2 });
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -351,18 +351,18 @@ export const IngestionSourceList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
+            {!data && loading && <Message type="loading" content="加载元数据源..." />}
             {error && (
-                <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
+                <Message type="error" content="元数据源加载失败! 发生未知错误." />
             )}
             <SourceContainer>
                 <TabToolbar>
                     <div>
                         <Button id={INGESTION_CREATE_SOURCE_ID} type="text" onClick={() => setIsBuildingSource(true)}>
-                            <PlusOutlined /> Create new source
+                            <PlusOutlined /> 创建数据源
                         </Button>
                         <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
-                            <RedoOutlined /> Refresh
+                            <RedoOutlined /> 刷新
                         </Button>
                     </div>
                     <FilterWrapper>
@@ -377,7 +377,7 @@ export const IngestionSourceList = () => {
 
                         <SearchBar
                             initialQuery={query || ''}
-                            placeholderText="Search sources..."
+                            placeholderText="查找数据源..."
                             suggestions={[]}
                             style={{
                                 maxWidth: 220,
