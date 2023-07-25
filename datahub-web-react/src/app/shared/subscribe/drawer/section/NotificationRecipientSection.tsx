@@ -5,12 +5,6 @@ import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
-import {
-    isGroupSlackChannelValid,
-    isUserSlackHandleValid,
-    validateGroupSlackChannel,
-    validateSlackUserHandle,
-} from '../../../../settings/personal/utils';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
 import { useDrawerState } from '../state/context';
@@ -87,7 +81,7 @@ export default function NotificationRecipientSection() {
     const [form] = useForm();
     const actions = useDrawerActions();
 
-    const { isPersonal, slack } = useDrawerState();
+    const { slack } = useDrawerState();
 
     const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
         slack.channelSelection === ChannelSelections.SETTINGS,
@@ -106,10 +100,6 @@ export default function NotificationRecipientSection() {
     useEffect(() => {
         if (isSubscriptionChannelSelected) channelInputRef.current?.focus();
     }, [isSubscriptionChannelSelected]);
-
-    const customSlackSinkIsValid = isPersonal
-        ? isUserSlackHandleValid(slack.subscription.channel ?? '')
-        : isGroupSlackChannelValid(slack.subscription.channel ?? '');
 
     const onChangeSlackSwitch = (checked: boolean) => {
         actions.setSlackEnabled(checked);
@@ -153,27 +143,14 @@ export default function NotificationRecipientSection() {
                                 )}
                                 <Radio value={ChannelSelections.SUBSCRIPTION}>
                                     <Form form={form}>
-                                        <StyledFormItem
-                                            name="slackFormValue"
-                                            rules={[
-                                                ({ getFieldValue }) => ({
-                                                    validator() {
-                                                        const fieldValue = getFieldValue('slackFormValue');
-                                                        return isPersonal
-                                                            ? validateSlackUserHandle(fieldValue)
-                                                            : validateGroupSlackChannel(fieldValue);
-                                                    },
-                                                }),
-                                            ]}
-                                        >
+                                        <StyledFormItem name="slackFormValue">
                                             <StyledInput
                                                 ref={channelInputRef}
-                                                placeholder={isPersonal ? '@user' : '#channel'}
+                                                placeholder="ABC12345678"
                                                 disabled={
                                                     !slack.enabled || !slackSinkEnabled || isSettingsChannelSelected
                                                 }
                                                 value={slack.subscription.channel}
-                                                status={customSlackSinkIsValid ? undefined : 'error'}
                                                 onChange={onChangeChannelInput}
                                             />
                                         </StyledFormItem>
