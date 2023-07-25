@@ -1,19 +1,22 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Divider, Typography } from 'antd';
-import { TeamOutlined } from '@ant-design/icons';
+import { CheckCircleFilled, TeamOutlined } from '@ant-design/icons';
+import { ANTD_GRAY } from '../../../../entity/shared/constants';
 
 const TextContainer = styled.div`
     border-radius: 2px;
     min-width: 200px;
+    max-width: 240px;
+    font-size: 14px;
 `;
 
 const HeadingText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
-    line-height: 19px;
-    font-weight: 700;
+    font-weight: 500;
     color: #ffffff;
+    display: flex;
 `;
 
 const GroupSectionContainer = styled.div`
@@ -36,6 +39,23 @@ const GroupContainer = styled.div`
     align-items: center;
 `;
 
+const StyledDivider = styled(Divider)`
+    background-color: ${ANTD_GRAY[7]};
+    margin: 6px 0;
+`;
+
+const StyledCheck = styled(CheckCircleFilled)`
+    font-size: 12px;
+    margin-right: 4px;
+    line-height: 26px;
+`;
+
+const BoldText = styled.span`
+    font-weight: 700;
+`;
+
+const MAX_DISPLAYED_GROUPS = 5;
+
 interface Props {
     isSubscribed: boolean;
     numUserSubscriptions: number;
@@ -50,17 +70,29 @@ export default function SubscriptionStarTooltip({
     groupNames,
 }: Props) {
     const userText = numUserSubscriptions === 1 ? 'user' : 'users';
-    const isUserSubscribedText = isSubscribed ? '' : 'not ';
-    const userSubscriptionText = `${numUserSubscriptions} ${userText} subscribed - ${isUserSubscribedText} including you`;
+    const userSubscriptionText = isSubscribed
+        ? `${userText} including you ${numUserSubscriptions === 1 ? 'is' : 'are'} subscribed`
+        : `${userText} ${numUserSubscriptions === 1 ? 'is' : 'are'} subscribed ${
+              numUserSubscriptions > 0 ? `- not including you` : ''
+          }`;
     const groupText = numGroupSubscriptions === 1 ? 'group is' : 'groups are';
-    const groupSubscriptionText = `${numGroupSubscriptions} ${groupText} subscribed`;
+    const groupSubscriptionText = `${groupText} subscribed`;
 
     return (
         <TextContainer>
-            <HeadingText>{userSubscriptionText}</HeadingText>
-            <Divider style={{ backgroundColor: 'white' }} />
+            <HeadingText>
+                {isSubscribed && <StyledCheck />}
+                <span>
+                    <BoldText>{numUserSubscriptions}</BoldText> {userSubscriptionText}
+                </span>
+            </HeadingText>
+            <StyledDivider />
             <GroupSectionContainer>
-                <HeadingText>{groupSubscriptionText}</HeadingText>
+                <HeadingText>
+                    <span>
+                        <BoldText>{numGroupSubscriptions}</BoldText> {groupSubscriptionText}
+                    </span>
+                </HeadingText>
                 <GroupListContainer>
                     {groupNames.map((groupName) => (
                         <GroupContainer>
@@ -69,6 +101,12 @@ export default function SubscriptionStarTooltip({
                         </GroupContainer>
                     ))}
                 </GroupListContainer>
+                {numGroupSubscriptions > MAX_DISPLAYED_GROUPS && (
+                    <span>
+                        +{numGroupSubscriptions - MAX_DISPLAYED_GROUPS} other group
+                        {numGroupSubscriptions - MAX_DISPLAYED_GROUPS === 1 ? '' : 's'}
+                    </span>
+                )}
             </GroupSectionContainer>
         </TextContainer>
     );
