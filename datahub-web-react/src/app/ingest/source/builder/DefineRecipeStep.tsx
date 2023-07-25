@@ -114,7 +114,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Configure {sourceDisplayName} Recipe</SelectTemplateHeader>
+                <SelectTemplateHeader level={5}>配置 {sourceDisplayName} 脚本</SelectTemplateHeader>
                 {showLookerBanner && (
                     <Alert
                         type="warning"
@@ -162,10 +162,10 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
             </BorderedSection>
             <ControlsContainer>
                 <Button disabled={isEditing} onClick={prev}>
-                    Previous
+                    上一步
                 </Button>
                 <Button disabled={!stepComplete} onClick={onClickNext}>
-                    Next
+                    下一步
                 </Button>
             </ControlsContainer>
         </>

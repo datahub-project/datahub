@@ -37,7 +37,7 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
             footer={
                 <>
                     <Button onClick={onCancel} type="text">
-                        Cancel
+                        取消
                     </Button>
                     <Button
                         id="createSecretButton"

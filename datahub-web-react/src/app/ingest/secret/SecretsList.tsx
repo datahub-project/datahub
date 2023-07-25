@@ -171,7 +171,7 @@ export const SecretsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="加载中" content="加载密钥中..." />}
+            {!data && loading && <Message type="loading" content="加载密钥中..." />}
             {error && message.error({ content: `加载密钥失败! \n ${error.message || ''}`, duration: 3 })}
             <div>
                 <TabToolbar>

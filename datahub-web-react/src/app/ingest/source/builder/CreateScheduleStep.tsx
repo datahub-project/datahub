@@ -117,7 +117,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Configure an Ingestion Schedule</SelectTemplateHeader>
+                <SelectTemplateHeader level={5}>配置调度</SelectTemplateHeader>
             </Section>
             <Form layout="vertical">
                 <Form.Item
@@ -165,10 +165,10 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
                 </Form.Item>
             </Form>
             <ControlsContainer>
-                <Button onClick={prev}>Previous</Button>
+                <Button onClick={prev}>上一步</Button>
                 <div>
                     <Button disabled={!interval || interval.length === 0 || cronAsText.error} onClick={onClickNext}>
-                        Next
+                        下一步
                     </Button>
                 </div>
             </ControlsContainer>

@@ -77,7 +77,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
         <>
             <Section>
                 <StyledSearchBar
-                    placeholder="Search ingestion sources..."
+                    placeholder="查询数据源..."
                     value={searchFilter}
                     onChange={(e) => setSearchFilter(e.target.value)}
                     allowClear
@@ -89,7 +89,7 @@ export const SelectTemplateStep = ({ state, updateState, goTo, cancel, ingestion
                     ))}
                 </PlatformListContainer>
             </Section>
-            <CancelButton onClick={cancel}>Cancel</CancelButton>
+            <CancelButton onClick={cancel}>取消</CancelButton>
         </>
     );
 };

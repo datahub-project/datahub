@@ -68,12 +68,12 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     required
                     label={
                         <Typography.Text strong style={{ marginBottom: 0 }}>
-                            Name
+                            名称
                         </Typography.Text>
                     }
                     style={{ marginBottom: 8 }}
                 >
-                    <Typography.Paragraph>Give this ingestion source a name.</Typography.Paragraph>
+                    <Typography.Paragraph>为数据源设定名称.</Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
@@ -83,7 +83,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                     />
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                    <Collapse.Panel header={<Typography.Text type="secondary">高级选项</Typography.Text>} key="1">
                         <Form.Item label={<Typography.Text strong>Executor Id</Typography.Text>}>
                             <Typography.Paragraph>
                                 Provide the executor id to route execution requests to. The built-in DataHub executor id
@@ -95,9 +95,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onChange={(event) => setExecutorId(event.target.value)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>CLI版本号</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Provide a custom CLI version to use for ingestion.
+                                提示: 提供 CLI 版本号用于数据集成.
                             </Typography.Paragraph>
                             <Input
                                 data-testid="cli-version-input"
@@ -107,9 +107,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                                 onChange={(event) => setVersion(event.target.value)}
                             />
                         </Form.Item>
-                        <Form.Item label={<Typography.Text strong>Debug Mode</Typography.Text>}>
+                        <Form.Item label={<Typography.Text strong>Debug 模式</Typography.Text>}>
                             <Typography.Paragraph>
-                                Advanced: Turn on debug mode in order to get more verbose logs.
+                                提示: 开启Debug模式，获取更详细的日志信息.
                             </Typography.Paragraph>
                             <Checkbox
                                 checked={state.config?.debugMode || false}
@@ -120,20 +120,20 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                 </Collapse>
             </Form>
             <ControlsContainer>
-                <Button onClick={prev}>Previous</Button>
+                <Button onClick={prev}>上一步</Button>
                 <div>
                     <SaveButton
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(false)}
                     >
-                        Save
+                        保存
                     </SaveButton>
                     <Button
                         disabled={!(state.name !== undefined && state.name.length > 0)}
                         onClick={() => onClickCreate(true)}
                         type="primary"
                     >
-                        Save & Run
+                        保存并执行
                     </Button>
                 </div>
             </ControlsContainer>
