@@ -38,9 +38,9 @@ enum TabType {
     Users = 'Users',
     Groups = 'Groups',
     UsersZh = '用户',
-    GroupsZh = '用户组'
+    GroupsZh = '用户组',
 }
-const ENABLED_TAB_TYPES = [TabType.Users, TabType.Groups];
+const ENABLED_TAB_TYPES = [TabType.UsersZh, TabType.GroupsZh];
 
 export const ManageIdentities = () => {
     /**

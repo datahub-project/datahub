@@ -116,7 +116,7 @@ export const ManageRoles = () => {
                         userUrns: actorUrns,
                     });
                     message.success({
-                        content: `Assigned Role to users!`,
+                        content: `角色分配成功!`,
                         duration: 2,
                     });
                     setTimeout(() => {
@@ -127,7 +127,7 @@ export const ManageRoles = () => {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to assign Role to users: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: `给用户分配角色失败，失败原因: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 resetRoleState();
@@ -140,7 +140,7 @@ export const ManageRoles = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: '名称',
             dataIndex: 'name',
             key: 'name',
             render: (_, record: any) => {
@@ -157,13 +157,13 @@ export const ManageRoles = () => {
             },
         },
         {
-            title: 'Description',
+            title: '说明',
             dataIndex: 'description',
             key: 'description',
             render: (description: string) => description || '',
         },
         {
-            title: 'Users',
+            title: '用户',
             dataIndex: 'users',
             key: 'users',
             render: (_: any, record: any) => {
@@ -177,7 +177,7 @@ export const ManageRoles = () => {
                                 maxCount={3}
                                 size={28}
                             />
-                        )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
+                        )) || <Typography.Text type="secondary">未找到可分配的用户</Typography.Text>}
                     </>
                 );
             },
@@ -195,7 +195,7 @@ export const ManageRoles = () => {
                                     setFocusRole(record.role);
                                 }}
                             >
-                                ADD USERS
+                                添加用户
                             </AddUsersButton>
                         </Tooltip>
                     </ActionsContainer>
@@ -226,7 +226,7 @@ export const ManageRoles = () => {
                     <div />
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search roles..."
+                        placeholderText="查找角色..."
                         hideRecommendations
                         suggestions={[]}
                         style={{
@@ -243,8 +243,8 @@ export const ManageRoles = () => {
                     />
                     {isBatchAddRolesModalVisible && (
                         <SearchSelectModal
-                            titleText={`Assign ${focusRole?.name} Role to Users`}
-                            continueText="Add"
+                            titleText={`分配角色 ${focusRole?.name} 给用户`}
+                            continueText="分配"
                             onContinue={batchAssignRole}
                             onCancel={resetRoleState}
                             fixedEntityTypes={Array.from(
@@ -258,7 +258,7 @@ export const ManageRoles = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="No Roles!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description="未找到角色!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />

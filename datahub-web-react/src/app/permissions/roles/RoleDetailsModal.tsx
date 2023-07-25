@@ -39,7 +39,7 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>Close</Button>
+            <Button onClick={onClose}>关闭</Button>
         </ButtonsContainer>
     );
 
@@ -52,17 +52,17 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
         <Modal title={role?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>Description</Typography.Title>
+                    <Typography.Title level={5}>说明</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{role?.description}</Typography.Text>
                 </div>
                 <div>
-                    <Typography.Title level={5}>Users</Typography.Title>
+                    <Typography.Title level={5}>用户</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={50} size={28} />
                 </div>
                 <div>
-                    <Typography.Title level={5}>Associated Policies</Typography.Title>
+                    <Typography.Title level={5}>已分配的规则</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup policies={policies} entityRegistry={entityRegistry} maxCount={50} size={28} />
                 </div>

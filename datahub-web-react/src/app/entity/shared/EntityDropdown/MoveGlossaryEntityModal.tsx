@@ -64,15 +64,15 @@ function MoveGlossaryEntityModal(props: Props) {
 
     return (
         <Modal
-            title="Move"
+            title="移动"
             visible
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        取消
                     </Button>
-                    <Button onClick={moveGlossaryEntity}>Move</Button>
+                    <Button onClick={moveGlossaryEntity}>移动</Button>
                 </>
             }
         >
@@ -80,7 +80,7 @@ function MoveGlossaryEntityModal(props: Props) {
                 <Form.Item
                     label={
                         <Typography.Text strong>
-                            Move To <OptionalWrapper>(optional)</OptionalWrapper>
+                            移动到 <OptionalWrapper>(optional)</OptionalWrapper>
                         </Typography.Text>
                     }
                 >

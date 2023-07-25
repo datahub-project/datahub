@@ -153,7 +153,7 @@ function EntityDropdown(props: Props) {
                                         message.info('Copied URL!', 1.2);
                                     }}
                                 >
-                                    <LinkOutlined /> &nbsp; Copy Url
+                                    <LinkOutlined /> &nbsp; 复制Url
                                 </MenuItem>
                             </Menu.Item>
                         )}
@@ -161,11 +161,11 @@ function EntityDropdown(props: Props) {
                             <Menu.Item key="1">
                                 {!entityData?.deprecation?.deprecated ? (
                                     <MenuItem onClick={() => setIsDeprecationModalVisible(true)}>
-                                        <ExclamationCircleOutlined /> &nbsp; Mark as deprecated
+                                        <ExclamationCircleOutlined /> &nbsp; 标记为deprecated
                                     </MenuItem>
                                 ) : (
                                     <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                                        <ExclamationCircleOutlined /> &nbsp; Mark as un-deprecated
+                                        <ExclamationCircleOutlined /> &nbsp; 标记为un-deprecated
                                     </MenuItem>
                                 )}
                             </Menu.Item>
@@ -177,7 +177,7 @@ function EntityDropdown(props: Props) {
                                 onClick={() => setIsCreateTermModalVisible(true)}
                             >
                                 <MenuItem>
-                                    <PlusOutlined /> &nbsp;Add Term
+                                    <PlusOutlined /> &nbsp;新增术语
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
@@ -188,7 +188,7 @@ function EntityDropdown(props: Props) {
                                 onClick={() => setIsCreateNodeModalVisible(true)}
                             >
                                 <MenuItem>
-                                    <FolderAddOutlined /> &nbsp;Add Term Group
+                                    <FolderAddOutlined /> &nbsp;新增术语组
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
@@ -199,7 +199,7 @@ function EntityDropdown(props: Props) {
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
                                 <MenuItem>
-                                    <FolderOpenOutlined /> &nbsp;Move
+                                    <FolderOpenOutlined /> &nbsp;移动
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
@@ -220,7 +220,7 @@ function EntityDropdown(props: Props) {
                                     }
                                 >
                                     <MenuItem>
-                                        <DeleteOutlined /> &nbsp;Delete
+                                        <DeleteOutlined /> &nbsp;删除
                                     </MenuItem>
                                 </Tooltip>
                             </StyledMenuItem>

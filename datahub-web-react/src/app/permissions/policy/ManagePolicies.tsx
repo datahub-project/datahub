@@ -248,8 +248,8 @@ export const ManagePolicies = () => {
     // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
         Modal.confirm({
-            title: `Delete ${policy?.name}`,
-            content: `Are you sure you want to remove policy?`,
+            title: `删除 ${policy?.name}`,
+            content: `您确定要删除该规则吗?`,
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
                 analytics.event({
@@ -257,14 +257,14 @@ export const ManagePolicies = () => {
                     entityUrn: policy?.urn,
                     entityType: EntityType.DatahubPolicy,
                 });
-                message.success('Successfully removed policy.');
+                message.success('规则删除成功.');
                 setTimeout(() => {
                     policiesRefetch();
                 }, 3000);
                 onCancelViewPolicy();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: '确定',
             maskClosable: true,
             closable: true,
         });
@@ -306,7 +306,7 @@ export const ManagePolicies = () => {
                 type: EventType.CreatePolicyEvent,
             });
         }
-        message.success('Successfully saved policy.');
+        message.success('规则保存成功.');
         setTimeout(() => {
             policiesRefetch();
         }, 3000);
@@ -315,7 +315,7 @@ export const ManagePolicies = () => {
 
     const tableColumns = [
         {
-            title: 'Name',
+            title: '规则名称',
             dataIndex: 'name',
             key: 'name',
             render: (_, record: any) => {
@@ -330,7 +330,7 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'Type',
+            title: '规则类型',
             dataIndex: 'type',
             key: 'type',
             render: (type: string) => {
@@ -339,13 +339,13 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'Description',
+            title: '规则说明',
             dataIndex: 'description',
             key: 'description',
             render: (description: string) => description || '',
         },
         {
-            title: 'Actors',
+            title: '适用用户',
             dataIndex: 'actors',
             key: 'actors',
             render: (_, record: any) => {
@@ -366,7 +366,7 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: 'State',
+            title: '规则状态',
             dataIndex: 'state',
             key: 'state',
             render: (state: string) => {
@@ -381,7 +381,7 @@ export const ManagePolicies = () => {
             render: (_, record: any) => (
                 <ActionButtonContainer>
                     <EditPolicyButton disabled={!record?.editable} onClick={() => onEditPolicy(record?.policy)}>
-                        EDIT
+                        编辑
                     </EditPolicyButton>
                     {record?.state === PolicyState.Active ? (
                         <Button
@@ -395,7 +395,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
                         >
-                            DEACTIVATE
+                            未激活
                         </Button>
                     ) : (
                         <Button
@@ -409,7 +409,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
                         >
-                            ACTIVATE
+                            激活
                         </Button>
                     )}
                     <Button

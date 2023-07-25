@@ -38,16 +38,16 @@ export default function PolicyTypeForm({
 
     return (
         <TypeForm layout="vertical">
-            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>Name</Typography.Text>}>
-                <Typography.Paragraph>A name for your new policy.</Typography.Paragraph>
+            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>规则名称</Typography.Text>}>
+                <Typography.Paragraph>您的规则名称.</Typography.Paragraph>
                 <Input
-                    placeholder="Your policy name"
+                    placeholder="您的规则名称"
                     value={policyName}
                     onChange={(event) => updatePolicyName(event.target.value)}
                 />
             </Form.Item>
-            <Form.Item name="policyType" label={<Typography.Text strong>Type</Typography.Text>}>
-                <Typography.Paragraph>The type of policy you would like to create.</Typography.Paragraph>
+            <Form.Item name="policyType" label={<Typography.Text strong>规则类型</Typography.Text>}>
+                <Typography.Paragraph>您要创建的规则类型.</Typography.Paragraph>
                 <Select defaultValue={policyType} onSelect={(value) => setPolicyType(value as PolicyType)}>
                     <Select.Option value={PolicyType.Platform}>Platform</Select.Option>
                     <Select.Option value={PolicyType.Metadata}>Metadata</Select.Option>
@@ -65,11 +65,11 @@ export default function PolicyTypeForm({
             <Form.Item
                 name="policyDescription"
                 labelAlign="right"
-                label={<Typography.Text strong>Description</Typography.Text>}
+                label={<Typography.Text strong>规则说明</Typography.Text>}
             >
-                <Typography.Paragraph>An optional description for your new policy.</Typography.Paragraph>
+                <Typography.Paragraph>规则说明（可选）.</Typography.Paragraph>
                 <Input
-                    placeholder="Your policy description"
+                    placeholder="规则说明"
                     value={policyDescription}
                     onChange={(event) => setPolicyDescription(event.target.value)}
                 />

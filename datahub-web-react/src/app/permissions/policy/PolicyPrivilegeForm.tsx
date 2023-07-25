@@ -264,7 +264,7 @@ export default function PolicyPrivilegeForm({
                     rel="noopener noreferrer"
                     to={() => `${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
                 >
-                    View
+                    查看
                 </Link>
             </SearchResultContainer>
         );
@@ -279,15 +279,14 @@ export default function PolicyPrivilegeForm({
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource Type</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>资源类型</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        Select the types of resources this policy should apply to. If <b>none</b> is selected, policy is
-                        applied to <b>all</b> types of resources.
+                        选择该规则需要应用到的资源类型. 如果选择<b>none</b>, 则该规则会被应用到<b>所有</b>资源类型.
                     </Typography.Paragraph>
                     <Select
                         value={resourceTypeSelectValue}
                         mode="multiple"
-                        placeholder="Apply to ALL resource types by default. Select types to apply to specific types of entities."
+                        placeholder="默认应用到所有资源类型.选择您要具体应用的类型.比如Dataset,Platform等"
                         onSelect={onSelectResourceType}
                         onDeselect={onDeselectResourceType}
                         tagRender={(tagProps) => (
@@ -309,17 +308,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Resource</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>资源</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for specific resources the policy should apply to. If <b>none</b> is selected, policy is
-                        applied to <b>all</b> resources of the given type.
+                        选择规则需要应用到的指定资源. 如果选择是 <b>none</b> 规则则会被应用到<b>所有</b>资源.
                     </Typography.Paragraph>
                     <Select
-                        notFoundContent="No search results found"
+                        notFoundContent="未找到结果"
                         value={resourceSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder="Apply to ALL resources by default. Select specific resources to apply to."
+                        placeholder="默认应用到所有资源. 选择您要具体应用的资源. 您可以输入要查询的资源名称或者关键字."
                         onSelect={onSelectResource}
                         onDeselect={onDeselectResource}
                         onSearch={handleResourceSearch}
@@ -344,15 +342,14 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Domain</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for domains the policy should apply to. If <b>none</b> is selected, policy is applied to{' '}
-                        <b>all</b> resources in all domains.
+                        选择规则需要应用到的domains. 如果选择是 <b>none</b> , 规则则会被应用到<b>所有</b>domain中的资源.
                     </Typography.Paragraph>
                     <Select
-                        notFoundContent="No search results found"
+                        notFoundContent="未找到结果"
                         value={domainSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder="Apply to ALL domains by default. Select domains to apply to specific domains."
+                        placeholder="默认应用到所有domains. 选择您要具体应用的 domains."
                         onSelect={onSelectDomain}
                         onDeselect={onDeselectDomain}
                         onSearch={handleDomainSearch}
@@ -371,8 +368,8 @@ export default function PolicyPrivilegeForm({
                     </Select>
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>Privileges</Typography.Text>}>
-                <Typography.Paragraph>Select a set of privileges to permit.</Typography.Paragraph>
+            <Form.Item label={<Typography.Text strong>权限集</Typography.Text>}>
+                <Typography.Paragraph>选择您要授予的权限集.</Typography.Paragraph>
                 <Select
                     value={privilegesSelectValue}
                     mode="multiple"

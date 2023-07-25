@@ -70,7 +70,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step 1: Choose Policy Type
     const typeStep = () => {
         return {
-            title: 'Choose Policy Type',
+            title: '选择规则类型',
             content: (
                 <PolicyTypeForm
                     policyType={policy.type}
@@ -87,7 +87,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
 
     // Step 2: Select privileges step.
     const privilegeStep = () => ({
-        title: 'Configure Privileges',
+        title: '配置权限集',
         content: (
             <PolicyPrivilegeForm
                 policyType={policy.type}
@@ -106,7 +106,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step 3: Assign Actors Step
     const actorStep = () => {
         return {
-            title: 'Assign Users & Groups',
+            title: '分配用户和用户组',
             content: (
                 <PolicyActorForm
                     policyType={policy.type}
@@ -143,13 +143,13 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // modalClosePopup for outside policy modal click
     const modalClosePopup = () => {
         Modal.confirm({
-            title: 'Exit Policy Editor',
-            content: `Are you sure you want to exit policy editor? All changes will be lost`,
+            title: '退出权限集编辑器',
+            content: `您确定要退出权限集编辑器吗? 所有未提交的变动不会保存`,
             onOk() {
                 onClose();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: '确定',
             maskClosable: true,
             closable: true,
         });
@@ -159,7 +159,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
-                title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
+                title={isEditing ? '编辑规则' : '创建规则'}
                 visible={visible}
                 onCancel={onClose}
                 closable
@@ -174,17 +174,17 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 <div className="steps-content">{activeStep.content}</div>
                 <StepsContainer>
                     <PrevButtonContainer>
-                        {activeStepIndex > 0 && <Button onClick={() => prev()}>Previous</Button>}
+                        {activeStepIndex > 0 && <Button onClick={() => prev()}>上一步</Button>}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
                             <Button id="nextButton" type="primary" onClick={() => next()}>
-                                Next
+                                下一步
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
                             <Button id="saveButton" type="primary" onClick={onSavePolicy}>
-                                Save
+                                保存
                             </Button>
                         )}
                     </NextButtonContainer>

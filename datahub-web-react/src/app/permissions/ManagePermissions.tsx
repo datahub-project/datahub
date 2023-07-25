@@ -37,8 +37,10 @@ const Content = styled.div`
 enum TabType {
     Roles = 'Roles',
     Policies = 'Policies',
+    RolesZh = '角色',
+    PoliciesZh = '规则',
 }
-const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
+const ENABLED_TAB_TYPES = [TabType.RolesZh, TabType.PoliciesZh];
 
 export const ManagePermissions = () => {
     /**
@@ -48,7 +50,7 @@ export const ManagePermissions = () => {
     const getTabs = () => {
         return [
             {
-                name: TabType.Roles,
+                name: TabType.RolesZh,
                 path: TabType.Roles.toLocaleLowerCase(),
                 content: <ManageRoles />,
                 display: {
@@ -56,7 +58,7 @@ export const ManagePermissions = () => {
                 },
             },
             {
-                name: TabType.Policies,
+                name: TabType.PoliciesZh,
                 path: TabType.Policies.toLocaleLowerCase(),
                 content: <ManagePolicies />,
                 display: {
@@ -72,9 +74,9 @@ export const ManagePermissions = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Permissions</PageTitle>
+                <PageTitle level={3}>权限管理</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    View your DataHub permissions. Take administrative actions.
+                    查看与管理您的DataHub权限.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>
