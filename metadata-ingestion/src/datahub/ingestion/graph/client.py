@@ -57,12 +57,12 @@ class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
     server: str = "http://localhost:8080"
-    token: Optional[str]
-    timeout_sec: Optional[int]
-    retry_status_codes: Optional[List[int]]
-    retry_max_times: Optional[int]
-    extra_headers: Optional[Dict[str, str]]
-    ca_certificate_path: Optional[str]
+    token: Optional[str] = None
+    timeout_sec: Optional[int] = None
+    retry_status_codes: Optional[List[int]] = None
+    retry_max_times: Optional[int] = None
+    extra_headers: Optional[Dict[str, str]] = None
+    ca_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
 
     _max_threads_moved_to_sink = pydantic_removed_field(
