@@ -1245,9 +1245,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
             )
-            # import pdb
 
-            # pdb.set_trace()
             dataset_snapshot = DatasetSnapshot(
                 urn=csql_urn,
                 aspects=[self.get_data_platform_instance()],

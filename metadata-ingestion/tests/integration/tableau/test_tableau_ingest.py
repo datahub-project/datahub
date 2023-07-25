@@ -648,7 +648,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     difference_dataset_urns = list(
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
-    
+
     assert len(difference_dataset_urns) == 34
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
@@ -816,8 +816,6 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                 },
             },
         )
-        
-        print(f"MOHD = {lineage}")
 
         mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
 
