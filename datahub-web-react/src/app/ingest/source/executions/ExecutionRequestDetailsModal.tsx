@@ -125,22 +125,22 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
     return (
         <Modal
             width={800}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={<Button onClick={onClose}>关闭</Button>}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Ingestion Run Details</StyledTitle>
+                    <StyledTitle level={4}>运行明细</StyledTitle>
                 </HeaderSection>
             }
             visible={visible}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading execution details..." />}
-            {error && message.error('Failed to load execution details :(')}
+            {!data && loading && <Message type="loading" content="加载执行细节..." />}
+            {error && message.error('加载执行细节失败 :(')}
             <Section>
                 <StatusSection>
-                    <Typography.Title level={5}>Status</Typography.Title>
+                    <Typography.Title level={5}>运行状态</Typography.Title>
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                 </StatusSection>
@@ -150,21 +150,21 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     </IngestedAssetsSection>
                 )}
                 <LogsSection>
-                    <SectionHeader level={5}>Logs</SectionHeader>
+                    <SectionHeader level={5}>日志</SectionHeader>
                     <SectionSubHeader>
                         <SubHeaderParagraph type="secondary">
-                            View logs that were collected during the ingestion run.
+                            查看运行日志.
                         </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
                             <DownloadOutlined />
-                            Download
+                            下载日志
                         </Button>
                     </SectionSubHeader>
                     <Typography.Paragraph ellipsis>
                         <pre>{`${logs}${!showExpandedLogs && isOutputExpandable ? '...' : ''}`}</pre>
                         {isOutputExpandable && (
                             <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
-                                {showExpandedLogs ? 'Hide' : 'Show More'}
+                                {showExpandedLogs ? '隐藏' : '显示更多'}
                             </ShowMoreButton>
                         )}
                     </Typography.Paragraph>

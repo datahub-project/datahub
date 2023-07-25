@@ -74,13 +74,13 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to cancel execution!: \n ${e.message || ''}`,
+                    content: `取消请求失败!: \n ${e.message || ''}`,
                     duration: 3,
                 });
             })
             .finally(() => {
                 message.success({
-                    content: `Successfully submitted cancellation request!`,
+                    content: `成功提交取消请求!`,
                     duration: 3,
                 });
                 // Refresh once a job was cancelled.
@@ -90,15 +90,15 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
 
     const handleCancelExecution = (executionUrn: string) => {
         Modal.confirm({
-            title: `Confirm Cancel`,
+            title: `确认取消`,
             content:
-                'Cancelling an running execution will NOT remove any data that has already been ingested. You can use the DataHub CLI to rollback this ingestion run.',
+                '取消正在执行的作业不会删除已经提交的数据。 您可以使用 DataHub CLI命令行工具来执行回滚操作.',
             onOk() {
                 onCancelExecutionRequest(executionUrn);
             },
             onCancel() {},
-            okText: 'Cancel',
-            cancelText: 'Close',
+            okText: '取消',
+            cancelText: '关闭',
             maskClosable: true,
             closable: true,
         });
@@ -106,33 +106,32 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
 
     function handleRollbackExecution(runId: string) {
         Modal.confirm({
-            title: `Confirm Rollback`,
+            title: `确认回滚`,
             content: (
                 <div>
-                    Rolling back this ingestion run will remove any new data ingested during the run. This may exclude
-                    data that was previously extracted, but did not change during this run.
+                    回滚本次集成作业生成的数据,之前的数据不会发生改变.
                     <br />
-                    <br /> Are you sure you want to continue?
+                    <br /> 确认回滚吗?
                 </div>
             ),
             onOk() {
-                message.loading('Requesting rollback...');
+                message.loading('回滚请求中...');
                 rollbackIngestion({ variables: { input: { runId } } })
                     .then(() => {
                         setTimeout(() => {
                             message.destroy();
                             refetch();
                             onRefresh();
-                            message.success('Successfully requested ingestion rollback');
+                            message.success('成功提交回滚请求');
                         }, 2000);
                     })
                     .catch(() => {
-                        message.error('Error requesting ingestion rollback');
+                        message.error('回滚请求提交失败');
                     });
             },
             onCancel() {},
-            okText: 'Rollback',
-            cancelText: 'Close',
+            okText: '回滚',
+            cancelText: '关闭',
             maskClosable: true,
             closable: true,
         });
@@ -142,9 +141,9 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
 
     return (
         <ListContainer>
-            {!data && loading && <Message type="loading" content="Loading executions..." />}
+            {!data && loading && <Message type="loading" content="加载运行作业..." />}
             {error && (
-                <Message type="error" content="Failed to load ingestion executions! An unexpected error occurred." />
+                <Message type="error" content="运行作业加载失败! 发生未知错误." />
             )}
             <IngestionExecutionTable
                 executionRequests={executionRequests}

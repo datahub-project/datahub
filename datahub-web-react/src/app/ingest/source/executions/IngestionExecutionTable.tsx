@@ -22,19 +22,19 @@ export default function IngestionExecutionTable({
 }: Props) {
     const tableColumns = [
         {
-            title: 'Requested At',
+            title: '请求开始时间',
             dataIndex: 'requestedAt',
             key: 'requestedAt',
             render: TimeColumn,
         },
         {
-            title: 'Started At',
+            title: '作业开始时间',
             dataIndex: 'executedAt',
             key: 'executedAt',
             render: TimeColumn,
         },
         {
-            title: 'Duration (s)',
+            title: '持续时间 (秒)',
             dataIndex: 'duration',
             key: 'duration',
             render: (durationMs: number) => {
@@ -43,7 +43,7 @@ export default function IngestionExecutionTable({
             },
         },
         {
-            title: 'Status',
+            title: '执行状态',
             dataIndex: 'status',
             key: 'status',
             render: (status: any, record) => (
@@ -51,7 +51,7 @@ export default function IngestionExecutionTable({
             ),
         },
         {
-            title: 'Source',
+            title: '作业来源',
             dataIndex: 'source',
             key: 'source',
             render: SourceColumn,

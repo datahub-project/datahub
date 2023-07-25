@@ -45,7 +45,7 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusCol
             {Icon && <Icon style={{ color, fontSize: 14 }} />}
             <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.urn)}>
                 <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                    {text || 'Pending...'}
+                    {text || '执行中...'}
                 </Typography.Text>
             </StatusButton>
         </StatusContainer>
@@ -54,9 +54,9 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusCol
 
 export function SourceColumn(source: string) {
     return (
-        (source === MANUAL_INGESTION_SOURCE && 'Manual Execution') ||
-        (source === SCHEDULED_INGESTION_SOURCE && 'Scheduled Execution') ||
-        (source === CLI_INGESTION_SOURCE && 'CLI Execution') ||
+        (source === MANUAL_INGESTION_SOURCE && '手动执行') ||
+        (source === SCHEDULED_INGESTION_SOURCE && '计划任务') ||
+        (source === CLI_INGESTION_SOURCE && 'CLI 命令行任务') ||
         'N/A'
     );
 }
@@ -77,7 +77,7 @@ export function ButtonsColumn({
     return (
         <div style={{ display: 'flex', justifyContent: 'right' }}>
             {record.urn && navigator.clipboard && (
-                <Tooltip title="Copy Execution Request URN">
+                <Tooltip title="复制运行作业URN">
                     <Button
                         style={{ marginRight: 16 }}
                         icon={<CopyOutlined />}
@@ -89,17 +89,17 @@ export function ButtonsColumn({
             )}
             {record.duration && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleViewDetails(record.urn)}>
-                    DETAILS
+                    运行明细
                 </Button>
             )}
             {record.status === RUNNING && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleCancelExecution(record.urn)}>
-                    CANCEL
+                    取消
                 </Button>
             )}
             {record.status === SUCCESS && record.showRollback && (
                 <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
-                    ROLLBACK
+                    回滚
                 </Button>
             )}
         </div>
