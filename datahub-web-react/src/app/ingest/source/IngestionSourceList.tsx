@@ -228,7 +228,7 @@ export const IngestionSourceList = () => {
                             interval: input.schedule?.interval,
                         });
                         message.success({
-                            content: `Successfully created ingestion source!`,
+                            content: `数据源创建成功!`,
                             duration: 3,
                         });
                         if (shouldRun && result.data?.createIngestionSource) {
@@ -242,7 +242,7 @@ export const IngestionSourceList = () => {
                 .catch((e) => {
                     message.destroy();
                     message.error({
-                        content: `Failed to create ingestion source!: \n ${e.message || ''}`,
+                        content: `数据源创建失败!: \n ${e.message || ''}`,
                         duration: 3,
                     });
                 });
@@ -263,7 +263,7 @@ export const IngestionSourceList = () => {
                 analytics.event({
                     type: EventType.DeleteIngestionSourceEvent,
                 });
-                message.success({ content: 'Removed ingestion source.', duration: 2 });
+                message.success({ content: '数据源删除成功.', duration: 2 });
                 const newRemovedUrns = [...removedUrns, urn];
                 setRemovedUrns(newRemovedUrns);
                 setTimeout(() => {
@@ -273,7 +273,7 @@ export const IngestionSourceList = () => {
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove ingestion source: \n ${e.message || ''}`, duration: 3 });
+                    message.error({ content: `数据源删除失败: \n ${e.message || ''}`, duration: 3 });
                 }
             });
     };
@@ -317,13 +317,13 @@ export const IngestionSourceList = () => {
 
     const onExecute = (urn: string) => {
         Modal.confirm({
-            title: `Confirm Source Execution`,
-            content: "Click 'Execute' to run this ingestion source.",
+            title: `确认执行`,
+            content: "点击 '执行作业' 提交并运行作业.",
             onOk() {
                 executeIngestionSource(urn);
             },
             onCancel() {},
-            okText: 'Execute',
+            okText: '执行作业',
             maskClosable: true,
             closable: true,
         });
@@ -331,13 +331,13 @@ export const IngestionSourceList = () => {
 
     const onDelete = (urn: string) => {
         Modal.confirm({
-            title: `Confirm Ingestion Source Removal`,
-            content: `Are you sure you want to remove this ingestion source? Removing will terminate any scheduled ingestion runs.`,
+            title: `确认删除`,
+            content: `您确定要删除数据源吗? 删除数据源会中断已经设置的调度作业.`,
             onOk() {
                 deleteIngestionSource(urn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: '确定',
             maskClosable: true,
             closable: true,
         });
