@@ -33,7 +33,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
-    PlatformKey,
+    ContainerKey,
     add_entity_to_container,
     gen_containers,
 )
@@ -358,11 +358,11 @@ class TableauConfig(
         return values
 
 
-class WorkbookKey(PlatformKey):
+class WorkbookKey(ContainerKey):
     workbook_id: str
 
 
-class ProjectKey(PlatformKey):
+class ProjectKey(ContainerKey):
     project_id: str
 
 
@@ -1682,7 +1682,7 @@ class TableauSource(StatefulIngestionSourceBase):
             )
 
     def _get_datasource_container_key(self, datasource, workbook, is_embedded_ds):
-        container_key: Optional[PlatformKey] = None
+        container_key: Optional[ContainerKey] = None
         if is_embedded_ds:  # It is embedded then parent is container is workbook
             if workbook is not None:
                 container_key = self.gen_workbook_key(workbook)

@@ -779,6 +779,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,aws-ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,aws-ap-south-1)"
+                },
+                {
                     "id": "demo-workspace"
                 }
             ]
@@ -884,6 +888,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,aws-ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,aws-ap-south-1)"
+                },
                 {
                     "id": "demo-workspace"
                 }
@@ -1016,6 +1024,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,aws-ap-south-1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:powerbi,aws-ap-south-1)"
+                },
                 {
                     "id": "demo-workspace"
                 }

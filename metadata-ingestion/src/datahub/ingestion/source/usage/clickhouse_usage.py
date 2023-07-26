@@ -22,7 +22,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
 from datahub.ingestion.source.usage.usage_common import (
@@ -110,9 +109,6 @@ class ClickHouseUsageSource(Source):
     def create(cls, config_dict, ctx):
         config = ClickHouseUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets ClickHouse usage stats as work units"""

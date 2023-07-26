@@ -1,1815 +1,2095 @@
 [
-  {
-    "auditHeader": null,
+{
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test-2,some-feature-1)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "TEXT",
-              "version": null,
-              "sources": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
-        "urn": "urn:li:mlPrimaryKey:(test-2,some-feature-2)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
-              "description": null,
-              "dataType": "ORDINAL",
-              "version": null,
-              "sources": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test-2,some-feature-3)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "CONTINUOUS",
-              "version": null,
-              "sources": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
-        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-2)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
-              "customProperties": {
-                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-2",
-                "creation_time": "2021-06-24 09:48:37.035000",
-                "status": "Created"
-              },
-              "description": "Yet another test feature group",
-              "mlFeatures": [
-                "urn:li:mlFeature:(test-2,some-feature-1)",
-                "urn:li:mlFeature:(test-2,some-feature-3)"
-              ],
-              "mlPrimaryKeys": [
-                "urn:li:mlPrimaryKey:(test-2,some-feature-2)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test-1,name)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "TEXT",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
-        "urn": "urn:li:mlPrimaryKey:(test-1,id)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
-              "description": null,
-              "dataType": "ORDINAL",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test-1,height)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "CONTINUOUS",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test-1,time)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "TEXT",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
-        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-1)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
-              "customProperties": {
-                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
-                "creation_time": "2021-06-23 13:58:10.264000",
-                "status": "Created"
-              },
-              "description": "First test feature group",
-              "mlFeatures": [
-                "urn:li:mlFeature:(test-1,name)",
-                "urn:li:mlFeature:(test-1,height)",
-                "urn:li:mlFeature:(test-1,time)"
-              ],
-              "mlPrimaryKeys": [
-                "urn:li:mlPrimaryKey:(test-1,id)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
-        "urn": "urn:li:mlPrimaryKey:(test,feature_1)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
-              "description": null,
-              "dataType": "TEXT",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test,feature_2)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "ORDINAL",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
-        "urn": "urn:li:mlFeature:(test,feature_3)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
-              "description": null,
-              "dataType": "CONTINUOUS",
-              "version": null,
-              "sources": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
-        "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
-              "customProperties": {
-                "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test",
-                "creation_time": "2021-06-14 11:03:00.803000",
-                "status": "Created"
-              },
-              "description": null,
-              "mlFeatures": [
-                "urn:li:mlFeature:(test,feature_2)",
-                "urn:li:mlFeature:(test,feature_3)"
-              ],
-              "mlPrimaryKeys": [
-                "urn:li:mlPrimaryKey:(test,feature_1)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://auto-ml-job-input-bucket/file.txt",
-                "datatype": "ManifestFile"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://auto-ml-job-output-bucket/file.txt"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://compilation-job-bucket/input-config.tar.gz",
-                "framework": "TENSORFLOW",
-                "framework_version": "string"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://compilation-job-bucket/output-config.tar.gz",
-                "target_device": "lambda",
-                "target_platform": "{'Os': 'ANDROID', 'Arch': 'X86_64', 'Accelerator': 'INTEL_GRAPHICS'}"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://edge-packaging-bucket/model-artifact.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://edge-packaging-bucket/output-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://labeling-job/data-source.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://labeling-job/category-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://labeling-job/output-dataset.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://labeling-job/output-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://processing-job/input-data.tar.gz",
-                "datatype": "ManifestFile",
-                "mode": "Pipe",
-                "distribution_type": "FullyReplicated",
-                "compression": "None",
-                "name": "string"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/input-dataset.tar.gz",
-                "datatype": "None",
-                "distribution_type": "FullyReplicated",
-                "attribute_names": "['string']",
-                "channel_name": "string"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/output-data.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/checkpoint-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/debug-hook-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/tensorboard-output-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/profiler-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/debug-rule-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://training-job/profiler-rule-config.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://transform-job/input-data-source.tar.gz",
-                "datatype": "ManifestFile",
-                "compression": "None",
-                "split": "None"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "customProperties": {
-                "dataset_type": "s3",
-                "uri": "s3://transform-job/output.tar.gz"
-              },
-              "externalUrl": null,
-              "description": null,
-              "uri": null,
-              "tags": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "an-auto-ml-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "AutoMLJobName": "an-auto-ml-job",
-                "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
-                "InputDataConfig": "[{'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://auto-ml-job-input-bucket/file.txt'}}, 'CompressionType': 'None', 'TargetAttributeName': 'some-name'}]",
-                "OutputDataConfig": "{'KmsKeyId': 'some-key-id', 'S3OutputPath': 's3://auto-ml-job-output-bucket/file.txt'}",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "AutoMLJobObjective": "{'MetricName': 'Accuracy'}",
-                "ProblemType": "BinaryClassification",
-                "AutoMLJobConfig": "{'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}, 'SecurityConfig': {'VolumeKmsKeyId': 'string', 'EnableInterContainerTrafficEncryption': True, 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}}}",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "EndTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "FailureReason": "string",
-                "PartialFailureReasons": "[{'PartialFailureMessage': 'string'}]",
-                "BestCandidate": "{'CandidateName': 'string', 'FinalAutoMLJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'Accuracy', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded', 'CandidateSteps': [{'CandidateStepType': 'AWS::SageMaker::TrainingJob', 'CandidateStepArn': 'string', 'CandidateStepName': 'string'}], 'CandidateStatus': 'Completed', 'InferenceContainers': [{'Image': 'string', 'ModelDataUrl': 's3://auto-ml-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}}], 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'FailureReason': 'string', 'CandidateProperties': {'CandidateArtifactLocations': {'Explainability': 'string'}}}",
-                "AutoMLJobStatus": "Completed",
-                "AutoMLJobSecondaryStatus": "Starting",
-                "GenerateCandidateDefinitionsOnly": "True",
-                "AutoMLJobArtifacts": "{'CandidateDefinitionNotebookLocation': 'string', 'DataExplorationNotebookLocation': 'string'}",
-                "ResolvedAttributes": "{'AutoMLJobObjective': {'MetricName': 'Accuracy'}, 'ProblemType': 'BinaryClassification', 'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}}",
-                "ModelDeployConfig": "{'AutoGenerateEndpointName': True, 'EndpointName': 'string'}",
-                "ModelDeployResult": "{'EndpointName': 'string'}",
-                "jobType": "auto_ml"
-              },
-              "externalUrl": null,
-              "name": "an-auto-ml-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "COMPLETED"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/auto_ml"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)"
-              ],
-              "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "a-compilation-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "CompilationJobName": "a-compilation-job",
-                "CompilationJobArn": "arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job",
-                "CompilationJobStatus": "INPROGRESS",
-                "CompilationStartTime": "2015-01-01 00:00:00+00:00",
-                "CompilationEndTime": "2015-01-01 00:00:00+00:00",
-                "StoppingCondition": "{'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}",
-                "InferenceImage": "string",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "FailureReason": "string",
-                "ModelArtifacts": "{'S3ModelArtifacts': 's3://compilation-job-bucket/model-artifacts.tar.gz'}",
-                "ModelDigests": "{'ArtifactDigest': 'string'}",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "InputConfig": "{'S3Uri': 's3://compilation-job-bucket/input-config.tar.gz', 'DataInputConfig': 'string', 'Framework': 'TENSORFLOW', 'FrameworkVersion': 'string'}",
-                "OutputConfig": "{'S3OutputLocation': 's3://compilation-job-bucket/output-config.tar.gz', 'TargetDevice': 'lambda', 'TargetPlatform': {'Os': 'ANDROID', 'Arch': 'X86_64', 'Accelerator': 'INTEL_GRAPHICS'}, 'CompilerOptions': 'string', 'KmsKeyId': 'string'}",
-                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
-                "jobType": "compilation"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/compilation-jobs/a-compilation-job",
-              "name": "a-compilation-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "IN_PROGRESS"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/compilation"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)"
-              ],
-              "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "an-edge-packaging-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "EdgePackagingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
-                "EdgePackagingJobName": "an-edge-packaging-job",
-                "CompilationJobName": "a-compilation-job",
-                "ModelName": "the-second-model",
-                "ModelVersion": "string",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
-                "ResourceKey": "string",
-                "EdgePackagingJobStatus": "STARTING",
-                "EdgePackagingJobStatusMessage": "string",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
-                "ModelSignature": "string",
-                "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
-                "jobType": "edge_packaging"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/edge-packaging-jobs/an-edge-packaging-job",
-              "name": "an-edge-packaging-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "STARTING"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/edge_packaging"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)"
-              ],
-              "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "a-hyper-parameter-tuning-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "HyperParameterTuningJobName": "a-hyper-parameter-tuning-job",
-                "HyperParameterTuningJobArn": "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job",
-                "HyperParameterTuningJobConfig": "{'Strategy': 'Bayesian', 'HyperParameterTuningJobObjective': {'Type': 'Maximize', 'MetricName': 'string'}, 'ResourceLimits': {'MaxNumberOfTrainingJobs': 123, 'MaxParallelTrainingJobs': 123}, 'ParameterRanges': {'IntegerParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'ContinuousParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'CategoricalParameterRanges': [{'Name': 'string', 'Values': ['string']}]}, 'TrainingJobEarlyStoppingType': 'Off', 'TuningJobCompletionCriteria': {'TargetObjectiveMetricValue': 1.0}}",
-                "TrainingJobDefinition": "{'DefinitionName': 'string', 'TuningObjective': {'Type': 'Maximize', 'MetricName': 'string'}, 'HyperParameterRanges': {'IntegerParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'ContinuousParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'CategoricalParameterRanges': [{'Name': 'string', 'Values': ['string']}]}, 'StaticHyperParameters': {'string': 'string'}, 'AlgorithmSpecification': {'TrainingImage': 'string', 'TrainingInputMode': 'Pipe', 'AlgorithmName': 'string', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}]}, 'RoleArn': 'arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole', 'InputDataConfig': [{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://hyper-parameter-tuning-job/data-source.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}], 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}, 'OutputDataConfig': {'KmsKeyId': 'string', 'S3OutputPath': 's3://hyper-parameter-tuning-job/data-output.tar.gz'}, 'ResourceConfig': {'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}, 'StoppingCondition': {'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}, 'EnableNetworkIsolation': True, 'EnableInterContainerTrafficEncryption': True, 'EnableManagedSpotTraining': True, 'CheckpointConfig': {'S3Uri': 's3://hyper-parameter-tuning-job/checkpoint-config.tar.gz', 'LocalPath': 'string'}, 'RetryStrategy': {'MaximumRetryAttempts': 123}}",
-                "TrainingJobDefinitions": "[{'DefinitionName': 'string', 'TuningObjective': {'Type': 'Maximize', 'MetricName': 'string'}, 'HyperParameterRanges': {'IntegerParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'ContinuousParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'CategoricalParameterRanges': [{'Name': 'string', 'Values': ['string']}]}, 'StaticHyperParameters': {'string': 'string'}, 'AlgorithmSpecification': {'TrainingImage': 'string', 'TrainingInputMode': 'Pipe', 'AlgorithmName': 'string', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}]}, 'RoleArn': 'arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole', 'InputDataConfig': [{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://hyper-parameter-tuning-job/data-source.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}], 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}, 'OutputDataConfig': {'KmsKeyId': 'string', 'S3OutputPath': 's3://hyper-parameter-tuning-job/data-output.tar.gz'}, 'ResourceConfig': {'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}, 'StoppingCondition': {'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}, 'EnableNetworkIsolation': True, 'EnableInterContainerTrafficEncryption': True, 'EnableManagedSpotTraining': True, 'CheckpointConfig': {'S3Uri': 's3://hyper-parameter-tuning-job/checkpoint-config.tar.gz', 'LocalPath': 'string'}, 'RetryStrategy': {'MaximumRetryAttempts': 123}}]",
-                "HyperParameterTuningJobStatus": "Completed",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "HyperParameterTuningEndTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "TrainingJobStatusCounters": "{'Completed': 123, 'InProgress': 123, 'RetryableError': 123, 'NonRetryableError': 123, 'Stopped': 123}",
-                "ObjectiveStatusCounters": "{'Succeeded': 123, 'Pending': 123, 'Failed': 123}",
-                "BestTrainingJob": "{'TrainingJobDefinitionName': 'string', 'TrainingJobName': 'string', 'TrainingJobArn': 'string', 'TuningJobName': 'string', 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingStartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingEndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingJobStatus': 'InProgress', 'TunedHyperParameters': {'string': 'string'}, 'FailureReason': 'string', 'FinalHyperParameterTuningJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'string', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded'}",
-                "OverallBestTrainingJob": "{'TrainingJobDefinitionName': 'string', 'TrainingJobName': 'string', 'TrainingJobArn': 'string', 'TuningJobName': 'string', 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingStartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingEndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingJobStatus': 'InProgress', 'TunedHyperParameters': {'string': 'string'}, 'FailureReason': 'string', 'FinalHyperParameterTuningJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'string', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded'}",
-                "WarmStartConfig": "{'ParentHyperParameterTuningJobs': [{'HyperParameterTuningJobName': 'string'}], 'WarmStartType': 'IdenticalDataAndAlgorithm'}",
-                "FailureReason": "string",
-                "jobType": "hyper_parameter_tuning"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/hyper-tuning-jobs/a-hyper-parameter-tuning-job",
-              "name": "a-hyper-parameter-tuning-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "COMPLETED"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/hyper_parameter_tuning"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [],
-              "outputDatasets": [],
-              "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "a-labeling-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "LabelingJobStatus": "Initializing",
-                "LabelCounters": "{'TotalLabeled': 123, 'HumanLabeled': 123, 'MachineLabeled': 123, 'FailedNonRetryableError': 123, 'Unlabeled': 123}",
-                "FailureReason": "string",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "JobReferenceCode": "string",
-                "LabelingJobName": "a-labeling-job",
-                "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
-                "LabelAttributeName": "string",
-                "InputConfig": "{'DataSource': {'S3DataSource': {'ManifestS3Uri': 's3://labeling-job/data-source.tar.gz'}, 'SnsDataSource': {'SnsTopicArn': 'string'}}, 'DataAttributes': {'ContentClassifiers': ['FreeOfPersonallyIdentifiableInformation', 'FreeOfAdultContent']}}",
-                "OutputConfig": "{'S3OutputPath': 's3://labeling-job/output-config.tar.gz', 'KmsKeyId': 'string', 'SnsTopicArn': 'string'}",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "LabelCategoryConfigS3Uri": "s3://labeling-job/category-config.tar.gz",
-                "StoppingConditions": "{'MaxHumanLabeledObjectCount': 123, 'MaxPercentageOfInputDatasetLabeled': 123}",
-                "LabelingJobAlgorithmsConfig": "{'LabelingJobAlgorithmSpecificationArn': 'string', 'InitialActiveLearningModelArn': 'arn:aws:sagemaker:us-west-2:123412341234:labeling-job/initial-active-learning-model', 'LabelingJobResourceConfig': {'VolumeKmsKeyId': 'string'}}",
-                "HumanTaskConfig": "{'WorkteamArn': 'string', 'UiConfig': {'UiTemplateS3Uri': 's3://labeling-job/ui-config.tar.gz', 'HumanTaskUiArn': 'string'}, 'PreHumanTaskLambdaArn': 'string', 'TaskKeywords': ['string'], 'TaskTitle': 'string', 'TaskDescription': 'string', 'NumberOfHumanWorkersPerDataObject': 123, 'TaskTimeLimitInSeconds': 123, 'TaskAvailabilityLifetimeInSeconds': 123, 'MaxConcurrentTaskCount': 123, 'AnnotationConsolidationConfig': {'AnnotationConsolidationLambdaArn': 'string'}, 'PublicWorkforceTaskPrice': {'AmountInUsd': {'Dollars': 123, 'Cents': 123, 'TenthFractionsOfACent': 123}}}",
-                "Tags": "[{'Key': 'string', 'Value': 'string'}]",
-                "LabelingJobOutput": "{'OutputDatasetS3Uri': 's3://labeling-job/output-dataset.tar.gz', 'FinalActiveLearningModelArn': 'arn:aws:sagemaker:us-west-2:123412341234:labeling-job/final-active-learning-model'}",
-                "jobType": "labeling"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/labeling-jobs/a-labeling-job",
-              "name": "a-labeling-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "STARTING"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/labeling"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)"
-              ],
-              "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "a-processing-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "ProcessingJobName": "a-processing-job",
-                "ProcessingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job",
-                "ProcessingInputs": "[{'InputName': 'string', 'AppManaged': True, 'S3Input': {'S3Uri': 's3://processing-job/input-data.tar.gz', 'LocalPath': 'string', 'S3DataType': 'ManifestFile', 'S3InputMode': 'Pipe', 'S3DataDistributionType': 'FullyReplicated', 'S3CompressionType': 'None'}, 'DatasetDefinition': {'AthenaDatasetDefinition': {'Catalog': 'athena-catalog', 'Database': 'athena-database', 'QueryString': 'athena-query-string', 'WorkGroup': 'athena-work-group', 'OutputS3Uri': 's3://processing-job/athena-output.tar.gz', 'KmsKeyId': 'string', 'OutputFormat': 'PARQUET', 'OutputCompression': 'GZIP'}, 'RedshiftDatasetDefinition': {'ClusterId': 'redshift-cluster', 'Database': 'redshift-database', 'DbUser': 'redshift-db-user', 'QueryString': 'redshift-query-string', 'ClusterRoleArn': 'arn:aws:sagemaker:us-west-2:123412341234:processing-job/redshift-cluster', 'OutputS3Uri': 's3://processing-job/redshift-output.tar.gz', 'KmsKeyId': 'string', 'OutputFormat': 'PARQUET', 'OutputCompression': 'None'}, 'LocalPath': 'string', 'DataDistributionType': 'FullyReplicated', 'InputMode': 'Pipe'}}]",
-                "ProcessingOutputConfig": "{'Outputs': [{'OutputName': 'string', 'S3Output': {'S3Uri': 's3://processing-job/processing-output.tar.gz', 'LocalPath': 'string', 'S3UploadMode': 'Continuous'}, 'FeatureStoreOutput': {'FeatureGroupName': 'string'}, 'AppManaged': True}], 'KmsKeyId': 'string'}",
-                "ProcessingResources": "{'ClusterConfig': {'InstanceCount': 123, 'InstanceType': 'ml.t3.medium', 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}}",
-                "StoppingCondition": "{'MaxRuntimeInSeconds': 123}",
-                "AppSpecification": "{'ImageUri': 'string', 'ContainerEntrypoint': ['string'], 'ContainerArguments': ['string']}",
-                "Environment": "{'string': 'string'}",
-                "NetworkConfig": "{'EnableInterContainerTrafficEncryption': True, 'EnableNetworkIsolation': True, 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}}",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
-                "ProcessingJobStatus": "InProgress",
-                "ExitMessage": "string",
-                "FailureReason": "string",
-                "ProcessingEndTime": "2015-01-01 00:00:00+00:00",
-                "ProcessingStartTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "MonitoringScheduleArn": "string",
-                "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
-                "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
-                "jobType": "processing"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/processing-jobs/a-processing-job",
-              "name": "a-processing-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "IN_PROGRESS"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/processing"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)"
-              ],
-              "outputDatasets": [],
-              "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,training:a-training-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "a-training-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "TrainingJobName": "a-training-job",
-                "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
-                "TuningJobArn": "string",
-                "LabelingJobArn": "string",
-                "AutoMLJobArn": "string",
-                "ModelArtifacts": "{'S3ModelArtifacts': 's3://the-first-model-data-url/data.tar.gz'}",
-                "TrainingJobStatus": "InProgress",
-                "SecondaryStatus": "Starting",
-                "FailureReason": "string",
-                "HyperParameters": "{'parameter-1': 'some-value', 'parameter-2': 'another-value'}",
-                "AlgorithmSpecification": "{'TrainingImage': 'string', 'AlgorithmName': 'string', 'TrainingInputMode': 'Pipe', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}], 'EnableSageMakerMetricsTimeSeries': True}",
-                "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
-                "InputDataConfig": "[{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://training-job/input-dataset.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}]",
-                "OutputDataConfig": "{'KmsKeyId': 'string', 'S3OutputPath': 's3://training-job/output-data.tar.gz'}",
-                "ResourceConfig": "{'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}",
-                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
-                "StoppingCondition": "{'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "TrainingStartTime": "2015-01-01 00:00:00+00:00",
-                "TrainingEndTime": "2015-01-01 00:00:00+00:00",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "SecondaryStatusTransitions": "[{'Status': 'Starting', 'StartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'StatusMessage': 'string'}]",
-                "FinalMetricDataList": "[{'MetricName': 'some-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'another-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'some-metric', 'Value': 0.0, 'Timestamp': datetime.datetime(2014, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
-                "EnableNetworkIsolation": "True",
-                "EnableInterContainerTrafficEncryption": "True",
-                "EnableManagedSpotTraining": "True",
-                "CheckpointConfig": "{'S3Uri': 's3://training-job/checkpoint-config.tar.gz', 'LocalPath': 'string'}",
-                "TrainingTimeInSeconds": "123",
-                "BillableTimeInSeconds": "123",
-                "DebugHookConfig": "{'LocalPath': 'string', 'S3OutputPath': 's3://training-job/debug-hook-config.tar.gz', 'HookParameters': {'string': 'string'}, 'CollectionConfigurations': [{'CollectionName': 'string', 'CollectionParameters': {'string': 'string'}}]}",
-                "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
-                "DebugRuleConfigurations": "[{'RuleConfigurationName': 'string', 'LocalPath': 'string', 'S3OutputPath': 's3://training-job/debug-rule-config.tar.gz', 'RuleEvaluatorImage': 'string', 'InstanceType': 'ml.t3.medium', 'VolumeSizeInGB': 123, 'RuleParameters': {'string': 'string'}}]",
-                "TensorBoardOutputConfig": "{'LocalPath': 'string', 'S3OutputPath': 's3://training-job/tensorboard-output-config.tar.gz'}",
-                "DebugRuleEvaluationStatuses": "[{'RuleConfigurationName': 'string', 'RuleEvaluationJobArn': 'string', 'RuleEvaluationStatus': 'InProgress', 'StatusDetails': 'string', 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
-                "ProfilerConfig": "{'S3OutputPath': 's3://training-job/profiler-config.tar.gz', 'ProfilingIntervalInMilliseconds': 123, 'ProfilingParameters': {'string': 'string'}}",
-                "ProfilerRuleConfigurations": "[{'RuleConfigurationName': 'string', 'LocalPath': 'string', 'S3OutputPath': 's3://training-job/profiler-rule-config.tar.gz', 'RuleEvaluatorImage': 'string', 'InstanceType': 'ml.t3.medium', 'VolumeSizeInGB': 123, 'RuleParameters': {'string': 'string'}}]",
-                "ProfilerRuleEvaluationStatuses": "[{'RuleConfigurationName': 'string', 'RuleEvaluationJobArn': 'string', 'RuleEvaluationStatus': 'InProgress', 'StatusDetails': 'string', 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
-                "ProfilingStatus": "Enabled",
-                "RetryStrategy": "{'MaximumRetryAttempts': 123}",
-                "Environment": "{'string': 'string'}",
-                "jobType": "training"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs/a-training-job",
-              "name": "a-training-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "IN_PROGRESS"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/training"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)"
-              ],
-              "inputDatajobs": []
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
-        "urn": "urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
-              "customProperties": {},
-              "externalUrl": null,
-              "name": "a-transform-job",
-              "description": null,
-              "project": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
-        "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
-              "customProperties": {
-                "TransformJobName": "a-transform-job",
-                "TransformJobArn": "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job",
-                "TransformJobStatus": "InProgress",
-                "FailureReason": "string",
-                "ModelName": "the-second-model",
-                "MaxConcurrentTransforms": "123",
-                "ModelClientConfig": "{'InvocationsTimeoutInSeconds': 123, 'InvocationsMaxRetries': 123}",
-                "MaxPayloadInMB": "123",
-                "BatchStrategy": "MultiRecord",
-                "Environment": "{'string': 'string'}",
-                "TransformInput": "{'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://transform-job/input-data-source.tar.gz'}}, 'ContentType': 'string', 'CompressionType': 'None', 'SplitType': 'None'}",
-                "TransformOutput": "{'S3OutputPath': 's3://transform-job/output.tar.gz', 'Accept': 'string', 'AssembleWith': 'None', 'KmsKeyId': 'string'}",
-                "TransformResources": "{'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeKmsKeyId': 'string'}",
-                "CreationTime": "2015-01-01 00:00:00+00:00",
-                "TransformStartTime": "2015-01-01 00:00:00+00:00",
-                "TransformEndTime": "2015-01-01 00:00:00+00:00",
-                "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
-                "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
-                "DataProcessing": "{'InputFilter': 'string', 'OutputFilter': 'string', 'JoinSource': 'Input'}",
-                "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
-                "jobType": "transform"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/transform-jobs/a-transform-job",
-              "name": "a-transform-job",
-              "description": null,
-              "type": {
-                "string": "SAGEMAKER"
-              },
-              "flowUrn": null,
-              "status": "IN_PROGRESS"
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/transform"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
-              "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)"
-              ],
-              "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)"
-              ],
-              "inputDatajobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-first-endpoint,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
-              "customProperties": {
-                "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
-                "EndpointConfigName": "string",
-                "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
-                "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
-                "EndpointStatus": "InService",
-                "FailureReason": "string",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-first-endpoint",
-              "description": null,
-              "createdAt": 1420070400000,
-              "version": null,
-              "status": "IN_SERVICE"
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
-        "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-second-endpoint,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
-              "customProperties": {
-                "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
-                "EndpointConfigName": "string",
-                "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
-                "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
-                "EndpointStatus": "Creating",
-                "FailureReason": "string",
-                "LastModifiedTime": "2015-01-01 00:00:00+00:00",
-                "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-second-endpoint",
-              "description": null,
-              "createdAt": 1420070400000,
-              "version": null,
-              "status": "CREATING"
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
-        "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
-              "customProperties": {
-                "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
-                "ModelPackageGroupDescription": "Just a model package group.",
-                "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
-                "ModelPackageGroupStatus": "Completed"
-              },
-              "description": "Just a model package group.",
-              "createdAt": 1420070400000,
-              "version": null
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test-2,some-feature-1)",
+            "aspects": [
                 {
-                  "owner": "urn:li:corpuser:some-user",
-                  "type": "DATAOWNER",
-                  "source": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "TEXT",
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
+                        ]
+                    }
                 }
-              ],
-              "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown",
-                "impersonator": null
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
+            ]
+        }
+    }
+},
+{
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
-              "customProperties": {
-                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': '123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://the-first-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}",
-                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job-2/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}]",
-                "InferenceExecutionConfig": "{'Mode': 'Serial'}",
-                "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
-                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
-                "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
-                "EnableNetworkIsolation": "True"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
-              "description": null,
-              "date": 1420070400000,
-              "version": null,
-              "type": null,
-              "hyperParameters": null,
-              "hyperParams": [
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+            "urn": "urn:li:mlPrimaryKey:(test-2,some-feature-2)",
+            "aspects": [
                 {
-                  "name": "parameter-1",
-                  "description": null,
-                  "value": "some-value",
-                  "createdAt": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "dataType": "ORDINAL",
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test-2,some-feature-3)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "CONTINUOUS",
+                        "sources": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,datahub-sagemaker-outputs,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:glue,sagemaker_featurestore.test-2-123412341234,PROD)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/sagemaker"
+                        ]
+                    }
                 },
                 {
-                  "name": "parameter-2",
-                  "description": null,
-                  "value": "another-value",
-                  "createdAt": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {
+                            "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-2",
+                            "creation_time": "2021-06-24 09:48:37.035000",
+                            "status": "Created"
+                        },
+                        "description": "Yet another test feature group",
+                        "mlFeatures": [
+                            "urn:li:mlFeature:(test-2,some-feature-1)",
+                            "urn:li:mlFeature:(test-2,some-feature-3)"
+                        ],
+                        "mlPrimaryKeys": [
+                            "urn:li:mlPrimaryKey:(test-2,some-feature-2)"
+                        ]
+                    }
                 }
-              ],
-              "trainingMetrics": [
-                {
-                  "name": "another-metric",
-                  "description": null,
-                  "value": "1.0",
-                  "createdAt": null
-                },
-                {
-                  "name": "some-metric",
-                  "description": null,
-                  "value": "1.0",
-                  "createdAt": null
-                }
-              ],
-              "onlineMetrics": null,
-              "mlFeatures": null,
-              "tags": [],
-              "deployments": [
-                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
-              ],
-              "trainingJobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
-              ],
-              "downstreamJobs": [],
-              "groups": [
-                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/a-model-package-group"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  },
-  {
-    "auditHeader": null,
+            ]
+        }
+    }
+},
+{
     "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
-        "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
-              "customProperties": {
-                "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': '123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'MultiModel', 'ModelDataUrl': 's3://the-second-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}",
-                "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Vpc', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://the-first-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}]",
-                "InferenceExecutionConfig": "{'Mode': 'Serial'}",
-                "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
-                "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
-                "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
-                "EnableNetworkIsolation": "False"
-              },
-              "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
-              "description": null,
-              "date": 1420070400000,
-              "version": null,
-              "type": null,
-              "hyperParameters": null,
-              "hyperParams": [
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test-1,name)",
+            "aspects": [
                 {
-                  "name": "parameter-1",
-                  "description": null,
-                  "value": "some-value",
-                  "createdAt": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "TEXT",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+            "urn": "urn:li:mlPrimaryKey:(test-1,id)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "dataType": "ORDINAL",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test-1,height)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "CONTINUOUS",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test-1,time)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "TEXT",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/sagemaker"
+                        ]
+                    }
                 },
                 {
-                  "name": "parameter-2",
-                  "description": null,
-                  "value": "another-value",
-                  "createdAt": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {
+                            "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test-1",
+                            "creation_time": "2021-06-23 13:58:10.264000",
+                            "status": "Created"
+                        },
+                        "description": "First test feature group",
+                        "mlFeatures": [
+                            "urn:li:mlFeature:(test-1,name)",
+                            "urn:li:mlFeature:(test-1,height)",
+                            "urn:li:mlFeature:(test-1,time)"
+                        ],
+                        "mlPrimaryKeys": [
+                            "urn:li:mlPrimaryKey:(test-1,id)"
+                        ]
+                    }
                 }
-              ],
-              "trainingMetrics": [
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLPrimaryKeySnapshot": {
+            "urn": "urn:li:mlPrimaryKey:(test,feature_1)",
+            "aspects": [
                 {
-                  "name": "another-metric",
-                  "description": null,
-                  "value": "1.0",
-                  "createdAt": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLPrimaryKeyProperties": {
+                        "dataType": "TEXT",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test,feature_2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "ORDINAL",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureSnapshot": {
+            "urn": "urn:li:mlFeature:(test,feature_3)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureProperties": {
+                        "dataType": "CONTINUOUS",
+                        "sources": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLFeatureTableSnapshot": {
+            "urn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/sagemaker"
+                        ]
+                    }
                 },
                 {
-                  "name": "some-metric",
-                  "description": null,
-                  "value": "1.0",
-                  "createdAt": null
+                    "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
+                        "customProperties": {
+                            "arn": "arn:aws:sagemaker:us-west-2:123412341234:feature-group/test",
+                            "creation_time": "2021-06-14 11:03:00.803000",
+                            "status": "Created"
+                        },
+                        "mlFeatures": [
+                            "urn:li:mlFeature:(test,feature_2)",
+                            "urn:li:mlFeature:(test,feature_3)"
+                        ],
+                        "mlPrimaryKeys": [
+                            "urn:li:mlPrimaryKey:(test,feature_1)"
+                        ]
+                    }
                 }
-              ],
-              "onlineMetrics": null,
-              "mlFeatures": null,
-              "tags": [],
-              "deployments": [
-                "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
-              ],
-              "trainingJobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
-              ],
-              "downstreamJobs": [
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
-                "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
-              ],
-              "groups": [
-                "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.BrowsePaths": {
-              "paths": [
-                "/sagemaker/a-model-package-group"
-              ]
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null,
-    "systemMetadata": null
-  }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://auto-ml-job-input-bucket/file.txt",
+                            "datatype": "ManifestFile"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://auto-ml-job-output-bucket/file.txt"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://compilation-job-bucket/input-config.tar.gz",
+                            "framework": "TENSORFLOW",
+                            "framework_version": "string"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://compilation-job-bucket/output-config.tar.gz",
+                            "target_device": "lambda",
+                            "target_platform": "{'Os': 'ANDROID', 'Arch': 'X86_64', 'Accelerator': 'INTEL_GRAPHICS'}"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://edge-packaging-bucket/model-artifact.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://edge-packaging-bucket/output-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://labeling-job/data-source.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://labeling-job/category-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://labeling-job/output-dataset.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://labeling-job/output-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://processing-job/input-data.tar.gz",
+                            "datatype": "ManifestFile",
+                            "mode": "Pipe",
+                            "distribution_type": "FullyReplicated",
+                            "compression": "None",
+                            "name": "string"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/input-dataset.tar.gz",
+                            "datatype": "None",
+                            "distribution_type": "FullyReplicated",
+                            "attribute_names": "['string']",
+                            "channel_name": "string"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/output-data.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/checkpoint-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/debug-hook-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/tensorboard-output-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/profiler-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/debug-rule-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://training-job/profiler-rule-config.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://transform-job/input-data-source.tar.gz",
+                            "datatype": "ManifestFile",
+                            "compression": "None",
+                            "split": "None"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "dataset_type": "s3",
+                            "uri": "s3://transform-job/output.tar.gz"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "an-auto-ml-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "AutoMLJobName": "an-auto-ml-job",
+                            "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
+                            "InputDataConfig": "[{'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://auto-ml-job-input-bucket/file.txt'}}, 'CompressionType': 'None', 'TargetAttributeName': 'some-name'}]",
+                            "OutputDataConfig": "{'KmsKeyId': 'some-key-id', 'S3OutputPath': 's3://auto-ml-job-output-bucket/file.txt'}",
+                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                            "AutoMLJobObjective": "{'MetricName': 'Accuracy'}",
+                            "ProblemType": "BinaryClassification",
+                            "AutoMLJobConfig": "{'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}, 'SecurityConfig': {'VolumeKmsKeyId': 'string', 'EnableInterContainerTrafficEncryption': True, 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}}}",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "EndTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "FailureReason": "string",
+                            "PartialFailureReasons": "[{'PartialFailureMessage': 'string'}]",
+                            "BestCandidate": "{'CandidateName': 'string', 'FinalAutoMLJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'Accuracy', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded', 'CandidateSteps': [{'CandidateStepType': 'AWS::SageMaker::TrainingJob', 'CandidateStepArn': 'string', 'CandidateStepName': 'string'}], 'CandidateStatus': 'Completed', 'InferenceContainers': [{'Image': 'string', 'ModelDataUrl': 's3://auto-ml-job/model-artifact.tar.gz', 'Environment': {'string': 'string'}}], 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'FailureReason': 'string', 'CandidateProperties': {'CandidateArtifactLocations': {'Explainability': 'string'}}}",
+                            "AutoMLJobStatus": "Completed",
+                            "AutoMLJobSecondaryStatus": "Starting",
+                            "GenerateCandidateDefinitionsOnly": "True",
+                            "AutoMLJobArtifacts": "{'CandidateDefinitionNotebookLocation': 'string', 'DataExplorationNotebookLocation': 'string'}",
+                            "ResolvedAttributes": "{'AutoMLJobObjective': {'MetricName': 'Accuracy'}, 'ProblemType': 'BinaryClassification', 'CompletionCriteria': {'MaxCandidates': 123, 'MaxRuntimePerTrainingJobInSeconds': 123, 'MaxAutoMLJobRuntimeInSeconds': 123}}",
+                            "ModelDeployConfig": "{'AutoGenerateEndpointName': True, 'EndpointName': 'string'}",
+                            "ModelDeployResult": "{'EndpointName': 'string'}",
+                            "jobType": "auto_ml"
+                        },
+                        "name": "an-auto-ml-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "COMPLETED"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/auto_ml"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)"
+                        ],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)"
+                        ],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "a-compilation-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "CompilationJobName": "a-compilation-job",
+                            "CompilationJobArn": "arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job",
+                            "CompilationJobStatus": "INPROGRESS",
+                            "CompilationStartTime": "2015-01-01 00:00:00+00:00",
+                            "CompilationEndTime": "2015-01-01 00:00:00+00:00",
+                            "StoppingCondition": "{'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}",
+                            "InferenceImage": "string",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "FailureReason": "string",
+                            "ModelArtifacts": "{'S3ModelArtifacts': 's3://compilation-job-bucket/model-artifacts.tar.gz'}",
+                            "ModelDigests": "{'ArtifactDigest': 'string'}",
+                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                            "InputConfig": "{'S3Uri': 's3://compilation-job-bucket/input-config.tar.gz', 'DataInputConfig': 'string', 'Framework': 'TENSORFLOW', 'FrameworkVersion': 'string'}",
+                            "OutputConfig": "{'S3OutputLocation': 's3://compilation-job-bucket/output-config.tar.gz', 'TargetDevice': 'lambda', 'TargetPlatform': {'Os': 'ANDROID', 'Arch': 'X86_64', 'Accelerator': 'INTEL_GRAPHICS'}, 'CompilerOptions': 'string', 'KmsKeyId': 'string'}",
+                            "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
+                            "jobType": "compilation"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/compilation-jobs/a-compilation-job",
+                        "name": "a-compilation-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "IN_PROGRESS"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/compilation"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)"
+                        ],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)"
+                        ],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "an-edge-packaging-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "EdgePackagingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job",
+                            "EdgePackagingJobName": "an-edge-packaging-job",
+                            "CompilationJobName": "a-compilation-job",
+                            "ModelName": "the-second-model",
+                            "ModelVersion": "string",
+                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                            "OutputConfig": "{'S3OutputLocation': 's3://edge-packaging-bucket/output-config.tar.gz', 'KmsKeyId': 'string', 'PresetDeploymentType': 'GreengrassV2Component', 'PresetDeploymentConfig': 'string'}",
+                            "ResourceKey": "string",
+                            "EdgePackagingJobStatus": "STARTING",
+                            "EdgePackagingJobStatusMessage": "string",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "ModelArtifact": "s3://edge-packaging-bucket/model-artifact.tar.gz",
+                            "ModelSignature": "string",
+                            "PresetDeploymentOutput": "{'Type': 'GreengrassV2Component', 'Artifact': 'arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/some-artifact', 'Status': 'COMPLETED', 'StatusMessage': 'string'}",
+                            "jobType": "edge_packaging"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/edge-packaging-jobs/an-edge-packaging-job",
+                        "name": "an-edge-packaging-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "STARTING"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/edge_packaging"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)"
+                        ],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "a-hyper-parameter-tuning-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "HyperParameterTuningJobName": "a-hyper-parameter-tuning-job",
+                            "HyperParameterTuningJobArn": "arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job",
+                            "HyperParameterTuningJobConfig": "{'Strategy': 'Bayesian', 'HyperParameterTuningJobObjective': {'Type': 'Maximize', 'MetricName': 'string'}, 'ResourceLimits': {'MaxNumberOfTrainingJobs': 123, 'MaxParallelTrainingJobs': 123}, 'ParameterRanges': {'IntegerParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'ContinuousParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'CategoricalParameterRanges': [{'Name': 'string', 'Values': ['string']}]}, 'TrainingJobEarlyStoppingType': 'Off', 'TuningJobCompletionCriteria': {'TargetObjectiveMetricValue': 1.0}}",
+                            "TrainingJobDefinition": "{'DefinitionName': 'string', 'TuningObjective': {'Type': 'Maximize', 'MetricName': 'string'}, 'HyperParameterRanges': {'IntegerParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'ContinuousParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'CategoricalParameterRanges': [{'Name': 'string', 'Values': ['string']}]}, 'StaticHyperParameters': {'string': 'string'}, 'AlgorithmSpecification': {'TrainingImage': 'string', 'TrainingInputMode': 'Pipe', 'AlgorithmName': 'string', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}]}, 'RoleArn': 'arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole', 'InputDataConfig': [{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://hyper-parameter-tuning-job/data-source.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}], 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}, 'OutputDataConfig': {'KmsKeyId': 'string', 'S3OutputPath': 's3://hyper-parameter-tuning-job/data-output.tar.gz'}, 'ResourceConfig': {'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}, 'StoppingCondition': {'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}, 'EnableNetworkIsolation': True, 'EnableInterContainerTrafficEncryption': True, 'EnableManagedSpotTraining': True, 'CheckpointConfig': {'S3Uri': 's3://hyper-parameter-tuning-job/checkpoint-config.tar.gz', 'LocalPath': 'string'}, 'RetryStrategy': {'MaximumRetryAttempts': 123}}",
+                            "TrainingJobDefinitions": "[{'DefinitionName': 'string', 'TuningObjective': {'Type': 'Maximize', 'MetricName': 'string'}, 'HyperParameterRanges': {'IntegerParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'ContinuousParameterRanges': [{'Name': 'string', 'MinValue': 'string', 'MaxValue': 'string', 'ScalingType': 'Auto'}], 'CategoricalParameterRanges': [{'Name': 'string', 'Values': ['string']}]}, 'StaticHyperParameters': {'string': 'string'}, 'AlgorithmSpecification': {'TrainingImage': 'string', 'TrainingInputMode': 'Pipe', 'AlgorithmName': 'string', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}]}, 'RoleArn': 'arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole', 'InputDataConfig': [{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://hyper-parameter-tuning-job/data-source.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}], 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}, 'OutputDataConfig': {'KmsKeyId': 'string', 'S3OutputPath': 's3://hyper-parameter-tuning-job/data-output.tar.gz'}, 'ResourceConfig': {'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}, 'StoppingCondition': {'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}, 'EnableNetworkIsolation': True, 'EnableInterContainerTrafficEncryption': True, 'EnableManagedSpotTraining': True, 'CheckpointConfig': {'S3Uri': 's3://hyper-parameter-tuning-job/checkpoint-config.tar.gz', 'LocalPath': 'string'}, 'RetryStrategy': {'MaximumRetryAttempts': 123}}]",
+                            "HyperParameterTuningJobStatus": "Completed",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "HyperParameterTuningEndTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "TrainingJobStatusCounters": "{'Completed': 123, 'InProgress': 123, 'RetryableError': 123, 'NonRetryableError': 123, 'Stopped': 123}",
+                            "ObjectiveStatusCounters": "{'Succeeded': 123, 'Pending': 123, 'Failed': 123}",
+                            "BestTrainingJob": "{'TrainingJobDefinitionName': 'string', 'TrainingJobName': 'string', 'TrainingJobArn': 'string', 'TuningJobName': 'string', 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingStartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingEndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingJobStatus': 'InProgress', 'TunedHyperParameters': {'string': 'string'}, 'FailureReason': 'string', 'FinalHyperParameterTuningJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'string', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded'}",
+                            "OverallBestTrainingJob": "{'TrainingJobDefinitionName': 'string', 'TrainingJobName': 'string', 'TrainingJobArn': 'string', 'TuningJobName': 'string', 'CreationTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingStartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingEndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'TrainingJobStatus': 'InProgress', 'TunedHyperParameters': {'string': 'string'}, 'FailureReason': 'string', 'FinalHyperParameterTuningJobObjectiveMetric': {'Type': 'Maximize', 'MetricName': 'string', 'Value': 1.0}, 'ObjectiveStatus': 'Succeeded'}",
+                            "WarmStartConfig": "{'ParentHyperParameterTuningJobs': [{'HyperParameterTuningJobName': 'string'}], 'WarmStartType': 'IdenticalDataAndAlgorithm'}",
+                            "FailureReason": "string",
+                            "jobType": "hyper_parameter_tuning"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/hyper-tuning-jobs/a-hyper-parameter-tuning-job",
+                        "name": "a-hyper-parameter-tuning-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "COMPLETED"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/hyper_parameter_tuning"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "a-labeling-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "LabelingJobStatus": "Initializing",
+                            "LabelCounters": "{'TotalLabeled': 123, 'HumanLabeled': 123, 'MachineLabeled': 123, 'FailedNonRetryableError': 123, 'Unlabeled': 123}",
+                            "FailureReason": "string",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "JobReferenceCode": "string",
+                            "LabelingJobName": "a-labeling-job",
+                            "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
+                            "LabelAttributeName": "string",
+                            "InputConfig": "{'DataSource': {'S3DataSource': {'ManifestS3Uri': 's3://labeling-job/data-source.tar.gz'}, 'SnsDataSource': {'SnsTopicArn': 'string'}}, 'DataAttributes': {'ContentClassifiers': ['FreeOfPersonallyIdentifiableInformation', 'FreeOfAdultContent']}}",
+                            "OutputConfig": "{'S3OutputPath': 's3://labeling-job/output-config.tar.gz', 'KmsKeyId': 'string', 'SnsTopicArn': 'string'}",
+                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                            "LabelCategoryConfigS3Uri": "s3://labeling-job/category-config.tar.gz",
+                            "StoppingConditions": "{'MaxHumanLabeledObjectCount': 123, 'MaxPercentageOfInputDatasetLabeled': 123}",
+                            "LabelingJobAlgorithmsConfig": "{'LabelingJobAlgorithmSpecificationArn': 'string', 'InitialActiveLearningModelArn': 'arn:aws:sagemaker:us-west-2:123412341234:labeling-job/initial-active-learning-model', 'LabelingJobResourceConfig': {'VolumeKmsKeyId': 'string'}}",
+                            "HumanTaskConfig": "{'WorkteamArn': 'string', 'UiConfig': {'UiTemplateS3Uri': 's3://labeling-job/ui-config.tar.gz', 'HumanTaskUiArn': 'string'}, 'PreHumanTaskLambdaArn': 'string', 'TaskKeywords': ['string'], 'TaskTitle': 'string', 'TaskDescription': 'string', 'NumberOfHumanWorkersPerDataObject': 123, 'TaskTimeLimitInSeconds': 123, 'TaskAvailabilityLifetimeInSeconds': 123, 'MaxConcurrentTaskCount': 123, 'AnnotationConsolidationConfig': {'AnnotationConsolidationLambdaArn': 'string'}, 'PublicWorkforceTaskPrice': {'AmountInUsd': {'Dollars': 123, 'Cents': 123, 'TenthFractionsOfACent': 123}}}",
+                            "Tags": "[{'Key': 'string', 'Value': 'string'}]",
+                            "LabelingJobOutput": "{'OutputDatasetS3Uri': 's3://labeling-job/output-dataset.tar.gz', 'FinalActiveLearningModelArn': 'arn:aws:sagemaker:us-west-2:123412341234:labeling-job/final-active-learning-model'}",
+                            "jobType": "labeling"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/labeling-jobs/a-labeling-job",
+                        "name": "a-labeling-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "STARTING"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/labeling"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)"
+                        ],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)"
+                        ],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "a-processing-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "ProcessingJobName": "a-processing-job",
+                            "ProcessingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job",
+                            "ProcessingInputs": "[{'InputName': 'string', 'AppManaged': True, 'S3Input': {'S3Uri': 's3://processing-job/input-data.tar.gz', 'LocalPath': 'string', 'S3DataType': 'ManifestFile', 'S3InputMode': 'Pipe', 'S3DataDistributionType': 'FullyReplicated', 'S3CompressionType': 'None'}, 'DatasetDefinition': {'AthenaDatasetDefinition': {'Catalog': 'athena-catalog', 'Database': 'athena-database', 'QueryString': 'athena-query-string', 'WorkGroup': 'athena-work-group', 'OutputS3Uri': 's3://processing-job/athena-output.tar.gz', 'KmsKeyId': 'string', 'OutputFormat': 'PARQUET', 'OutputCompression': 'GZIP'}, 'RedshiftDatasetDefinition': {'ClusterId': 'redshift-cluster', 'Database': 'redshift-database', 'DbUser': 'redshift-db-user', 'QueryString': 'redshift-query-string', 'ClusterRoleArn': 'arn:aws:sagemaker:us-west-2:123412341234:processing-job/redshift-cluster', 'OutputS3Uri': 's3://processing-job/redshift-output.tar.gz', 'KmsKeyId': 'string', 'OutputFormat': 'PARQUET', 'OutputCompression': 'None'}, 'LocalPath': 'string', 'DataDistributionType': 'FullyReplicated', 'InputMode': 'Pipe'}}]",
+                            "ProcessingOutputConfig": "{'Outputs': [{'OutputName': 'string', 'S3Output': {'S3Uri': 's3://processing-job/processing-output.tar.gz', 'LocalPath': 'string', 'S3UploadMode': 'Continuous'}, 'FeatureStoreOutput': {'FeatureGroupName': 'string'}, 'AppManaged': True}], 'KmsKeyId': 'string'}",
+                            "ProcessingResources": "{'ClusterConfig': {'InstanceCount': 123, 'InstanceType': 'ml.t3.medium', 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}}",
+                            "StoppingCondition": "{'MaxRuntimeInSeconds': 123}",
+                            "AppSpecification": "{'ImageUri': 'string', 'ContainerEntrypoint': ['string'], 'ContainerArguments': ['string']}",
+                            "Environment": "{'string': 'string'}",
+                            "NetworkConfig": "{'EnableInterContainerTrafficEncryption': True, 'EnableNetworkIsolation': True, 'VpcConfig': {'SecurityGroupIds': ['string'], 'Subnets': ['string']}}",
+                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                            "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
+                            "ProcessingJobStatus": "InProgress",
+                            "ExitMessage": "string",
+                            "FailureReason": "string",
+                            "ProcessingEndTime": "2015-01-01 00:00:00+00:00",
+                            "ProcessingStartTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "MonitoringScheduleArn": "string",
+                            "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
+                            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
+                            "jobType": "processing"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/processing-jobs/a-processing-job",
+                        "name": "a-processing-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "IN_PROGRESS"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/processing"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)"
+                        ],
+                        "outputDatasets": [],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,training:a-training-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "a-training-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "TrainingJobName": "a-training-job",
+                            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job",
+                            "TuningJobArn": "string",
+                            "LabelingJobArn": "string",
+                            "AutoMLJobArn": "string",
+                            "ModelArtifacts": "{'S3ModelArtifacts': 's3://the-first-model-data-url/data.tar.gz'}",
+                            "TrainingJobStatus": "InProgress",
+                            "SecondaryStatus": "Starting",
+                            "FailureReason": "string",
+                            "HyperParameters": "{'parameter-1': 'some-value', 'parameter-2': 'another-value'}",
+                            "AlgorithmSpecification": "{'TrainingImage': 'string', 'AlgorithmName': 'string', 'TrainingInputMode': 'Pipe', 'MetricDefinitions': [{'Name': 'string', 'Regex': 'string'}], 'EnableSageMakerMetricsTimeSeries': True}",
+                            "RoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMakerServiceCatalogProductsUseRole",
+                            "InputDataConfig": "[{'ChannelName': 'string', 'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://training-job/input-dataset.tar.gz', 'S3DataDistributionType': 'FullyReplicated', 'AttributeNames': ['string']}, 'FileSystemDataSource': {'FileSystemId': 'abcdefgihjklmnopqrstuvwxyz', 'FileSystemAccessMode': 'rw', 'FileSystemType': 'EFS', 'DirectoryPath': 'string'}}, 'ContentType': 'string', 'CompressionType': 'None', 'RecordWrapperType': 'None', 'InputMode': 'Pipe', 'ShuffleConfig': {'Seed': 123}}]",
+                            "OutputDataConfig": "{'KmsKeyId': 'string', 'S3OutputPath': 's3://training-job/output-data.tar.gz'}",
+                            "ResourceConfig": "{'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeSizeInGB': 123, 'VolumeKmsKeyId': 'string'}",
+                            "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
+                            "StoppingCondition": "{'MaxRuntimeInSeconds': 123, 'MaxWaitTimeInSeconds': 123}",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "TrainingStartTime": "2015-01-01 00:00:00+00:00",
+                            "TrainingEndTime": "2015-01-01 00:00:00+00:00",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "SecondaryStatusTransitions": "[{'Status': 'Starting', 'StartTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'EndTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc), 'StatusMessage': 'string'}]",
+                            "FinalMetricDataList": "[{'MetricName': 'some-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'another-metric', 'Value': 1.0, 'Timestamp': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}, {'MetricName': 'some-metric', 'Value': 0.0, 'Timestamp': datetime.datetime(2014, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
+                            "EnableNetworkIsolation": "True",
+                            "EnableInterContainerTrafficEncryption": "True",
+                            "EnableManagedSpotTraining": "True",
+                            "CheckpointConfig": "{'S3Uri': 's3://training-job/checkpoint-config.tar.gz', 'LocalPath': 'string'}",
+                            "TrainingTimeInSeconds": "123",
+                            "BillableTimeInSeconds": "123",
+                            "DebugHookConfig": "{'LocalPath': 'string', 'S3OutputPath': 's3://training-job/debug-hook-config.tar.gz', 'HookParameters': {'string': 'string'}, 'CollectionConfigurations': [{'CollectionName': 'string', 'CollectionParameters': {'string': 'string'}}]}",
+                            "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
+                            "DebugRuleConfigurations": "[{'RuleConfigurationName': 'string', 'LocalPath': 'string', 'S3OutputPath': 's3://training-job/debug-rule-config.tar.gz', 'RuleEvaluatorImage': 'string', 'InstanceType': 'ml.t3.medium', 'VolumeSizeInGB': 123, 'RuleParameters': {'string': 'string'}}]",
+                            "TensorBoardOutputConfig": "{'LocalPath': 'string', 'S3OutputPath': 's3://training-job/tensorboard-output-config.tar.gz'}",
+                            "DebugRuleEvaluationStatuses": "[{'RuleConfigurationName': 'string', 'RuleEvaluationJobArn': 'string', 'RuleEvaluationStatus': 'InProgress', 'StatusDetails': 'string', 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
+                            "ProfilerConfig": "{'S3OutputPath': 's3://training-job/profiler-config.tar.gz', 'ProfilingIntervalInMilliseconds': 123, 'ProfilingParameters': {'string': 'string'}}",
+                            "ProfilerRuleConfigurations": "[{'RuleConfigurationName': 'string', 'LocalPath': 'string', 'S3OutputPath': 's3://training-job/profiler-rule-config.tar.gz', 'RuleEvaluatorImage': 'string', 'InstanceType': 'ml.t3.medium', 'VolumeSizeInGB': 123, 'RuleParameters': {'string': 'string'}}]",
+                            "ProfilerRuleEvaluationStatuses": "[{'RuleConfigurationName': 'string', 'RuleEvaluationJobArn': 'string', 'RuleEvaluationStatus': 'InProgress', 'StatusDetails': 'string', 'LastModifiedTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}]",
+                            "ProfilingStatus": "Enabled",
+                            "RetryStrategy": "{'MaximumRetryAttempts': 123}",
+                            "Environment": "{'string': 'string'}",
+                            "jobType": "training"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/jobs/a-training-job",
+                        "name": "a-training-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "IN_PROGRESS"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/training"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)"
+                        ],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)"
+                        ],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {},
+                        "name": "a-transform-job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "TransformJobName": "a-transform-job",
+                            "TransformJobArn": "arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job",
+                            "TransformJobStatus": "InProgress",
+                            "FailureReason": "string",
+                            "ModelName": "the-second-model",
+                            "MaxConcurrentTransforms": "123",
+                            "ModelClientConfig": "{'InvocationsTimeoutInSeconds': 123, 'InvocationsMaxRetries': 123}",
+                            "MaxPayloadInMB": "123",
+                            "BatchStrategy": "MultiRecord",
+                            "Environment": "{'string': 'string'}",
+                            "TransformInput": "{'DataSource': {'S3DataSource': {'S3DataType': 'ManifestFile', 'S3Uri': 's3://transform-job/input-data-source.tar.gz'}}, 'ContentType': 'string', 'CompressionType': 'None', 'SplitType': 'None'}",
+                            "TransformOutput": "{'S3OutputPath': 's3://transform-job/output.tar.gz', 'Accept': 'string', 'AssembleWith': 'None', 'KmsKeyId': 'string'}",
+                            "TransformResources": "{'InstanceType': 'ml.m4.xlarge', 'InstanceCount': 123, 'VolumeKmsKeyId': 'string'}",
+                            "CreationTime": "2015-01-01 00:00:00+00:00",
+                            "TransformStartTime": "2015-01-01 00:00:00+00:00",
+                            "TransformEndTime": "2015-01-01 00:00:00+00:00",
+                            "LabelingJobArn": "arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job",
+                            "AutoMLJobArn": "arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job",
+                            "DataProcessing": "{'InputFilter': 'string', 'OutputFilter': 'string', 'JoinSource': 'Input'}",
+                            "ExperimentConfig": "{'ExperimentName': 'string', 'TrialName': 'string', 'TrialComponentDisplayName': 'string'}",
+                            "jobType": "transform"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/transform-jobs/a-transform-job",
+                        "name": "a-transform-job",
+                        "type": {
+                            "string": "SAGEMAKER"
+                        },
+                        "status": "IN_PROGRESS"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/transform"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)"
+                        ],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)"
+                        ],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
+            "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-first-endpoint,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
+                        "customProperties": {
+                            "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint",
+                            "EndpointConfigName": "string",
+                            "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
+                            "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
+                            "EndpointStatus": "InService",
+                            "FailureReason": "string",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-first-endpoint",
+                        "createdAt": 1420070400000,
+                        "status": "IN_SERVICE"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelDeploymentSnapshot": {
+            "urn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-second-endpoint,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLModelDeploymentProperties": {
+                        "customProperties": {
+                            "EndpointArn": "arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint",
+                            "EndpointConfigName": "string",
+                            "ProductionVariants": "[{'VariantName': 'string', 'DeployedImages': [{'SpecifiedImage': 'string', 'ResolvedImage': 'string', 'ResolutionTime': datetime.datetime(2015, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)}], 'CurrentWeight': 0.1, 'DesiredWeight': 0.1, 'CurrentInstanceCount': 123, 'DesiredInstanceCount': 123}]",
+                            "DataCaptureConfig": "{'EnableCapture': True, 'CaptureStatus': 'Started', 'CurrentSamplingPercentage': 123, 'DestinationS3Uri': 'string', 'KmsKeyId': 'string'}",
+                            "EndpointStatus": "Creating",
+                            "FailureReason": "string",
+                            "LastModifiedTime": "2015-01-01 00:00:00+00:00",
+                            "LastDeploymentConfig": "{'BlueGreenUpdatePolicy': {'TrafficRoutingConfiguration': {'Type': 'ALL_AT_ONCE', 'WaitIntervalInSeconds': 123, 'CanarySize': {'Type': 'INSTANCE_COUNT', 'Value': 123}}, 'TerminationWaitInSeconds': 123, 'MaximumExecutionTimeoutInSeconds': 600}, 'AutoRollbackConfiguration': {'Alarms': [{'AlarmName': 'string'}]}}"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/endpoints/the-second-endpoint",
+                        "createdAt": 1420070400000,
+                        "status": "CREATING"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelGroupSnapshot": {
+            "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLModelGroupProperties": {
+                        "customProperties": {
+                            "ModelPackageGroupArn": "arn:aws:sagemaker:us-west-2:123412341234:model-package-group/a-model-package-group",
+                            "ModelPackageGroupDescription": "Just a model package group.",
+                            "CreatedBy": "{'UserProfileArn': 'arn:aws:sagemaker:us-west-2:123412341234:user-profile/some-domain/some-user', 'UserProfileName': 'some-user', 'DomainId': 'some-domain'}",
+                            "ModelPackageGroupStatus": "Completed"
+                        },
+                        "description": "Just a model package group.",
+                        "createdAt": 1420070400000
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:some-user",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/sagemaker"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+            "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+                        "customProperties": {
+                            "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': '123412341234.dkr.ecr.us-west-2.amazonaws.com/the-first-model-image', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://the-first-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}",
+                            "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://training-job-2/model-artifact.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Enabled'}}]",
+                            "InferenceExecutionConfig": "{'Mode': 'Serial'}",
+                            "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
+                            "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
+                            "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-first-model",
+                            "EnableNetworkIsolation": "True"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-first-model",
+                        "date": 1420070400000,
+                        "hyperParams": [
+                            {
+                                "name": "parameter-1",
+                                "value": "some-value"
+                            },
+                            {
+                                "name": "parameter-2",
+                                "value": "another-value"
+                            }
+                        ],
+                        "trainingMetrics": [
+                            {
+                                "name": "another-metric",
+                                "value": "1.0"
+                            },
+                            {
+                                "name": "some-metric",
+                                "value": "1.0"
+                            }
+                        ],
+                        "tags": [],
+                        "deployments": [
+                            "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-first-endpoint,PROD)"
+                        ],
+                        "trainingJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                        ],
+                        "downstreamJobs": [],
+                        "groups": [
+                            "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/sagemaker/a-model-package-group"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.MLModelSnapshot": {
+            "urn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.ml.metadata.MLModelProperties": {
+                        "customProperties": {
+                            "PrimaryContainer": "{'ContainerHostname': 'string', 'Image': '123412341234.dkr.ecr.us-west-2.amazonaws.com/the-second-model-image', 'ImageConfig': {'RepositoryAccessMode': 'Platform', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'MultiModel', 'ModelDataUrl': 's3://the-second-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}",
+                            "Containers": "[{'ContainerHostname': 'string', 'Image': 'string', 'ImageConfig': {'RepositoryAccessMode': 'Vpc', 'RepositoryAuthConfig': {'RepositoryCredentialsProviderArn': 'string'}}, 'Mode': 'SingleModel', 'ModelDataUrl': 's3://the-first-model-data-url/data.tar.gz', 'Environment': {'string': 'string'}, 'ModelPackageName': 'string', 'MultiModelConfig': {'ModelCacheSetting': 'Disabled'}}]",
+                            "InferenceExecutionConfig": "{'Mode': 'Serial'}",
+                            "ExecutionRoleArn": "arn:aws:iam::123412341234:role/service-role/AmazonSageMaker-ExecutionRole-20210614T104201",
+                            "VpcConfig": "{'SecurityGroupIds': ['string'], 'Subnets': ['string']}",
+                            "ModelArn": "arn:aws:sagemaker:us-west-2:123412341234:model/the-second-model",
+                            "EnableNetworkIsolation": "False"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/sagemaker/home?region=us-west-2#/models/the-second-model",
+                        "date": 1420070400000,
+                        "hyperParams": [
+                            {
+                                "name": "parameter-1",
+                                "value": "some-value"
+                            },
+                            {
+                                "name": "parameter-2",
+                                "value": "another-value"
+                            }
+                        ],
+                        "trainingMetrics": [
+                            {
+                                "name": "another-metric",
+                                "value": "1.0"
+                            },
+                            {
+                                "name": "some-metric",
+                                "value": "1.0"
+                            }
+                        ],
+                        "tags": [],
+                        "deployments": [
+                            "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,arn:aws:sagemaker:us-west-2:123412341234:endpoint/the-second-endpoint,PROD)"
+                        ],
+                        "trainingJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)"
+                        ],
+                        "downstreamJobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+                            "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)"
+                        ],
+                        "groups": [
+                            "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/sagemaker/a-model-package-group"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,training:a-training-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,auto_ml:an-auto-ml-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:auto-ml-job/an-auto-ml-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,compilation:a-compilation-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:compilation-job/a-compilation-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,edge_packaging:an-edge-packaging-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:edge-packaging-job/an-edge-packaging-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,hyper_parameter_tuning:a-hyper-parameter-tuning-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:hyper-parameter-tuning-job/a-hyper-parameter-tuning-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,labeling:a-labeling-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:labeling-job/a-labeling-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,processing:a-processing-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:processing-job/a-processing-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,training:a-training-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:training-job/a-training-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(sagemaker,transform:a-transform-job,PROD),arn:aws:sagemaker:us-west-2:123412341234:transform-job/a-transform-job)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-input-bucket/file_txt,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,auto-ml-job-output-bucket/file_txt,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/input-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,compilation-job-bucket/output-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/model-artifact.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,edge-packaging-bucket/output-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/category-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/data-source.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,labeling-job/output-dataset.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,processing-job/input-data.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/checkpoint-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-hook-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/debug-rule-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/input-dataset.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/output-data.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/profiler-rule-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,training-job/tensorboard-output-config.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/input-data-source.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,transform-job/output.tar_gz,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test,feature_2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test,feature_3)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test-1,height)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test-1,name)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test-1,time)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test-2,some-feature-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test-2,some-feature-3)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:sagemaker,test-2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-first-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,the-second-model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlModelDeployment",
+    "entityUrn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-first-endpoint,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlModelDeployment",
+    "entityUrn": "urn:li:mlModelDeployment:(urn:li:dataPlatform:sagemaker,the-second-endpoint,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,a-model-package-group,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test,feature_1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test-1,id)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test-2,some-feature-2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+}
 ]
