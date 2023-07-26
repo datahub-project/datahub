@@ -15,7 +15,6 @@ echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props
 echo "DATAHUB_VERSION = $DATAHUB_VERSION"
 DATAHUB_TELEMETRY_ENABLED=false  \
 DOCKER_COMPOSE_BASE="file://$( dirname "$DIR" )" \
-datahub docker quickstart --version ${DATAHUB_VERSION} --dump-logs-on-failure
+datahub docker quickstart --version ${DATAHUB_VERSION} --kafka-setup --dump-logs-on-failure
 
 # --standalone_consumers
-# --kafka-setup
