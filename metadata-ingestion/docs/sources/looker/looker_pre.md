@@ -1,7 +1,9 @@
 ### Prerequisites
 
 #### Set up the right permissions
-You need to provide the following permissions for ingestion to work correctly. 
+
+You need to provide the following permissions for ingestion to work correctly.
+
 ```
 access_data
 explore
@@ -18,23 +20,26 @@ see_system_activity
 see_user_dashboards
 see_users
 ```
-Here is an example permission set after configuration. 
-![Looker DataHub Permission Set](./looker_datahub_permission_set.png)
+
+Here is an example permission set after configuration.
+
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs//looker_datahub_permission_set.png"/>
+</p>
 
 #### Get an API key
 
 You need to get an API key for the account with the above privileges to perform ingestion. See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
 
-
 ### Ingestion through UI
 
-The following video shows you how to get started with ingesting Looker metadata through the UI. 
+The following video shows you how to get started with ingesting Looker metadata through the UI.
 
 :::note
 
-You will need to run `lookml` ingestion through the CLI after you have ingested Looker metadata through the UI. Otherwise you will not be able to see Looker Views and their lineage to your warehouse tables. 
+You will need to run `lookml` ingestion through the CLI after you have ingested Looker metadata through the UI. Otherwise you will not be able to see Looker Views and their lineage to your warehouse tables.
 
-::: 
+:::
 
 <div
   style={{
@@ -58,5 +63,3 @@ You will need to run `lookml` ingestion through the CLI after you have ingested 
     }}
   />
 </div>
-
-

@@ -101,9 +101,8 @@ Replacing the placeholders above with the client id & client secret received fro
 > By default, we assume that the groups will appear in a claim named "groups". This can be customized using the `AUTH_OIDC_GROUPS_CLAIM` container configuration.
 >
 > <p align="center">
->   <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/okta-setup-groups-claim.png"/>
-
-</p>
+> <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/okta-setup-groups-claim.png"/>
+> </p>
 
 ### 5. Restart `datahub-frontend-react` docker container
 
