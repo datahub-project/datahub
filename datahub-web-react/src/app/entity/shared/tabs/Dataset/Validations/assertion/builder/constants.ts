@@ -1,7 +1,6 @@
 import {
     AssertionEvaluationParametersType,
     AssertionType,
-    DatasetFreshnessSourceType,
     DateInterval,
     EntityType,
     SchemaFieldDataType,
@@ -65,7 +64,7 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
 export const DEFAULT_DATASET_FRESHNESS_ASSERTION_PARAMETERS_STATE = {
     type: AssertionEvaluationParametersType.DatasetFreshness,
     datasetFreshnessParameters: {
-        sourceType: DatasetFreshnessSourceType.AuditLog,
+        sourceType: undefined,
         auditLog: {},
     },
 };

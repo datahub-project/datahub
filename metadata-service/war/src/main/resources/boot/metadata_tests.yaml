@@ -54,22 +54,17 @@
       types:
         - dataset
       conditions:
-        or:
-          -
-            property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          -
-            property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          -
-            property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       and:
         -
@@ -86,19 +81,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: datasetProperties.description
@@ -115,19 +108,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       and:
         - property: domains.domains
@@ -142,19 +133,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: usageFeatures.queryCountPercentileLast30Days
@@ -180,19 +169,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: storageFeatures.sizeInBytesPercentile
@@ -218,19 +205,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: usageFeatures.queryCountPercentileLast30Days
@@ -256,19 +241,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: usageFeatures.writeCountPercentileLast30Days
@@ -294,19 +277,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: usageFeatures.usageCountLast30Days
@@ -332,19 +313,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: usageFeatures.writeCountLast30Days
@@ -370,19 +349,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: assertionsSummary.failingAssertions
@@ -398,19 +375,17 @@
       types:
         - dataset
       conditions:
-        or:
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:snowflake'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:redshift'
-          - property: dataPlatformInstance.platform
-            operator: equals
-            values:
-              - 'urn:li:dataPlatform:bigquery'
+        and:
+            -
+                or:
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:bigquery']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:snowflake']}
+                    - {property: dataPlatformInstance.platform, operator: equals, values: ['urn:li:dataPlatform:redshift']}
+            -
+                property: subTypes.typeNames
+                operator: equals
+                values:
+                    - Table
     rules:
       or:
         - property: incidentsSummary.activeIncidents

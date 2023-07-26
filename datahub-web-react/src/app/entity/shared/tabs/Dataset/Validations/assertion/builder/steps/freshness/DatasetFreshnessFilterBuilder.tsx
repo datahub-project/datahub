@@ -18,7 +18,7 @@ type Props = {
 };
 
 export const DatasetFreshnessFilterBuilder = ({ value, onChange, sourceType }: Props) => {
-    const updateSlaFilter = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const updateSqlFilter = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         const { value: sql } = e.target;
         const newFilter = sql ? { type: DatasetFilterType.Sql, sql } : undefined;
         onChange(newFilter);
@@ -26,14 +26,16 @@ export const DatasetFreshnessFilterBuilder = ({ value, onChange, sourceType }: P
 
     return sourceType === DatasetFreshnessSourceType.FieldValue ? (
         <Form>
-            <Typography.Title level={5}>Additional Filters</Typography.Title>
+            <Typography.Title level={5}>Additional Filters (Optional)</Typography.Title>
             <Typography.Paragraph type="secondary">
-                Write a custom SQL fragment which will be included as a WHERE clause in the final query used to check
-                this dataset&apos;s freshness.
+                Include a custom SQL fragment to scope the freshness check down to a particular segment of data.
+                <br />
+                This clause will be included as a WHERE clause in the final query used to check this dataset&apos;s
+                freshness.
             </Typography.Paragraph>
             <Input.TextArea
                 value={value?.sql || ''}
-                onChange={updateSlaFilter}
+                onChange={updateSqlFilter}
                 placeholder={`foo = "FOO_VALUE" and bar = "BAR_VALUE"`}
             />
         </Form>

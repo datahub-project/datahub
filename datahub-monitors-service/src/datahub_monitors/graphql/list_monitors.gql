@@ -134,6 +134,9 @@ fragment MonitorSearchResults on SearchResults {
               }
             }
           }
+          status {
+            mode
+          }
         }
       }
     }

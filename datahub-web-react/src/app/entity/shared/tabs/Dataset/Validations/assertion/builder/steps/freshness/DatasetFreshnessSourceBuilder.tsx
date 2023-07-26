@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Radio, Typography } from 'antd';
+import { Typography, Select } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import {
     DatasetFreshnessAssertionParameters,
@@ -10,18 +10,50 @@ import {
 import { FieldValueSourceBuilder } from './FieldValueSourceBuilder';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
-import { SourceOption, getSourceOption, getSourceOptions } from '../../utils';
+import {
+    getFreshnessSourceOption,
+    getFreshnessSourceOptions,
+    getFreshnessSourceOptionPlatformDescription,
+    getDefaultFreshnessSourceOption,
+} from '../../utils';
 
 const Form = styled.div``;
 
 const SourceDescription = styled.div`
     margin-top: 12px;
     margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    border: 1px solid ${ANTD_GRAY[5]};
+    padding: 12px;
+    background-color: ${ANTD_GRAY[3]};
+    border-radius: 8px;
+    margin-bottom: 20px;
 `;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
-    color: ${ANTD_GRAY[6]};
+    color: ${ANTD_GRAY[7]};
     margin-right: 4px;
+`;
+
+const StyledSelect = styled(Select)`
+    max-width: 340px;
+`;
+
+const PlatformDescription = styled.div`
+    margin-left: 8px;
+`;
+
+const SelectColumnDescription = styled.div`
+    margin-bottom: 12px;
+`;
+
+const SourceOptionSelectDescription = styled(Typography.Paragraph)`
+    && {
+        word-wrap: break-word;
+        white-space: break-spaces;
+    }
 `;
 
 type Props = {
@@ -45,7 +77,7 @@ type Props = {
  * For applicable sources
  */
 export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, onChange }: Props) => {
-    const sourceType = value?.sourceType || DatasetFreshnessSourceType.AuditLog;
+    const sourceType = value?.sourceType || getDefaultFreshnessSourceOption(platformUrn);
     const field = value?.field;
     const fieldKind = field?.kind;
 
@@ -56,8 +88,9 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         fetchPolicy: 'cache-first',
     });
 
-    const sourceOptions = getSourceOptions(platformUrn);
-    const selectedSourceOption = getSourceOption(sourceType, fieldKind);
+    const sourceOptions = getFreshnessSourceOptions(platformUrn);
+    const selectedSourceOption = getFreshnessSourceOption(sourceType, fieldKind);
+    const platformDescription = getFreshnessSourceOptionPlatformDescription(platformUrn, sourceType);
 
     /**
      * Extract the schema fields eligible for selection. These must be timestamp type fields.
@@ -72,17 +105,20 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         nativeType: f.nativeDataType as string,
     }));
 
-    const updateSourceType = (newSourceOption: SourceOption) => {
-        const newField = newSourceOption.field
-            ? {
-                  kind: newSourceOption.field.kind,
-              }
-            : undefined;
-        onChange({
-            ...value,
-            sourceType: newSourceOption.type,
-            field: newField as FreshnessFieldSpec,
-        });
+    const updateSourceType = (newSourceType: string) => {
+        const newSourceOption = sourceOptions.find((option) => option.name === newSourceType);
+        if (newSourceOption) {
+            const newField = newSourceOption.field
+                ? {
+                      kind: newSourceOption.field.kind,
+                  }
+                : undefined;
+            onChange({
+                ...value,
+                sourceType: newSourceOption.type,
+                field: newField as FreshnessFieldSpec,
+            });
+        }
     };
 
     const updateFieldSpec = (newSpec: Partial<FreshnessFieldSpec>) => {
@@ -101,20 +137,34 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
             <Typography.Paragraph type="secondary">
                 Select the mechanism used to determine whether a change has been made to this dataset.
             </Typography.Paragraph>
-            <Radio.Group value={sourceType} onChange={(e) => updateSourceType(e.target.value)}>
+            <StyledSelect
+                value={selectedSourceOption.name}
+                onChange={(sourceOption) => updateSourceType(sourceOption as string)}
+            >
                 {sourceOptions.map((option) => (
-                    <Radio.Button value={option}>{option.name}</Radio.Button>
+                    // In order to access the entire object on change, we use the object reference as the value and then override the default checked behavior
+                    <Select.Option value={option.name} key={option.name}>
+                        <Typography.Text>{option.name}</Typography.Text>
+                        <SourceOptionSelectDescription type="secondary">
+                            {selectedSourceOption.description}
+                        </SourceOptionSelectDescription>
+                    </Select.Option>
                 ))}
-            </Radio.Group>
+            </StyledSelect>
             <SourceDescription>
                 <StyledInfoCircleOutlined />
-                {selectedSourceOption.description}
+                <PlatformDescription>{platformDescription}</PlatformDescription>
             </SourceDescription>
+            {selectedSourceOption.secondaryDescription && (
+                <>
+                    <Typography.Title level={5}>Select Column</Typography.Title>
+                    <SelectColumnDescription>
+                        <Typography.Text type="secondary">{selectedSourceOption.secondaryDescription}</Typography.Text>
+                    </SelectColumnDescription>
+                </>
+            )}
             {sourceType === DatasetFreshnessSourceType.FieldValue && (
                 <FieldValueSourceBuilder fields={eligibleFieldSpecs} value={field} onChange={updateFieldSpec} />
-            )}
-            {selectedSourceOption.secondaryDescription && (
-                <Typography.Text type="secondary">{selectedSourceOption.secondaryDescription}</Typography.Text>
             )}
         </Form>
     );

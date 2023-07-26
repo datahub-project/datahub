@@ -55,3 +55,26 @@ query getTestResultsSummary($urn: String!) {
         ...testResultsSummaryFields
     }
 }
+
+mutation runTests($urn: String!) {
+    runTests(urn: $urn)
+}
+
+query getDatasetTestResults($urn: String!) {
+    dataset(urn: $urn) {
+        testResults {
+            passing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+            failing {
+                test {
+                    ...testFields
+                }
+                type
+            }
+        }
+    }
+}

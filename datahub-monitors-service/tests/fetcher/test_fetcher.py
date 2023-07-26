@@ -77,6 +77,7 @@ def test_fetch_assertions() -> None:
                                     }
                                 ]
                             },
+                            "status": {"mode": "ACTIVE"},
                         },
                     }
                 }

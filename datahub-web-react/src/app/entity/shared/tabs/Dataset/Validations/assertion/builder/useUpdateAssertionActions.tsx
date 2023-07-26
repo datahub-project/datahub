@@ -3,7 +3,7 @@ import { useUpdateAssertionActionsMutation } from '../../../../../../../../graph
 import { Assertion } from '../../../../../../../../types.generated';
 import { builderStateToUpdateAssertionActionsVariables } from './utils';
 
-export const useUpdateAssertionActions = (urn, builderState, onUpdate): (() => void) => {
+export const useUpdateAssertionActions = (urn, builderState, onUpdate): (() => Promise<void>) => {
     const [updateAssertionActionsMutation] = useUpdateAssertionActionsMutation();
 
     /**
@@ -11,7 +11,7 @@ export const useUpdateAssertionActions = (urn, builderState, onUpdate): (() => v
      */
     const updateAssertionActions = () => {
         const updateAssertionActionsVariables = builderStateToUpdateAssertionActionsVariables(urn, builderState);
-        updateAssertionActionsMutation({
+        return updateAssertionActionsMutation({
             variables: updateAssertionActionsVariables,
         })
             .then(({ data, errors }) => {

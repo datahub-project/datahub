@@ -1,14 +1,14 @@
 import { message } from 'antd';
 import analytics, { EventType } from '../../../../../../../analytics';
 import { useCreateFreshnessAssertionMutation } from '../../../../../../../../graphql/assertion.generated';
-import { AssertionType, Monitor } from '../../../../../../../../types.generated';
+import { AssertionType, Monitor, Assertion } from '../../../../../../../../types.generated';
 import {
     builderStateToCreateAssertionMonitorVariables,
     builderStateToCreateFreshnessAssertionVariables,
 } from './utils';
 import { useCreateAssertionMonitorMutation } from '../../../../../../../../graphql/monitor.generated';
 
-export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): (() => void) => {
+export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): (() => Promise<void>) => {
     /**
      * Mutations for creating Assertions, and the Monitor that evaluates them.
      */
@@ -42,8 +42,8 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
     /**
      * Create a monitor to evaluate the new assertions
      */
-    const createMonitor = (assertionUrn) => {
-        const variables = builderStateToCreateAssertionMonitorVariables(assertionUrn, builderState);
+    const createMonitor = (assertion: Assertion) => {
+        const variables = builderStateToCreateAssertionMonitorVariables(assertion.urn, builderState);
         createAssertionMonitorMutation({
             variables: variables as any,
         })
@@ -58,8 +58,7 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
                         content: `Created new Assertion Monitor!`,
                         duration: 3,
                     });
-                    // TODO - Generalize.
-                    onCreate?.(data?.createAssertionMonitor as Monitor);
+                    onCreate?.(assertion, data?.createAssertionMonitor as Monitor);
                 }
             })
             .catch(() => {
@@ -81,19 +80,24 @@ export const useCreateAssertionMonitor = (entityUrn, builderState, onCreate): ((
         const createAssertionVariables = getCreateAssertionVariables();
 
         if (createAssertionMutation && createAssertionVariables) {
-            createAssertionMutation({
+            return createAssertionMutation({
                 variables: createAssertionVariables as any,
             })
                 .then(({ data, errors }) => {
                     if (!errors) {
-                        createMonitor(data?.createFreshnessAssertion?.urn);
+                        return createMonitor(data?.createFreshnessAssertion as Assertion);
                     }
+                    throw new Error('Encountered errors while creating assertion');
                 })
                 .catch(() => {
                     message.destroy();
                     message.error({ content: 'Failed to create Assertion Monitor! An unexpected error occurred' });
                 });
         }
+
+        message.destroy();
+        message.error({ content: 'Failed to create Assertion Monitor! An unexpected error occurred' });
+        return Promise.reject(new Error('Could not find createAssertionMutation or createAssertionVariables!'));
     };
 
     return createAssertionMonitor;

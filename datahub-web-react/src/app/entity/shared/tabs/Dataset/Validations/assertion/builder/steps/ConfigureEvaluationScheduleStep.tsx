@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Checkbox, Collapse, Typography } from 'antd';
 import { StepProps } from '../types';
@@ -40,6 +40,7 @@ const ControlsContainer = styled.div`
  * Step for defining the schedule + actions for an assertion
  */
 export const ConfigureEvaluationScheduleStep = ({ state, updateState, prev, submit }: StepProps) => {
+    const [isSubmitting, setSubmitting] = useState(false);
     const showSchedule = state.assertion?.freshnessAssertion?.schedule?.type !== FreshnessAssertionScheduleType.Cron;
     const actions = state.assertion?.actions;
 
@@ -111,7 +112,18 @@ export const ConfigureEvaluationScheduleStep = ({ state, updateState, prev, subm
             </Form>
             <ControlsContainer>
                 <Button onClick={prev}>Back</Button>
-                <Button type="primary" onClick={submit}>
+                <Button
+                    type="primary"
+                    onClick={async () => {
+                        try {
+                            setSubmitting(true);
+                            await submit();
+                        } finally {
+                            setSubmitting(false);
+                        }
+                    }}
+                    disabled={isSubmitting}
+                >
                     Save
                 </Button>
             </ControlsContainer>
