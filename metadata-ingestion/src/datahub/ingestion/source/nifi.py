@@ -31,7 +31,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -1023,9 +1022,6 @@ class NifiSource(Source):
 
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
