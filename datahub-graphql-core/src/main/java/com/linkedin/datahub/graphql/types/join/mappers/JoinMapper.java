@@ -84,18 +84,17 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
 
   private void mapProperties(@Nonnull Join join, @Nonnull DataMap dataMap) {
     final JoinProperties joinProperties = new JoinProperties(dataMap);
-    if (joinProperties.getCreated().getActor() == null) {
-      throw new RuntimeException("Failed to get entity");
-    }
     join.setProperties(com.linkedin.datahub.graphql.generated.JoinProperties.builder()
         .setName(joinProperties.getName())
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
         .setJoinFieldMapping(mapJoinFieldMappings(joinProperties))
-        .setCreatedActor(UrnToEntityMapper.map(joinProperties.getCreated().getActor()))
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
                 ? joinProperties.getCreated().getTime() : 0)
         .build());
+    if (joinProperties.hasCreated() && joinProperties.getCreated().hasActor()) {
+      join.getProperties().setCreatedActor(UrnToEntityMapper.map(joinProperties.getCreated().getActor()));
+    }
   }
   private Dataset createPartialDataset(@Nonnull Urn datasetUrn) {
 
