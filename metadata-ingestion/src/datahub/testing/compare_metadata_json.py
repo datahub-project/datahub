@@ -45,7 +45,7 @@ def assert_metadata_files_equal(
 
     if copy_output:
         shutil.copyfile(str(output_path), str(golden_path) + ".output")
-        print(f"Copied output file to {golden_path}.output")
+        logger.info(f"Copied output file to {golden_path}.output")
 
     if not update_golden and not golden_exists:
         raise FileNotFoundError(
@@ -77,11 +77,15 @@ def assert_metadata_files_equal(
 
     if diff:
         # Call pytest.fail rather than raise an exception to omit stack trace
+        message = (
+            "Metadata files differ (use `pytest --update-golden-files` to update):\n"
+        )
         if isinstance(diff, MCPDiff):
-            print(diff.pretty(verbose=True))
-            pytest.fail(diff.pretty(), pytrace=False)
+            logger.error(message + diff.pretty(verbose=True))
+            pytest.fail(message + diff.pretty(), pytrace=False)
         else:
-            pytest.fail(pprint.pformat(diff), pytrace=False)
+            logger.error(message + pprint.pformat(diff))
+            pytest.fail(message + pprint.pformat(diff), pytrace=False)
 
 
 def diff_metadata_json(
