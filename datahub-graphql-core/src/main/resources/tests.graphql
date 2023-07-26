@@ -297,7 +297,7 @@ extend type Mutation {
   """
   Run tests for the given entity urn
   """
-  runTests(urn: String!): TestValidationResult
+  runTests(urn: String!): Boolean
 }
 
 """
