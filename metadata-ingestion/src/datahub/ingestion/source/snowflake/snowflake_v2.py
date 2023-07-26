@@ -9,7 +9,6 @@ from typing import Callable, Dict, Iterable, List, Optional, Union
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -71,6 +70,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
@@ -238,7 +238,7 @@ class SnowflakeV2Source(
             )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary()
+        self.data_dictionary = SnowflakeDataDictionary(self.config, self.report)
 
         self.lineage_extractor: Union[
             SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
@@ -532,25 +532,22 @@ class SnowflakeV2Source(
 
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
+        if self.config.inbound_shares_map or self.config.outbound_shares_map:
+            yield from SnowflakeSharesHandler(
+                self.config, self.report, self.gen_dataset_urn
+            ).get_workunits(databases)
+
         discovered_tables: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.tables
-            if self._is_dataset_pattern_allowed(
-                self.get_dataset_identifier(table_name, schema.name, db.name),
-                SnowflakeObjectDomain.TABLE,
-            )
         ]
         discovered_views: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.views
-            if self._is_dataset_pattern_allowed(
-                self.get_dataset_identifier(table_name, schema.name, db.name),
-                SnowflakeObjectDomain.VIEW,
-            )
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
@@ -654,11 +651,6 @@ class SnowflakeV2Source(
     def _process_database(
         self, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_entity_scanned(snowflake_db.name, "database")
-        if not self.config.database_pattern.allowed(snowflake_db.name):
-            self.report.report_dropped(f"{snowflake_db.name}.*")
-            return
-
         db_name = snowflake_db.name
 
         try:
@@ -733,16 +725,6 @@ class SnowflakeV2Source(
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_entity_scanned(snowflake_schema.name, "schema")
-        if not is_schema_allowed(
-            self.config.schema_pattern,
-            snowflake_schema.name,
-            db_name,
-            self.config.match_fully_qualified_names,
-        ):
-            self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
-            return
-
         schema_name = snowflake_schema.name
 
         if self.config.extract_tags != TagOption.skip:
@@ -832,12 +814,6 @@ class SnowflakeV2Source(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         table_identifier = self.get_dataset_identifier(table.name, schema_name, db_name)
-
-        self.report.report_entity_scanned(table_identifier)
-
-        if not self.config.table_pattern.allowed(table_identifier):
-            self.report.report_dropped(table_identifier)
-            return
 
         self.fetch_columns_for_table(table, schema_name, db_name, table_identifier)
 
@@ -949,12 +925,6 @@ class SnowflakeV2Source(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
-
-        self.report.report_entity_scanned(view_name, "view")
-
-        if not self.config.view_pattern.allowed(view_name):
-            self.report.report_dropped(view_name)
-            return
 
         try:
             view.columns = self.get_columns_for_table(view.name, schema_name, db_name)

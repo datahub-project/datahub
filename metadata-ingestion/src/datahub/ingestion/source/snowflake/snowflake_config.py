@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -40,6 +40,11 @@ class TagOption(str, Enum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"
+
+
+class SnowflakeDatabaseDataHubId(ConfigModel):
+    platform_instance: str
+    database_name: str
 
 
 class SnowflakeV2Config(
@@ -118,6 +123,20 @@ class SnowflakeV2Config(
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
         "upstreams_deny_pattern", "temporary_tables_pattern"
+    )
+
+    inbound_shares_map: Optional[Dict[str, SnowflakeDatabaseDataHubId]] = Field(
+        default=None,
+        description="Required if the current account has any database created from inbound snowflake share."
+        " If specified, connector creates lineage and siblings relationship between current account's database tables and original database tables from which snowflake share was created."
+        " Map of database name -> (platform instance of snowflake account containing original database, original database name).",
+    )
+
+    outbound_shares_map: Optional[Dict[str, List[SnowflakeDatabaseDataHubId]]] = Field(
+        default=None,
+        description="Required if the current account has created any outbound snowflake shares and there is at least one consumer account in which database is created from such share."
+        " If specified, connector creates siblings relationship between current account's database tables and all database tables created in consumer accounts from the share including current account's database."
+        " Map of database name X -> list of (platform instance of snowflake consumer account who've created database from share, name of database created from share) for all shares created from database name X.",
     )
 
     @validator("include_column_lineage")
