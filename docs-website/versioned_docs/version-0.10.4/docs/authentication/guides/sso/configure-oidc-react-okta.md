@@ -109,8 +109,7 @@ Replacing the placeholders above with the client id & client secret received fro
 >
 > <p align="center">
 >   <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/okta-setup-groups-claim.png"/>
-
-</p>
+> </p>
 
 ### 5. Restart `datahub-frontend-react` docker container
 

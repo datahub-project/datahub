@@ -12,7 +12,6 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export const Logo = (props) => {
 return (
-
 <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
 <img
 alt="DataHub Logo"
