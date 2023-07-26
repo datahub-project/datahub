@@ -512,10 +512,10 @@ public class PoliciesConfig {
           EDIT_USER_PROFILE_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE)
   );
-//  public static final Privilege EDIT_JOIN_PRIVILEGE = Privilege.of(
-//        "EDIT_ENTITY_JOIN",
-//        "Edit join",
-//        "The ability to add or update join of an entity.");
+  public static final Privilege CREATE_JOIN_PRIVILEGE = Privilege.of(
+        "CREATE_ENTITY_JOIN",
+        "Create join",
+        "The ability to add join on a dataset.");
 
   // Join Privileges
   public static final ResourcePrivileges JOIN_PRIVILEGES = ResourcePrivileges.of(
