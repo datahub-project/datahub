@@ -509,7 +509,11 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
-      - name: Check disk space 5
+      - name: Disk Check 5
+        run: df -h .
+      - name: Remove Source Code
+        run: find . ! -path metadata-ingestion ! -path smoke-test -delete
+      - name: Check disk space 6
         run: df . -h
       - name: Smoke test
         env:
