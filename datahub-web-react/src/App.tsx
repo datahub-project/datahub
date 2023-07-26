@@ -48,7 +48,8 @@ const errorLink = onError((error) => {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
             const currentPath = window.location.pathname + window.location.search;
-            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);        }
+            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
+        }
     }
     if (graphQLErrors && graphQLErrors.length) {
         const firstError = graphQLErrors[0];
