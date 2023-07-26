@@ -288,7 +288,7 @@ public class CachingEntitySearchService {
       @Nullable final SearchFlags searchFlags,
       @Nullable final List<String> facets) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRawSearchResults").time()) {
-        return entitySearchService.search(entityName, input, filters, sortCriterion, start, count, searchFlags, facets);
+        return entitySearchService.search(entityNames, input, filters, sortCriterion, start, count, searchFlags, facets);
     }
   }
 

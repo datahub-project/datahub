@@ -48,7 +48,7 @@ public class TestFetcher {
     log.debug("Batch fetching tests. start: {}, count: {}", start, count);
     // First fetch all test urns from start - start + count
     SearchResult result = _entitySearchService.search(
-        TEST_ENTITY_NAME,
+        List.of(TEST_ENTITY_NAME),
         query,
         null,
         SORT_CRITERION,
