@@ -1578,6 +1578,10 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.config.lineage_overrides,
             )
 
+        logger.debug(
+            f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
+        )
+
         parsed_result: Optional["SqlParsingResult"] = None
         try:
             schema_resolver = (

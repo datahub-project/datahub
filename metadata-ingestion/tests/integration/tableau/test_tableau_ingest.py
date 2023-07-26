@@ -797,7 +797,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
 
         sqlglot_lineage.return_value = SqlParsingResult(  # type:ignore
             in_tables=[
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
             ],
             out_tables=[],
             column_lineage=None,
@@ -811,7 +811,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
                 "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
                 "isUnsupportedCustomSql": "true",
                 "database": {
-                    "name": "production database",
+                    "name": "my-bigquery-project",
                     "connectionType": "bigquery",
                 },
             },
@@ -822,7 +822,7 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
         assert mcp.aspect == UpstreamLineage(
             upstreams=[
                 UpstreamClass(
-                    dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.userdetail,PROD)",
+                    dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)",
                     type=DatasetLineageType.TRANSFORMED,
                 )
             ],
