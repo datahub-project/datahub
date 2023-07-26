@@ -95,7 +95,9 @@ Expected Response:
 
 You can now see the new term `Rate of Return` has been created.
 
-![term-created](../../imgs/apis/tutorials/term-created.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/term-created.png"/>
+</p>
 
 We can also verify this operation by programmatically searching `Rate of Return` term after running this code using the `datahub` cli.
 
@@ -289,7 +291,9 @@ Expected Response:
 
 You can now see `Rate of Return` term has been added to `user_name` column.
 
-![term-added](../../imgs/apis/tutorials/term-added.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/term-added.png"/>
+</p>
 
 ## Remove Terms
 
@@ -361,4 +365,6 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see `Rate of Return` term has been removed to `user_name` column.
 
-![term-removed](../../imgs/apis/tutorials/term-removed.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/term-removed.png"/>
+</p>

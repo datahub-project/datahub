@@ -1,5 +1,6 @@
 # Configuring Okta Authentication for React App (OIDC)
-*Authored on 3/10/2021*
+
+_Authored on 3/10/2021_
 
 `datahub-frontend` server can be configured to authenticate users over OpenID Connect (OIDC). As such, it can be configured to
 delegate authentication responsibility to identity providers like Okta.
@@ -52,7 +53,6 @@ If you're just testing locally, this can be `http://localhost:9002`.
 
 i. Click **Save**
 
-
 ### 2. Obtain Client Credentials
 
 On the subsequent screen, you should see the client credentials. Bookmark the `Client id` and `Client secret` for the next step.
@@ -69,8 +69,12 @@ for example, `https://dev-33231928.okta.com/.well-known/openid-configuration`.
 
 At this point, you should be looking at a screen like the following:
 
-![okta-setup-1](img/okta-setup-1.png)
-![okta-setup-2](img/okta-setup-2.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/okta-setup-1.png"/>
+</p>
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/okta-setup-2.png"/>
+</p>
 
 Success!
 
@@ -91,12 +95,15 @@ AUTH_OIDC_SCOPE="openid profile email groups"
 
 Replacing the placeholders above with the client id & client secret received from Okta in Step 2.
 
-> **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in. This can be enabled by setting the `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` flag to `true`. 
+> **Pro Tip!** You can easily enable Okta to return the groups that a user is associated with, which will be provisioned in DataHub, along with the user logging in. This can be enabled by setting the `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` flag to `true`.
 > if they do not already exist in DataHub. You can enable your Okta application to return a 'groups' claim from the Okta Console at Applications > Your Application -> Sign On -> OpenID Connect ID Token Settings (Requires an edit).
-> 
-> By default, we assume that the groups will appear in a claim named "groups". This can be customized using the `AUTH_OIDC_GROUPS_CLAIM` container configuration. 
-> 
-> ![okta-setup-2](img/okta-setup-groups-claim.png)
+>
+> By default, we assume that the groups will appear in a claim named "groups". This can be customized using the `AUTH_OIDC_GROUPS_CLAIM` container configuration.
+>
+> <p align="center">
+>   <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/okta-setup-groups-claim.png"/>
+
+</p>
 
 ### 5. Restart `datahub-frontend-react` docker container
 
@@ -109,4 +116,5 @@ docker-compose -p datahub -f docker-compose.yml -f docker-compose.override.yml  
 Navigate to your DataHub domain to see SSO in action.
 
 ## Resources
+
 - [OAuth 2.0 and OpenID Connect Overview](https://developer.okta.com/docs/concepts/oauth-openid/)

@@ -13,8 +13,7 @@ skip the corresponding sections.
 This guide requires the following tools:
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
-- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm
-    3.
+- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm 3.
 - [eksctl](https://eksctl.io/introduction/#installation) to create and manage clusters on EKS
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html) to manage AWS resources
 
@@ -63,7 +62,7 @@ steps in this [guide](kubernetes.md)
 Now that all the pods are up and running, you need to expose the datahub-frontend end point by setting
 up [ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/). To do this, you need to first set up an
 ingress controller. There are
-many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/)  to choose
+many [ingress controllers](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/) to choose
 from, but here, we will follow
 this [guide](https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html) to set up the AWS
 Application Load Balancer(ALB) Controller.
@@ -94,7 +93,7 @@ eksctl create iamserviceaccount \
   --name=aws-load-balancer-controller \
   --attach-policy-arn=arn:aws:iam::<<account-id>>:policy/AWSLoadBalancerControllerIAMPolicy \
   --override-existing-serviceaccounts \
-  --approve      
+  --approve
 ```
 
 Install the TargetGroupBinding custom resource definition by running the following.
@@ -201,7 +200,9 @@ Provision a MySQL database in AWS RDS that shares the VPC with the kubernetes cl
 the VPC of the kubernetes cluster. Once the database is provisioned, you should be able to see the following page. Take
 a note of the endpoint marked by the red box.
 
-![AWS RDS](../imgs/aws/aws-rds.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/aws/aws-rds.png"/>
+</p>
 
 First, add the DB password to kubernetes by running the following.
 
@@ -234,7 +235,9 @@ Provision an elasticsearch domain running elasticsearch version 7.10 or above th
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 
-![AWS Elasticsearch Service](../imgs/aws/aws-elasticsearch.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/aws/aws-elasticsearch.png"/>
+</p>
 
 Update the elasticsearch settings under global in the values.yaml as follows.
 
@@ -274,11 +277,15 @@ Then use the settings below.
         secretRef: elasticsearch-secrets
         secretKey: elasticsearch-password
 ```
+
 If you have access control enabled with IAM auth, enable AWS auth signing in Datahub
+
 ```
- OPENSEARCH_USE_AWS_IAM_AUTH=true 
+ OPENSEARCH_USE_AWS_IAM_AUTH=true
 ```
+
 Then use the settings below.
+
 ```
   elasticsearch:
     host: <<elasticsearch-endpoint>>
@@ -310,9 +317,9 @@ in datahub to point to the specific ES instance -
 
 1. If you are using `docker quickstart` you can modify the hostname and port of the ES instance in docker compose
    quickstart files located [here](../../docker/quickstart/).
-    1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
-       file. Sample command for that is
-        - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+   1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
+      file. Sample command for that is
+      - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
 2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The
    env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
 
@@ -330,7 +337,9 @@ Provision an MSK cluster that shares the VPC with the kubernetes cluster or has 
 the kubernetes cluster. Once the domain is provisioned, click on the “View client information” button in the ‘Cluster
 Summary” section. You should see a page like below. Take a note of the endpoints marked by the red boxes.
 
-![AWS MSK](../imgs/aws/aws-msk.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/aws/aws-msk.png"/>
+</p>
 
 Update the kafka settings under global in the values.yaml as follows.
 
@@ -421,7 +430,7 @@ The minimum permissions required looks like this
 }
 ```
 
-The latter part is required to have "*" as the resource because of an issue in the AWS Glue schema registry library.
+The latter part is required to have "\*" as the resource because of an issue in the AWS Glue schema registry library.
 Refer to [this issue](https://github.com/awslabs/aws-glue-schema-registry/issues/68) for any updates.
 
 Glue currently doesn't support AWS Signature V4. As such, we cannot use service accounts to give permissions to access

@@ -4,14 +4,17 @@ title: "Ingestion Framework"
 
 # Metadata Ingestion Architecture
 
-DataHub supports an extremely flexible ingestion architecture that can support push, pull, asynchronous and synchronous models. 
-The figure below describes all the options possible for connecting your favorite system to DataHub. 
-![Ingestion Architecture](../imgs/ingestion-architecture.png)
+DataHub supports an extremely flexible ingestion architecture that can support push, pull, asynchronous and synchronous models.
+The figure below describes all the options possible for connecting your favorite system to DataHub.
 
-## Metadata Change Proposal: The Center Piece 
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/ingestion-architecture.png"/>
+</p>
 
-The center piece for ingestion are [Metadata Change Proposal]s which represent requests to make a metadata change to an organization's Metadata Graph. 
-Metadata Change Proposals can be sent over Kafka, for highly scalable async publishing from source systems. They can also be sent directly to the HTTP endpoint exposed by the DataHub service tier to get synchronous success / failure responses. 
+## Metadata Change Proposal: The Center Piece
+
+The center piece for ingestion are [Metadata Change Proposal]s which represent requests to make a metadata change to an organization's Metadata Graph.
+Metadata Change Proposals can be sent over Kafka, for highly scalable async publishing from source systems. They can also be sent directly to the HTTP endpoint exposed by the DataHub service tier to get synchronous success / failure responses.
 
 ## Pull-based Integration
 
@@ -25,7 +28,7 @@ As long as you can emit a [Metadata Change Proposal (MCP)] event to Kafka or mak
 
 ### Applying Metadata Change Proposals to DataHub Metadata Service (mce-consumer-job)
 
-DataHub comes with a Spring job, [mce-consumer-job], which consumes the Metadata Change Proposals and writes them into the DataHub Metadata Service (datahub-gms) using the `/ingest` endpoint. 
+DataHub comes with a Spring job, [mce-consumer-job], which consumes the Metadata Change Proposals and writes them into the DataHub Metadata Service (datahub-gms) using the `/ingest` endpoint.
 
 [Metadata Change Proposal (MCP)]: ../what/mxe.md#metadata-change-proposal-mcp
 [Metadata Change Proposal]: ../what/mxe.md#metadata-change-proposal-mcp
@@ -33,4 +36,3 @@ DataHub comes with a Spring job, [mce-consumer-job], which consumes the Metadata
 [equivalent Pegasus format]: https://linkedin.github.io/rest.li/how_data_is_represented_in_memory#the-data-template-layer
 [mce-consumer-job]: ../../metadata-jobs/mce-consumer-job
 [Python emitters]: ../../metadata-ingestion/README.md#using-as-a-library
-

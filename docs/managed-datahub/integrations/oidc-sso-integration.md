@@ -3,12 +3,12 @@ description: >-
   This page will help you set up OIDC SSO with your identity provider to log
   into Acryl Data
 ---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-
 # OIDC SSO Integration
-<FeatureAvailability saasOnly />
 
+<FeatureAvailability saasOnly />
 
 _Note that we do not yet support LDAP or SAML authentication. Please let us know if either of these integrations would be useful for your organization._
 
@@ -25,7 +25,7 @@ To set up the OIDC integration, you will need the following pieces of informatio
 The callback URL to register in your Identity Provider will be
 
 ```
-https://<your-acryl-domain>.acryl.io/callback/oidc 
+https://<your-acryl-domain>.acryl.io/callback/oidc
 ```
 
 ### Configuring OIDC SSO
@@ -42,4 +42,6 @@ To enable the OIDC integration, start by navigating to **Settings > Platform > S
 4. If there are any advanced settings you would like to configure, click on the **Advanced** button. These come with defaults, so only input settings here if there is something you need changed from the default configuration.
 5. Click **Update** to save your settings.
 
-![](../imgs/saas/image-(10).png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/image-(10).png"/>
+</p>

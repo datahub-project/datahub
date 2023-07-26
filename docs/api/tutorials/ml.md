@@ -94,9 +94,13 @@ Please note that an MlModelGroup serves as a container for all the runs of a sin
 
 You can search the entities in DataHub UI.
 
-![feature-table-created](../../imgs/apis/tutorials/feature-table-created.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/feature-table-created.png"/>
+</p>
 
-![model-group-created](../../imgs/apis/tutorials/model-group-created.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/model-group-created.png"/>
+</p>
 
 ## Read ML Entities
 
@@ -499,6 +503,10 @@ Expected Response: (Note that this entity does not exist in the sample ingestion
 
 You can access to `Features` or `Group` Tab of each entity to view the added entities.
 
-![feature-added-to-model](../../imgs/apis/tutorials/feature-added-to-model.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/feature-added-to-model.png"/>
+</p>
 
-![model-group-added-to-model](../../imgs/apis/tutorials/model-group-added-to-model.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/model-group-added-to-model.png"/>
+</p>

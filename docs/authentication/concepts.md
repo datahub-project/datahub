@@ -11,7 +11,9 @@ We introduced a few important concepts to the Metadata Service to make authentic
 
 In following sections, we'll take a closer look at each individually.
 
-![](../imgs/metadata-service-auth.png)
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/metadata-service-auth.png"/>
+</p>
 *High level overview of Metadata Service Authentication*
 
 ## What is an Actor?
@@ -53,7 +55,7 @@ There can be many types of Authenticator. For example, there can be Authenticato
 - Verify the authenticity of access tokens (ie. issued by either DataHub itself or a 3rd-party IdP)
 - Authenticate username / password credentials against a remote database (ie. LDAP)
 
-and more! A key goal of the abstraction is *extensibility*: a custom Authenticator can be developed to authenticate requests
+and more! A key goal of the abstraction is _extensibility_: a custom Authenticator can be developed to authenticate requests
 based on an organization's unique needs.
 
 DataHub ships with 2 Authenticators by default:
@@ -75,13 +77,13 @@ The Authenticator Chain can be configured in the `application.yml` file under `a
 
 ```
 authentication:
-  .... 
+  ....
   authenticators:
-    # Configure the Authenticators in the chain 
+    # Configure the Authenticators in the chain
     - type: com.datahub.authentication.Authenticator1
       ...
-    - type: com.datahub.authentication.Authenticator2 
-    .... 
+    - type: com.datahub.authentication.Authenticator2
+    ....
 ```
 
 ## What is the AuthenticationFilter?
@@ -90,7 +92,6 @@ The **AuthenticationFilter** is a [servlet filter](http://tutorials.jenkov.com/j
 It does so by constructing and invoking an **AuthenticatorChain**, described above.
 
 If an Actor is unable to be resolved by the AuthenticatorChain, then a 401 unauthorized exception will be returned by the filter.
-
 
 ## What is a DataHub Token Service? What are Access Tokens?
 
@@ -114,10 +115,10 @@ Today, Access Tokens are granted by the Token Service under two scenarios:
 
 1. **UI Login**: When a user logs into the DataHub UI, for example via [JaaS](guides/jaas.md) or
    [OIDC](guides/sso/configure-oidc-react.md), the `datahub-frontend` service issues an
-   request to the Metadata Service to generate a SESSION token *on behalf of* of the user logging in. (*Only the frontend service is authorized to perform this action).
+   request to the Metadata Service to generate a SESSION token _on behalf of_ of the user logging in. (\*Only the frontend service is authorized to perform this action).
 2. **Generating Personal Access Tokens**: When a user requests to generate a Personal Access Token (described below) from the UI.
 
 > At present, the Token Service supports the symmetric signing method `HS256` to generate and verify tokens.
 
 Now that we're familiar with the concepts, we will talk concretely about what new capabilities have been built on top
-of Metadata Service Authentication. 
+of Metadata Service Authentication.

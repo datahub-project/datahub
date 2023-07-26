@@ -8,15 +8,15 @@ Tags are informal, loosely controlled labels that help in search & discovery. Th
 
 Tags can help help you in:
 
-* Querying: Tagging a dataset with a phrase that a co-worker can use to query the same dataset
-* Mapping assets to a category or group of your choice
+- Querying: Tagging a dataset with a phrase that a co-worker can use to query the same dataset
+- Mapping assets to a category or group of your choice
 
 ## Tags Setup, Prerequisites, and Permissions
 
 What you need to add tags:
 
-* **Edit Tags** metadata privilege to add tags at the entity level
-* **Edit Dataset Column Tags** to edit tags at the column level 
+- **Edit Tags** metadata privilege to add tags at the entity level
+- **Edit Dataset Column Tags** to edit tags at the column level
 
 You can create these privileges by creating a new [Metadata Policy](./authorization/policies.md).
 
@@ -27,25 +27,25 @@ You can create these privileges by creating a new [Metadata Policy](./authorizat
 To add a tag at the dataset or container level, simply navigate to the page for that entity and click on the **Add Tag** button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/add-tag.png"/>
 </p>
 
 Type in the name of the tag you want to add. You can add a new tag, or add a tag that already exists (the autocomplete will pull up the tag if it already exists).
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-tag-search.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/add-tag-search.png"/>
 </p>
 
 Click on the "Add" button and you'll see the tag has been added!
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/added-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/added-tag.png"/>
 </p>
 
 If you would like to add a tag at the schema level, hover over the "Tags" column for a schema until the "Add Tag" button shows up, and then follow the same flow as above.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/add-schema-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/add-schema-tag.png"/>
 </p>
 
 ### Removing a Tag
@@ -57,7 +57,7 @@ To remove a tag, simply click on the "X" button in the tag. Then click "Yes" whe
 You can search for a tag in the search bar, and even filter entities by the presence of a specific tag.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/datahub/master/docs/imgs/search-tag.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/search-tag.png"/>
 </p>
 
 ## Additional Resources
@@ -72,21 +72,21 @@ You can search for a tag in the search bar, and even filter entities by the pres
 
 ### GraphQL
 
-* [addTag](../graphql/mutations.md#addtag)
-* [addTags](../graphql/mutations.md#addtags)
-* [batchAddTags](../graphql/mutations.md#batchaddtags)
-* [removeTag](../graphql/mutations.md#removetag)
-* [batchRemoveTags](../graphql/mutations.md#batchremovetags)
-* [createTag](../graphql/mutations.md#createtag)
-* [updateTag](../graphql/mutations.md#updatetag)
-* [deleteTag](../graphql/mutations.md#deletetag)
+- [addTag](../graphql/mutations.md#addtag)
+- [addTags](../graphql/mutations.md#addtags)
+- [batchAddTags](../graphql/mutations.md#batchaddtags)
+- [removeTag](../graphql/mutations.md#removetag)
+- [batchRemoveTags](../graphql/mutations.md#batchremovetags)
+- [createTag](../graphql/mutations.md#createtag)
+- [updateTag](../graphql/mutations.md#updatetag)
+- [deleteTag](../graphql/mutations.md#deletetag)
 
-You can easily fetch the Tags for an entity with a given its URN using the **tags** property. Check out [Working with Metadata Entities](./api/graphql/how-to-set-up-graphql.md#querying-for-tags-of-an-asset) for an example. 
+You can easily fetch the Tags for an entity with a given its URN using the **tags** property. Check out [Working with Metadata Entities](./api/graphql/how-to-set-up-graphql.md#querying-for-tags-of-an-asset) for an example.
 
 ### DataHub Blog
 
-* [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios
-Managing PII in DataHub: A Practitioner’s Guide](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
+- [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios
+  Managing PII in DataHub: A Practitioner’s Guide](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
 
 ## FAQ and Troubleshooting
 
@@ -96,16 +96,16 @@ DataHub Tags are informal, loosely controlled labels while Terms are part of a c
 
 Usage and applications:
 
-* An asset may have multiple tags.
-* Tags serve as a tool for search & discovery while Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
+- An asset may have multiple tags.
+- Tags serve as a tool for search & discovery while Terms are typically used to standardize types of leaf-level attributes (i.e. schema fields) for governance. E.g. (EMAIL_PLAINTEXT)
 
 **How are DataHub Tags different from Domains?**
 
 Domains are a set of top-level categories usually aligned to business units/disciplines to which the assets are most relevant. They rely on central or distributed management. A single domain is assigned per data asset.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+_Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_
 
 ### Related Features
 
-* [Glossary Terms](./glossary/business-glossary.md)
-* [Domains](./domains.md)
+- [Glossary Terms](./glossary/business-glossary.md)
+- [Domains](./domains.md)
