@@ -87,7 +87,7 @@ If you have multiple projects in your BigQuery setup, the role should be granted
 
 ##### Profiling Requirements
 
-To profile BigQuery external tables backed by Google Drive document, you need to grant document's "Viewer" access to service account's email address (`client_email` in credentials json file). To find the Google Drive document linked to BigQuery table, open the BigQuery console, locate the needed table,  select "Details" from the drop-down menu in the top-right corner and refer "Source" field . To share access of Google Drive document, open the document, click "Share" in the top-right corner, add the service account's email address that needs "Viewer" access. ![Google Drive Sharing Dialog](./google_drive_share.png)
+To profile BigQuery external tables backed by Google Drive document, you need to grant document's "Viewer" access to service account's email address (`client_email` in credentials json file). To find the Google Drive document linked to BigQuery table, open the BigQuery console, locate the needed table,  select "Details" from the drop-down menu in the top-right corner and refer "Source" field . To share access of Google Drive document, open the document, click "Share" in the top-right corner, add the service account's email address that needs "Viewer" access. ![Google Drive Sharing Dialog](https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/google_drive_share.png)
  
 ### Lineage Computation Details
 
