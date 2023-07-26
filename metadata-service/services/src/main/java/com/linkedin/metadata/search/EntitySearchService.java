@@ -64,7 +64,7 @@ public interface EntitySearchService {
    * Safe for non-structured, user input, queries with an attempt to provide some advanced features
    * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
    *
-   * @param entityName name of the entity
+   * @param entityNames names of the entities
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results
@@ -74,7 +74,7 @@ public interface EntitySearchService {
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
                       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags);
 
   /**
@@ -84,7 +84,7 @@ public interface EntitySearchService {
    * Safe for non-structured, user input, queries with an attempt to provide some advanced features
    * <a href="https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html">Impl</a>
    *
-   * @param entityName name of the entity
+   * @param entityNames names of the entities
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results
@@ -95,7 +95,7 @@ public interface EntitySearchService {
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets);
 
   /**
