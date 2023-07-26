@@ -512,7 +512,7 @@ jobs:
       - name: Disk Check 5
         run: df -h .
       - name: Remove Source Code
-        run: find . ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
+        run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
       - name: Check disk space 6
         run: df . -h
       - name: Smoke test
