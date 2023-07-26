@@ -486,6 +486,7 @@ module.exports = {
             "docs/how/add-custom-ingestion-source",
             "docs/how/add-custom-data-platform",
             "docs/advanced/browse-paths-upgrade",
+            "docs/browseV2/browse-paths-v2",
           ],
         },
       ],

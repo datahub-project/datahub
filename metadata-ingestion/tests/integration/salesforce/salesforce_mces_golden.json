@@ -1974,5 +1974,65 @@
         "lastObserved": 1652353200000,
         "runId": "salesforce-test"
     }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Account,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1652353200000,
+        "runId": "salesforce-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:salesforce,Property__c,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1652353200000,
+        "runId": "salesforce-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Custom",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Custom"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1652353200000,
+        "runId": "salesforce-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:SystemField",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "SystemField"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1652353200000,
+        "runId": "salesforce-test"
+    }
 }
 ]
