@@ -11,7 +11,7 @@
                 "env": "PROD",
                 "database": "vmart",
                 "cluster_type": "Enterprise",
-                "cluster_size": "129 GB",
+                "cluster_size": "122 GB",
                 "subcluster": " ",
                 "communal_storage_path": ""
             },
@@ -63,6 +63,21 @@
             "typeNames": [
                 "Database"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -157,6 +172,26 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.customer_dimension,PROD)",
     "changeType": "UPSERT",
@@ -208,8 +243,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.472232+00:00",
-                            "table_size": "2119 KB"
+                            "create_time": "2023-07-26 06:37:53.358215+00:00"
                         },
                         "name": "customer_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -539,6 +573,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.customer_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.date_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -589,8 +647,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.483436+00:00",
-                            "table_size": "138 KB"
+                            "create_time": "2023-07-26 06:37:53.368954+00:00"
                         },
                         "name": "date_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -920,6 +977,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.date_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -970,8 +1051,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.490683+00:00",
-                            "table_size": "327 KB"
+                            "create_time": "2023-07-26 06:37:53.375896+00:00"
                         },
                         "name": "employee_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1262,6 +1342,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.inventory_fact,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1312,8 +1416,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.500723+00:00",
-                            "table_size": "2566 KB"
+                            "create_time": "2023-07-26 06:37:53.385843+00:00"
                         },
                         "name": "inventory_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1448,6 +1551,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.inventory_fact,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.product_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1498,8 +1625,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.476111+00:00",
-                            "table_size": "19 KB"
+                            "create_time": "2023-07-26 06:37:53.362016+00:00"
                         },
                         "name": "product_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -1829,6 +1955,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.product_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -1879,8 +2029,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.479799+00:00",
-                            "table_size": "3 KB"
+                            "create_time": "2023-07-26 06:37:53.365453+00:00"
                         },
                         "name": "promotion_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2093,6 +2242,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2143,8 +2316,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.494174+00:00",
-                            "table_size": "1 KB"
+                            "create_time": "2023-07-26 06:37:53.379273+00:00"
                         },
                         "name": "shipping_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2253,6 +2425,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2303,8 +2499,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.487061+00:00",
-                            "table_size": "1 KB"
+                            "create_time": "2023-07-26 06:37:53.372409+00:00"
                         },
                         "name": "vendor_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2465,6 +2660,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vmart_load_success,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2515,8 +2734,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:42:05.074758+00:00",
-                            "table_size": "0 KB"
+                            "create_time": "2023-07-26 06:38:20.045598+00:00"
                         },
                         "name": "vmart_load_success",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2586,6 +2804,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vmart_load_success,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -2636,8 +2878,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.497417+00:00",
-                            "table_size": "2 KB"
+                            "create_time": "2023-07-26 06:37:53.382549+00:00"
                         },
                         "name": "warehouse_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -2762,6 +3003,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
             ]
         }
     },
@@ -3172,6 +3437,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.date_dimension,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.date_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
                 }
             ]
         }
@@ -3594,6 +3883,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.product_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -3888,6 +4201,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.promotion_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -4119,6 +4456,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.vendor_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
                 }
             ]
         }
@@ -4541,6 +4902,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.customer_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -4913,6 +5298,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.employee_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -5129,6 +5538,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.warehouse_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -5308,6 +5741,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.shipping_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
                 }
             ]
         }
@@ -5534,6 +5991,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,public.inventory_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4",
+                    "urn": "urn:li:container:eb682025a9113b5543ec7ed26bfa21e4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:342b43fc61f85b16580be55c11e89787",
     "changeType": "UPSERT",
@@ -5620,6 +6101,26 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_dimension,PROD)",
     "changeType": "UPSERT",
@@ -5671,8 +6172,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.508225+00:00",
-                            "table_size": "2 KB"
+                            "create_time": "2023-07-26 06:37:53.393181+00:00"
                         },
                         "name": "store_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -5963,6 +6463,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+                    "urn": "urn:li:container:342b43fc61f85b16580be55c11e89787"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_orders_fact,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -6013,8 +6537,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.519919+00:00",
-                            "table_size": "8648 KB"
+                            "create_time": "2023-07-26 06:37:53.404717+00:00"
                         },
                         "name": "store_orders_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -6318,6 +6841,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_orders_fact,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+                    "urn": "urn:li:container:342b43fc61f85b16580be55c11e89787"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -6368,8 +6915,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.511763+00:00",
-                            "table_size": "225089 KB"
+                            "create_time": "2023-07-26 06:37:53.396731+00:00"
                         },
                         "name": "store_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -6637,6 +7183,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+                    "urn": "urn:li:container:342b43fc61f85b16580be55c11e89787"
+                }
             ]
         }
     },
@@ -7019,6 +7589,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+                    "urn": "urn:li:container:342b43fc61f85b16580be55c11e89787"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -7367,6 +7961,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_sales_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+                    "urn": "urn:li:container:342b43fc61f85b16580be55c11e89787"
                 }
             ]
         }
@@ -7762,6 +8380,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,store.store_orders_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:342b43fc61f85b16580be55c11e89787",
+                    "urn": "urn:li:container:342b43fc61f85b16580be55c11e89787"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
     "changeType": "UPSERT",
@@ -7848,6 +8490,26 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.call_center_dimension,PROD)",
     "changeType": "UPSERT",
@@ -7899,8 +8561,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.531026+00:00",
-                            "table_size": "6 KB"
+                            "create_time": "2023-07-26 06:37:53.415595+00:00"
                         },
                         "name": "call_center_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8113,6 +8774,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.call_center_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+                    "urn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_page_dimension,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -8163,8 +8848,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.527606+00:00",
-                            "table_size": "9 KB"
+                            "create_time": "2023-07-26 06:37:53.412266+00:00"
                         },
                         "name": "online_page_dimension",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8299,6 +8983,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_page_dimension,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+                    "urn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -8349,8 +9057,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "create_time": "2023-07-14 06:41:35.534498+00:00",
-                            "table_size": "182385 KB"
+                            "create_time": "2023-07-26 06:37:53.419260+00:00"
                         },
                         "name": "online_sales_fact",
                         "description": "References the properties of a native table in Vertica.             Vertica physically stores table data in projections, which are collections of table columns.             Projections store data in a format that optimizes query execution.             In order to query or perform any operation on a Vertica table, the table must have one or more projections associated with it. ",
@@ -8667,6 +9374,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+                    "urn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_page_dimension_super,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
@@ -8872,6 +9603,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_page_dimension,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_page_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+                    "urn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7"
                 }
             ]
         }
@@ -9166,6 +9921,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.call_center_dimension,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.call_center_dimension_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+                    "urn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7"
                 }
             ]
         }
@@ -9564,6 +10343,30 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact,PROD)",
                     "type": "TRANSFORMED"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "vertica-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:vertica,online_sales.online_sales_fact_super,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:343f520ad0fb3259b298736800bb1385",
+                    "urn": "urn:li:container:343f520ad0fb3259b298736800bb1385"
+                },
+                {
+                    "id": "urn:li:container:ae8df3182db1bb8b3a612998126beae7",
+                    "urn": "urn:li:container:ae8df3182db1bb8b3a612998126beae7"
                 }
             ]
         }
