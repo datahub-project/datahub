@@ -3,6 +3,7 @@ import { Button, Modal } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
+import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
 
@@ -18,6 +19,7 @@ const modalBodyStyle = {
 };
 
 type Props = {
+    title: React.ReactNode;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
     fixedQuery?: string | null;
@@ -27,9 +29,11 @@ type Props = {
     onClose?: () => void;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    entityAction?: React.FC<EntityActionProps>;
 };
 
 export const EmbeddedListSearchModal = ({
+    title,
     emptySearchQuery,
     fixedFilters,
     fixedQuery,
@@ -39,6 +43,7 @@ export const EmbeddedListSearchModal = ({
     onClose,
     searchBarStyle,
     searchBarInputStyle,
+    entityAction,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -64,7 +69,7 @@ export const EmbeddedListSearchModal = ({
             width={800}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
-            title="View Ingested Assets"
+            title={title}
             visible
             onCancel={onClose}
             footer={<Button onClick={onClose}>Close</Button>}
@@ -87,6 +92,7 @@ export const EmbeddedListSearchModal = ({
                     defaultFilters={defaultFilters}
                     searchBarStyle={searchBarStyle}
                     searchBarInputStyle={searchBarInputStyle}
+                    entityAction={entityAction}
                 />
             </SearchContainer>
         </Modal>
