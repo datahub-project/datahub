@@ -21,26 +21,30 @@ RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to
     ./gradlew :metadata-events:mxe-schemas:build
 
 FROM base as prod-codegen
+USER 0
+
+COPY --from=prod-build /datahub-src /datahub-src
+WORKDIR /datahub-src/metadata-ingestion
+RUN pip install -e ".[base]" && \
+    ./scripts/codegen.sh
+
+FROM base as prod-install
+USER 0
+
+COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
+COPY --from=prod-codegen /root/.cache/pip /datahub-ingestion/.cache/pip
 
 COPY ./docker/datahub-ingestion/requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
-COPY --from=prod-build /datahub-src /datahub-src
-RUN cd /datahub-src/metadata-ingestion && \
-    pip install -e ".[base]" && \
-    ./scripts/codegen.sh
-
-FROM base as prod-install
-COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
-COPY --from=prod-codegen /root/.cache/pip /root/.cache/pip
 ARG RELEASE_VERSION
-RUN cd /datahub-ingestion && \
-    sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
+WORKDIR /datahub-ingestion
+RUN sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
     cat src/datahub/__init__.py && \
     pip install ".[all]" && \
-    pip freeze && \
     # This is required to fix security vulnerability in htrace-core4
-    rm -f /usr/local/lib/python3.10/site-packages/pyspark/jars/htrace-core4-4.1.0-incubating.jar
+    rm -f /usr/local/lib/3.10/site-packages/pyspark/jars/htrace-core4-4.1.0-incubating.jar && \
+    chown -R datahub /datahub-ingestion
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -48,7 +52,4 @@ FROM base as dev-install
 
 FROM ${APP_ENV}-install as final
 
-RUN addgroup --system datahub && adduser --system datahub --ingroup datahub
 USER datahub
-
-ENTRYPOINT [ "datahub" ]

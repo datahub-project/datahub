@@ -34,6 +34,8 @@ services:
       datahub-gms:
         condition: service_healthy
     environment:
+    - ACTIONS_CONFIG=${ACTIONS_CONFIG:-}
+    - ACTIONS_EXTRA_PACKAGES=${ACTIONS_EXTRA_PACKAGES:-}
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - DATAHUB_GMS_PROTOCOL=http
@@ -45,7 +47,7 @@ services:
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: ${DATAHUB_ACTIONS_IMAGE:acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
   datahub-frontend-react:
     container_name: datahub-frontend-react
     depends_on:

@@ -31,6 +31,9 @@ env:
   DATAHUB_ELASTIC_SETUP_IMAGE: "linkedin/datahub-elasticsearch-setup"
   DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
   DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
+  DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
+  DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
+  DATAHUB_INGESTION_SLIM_IMAGE: "acryldata/datahub-ingestion-slim"
 
 jobs:
   setup:
@@ -51,7 +54,7 @@ jobs:
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
+          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
@@ -414,6 +417,118 @@ jobs:
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
 
+  datahub_ingestion_build:
+    name: Build and Push DataHub Ingestion Docker Images
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Build and push Base Image
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion-base/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push Full Image
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_INGESTION_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push Slim Image
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion-slim/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+  datahub_ingestion_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: [setup, datahub_ingestion_build]
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
+      - name: Download image Base Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download image Full Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download image Slim Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Run Trivy vulnerability scanner Base Image
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Run Trivy vulnerability scanner Full Image
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Run Trivy vulnerability scanner Slim Image
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
+
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
@@ -432,8 +547,11 @@ jobs:
         mae_consumer_build,
         mce_consumer_build,
         datahub_upgrade_build,
+        datahub_ingestion_build,
       ]
     steps:
+      - name: Disk Check
+        run: df -h .
       - name: Check out the repo
         uses: actions/checkout@v3
       - name: Set up JDK 11
@@ -445,11 +563,19 @@ jobs:
         with:
           python-version: "3.7"
           cache: "pip"
+      - name: Disk Check
+        run: df -h .
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Disk Check
+        run: df -h .
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
+      - name: Disk Check
+        run: df -h .
+      - name: Docker Image Check
+        run: docker images
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -490,11 +616,23 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download datahub-ingestion-slim image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Disk Check
+        run: df -h .
+      - name: Docker Image Check
+        run: docker images
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
-          DATAHUB_ACTIONS_IMAGE: "acryldata/datahub-actions-slim"
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}
+          ACTIONS_VERSION: ${{ needs.setup.outputs.unique_tag }}
+          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions'
+          ACTIONS_CONFIG: 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
         run: |
           ./smoke-test/run-quickstart.sh
       - name: sleep 60s
@@ -502,6 +640,14 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
+      - name: Disk Check
+        run: df -h .
+      - name: Docker Image Check
+        run: docker images
+      - name: Remove Source Code
+        run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
+      - name: Disk Check
+        run: df -h .
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
@@ -512,6 +658,8 @@ jobs:
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
+      - name: Disk Check
+        run: df -h .
       - name: store logs
         if: failure()
         run: |

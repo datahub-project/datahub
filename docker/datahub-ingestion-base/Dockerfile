@@ -35,7 +35,8 @@ RUN apt-get update && apt-get install -y -qq \
     &&  tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
     &&  cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
     &&  ./configure --prefix /usr && make && make install && make clean && ./configure --clean \
-    && apt-get remove -y make
+    && apt-get remove -y make \
+    && rm -rf /var/cache/apk/*
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 RUN if [ $(arch) = "x86_64" ]; then \
@@ -57,6 +58,15 @@ RUN if [ $(arch) = "x86_64" ]; then \
     fi;
 
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
+COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
 
 RUN pip install -r requirements.txt && \
-    pip uninstall -y acryl-datahub
+    pip uninstall -y acryl-datahub && \
+    chmod +x /entrypoint.sh && \
+    addgroup --gid 1000 datahub && \
+    adduser --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+
+USER datahub
+ENV PATH=/datahub-ingestion/.local/bin:/usr/local/bin:$PATH
+
+ENTRYPOINT [ "/entrypoint.sh" ]

@@ -17,9 +17,11 @@ docker {
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
+    }.exclude {
+        i -> i.file.isHidden()
     }
 }
-tasks.getByPath('docker').dependsOn('build')
+tasks.getByPath(':docker:datahub-ingestion-base:docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {

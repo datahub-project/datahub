@@ -121,7 +121,12 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
 - `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
 - `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
-- `ACTIONS_BASE` (default ``) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
+- `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
+
+For images `acryldata/datahub-ingestion` or `acryldata/datahub-ingestion-slim`
+
+- `ACTIONS_EXTRA_PACKAGES` (default ``) - Install the extra python packages prior to running the main executable.
+- `ACTIONS_CONFIG` (default ``) - Use the specified actions configuration file url (yaml format).
 
 ```shell
 DATAHUB_SKIP_CONFIG=false

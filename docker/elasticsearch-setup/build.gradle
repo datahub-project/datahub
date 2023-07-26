@@ -17,6 +17,8 @@ docker {
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
         include "metadata-service/restli-servlet-impl/src/main/resources/index/**"
+    }.exclude {
+        i -> i.file.isHidden()
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
