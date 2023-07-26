@@ -120,6 +120,11 @@ class SnowflakeV2Config(
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
+    email_as_user_identifier: bool = Field(
+        default=False,
+        description="When enabled user email id will be used in user urn generation for stat",
+    )
+
     @validator("include_column_lineage")
     def validate_include_column_lineage(cls, v, values):
         if not values.get("include_table_lineage") and v:
