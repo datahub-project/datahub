@@ -52,7 +52,7 @@ export const DEFAULT_BUILDER_STATE = {
 export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
     type: FreshnessAssertionType.DatasetChange,
     schedule: {
-        type: FreshnessAssertionScheduleType.FixedInterval,
+        type: FreshnessAssertionScheduleType.Cron,
         fixedInterval: {
             unit: DateInterval.Hour,
             multiple: 6,

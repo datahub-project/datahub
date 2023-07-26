@@ -1,14 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Checkbox, Collapse, Typography } from 'antd';
+import { Button, Checkbox, Typography } from 'antd';
 import { StepProps } from '../types';
-import {
-    AssertionActionType,
-    AssertionType,
-    CronSchedule,
-    FreshnessAssertionScheduleType,
-} from '../../../../../../../../../types.generated';
-import { CronScheduleBuilder } from './freshness/CronScheduleBuilder';
+import { AssertionActionType } from '../../../../../../../../../types.generated';
 import { toggleRaiseIncidentState, toggleResolveIncidentState } from './utils';
 
 const Step = styled.div`
@@ -37,43 +31,16 @@ const ControlsContainer = styled.div`
 `;
 
 /**
- * Step for defining the schedule + actions for an assertion
+ * Step for configuring the actions for an assertion, i.e. what happens when it fails
  */
-export const ConfigureEvaluationScheduleStep = ({ state, updateState, prev, submit }: StepProps) => {
+export const ConfigureActionsStep = ({ state, updateState, prev, submit }: StepProps) => {
     const [isSubmitting, setSubmitting] = useState(false);
-    const showSchedule = state.assertion?.freshnessAssertion?.schedule?.type !== FreshnessAssertionScheduleType.Cron;
     const actions = state.assertion?.actions;
 
     const raiseIncidents =
         (actions?.onFailure?.filter((action) => action.type === AssertionActionType.RaiseIncident)?.length || 0) > 0;
     const resolveIncidents =
         (actions?.onSuccess?.filter((action) => action.type === AssertionActionType.ResolveIncident)?.length || 0) > 0;
-
-    const updateAssertionSchedule = (cronSchedule: CronSchedule) => {
-        updateState({
-            ...state,
-            schedule: cronSchedule,
-        });
-    };
-
-    /**
-     * Auto-Configure the Schedule for any Freshness Assertions that leverage a cron schedule.
-     * This is because CRON schedules should be executed on their schedules,
-     * as it does not make sense to evaluate a cron-schedule assertion on some fixed cadence.
-     */
-    useEffect(() => {
-        if (!state.schedule) {
-            if (state.assertion?.type === AssertionType.Freshness) {
-                const cronSchedule = state.assertion?.freshnessAssertion?.schedule?.cron;
-                if (cronSchedule) {
-                    updateState({
-                        ...state,
-                        schedule: cronSchedule,
-                    });
-                }
-            }
-        }
-    }, [state, updateState]);
 
     return (
         <Step>
@@ -95,19 +62,6 @@ export const ConfigureEvaluationScheduleStep = ({ state, updateState, prev, subm
                     >
                         Auto-resolve active incident
                     </StyledCheckbox>
-                </Section>
-                <Section>
-                    {showSchedule && (
-                        <Collapse>
-                            <Collapse.Panel key="Advanced" header="Advanced - Evaluation Schedule">
-                                <CronScheduleBuilder
-                                    title="When should this assertion be evaluated?"
-                                    value={state.schedule as CronSchedule}
-                                    onChange={updateAssertionSchedule}
-                                />
-                            </Collapse.Panel>
-                        </Collapse>
-                    )}
                 </Section>
             </Form>
             <ControlsContainer>

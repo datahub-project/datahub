@@ -228,8 +228,15 @@ export const builderStateToUpdateFreshnessAssertionVariables = (builderState: As
             type: builderState.assertion?.freshnessAssertion?.type as FreshnessAssertionType,
             schedule: {
                 type: builderState.assertion?.freshnessAssertion?.schedule?.type as FreshnessAssertionScheduleType,
-                cron: builderState.assertion?.freshnessAssertion?.schedule?.cron,
-                fixedInterval: builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval,
+                cron:
+                    builderState.assertion?.freshnessAssertion?.schedule?.type === FreshnessAssertionScheduleType.Cron
+                        ? builderState.assertion?.freshnessAssertion?.schedule?.cron
+                        : undefined,
+                fixedInterval:
+                    builderState.assertion?.freshnessAssertion?.schedule?.type ===
+                    FreshnessAssertionScheduleType.FixedInterval
+                        ? builderState.assertion?.freshnessAssertion?.schedule?.fixedInterval
+                        : undefined,
             },
             filter: builderState.assertion?.freshnessAssertion?.filter
                 ? {
