@@ -85,7 +85,7 @@ export const DomainsList = () => {
     const logoIcon = entityRegistry.getIcon(EntityType.Domain, 12, IconStyleType.ACCENT);
     const allColumns = [
         {
-            title: 'Name',
+            title: '名称',
             dataIndex: '',
             key: 'name',
             sorter: (sourceA, sourceB) => {
@@ -94,7 +94,7 @@ export const DomainsList = () => {
             render: DomainNameColumn(logoIcon),
         },
         {
-            title: 'Owners',
+            title: '所有者',
             dataIndex: 'ownership',
             width: '10%',
             key: 'ownership',
@@ -126,8 +126,8 @@ export const DomainsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="数据加载中 Loading domains..." />}
-            {error && <Message type="error" content="Domains数据加载失败! 未知错误❌." />}
+            {!data && loading && <Message type="loading" content="Domain加载中..." />}
+            {error && <Message type="error" content="Domain加载失败! 发生未知错误." />}
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <DomainsContainer>
                 <TabToolbar>

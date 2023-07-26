@@ -77,14 +77,14 @@ export const AdminConsole = (): JSX.Element => {
                         {showAnalytics && (
                             <Menu.Item key="analytics" icon={<BarChartOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/analytics">
-                                    Analytics
+                                    分析
                                 </Link>
                             </Menu.Item>
                         )}
                         {showPolicyBuilder && (
                             <Menu.Item key="permissions" icon={<BankOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/permissions">
-                                    Permissions
+                                    权限管理
                                 </Link>
                             </Menu.Item>
                         )}

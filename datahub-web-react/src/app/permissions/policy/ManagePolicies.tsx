@@ -395,7 +395,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
                         >
-                            未激活
+                            停用
                         </Button>
                     ) : (
                         <Button
