@@ -125,7 +125,7 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
   public void testSearchService() throws Exception {
     SearchResult searchResult =
         _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null,
-                null, 0, 10, new SearchFlags().setFulltext(true));
+                null, 0, 10, new SearchFlags().setFulltext(true).setSkipCache(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null,
             null, 0, 10, new SearchFlags().setFulltext(true));
