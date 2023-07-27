@@ -336,7 +336,7 @@ type JoinProperties {
     """
     The joinFieldMappings
     """
-    joinFieldMappings: JoinFieldMapping!
+    joinFieldMapping: JoinFieldMapping!
 
     """
     Created timestamp millis associated with the Join
@@ -356,7 +356,7 @@ type JoinFieldMapping {
     """
     The Array of FieldMap
     """
-    fieldMapping: [FieldMap!]
+    fieldMappings: [FieldMap!]
     """
     Any transformation logic or notes pertaining to this specific join
     """
@@ -4550,7 +4550,7 @@ input JoinPropertiesInput {
     """
     Details about the Join
     """
-    joinFieldmappings: JoinFieldMappingInput!
+    joinFieldmapping: JoinFieldMappingInput!
     """
     optional flag about the Join is getting create
     """
@@ -4572,7 +4572,7 @@ input JoinFieldMappingInput {
     """
     Details about the Join
     """
-    fieldMapping: [FieldMappingInput]
+    fieldMappings: [FieldMappingInput]
     """
     Details about the Join
     """

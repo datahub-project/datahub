@@ -32,8 +32,8 @@ public class CreateJoinResolver implements DataFetcher<CompletableFuture<Boolean
         JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
         QueryContext context = environment.getContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        if (!JoinType.isAuthorizedToUpdateJoins(context, inputUrn)) {
-            throw new AuthorizationException("Unauthorized to update join. Please contact your DataHub administrator.");
+        if (!JoinType.isAuthorizedToCreateJoin(context, inputUrn)) {
+            throw new AuthorizationException("Unauthorized to create join. Please contact your DataHub administrator.");
         }
         return CompletableFuture.supplyAsync(() -> {
             try {

@@ -1124,7 +1124,7 @@ fragment joinPropertiesFields on JoinProperties {
     datasetB {
         ...datasetJoinFields
     }
-    joinFieldMappings {
+    joinFieldMapping {
         ...joinFieldMappingFields
     }
     createdTime
@@ -1134,7 +1134,7 @@ fragment joinPropertiesFields on JoinProperties {
 }
 
 fragment joinFieldMappingFields on JoinFieldMapping {
-    fieldMapping {
+    fieldMappings {
         afield
         bfield
     }

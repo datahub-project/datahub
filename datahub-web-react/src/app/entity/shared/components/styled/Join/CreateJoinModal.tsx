@@ -134,10 +134,10 @@ export const CreateJoinModal = ({
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
     const table2DatasetSchema = editJoin?.properties?.datasetB || table2Schema?.dataset;
 
-    const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMappings?.details || '');
+    const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
     const [joinName, setJoinName] = useState<string>(editJoin?.properties?.name || editJoin?.joinId || '');
     const [tableData, setTableData] = useState<JoinDataType[]>(
-        editJoin?.properties?.joinFieldMappings?.fieldMapping?.map((item, index) => {
+        editJoin?.properties?.joinFieldMapping?.fieldMappings?.map((item, index) => {
             return {
                 key: index,
                 field1Name: item.afield,
@@ -148,7 +148,7 @@ export const CreateJoinModal = ({
             { key: '1', field1Name: '', field2Name: '' },
         ],
     );
-    const [count, setCount] = useState(editJoin?.properties?.joinFieldMappings?.fieldMapping?.length || 2);
+    const [count, setCount] = useState(editJoin?.properties?.joinFieldMapping?.fieldMappings?.length || 2);
     const [createMutation] = useCreateJoinMutation();
     const [updateMutation] = useUpdateJoinMutation();
     const handleDelete = (record) => {
@@ -232,9 +232,9 @@ export const CreateJoinModal = ({
                             name: joinName,
                             createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
                             createdAt: editJoin?.properties?.createdTime || 0,
-                            joinFieldmappings: {
+                            joinFieldmapping: {
                                 details,
-                                fieldMapping: tableData.map((r) => {
+                                fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,
                                         bfield: r.field2Name,
@@ -253,9 +253,9 @@ export const CreateJoinModal = ({
                             dataSetA: table1Dataset?.urn || '',
                             datasetB: table2Dataset?.urn || '',
                             name: joinName,
-                            joinFieldmappings: {
+                            joinFieldmapping: {
                                 details,
-                                fieldMapping: tableData.map((r) => {
+                                fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,
                                         bfield: r.field2Name,
