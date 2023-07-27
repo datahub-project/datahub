@@ -523,7 +523,12 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -623,6 +628,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -727,6 +736,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -835,6 +848,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -947,6 +964,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -1063,6 +1084,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -1183,6 +1208,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -1307,6 +1336,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -2664,6 +2697,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
                 },
@@ -3196,6 +3233,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -3746,6 +3787,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
                 },
@@ -3953,6 +3998,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -4457,6 +4506,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
                 },
@@ -4818,6 +4871,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -7489,6 +7546,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
