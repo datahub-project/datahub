@@ -210,6 +210,11 @@ public class PoliciesConfig {
       "Edit Embedded Content",
       "The ability to edit the embedded content for an entity.");
 
+  public static final Privilege CREATE_JOIN_PRIVILEGE = Privilege.of(
+      "CREATE_ENTITY_JOIN",
+      "Create join",
+      "The ability to add join on a dataset.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       VIEW_ENTITY_PAGE_PRIVILEGE,
       EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -222,7 +227,8 @@ public class PoliciesConfig {
       EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
       EDIT_ENTITY_DEPRECATION_PRIVILEGE,
       EDIT_ENTITY_PRIVILEGE,
-      DELETE_ENTITY_PRIVILEGE
+      DELETE_ENTITY_PRIVILEGE,
+      CREATE_JOIN_PRIVILEGE
   );
 
   // Dataset Privileges
@@ -512,10 +518,6 @@ public class PoliciesConfig {
           EDIT_USER_PROFILE_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE)
   );
-  public static final Privilege CREATE_JOIN_PRIVILEGE = Privilege.of(
-        "CREATE_ENTITY_JOIN",
-        "Create join",
-        "The ability to add join on a dataset.");
 
   // Join Privileges
   public static final ResourcePrivileges JOIN_PRIVILEGES = ResourcePrivileges.of(
