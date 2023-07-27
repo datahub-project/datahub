@@ -241,7 +241,11 @@ def downgrade_v2_field_path(field_path: str) -> str:
 
     # strip out all annotation segments
     segments = field_path.split(".")
-    cleaned_segments = [segment for segment in segments if not (segment.startswith("[") or segment.endswith("]"))]
+    cleaned_segments = [
+        segment
+        for segment in segments
+        if not (segment.startswith("[") or segment.endswith("]"))
+    ]
     return ".".join(cleaned_segments)
 
 

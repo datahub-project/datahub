@@ -291,7 +291,11 @@ def get_schema_metadata(
     canonical_schema: Optional[List[SchemaField]] = None,
     simplify_nested_field_paths: bool = False,
 ) -> SchemaMetadata:
-    if simplify_nested_field_paths and canonical_schema is not None and not schema_requires_v2(canonical_schema):
+    if (
+        simplify_nested_field_paths
+        and canonical_schema is not None
+        and not schema_requires_v2(canonical_schema)
+    ):
         canonical_schema = downgrade_schema_from_v2(canonical_schema)
 
     schema_metadata = SchemaMetadata(

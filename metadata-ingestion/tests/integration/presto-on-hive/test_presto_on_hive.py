@@ -60,7 +60,7 @@ def loaded_presto_on_hive(presto_on_hive_runner):
         ("presto-on-hive", True, True, False, False, "_2"),
         ("hive", False, False, True, False, "_3"),
         ("presto-on-hive", True, True, True, False, "_4"),
-        ("presto-on-hive", False, False, False, True, "_5"),
+        ("hive", False, False, False, True, "_5"),
     ],
 )
 def test_presto_on_hive_ingest(
