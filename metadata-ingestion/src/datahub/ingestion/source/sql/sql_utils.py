@@ -236,13 +236,12 @@ def downgrade_v2_field_path(field_path: str) -> str:
     if not field_path:
         return field_path
 
-    cleaned_field_path = field_path.replace(KEY_SCHEMA_PREFIX, "").replace(
-        VERSION_PREFIX, ""
-    )
+    if not field_path.startswith(VERSION_PREFIX):
+        return field_path
 
     # strip out all annotation segments
-    segments = cleaned_field_path.split(".")
-    cleaned_segments = [segment for segment in segments if not segment.startswith("[")]
+    segments = field_path.split(".")
+    cleaned_segments = [segment for segment in segments if not (segment.startswith("[") or segment.endswith("]"))]
     return ".".join(cleaned_segments)
 
 
@@ -254,17 +253,13 @@ def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
 
 # downgrade a list of schema fields
 def downgrade_schema_from_v2(
-    canonical_schema: Optional[List[SchemaField]] = None,
-) -> Optional[List[SchemaField]]:
-    if canonical_schema is None:
-        return None
+    canonical_schema: List[SchemaField],
+) -> List[SchemaField]:
     return [downgrade_schema_field_from_v2(field) for field in canonical_schema]
 
 
 # v2 is only required in case UNION or ARRAY types are present- all other types can be represented in v1 paths
-def schema_requires_v2(canonical_schema: Optional[List[SchemaField]] = None) -> bool:
-    if canonical_schema is None:
-        return False
+def schema_requires_v2(canonical_schema: List[SchemaField]) -> bool:
     for field in canonical_schema:
         field_name = field.fieldPath
         if ARRAY_TOKEN in field_name or UNION_TOKEN in field_name:
