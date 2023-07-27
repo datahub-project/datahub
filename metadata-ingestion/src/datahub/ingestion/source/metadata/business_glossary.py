@@ -20,11 +20,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import (
-    auto_status_aspect,
-    auto_workunit,
-    auto_workunit_reporter,
-)
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -502,14 +498,6 @@ class BusinessGlossaryFileSource(Source):
         config = load_config_file(file_name)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(
-            self.report,
-            auto_status_aspect(
-                self.get_workunits_internal(),
-            ),
-        )
 
     def get_workunits_internal(
         self,

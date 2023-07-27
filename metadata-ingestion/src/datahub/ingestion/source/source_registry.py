@@ -9,25 +9,6 @@ source_registry.register_from_entrypoint("datahub.ingestion.source.plugins")
 
 # Deprecations.
 source_registry.register_alias(
-    "snowflake-beta",
-    "snowflake",
-    lambda: warnings.warn(
-        "source type snowflake-beta is deprecated, use snowflake instead",
-        ConfigurationWarning,
-        stacklevel=3,
-    ),
-)
-source_registry.register_alias(
-    "bigquery-beta",
-    "bigquery",
-    lambda: warnings.warn(
-        "source type bigquery-beta is deprecated, use bigquery instead",
-        ConfigurationWarning,
-        stacklevel=3,
-    ),
-)
-
-source_registry.register_alias(
     "redshift-usage",
     "redshift-usage-legacy",
     lambda: warnings.warn(

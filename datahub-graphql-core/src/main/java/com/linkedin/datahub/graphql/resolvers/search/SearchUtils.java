@@ -70,8 +70,10 @@ public class SearchUtils {
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
           EntityType.DOMAIN,
-          EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.ROLE,
+          EntityType.NOTEBOOK);
+
 
   /**
    * Entities that are part of autocomplete by default in Auto Complete Across Entities

@@ -439,7 +439,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577324017
+            "lastUpdatedTimestamp": 1688444889021
         }
     },
     "systemMetadata": {
@@ -508,6 +508,26 @@
         "json": {
             "typeNames": [
                 "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                }
             ]
         }
     },
@@ -602,6 +622,30 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -677,6 +721,34 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -770,6 +842,38 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -845,6 +949,42 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -938,6 +1078,46 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -1022,6 +1202,50 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -1097,6 +1321,54 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2418,6 +2690,58 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -2544,7 +2868,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577334017
+            "lastUpdatedTimestamp": 1688444899021
         }
     },
     "systemMetadata": {
@@ -2903,6 +3227,58 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -3029,7 +3405,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577344017
+            "lastUpdatedTimestamp": 1688444909021
         }
     },
     "systemMetadata": {
@@ -3404,6 +3780,58 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -3506,7 +3934,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577354017
+            "lastUpdatedTimestamp": 1688444919021
         }
     },
     "systemMetadata": {
@@ -3553,6 +3981,58 @@
                     "sampleValues": [
                         "[Row(code='DZ', name='Algeria'), Row(code='AR', name='Argentina'), Row(code='AU', name='Australia'), Row(code='AT', name='Austria'), Row(code=None, name='Austria-Hungary'), Row(code=None, name='Austrian Empire'), Row(code='AZ', name='Azerbaijan'), Row(code='BD', name='Bangladesh'), Row(code='BB', name='Barbados'), Row(code='DE', name='Bavaria'), Row(code='BY', name='Belarus'), Row(code='CD', name='Belgian Congo'), Row(code='BE', name='Belgium'), Row(code='BA', name='Bosnia'), Row(code='BA', name='Bosnia and Herzegovina'), Row(code='BR', name='Brazil'), Row(code='IN', name='British India'), Row(code='IL', name='British Mandate of Palestine'), Row(code='IL', name='British Protectorate of Palestine'), Row(code='LC', name='British West Indies'), Row(code='BG', name='Bulgaria'), Row(code='MM', name='Burma'), Row(code='CA', name='Canada'), Row(code='CL', name='Chile'), Row(code='CN', name='China'), Row(code='CO', name='Colombia'), Row(code='CR', name='Costa Rica'), Row(code='GR', name='Crete'), Row(code='HR', name='Croatia'), Row(code='CY', name='Cyprus'), Row(code='CZ', name='Czech Republic'), Row(code='CZ', name='Czechoslovakia'), Row(code='CD', name='Democratic Republic of the Congo'), Row(code='VN', name='Democratic Republic of Vietnam'), Row(code='DK', name='Denmark'), Row(code='DE', name='East Friesland'), Row(code='DE', name='East Germany'), Row(code='TL', name='East Timor'), Row(code='EG', name='Egypt'), Row(code='ET', name='Ethiopia'), Row(code='DK', name='Faroe Islands (Denmark)'), Row(code='FI', name='Finland'), Row(code='FR', name='France'), Row(code='PL', name='Free City of Danzig'), Row(code='DZ', name='French Algeria'), Row(code='GA', name='Gabon'), Row(code='PL', name='German-occupied Poland'), Row(code='DE', name='Germany'), Row(code='GH', name='Ghana'), Row(code='GH', name='Gold Coast'), Row(code='GR', name='Greece'), Row(code='GL', name='Greenland'), Row(code='GP', name='Guadeloupe Island'), Row(code='GT', name='Guatemala'), Row(code='DE', name='Hesse-Kassel'), Row(code='CZ', name='Hungarian Empire'), Row(code='HU', name='Hungary'), Row(code='IS', name='Iceland'), Row(code='IN', name='India'), Row(code='ID', name='Indonesia'), Row(code='IR', name='Iran'), Row(code='IQ', name='Iraq'), Row(code='IE', name='Ireland'), Row(code='IL', name='Israel'), Row(code='IT', name='Italy'), Row(code='JM', name='Jamaica'), Row(code='JP', name='Japan'), Row(code='ID', name='Java, Dutch East Indies'), Row(code='KE', name='Kenya'), Row(code='BR', name='Korea'), Row(code='LV', name='Latvia'), Row(code='LB', name='Lebanon'), Row(code='LR', name='Liberia'), Row(code='LT', name='Lithuania'), Row(code='LU', name='Luxembourg'), Row(code='MG', name='Madagascar'), Row(code='MU', name='Mauritius'), Row(code='DE', name='Mecklenburg'), Row(code='MX', name='Mexico'), Row(code='MA', name='Morocco'), Row(code='MM', name='Myanmar'), Row(code='NZ', name='New Zealand'), Row(code='NG', name='Nigeria'), Row(code='MK', name='North Macedonia'), Row(code='GB', name='Northern Ireland'), Row(code='ZM', name='Northern Rhodesia'), Row(code='NO', name='Norway'), Row(code='TR', name='Ottoman Empire'), Row(code='PK', name='Pakistan'), Row(code='US', name='Palestine'), Row(code='IR', name='Persia'), Row(code='PE', name='Peru'), Row(code='PH', name='Philippines'), Row(code='PL', name='Poland'), Row(code='PL', name='Poland, Russian Empire'), Row(code='PT', name='Portugal'), Row(code='PL', name='Prussia'), Row(code='PR', name='Puerto Rico'), Row(code='MK', name='Republic of Macedonia'), Row(code='RO', name='Romania'), Row(code='RU', name='Russia'), Row(code='RU', name='Russia, Soviet Union'), Row(code='AZ', name='Russian Empire'), Row(code='LC', name='Saint Lucia'), Row(code='DE', name='Schleswig'), Row(code='GB', name='Scotland'), Row(code='RS', name='Serbia'), Row(code='SG', name='Singapore'), Row(code='SK', name='Slovakia'), Row(code='SI', name='Slovenia'), Row(code='ZA', name='South Africa'), Row(code='KR', name='South Korea'), Row(code='ZW', name='Southern Rhodesia'), Row(code='ES', name='Spain'), Row(code='SE', name='Sweden'), Row(code='CH', name='Switzerland'), Row(code='TW', name='Taiwan'), Row(code='NL', name='the Netherlands'), Row(code='CN', name='Tibet'), Row(code='TT', name='Trinidad and Tobago'), Row(code='TN', name='Tunisia'), Row(code='TR', name='Turkey'), Row(code='IT', name='Tuscany'), Row(code='UA', name='Ukraine'), Row(code='ZA', name='Union of South Africa'), Row(code='GB', name='United Kingdom'), Row(code='US', name='USA'), Row(code='RU', name='USSR'), Row(code='VE', name='Venezuela'), Row(code='VN', name='Vietnam'), Row(code='DE', name='West Germany'), Row(code='DE', name='W\u00fcrttemberg'), Row(code='YE', name='Yemen'), Row(code='YU', name='Yugoslavia'), Row(code='ZM', name='Zambia'), Row(code='ZW', name='Zimbabwe')]"
                     ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
                 }
             ]
         }
@@ -3690,7 +4170,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577364017
+            "lastUpdatedTimestamp": 1688444929021
         }
     },
     "systemMetadata": {
@@ -4019,6 +4499,58 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -4145,7 +4677,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577374017
+            "lastUpdatedTimestamp": 1688444939021
         }
     },
     "systemMetadata": {
@@ -4322,6 +4854,58 @@
                         "Dreadful",
                         "Dreadful"
                     ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
                 }
             ]
         }
@@ -4771,7 +5355,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577384017
+            "lastUpdatedTimestamp": 1688444949021
         }
     },
     "systemMetadata": {
@@ -6945,6 +7529,58 @@
                         "8",
                         "8"
                     ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
+                    "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
+                    "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+                },
+                {
+                    "id": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+                    "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
+                },
+                {
+                    "id": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+                    "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
+                },
+                {
+                    "id": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+                    "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
+                },
+                {
+                    "id": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+                    "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
+                },
+                {
+                    "id": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+                    "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
+                },
+                {
+                    "id": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+                    "urn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
+                },
+                {
+                    "id": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+                    "urn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9"
                 }
             ]
         }
