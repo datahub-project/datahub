@@ -61,8 +61,13 @@ public class SearchService {
   @Nonnull
   public SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
+    List<String> entitiesToSearch = getEntitiesToSearch(entityNames);
+    if (entitiesToSearch.isEmpty()) {
+      // Optimization: If the indices are all empty, return empty result
+      return getEmptySearchResult(from, size);
+    }
     SearchResult result =
-        _cachingEntitySearchService.search(getEntitiesToSearch(entityNames), input, postFilters, sortCriterion, from, size, searchFlags, null);
+        _cachingEntitySearchService.search(entitiesToSearch, input, postFilters, sortCriterion, from, size, searchFlags, null);
 
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));
@@ -110,6 +115,10 @@ public class SearchService {
       facets.add(INDEX_VIRTUAL_FIELD);
     }
     List<String> nonEmptyEntities = getEntitiesToSearch(entities);
+    if (nonEmptyEntities.isEmpty()) {
+      // Optimization: If the indices are all empty, return empty result
+      return getEmptySearchResult(from, size);
+    }
     SearchResult result = _cachingEntitySearchService.search(nonEmptyEntities, input, postFilters, sortCriterion, from, size, searchFlags, facets);
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
       Optional<AggregationMetadata> entityTypeAgg = result.getMetadata().getAggregations().stream().filter(
@@ -170,6 +179,26 @@ public class SearchService {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
         entities, input, postFilters, sortCriterion, scrollId, size));
-    return _cachingEntitySearchService.scroll(getEntitiesToSearch(entities), input, postFilters, sortCriterion, scrollId, keepAlive, size, searchFlags);
+    List<String> entitiesToSearch = getEntitiesToSearch(entities);
+    if (entitiesToSearch.isEmpty()) {
+      // No indices with non-zero entries: skip querying and return empty result
+      return getEmptyScrollResult(size);
+    }
+    return _cachingEntitySearchService.scroll(entitiesToSearch, input, postFilters, sortCriterion, scrollId, keepAlive, size, searchFlags);
+  }
+
+  private static SearchResult getEmptySearchResult(int from, int size) {
+    return new SearchResult().setEntities(new SearchEntityArray())
+        .setNumEntities(0)
+        .setFrom(from)
+        .setPageSize(size)
+        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+  }
+
+  private static ScrollResult getEmptyScrollResult(int size) {
+    return new ScrollResult().setEntities(new SearchEntityArray())
+        .setNumEntities(0)
+        .setPageSize(size)
+        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
 }
