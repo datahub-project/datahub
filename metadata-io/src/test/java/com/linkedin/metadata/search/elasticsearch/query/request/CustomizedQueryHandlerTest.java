@@ -4,9 +4,10 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.CustomConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
-import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
@@ -39,6 +40,10 @@ public class CustomizedQueryHandlerTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+    public static final SearchQueryBuilder SEARCH_QUERY_BUILDER;
+    static {
+      SEARCH_QUERY_BUILDER = new SearchQueryBuilder(new SearchConfiguration(), TEST_CONFIG);
     }
     private static final List<QueryConfiguration> EXPECTED_CONFIGURATION = List.of(
             QueryConfiguration.builder()
@@ -137,7 +142,8 @@ public class CustomizedQueryHandlerTest {
         /*
          * Test select star
          */
-        FunctionScoreQueryBuilder selectStarTest = test.lookupQueryConfig("*").get().functionScoreQueryBuilder(inputQuery);
+        FunctionScoreQueryBuilder selectStarTest = SEARCH_QUERY_BUILDER.functionScoreQueryBuilder(test.lookupQueryConfig("*").get(),
+            inputQuery);
 
         FunctionScoreQueryBuilder.FilterFunctionBuilder[] expectedSelectStarScoreFunctions = {
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(
@@ -161,7 +167,7 @@ public class CustomizedQueryHandlerTest {
         /*
          * Test default (non-select start)
          */
-        FunctionScoreQueryBuilder defaultTest = test.lookupQueryConfig("foobar").get().functionScoreQueryBuilder(inputQuery);
+        FunctionScoreQueryBuilder defaultTest = SEARCH_QUERY_BUILDER.functionScoreQueryBuilder(test.lookupQueryConfig("foobar").get(), inputQuery);
 
         FunctionScoreQueryBuilder.FilterFunctionBuilder[] expectedDefaultScoreFunctions = {
                 new FunctionScoreQueryBuilder.FilterFunctionBuilder(

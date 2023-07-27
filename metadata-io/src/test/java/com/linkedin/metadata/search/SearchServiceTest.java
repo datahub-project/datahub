@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search;
 
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,8 +10,6 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;

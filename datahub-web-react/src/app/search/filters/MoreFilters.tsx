@@ -5,8 +5,10 @@ import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import MoreFilterOption from './MoreFilterOption';
 import { getNumActiveFiltersForGroupOfFilters } from './utils';
-import { DropdownLabel } from './SearchFilterView';
+import { SearchFilterLabel } from './styledComponents';
 import useSearchFilterAnalytics from './useSearchFilterAnalytics';
+import { useFilterRendererRegistry } from './render/useFilterRenderer';
+import { FilterScenarioType } from './render/types';
 
 const StyledPlus = styled(PlusOutlined)`
     svg {
@@ -36,6 +38,7 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
     const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
+    const filterRendererRegistry = useFilterRendererRegistry();
 
     function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
         onChangeFilters(newFilters);
@@ -52,23 +55,32 @@ export default function MoreFilters({ filters, activeFilters, onChangeFilters }:
             trigger={['click']}
             dropdownRender={() => (
                 <DropdownMenu padding="4px 0px">
-                    {filters.map((filter) => (
-                        <MoreFilterOption
-                            key={filter.field}
-                            filter={filter}
-                            activeFilters={activeFilters}
-                            onChangeFilters={updateFiltersAndClose}
-                        />
-                    ))}
+                    {filters.map((filter) => {
+                        return filterRendererRegistry.hasRenderer(filter.field) ? (
+                            filterRendererRegistry.render(filter.field, {
+                                scenario: FilterScenarioType.SEARCH_V2_SECONDARY,
+                                filter,
+                                activeFilters,
+                                onChangeFilters: updateFiltersAndClose,
+                            })
+                        ) : (
+                            <MoreFilterOption
+                                key={filter.field}
+                                filter={filter}
+                                activeFilters={activeFilters}
+                                onChangeFilters={updateFiltersAndClose}
+                            />
+                        );
+                    })}
                 </DropdownMenu>
             )}
             open={isMenuOpen}
             onOpenChange={onOpenChange}
         >
-            <DropdownLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
+            <SearchFilterLabel data-testid="more-filters-dropdown" isActive={!!numActiveFilters}>
                 <StyledPlus />
                 More Filters {numActiveFilters ? `(${numActiveFilters}) ` : ''}
-            </DropdownLabel>
+            </SearchFilterLabel>
         </Dropdown>
     );
 }

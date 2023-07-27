@@ -33,8 +33,7 @@ public class NoCodeUpgrade implements Upgrade {
       final Authentication systemAuthentication,
       final RestliEntityClient entityClient) {
     _steps = buildUpgradeSteps(
-        server,
-        entityService,
+        server, entityService,
         entityRegistry,
         systemAuthentication,
         entityClient);

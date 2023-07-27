@@ -1,10 +1,10 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.gms.factory.common.TopicConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.kafka.KafkaConfiguration;
-import com.linkedin.metadata.schema.registry.SchemaRegistryService;
-import com.linkedin.metadata.schema.registry.SchemaRegistryServiceImpl;
+import com.linkedin.metadata.registry.SchemaRegistryService;
+import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
 import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;

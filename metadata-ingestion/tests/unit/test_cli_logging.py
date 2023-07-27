@@ -9,9 +9,13 @@ from click.testing import CliRunner
 from datahub.entrypoints import datahub
 from datahub.utilities.logging_manager import DATAHUB_PACKAGES, get_log_buffer
 
+pytestmark = pytest.mark.skip(reason="Reconfiguring logging messes up pytest")
+
 
 @pytest.fixture(autouse=True, scope="module")
-def cleanup():
+def cleanup(monkeypatch):
+    monkeypatch.setenv("DATAHUB_SUPPRESS_LOGGING_MANAGER", "0")
+
     """Attempt to clear undo the stateful changes done by invoking `my_logging_fn`, which calls `configure_logging`."""
     yield
     for lib in DATAHUB_PACKAGES:

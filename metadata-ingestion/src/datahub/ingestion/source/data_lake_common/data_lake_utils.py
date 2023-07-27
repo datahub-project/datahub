@@ -3,9 +3,9 @@ from typing import Iterable, List, Optional
 
 from datahub.emitter.mcp_builder import (
     BucketKey,
+    ContainerKey,
     FolderKey,
     KeyType,
-    PlatformKey,
     add_dataset_to_container,
     gen_containers,
 )
@@ -45,7 +45,7 @@ class ContainerWUCreator:
         container_key: KeyType,
         name: str,
         sub_types: List[str],
-        parent_container_key: Optional[PlatformKey] = None,
+        parent_container_key: Optional[ContainerKey] = None,
         domain_urn: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         if container_key.guid() not in self.processed_containers:

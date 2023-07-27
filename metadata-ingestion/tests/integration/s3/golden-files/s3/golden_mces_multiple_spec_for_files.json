@@ -149,7 +149,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847620000
         }
     },
     "systemMetadata": {
@@ -754,7 +754,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688419668000
+            "lastUpdatedTimestamp": 1586847630000
         }
     },
     "systemMetadata": {

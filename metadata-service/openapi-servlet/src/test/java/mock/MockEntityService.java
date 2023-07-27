@@ -1,5 +1,6 @@
 package mock;
 
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -19,11 +20,11 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
-import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -56,7 +57,7 @@ import org.jetbrains.annotations.Nullable;
 import static entities.EntitiesControllerTest.*;
 
 
-public class MockEntityService extends EntityService {
+public class MockEntityService extends EntityServiceImpl {
   public MockEntityService(@Nonnull AspectDao aspectDao, @Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry, @Nonnull
       UpdateIndicesService updateIndicesService, PreProcessHooks preProcessHooks) {
     super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks);

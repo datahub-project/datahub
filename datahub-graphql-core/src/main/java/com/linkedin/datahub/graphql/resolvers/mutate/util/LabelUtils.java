@@ -136,7 +136,8 @@ public class LabelUtils {
   ) throws URISyntaxException {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(resourceUrn.toString(), GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms());
+          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(resourceUrn.toString(), GLOSSARY_TERM_ASPECT_NAME,
+              entityService, new GlossaryTerms());
       terms.setAuditStamp(getAuditStamp(actor));
 
       if (!terms.hasTerms()) {
@@ -321,7 +322,8 @@ public class LabelUtils {
       EntityService entityService
   ) {
     com.linkedin.common.GlobalTags tags =
-        (com.linkedin.common.GlobalTags) getAspectFromEntity(resource.getResourceUrn(), TAGS_ASPECT_NAME, entityService, new GlobalTags());
+        (com.linkedin.common.GlobalTags) getAspectFromEntity(resource.getResourceUrn(), TAGS_ASPECT_NAME,
+            entityService, new GlobalTags());
 
     if (!tags.hasTags()) {
       tags.setTags(new TagAssociationArray());
@@ -358,7 +360,8 @@ public class LabelUtils {
       EntityService entityService
   ) throws URISyntaxException {
     com.linkedin.common.GlobalTags tags =
-        (com.linkedin.common.GlobalTags) getAspectFromEntity(resource.getResourceUrn(), TAGS_ASPECT_NAME, entityService, new GlobalTags());
+        (com.linkedin.common.GlobalTags) getAspectFromEntity(resource.getResourceUrn(), TAGS_ASPECT_NAME,
+            entityService, new GlobalTags());
 
     if (!tags.hasTags()) {
       tags.setTags(new TagAssociationArray());
@@ -450,7 +453,8 @@ public class LabelUtils {
       EntityService entityService
   ) throws URISyntaxException {
     com.linkedin.common.GlossaryTerms terms =
-        (com.linkedin.common.GlossaryTerms) getAspectFromEntity(resource.getResourceUrn(), GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms());
+        (com.linkedin.common.GlossaryTerms) getAspectFromEntity(resource.getResourceUrn(), GLOSSARY_TERM_ASPECT_NAME,
+            entityService, new GlossaryTerms());
     terms.setAuditStamp(getAuditStamp(actor));
 
     if (!terms.hasTerms()) {

@@ -487,6 +487,7 @@ module.exports = {
             "docs/how/add-custom-ingestion-source",
             "docs/how/add-custom-data-platform",
             "docs/advanced/browse-paths-upgrade",
+            "docs/browseV2/browse-paths-v2",
           ],
         },
       ],
@@ -641,6 +642,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // - "metadata-service/services/README"
     // ],
   ],
 };

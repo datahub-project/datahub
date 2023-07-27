@@ -110,7 +110,7 @@ public class BatchIngestionRunResource extends CollectionResourceTaskTemplate<St
     }
     try {
       return RestliUtil.toTask(() -> {
-        if (runId.equals(EntityService.DEFAULT_RUN_ID)) {
+        if (runId.equals(DEFAULT_RUN_ID)) {
           throw new IllegalArgumentException(String.format(
               "%s is a default run-id provided for non labeled ingestion runs. You cannot delete using this reserved run-id",
               runId));

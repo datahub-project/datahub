@@ -127,8 +127,10 @@ public class IngestDataPlatformInstancesStepTest {
       AspectMigrationsDao migrationsDao,
       int countOfCorpUserEntities,
       int countOfChartEntities) {
-    List<Urn> corpUserUrns = insertMockEntities(countOfCorpUserEntities, "corpuser", "urn:li:corpuser:test%d", entityRegistry, entityService);
-    List<Urn> charUrns = insertMockEntities(countOfChartEntities, "chart", "urn:li:chart:(looker,test%d)", entityRegistry, entityService);
+    List<Urn> corpUserUrns = insertMockEntities(countOfCorpUserEntities, "corpuser", "urn:li:corpuser:test%d", entityRegistry,
+        entityService);
+    List<Urn> charUrns = insertMockEntities(countOfChartEntities, "chart", "urn:li:chart:(looker,test%d)", entityRegistry,
+        entityService);
     List<String> allUrnsInDB = Stream.concat(corpUserUrns.stream(), charUrns.stream()).map(Urn::toString).collect(Collectors.toList());
     when(migrationsDao.checkIfAspectExists(DATA_PLATFORM_INSTANCE_ASPECT_NAME)).thenReturn(false);
     when(migrationsDao.countEntities()).thenReturn((long) allUrnsInDB.size());

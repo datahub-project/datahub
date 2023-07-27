@@ -277,7 +277,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
 
-        return ValidationUtils.validateSearchResult(_entitySearchService.search(entity, input, newFilter(requestFilters),
+        return ValidationUtils.validateSearchResult(_entitySearchService.search(List.of(entity), input, newFilter(requestFilters),
                 null, start, count, searchFlags), _entityService);
     }
 
@@ -329,7 +329,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable SearchFlags searchFlags)
         throws RemoteInvocationException {
         return ValidationUtils.validateSearchResult(
-                _entitySearchService.search(entity, input, filter, sortCriterion, start, count, searchFlags), _entityService);
+                _entitySearchService.search(List.of(entity), input, filter, sortCriterion, start, count, searchFlags), _entityService);
     }
 
     @Nonnull
@@ -368,8 +368,7 @@ public class JavaEntityClient implements EntityClient {
         @Nullable List<String> facets) throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets),
-            _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets), _entityService);
     }
 
     @Nonnull
@@ -406,8 +405,7 @@ public class JavaEntityClient implements EntityClient {
         throws RemoteInvocationException {
         return ValidationUtils.validateLineageSearchResult(
             _lineageSearchService.searchAcrossLineage(sourceUrn, direction, entities, input, maxHops, filter,
-                        sortCriterion, start, count, startTimeMillis, endTimeMillis, searchFlags),
-                _entityService);
+                        sortCriterion, start, count, startTimeMillis, endTimeMillis, searchFlags), _entityService);
     }
 
     @Nonnull

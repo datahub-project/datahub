@@ -27,7 +27,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -143,9 +142,6 @@ class VerticaSource(SQLAlchemySource):
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "VerticaSource":
         config = VerticaConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config

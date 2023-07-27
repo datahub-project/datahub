@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -88,7 +89,8 @@ public class MockEntitySpec implements EntitySpec {
 
   @Override
   public List<AspectSpec> getAspectSpecs() {
-    return Collections.emptyList();
+    return ASPECT_TYPE_MAP.keySet().stream().map(name -> createAspectSpec(ASPECT_TYPE_MAP.get(name), name)).collect(
+        Collectors.toList());
   }
 
   @Override

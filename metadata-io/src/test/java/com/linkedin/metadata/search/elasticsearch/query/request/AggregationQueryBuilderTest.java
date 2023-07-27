@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.util.Collections;
 import java.util.List;
