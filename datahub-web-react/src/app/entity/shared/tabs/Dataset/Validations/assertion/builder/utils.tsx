@@ -10,6 +10,7 @@ import {
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
     AssertionActionType,
+    AssertionEvaluationParametersType,
 } from '../../../../../../../../types.generated';
 import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
@@ -283,6 +284,16 @@ export const getAssertionTypesForEntityType = (entityType: EntityType) => {
 
 export const getDefaultFreshnessSourceOption = (platformUrn: string) => {
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
+};
+
+export const getDefaultDatasetFreshnessAssertionParametersState = (platformUrn: string) => {
+    return {
+        type: AssertionEvaluationParametersType.DatasetFreshness,
+        datasetFreshnessParameters: {
+            sourceType: getDefaultFreshnessSourceOption(platformUrn),
+            auditLog: {},
+        },
+    };
 };
 
 export const getFreshnessSourceOptions = (platformUrn: string) => {

@@ -1,5 +1,4 @@
 import {
-    AssertionEvaluationParametersType,
     AssertionType,
     DateInterval,
     EntityType,
@@ -57,15 +56,6 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
             unit: DateInterval.Hour,
             multiple: 6,
         },
-    },
-};
-
-// Default assertion parameters used when the selected type is Freshness
-export const DEFAULT_DATASET_FRESHNESS_ASSERTION_PARAMETERS_STATE = {
-    type: AssertionEvaluationParametersType.DatasetFreshness,
-    datasetFreshnessParameters: {
-        sourceType: undefined,
-        auditLog: {},
     },
 };
 
