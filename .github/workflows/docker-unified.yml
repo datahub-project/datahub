@@ -501,6 +501,18 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+          -H 'Content-Type: application/json' -d'{
+            "persistent": {
+              "cluster": {
+                "routing": {
+                  "allocation.disk.threshold_enabled": false
+                }
+              }
+            }
+          }'
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
