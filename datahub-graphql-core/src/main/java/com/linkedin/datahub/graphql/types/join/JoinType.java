@@ -199,16 +199,23 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
             resourceUrn.toString(),
             orPrivilegeGroups);
   }
-  public static boolean isAuthorizedToCreateJoin(@Nonnull QueryContext context, Urn resourceUrn) {
+  public static boolean isAuthorizedToCreateJoin(@Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
               new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.CREATE_JOIN_PRIVILEGE.getType()))
     ));
-    return AuthorizationUtils.isAuthorized(
+    boolean datasetAPrivilege = AuthorizationUtils.isAuthorized(
             context.getAuthorizer(),
             context.getActorUrn(),
-            resourceUrn.getEntityType(),
-            resourceUrn.toString(),
+            datasetAUrn.getEntityType(),
+            datasetAUrn.toString(),
             orPrivilegeGroups);
+    boolean datasetBPrivilege = AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            datasetBUrn.getEntityType(),
+            datasetBUrn.toString(),
+            orPrivilegeGroups);
+    return datasetAPrivilege && datasetBPrivilege;
   }
 }
 

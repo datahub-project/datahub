@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.join;
 
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.JoinUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
@@ -32,7 +33,8 @@ public class CreateJoinResolver implements DataFetcher<CompletableFuture<Boolean
         JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
         QueryContext context = environment.getContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
-        if (!JoinType.isAuthorizedToCreateJoin(context, inputUrn)) {
+        if (!JoinType.isAuthorizedToCreateJoin(context, Urn.createFromString(input.getProperties().getDataSetA()),
+                Urn.createFromString(input.getProperties().getDatasetB()))) {
             throw new AuthorizationException("Unauthorized to create join. Please contact your DataHub administrator.");
         }
         return CompletableFuture.supplyAsync(() -> {

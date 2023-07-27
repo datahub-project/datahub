@@ -227,8 +227,7 @@ public class PoliciesConfig {
       EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
       EDIT_ENTITY_DEPRECATION_PRIVILEGE,
       EDIT_ENTITY_PRIVILEGE,
-      DELETE_ENTITY_PRIVILEGE,
-      CREATE_JOIN_PRIVILEGE
+      DELETE_ENTITY_PRIVILEGE
   );
 
   // Dataset Privileges
@@ -366,7 +365,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
               EDIT_LINEAGE_PRIVILEGE,
               EDIT_ENTITY_EMBED_PRIVILEGE,
-              EDIT_QUERIES_PRIVILEGE))
+              EDIT_QUERIES_PRIVILEGE,
+              CREATE_JOIN_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
@@ -523,7 +523,7 @@ public class PoliciesConfig {
   public static final ResourcePrivileges JOIN_PRIVILEGES = ResourcePrivileges.of(
           "join",
           "Join",
-          "Create or update privileges for joins",
+          "update privileges for joins",
           COMMON_ENTITY_PRIVILEGES
   );
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
