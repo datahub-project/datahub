@@ -39,19 +39,6 @@ import org.apache.commons.io.IOUtils;
 @Slf4j
 public class SearchUtils {
 
-  public static final SearchResult EMPTY_SEARCH_RESULT =
-      new SearchResult().setEntities(new SearchEntityArray(Collections.emptyList()))
-          .setMetadata(new SearchResultMetadata())
-          .setFrom(0)
-          .setPageSize(0)
-          .setNumEntities(0);
-
-  public static final ScrollResult EMPTY_SCROLL_RESULT =
-      new ScrollResult().setEntities(new SearchEntityArray(Collections.emptyList()))
-          .setMetadata(new SearchResultMetadata())
-          .setPageSize(0)
-          .setNumEntities(0);
-
   private SearchUtils() {
 
   }
