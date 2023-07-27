@@ -17,7 +17,7 @@ docker {
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
     }.exclude {
-        i -> i.file.isHidden()
+        i -> i.file.isHidden() || i.file == buildDir
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 

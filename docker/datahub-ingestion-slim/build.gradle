@@ -11,20 +11,32 @@ ext {
     docker_dir = 'datahub-ingestion-slim'
 }
 
+dependencies {
+    project(':metadata-events:mxe-schemas')
+    project(':docker:datahub-ingestion-base')
+}
+
 docker {
     name "${docker_registry}/${docker_repo}:v${version}"
     version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
+        include "metadata-ingestion/**"
+        include "metadata-events/mxe-schemas/**"
+        include "metadata-models/**"
     }.exclude {
-        i -> i.file.isHidden()
+        i -> i.file.isHidden() ||
+                i.file == buildDir ||
+                i.file == project(':metadata-events:mxe-schemas').buildDir ||
+                i.file == project(':metadata-models').buildDir
     }
-    buildArgs([DOCKER_VERSION: version])
+    buildArgs([DOCKER_VERSION: version, RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '')])
 
     buildx(false)
 }
-tasks.getByName('docker').dependsOn(['build', ':docker:datahub-ingestion:docker'])
+tasks.getByName('docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
+tasks.getByName('dockerPrepare').dependsOn([':metadata-events:mxe-schemas:build'])
 
 task mkdirBuildDocker {
     doFirst {

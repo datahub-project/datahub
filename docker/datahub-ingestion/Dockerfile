@@ -2,54 +2,15 @@
 ARG APP_ENV=prod
 ARG DOCKER_VERSION=latest
 
-FROM acryldata/datahub-ingestion-base:$DOCKER_VERSION as base
-
-FROM eclipse-temurin:11 as prod-build
-COPY . /datahub-src
-WORKDIR /datahub-src
-# We noticed that the gradle wrapper download failed frequently on in CI on arm64 machines.
-# I suspect this was due because of the QEMU emulation slowdown, combined with the arm64
-# build being starved for CPU by the x86_64 build's codegen step.
-#
-# The middle step will attempt to download gradle wrapper 5 times with exponential backoff.
-# The ./gradlew --version will force the download of the gradle wrapper but is otherwise a no-op.
-# Note that the retry logic will always return success, so we should always attempt to run codegen.
-# Inspired by https://github.com/gradle/gradle/issues/18124#issuecomment-958182335.
-# and https://unix.stackexchange.com/a/82610/378179.
-# This is a workaround for https://github.com/gradle/gradle/issues/18124.
-RUN (for attempt in 1 2 3 4 5; do ./gradlew --version && break ; echo "Failed to download gradle wrapper (attempt $attempt)" && sleep $((2<<$attempt)) ; done ) && \
-    ./gradlew :metadata-events:mxe-schemas:build
-
-FROM base as prod-codegen
-USER 0
-
-COPY --from=prod-build /datahub-src /datahub-src
-WORKDIR /datahub-src/metadata-ingestion
-RUN pip install -e ".[base]" && \
-    ./scripts/codegen.sh
+FROM acryldata/datahub-ingestion-slim:$DOCKER_VERSION as base
 
 FROM base as prod-install
-USER 0
-
-COPY --from=prod-codegen /datahub-src/metadata-ingestion /datahub-ingestion
-COPY --from=prod-codegen /root/.cache/pip /datahub-ingestion/.cache/pip
-
-COPY ./docker/datahub-ingestion/requirements.txt requirements.txt
-RUN pip install -r requirements.txt
-
-ARG RELEASE_VERSION
 WORKDIR /datahub-ingestion
-RUN sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
-    cat src/datahub/__init__.py && \
-    pip install ".[all]" && \
-    # This is required to fix security vulnerability in htrace-core4
-    rm -f /usr/local/lib/3.10/site-packages/pyspark/jars/htrace-core4-4.1.0-incubating.jar && \
-    chown -R datahub /datahub-ingestion
+
+RUN pip install --user ".[all]"
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
 # See this excellent thread https://github.com/docker/cli/issues/1134
 
 FROM ${APP_ENV}-install as final
-
-USER datahub

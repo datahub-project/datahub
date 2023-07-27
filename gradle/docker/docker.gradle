@@ -35,6 +35,7 @@ ext.cleanLocalDockerImages = {
         if(!images.isEmpty()) {
             println "Removing images: $images"
             exec {
+                ignoreExitValue true // may not work if used by downstream image
                 commandLine = ["docker", "rmi", "-f"] + images
             }
         }

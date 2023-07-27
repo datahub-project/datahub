@@ -1,3 +1,7 @@
+# Excluded for slim
+# pyspark==3.0.3
+# pydeequ==1.0.1
+
 acryl-datahub-classify==0.0.6
 acryl-iceberg-legacy==0.0.4
 acryl-PyHive==0.6.13

@@ -11,26 +11,22 @@ ext {
     docker_dir = 'datahub-ingestion'
 }
 
+dependencies {
+    project(':docker:datahub-ingestion-slim')
+}
+
 docker {
     name "${docker_registry}/${docker_repo}:v${version}"
     version "v${version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
-        include "metadata-ingestion/**"
-        include "metadata-events/**"
-        include "metadata-models/**"
-        include "li-utils/**"
-        include "docs/**"
-        include "gradle/**"
-        include "buildSrc/**"
-        include "*"
     }.exclude {
-        i -> i.file.isHidden()
+        i -> i.file.isHidden() || i.file == buildDir
     }
     buildArgs([DOCKER_VERSION: version])
 }
-tasks.getByName('docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
+tasks.getByName('docker').dependsOn(['build', ':docker:datahub-ingestion-slim:docker'])
 
 task mkdirBuildDocker {
     doFirst {
