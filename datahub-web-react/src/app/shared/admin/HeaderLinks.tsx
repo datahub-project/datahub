@@ -1,5 +1,7 @@
 import styled from 'styled-components/macro';
 import * as React from 'react';
+import {Trans} from "react-i18next";
+import {t} from "i18next";
 import {
     ApiOutlined,
     BarChartOutlined,
@@ -16,6 +18,7 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepIdsAllowlist } from '../../onboarding/useUpdateEducationStepIdsAllowlist';
 import { useUserContext } from '../../context/useUserContext';
+import {HeaderTranslate} from "../../../components/shared/HeaderTranslate"
 
 const LinkWrapper = styled.span`
     margin-right: 0px;
@@ -83,10 +86,10 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/analytics">
                         <Button type="text">
-                            <Tooltip title="View DataHub usage analytics">
+                            <Tooltip title={t ('View DataHub usage analytics')}>
                                 <NavTitleContainer>
                                     <BarChartOutlined />
-                                    <NavTitleText>Analytics</NavTitleText>
+                                    <NavTitleText><Trans>Analytics</Trans></NavTitleText>
                                 </NavTitleContainer>
                             </Tooltip>
                         </Button>
@@ -97,10 +100,10 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/ingestion">
                         <Button id={HOME_PAGE_INGESTION_ID} type="text">
-                            <Tooltip title="Connect DataHub to your organization's data sources">
+                            <Tooltip title={t ('Connect DataHub to your organization\'s data sources')}>
                                 <NavTitleContainer>
                                     <ApiOutlined />
-                                    <NavTitleText>Ingestion</NavTitleText>
+                                    <NavTitleText><Trans>Ingestion</Trans></NavTitleText>
                                 </NavTitleContainer>
                             </Tooltip>
                         </Button>
@@ -115,9 +118,9 @@ export function HeaderLinks(props: Props) {
                             <Link to="/glossary">
                                 <NavTitleContainer>
                                     <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                    <NavTitleText>Glossary</NavTitleText>
+                                    <NavTitleText><Trans>Glossary</Trans></NavTitleText>
                                 </NavTitleContainer>
-                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
+                                <NavTitleDescription><Trans>View and modify your data dictionary</Trans></NavTitleDescription>
                             </Link>
                         </MenuItem>
                         {showDomains && (
@@ -125,9 +128,9 @@ export function HeaderLinks(props: Props) {
                                 <Link to="/domains">
                                     <NavTitleContainer>
                                         <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
-                                        <NavTitleText>Domains</NavTitleText>
+                                        <NavTitleText><Trans>Domains</Trans></NavTitleText>
                                     </NavTitleContainer>
-                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
+                                    <NavTitleDescription><Trans>Manage related groups of data assets</Trans></NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}
@@ -136,15 +139,16 @@ export function HeaderLinks(props: Props) {
             >
                 <LinkWrapper>
                     <Button type="text">
-                        <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
+                        <SolutionOutlined /> <Trans>Govern</Trans> <DownOutlined style={{ fontSize: '6px' }} />
                     </Button>
                 </LinkWrapper>
             </Dropdown>
+            <HeaderTranslate/>
             {showSettings && (
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
-                            <Tooltip title="Manage your DataHub settings">
+                            <Tooltip title={t ('Manage your DataHub settings')}>
                                 <SettingOutlined />
                             </Tooltip>
                         </Button>
