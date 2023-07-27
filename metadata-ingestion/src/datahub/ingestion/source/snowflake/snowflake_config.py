@@ -267,7 +267,7 @@ class SnowflakeV2Config(
 
         # Check: same database from some platform instance as inbound and outbound
         other_platform_instance_databases: Sequence[SnowflakeDatabaseDataHubId] = [
-            db for db in inbound_shares_map.values()
+            db for db in set(inbound_shares_map.values())
         ] + [db for dbs in outbound_shares_map.values() for db in dbs]
 
         for other_instance_db in other_platform_instance_databases:

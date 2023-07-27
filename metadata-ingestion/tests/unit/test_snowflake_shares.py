@@ -242,10 +242,9 @@ def test_snowflake_shares_workunit_inbound_share(
             siblings_aspect = wu.get_aspect_of_type(Siblings)
             assert siblings_aspect is not None
             sibling_aspect_entity_urns.add(wu.get_urn())
-            assert len(siblings_aspect.siblings) == 2  # upstream and itself
+            assert len(siblings_aspect.siblings) == 1
             assert siblings_aspect.siblings == [
-                wu.get_urn().replace("instance1.db1", "instance2.original_db1"),
-                wu.get_urn(),
+                wu.get_urn().replace("instance1.db1", "instance2.original_db1")
             ]
 
     assert len(upstream_lineage_aspect_entity_urns) == 6
@@ -286,11 +285,10 @@ def test_snowflake_shares_workunit_outbound_share(
         siblings_aspect = wu.get_aspect_of_type(Siblings)
         assert siblings_aspect is not None
         entity_urns.add(wu.get_urn())
-        assert len(siblings_aspect.siblings) == 3  # 2 consumers and itself
+        assert len(siblings_aspect.siblings) == 2
         assert siblings_aspect.siblings == [
             wu.get_urn().replace("instance1.db2", "instance2.db2_from_share"),
             wu.get_urn().replace("instance1.db2", "instance3.db2"),
-            wu.get_urn(),
         ]
 
     assert len((entity_urns)) == 6
@@ -345,15 +343,13 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
             siblings_aspect = wu.get_aspect_of_type(Siblings)
             assert siblings_aspect is not None
             if "db1" in wu.get_urn():
-                assert len(siblings_aspect.siblings) == 2  # upstream and itself
+                assert len(siblings_aspect.siblings) == 1
                 assert siblings_aspect.siblings == [
-                    wu.get_urn().replace("instance1.db1", "instance2.original_db1"),
-                    wu.get_urn(),
+                    wu.get_urn().replace("instance1.db1", "instance2.original_db1")
                 ]
             else:
-                assert len(siblings_aspect.siblings) == 3  # 2 consumers and itself
+                assert len(siblings_aspect.siblings) == 2
                 assert siblings_aspect.siblings == [
                     wu.get_urn().replace("instance1.db2", "instance2.db2_from_share"),
                     wu.get_urn().replace("instance1.db2", "instance3.db2"),
-                    wu.get_urn(),
                 ]

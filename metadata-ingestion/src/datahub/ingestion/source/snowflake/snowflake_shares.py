@@ -54,6 +54,12 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
 
             for schema in db.schemas:
                 for table_name in schema.tables + schema.views:
+                    # TODO: If this is outbound database,
+                    # 1. attempt listing shares using `show shares` to identify name of share associated with this database (cache query result).
+                    # 2. if corresponding share is listed, then run `show grants to share <share_name>` to identify exact tables, views included in share.
+                    # 3. emit siblings only for the objects listed above.
+                    # This will work only if the configured role has accountadmin role access OR is owner of share.
+                    # Otherwise ghost nodes will be shown in "Composed Of" section for tables/views in original database which are not granted to share.
                     yield from self.get_siblings(
                         db.name,
                         schema.name,
@@ -130,8 +136,6 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             )
             for sibling_db in sibling_databases
         ]
-
-        sibling_urns.append(urn)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=urn, aspect=Siblings(primary=primary, siblings=sibling_urns)
