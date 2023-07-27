@@ -944,7 +944,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "property_id",
+                                "fieldPath": "[version=2.0].[type=int].property_id",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -957,7 +957,7 @@
                                 "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "service",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -970,7 +970,7 @@
                                 "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:array<int>>\"}"
                             },
                             {
-                                "fieldPath": "service.type",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
                                 "nullable": true,
                                 "type": {
                                     "type": {
@@ -983,7 +983,7 @@
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {
-                                "fieldPath": "service.provider",
+                                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
                                 "nullable": true,
                                 "type": {
                                     "type": {
