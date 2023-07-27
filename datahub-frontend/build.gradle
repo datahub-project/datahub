@@ -100,7 +100,7 @@ tasks.getByName("docker").dependsOn(unversionZip)
 
 task cleanLocalDockerImages {
   doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}".toString())
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

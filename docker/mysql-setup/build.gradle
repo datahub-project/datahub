@@ -27,7 +27,7 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByPath('docker').dependsOn('build')
+tasks.getByName('docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {
@@ -38,7 +38,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}")
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

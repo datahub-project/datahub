@@ -24,7 +24,7 @@ docker {
 
     buildx(false)
 }
-tasks.getByPath(':docker:datahub-ingestion-slim:docker').dependsOn(['build', ':docker:datahub-ingestion:docker'])
+tasks.getByName('docker').dependsOn(['build', ':docker:datahub-ingestion:docker'])
 
 task mkdirBuildDocker {
     doFirst {
@@ -35,7 +35,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}".toString())
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

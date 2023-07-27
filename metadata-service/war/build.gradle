@@ -86,7 +86,7 @@ tasks.getByName("docker").dependsOn([build, war])
 
 task cleanLocalDockerImages {
   doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}")
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

@@ -21,7 +21,7 @@ docker {
         i -> i.file.isHidden()
     }
 }
-tasks.getByPath(':docker:datahub-ingestion-base:docker').dependsOn('build')
+tasks.getByName('docker').dependsOn('build')
 
 task mkdirBuildDocker {
     doFirst {
@@ -32,7 +32,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}".toString())
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

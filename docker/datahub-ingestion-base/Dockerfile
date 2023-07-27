@@ -64,7 +64,7 @@ RUN pip install -r requirements.txt && \
     pip uninstall -y acryl-datahub && \
     chmod +x /entrypoint.sh && \
     addgroup --gid 1000 datahub && \
-    adduser --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
 
 USER datahub
 ENV PATH=/datahub-ingestion/.local/bin:/usr/local/bin:$PATH
