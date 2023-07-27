@@ -9,6 +9,7 @@ from isodate import parse_duration
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.airbyte.config import Constant
 from datahub.ingestion.source.airbyte.rest_api_wrapper.data_classes import (
     Connection,
@@ -40,123 +41,144 @@ class DataResolverBase(ABC):
             ),
         )
 
+    @property
     @abstractmethod
-    def get_authorization_header(self) -> Dict:
+    def BASE_URL(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def API_ENDPOINTS(self) -> Dict:
         pass
 
     @abstractmethod
-    def get_workspaces_endpoint(self) -> str:
+    def _get_authorization_header(self) -> Dict:
+        pass
+
+    @abstractmethod
+    def test_connection(self):
         pass
 
     @abstractmethod
     def get_workspaces(self) -> List[Workspace]:
         pass
 
-    def get_workspaces_from_response(self, response: List[Dict]) -> List[Workspace]:
+    @abstractmethod
+    def _get_connections(self, workspace_id: str) -> List[Connection]:
+        pass
+
+    @abstractmethod
+    def _get_source(self, source_id: str) -> Source:
+        pass
+
+    @abstractmethod
+    def _get_destination(self, destination_id: str) -> Destination:
+        pass
+
+    @abstractmethod
+    def _get_jobs(self, connection_id: str) -> List[Job]:
+        pass
+
+    def _get_workspaces_endpoint(self) -> str:
+        workspaces_endpoint: str = self.API_ENDPOINTS[Constant.WORKSPACE_LIST]
+        # Replace place holders
+        return workspaces_endpoint.format(BASE_URL=self.BASE_URL)
+
+    def _get_workspaces_from_response(self, response: List[Dict]) -> List[Workspace]:
         workspaces: List[Workspace] = [
             Workspace(
-                workspace_id=workspace.get(Constant.WORKSPACEID),
-                name=workspace.get(Constant.NAME),
+                workspace_id=response_dict[Constant.WORKSPACEID],
+                name=response_dict[Constant.NAME],
+                connections=self._get_connections(response_dict[Constant.WORKSPACEID]),
             )
-            for workspace in response
+            for response_dict in response
         ]
         return workspaces
 
-    @abstractmethod
-    def get_connections_endpoint(self, workspace: Workspace) -> str:
-        pass
+    def _get_connections_endpoint(self, workspace_id: str) -> str:
+        connections_endpoint: str = self.API_ENDPOINTS[Constant.CONNECTION_LIST]
+        # Replace place holders
+        return connections_endpoint.format(
+            BASE_URL=self.BASE_URL, WORKSPACE_ID=workspace_id
+        )
 
-    @abstractmethod
-    def get_connections(self, workspace: Workspace) -> List[Connection]:
-        pass
-
-    def get_connections_from_response(self, response: List[Dict]) -> List[Connection]:
+    def _get_connections_from_response(self, response: List[Dict]) -> List[Connection]:
         connections: List[Connection] = [
             Connection(
-                connection_id=connection.get(Constant.CONNECTIONID),
-                name=connection.get(Constant.NAME),
-                source_id=connection.get(Constant.SOURCEID),
-                destination_id=connection.get(Constant.DESTINATIONID),
-                workspace_id=connection.get(Constant.WORKSPACEID),
-                status=connection.get(Constant.STATUS),
-                namespace_definition=connection.get(Constant.NAMESPACEDEFINITION),
-                namespace_format=connection.get(Constant.NAMESPACEFORMAT),
-                prefix=connection.get(Constant.PREFIX),
+                connection_id=response_dict[Constant.CONNECTIONID],
+                name=response_dict[Constant.NAME],
+                source=self._get_source(response_dict[Constant.SOURCEID]),
+                destination=self._get_destination(
+                    response_dict[Constant.DESTINATIONID]
+                ),
+                status=response_dict[Constant.STATUS],
+                namespace_definition=response_dict[Constant.NAMESPACEDEFINITION],
+                namespace_format=response_dict[Constant.NAMESPACEFORMAT],
+                prefix=response_dict[Constant.PREFIX],
+                jobs=self._get_jobs(response_dict[Constant.CONNECTIONID]),
             )
-            for connection in response
+            for response_dict in response
         ]
         return connections
 
-    @abstractmethod
-    def get_source_endpoint(self, source_id: str) -> str:
-        pass
+    def _get_source_endpoint(self, source_id: str) -> str:
+        source_endpoint: str = self.API_ENDPOINTS[Constant.SOURCE_GET]
+        # Replace place holders
+        return source_endpoint.format(BASE_URL=self.BASE_URL, SOURCE_ID=source_id)
 
-    @abstractmethod
-    def get_source(self, source_id: str) -> Source:
-        pass
-
-    def get_source_from_response(self, response: Dict) -> Source:
+    def _get_source_from_response(self, response: Dict) -> Source:
         return Source(
-            source_id=response.get(Constant.SOURCEID),
-            name=response.get(Constant.NAME),
-            source_type=response.get(Constant.SOURCETYPE)
+            source_id=response[Constant.SOURCEID],
+            name=response[Constant.NAME],
+            source_type=response[Constant.SOURCETYPE]
             if Constant.SOURCETYPE in response
-            else response.get(Constant.SOURCENAME),
-            workspace_id=response.get(Constant.WORKSPACEID),
+            else response[Constant.SOURCENAME],
         )
 
-    @abstractmethod
-    def get_destination_endpoint(self, destination_id: str) -> str:
-        pass
+    def _get_destination_endpoint(self, destination_id: str) -> str:
+        destination_endpoint: str = self.API_ENDPOINTS[Constant.DESTINATION_GET]
+        # Replace place holders
+        return destination_endpoint.format(
+            BASE_URL=self.BASE_URL, DESTINATION_ID=destination_id
+        )
 
-    @abstractmethod
-    def get_destination(self, destination_id: str) -> Destination:
-        pass
-
-    def get_destination_from_response(self, response: Dict) -> Destination:
+    def _get_destination_from_response(self, response: Dict) -> Destination:
         return Destination(
-            destination_id=response.get(Constant.DESTINATIONID),
-            name=response.get(Constant.NAME),
-            destination_type=response.get(Constant.DESTINATIONTYPE)
+            destination_id=response[Constant.DESTINATIONID],
+            name=response[Constant.NAME],
+            destination_type=response[Constant.DESTINATIONTYPE]
             if Constant.DESTINATIONTYPE in response
-            else response.get(Constant.DESTINATIONNAME),
-            workspace_id=response.get(Constant.WORKSPACEID),
+            else response[Constant.DESTINATIONNAME],
         )
 
-    @abstractmethod
-    def get_jobs_endpoint(self, connection_id: str) -> str:
-        pass
+    def _get_jobs_endpoint(self, connection_id: str) -> str:
+        jobs_endpoint: str = self.API_ENDPOINTS[Constant.JOBS_LIST]
+        # Replace place holders
+        return jobs_endpoint.format(BASE_URL=self.BASE_URL, CONNECTION_ID=connection_id)
 
-    @abstractmethod
-    def get_jobs(self, connection_id: str) -> List[Job]:
-        pass
-
-    def get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
+    def _get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
         jobs: List[Job] = [
             Job(
-                job_id=job.get(Constant.JOBID)
+                job_id=job[Constant.JOBID]
                 if Constant.JOBID in job
-                else job.get(Constant.ID),
-                status=job.get(Constant.STATUS),
-                job_type=job.get(Constant.JOBTYPE)
+                else job[Constant.ID],
+                status=job[Constant.STATUS],
+                job_type=job[Constant.JOBTYPE]
                 if Constant.JOBTYPE in job
-                else job.get(Constant.CONFIGTYPE),
-                start_time=job.get(Constant.STARTTIME)
+                else job[Constant.CONFIGTYPE],
+                start_time=job[Constant.STARTTIME]
                 if Constant.STARTTIME in job
-                else job.get(Constant.CREATEDAT),
-                end_time=job.get(Constant.ENDTIME)
+                else job[Constant.CREATEDAT],
+                end_time=job[Constant.ENDTIME]
                 if Constant.ENDTIME in job
-                else job.get(Constant.ENDEDAT),
-                connection_id=job.get(Constant.CONNECTIONID)
-                if Constant.CONNECTIONID in job
-                else job.get(Constant.CONFIGID),
-                last_updated_at=job.get(Constant.LASTUPDATEDAT)
+                else job[Constant.ENDEDAT],
+                last_updated_at=job[Constant.LASTUPDATEDAT]
                 if Constant.LASTUPDATEDAT in job
-                else job.get(Constant.UPDATEDAT),
-                bytes_synced=job.get(Constant.BYTESSYNCED),
-                rows_synced=job.get(Constant.ROWSSYNCED)
+                else job[Constant.UPDATEDAT],
+                bytes_synced=job[Constant.BYTESSYNCED],
+                rows_synced=job[Constant.ROWSSYNCED]
                 if Constant.ROWSSYNCED in job
-                else job.get(Constant.RECORDSSYNCED),
+                else job[Constant.RECORDSSYNCED],
             )
             for job in response
         ]
@@ -181,7 +203,7 @@ class CloudAPIResolver(DataResolverBase):
         super().__init__()
         self.api_key = api_key
 
-    def get_authorization_header(self) -> Dict:
+    def _get_authorization_header(self) -> Dict:
         authorization_header = {
             "User-Agent": "DataHub-RestClient",
             "accept": "application/json",
@@ -189,116 +211,99 @@ class CloudAPIResolver(DataResolverBase):
         }
         return authorization_header
 
-    def get_workspaces_endpoint(self) -> str:
-        workspaces_endpoint: str = CloudAPIResolver.API_ENDPOINTS[
-            Constant.WORKSPACE_LIST
-        ]
-        # Replace place holders
-        return workspaces_endpoint.format(BASE_URL=CloudAPIResolver.BASE_URL)
+    def test_connection(self):
+        logger.debug(f"Testing connection to api = {self.BASE_URL}")
+        # testing api connection by fetching workspaces
+        response = self._request_session.get(
+            self._get_workspaces_endpoint(),
+            headers=self._get_authorization_header(),
+        )
+        if response.status_code == 401:
+            raise ConfigurationError(
+                "Please check if provided api key is correct or not."
+            )
+        response.raise_for_status()
 
     def get_workspaces(self) -> List[Workspace]:
         """
         Get the list of workspaces from Airbyte Cloud
         """
-        workspaces_list_endpoint: str = self.get_workspaces_endpoint()
+        workspaces_list_endpoint: str = self._get_workspaces_endpoint()
         logger.debug(f"Request to URL={workspaces_list_endpoint}")
         response = self._request_session.get(
             workspaces_list_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
         )
-        return self.get_workspaces_from_response(response.json()[Constant.DATA])
+        response.raise_for_status()
+        workspaces = response.json().get(Constant.DATA)
+        return self._get_workspaces_from_response(workspaces) if workspaces else []
 
-    def get_connections_endpoint(self, workspace: Workspace) -> str:
-        connections_endpoint: str = CloudAPIResolver.API_ENDPOINTS[
-            Constant.CONNECTION_LIST
-        ]
-        # Replace place holders
-        return connections_endpoint.format(
-            BASE_URL=CloudAPIResolver.BASE_URL, WORKSPACE_ID=workspace.workspace_id
-        )
-
-    def get_connections(self, workspace: Workspace) -> List[Connection]:
+    def _get_connections(self, workspace_id: str) -> List[Connection]:
         """
         Get the list of connections from Airbyte Cloud
         """
-        connections_list_endpoint: str = self.get_connections_endpoint(workspace)
+        connections_list_endpoint: str = self._get_connections_endpoint(workspace_id)
         logger.debug(f"Request to URL={connections_list_endpoint}")
         response = self._request_session.get(
             connections_list_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
         )
-        return self.get_connections_from_response(response.json()[Constant.DATA])
+        response.raise_for_status()
+        connections = response.json().get(Constant.DATA)
+        return self._get_connections_from_response(connections) if connections else []
 
-    def get_source_endpoint(self, source_id: str) -> str:
-        source_endpoint: str = CloudAPIResolver.API_ENDPOINTS[Constant.SOURCE_GET]
-        # Replace place holders
-        return source_endpoint.format(
-            BASE_URL=CloudAPIResolver.BASE_URL, SOURCE_ID=source_id
-        )
-
-    def get_source(self, source_id: str) -> Source:
+    def _get_source(self, source_id: str) -> Source:
         """
         Get the source details from Airbyte Cloud
         """
-        source_endpoint: str = self.get_source_endpoint(source_id)
+        source_endpoint: str = self._get_source_endpoint(source_id)
         logger.debug(f"Request to URL={source_endpoint}")
         response = self._request_session.get(
             source_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
         )
-        return self.get_source_from_response(response.json())
+        response.raise_for_status()
+        return self._get_source_from_response(response.json())
 
-    def get_destination_endpoint(self, destination_id: str) -> str:
-        destination_endpoint: str = CloudAPIResolver.API_ENDPOINTS[
-            Constant.DESTINATION_GET
-        ]
-        # Replace place holders
-        return destination_endpoint.format(
-            BASE_URL=CloudAPIResolver.BASE_URL, DESTINATION_ID=destination_id
-        )
-
-    def get_destination(self, destination_id: str) -> Destination:
+    def _get_destination(self, destination_id: str) -> Destination:
         """
         Get the destination details from Airbyte Cloud
         """
-        destination_endpoint: str = self.get_destination_endpoint(destination_id)
+        destination_endpoint: str = self._get_destination_endpoint(destination_id)
         logger.debug(f"Request to URL={destination_endpoint}")
         response = self._request_session.get(
             destination_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
         )
-        return self.get_destination_from_response(response.json())
+        response.raise_for_status()
+        return self._get_destination_from_response(response.json())
 
-    def get_jobs_endpoint(self, connection_id: str) -> str:
-        jobs_endpoint: str = CloudAPIResolver.API_ENDPOINTS[Constant.JOBS_LIST]
-        # Replace place holders
-        return jobs_endpoint.format(
-            BASE_URL=CloudAPIResolver.BASE_URL, CONNECTION_ID=connection_id
-        )
-
-    def get_jobs(self, connection_id: str) -> List[Job]:
+    def _get_jobs(self, connection_id: str) -> List[Job]:
         """
         Get the jobs list from Airbyte Cloud
         """
-        jobs_endpoint: str = self.get_jobs_endpoint(connection_id)
+        jobs_endpoint: str = self._get_jobs_endpoint(connection_id)
         logger.debug(f"Request to URL={jobs_endpoint}")
         response = self._request_session.get(
             jobs_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
         )
-        jobs = response.json()[Constant.DATA]
-        for job in jobs:
-            # Convert string to timestamp
-            start_time = datetime.strptime(
-                job[Constant.STARTTIME], "%Y-%m-%dT%H:%M:%SZ"
-            )
-            job[Constant.STARTTIME] = round(start_time.timestamp())
-            # Convert ISO_8601 format duration to timedelta
-            # And add it with start time to get ent time. Ex: 'PT1M10S' to
-            end_time = start_time + parse_duration(job[Constant.DURATION])
-            job[Constant.ENDTIME] = round(end_time.timestamp())
-
-        return self.get_jobs_from_response(jobs)
+        response.raise_for_status()
+        jobs = response.json().get(Constant.DATA)
+        if jobs:
+            for job in jobs:
+                # Convert string to timestamp
+                start_time = datetime.strptime(
+                    job[Constant.STARTTIME], "%Y-%m-%dT%H:%M:%SZ"
+                )
+                job[Constant.STARTTIME] = round(start_time.timestamp())
+                # Convert ISO_8601 format duration to timedelta
+                # And add it with start time to get ent time. Ex: 'PT1M10S' to
+                end_time = start_time + parse_duration(job[Constant.DURATION])
+                job[Constant.ENDTIME] = round(end_time.timestamp())
+            return self._get_jobs_from_response(jobs)
+        else:
+            return []
 
 
 class OssAPIResolver(DataResolverBase):
@@ -321,7 +326,7 @@ class OssAPIResolver(DataResolverBase):
         self.username = username
         self.password = password
 
-    def get_authorization_header(self) -> Dict:
+    def _get_authorization_header(self) -> Dict:
         authorization_header = {
             "accept": "application/json",
             Constant.AUTHORIZATION: "Basic {}".format(
@@ -332,132 +337,98 @@ class OssAPIResolver(DataResolverBase):
         }
         return authorization_header
 
-    def get_workspaces_endpoint(self) -> str:
-        workspaces_endpoint: str = OssAPIResolver.API_ENDPOINTS[Constant.WORKSPACE_LIST]
-        # Replace place holders
-        return workspaces_endpoint.format(BASE_URL=OssAPIResolver.BASE_URL)
+    def test_connection(self):
+        logger.debug(f"Testing connection to api = {self.BASE_URL}")
+        # testing api connection by fetching workspaces
+        response = self._request_session.post(
+            self._get_workspaces_endpoint(),
+            headers=self._get_authorization_header(),
+        )
+        if response.status_code == 401:
+            raise ConfigurationError(
+                "Please check if provided username and password is correct or not."
+            )
+        response.raise_for_status()
 
     def get_workspaces(self) -> List[Workspace]:
         """
         Get the list of workspaces from Airbyte OSS
         """
-        workspaces_list_endpoint: str = self.get_workspaces_endpoint()
+        workspaces_list_endpoint: str = self._get_workspaces_endpoint()
         logger.debug(f"Request to URL={workspaces_list_endpoint}")
         response = self._request_session.post(
             workspaces_list_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
         )
-        return self.get_workspaces_from_response(response.json()[Constant.WORKSPACES])
+        response.raise_for_status()
+        return self._get_workspaces_from_response(response.json()[Constant.WORKSPACES])
 
-    def get_connections_endpoint(self, workspace: Workspace) -> str:
-        connections_endpoint: str = OssAPIResolver.API_ENDPOINTS[
-            Constant.CONNECTION_LIST
-        ]
-        # Replace place holders
-        return connections_endpoint.format(
-            BASE_URL=OssAPIResolver.BASE_URL, WORKSPACE_ID=workspace.workspace_id
-        )
-
-    def get_connections(self, workspace: Workspace) -> List[Connection]:
+    def _get_connections(self, workspace_id: str) -> List[Connection]:
         """
         Get the list of connections from Airbyte OSS
         """
-        connections_list_endpoint: str = self.get_connections_endpoint(workspace)
+        connections_list_endpoint: str = self._get_connections_endpoint(workspace_id)
         logger.debug(f"Request to URL={connections_list_endpoint}")
         response = self._request_session.post(
             connections_list_endpoint,
-            headers=self.get_authorization_header(),
-            json={Constant.WORKSPACEID: workspace.workspace_id},
+            headers=self._get_authorization_header(),
+            json={Constant.WORKSPACEID: workspace_id},
         )
-        return self.get_connections_from_response(response.json()[Constant.CONNECTIONS])
-
-    def get_source_endpoint(self, source_id: str) -> str:
-        source_endpoint: str = OssAPIResolver.API_ENDPOINTS[Constant.SOURCE_GET]
-        # Replace place holders
-        return source_endpoint.format(
-            BASE_URL=OssAPIResolver.BASE_URL, SOURCE_ID=source_id
+        response.raise_for_status()
+        return self._get_connections_from_response(
+            response.json()[Constant.CONNECTIONS]
         )
 
-    def get_source(self, source_id: str) -> Source:
+    def _get_source(self, source_id: str) -> Source:
         """
         Get the source details from Airbyte OSS
         """
-        source_endpoint: str = self.get_source_endpoint(source_id)
+        source_endpoint: str = self._get_source_endpoint(source_id)
         logger.debug(f"Request to URL={source_endpoint}")
         response = self._request_session.post(
             source_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
             json={Constant.SOURCEID: source_id},
         )
-        return self.get_source_from_response(response.json())
+        response.raise_for_status()
+        return self._get_source_from_response(response.json())
 
-    def get_destination_endpoint(self, destination_id: str) -> str:
-        destination_endpoint: str = OssAPIResolver.API_ENDPOINTS[
-            Constant.DESTINATION_GET
-        ]
-        # Replace place holders
-        return destination_endpoint.format(
-            BASE_URL=OssAPIResolver.BASE_URL, DESTINATION_ID=destination_id
-        )
-
-    def get_destination(self, destination_id: str) -> Destination:
+    def _get_destination(self, destination_id: str) -> Destination:
         """
         Get the destination details from Airbyte OSS
         """
-        destination_endpoint: str = self.get_destination_endpoint(destination_id)
+        destination_endpoint: str = self._get_destination_endpoint(destination_id)
         logger.debug(f"Request to URL={destination_endpoint}")
         response = self._request_session.post(
             destination_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
             json={Constant.DESTINATIONID: destination_id},
         )
-        return self.get_destination_from_response(response.json())
+        response.raise_for_status()
+        return self._get_destination_from_response(response.json())
 
-    def get_jobs_endpoint(self, connection_id: str) -> str:
-        jobs_endpoint: str = OssAPIResolver.API_ENDPOINTS[Constant.JOBS_LIST]
-        # Replace place holders
-        return jobs_endpoint.format(
-            BASE_URL=OssAPIResolver.BASE_URL, CONNECTION_ID=connection_id
-        )
-
-    def get_jobs(self, connection_id: str) -> List[Job]:
+    def _get_jobs(self, connection_id: str) -> List[Job]:
         """
         Get the jobs list from Airbyte OSS
         """
-        jobs_endpoint: str = self.get_jobs_endpoint(connection_id)
+        jobs_endpoint: str = self._get_jobs_endpoint(connection_id)
         logger.debug(f"Request to URL={jobs_endpoint}")
         response = self._request_session.post(
             jobs_endpoint,
-            headers=self.get_authorization_header(),
+            headers=self._get_authorization_header(),
             json={
-                Constant.CONFIGTYPE: ["sync", "reset_connection"],
+                Constant.CONFIGTYPES: ["sync", "reset_connection"],
                 Constant.CONFIGID: connection_id,
             },
         )
+        response.raise_for_status()
         jobs = response.json()[Constant.JOBS]
         for job in jobs:
             last_attempt = job[Constant.ATTEMPTS][-1]
-            job.update(job[Constant.JOBS])
+            job.update(job[Constant.JOB])
             job[Constant.ENDEDAT] = last_attempt[Constant.ENDEDAT]
             job[Constant.RECORDSSYNCED] = last_attempt[Constant.RECORDSSYNCED]
             del job[Constant.ATTEMPTS]
-            del job[Constant.JOBS]
+            del job[Constant.JOB]
 
-        return self.get_jobs_from_response(jobs)
-
-
-obj = OssAPIResolver(username="airbyte", password="password")
-w = obj.get_workspaces()
-c = obj.get_connections(w[0])
-s = obj.get_source(c[0].source_id)
-d = obj.get_destination(c[0].destination_id)
-j = obj.get_jobs(c[0].connection_id)
-
-# obj = CloudAPIResolver(api_key="eyJhbGciOiJSUzI1NiIsImtpZCI6IjUxYmQzZDYxLWNhMzMtNGJkYi04ZTE3LWU0Y2IxZGZmOWRmMCIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsiY2xhazFzdTU5MDAwMDNiNmNqNW1tcWc4dSJdLCJjdXN0b21lcl9pZCI6IjdjZjA1NzNmLTA4ZTAtNDk5Yi1hNzUzLTRlMmNlZTVmOWJlNCIsImVtYWlsIjoic2h1YmhhbS5qYWd0YXBAZ3NsYWIuY29tIiwiZW1haWxfdmVyaWZpZWQiOiJ0cnVlIiwiZXhwIjoyNTM0MDIyMTQ0MDAsImlhdCI6MTY4OTg1NzIxNCwiaXNzIjoiaHR0cHM6Ly9hcHAuc3BlYWtlYXN5YXBpLmRldi92MS9hdXRoL29hdXRoL2NsYWsxc3U1OTAwMDAzYjZjajVtbXFnOHUiLCJqdGkiOiI1MWJkM2Q2MS1jYTMzLTRiZGItOGUxNy1lNGNiMWRmZjlkZjAiLCJraWQiOiI1MWJkM2Q2MS1jYTMzLTRiZGItOGUxNy1lNGNiMWRmZjlkZjAiLCJuYmYiOjE2ODk4NTcxNTQsInNwZWFrZWFzeV9jdXN0b21lcl9pZCI6ImNHRkFvSFByYkRlWHVQM2xXZUVieWMwYllMWjIiLCJzcGVha2Vhc3lfd29ya3NwYWNlX2lkIjoiY2xhazFzdTU5MDAwMDNiNmNqNW1tcWc4dSIsInN1YiI6ImNHRkFvSFByYkRlWHVQM2xXZUVieWMwYllMWjIiLCJ1c2VyX2lkIjoiY0dGQW9IUHJiRGVYdVAzbFdlRWJ5YzBiWUxaMiJ9.qPoFAIaBBfuWy3yctpPMZPq-sxD4xNypLtUJKTTSaXSnvuGALWZgRZk2ueTbD4fLqUMjOC-b4zLpMR0q_sdFp7IBJgxHToGfsOR7Bys8gD6QbFQOe9aSNnzWmoz-nWx8TSEvL4OAkohO_8elBTYbFddubXjhP25EITajShUF4QdG8381UxaVi6c7wfVfaBf0ENjOGvYLiqelEP2CDzKayKOzPVGTnNS1piuBUa1P7MU86o4b6jnAgtSp1WYsUSiFAnDWLFiDzIPNfb9o6LIcciA_1IyoJjPo40OlZZY7VYQlJwqGvPWT7_aMj0zr3DGmXtfIpkEDQtmlcLG8ONrHng")
-# w = obj.get_workspaces()
-# c = obj.get_connections(w[0])
-# s = obj.get_source(c[0].source_id)
-# d = obj.get_destination(c[0].destination_id)
-# j = obj.get_jobs(c[0].connection_id)
-
-print("")
+        return self._get_jobs_from_response(jobs)
