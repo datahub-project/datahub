@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
+import { Trans } from "react-i18next";
+import { t } from "i18next";
 import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components/macro';
 import { RightOutlined } from '@ant-design/icons';
@@ -37,7 +39,7 @@ const Background = styled.div`
 const WelcomeText = styled(Typography.Text)`
     font-size: 16px;
     color: ${(props) =>
-        props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
+    props.theme.styles['homepage-text-color'] || props.theme.styles['homepage-background-lower-fade']};
 `;
 
 const styles = {
@@ -235,7 +237,7 @@ export const HomePageHeader = () => {
                 <WelcomeText>
                     {!!user && (
                         <>
-                            Datahub 欢迎您, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
+                        {t ('Welcome back')}, <b>{entityRegistry.getDisplayName(EntityType.CorpUser, user)}</b>.
                         </>
                     )}
                 </WelcomeText>
@@ -271,14 +273,14 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
-                        showQuickFilters
+                        showQuickFilterss
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
                         <SuggestionsContainer>
                             <SuggestionsHeader>
-                                <SuggestedQueriesText strong>Try searching for</SuggestedQueriesText>
+                                <SuggestedQueriesText strong><Trans>Try searching for</Trans></SuggestedQueriesText>
                                 <ExploreAllButton type="link" onClick={onClickExploreAll}>
-                                    Explore all <StyledRightOutlined />
+                                    {t ('Explore all')}<StyledRightOutlined />
                                 </ExploreAllButton>
                             </SuggestionsHeader>
                             <SuggestionTagContainer>

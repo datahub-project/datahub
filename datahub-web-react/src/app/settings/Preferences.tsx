@@ -63,18 +63,18 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <TokensHeaderContainer>
-                        <TokensTitle level={2}>Appearance</TokensTitle>
-                        <Typography.Paragraph type="secondary">Manage your appearance settings.</Typography.Paragraph>
+                        <TokensTitle level={2}>显示设置</TokensTitle>
+                        <Typography.Paragraph type="secondary">管理您的显示选项.</Typography.Paragraph>
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />
                 <Card>
                     <UserSettingRow>
                         <span>
-                            <SettingText>Show simplified homepage </SettingText>
+                            <SettingText>使用简化版主页 </SettingText>
                             <div>
                                 <DescriptionText>
-                                    Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and
+                                    简化版主页仅显示 Domains, Charts, Datasets, Dashboards 以及
                                     Glossary Terms
                                 </DescriptionText>
                             </div>
@@ -95,7 +95,7 @@ export const Preferences = () => {
                                         ? EventType.ShowStandardHomepageEvent
                                         : EventType.ShowSimplifiedHomepageEvent,
                                 });
-                                message.success({ content: 'Setting updated!', duration: 2 });
+                                message.success({ content: '设置成功!', duration: 2 });
                                 refetchUser?.();
                             }}
                         />

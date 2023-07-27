@@ -100,15 +100,15 @@ export const ViewsList = () => {
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading Views..." />}
-            {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
+            {!data && loading && <Message type="loading" content="加载视图..." />}
+            {error && message.error({ content: `视图加载失败! 发生未知错误.`, duration: 3 })}
             <TabToolbar>
                 <Button type="text" onClick={onClickCreateView}>
-                    <PlusOutlined /> Create new View
+                    <PlusOutlined /> 创建视图
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText="Search Views..."
+                    placeholderText="查找视图..."
                     suggestions={[]}
                     style={searchBarStyle}
                     inputStyle={searchBarInputStyle}

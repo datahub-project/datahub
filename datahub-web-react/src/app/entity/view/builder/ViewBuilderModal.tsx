@@ -35,9 +35,9 @@ type Props = {
 
 const getTitleText = (mode, urn) => {
     if (mode === ViewBuilderMode.PREVIEW) {
-        return 'Preview View';
+        return '上一张视图';
     }
-    return urn !== undefined ? 'Edit View' : 'Create new View';
+    return urn !== undefined ? '编辑视图' : '创建视图';
 };
 
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
@@ -49,13 +49,13 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
 
     const confirmClose = () => {
         Modal.confirm({
-            title: 'Exit View Editor',
-            content: `Are you sure you want to exit View editor? All changes will be lost`,
+            title: '视图编辑器',
+            content: `您确定要退出视图编辑器吗? 所有未提交的修改将会丢失。`,
             onOk() {
                 onCancel?.();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: '确定',
             maskClosable: true,
             closable: true,
         });
@@ -84,7 +84,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>
                     <CancelButton data-testid="view-builder-cancel" onClick={onCancel}>
-                        Cancel
+                        取消
                     </CancelButton>
                     {mode === ViewBuilderMode.EDITOR && (
                         <Button
@@ -93,7 +93,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                             disabled={!canSave}
                             onClick={() => onSubmit(viewBuilderState)}
                         >
-                            Save
+                            保存
                         </Button>
                     )}
                 </SaveButtonContainer>

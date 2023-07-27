@@ -29,10 +29,9 @@ export const ManageViews = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Manage Views</PageTitle>
+                <PageTitle level={3}>管理视图</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    Create, edit, and remove your Views. Views allow you to save and share sets of filters for reuse
-                    when browsing DataHub.
+                    创建，编辑，删除您的视图。 视图是一组过滤条件的集合，可以在Datahub中重复使用并分享.
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

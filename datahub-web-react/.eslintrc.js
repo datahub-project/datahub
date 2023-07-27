@@ -32,7 +32,7 @@ module.exports = {
         'react/require-default-props': 'off',
         'no-underscore-dangle': 'off',
         '@typescript-eslint/no-unused-vars': [
-            'error',
+            'warn',
             {
                 varsIgnorePattern: '^_',
                 argsIgnorePattern: '^_',
@@ -42,7 +42,9 @@ module.exports = {
         "@typescript-eslint/explicit-module-boundary-types": "off",
         "@typescript-eslint/no-explicit-any": 'off',
         "import/no-extraneous-dependencies": 'off',
-        "prettier/prettier":'off' // Add by walt for making translations to Chinese
+        "prettier/prettier":'off', // Add by walt for making translations to Chinese
+        "jsx-a11y/no-noninteractive-element-interactions": "warn",
+        "jsx-a11y/click-events-have-key-events": "warn"
     },
     settings: {
         react: {

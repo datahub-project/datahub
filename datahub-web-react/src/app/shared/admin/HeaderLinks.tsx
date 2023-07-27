@@ -27,8 +27,8 @@ const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     transition: opacity 0.5s;
 
     ${(props) =>
-        props.areLinksHidden &&
-        `
+    props.areLinksHidden &&
+    `
         opacity: 0;
         width: 0;
     `}
@@ -83,10 +83,10 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/analytics">
                         <Button type="text">
-                            <Tooltip title="分析DataHub的使用情况">
+                            <Tooltip title="View DataHub usage analytics">
                                 <NavTitleContainer>
                                     <BarChartOutlined />
-                                    <NavTitleText>分析</NavTitleText>
+                                    <NavTitleText>Analytics</NavTitleText>
                                 </NavTitleContainer>
                             </Tooltip>
                         </Button>
@@ -97,10 +97,10 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/ingestion">
                         <Button id={HOME_PAGE_INGESTION_ID} type="text">
-                            <Tooltip title="使用DataHub来集成您组织的元数据">
+                            <Tooltip title="Connect DataHub to your organization's data sources">
                                 <NavTitleContainer>
                                     <ApiOutlined />
-                                    <NavTitleText>元数据集成</NavTitleText>
+                                    <NavTitleText>Ingestion</NavTitleText>
                                 </NavTitleContainer>
                             </Tooltip>
                         </Button>
@@ -117,7 +117,7 @@ export function HeaderLinks(props: Props) {
                                     <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                     <NavTitleText>Glossary</NavTitleText>
                                 </NavTitleContainer>
-                                <NavTitleDescription>管理您的数据字典</NavTitleDescription>
+                                <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                             </Link>
                         </MenuItem>
                         {showDomains && (
@@ -127,7 +127,7 @@ export function HeaderLinks(props: Props) {
                                         <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                         <NavTitleText>Domains</NavTitleText>
                                     </NavTitleContainer>
-                                    <NavTitleDescription>管理您的Domains</NavTitleDescription>
+                                    <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                                 </Link>
                             </MenuItem>
                         )}
@@ -136,7 +136,7 @@ export function HeaderLinks(props: Props) {
             >
                 <LinkWrapper>
                     <Button type="text">
-                        <SolutionOutlined /> 管理 <DownOutlined style={{ fontSize: '6px' }} />
+                        <SolutionOutlined /> Govern <DownOutlined style={{ fontSize: '6px' }} />
                     </Button>
                 </LinkWrapper>
             </Dropdown>
@@ -144,7 +144,7 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
-                            <Tooltip title="管理您的DataHub设置">
+                            <Tooltip title="Manage your DataHub settings">
                                 <SettingOutlined />
                             </Tooltip>
                         </Button>

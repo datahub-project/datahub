@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { Trans } from 'react-i18next';
+import {t} from "i18next";
 import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
 import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
+
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 12px;
@@ -26,6 +29,7 @@ const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
 const ID_FIELD_NAME = 'id';
 const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
+const DOMAIN_ID_PARAGRAPH = "By default, a random UUID will be generated to uniquely identify this domain. If you would like to provide a custom id instead to more easily keep track of this domain, you may provide it here. Be careful, you cannot easily change the domain id after creation.";
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createDomainMutation] = useCreateDomainMutation();
@@ -37,7 +41,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             variables: {
                 input: {
                     id: form.getFieldValue(ID_FIELD_NAME),
-                    name: form.getFieldValue(NAME_FIELD_NAME),
+                    name:form.getFieldValue(NAME_FIELD_NAME),
                     description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
                 },
             },
@@ -48,7 +52,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         type: EventType.CreateDomainEvent,
                     });
                     message.success({
-                        content: `创建成功!`,
+                        content: t('Created_domain'),
                         duration: 3,
                     });
                     onCreate(
@@ -62,7 +66,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `创建失败!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('Failed to create Domain')`!: \n ${e.message || ''}`, duration: 3 });
             });
         onClose();
     };
@@ -72,15 +76,17 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
         querySelectorToExecuteClick: '#createDomainButton',
     });
 
+
+
     return (
         <Modal
-            title="创建新的Domain"
+            title={t('Create new Domain')}
             visible
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        取消
+                        <Trans>Cancel</Trans>
                     </Button>
                     <Button
                         id="createDomainButton"
@@ -88,7 +94,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         onClick={onCreateDomain}
                         disabled={!createButtonEnabled}
                     >
-                        创建
+                        <Trans>Create</Trans>
                     </Button>
                 </>
             }
@@ -101,14 +107,14 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
                 }}
             >
-                <Form.Item label={<Typography.Text strong>名称</Typography.Text>}>
-                    <Typography.Paragraph>请提供名称.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong><Trans>Name</Trans></Typography.Text>}>
+                    <Typography.Paragraph><Trans>Give your new Domain a name</Trans>. </Typography.Paragraph>
                     <Form.Item
                         name={NAME_FIELD_NAME}
                         rules={[
                             {
                                 required: true,
-                                message: '输入Domain名称.',
+                                message: t('Enter a Domain name.'),
                             },
                             { whitespace: true },
                             { min: 1, max: 150 },
@@ -135,26 +141,23 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         })}
                     </SuggestedNamesGroup>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>说明</Typography.Text>}>
-                    <Typography.Paragraph>说明（可选），您可以稍后修改</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong><Trans>Description</Trans></Typography.Text>}>
+                    <Typography.Paragraph>
+                        <Trans>An optional description for your new domain</Trans>. <Trans>You can change this later</Trans>.
+                    </Typography.Paragraph>
                     <Form.Item
                         name={DESCRIPTION_FIELD_NAME}
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
-                        <Input.TextArea placeholder="domain的说明" />
+                        <Input.TextArea placeholder= "A description for your domain" />
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">高级选项</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Domain Id</Typography.Text>}>
+                    <Collapse.Panel header={<Typography.Text type="secondary"><Trans>Advanced</Trans></Typography.Text>} key="1">
+                        <Form.Item label={<Typography.Text strong><Trans>Domain</Trans> Id</Typography.Text>}>
                             <Typography.Paragraph>
-                               <p>
-                                   默认情况下会使用UUID生成唯一ID编码。
-                               </p>
-                               <p>
-                                   您可以使用自定义的编码。自定的编码需要确保唯一性.
-                               </p>
+                                <Trans>{DOMAIN_ID_PARAGRAPH}</Trans>
                             </Typography.Paragraph>
                             <Form.Item
                                 name={ID_FIELD_NAME}
@@ -164,7 +167,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('请输入有效的Domain id'));
+                                            return Promise.reject(new Error(t('Please enter a valid Domain id')));
                                         },
                                     }),
                                 ]}
