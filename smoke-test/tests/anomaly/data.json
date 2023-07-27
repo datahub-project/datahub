@@ -150,7 +150,7 @@
     "changeType":"UPSERT",
     "aspectName":"anomalyInfo",
     "aspect":{
-      "value":"{\"type\": \"SLA\", \"description\": \"test description\", \"severity\": 0, \"entity\": \"urn:li:dataset:(urn:li:dataPlatform:kafka,anomalies-sample-dataset,PROD)\", \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"INFERRED_ASSERTION_FAILURE\", \"sourceUrn\": \"urn:li:assertion:assertion-test\"}, \"review\": { \"state\": \"CONFIRMED\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "value":"{\"type\": \"FRESHNESS\", \"description\": \"test description\", \"severity\": 0, \"entity\": \"urn:li:dataset:(urn:li:dataPlatform:kafka,anomalies-sample-dataset,PROD)\", \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"source\": { \"type\": \"INFERRED_ASSERTION_FAILURE\", \"sourceUrn\": \"urn:li:assertion:assertion-test\"}, \"review\": { \"state\": \"CONFIRMED\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
       "contentType":"application/json"
     },
     "systemMetadata":null

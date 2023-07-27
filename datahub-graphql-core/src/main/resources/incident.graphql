@@ -132,10 +132,10 @@ A specific type of incident
 """
 enum IncidentType {
   """
-  An SLA Assertion has failed, triggering the incident.
+  A Freshness Assertion has failed, triggering the incident.
   Raised on assets where assertions are configured to generate incidents.
   """
-  SLA
+  FRESHNESS
 
   """
   An assertion on a particular column(s) of a Dataset has triggered the incident.

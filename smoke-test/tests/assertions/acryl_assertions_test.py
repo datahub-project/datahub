@@ -40,11 +40,11 @@ def test_create_update_delete_dataset_assertion(frontend_session):
 
 
 @pytest.mark.dependency(depends=["test_healthchecks"])
-def test_create_update_delete_sla_assertion(frontend_session):
+def test_create_update_delete_freshness_assertion(frontend_session):
 
     json = {
-        "query": """mutation createSlaAssertion($input: CreateSlaAssertionInput!) {\n
-            createSlaAssertion(input: $input) {\n
+        "query": """mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {\n
+            createFreshnessAssertion(input: $input) {\n
                 urn\n
             }\n
         }""",
@@ -77,14 +77,14 @@ def test_create_update_delete_sla_assertion(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["createSlaAssertion"]
+    assert res_data["data"]["createFreshnessAssertion"]
 
-    assertion_urn = res_data["data"]["createSlaAssertion"]["urn"]
+    assertion_urn = res_data["data"]["createFreshnessAssertion"]["urn"]
 
     # Update the assertion
     json = {
-        "query": """mutation updateSlaAssertion($urn: String!, $input: UpdateSlaAssertionInput!) {\n
-            updateSlaAssertion(urn: $urn, input: $input) {\n
+        "query": """mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertionInput!) {\n
+            updateFreshnessAssertion(urn: $urn, input: $input) {\n
                 urn\n
             }\n
         }""",
@@ -116,9 +116,9 @@ def test_create_update_delete_sla_assertion(frontend_session):
 
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["updateSlaAssertion"]
+    assert res_data["data"]["updateFreshnessAssertion"]
 
-    assertion_urn = res_data["data"]["updateSlaAssertion"]["urn"]
+    assertion_urn = res_data["data"]["updateFreshnessAssertion"]["urn"]
 
     # Delete the assertion
     json = {

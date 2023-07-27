@@ -127,7 +127,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684577554017
+            "lastUpdatedTimestamp": 1688445119021
         }
     },
     "systemMetadata": {
@@ -195,6 +195,21 @@
             "typeNames": [
                 "Folder"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -286,6 +301,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -359,6 +394,30 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -450,6 +509,34 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -523,6 +610,38 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -614,6 +733,42 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -696,6 +851,46 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                },
+                {
+                    "id": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+                    "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -769,6 +964,50 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:98a716614da5246426edd48260406364"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                },
+                {
+                    "id": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+                    "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+                },
+                {
+                    "id": "urn:li:container:98a716614da5246426edd48260406364",
+                    "urn": "urn:li:container:98a716614da5246426edd48260406364"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1103,6 +1342,54 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_glob.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                },
+                {
+                    "id": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+                    "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+                },
+                {
+                    "id": "urn:li:container:98a716614da5246426edd48260406364",
+                    "urn": "urn:li:container:98a716614da5246426edd48260406364"
+                },
+                {
+                    "id": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+                    "urn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec"
+                }
+            ]
         }
     },
     "systemMetadata": {

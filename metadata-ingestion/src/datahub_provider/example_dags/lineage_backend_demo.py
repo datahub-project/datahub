@@ -34,8 +34,13 @@ with DAG(
         dag=dag,
         bash_command="echo 'This is where you might run your data tooling.'",
         inlets=[
-            Dataset("snowflake", "mydb.schema.tableA"),
-            Dataset("snowflake", "mydb.schema.tableB", "DEV"),
+            Dataset(platform="snowflake", name="mydb.schema.tableA"),
+            Dataset(platform="snowflake", name="mydb.schema.tableB", env="DEV"),
+            Dataset(
+                platform="snowflake",
+                name="mydb.schema.tableC",
+                platform_instance="cloud",
+            ),
             # You can also put dataset URNs in the inlets/outlets lists.
             Urn(
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"

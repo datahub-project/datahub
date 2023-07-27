@@ -1,5 +1,5 @@
 import { SelectTypeStep } from './steps/SelectTypeStep';
-import { ConfigureDatasetSlaAssertionStep } from './steps/ConfigureDatasetSlaAssertionStep';
+import { ConfigureDatasetFreshnessAssertionStep } from './steps/ConfigureDatasetFreshnessAssertionStep';
 import { ConfigureEvaluationScheduleStep } from './steps/ConfigureEvaluationScheduleStep';
 
 /**
@@ -7,7 +7,7 @@ import { ConfigureEvaluationScheduleStep } from './steps/ConfigureEvaluationSche
  */
 export const AssertionsBuilderStepComponent = {
     SELECT_TYPE: SelectTypeStep,
-    CONFIGURE_DATASET_SLA_ASSERTION: ConfigureDatasetSlaAssertionStep,
+    CONFIGURE_DATASET_FRESHNESS_ASSERTION: ConfigureDatasetFreshnessAssertionStep,
     CONFIGURE_SCHEDULE: ConfigureEvaluationScheduleStep,
 };
 
@@ -16,6 +16,6 @@ export const AssertionsBuilderStepComponent = {
  */
 export enum AssertionBuilderStepTitles {
     SELECT_TYPE = 'Select Assertion Type',
-    CONFIGURE_DATASET_SLA_ASSERTION = 'Configure Assertion',
+    CONFIGURE_DATASET_FRESHNESS_ASSERTION = 'Configure Assertion',
     CONFIGURE_SCHEDULE = 'Finish up',
 }

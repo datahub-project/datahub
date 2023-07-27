@@ -60,7 +60,7 @@ fragment AssertionDetails on Assertion {
           }
           logic
       }
-      slaAssertion {
+      freshnessAssertion {
           type
           schedule {
               type
@@ -73,6 +73,10 @@ fragment AssertionDetails on Assertion {
                   unit
                   multiple
               }
+          }
+          filter {
+            type
+            sql
           }
       }
       source {
@@ -114,12 +118,13 @@ fragment MonitorSearchResults on SearchResults {
               }
               parameters {
                 type
-                datasetSlaParameters {
+                datasetFreshnessParameters {
                   sourceType
                   field {
                     type
                     nativeType
                     path
+                    kind
                   }
                   auditLog {
                     operationTypes

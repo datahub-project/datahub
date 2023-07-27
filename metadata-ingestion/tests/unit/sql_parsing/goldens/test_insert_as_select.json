@@ -1,0 +1,76 @@
+{
+    "query_type": "INSERT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_returns,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,catalog_sales,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,customer_demographics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,household_demographics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,inventory,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,item,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,warehouse,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "i_item_desc"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "w_warehouse_name"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "d_week_seq"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+                    "column": "d_week_seq"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "no_promo"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
+                    "column": "p_promo_sk"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "promo"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
+                    "column": "p_promo_sk"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:hive,query72,PROD)",
+                "column": "total_cnt"
+            },
+            "upstreams": []
+        }
+    ]
+}

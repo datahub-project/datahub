@@ -98,7 +98,7 @@ def test_list_dataset_anomalies(frontend_session):
         {
           "urn": TEST_ANOMALY_URN,
           "type": "ANOMALY",
-          "anomalyType": "SLA",
+          "anomalyType": "FRESHNESS",
           "severity": 0,
           "description": "test description",
           "status": {

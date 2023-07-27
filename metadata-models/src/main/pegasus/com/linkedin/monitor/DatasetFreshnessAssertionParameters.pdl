@@ -1,0 +1,38 @@
+namespace com.linkedin.monitor
+
+import com.linkedin.assertion.FreshnessFieldSpec
+
+/**
+ * Information about the parameters required to evaluate an assertion
+ */
+record DatasetFreshnessAssertionParameters {
+  /**
+  * The source of the change operation.
+  */
+  sourceType: enum DatasetFreshnessSourceType {
+    /**
+    * Determine that a change has occurred by inspecting a particular field's value.
+    */
+    FIELD_VALUE
+
+    /**
+    * Determine that a change has occurred by inspecting an information schema table, or other system metadata table.
+    */
+    INFORMATION_SCHEMA
+
+    /**
+    * Determine that a change has occurred by inspecting an audit log API
+    */
+    AUDIT_LOG
+  }
+
+  /**
+  * Information about the field to use. Present when sourceType is FIELD_VALUE
+  */
+  field: optional FreshnessFieldSpec
+
+  /**
+  * Information about the audit log operation to use. Present when sourceType is AUDIT_LOG
+  */
+  auditLog: optional AuditLogSpec
+}

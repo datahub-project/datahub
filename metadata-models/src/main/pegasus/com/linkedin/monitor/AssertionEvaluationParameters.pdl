@@ -9,13 +9,13 @@ record AssertionEvaluationParameters {
      */
     type: enum AssertionEvaluationParametersType {
         /**
-         * Parameters required to evaluate a Dataset SLA Assertion
+         * Parameters required to evaluate a Dataset Freshness Assertion
          */
-        DATASET_SLA
+        DATASET_FRESHNESS
     }
 
     /**
-     * Parameters required to evaluate a Dataset SLA Assertion. Present if type is DATASET_SLA.
+     * Parameters required to evaluate a Dataset Freshness Assertion. Present if type is DATASET_FRESHNESS.
      */
-     datasetSlaParameters: optional DatasetSlaAssertionParameters
+     datasetFreshnessParameters: optional DatasetFreshnessAssertionParameters
 }

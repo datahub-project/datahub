@@ -71,6 +71,8 @@ Follow these simple steps to understand the full dependency chain of your data e
 * [searchAcrossLineage](../../graphql/queries.md#searchacrosslineage)
 * [searchAcrossLineageInput](../../graphql/inputObjects.md#searchacrosslineageinput)
 
+Looking for an example of how to use `searchAcrossLineage` to read lineage? Look [here](../api/tutorials/lineage.md#read-lineage)
+
 ### DataHub Blog
 
 * [Dependency Impact Analysis, Data Validation Outcomes, and MORE! - Highlights from DataHub v0.8.27 & v.0.8.28](https://blog.datahubproject.io/dependency-impact-analysis-data-validation-outcomes-and-more-1302604da233)

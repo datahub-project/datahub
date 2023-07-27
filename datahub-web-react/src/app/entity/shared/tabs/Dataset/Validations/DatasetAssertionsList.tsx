@@ -5,12 +5,10 @@ import { DeleteOutlined, DownOutlined, RightOutlined, StopOutlined } from '@ant-
 import { DatasetAssertionDescription } from './DatasetAssertionDescription';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { DatasetAssertionDetails } from './DatasetAssertionDetails';
-import { Assertion, AssertionRunStatus, AssertionType } from '../../../../../../types.generated';
+import { Assertion, AssertionRunStatus } from '../../../../../../types.generated';
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
 import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { SlaAssertionDescription } from './SlaAssertionDescription';
-import { LinkWrapper } from '../../../../../shared/LinkWrapper';
 
 const ResultContainer = styled.div`
     display: flex;
@@ -36,8 +34,6 @@ type Props = {
     assertions: Array<Assertion>;
     onDelete?: (urn: string) => void;
 };
-
-const UNKNOWN_DATA_PLATFORM = 'urn:li:dataPlatform:unknown';
 
 /**
  * A list of assertions displaying their most recent run status, their human-readable
@@ -82,16 +78,11 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
         type: assertion.info?.type,
         platform: assertion.platform,
         datasetAssertionInfo: assertion.info?.datasetAssertion,
-        slaAssertionInfo: assertion.info?.slaAssertion,
         lastExecTime: assertion.runEvents?.runEvents?.length && assertion.runEvents.runEvents[0].timestampMillis,
         lastExecResult:
             assertion.runEvents?.runEvents?.length &&
             assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
             assertion.runEvents.runEvents[0].result?.type,
-        lastExecUrl:
-            assertion.runEvents?.runEvents?.length &&
-            assertion.runEvents.runEvents[0].status === AssertionRunStatus.Complete &&
-            assertion.runEvents.runEvents[0].result?.externalUrl,
     }));
 
     const assertionsTableCols = [
@@ -100,7 +91,6 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
             dataIndex: '',
             key: '',
             render: (_, record: any) => {
-                const assertionType = record.type;
                 const executionDate = record.lastExecTime && new Date(record.lastExecTime);
                 const localTime = executionDate && `${executionDate.toLocaleDateString()}`;
                 const resultColor = (record.lastExecResult && getResultColor(record.lastExecResult)) || 'default';
@@ -116,9 +106,7 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
                                 </Tag>
                             </Tooltip>
                         </div>
-                        {(assertionType === AssertionType.Dataset && (
-                            <DatasetAssertionDescription assertionInfo={record.datasetAssertionInfo} />
-                        )) || <SlaAssertionDescription assertionInfo={record.slaAssertionInfo} />}
+                        <DatasetAssertionDescription assertionInfo={record.datasetAssertionInfo} />
                     </ResultContainer>
                 );
             },
@@ -129,36 +117,27 @@ export const DatasetAssertionsList = ({ assertions, onDelete }: Props) => {
             key: '',
             render: (_, record: any) => (
                 <ActionButtonContainer>
-                    {record.platform?.urn !== UNKNOWN_DATA_PLATFORM && (
-                        <Tooltip
-                            title={
-                                record.platform.properties?.displayName ||
-                                capitalizeFirstLetterOnly(record.platform.name)
-                            }
-                        >
-                            <PlatformContainer>
-                                {(record.platform.properties?.logoUrl && (
-                                    <LinkWrapper
-                                        to={record.lastExecUrl}
-                                        target="_blank"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <Image
-                                            preview={false}
-                                            height={20}
-                                            width={20}
-                                            src={record.platform.properties?.logoUrl}
-                                        />
-                                    </LinkWrapper>
-                                )) || (
-                                    <Typography.Text>
-                                        {record.platform.properties?.displayName ||
-                                            capitalizeFirstLetterOnly(record.platform.name)}
-                                    </Typography.Text>
-                                )}
-                            </PlatformContainer>
-                        </Tooltip>
-                    )}
+                    <Tooltip
+                        title={
+                            record.platform.properties?.displayName || capitalizeFirstLetterOnly(record.platform.name)
+                        }
+                    >
+                        <PlatformContainer>
+                            {(record.platform.properties?.logoUrl && (
+                                <Image
+                                    preview={false}
+                                    height={20}
+                                    width={20}
+                                    src={record.platform.properties?.logoUrl}
+                                />
+                            )) || (
+                                <Typography.Text>
+                                    {record.platform.properties?.displayName ||
+                                        capitalizeFirstLetterOnly(record.platform.name)}
+                                </Typography.Text>
+                            )}
+                        </PlatformContainer>
+                    </Tooltip>
                     <Button onClick={() => onDeleteAssertion(record.urn)} type="text" shape="circle" danger>
                         <DeleteOutlined />
                     </Button>

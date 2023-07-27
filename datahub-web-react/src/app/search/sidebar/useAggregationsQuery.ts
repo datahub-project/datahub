@@ -9,9 +9,10 @@ import { useSidebarFilters } from './useSidebarFilters';
 type Props = {
     facets: string[];
     skip: boolean;
+    excludeFilters?: boolean;
 };
 
-const useAggregationsQuery = ({ facets, skip }: Props) => {
+const useAggregationsQuery = ({ facets, excludeFilters = false, skip }: Props) => {
     const registry = useEntityRegistry();
     const sidebarFilters = useSidebarFilters();
 
@@ -20,22 +21,27 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         previousData,
         loading,
         error,
+        refetch,
     } = useAggregateAcrossEntitiesQuery({
         skip,
         fetchPolicy: 'cache-first',
         variables: {
             input: {
-                types: sidebarFilters.entityFilters,
+                ...(excludeFilters ? {} : { types: sidebarFilters.entityFilters }),
                 facets,
-                orFilters: sidebarFilters.orFilters,
-                viewUrn: sidebarFilters.viewUrn,
-                query: sidebarFilters.query,
+                ...(excludeFilters ? {} : { orFilters: sidebarFilters.orFilters }),
+                ...(excludeFilters ? {} : { viewUrn: sidebarFilters.viewUrn }),
+                query: excludeFilters ? '*' : sidebarFilters.query,
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_VALUES,
                 },
             },
         },
     });
+
+    const retry = () => {
+        if (refetch) refetch();
+    };
 
     // This approach of falling back to previousData is needed to avoid a full re-mount of the sidebar entities
     const data = error ? null : newData ?? previousData;
@@ -74,6 +80,7 @@ const useAggregationsQuery = ({ facets, skip }: Props) => {
         entityAggregations,
         environmentAggregations,
         platformAggregations,
+        retry,
     } as const;
 };
 

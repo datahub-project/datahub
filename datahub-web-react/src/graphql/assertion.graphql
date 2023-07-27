@@ -46,7 +46,7 @@ fragment assertionDetails on Assertion {
             }
             logic
         }
-        slaAssertion {
+        freshnessAssertion {
             type
             schedule {
                 type
@@ -59,8 +59,20 @@ fragment assertionDetails on Assertion {
                     multiple
                 }
             }
+            filter {
+                type
+                sql
+            }
         }
         source {
+            type
+        }
+    }
+    actions {
+        onSuccess {
+            type
+        }
+        onFailure {
             type
         }
     }
@@ -85,6 +97,13 @@ fragment assertionRunEventDetails on AssertionRunEvent {
             key
             value
         }
+        error {
+            type
+            properties {
+                key
+                value
+            }
+        }
     }
 }
 
@@ -96,6 +115,7 @@ query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long,
             total
             failed
             succeeded
+            errored
             runEvents {
                 ...assertionRunEventDetails
             }
@@ -107,14 +127,20 @@ mutation deleteAssertion($urn: String!) {
     deleteAssertion(urn: $urn)
 }
 
-mutation createSlaAssertion($input: CreateSlaAssertionInput!) {
-    createSlaAssertion(input: $input) {
+mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {
+    createFreshnessAssertion(input: $input) {
         ...assertionDetails
     }
 }
 
-mutation updateSlaAssertion($urn: String!, $input: UpdateSlaAssertionInput!) {
-    updateSlaAssertion(urn: $urn, input: $input) {
+mutation updateFreshnessAssertion($urn: String!, $input: UpdateFreshnessAssertionInput!) {
+    updateFreshnessAssertion(urn: $urn, input: $input) {
+        ...assertionDetails
+    }
+}
+
+mutation updateAssertionActions($urn: String!, $input: AssertionActionsInput!) {
+    updateAssertionActions(urn: $urn, input: $input) {
         ...assertionDetails
     }
 }

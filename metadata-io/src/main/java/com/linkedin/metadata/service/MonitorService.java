@@ -85,7 +85,7 @@ public class MonitorService extends BaseService {
   }
 
   /**
-   * Creates a new Dataset or DataJob SLA Monitor for native execution by DataHub.
+   * Creates a new Dataset or DataJob Freshness Monitor for native execution by DataHub.
    * Assumes that the caller has already performed the required authorization.
    *
    * Throws an exception if the provided assertion urn does not exist.

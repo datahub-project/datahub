@@ -22,4 +22,9 @@ public class VisualConfiguration {
    * Boolean flag disabling viewing the Business Glossary page for users without the 'Manage Glossaries' privilege
    */
   public boolean hideGlossary;
+
+   /**
+   * Queries tab related configurations
+   */
+  public EntityProfileConfig entityProfile;
 }

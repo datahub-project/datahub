@@ -9,6 +9,12 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchService;
@@ -34,7 +40,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
       Constants.ML_FEATURE_TABLE_ENTITY_NAME,
       Constants.ML_FEATURE_ENTITY_NAME
   );
-  private static final String VERSION = "1";
+  private static final String VERSION = "2";
   private static final String UPGRADE_ID = "backfill-default-browse-paths-v2-step";
   private static final Integer BATCH_SIZE = 5000;
 
@@ -69,24 +75,51 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
   }
 
   private String backfillBrowsePathsV2(String entityType, AuditStamp auditStamp, String scrollId)
-      throws Exception {
+          throws Exception {
+
+    // Condition: has `browsePaths` AND does NOT have `browsePathV2`
+    Criterion missingBrowsePathV2 = new Criterion();
+    missingBrowsePathV2.setCondition(Condition.IS_NULL);
+    missingBrowsePathV2.setField("browsePathV2");
+    // Excludes entities without browsePaths
+    Criterion hasBrowsePathV1 = new Criterion();
+    hasBrowsePathV1.setCondition(Condition.EXISTS);
+    hasBrowsePathV1.setField("browsePaths");
+
+    CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(missingBrowsePathV2);
+    criterionArray.add(hasBrowsePathV1);
+
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    conjunctiveCriterion.setAnd(criterionArray);
+
+    ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
+    conjunctiveCriterionArray.add(conjunctiveCriterion);
+
+    Filter filter = new Filter();
+    filter.setOr(conjunctiveCriterionArray);
 
     final ScrollResult scrollResult = _searchService.scrollAcrossEntities(
-        ImmutableList.of(entityType),
-        "*",
-        null,
-        null,
-        scrollId,
-        "5m",
-        BATCH_SIZE,
-        null
+            ImmutableList.of(entityType),
+            "*",
+            filter,
+            null,
+            scrollId,
+            "5m",
+            BATCH_SIZE,
+            null
     );
     if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return null;
     }
 
     for (SearchEntity searchEntity : scrollResult.getEntities()) {
-      ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+      try {
+        ingestBrowsePathsV2(searchEntity.getEntity(), auditStamp);
+      } catch (Exception e) {
+        // don't stop the whole step because of one bad urn or one bad ingestion
+        log.error(String.format("Error ingesting default browsePathsV2 aspect for urn %s", searchEntity.getEntity()), e);
+      }
     }
 
     return scrollResult.getScrollId();

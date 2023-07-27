@@ -14,6 +14,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -31,7 +32,7 @@ import java.util.Map;
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 
 public class BackfillBrowsePathsV2StepTest {
-  private static final String VERSION_1 = "1";
+  private static final String VERSION = "2";
   private static final String UPGRADE_URN = String.format(
       "urn:li:%s:%s",
       Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
@@ -88,7 +89,7 @@ public class BackfillBrowsePathsV2StepTest {
     Mockito.verify(mockSearchService, Mockito.times(9)).scrollAcrossEntities(
         Mockito.any(),
         Mockito.eq("*"),
-        Mockito.eq(null),
+        Mockito.any(Filter.class),
         Mockito.eq(null),
         Mockito.eq(null),
         Mockito.eq("5m"),
@@ -109,7 +110,7 @@ public class BackfillBrowsePathsV2StepTest {
     final SearchService mockSearchService = initMockSearchService();
 
     final Urn upgradeEntityUrn = Urn.createFromString(UPGRADE_URN);
-    com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest = new com.linkedin.upgrade.DataHubUpgradeRequest().setVersion(VERSION_1);
+    com.linkedin.upgrade.DataHubUpgradeRequest upgradeRequest = new com.linkedin.upgrade.DataHubUpgradeRequest().setVersion(VERSION);
     Map<String, EnvelopedAspect> upgradeRequestAspects = new HashMap<>();
     upgradeRequestAspects.put(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data())));
@@ -157,7 +158,7 @@ public class BackfillBrowsePathsV2StepTest {
       Mockito.when(mockSearchService.scrollAcrossEntities(
           Mockito.eq(ImmutableList.of(ENTITY_TYPES.get(i))),
           Mockito.eq("*"),
-          Mockito.eq(null),
+          Mockito.any(Filter.class),
           Mockito.eq(null),
           Mockito.eq(null),
           Mockito.eq("5m"),

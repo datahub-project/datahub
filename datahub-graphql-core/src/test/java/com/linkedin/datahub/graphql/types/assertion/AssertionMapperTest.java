@@ -8,13 +8,13 @@ import com.linkedin.assertion.AssertionStdParameter;
 import com.linkedin.assertion.AssertionStdParameterType;
 import com.linkedin.assertion.AssertionStdParameters;
 import com.linkedin.assertion.AssertionType;
-import com.linkedin.assertion.SlaCronSchedule;
+import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
-import com.linkedin.assertion.SlaAssertionInfo;
-import com.linkedin.assertion.SlaAssertionSchedule;
-import com.linkedin.assertion.SlaAssertionScheduleType;
-import com.linkedin.assertion.SlaAssertionType;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionSchedule;
+import com.linkedin.assertion.FreshnessAssertionScheduleType;
+import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -37,30 +37,30 @@ public class AssertionMapperTest {
   @Test
   public void testMapDatasetAssertion() {
     // Case 1: Without nullable fields
-    AssertionInfo input = createSlaAssertionInfoWithoutNullableFields();
+    AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
     EntityResponse datasetAssertionEntityResponse = createAssertionInfoEntityResponse(input);
     Assertion output = AssertionMapper.map(datasetAssertionEntityResponse);
     verifyAssertion(input, output);
 
     // Case 2: With nullable fields
-    input = createSlaAssertionInfoWithNullableFields();
+    input = createFreshnessAssertionInfoWithNullableFields();
     EntityResponse datasetAssertionEntityResponseWithNullables = createAssertionInfoEntityResponse(input);
     output = AssertionMapper.map(datasetAssertionEntityResponseWithNullables);
     verifyAssertion(input, output);
   }
 
   @Test
-  public void testMapSlaAssertion() {
+  public void testMapFreshnessAssertion() {
     // Case 1: Without nullable fields
-    AssertionInfo input = createSlaAssertionInfoWithoutNullableFields();
-    EntityResponse slaAssertionEntityResponse = createAssertionInfoEntityResponse(input);
-    Assertion output = AssertionMapper.map(slaAssertionEntityResponse);
+    AssertionInfo input = createFreshnessAssertionInfoWithoutNullableFields();
+    EntityResponse freshnessAssertionEntityResponse = createAssertionInfoEntityResponse(input);
+    Assertion output = AssertionMapper.map(freshnessAssertionEntityResponse);
     verifyAssertion(input, output);
 
     // Case 2: With nullable fields
     input = createDatasetAssertionInfoWithNullableFields();
-    EntityResponse slaAssertionEntityResponseWithNullables = createAssertionInfoEntityResponse(input);
-    output = AssertionMapper.map(slaAssertionEntityResponseWithNullables);
+    EntityResponse freshnessAssertionEntityResponseWithNullables = createAssertionInfoEntityResponse(input);
+    output = AssertionMapper.map(freshnessAssertionEntityResponseWithNullables);
     verifyAssertion(input, output);
   }
 
@@ -73,8 +73,8 @@ public class AssertionMapperTest {
       verifyDatasetAssertion(input.getDatasetAssertion(), output.getInfo().getDatasetAssertion());
     }
 
-    if (input.hasSlaAssertion()) {
-      verifySlaAssertion(input.getSlaAssertion(), output.getInfo().getSlaAssertion());
+    if (input.hasFreshnessAssertion()) {
+      verifyFreshnessAssertion(input.getFreshnessAssertion(), output.getInfo().getFreshnessAssertion());
     }
 
     if (input.hasSource()) {
@@ -102,15 +102,15 @@ public class AssertionMapperTest {
     }
   }
 
-  private void verifySlaAssertion(SlaAssertionInfo input, com.linkedin.datahub.graphql.generated.SlaAssertionInfo output) {
+  private void verifyFreshnessAssertion(FreshnessAssertionInfo input, com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo output) {
     Assert.assertEquals(output.getType().toString(), input.getType().toString());
     Assert.assertEquals(output.getEntityUrn(), input.getEntity().toString());
     if (input.hasSchedule()) {
-      verifySlaSchedule(input.getSchedule(), output.getSchedule());
+      verifyFreshnessSchedule(input.getSchedule(), output.getSchedule());
     }
   }
 
-  private void verifyCronSchedule(SlaCronSchedule input, com.linkedin.datahub.graphql.generated.SlaCronSchedule output) {
+  private void verifyCronSchedule(FreshnessCronSchedule input, com.linkedin.datahub.graphql.generated.FreshnessCronSchedule output) {
     Assert.assertEquals(output.getCron(), input.getCron());
     Assert.assertEquals(output.getTimezone(), input.getTimezone());
     if (input.hasWindowStartOffsetMs()) {
@@ -118,7 +118,7 @@ public class AssertionMapperTest {
     }
   }
 
-  private void verifySlaSchedule(SlaAssertionSchedule input, com.linkedin.datahub.graphql.generated.SlaAssertionSchedule output) {
+  private void verifyFreshnessSchedule(FreshnessAssertionSchedule input, com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule output) {
     Assert.assertEquals(output.getType().toString(), input.getType().toString());
     if (input.hasCron()) {
       verifyCronSchedule(input.getCron(), output.getCron());
@@ -182,20 +182,20 @@ public class AssertionMapperTest {
     return infoWithoutNullables;
   }
 
-  private AssertionInfo createSlaAssertionInfoWithoutNullableFields() {
+  private AssertionInfo createFreshnessAssertionInfoWithoutNullableFields() {
     AssertionInfo info = new AssertionInfo();
-    info.setType(AssertionType.SLA);
-    SlaAssertionInfo slaAssertionInfo = new SlaAssertionInfo();
-    slaAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
-    slaAssertionInfo.setType(SlaAssertionType.DATASET_CHANGE);
-    info.setSlaAssertion(slaAssertionInfo);
+    info.setType(AssertionType.FRESHNESS);
+    FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
+    freshnessAssertionInfo.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)"));
+    freshnessAssertionInfo.setType(FreshnessAssertionType.DATASET_CHANGE);
+    info.setFreshnessAssertion(freshnessAssertionInfo);
     return info;
   }
 
-  private AssertionInfo createSlaAssertionInfoWithNullableFields() {
-    AssertionInfo infoWithoutNullables = createSlaAssertionInfoWithoutNullableFields();
-    SlaAssertionInfo baseInfo = infoWithoutNullables.getSlaAssertion();
-    baseInfo.setSchedule(createSlaAssertionSchedule());
+  private AssertionInfo createFreshnessAssertionInfoWithNullableFields() {
+    AssertionInfo infoWithoutNullables = createFreshnessAssertionInfoWithoutNullableFields();
+    FreshnessAssertionInfo baseInfo = infoWithoutNullables.getFreshnessAssertion();
+    baseInfo.setSchedule(createFreshnessAssertionSchedule());
     infoWithoutNullables.setSource(new AssertionSource()
       .setType(com.linkedin.assertion.AssertionSourceType.INFERRED)
     );
@@ -217,15 +217,15 @@ public class AssertionMapperTest {
     return parameter;
   }
 
-  private SlaAssertionSchedule createSlaAssertionSchedule() {
-    SlaAssertionSchedule schedule = new SlaAssertionSchedule();
-    schedule.setType(SlaAssertionScheduleType.CRON);
+  private FreshnessAssertionSchedule createFreshnessAssertionSchedule() {
+    FreshnessAssertionSchedule schedule = new FreshnessAssertionSchedule();
+    schedule.setType(FreshnessAssertionScheduleType.CRON);
     schedule.setCron(createCronSchedule());
     return schedule;
   }
 
-  private SlaCronSchedule createCronSchedule() {
-    SlaCronSchedule cronSchedule = new SlaCronSchedule();
+  private FreshnessCronSchedule createCronSchedule() {
+    FreshnessCronSchedule cronSchedule = new FreshnessCronSchedule();
     cronSchedule.setCron("0 0 * * *");
     cronSchedule.setTimezone("UTC");
     return cronSchedule;
