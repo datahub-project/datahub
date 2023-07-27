@@ -1,10 +1,11 @@
 import logging
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional, Sequence, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -42,7 +43,8 @@ class TagOption(str, Enum):
     skip = "skip"
 
 
-class SnowflakeDatabaseDataHubId(ConfigModel):
+@dataclass(frozen=True)
+class SnowflakeDatabaseDataHubId:
     platform_instance: str
     database_name: str
 
@@ -211,3 +213,66 @@ class SnowflakeV2Config(
     @property
     def parse_view_ddl(self) -> bool:
         return self.include_view_column_lineage
+
+    @root_validator(pre=False)
+    def validator_inbound_outbound_shares_map(cls, values: Dict) -> Dict:
+        inbound_shares_map: Dict[str, SnowflakeDatabaseDataHubId] = (
+            values.get("inbound_shares_map") or {}
+        )
+        outbound_shares_map: Dict[str, List[SnowflakeDatabaseDataHubId]] = (
+            values.get("outbound_shares_map") or {}
+        )
+
+        # Check: same database from current instance as inbound and outbound
+        common_keys = [key for key in inbound_shares_map if key in outbound_shares_map]
+
+        assert (
+            len(common_keys) == 0
+        ), "Same database can not be present in both `inbound_shares_map` and `outbound_shares_map`."
+
+        current_platform_instance = values.get("platform_instance")
+
+        # Check: current platform_instance present as inbound and outbound
+        if current_platform_instance and any(
+            [
+                db.platform_instance == current_platform_instance
+                for db in inbound_shares_map.values()
+            ]
+        ):
+            raise ValueError(
+                "Current `platform_instance` can not be present as any database in `inbound_shares_map`."
+                "Self-sharing not supported in Snowflake. Please check your configuration."
+            )
+
+        if current_platform_instance and any(
+            [
+                db.platform_instance == current_platform_instance
+                for dbs in outbound_shares_map.values()
+                for db in dbs
+            ]
+        ):
+            raise ValueError(
+                "Current `platform_instance` can not be present as any database in `outbound_shares_map`."
+                "Self-sharing not supported in Snowflake. Please check your configuration."
+            )
+
+        # Check: platform_instance should be present
+        if (
+            inbound_shares_map or outbound_shares_map
+        ) and not current_platform_instance:
+            logger.warn(
+                "Did you forget to set `platform_instance` for current ingestion ?"
+                "It is advisable to use `platform_instance` when ingesting from multiple snowflake accounts."
+            )
+
+        # Check: same database from some platform instance as inbound and outbound
+        other_platform_instance_databases: Sequence[SnowflakeDatabaseDataHubId] = [
+            db for db in inbound_shares_map.values()
+        ] + [db for dbs in outbound_shares_map.values() for db in dbs]
+
+        for other_instance_db in other_platform_instance_databases:
+            assert (
+                other_platform_instance_databases.count(other_instance_db) == 1
+            ), "A database can exist only once either in `inbound_shares_map` or in `outbound_shares_map`."
+
+        return values

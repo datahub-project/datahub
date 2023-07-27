@@ -99,6 +99,33 @@ The steps slightly differ based on which you decide to use.
   including `client_id` and `client_secret`, plus your Okta user's `Username` and `Password`
   * Note: the `username` and `password` config options are not nested under `oauth_config`
 
+### Snowflake Shares
+If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of same table in different snowflake accounts. DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationship if user provides information necessary to establish the relationship using configurations `inbound_shares_map` and `outbound_shares_map` in recipe. 
+
+#### Example
+- Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it. 
+- Now, `X` is shared with snowflake account `account2` (ingested as platform_instance `instance2`). A database `db1_from_X` is created from inbound share `X` in `account2`.
+- In this case, all tables and views included in share `X` will also be present in `instance2`.`db1_from_X`. You would need following configurations in snowflake recipe to setup Siblings and Lineage relationships correctly.
+- In snowflake recipe of `account1` :
+
+  ```yaml
+  account_id: account1
+  platform_instance: instance1
+  outbound_shares_map:
+      db1: 
+          - platform_instance: instance2 # this is a list, as db1 can be shared with multiple snowflake accounts using X
+            database_name: db1_from_X
+  ```
+- In snowflake recipe of `account2` :
+
+  ```yaml
+  account_id: account2
+  platform_instance: instance2
+  inbound_shares_map:
+      db1_from_X:
+          platform_instance: instance1
+          database_name: db1
+  ```
 ### Caveats
 
 - Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.

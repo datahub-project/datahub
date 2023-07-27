@@ -36,30 +36,24 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
     def get_workunits(
         self, databases: List[SnowflakeDatabase]
     ) -> Iterable[MetadataWorkUnit]:
+        logger.debug("Checking databases for inbound or outbound shares.")
         for db in databases:
-            inbound = (
-                self.config.inbound_shares_map.get(db.name)
-                if self.config.inbound_shares_map
-                and db.name in self.config.inbound_shares_map
-                else None
-            )
-            outbounds = (
-                self.config.outbound_shares_map.get(db.name)
-                if self.config.outbound_shares_map
-                and db.name in self.config.outbound_shares_map
-                else None
-            )
+            inbound, outbounds = self.get_sharing_details(db)
+
+            if not (inbound or outbounds):
+                logger.debug(f"database {db.name} is not a shared.")
+                continue
+
             sibling_dbs: List[SnowflakeDatabaseDataHubId]
             if inbound:
                 sibling_dbs = [inbound]
-            elif outbounds:
+                logger.debug(f"database {db.name} is created from inbound share.")
+            else:  # outbounds
                 sibling_dbs = outbounds
-            else:
-                continue
-            # TODO: pydantic validator to check that database key in inbound_shares_map is not present in outbound_shares_map
-            # TODO: logger statements and exception handling
+                logger.debug(f"database {db.name} is shared as outbound share.")
+
             for schema in db.schemas:
-                for table_name in schema.tables:
+                for table_name in schema.tables + schema.views:
                     yield from self.get_siblings(
                         db.name,
                         schema.name,
@@ -69,10 +63,47 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                     )
 
                     if inbound:
-                        # TODO: Should this be governed by any config flag ? Should this be part of lineage_extractor ?
+                        # SnowflakeLineageExtractor is unaware of database->schema->table hierarchy
+                        # hence this lineage code is not written in SnowflakeLineageExtractor
+                        # also this is not governed by configs include_table_lineage and include_view_lineage
                         yield self.get_upstream_lineage_with_primary_sibling(
                             db.name, schema.name, table_name, inbound
                         )
+
+        self.report_missing_databases(databases)
+
+    def get_sharing_details(self, db):
+        inbound = (
+            self.config.inbound_shares_map.get(db.name)
+            if self.config.inbound_shares_map
+            and db.name in self.config.inbound_shares_map
+            else None
+        )
+        outbounds = (
+            self.config.outbound_shares_map.get(db.name)
+            if self.config.outbound_shares_map
+            and db.name in self.config.outbound_shares_map
+            else None
+        )
+
+        return inbound, outbounds
+
+    def report_missing_databases(self, databases):
+        db_names = [db.name for db in databases]
+        missing_dbs = []
+        if self.config.inbound_shares_map:
+            missing_dbs.extend(
+                [db for db in self.config.inbound_shares_map if db not in db_names]
+            )
+        if self.config.outbound_shares_map:
+            missing_dbs.extend(
+                [db for db in self.config.outbound_shares_map if db not in db_names]
+            )
+        if missing_dbs:
+            self.report_warning(
+                "snowflake-shares",
+                f"Databases {missing_dbs} were not ingested. Siblings/Lineage will not be set for these.",
+            )
 
     def get_siblings(
         self,
