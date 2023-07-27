@@ -1,5 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import {t} from "i18next";
+import {Trans} from "react-i18next";
 import { Divider, Empty, Typography } from 'antd';
 import {
     CorpUser,
@@ -164,7 +166,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     {domainRecommendationModule && (
                         <>
                             <DomainsRecomendationContainer id={HOME_PAGE_DOMAINS_ID}>
-                                <RecommendationTitle level={4}>{domainRecommendationModule.title}</RecommendationTitle>
+                                <RecommendationTitle level={4}>{t (domainRecommendationModule.title)}</RecommendationTitle>
                                 <ThinDivider />
                                 <RecommendationModule
                                     module={domainRecommendationModule as RecommendationModuleType}
@@ -174,7 +176,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                             </DomainsRecomendationContainer>
                         </>
                     )}
-                    <RecommendationTitle level={4}>Explore your data</RecommendationTitle>
+                    <RecommendationTitle level={4}><Trans>Explore your data</Trans></RecommendationTitle>
                     <ThinDivider />
                     {hasIngestedMetadata ? (
                         <BrowseCardContainer>
@@ -195,7 +197,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                         </BrowseCardContainer>
                     ) : (
                         <NoMetadataContainer>
-                            <NoMetadataEmpty description="No Metadata Found 😢" />
+                            <NoMetadataEmpty description={t ('No Metadata Found')}/>
                         </NoMetadataContainer>
                     )}
                 </RecommendationContainer>
@@ -205,7 +207,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     .filter((module) => module.renderType !== RecommendationRenderType.DomainSearchList)
                     .map((module) => (
                         <RecommendationContainer id={getStepId(module.moduleId)} key={module.moduleId}>
-                            <RecommendationTitle level={4}>{module.title}</RecommendationTitle>
+                            <RecommendationTitle level={4}>{t (module.title)}</RecommendationTitle>
                             <ThinDivider />
                             <RecommendationModule
                                 module={module as RecommendationModuleType}
@@ -216,4 +218,5 @@ export const HomePageRecommendations = ({ user }: Props) => {
                     ))}
         </RecommendationsContainer>
     );
-};
+}
+;
