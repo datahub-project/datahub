@@ -10891,6 +10891,11 @@ type DataProduct implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
+    Children entities inside of the DataProduct
+    """
+    entities(input: SearchAcrossEntitiesInput): SearchResults
+
+    """
     The structured glossary terms associated with the Data Product
     """
     glossaryTerms: GlossaryTerms
@@ -10926,7 +10931,7 @@ type DataProductProperties {
     externalUrl: String
 
     """
-    Number of children entities inside of the Data Product
+    Number of children entities inside of the Data Product. This number includes soft deleted entities.
     """
     numAssets: Int
 
