@@ -20,7 +20,7 @@ export default function SourceDescription() {
     const platformName = getPlatformName(entityData);
     const sourceDescription = entityData?.properties?.description;
 
-    if (!sourceDescription) return null;
+    if (!sourceDescription || !entityData?.platform) return null;
 
     return (
         <SourceDescriptionWrapper>
