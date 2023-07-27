@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import {t} from "i18next";
 import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import MenuItem from 'antd/lib/menu/MenuItem';
@@ -27,6 +28,7 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
      * Whether button has been clicked
      */
     const [isClicked, setIsClicked] = useState(false);
+    const CopyTitleText = `${t("Copy_Urn_Title", {type})}`;
 
     return (
         <StyledMenuItem
@@ -36,10 +38,10 @@ export default function CopyUrnMenuItem({ urn, key, type }: CopyUrnMenuItemProps
                 setIsClicked(true);
             }}
         >
-            <Tooltip title={`Copy the URN for this ${type}. An URN uniquely identifies an entity on DataHub.`}>
+            <Tooltip title={CopyTitleText}>
                 {isClicked ? <CheckOutlined /> : <CopyOutlined />}
                 <TextSpan>
-                    <b>Copy URN</b>
+                    <b>{t ('Copy URN') }</b>
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>

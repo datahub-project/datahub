@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import {Trans}  from  "react-i18next" ;
 import { Button, Dropdown } from 'antd';
 import { ShareAltOutlined } from '@ant-design/icons';
 import { EntityType } from '../../../types.generated';
@@ -33,7 +34,7 @@ export default function ShareButton({ urn, entityType, subType, name }: ShareBut
         >
             <StyledButton type="primary">
                 <StyledShareIcon />
-                Share
+                <Trans>Share</Trans>
             </StyledButton>
         </Dropdown>
     );

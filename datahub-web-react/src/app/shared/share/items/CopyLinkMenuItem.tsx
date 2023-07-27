@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import {t} from "i18next";
 import styled from 'styled-components/macro';
 import { CheckOutlined, LinkOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
@@ -38,10 +39,10 @@ export default function CopyLinkMenuItem({ key }: CopyLinkMenuItemProps) {
                 setIsClicked(true);
             }}
         >
-            <Tooltip title="Copy a shareable link to this entity.">
+            <Tooltip title={t ('Copy a shareable link to this entity.')}>
                 {isClicked ? <CheckOutlined /> : <StyledLinkOutlined />}
                 <TextSpan>
-                    <b>Copy Link</b>
+                    <b>{t ('Copy Link')}</b>
                 </TextSpan>
             </Tooltip>
         </StyledMenuItem>

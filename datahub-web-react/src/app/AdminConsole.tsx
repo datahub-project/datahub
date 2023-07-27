@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import {Trans} from "react-i18next";
 import { Menu } from 'antd';
 import styled from 'styled-components';
 import { BankOutlined, BarChartOutlined, MenuOutlined } from '@ant-design/icons';
@@ -77,14 +78,14 @@ export const AdminConsole = (): JSX.Element => {
                         {showAnalytics && (
                             <Menu.Item key="analytics" icon={<BarChartOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/analytics">
-                                    分析
+                                    <Trans>Analytics</Trans>
                                 </Link>
                             </Menu.Item>
                         )}
                         {showPolicyBuilder && (
                             <Menu.Item key="permissions" icon={<BankOutlined />}>
                                 <Link onClick={onMenuItemClick} to="/permissions">
-                                    权限管理
+                                    <Trans>Permissions</Trans>
                                 </Link>
                             </Menu.Item>
                         )}
