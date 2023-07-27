@@ -5,6 +5,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
+    FreshnessAssertionScheduleType,
     FreshnessFieldSpec,
 } from '../../../../../../../../../../types.generated';
 import { FieldValueSourceBuilder } from './FieldValueSourceBuilder';
@@ -16,6 +17,7 @@ import {
     getFreshnessSourceOptionPlatformDescription,
     getDefaultFreshnessSourceOption,
 } from '../../utils';
+import { useChangeSourceOptionIf } from '../../hooks';
 
 const Form = styled.div``;
 
@@ -59,6 +61,7 @@ const SourceOptionSelectDescription = styled(Typography.Paragraph)`
 type Props = {
     entityUrn: string;
     platformUrn: string;
+    scheduleType: FreshnessAssertionScheduleType;
     value?: DatasetFreshnessAssertionParameters | null;
     onChange: (newParams: DatasetFreshnessAssertionParameters) => void;
 };
@@ -76,8 +79,9 @@ type Props = {
  *
  * For applicable sources
  */
-export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, onChange }: Props) => {
-    const sourceType = value?.sourceType || getDefaultFreshnessSourceOption(platformUrn);
+export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, scheduleType, value, onChange }: Props) => {
+    const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn);
+    const sourceType = value?.sourceType || defaultSourceType;
     const field = value?.field;
     const fieldKind = field?.kind;
 
@@ -131,6 +135,12 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         } as any);
     };
 
+    // If the selected source option is not allowed for the current schedule type, then change the source type to the default
+    useChangeSourceOptionIf(!selectedSourceOption.allowedScheduleTypes.includes(scheduleType), {
+        sourceType: defaultSourceType,
+        updateSourceType,
+    });
+
     return (
         <Form>
             <Typography.Title level={5}>Change Source</Typography.Title>
@@ -141,15 +151,17 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
                 value={selectedSourceOption.name}
                 onChange={(sourceOption) => updateSourceType(sourceOption as string)}
             >
-                {sourceOptions.map((option) => (
-                    // In order to access the entire object on change, we use the object reference as the value and then override the default checked behavior
-                    <Select.Option value={option.name} key={option.name}>
-                        <Typography.Text>{option.name}</Typography.Text>
-                        <SourceOptionSelectDescription type="secondary">
-                            {selectedSourceOption.description}
-                        </SourceOptionSelectDescription>
-                    </Select.Option>
-                ))}
+                {sourceOptions.map((option) => {
+                    const isDisabled = !option.allowedScheduleTypes.includes(scheduleType);
+                    return (
+                        <Select.Option value={option.name} key={option.name} disabled={isDisabled}>
+                            <Typography.Text>{option.name}</Typography.Text>
+                            <SourceOptionSelectDescription type="secondary">
+                                {option.description}
+                            </SourceOptionSelectDescription>
+                        </Select.Option>
+                    );
+                })}
             </StyledSelect>
             <SourceDescription>
                 <StyledInfoCircleOutlined />

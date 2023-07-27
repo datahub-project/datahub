@@ -26,6 +26,7 @@ export type SourceOption = {
         kind?: FreshnessFieldKind;
         dataTypes?: Set<SchemaFieldDataType>;
     };
+    allowedScheduleTypes: FreshnessAssertionScheduleType[];
 };
 
 /** Different platforms may allow only certain source types. In the future, we may want a better place to declare these. */
@@ -183,11 +184,13 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.AuditLog,
         name: 'Audit Log',
         description: 'Use operations logged in platform audit logs to determine whether the asset has changed',
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
     },
     {
         type: DatasetFreshnessSourceType.InformationSchema,
         name: 'Information Schema',
         description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
@@ -200,18 +203,20 @@ const allSourceOptions: SourceOption[] = [
             kind: FreshnessFieldKind.LastModified,
             dataTypes: LAST_MODIFIED_FIELD_TYPES,
         },
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
     },
     {
         type: DatasetFreshnessSourceType.FieldValue,
         name: 'High Watermark Column',
         description:
-            'Use a sortable column with a continuously increasing value, such as a partition date, timestamp, or an incrementing id, to determine whether the dataset has changed.',
+            'Use a sortable column with a continuously increasing value, such as a partition date, timestamp, or an incrementing id, to determine whether the dataset has changed. Only available when "Since the previous check" is selected.',
         secondaryDescription:
             'Select a sortable, incrementing column used to track changes in the dataset. This column must have type INTEGER, TIMESTAMP, DATE, or DATETIME.',
         field: {
             kind: FreshnessFieldKind.HighWatermark,
             dataTypes: HIGH_WATERMARK_FIELD_TYPES,
         },
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron],
     },
 ];
 

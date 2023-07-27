@@ -8,6 +8,7 @@ import {
     DatasetFilter,
     DatasetFreshnessAssertionParameters,
     FreshnessAssertionSchedule,
+    FreshnessAssertionScheduleType,
 } from '../../../../../../../../../types.generated';
 import { EvaluationScheduleBuilder } from './freshness/EvaluationScheduleBuilder';
 import { DatasetFreshnessSourceBuilder } from './freshness/DatasetFreshnessSourceBuilder';
@@ -42,6 +43,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
     const freshnessAssertion = state.assertion?.freshnessAssertion;
     const freshnessFilter = freshnessAssertion?.filter;
     const freshnessSchedule = freshnessAssertion?.schedule;
+    const freshnessScheduleType = freshnessSchedule?.type;
     const datasetFreshnessParameters = state.parameters?.datasetFreshnessParameters;
 
     const updateDatasetFreshnessAssertionParameters = (parameters: DatasetFreshnessAssertionParameters) => {
@@ -116,6 +118,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
                             <DatasetFreshnessSourceBuilder
                                 entityUrn={state.entityUrn as string}
                                 platformUrn={state.platformUrn as string}
+                                scheduleType={freshnessScheduleType as FreshnessAssertionScheduleType}
                                 value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
                                 onChange={updateDatasetFreshnessAssertionParameters}
                             />
