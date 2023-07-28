@@ -302,10 +302,10 @@ public class Neo4jGraphService implements GraphService {
     String statement;
     final String allowedEntityTypes = String.join(" OR b:", graphFilters.getAllowedEntityTypes());
 
-    final String multiHopMatchTemplateIndirect = (maxHops > 1) ? "MATCH p = shortestPath((a {urn:%s})<-[r*1..%d]-(b)) "
-        : "MATCH p = (a {urn:%s})<-[r*1..%d]-(b)";
-    final String multiHopMatchTemplateDirect = (maxHops > 1) ? "MATCH p = shortestPath((a {urn:%s})-[r*1..%d]->(b)) "
-        : "MATCH p = (a {urn:%s})-[r*1..%d]->(b) ";
+    final String multiHopMatchTemplateIndirect = (maxHops > 1) ? "MATCH p = shortestPath((a {urn:'%s'})<-[r*1..%d]-(b)) "
+        : "MATCH p = (a {urn:'%s'})<-[r*1..%d]-(b)";
+    final String multiHopMatchTemplateDirect = (maxHops > 1) ? "MATCH p = shortestPath((a {urn:'%s'})-[r*1..%d]->(b)) "
+        : "MATCH p = (a {urn:'%s'})-[r*1..%d]->(b) ";
     // directionFilterTemplate should apply to all condition.
     final String multiHopMatchTemplate =
         direction == LineageDirection.UPSTREAM ? multiHopMatchTemplateIndirect : multiHopMatchTemplateDirect;
