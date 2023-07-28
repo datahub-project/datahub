@@ -139,10 +139,12 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=True,
         description="[deprecated] Use pagination_enabled ",
     )
-    _deprecate_manager_pagination_enabled = pydantic_field_deprecated("manager_pagination_enabled")
+    _deprecate_manager_pagination_enabled = pydantic_field_deprecated(
+        "manager_pagination_enabled"
+    )
     pagination_enabled: bool = Field(
         default=True,
-        description="Use pagination while do search query (enabled by default)."
+        description="Use pagination while do search query (enabled by default).",
     )
 
     # default mapping for attrs
@@ -159,10 +161,14 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
                 "pagination_enabled is not set but manager_pagination_enabled is set. manager_pagination_enabled is "
                 "deprecated, please use pagination_enabled instead."
             )
-            logger.info("Initializing pagination_enabled from manager_pagination_enabled")
+            logger.info(
+                "Initializing pagination_enabled from manager_pagination_enabled"
+            )
             values["pagination_enabled"] = manager_pagination_enabled
         elif manager_pagination_enabled and pagination_enabled:
-            raise ValueError("manager_pagination_enabled is deprecated. Please use pagination_enabled only.")
+            raise ValueError(
+                "manager_pagination_enabled is deprecated. Please use pagination_enabled only."
+            )
 
         return values
 

@@ -22,6 +22,7 @@ individually enable / disable desired field metrics.
 ### Deprecations
 
 - #8198: In the Python SDK, the `PlatformKey` class has been renamed to `ContainerKey`.
+- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled` 
 
 ### Other notable Changes
 
