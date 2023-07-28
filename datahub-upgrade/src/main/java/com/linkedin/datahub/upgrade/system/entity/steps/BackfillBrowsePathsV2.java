@@ -2,7 +2,6 @@ package com.linkedin.datahub.upgrade.system.entity.steps;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.upgrade.Upgrade;
-import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
