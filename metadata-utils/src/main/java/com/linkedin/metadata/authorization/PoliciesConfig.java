@@ -210,6 +210,11 @@ public class PoliciesConfig {
       "Edit Embedded Content",
       "The ability to edit the embedded content for an entity.");
 
+  public static final Privilege CREATE_JOIN_PRIVILEGE = Privilege.of(
+      "CREATE_ENTITY_JOIN",
+      "Create join",
+      "The ability to add join on a dataset.");
+
   public static final List<Privilege> COMMON_ENTITY_PRIVILEGES = ImmutableList.of(
       VIEW_ENTITY_PAGE_PRIVILEGE,
       EDIT_ENTITY_TAGS_PRIVILEGE,
@@ -360,7 +365,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
               EDIT_LINEAGE_PRIVILEGE,
               EDIT_ENTITY_EMBED_PRIVILEGE,
-              EDIT_QUERIES_PRIVILEGE))
+              EDIT_QUERIES_PRIVILEGE,
+              CREATE_JOIN_PRIVILEGE))
           .flatMap(Collection::stream)
           .collect(Collectors.toList())
   );
@@ -513,6 +519,13 @@ public class PoliciesConfig {
           EDIT_ENTITY_PRIVILEGE)
   );
 
+  // Join Privileges
+  public static final ResourcePrivileges JOIN_PRIVILEGES = ResourcePrivileges.of(
+          "join",
+          "Join",
+          "update privileges for joins",
+          COMMON_ENTITY_PRIVILEGES
+  );
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES = ImmutableList.of(
       DATASET_PRIVILEGES,
       DASHBOARD_PRIVILEGES,
@@ -527,7 +540,8 @@ public class PoliciesConfig {
       CORP_GROUP_PRIVILEGES,
       CORP_USER_PRIVILEGES,
       NOTEBOOK_PRIVILEGES,
-      DATA_PRODUCT_PRIVILEGES
+      DATA_PRODUCT_PRIVILEGES,
+      JOIN_PRIVILEGES
   );
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges

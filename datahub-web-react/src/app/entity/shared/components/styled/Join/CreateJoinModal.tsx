@@ -134,10 +134,10 @@ export const CreateJoinModal = ({
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
     const table2DatasetSchema = editJoin?.properties?.datasetB || table2Schema?.dataset;
 
-    const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMappings?.details || '');
+    const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
     const [joinName, setJoinName] = useState<string>(editJoin?.properties?.name || editJoin?.joinId || '');
     const [tableData, setTableData] = useState<JoinDataType[]>(
-        editJoin?.properties?.joinFieldMappings?.fieldMapping?.map((item, index) => {
+        editJoin?.properties?.joinFieldMapping?.fieldMappings?.map((item, index) => {
             return {
                 key: index,
                 field1Name: item.afield,
@@ -148,7 +148,7 @@ export const CreateJoinModal = ({
             { key: '1', field1Name: '', field2Name: '' },
         ],
     );
-    const [count, setCount] = useState(editJoin?.properties?.joinFieldMappings?.fieldMapping?.length || 2);
+    const [count, setCount] = useState(editJoin?.properties?.joinFieldMapping?.fieldMappings?.length || 2);
     const [createMutation] = useCreateJoinMutation();
     const [updateMutation] = useUpdateJoinMutation();
     const handleDelete = (record) => {
@@ -158,6 +158,7 @@ export const CreateJoinModal = ({
     const onCancelSelect = () => {
         Modal.confirm({
             title: `Exit`,
+            className: 'cancel-modal',
             content: `Are you sure you want to exit?  The changes made to the join will not be applied.`,
             onOk() {
                 onCancel?.();
@@ -211,7 +212,6 @@ export const CreateJoinModal = ({
         if (faultyRows.length > 0) {
             errors.push('Fields should be selected');
         }
-        console.log(faultyRows);
         return errors;
     };
     const onSubmit = async () => {
@@ -230,11 +230,11 @@ export const CreateJoinModal = ({
                             dataSetA: table1Dataset?.urn || '',
                             datasetB: table2Dataset?.urn || '',
                             name: joinName,
-                            createdBy: editJoin?.properties?.createdActor || '',
+                            createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
                             createdAt: editJoin?.properties?.createdTime || 0,
-                            joinFieldmappings: {
+                            joinFieldmapping: {
                                 details,
-                                fieldMapping: tableData.map((r) => {
+                                fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,
                                         bfield: r.field2Name,
@@ -253,9 +253,9 @@ export const CreateJoinModal = ({
                             dataSetA: table1Dataset?.urn || '',
                             datasetB: table2Dataset?.urn || '',
                             name: joinName,
-                            joinFieldmappings: {
+                            joinFieldmapping: {
                                 details,
-                                fieldMapping: tableData.map((r) => {
+                                fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,
                                         bfield: r.field2Name,
@@ -280,7 +280,12 @@ export const CreateJoinModal = ({
         window.location.reload();
     };
     function getDatasetName(datainput: any): string {
-        return datainput?.editableProperties?.name || datainput?.properties?.name || datainput?.name || datainput?.urn;
+        return (
+            datainput?.editableProperties?.name ||
+            datainput?.properties?.name ||
+            datainput?.name ||
+            datainput?.urn.split(',').at(1)
+        );
     }
     const table1NameBusiness = getDatasetName(table1Dataset);
     const table1NameTech = table1Dataset?.name || table1Dataset?.urn.split(',').at(1) || '';
@@ -307,14 +312,12 @@ export const CreateJoinModal = ({
                 </p>
             ),
             dataIndex: 'field1Name',
-            // width: '40%',
             tableRecord: table1DatasetSchema || {},
             editable: true,
         },
         {
             title: '',
             dataIndex: '',
-            // width: '8%',
             editable: false,
             render: () => <img src={arrow} alt="" />,
         },
@@ -328,14 +331,12 @@ export const CreateJoinModal = ({
                 </p>
             ),
             dataIndex: 'field2Name',
-            // width: '40%',
             tableRecord: table2DatasetSchema || {},
             editable: true,
         },
         {
             title: 'Action',
             dataIndex: '',
-            // width: '8%',
             editable: false,
             render: (record) =>
                 tableData.length > 1 ? (
@@ -401,14 +402,15 @@ export const CreateJoinModal = ({
             okButtonProps={{ hidden: true }}
             cancelButtonProps={{ hidden: true }}
             onCancel={onCancelSelect}
+            destroyOnClose
         >
             <div className="inner-div">
                 <p className="all-table-heading">Table 1</p>
                 <p className="all-information">{table1NameBusiness}</p>
-                <div className="editableNameDisplay">{table1NameTech !== table1NameBusiness && table1NameTech}</div>
+                <div className="techNameDisplay">{table1NameTech !== table1NameBusiness && table1NameTech}</div>
                 <p className="all-content-heading">Table 2</p>
                 <p className="all-information">{table2NameBusiness}</p>
-                <div className="editableNameDisplay">{table2NameTech !== table2NameBusiness && table2NameTech}</div>
+                <div className="techNameDisplay">{table2NameTech !== table2NameBusiness && table2NameTech}</div>
                 <p className="all-content-heading">Join name</p>
                 <Form
                     form={form}

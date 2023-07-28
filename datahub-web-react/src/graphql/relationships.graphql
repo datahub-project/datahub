@@ -11,19 +11,6 @@ fragment fullRelationshipResults on EntityRelationshipsResult {
     }
 }
 
-fragment fullRelationshipResultsOptimized on EntityRelationshipsResult {
-    start
-    count
-    total
-    relationships {
-        type
-        direction
-        entity {
-            ...relationshipFieldsOptimized
-        }
-    }
-}
-
 fragment leafRelationshipResults on EntityRelationshipsResult {
     start
     count
@@ -46,26 +33,6 @@ fragment relationshipFields on EntityWithRelationships {
                 urn
                 type
                 ...lineageNodeProperties
-            }
-        }
-    }
-    upstream: lineage(input: { direction: UPSTREAM, start: 0, count: 100 }) {
-        ...leafLineageResults
-    }
-    downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
-        ...leafLineageResults
-    }
-}
-
-fragment relationshipFieldsOptimized on EntityWithRelationships {
-    ...lineageNodePropertiesOptimized
-    ... on Dataset {
-        siblings {
-            isPrimary
-            siblings {
-                urn
-                type
-                ...lineageNodePropertiesOptimized
             }
         }
     }

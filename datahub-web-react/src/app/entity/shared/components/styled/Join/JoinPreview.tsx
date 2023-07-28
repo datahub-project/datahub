@@ -8,39 +8,27 @@ import './JoinPreview.less';
 import { EntityType, Join } from '../../../../../../types.generated';
 import { CreateJoinModal } from './CreateJoinModal';
 
+type JoinRecord = {
+    afield: string;
+    bfield: string;
+};
 type Props = {
     joinData: Join;
-    table1Name: string;
-    table2Name: string;
-    table1Urn: string;
-    table2Urn: string;
-    joinHeader: string;
-    fieldMap: any;
-    joinDetails?: string;
+    baseEntityUrn?: any;
     prePageType?: string;
-    shuffleFlag?: boolean;
 };
 type EditableTableProps = Parameters<typeof Table>[0];
 type ColumnTypes = Exclude<EditableTableProps['columns'], undefined>;
 
-export const JoinPreview = ({
-    joinData,
-    table1Name,
-    table2Name,
-    table1Urn,
-    table2Urn,
-    joinHeader,
-    fieldMap,
-    joinDetails,
-    prePageType,
-    shuffleFlag,
-}: Props) => {
+export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => {
     const entityRegistry = useEntityRegistry();
     const handleViewEntity = (entityType, urn) => {
         const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
         window.open(entityUrl, '_blank');
     };
     const [modalVisible, setModalVisible] = useState(false);
+    const shuffleFlag = !(prePageType === 'Dataset' && baseEntityUrn === joinData?.properties?.datasetA?.urn);
+
     function getDatasetName(datainput: any): string {
         return datainput?.editableProperties?.name || datainput?.properties?.name || datainput?.name || datainput?.urn;
     }
@@ -50,62 +38,101 @@ export const JoinPreview = ({
     const table2EditableName = shuffleFlag
         ? getDatasetName(joinData?.properties?.datasetA)
         : getDatasetName(joinData?.properties?.datasetB);
+    const table1Name =
+        shuffleFlag && prePageType !== 'Join'
+            ? joinData?.properties?.datasetB?.name
+            : joinData?.properties?.datasetA?.name;
+    const table2Name =
+        shuffleFlag && prePageType !== 'Join'
+            ? joinData?.properties?.datasetA?.name
+            : joinData?.properties?.datasetB?.name;
+    const table1Urn =
+        shuffleFlag && prePageType !== 'Join'
+            ? joinData?.properties?.datasetB?.urn
+            : joinData?.properties?.datasetA?.urn;
+    const table2Urn =
+        shuffleFlag && prePageType !== 'Join'
+            ? joinData?.properties?.datasetA?.urn
+            : joinData?.properties?.datasetB?.urn;
+    const joinHeader = joinData?.editableProperties?.name || joinData?.properties?.name || '';
+    function getFieldMap(): JoinRecord[] {
+        const newData = [] as JoinRecord[];
+        if (shuffleFlag && prePageType !== 'Join') {
+            joinData?.properties?.joinFieldMapping?.fieldMappings?.map((item) => {
+                return newData.push({
+                    afield: item.bfield,
+                    bfield: item.afield,
+                });
+            });
+        } else {
+            joinData?.properties?.joinFieldMapping?.fieldMappings?.map((item) => {
+                return newData.push({
+                    afield: item.afield,
+                    bfield: item.bfield,
+                });
+            });
+        }
+        return newData;
+    }
     const columns = [
         {
             title: (
-                <p className="titleContent">
+                <p>
                     <div className="firstRow">
-                        <span className="titleNameDisplay"> {table1EditableName || table1Name}</span>
-
-                        {prePageType === 'Join' && (
-                            <Button
-                                type="link"
-                                className="div-view-dataset"
-                                onClick={() => handleViewEntity(EntityType.Dataset, table1Urn)}
-                            >
-                                View dataset <RightOutlined />{' '}
-                            </Button>
-                        )}
+                        <div className="titleNameDisplay"> {table1EditableName || table1Name}</div>
+                        <div>
+                            {prePageType === 'Join' && (
+                                <Button
+                                    type="link"
+                                    className="div-view-dataset"
+                                    onClick={() => handleViewEntity(EntityType.Dataset, table1Urn)}
+                                >
+                                    View dataset <RightOutlined />
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="editableNameDisplay">{table1Name !== table1EditableName && table1Name}</div>
                 </p>
             ),
             dataIndex: 'afield',
+            width: '48%',
             sorter: ({ afield: a }, { afield: b }) => a.localeCompare(b),
-            width: '40%',
         },
         {
             title: '',
             dataIndex: '',
-            width: '8%',
+            width: '4%',
             render: () => <img src={arrow} alt="" />,
         },
         {
             title: (
-                <p className="titleContent">
+                <p>
                     <div className="firstRow">
-                        <span className="titleNameDisplay"> {table2EditableName || table2Name}</span>
-                        <Button
-                            type="link"
-                            className="div-view-dataset"
-                            onClick={() => handleViewEntity(EntityType.Dataset, table2Urn)}
-                        >
-                            View dataset <RightOutlined />{' '}
-                        </Button>
+                        <div className="titleNameDisplay"> {table2EditableName || table2Name}</div>
+                        <div>
+                            <Button
+                                type="link"
+                                className="div-view-dataset"
+                                onClick={() => handleViewEntity(EntityType.Dataset, table2Urn)}
+                            >
+                                View dataset <RightOutlined />
+                            </Button>
+                        </div>
                     </div>
                     <div className="editableNameDisplay">{table2Name !== table2EditableName && table2Name}</div>
                 </p>
             ),
+            width: '48%',
             dataIndex: 'bfield',
             sorter: ({ bfield: a }, { bfield: b }) => a.localeCompare(b),
-            width: '40%',
         },
     ];
 
     return (
         <div className="JoinPreview">
-            {joinData?.properties?.joinFieldMappings !== undefined && (
+            {joinData?.properties?.joinFieldMapping !== undefined && (
                 <CreateJoinModal
                     visible={modalVisible}
                     setModalVisible={setModalVisible}
@@ -116,8 +143,8 @@ export const JoinPreview = ({
                     editFlag
                 />
             )}
-            <Row>
-                <div className="table-main-div">
+            <div className="preview-main-div">
+                <div>
                     {prePageType === 'Dataset' && (
                         <Row>
                             <p className="all-table-heading">{joinHeader}</p>
@@ -129,29 +156,32 @@ export const JoinPreview = ({
                         </Row>
                     )}
                 </div>
-                <Button
-                    type="link"
-                    className="btn-edit"
-                    onClick={() => {
-                        setModalVisible(true);
-                    }}
-                >
-                    <div className="div-edit-img">
-                        <img src={editIcon} alt="" /> <div className="div-edit">Edit Join</div>
-                    </div>
-                </Button>
-            </Row>
+                <div>
+                    <Button
+                        type="link"
+                        className="btn-edit"
+                        onClick={() => {
+                            setModalVisible(true);
+                        }}
+                    >
+                        <div className="div-edit-img">
+                            <img src={editIcon} alt="" /> <div className="div-edit">Edit Join</div>
+                            {prePageType === 'Join' && <div className="extra-margin-rev" />}
+                        </div>
+                    </Button>
+                </div>
+            </div>
             <Row>
                 <Table
                     bordered
-                    dataSource={fieldMap}
+                    dataSource={getFieldMap()}
                     className="JoinTable"
                     columns={columns as ColumnTypes}
                     pagination={false}
                 />
             </Row>
             <p className="all-content-heading">Join details</p>
-            <p className="all-content-info">{joinDetails}</p>
+            <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
         </div>
     );
 };

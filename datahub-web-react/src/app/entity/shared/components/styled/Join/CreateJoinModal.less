@@ -35,15 +35,15 @@
         top: -55px;
     }
     .inner-div {
-        max-width: 950px;
-        min-width: 950px;
+        width: 970px;
         height: 640px;
         overflow-y: scroll;
-        margin-top: -10px;
+        margin-top: -20px;
         overflow-x: hidden;
     }
     .ant-modal-header {
         padding-top: 32px;
+        padding-left: 16px;
         border-bottom: 0px !important;
     }
 
@@ -102,8 +102,13 @@
         font-style: normal;
         font-weight: 400;
         font-size: 16px;
-        line-height: 24px;
         color: #1B2F41;
+    }
+    .techNameDisplay {
+        font-size: 14px;
+        font-style: normal;
+        font-weight: 400;
+        color: #595959;
     }
     .instructions-list {
         width: 774px;
@@ -132,7 +137,6 @@
         font-size: 14px !important;
         color: #1890FF !important;
     }
-
     .add-btn-link {
         padding-left: 865px !important;
         padding-right: 8px !important;
@@ -177,9 +181,16 @@
         border: none;
         max-width: 373px !important;
         min-width: 373px !important;
+        font-size: 14px;
+        line-height: 22px;
+        font-family: 'Roboto Mono',monospace;
+        font-weight: 400;
+        background: white;
+        font-style: normal;
+        color: #000000D9;
     }
     .join-details-ta {
-        height: 80px;
+        height: 95px;
         width: 720px;
         font-style: normal;
         font-weight: 400;
@@ -193,6 +204,9 @@
             width: 16px;
             height: 0px;
             border: 1px solid #000000;
+        }
+        .ant-table-content {
+            width: 950px;
         }
         .ant-table-thead > tr th {
             font-style: normal;
@@ -220,39 +234,38 @@
             border-color: rgba(0, 0, 0, 0.12);
         }
         td:nth-child(1), td:nth-child(3){
-            max-width: 360px !important;
+            max-width: 400px !important;
+            min-width: 400px !important;
         }
-        th:nth-child(1), th:nth-child(3) {
-            .titleNameDisplay{
-                max-width: 360px;
-                overflow: hidden;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-                width: fit-content;
-                display: inline-block;
-                font-size: 14px;
-                padding: 4px 0;
-            }
-            .firstRow{
-                display: flex;
-                justify-content: left;
-            }
-            
-            .editableNameDisplay {
-                display: block;
-                overflow-wrap: break-word;
-                white-space: nowrap;
-                max-width: 360px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                height: 16px;
-                font-family: 'Arial';
-                font-style: normal;
-                font-weight: 400;
-                font-size: 14px;
-                line-height: 16px;
-                color: #595959;
-            }
+        .titleNameDisplay{
+            max-width: 360px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            width: fit-content;
+            display: inline-block;
+            font-size: 14px;
+            padding: 4px 0;
+        }
+        .firstRow{
+            display: flex;
+            justify-content: left;
+        }
+        
+        .editableNameDisplay {
+            display: block;
+            overflow-wrap: break-word;
+            white-space: nowrap;
+            max-width: 360px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            height: 16px;
+            font-family: 'Arial';
+            font-style: normal;
+            font-weight: 400;
+            font-size: 14px;
+            line-height: 16px;
+            color: #595959;
         }
         td:nth-child(2), th:nth-child(2){
             min-width: 44px !important;
@@ -269,5 +282,13 @@
         .SelectedRow {
             background-color: #ECF2F8;
         }
+    }
+}
+.cancel-modal {
+    .ant-btn-primary {
+        color: #FFFFFF;
+        background: #1890FF;
+        border: none;
+        box-shadow: none;
     }
 }

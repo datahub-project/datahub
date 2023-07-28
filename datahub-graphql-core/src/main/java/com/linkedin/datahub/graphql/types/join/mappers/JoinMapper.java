@@ -8,13 +8,13 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Join;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
@@ -63,7 +63,6 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
     mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (join, dataMap) -> this.mapGlobalTags(join, dataMap, entityUrn));
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (join, dataMap) ->
         join.setGlossaryTerms(GlossaryTermsMapper.map(new GlossaryTerms(dataMap), entityUrn)));
-    mappingHelper.mapToResult(CONTAINER_ASPECT_NAME, this::mapContainers);
     return mappingHelper.getResult();
   }
 
@@ -89,12 +88,13 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
         .setName(joinProperties.getName())
         .setDatasetA(createPartialDataset(joinProperties.getDatasetA()))
         .setDatasetB(createPartialDataset(joinProperties.getDatasetB()))
-        .setJoinFieldMappings(mapJoinFieldMappings(joinProperties))
-        .setCreatedActor(joinProperties.hasCreated() && joinProperties.getCreated().getActor().toString().length() > 0
-                ? joinProperties.getCreated().getActor().toString() : "")
+        .setJoinFieldMapping(mapJoinFieldMappings(joinProperties))
         .setCreatedTime(joinProperties.hasCreated() && joinProperties.getCreated().getTime() > 0
                 ? joinProperties.getCreated().getTime() : 0)
         .build());
+    if (joinProperties.hasCreated() && joinProperties.getCreated().hasActor()) {
+      join.getProperties().setCreatedActor(UrnToEntityMapper.map(joinProperties.getCreated().getActor()));
+    }
   }
   private Dataset createPartialDataset(@Nonnull Urn datasetUrn) {
 
@@ -107,9 +107,9 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
   }
   private com.linkedin.datahub.graphql.generated.JoinFieldMapping mapJoinFieldMappings(JoinProperties joinProperties) {
     return com.linkedin.datahub.graphql.generated.JoinFieldMapping.builder()
-        .setDetails(joinProperties.getJoinFieldMappings().getDetails())
-        .setFieldMapping(joinProperties.getJoinFieldMappings()
-            .getFieldMapping()
+        .setDetails(joinProperties.getJoinFieldMapping().getDetails())
+        .setFieldMappings(joinProperties.getJoinFieldMapping()
+            .getFieldMappings()
             .stream()
             .map(this::mapFieldMap)
             .collect(Collectors.toList()))
@@ -126,15 +126,6 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
   private void mapGlobalTags(@Nonnull Join join, @Nonnull DataMap dataMap, @Nonnull final Urn entityUrn) {
     com.linkedin.datahub.graphql.generated.GlobalTags globalTags = GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn);
     join.setTags(globalTags);
-  }
-
-  private void mapContainers(@Nonnull Join join, @Nonnull DataMap dataMap) {
-    final com.linkedin.container.Container gmsContainer = new com.linkedin.container.Container(dataMap);
-    join.setContainer(Container
-        .builder()
-        .setType(EntityType.CONTAINER)
-        .setUrn(gmsContainer.getContainer().toString())
-        .build());
   }
 
 }

@@ -18,12 +18,6 @@ query getJoin($urn: String!) {
         status {
             removed
         }
-        container {
-            ...entityContainer
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
         tags {
             ...globalTagsFields
         }
@@ -33,24 +27,27 @@ query getJoin($urn: String!) {
         outgoing: relationships(
             input: { types: ["joinA", "joinB"], direction: OUTGOING, start: 0, count: 100 }
         ) {
-            ...fullRelationshipResults
-        }
-        browsePaths {
-            path
+            start
+            count
+            total
+            relationships {
+                type
+                direction
+                entity {
+                    ... on Join {
+                        urn
+                    }
+
+                }
+            }
         }
     }
 }
 
 mutation updateJoin($urn: String!, $input: JoinUpdateInput!) {
-    updateJoin(urn: $urn, input: $input) {
-        urn
-        joinId
-    }
+    updateJoin(urn: $urn, input: $input)
 }
 
 mutation createJoin($input: JoinUpdateInput!) {
-    createJoin(input: $input) {
-        urn
-        joinId
-    }
+    createJoin(input: $input)
 }

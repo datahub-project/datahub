@@ -3,14 +3,13 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useBaseEntity } from '../../../EntityContext';
-import './RelationTab.less';
+import './RelationshipsTab.less';
 import { EntityType, Join } from '../../../../../../types.generated';
 import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 import {
     GetDatasetQuery,
-    useGetDatasetQuery,
+    useGetDatasetLazyQuery,
     useGetDatasetSchemaLazyQuery,
-    useGetDatasetSchemaQuery,
 } from '../../../../../../graphql/dataset.generated';
 import { useGetEntityWithSchema } from '../Schema/useGetEntitySchema';
 import closeIcon from '../../../../../../images/close_dark.svg';
@@ -18,10 +17,6 @@ import { CreateJoinModal } from '../../../components/styled/Join/CreateJoinModal
 import { JoinPreview } from '../../../components/styled/Join/JoinPreview';
 import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
 
-type JoinRecord = {
-    afield: string;
-    bfield: string;
-};
 const StyledPagination = styled(Pagination)`
     margin: 0px;
     padding: 0px;
@@ -41,7 +36,7 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 0px;
 `;
 
-export const RelationTab = () => {
+export const RelationshipsTab = () => {
     const [pageSize, setPageSize] = useState(10);
     const [currentPage, setCurrentPage] = useState(0);
     const [filterText, setFilterText] = useState('');
@@ -50,19 +45,11 @@ export const RelationTab = () => {
     const { entityWithSchema } = useGetEntityWithSchema();
     const [modalVisible, setModalVisible] = useState(false);
     const [joinModalVisible, setjoinModalVisible] = useState(false);
-    // const fieldSortInput: FieldSortInput = {
-    //     field: 'lastModifiedAt',
-    //     sortOrder: Sort.Desc,
-    // };
     const tabs = [
         {
             key: 'joinsTab',
             tab: 'Joins',
         },
-        // {
-        //     key: 'pkFkTab',
-        //     tab: 'PK/FK',
-        // },
     ];
     const {
         data: joins,
@@ -106,55 +93,6 @@ export const RelationTab = () => {
         joinData = joins.search.searchResults.map((r) => r.entity as Join);
     }
 
-    const joinPreview = (record: Join): JSX.Element => {
-        let table1Name;
-        let table2Name;
-        let table1Urn;
-        let table2Urn;
-        let shuffleFlag = false;
-        const newData = [] as JoinRecord[];
-        if (baseEntity?.dataset?.urn === record?.properties?.datasetA?.urn) {
-            table1Name = record?.properties?.datasetA?.name;
-            table2Name = record?.properties?.datasetB?.name;
-            table1Urn = record?.properties?.datasetA?.urn;
-            table2Urn = record?.properties?.datasetB?.urn;
-            record?.properties?.joinFieldMappings?.fieldMapping?.map((item) => {
-                return newData.push({
-                    afield: item.afield,
-                    bfield: item.bfield,
-                });
-            });
-            shuffleFlag = false;
-        } else {
-            table1Name = record?.properties?.datasetB?.name;
-            table2Name = record?.properties?.datasetA?.name;
-            table1Urn = record?.properties?.datasetB?.urn;
-            table2Urn = record?.properties?.datasetA?.urn;
-            record?.properties?.joinFieldMappings?.fieldMapping?.map((item) => {
-                return newData.push({
-                    afield: item.bfield,
-                    bfield: item.afield,
-                });
-            });
-            shuffleFlag = true;
-        }
-        const joinHeader = record?.editableProperties?.name || record?.properties?.name || '';
-        return (
-            <JoinPreview
-                joinData={record}
-                table1Name={table1Name}
-                table2Name={table2Name}
-                table1Urn={table1Urn}
-                table2Urn={table2Urn}
-                joinHeader={joinHeader}
-                fieldMap={newData}
-                joinDetails={record?.properties?.joinFieldMappings?.details || ''}
-                prePageType="Dataset"
-                shuffleFlag={shuffleFlag}
-            />
-        );
-    };
-
     const contentListNoTitle: Record<string, React.ReactNode> = {
         joinsTab:
             joinData.length > 0 ? (
@@ -162,7 +100,11 @@ export const RelationTab = () => {
                     return (
                         <>
                             <div>
-                                {joinPreview(record)}
+                                <JoinPreview
+                                    joinData={record}
+                                    baseEntityUrn={baseEntity?.dataset?.urn}
+                                    prePageType="Dataset"
+                                />
                                 <Divider className="thin-divider" />
                             </div>
                         </>
@@ -177,7 +119,7 @@ export const RelationTab = () => {
                     )}
                     {loadingJoin && (
                         <div>
-                            Joins <LoadingOutlined />{' '}
+                            Joins <LoadingOutlined />
                         </div>
                     )}
                 </>
@@ -187,21 +129,16 @@ export const RelationTab = () => {
     const onTabChange = (key: string) => {
         setActiveTabKey(key);
     };
-    const [selectDataset, setSelectDataset] = useState<string>('');
-    const { data: table2Dataset } = useGetDatasetQuery({
-        variables: {
-            urn: selectDataset || 'urn:li:dataset:(urn:li:dataPlatform:snowflake,testData,DEV)',
-        },
-    });
-    const { data: table2Schema } = useGetDatasetSchemaQuery({
-        variables: {
-            urn: selectDataset || 'urn:li:dataset:(urn:li:dataPlatform:snowflake,testData,DEV)',
-        },
-    });
     const [table2LazySchema, setTable2LazySchema] = useState(undefined as any);
     const [getTable2LazySchema] = useGetDatasetSchemaLazyQuery({
         onCompleted: (data) => {
             setTable2LazySchema(data);
+        },
+    });
+    const [table2LazyDataset, setTable2LazyDataset] = useState(undefined as any);
+    const [getTable2LazyDataset] = useGetDatasetLazyQuery({
+        onCompleted: (data) => {
+            setTable2LazyDataset(data);
         },
     });
 
@@ -248,24 +185,31 @@ export const RelationTab = () => {
                     titleText="Select Table 2"
                     continueText="Submit"
                     onContinue={async (selectedDataSet) => {
+                        console.log('selectedDataSet');
+                        console.log(selectedDataSet);
                         await getTable2LazySchema({
                             variables: {
                                 urn: selectedDataSet[0] || '',
                             },
                         });
-                        setSelectDataset(selectedDataSet[0]);
+                        await getTable2LazyDataset({
+                            variables: {
+                                urn: selectedDataSet[0] || '',
+                            },
+                        });
                     }}
                     onCancel={() => setjoinModalVisible(false)}
                     fixedEntityTypes={[EntityType.Dataset]}
                     singleSelect
+                    hideToolbar
                 />
             )}
             {baseEntity !== undefined && (
                 <CreateJoinModal
                     table1={baseEntity}
                     table1Schema={entityWithSchema}
-                    table2={table2Dataset}
-                    table2Schema={table2Schema}
+                    table2={table2LazyDataset}
+                    table2Schema={table2LazySchema}
                     visible={modalVisible}
                     setModalVisible={setModalVisible}
                     onCancel={() => {
@@ -274,9 +218,8 @@ export const RelationTab = () => {
                 />
             )}
             <Card
-                // bordered={false}
                 headStyle={{ border: '2px', fontSize: '16px' }}
-                className="RelationTab"
+                className="RelationshipsTab"
                 tabList={tabs}
                 activeTabKey={activeTabKey}
                 onTabChange={(key) => {

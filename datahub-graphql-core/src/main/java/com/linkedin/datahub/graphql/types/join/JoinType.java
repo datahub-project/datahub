@@ -1,12 +1,15 @@
 package com.linkedin.datahub.graphql.types.join;
 
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.JoinUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -18,32 +21,27 @@ import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.BrowsableEntityType;
-import com.linkedin.datahub.graphql.types.MutableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.join.mappers.JoinMapper;
-import com.linkedin.datahub.graphql.types.join.mappers.JoinUpdateInputMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowsePathsMapper;
 import com.linkedin.datahub.graphql.types.mappers.BrowseResultMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -54,8 +52,7 @@ import static com.linkedin.metadata.Constants.*;
 
 
 public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<Join, String>,
-                                 BrowsableEntityType<Join, String>, SearchableEntityType<Join, String>,
-                                 MutableType<JoinUpdateInput, Join> {
+                                 BrowsableEntityType<Join, String>, SearchableEntityType<Join, String> {
 
 
   static final Set<String> ASPECTS_TO_RESOLVE = ImmutableSet.of(
@@ -86,12 +83,6 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
     return Join.class;
   }
 
-
-  @Override
-  public Class<JoinUpdateInput> inputClass() {
-    return JoinUpdateInput.class;
-  }
-
   @Override
   public EntityType type() {
     return EntityType.JOIN;
@@ -106,7 +97,7 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
   public List<DataFetcherResult<Join>> batchLoad(@Nonnull final List<String> urns, @Nonnull final QueryContext context)
       throws Exception {
     final List<Urn> joinUrns = urns.stream()
-        .map(this::getUrn)
+        .map(UrnUtils::getUrn)
         .collect(Collectors.toList());
 
     try {
@@ -148,16 +139,6 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
     return BrowseResultMapper.map(result);
   }
 
-  private Urn getUrn(final String urnStr) {
-    try {
-      return Urn.createFromString(urnStr);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException(String.format("Failed to convert urn string %s into Urn", urnStr));
-    }
-  }
-
-
-
   @Nonnull
   @Override
   public List<BrowsePath> browsePaths(@Nonnull String urn, @Nonnull QueryContext context) throws Exception {
@@ -190,40 +171,51 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
     return AutoCompleteResultsMapper.map(result);
   }
 
-  @Override
-  public Join update(String urn, @Nonnull JoinUpdateInput input, @Nonnull QueryContext context)
-      throws Exception {
-    if (isAuthorized(urn, input, context)) {
-      final CorpuserUrn actor = CorpuserUrn.createFromString(context.getAuthentication().getActor().toUrnStr());
-
-      // Same routine used by create - hence this check
-      JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
-      if (urn != null) {
-        inputUrn = JoinUrn.createFromString(urn);
-        if ("new".equals(inputUrn.getJoinIdEntity())) {
-          inputUrn = new JoinUrn(UUID.randomUUID().toString());
-        }
-      } else {
-        urn = inputUrn.toString();
-      }
-
-      final JoinUrn updatedUrn = inputUrn;
-
-      final Collection<MetadataChangeProposal> proposals = JoinUpdateInputMapper.map(input, actor);
-      proposals.forEach(proposal -> proposal.setEntityUrn(updatedUrn));
-
-      try {
-        _entityClient.batchIngestProposals(proposals, context.getAuthentication(), false);
-      } catch (RemoteInvocationException e) {
-        throw new RuntimeException(String.format("Failed to write entity with urn %s", urn), e);
-      }
-
-      return load(urn, context).getData();
+  public static boolean isAuthorizedToUpdateJoin(@Nonnull QueryContext context, JoinUrn resourceUrn, JoinUpdateInput updateInput) {
+    final ConjunctivePrivilegeGroup allPrivilegesGroup = new ConjunctivePrivilegeGroup(ImmutableList.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
+    ));
+    List<String> specificPrivileges = new ArrayList<>();
+    if (updateInput.getOwnership() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType());
     }
-    throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
-  }
+    if (updateInput.getEditableProperties() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_DOCS_PRIVILEGE.getType());
+    }
+    if (updateInput.getTags() != null) {
+      specificPrivileges.add(PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType());
+    }
+    final ConjunctivePrivilegeGroup specificPrivilegeGroup = new ConjunctivePrivilegeGroup(specificPrivileges);
 
-  private boolean isAuthorized(String urn, JoinUpdateInput input, QueryContext context) {
-    return true;
+    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
+    DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+            allPrivilegesGroup,
+            specificPrivilegeGroup
+    ));
+    return AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            resourceUrn.getEntityType(),
+            resourceUrn.toString(),
+            orPrivilegeGroups);
+  }
+  public static boolean isAuthorizedToCreateJoin(@Nonnull QueryContext context, Urn datasetAUrn, Urn datasetBUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
+              new ConjunctivePrivilegeGroup(ImmutableList.of(PoliciesConfig.CREATE_JOIN_PRIVILEGE.getType()))
+    ));
+    boolean datasetAPrivilege = AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            datasetAUrn.getEntityType(),
+            datasetAUrn.toString(),
+            orPrivilegeGroups);
+    boolean datasetBPrivilege = AuthorizationUtils.isAuthorized(
+            context.getAuthorizer(),
+            context.getActorUrn(),
+            datasetBUrn.getEntityType(),
+            datasetBUrn.toString(),
+            orPrivilegeGroups);
+    return datasetAPrivilege && datasetBPrivilege;
   }
 }
+
