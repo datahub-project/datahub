@@ -351,36 +351,31 @@ class LDAPSource(StatefulIngestionSourceBase):
         last_name = attrs[self.config.user_attrs_map["lastName"]][0].decode()
         groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
-        email = (
-            (attrs[self.config.user_attrs_map["email"]][0]).decode()
-            if self.config.user_attrs_map["email"] in attrs
-            else ldap_user
-        )
-        display_name = (
-            (attrs[self.config.user_attrs_map["displayName"]][0]).decode()
-            if self.config.user_attrs_map["displayName"] in attrs
-            else full_name
-        )
-        department_id = (
-            int(attrs[self.config.user_attrs_map["departmentId"]][0].decode())
-            if self.config.user_attrs_map["departmentId"] in attrs
-            else None
-        )
-        department_name = (
-            (attrs[self.config.user_attrs_map["departmentName"]][0]).decode()
-            if self.config.user_attrs_map["departmentName"] in attrs
-            else None
-        )
-        country_code = (
-            (attrs[self.config.user_attrs_map["countryCode"]][0]).decode()
-            if self.config.user_attrs_map["countryCode"] in attrs
-            else None
-        )
-        title = (
-            attrs[self.config.user_attrs_map["title"]][0].decode()
-            if self.config.user_attrs_map["title"] in attrs
-            else None
-        )
+        if attrs.get(self.config.user_attrs_map["email"]):
+            email = (attrs[self.config.user_attrs_map["email"]][0]).decode()
+        else:
+            email = None
+        if attrs.get(self.config.user_attrs_map["displayName"]):
+            display_name = (attrs[self.config.user_attrs_map["displayName"]][0]).decode()
+        else:
+            display_name = None
+        if attrs.get(self.config.user_attrs_map["departmentId"]):
+            department_id = (attrs[self.config.user_attrs_map["departmentId"]][0]).decode()
+        else:
+            department_id = None
+        if attrs.get(self.config.user_attrs_map["departmentName"]):
+            department_name = (attrs[self.config.user_attrs_map["departmentName"]][0]).decode()
+        else:
+            department_name = None
+        if attrs.get(self.config.user_attrs_map["countryCode"]):
+            country_code = (attrs[self.config.user_attrs_map["countryCode"]][0]).decode()
+        else:
+            country_code = None
+        if attrs.get(self.config.user_attrs_map["title"]):
+            title = (attrs[self.config.user_attrs_map["title"]][0]).decode()
+        else:
+            title = None
+
         custom_props_map = {}
         if self.config.custom_props_list:
             for prop in self.config.custom_props_list:
