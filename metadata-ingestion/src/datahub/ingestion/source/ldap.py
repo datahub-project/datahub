@@ -4,9 +4,11 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
+from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -16,7 +18,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
-from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.api.workunit import MetadataWorkUnit, logger
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -135,12 +137,34 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
     manager_pagination_enabled: bool = Field(
         default=True,
-        description="Use pagination while search for managers (enabled by default).",
+        description="[deprecated] Use pagination_enabled ",
+    )
+    _deprecate_manager_pagination_enabled = pydantic_field_deprecated("manager_pagination_enabled")
+    pagination_enabled: bool = Field(
+        default=True,
+        description="Use pagination while do search query (enabled by default)."
     )
 
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
+
+    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
+    @root_validator(pre=True)
+    def pagination_backward_compatibility(cls, values: Dict) -> Dict:
+        manager_pagination_enabled = values.get("manager_pagination_enabled")
+        pagination_enabled = values.get("pagination_enabled")
+        if pagination_enabled is None and manager_pagination_enabled:
+            logger.warning(
+                "pagination_enabled is not set but manager_pagination_enabled is set. manager_pagination_enabled is "
+                "deprecated, please use pagination_enabled instead."
+            )
+            logger.info("Initializing pagination_enabled from manager_pagination_enabled")
+            values["pagination_enabled"] = manager_pagination_enabled
+        elif manager_pagination_enabled and pagination_enabled:
+            raise ValueError("manager_pagination_enabled is deprecated. Please use pagination_enabled only.")
+
+        return values
 
 
 @dataclasses.dataclass
@@ -218,7 +242,10 @@ class LDAPSource(StatefulIngestionSourceBase):
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e
 
-        self.lc = create_controls(self.config.page_size)
+        if self.config.pagination_enabled:
+            self.lc = create_controls(self.config.page_size)
+        else:
+            self.lc = None
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
@@ -244,7 +271,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     ldap.SCOPE_SUBTREE,
                     self.config.filter,
                     self.config.attrs_list,
-                    serverctrls=[self.lc],
+                    serverctrls=[self.lc] if self.lc else [],
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
@@ -278,14 +305,16 @@ class LDAPSource(StatefulIngestionSourceBase):
                 else:
                     self.report.report_dropped(dn)
 
-            pctrls = get_pctrls(serverctrls)
-            if not pctrls:
-                self.report.report_failure(
-                    "ldap-control", "Server ignores RFC 2696 control."
-                )
+            if serverctrls:
+                pctrls = get_pctrls(serverctrls)
+                if not pctrls:
+                    self.report.report_failure(
+                        "ldap-control", "Server ignores RFC 2696 control."
+                    )
+                    break
+                cookie = set_cookie(self.lc, pctrls)
+            else:
                 break
-
-            cookie = set_cookie(self.lc, pctrls)
 
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         """
@@ -300,15 +329,11 @@ class LDAPSource(StatefulIngestionSourceBase):
                     manager_filter = self.config.filter
                 else:
                     manager_filter = None
-                if self.config.manager_pagination_enabled:
-                    ctrls = [self.lc]
-                else:
-                    ctrls = None
                 manager_msgid = self.ldap_client.search_ext(
                     m_cn,
                     ldap.SCOPE_BASE,
                     manager_filter,
-                    serverctrls=ctrls,
+                    serverctrls=[self.lc],
                 )
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
@@ -356,19 +381,27 @@ class LDAPSource(StatefulIngestionSourceBase):
         else:
             email = None
         if attrs.get(self.config.user_attrs_map["displayName"]):
-            display_name = (attrs[self.config.user_attrs_map["displayName"]][0]).decode()
+            display_name = (
+                attrs[self.config.user_attrs_map["displayName"]][0]
+            ).decode()
         else:
             display_name = None
         if attrs.get(self.config.user_attrs_map["departmentId"]):
-            department_id = (attrs[self.config.user_attrs_map["departmentId"]][0]).decode()
+            department_id = (
+                attrs[self.config.user_attrs_map["departmentId"]][0]
+            ).decode()
         else:
             department_id = None
         if attrs.get(self.config.user_attrs_map["departmentName"]):
-            department_name = (attrs[self.config.user_attrs_map["departmentName"]][0]).decode()
+            department_name = (
+                attrs[self.config.user_attrs_map["departmentName"]][0]
+            ).decode()
         else:
             department_name = None
         if attrs.get(self.config.user_attrs_map["countryCode"]):
-            country_code = (attrs[self.config.user_attrs_map["countryCode"]][0]).decode()
+            country_code = (
+                attrs[self.config.user_attrs_map["countryCode"]][0]
+            ).decode()
         else:
             country_code = None
         if attrs.get(self.config.user_attrs_map["title"]):
