@@ -615,37 +615,33 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Download MCE Consumer image
-        uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
-        with:
-          image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+#      - name: Download MCE Consumer image
+#        uses: ishworkh/docker-image-artifact-download@v1
+#        if: ${{ needs.setup.outputs.publish != 'true' }}
+#        with:
+#          image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
 #      - name: Download MAE Consumer image
 #        uses: ishworkh/docker-image-artifact-download@v1
 #        if: ${{ needs.setup.outputs.publish != 'true' }}
 #        with:
 #          image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-#      - name: Download upgrade image
-#        uses: ishworkh/docker-image-artifact-download@v1
-#        if: ${{ needs.setup.outputs.publish != 'true' }}
-#        with:
-#          image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download upgrade image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download datahub-ingestion-slim image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Disk Check
-        run: df -h .
-      - name: Docker Image Check
-        run: docker images
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_SLIM_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_build.outputs.tag }}
-          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions'
+          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions[executor] acryl-datahub-actions'
           ACTIONS_CONFIG: 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
         run: |
           ./smoke-test/run-quickstart.sh
@@ -666,14 +662,8 @@ jobs:
               }
             }
           }'
-      - name: Disk Check
-        run: df -h .
-      - name: Docker Image Check
-        run: docker images
       - name: Remove Source Code
         run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
-      - name: Disk Check
-        run: df -h .
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
