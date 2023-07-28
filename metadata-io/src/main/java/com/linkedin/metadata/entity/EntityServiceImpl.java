@@ -146,7 +146,7 @@ public class EntityServiceImpl implements EntityService {
     OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
+  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 4;
 
   protected final AspectDao _aspectDao;
   private final EventProducer _producer;
@@ -163,6 +163,8 @@ public class EntityServiceImpl implements EntityService {
   // TODO(iprentic): Move this to a common utils location once used in other places
   private static final String DELIMITER_SEPARATOR = "␟";
 
+  private final Integer ebeanMaxTransactionRetry;
+
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
@@ -170,6 +172,17 @@ public class EntityServiceImpl implements EntityService {
       final boolean alwaysEmitChangeLog,
       final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks) {
+    this(aspectDao, producer, entityRegistry, alwaysEmitChangeLog, updateIndicesService, preProcessHooks, DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  public EntityServiceImpl(
+          @Nonnull final AspectDao aspectDao,
+          @Nonnull final EventProducer producer,
+          @Nonnull final EntityRegistry entityRegistry,
+          final boolean alwaysEmitChangeLog,
+          final UpdateIndicesService updateIndicesService,
+          final PreProcessHooks preProcessHooks,
+          final Integer retry) {
 
     _aspectDao = aspectDao;
     _producer = producer;
@@ -178,7 +191,10 @@ public class EntityServiceImpl implements EntityService {
     _alwaysEmitChangeLog = alwaysEmitChangeLog;
     _updateIndicesService = updateIndicesService;
     _preProcessHooks = preProcessHooks;
+    ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
   }
+
+
 
   /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided
