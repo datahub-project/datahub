@@ -20,6 +20,8 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.tasks.GetTaskRequest;
+import org.elasticsearch.client.tasks.GetTaskResponse;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -42,6 +44,24 @@ public class ESSystemMetadataDAO {
   private final IndexConvention indexConvention;
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
+
+  /**
+   * Gets the status of a Task running in ElasticSearch
+   * @param taskId the task ID to get the status of
+   */
+  public Optional<GetTaskResponse> getTaskStatus(@Nonnull String nodeId, long taskId) {
+    final GetTaskRequest taskRequest = new GetTaskRequest(
+        nodeId,
+        taskId
+    );
+    try {
+      return client.tasks().get(taskRequest, RequestOptions.DEFAULT);
+    } catch (IOException e) {
+      log.error(String.format("ERROR: Failed to get task status for %s:%d. See stacktrace for a more detailed error:", nodeId, taskId));
+      e.printStackTrace();
+    }
+    return Optional.empty();
+  }
 
   /**
    * Updates or inserts the given search document.

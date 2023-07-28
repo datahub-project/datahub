@@ -9,3 +9,6 @@ TIMESERIES_ASPECT_MAP = {
     for name, klass in ASPECT_MAP.items()
     if klass.get_aspect_type() == "timeseries"
 }
+
+JSON_CONTENT_TYPE = "application/json"
+JSON_PATCH_CONTENT_TYPE = "application/json-patch+json"

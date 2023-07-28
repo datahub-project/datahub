@@ -290,6 +290,21 @@ module.exports = {
             },
             {
               type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
               label: "Evaluate Tests",
               id: "docs/api/restli/evaluate-tests",
             },
@@ -471,6 +486,7 @@ module.exports = {
             "docs/how/add-custom-ingestion-source",
             "docs/how/add-custom-data-platform",
             "docs/advanced/browse-paths-upgrade",
+            "docs/browseV2/browse-paths-v2",
           ],
         },
       ],
@@ -625,6 +641,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // - "metadata-service/services/README"
     // ],
   ],
 };

@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -142,6 +157,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f1b4c0e379c4b2e2e09a8ecd6c1b6dec",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -234,6 +269,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:bad84e08ecf49aee863df68243d8b9d0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -308,6 +363,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e48d82445eeacfbe13b431f0bb1826ee",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -400,6 +475,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:884bfecd9e414990a494681293413e8e",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -474,6 +569,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:142ca5fc51b7f44e5e6a424bf1043590",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -566,6 +681,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:1b9d125d390447de36719bfb8dd1f782",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -640,6 +775,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fcd4c8da3739150766f91e7f6c2a3a30",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -732,6 +887,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:2029cab615b3cd82cb87b153957d2e92",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -815,6 +990,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:556e25ccec98892284f017f870ef7809",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -889,6 +1084,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1001,6 +1216,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.dbo.Products,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                },
+                {
+                    "id": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec",
+                    "urn": "urn:li:container:d41a036a2e6cfa44b834edf7683199ec"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
     "changeType": "UPSERT",
@@ -1076,6 +1315,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1180,6 +1439,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                },
+                {
+                    "id": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
+                    "urn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671"
+                }
             ]
         }
     },
@@ -1319,6 +1602,30 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.Persons,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                },
+                {
+                    "id": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
+                    "urn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.SalesReason,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1434,6 +1741,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,DemoData.Foo.SalesReason,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                },
+                {
+                    "id": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671",
+                    "urn": "urn:li:container:6e5c6d608d0a2dcc4eb03591382e5671"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
     "changeType": "UPSERT",
@@ -1509,6 +1840,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6bea84fba7b05fb5d12630c8e6306ac",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1601,6 +1952,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:9f37bb7baa7ded19cc023e9f644a8cf8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -1684,6 +2055,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:3f157d8292fb473142f19e2250af537f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5",
+                    "urn": "urn:li:container:b7062d1c0c650d9de0f7a9a5de00b1b5"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -1742,6 +2133,21 @@
             "typeNames": [
                 "Database"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -1834,6 +2240,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:47217386c89d8b94153f6ee31e7e77ec",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:5eb0d61efa998d1ccd5cbdc6ce4bb4af",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -1908,6 +2334,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5eb0d61efa998d1ccd5cbdc6ce4bb4af",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2000,6 +2446,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:2816b2cb7f90d3dce64125ba89fb1fa8",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:20d0f0c94e9796ff44ff32d4d0e19084",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -2074,6 +2540,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:20d0f0c94e9796ff44ff32d4d0e19084",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2166,6 +2652,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:3600d2ebb33b25dac607624d7eae7575",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:280f2e3aefacc346d0ce1590ec337c7d",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -2240,6 +2746,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:280f2e3aefacc346d0ce1590ec337c7d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2332,6 +2858,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:cba5c3ca7f028fcf749593be369d3c24",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:58c30fa72f213ca7e12fb04f5a7d150f",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -2406,6 +2952,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:58c30fa72f213ca7e12fb04f5a7d150f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2498,6 +3064,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:9387ddfeb7b57672cabd761ade89c49c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:3a5f70e0e34834d4eeeb4d5a5caf03d0",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -2572,6 +3158,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:3a5f70e0e34834d4eeeb4d5a5caf03d0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2684,6 +3290,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,NewData.dbo.ProductsNew,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                },
+                {
+                    "id": "urn:li:container:3a5f70e0e34834d4eeeb4d5a5caf03d0",
+                    "urn": "urn:li:container:3a5f70e0e34834d4eeeb4d5a5caf03d0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:7cc43e5b4e2a7f2f66f1df774d1a0c63",
     "changeType": "UPSERT",
@@ -2759,6 +3389,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:7cc43e5b4e2a7f2f66f1df774d1a0c63",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -2862,6 +3512,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,NewData.FooNew.ItemsNew,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                },
+                {
+                    "id": "urn:li:container:7cc43e5b4e2a7f2f66f1df774d1a0c63",
+                    "urn": "urn:li:container:7cc43e5b4e2a7f2f66f1df774d1a0c63"
+                }
             ]
         }
     },
@@ -2999,6 +3673,30 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,NewData.FooNew.PersonsNew,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                },
+                {
+                    "id": "urn:li:container:7cc43e5b4e2a7f2f66f1df774d1a0c63",
+                    "urn": "urn:li:container:7cc43e5b4e2a7f2f66f1df774d1a0c63"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:54727d9fd7deacef27641559125bbc56",
     "changeType": "UPSERT",
@@ -3074,6 +3772,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:54727d9fd7deacef27641559125bbc56",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -3166,6 +3884,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:141b0980dcb08f48544583e47cf48807",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:c6627af82d44de89492e1a9315ae9f4b",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -3240,6 +3978,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c6627af82d44de89492e1a9315ae9f4b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59",
+                    "urn": "urn:li:container:9447d283fb4f95ce7474f1db0179bb59"
+                }
+            ]
         }
     },
     "systemMetadata": {

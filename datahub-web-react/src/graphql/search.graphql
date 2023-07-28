@@ -299,6 +299,12 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            type
+            status
+            message
+            causes
+        }
         siblings {
             isPrimary
             siblings {

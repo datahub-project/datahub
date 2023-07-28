@@ -35,6 +35,7 @@ import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
 import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
 import { JoinEntity } from './app/entity/joins/JoinEntity';
+import { DataPlatformInstanceEntity } from './app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 
 /*
     Construct Apollo Client
@@ -118,6 +119,7 @@ const App: React.VFC = () => {
         register.register(new DataPlatformEntity());
         register.register(new DataProductEntity());
         register.register(new JoinEntity());
+        register.register(new DataPlatformInstanceEntity());
         return register;
     }, []);
 

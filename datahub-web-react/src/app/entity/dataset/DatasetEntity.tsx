@@ -262,6 +262,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 externalUrl={data.properties?.externalUrl}
+                health={data.health}
             />
         );
     };
@@ -304,6 +305,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 lastUpdatedMs={
                     (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
                 }
+                health={data.health}
             />
         );
     };

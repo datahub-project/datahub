@@ -10,7 +10,6 @@ source:
     include_view_lineage: True
     profiling:
       enabled: true
-      profile_table_level_only: true
       profile_table_row_count_estimate_only: true
       turn_off_expensive_profiling_metrics: true
       include_field_null_count: true
