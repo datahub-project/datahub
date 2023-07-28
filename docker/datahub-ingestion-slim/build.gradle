@@ -44,6 +44,7 @@ task mkdirBuildDocker {
     }
 }
 dockerClean.finalizedBy(mkdirBuildDocker)
+dockerClean.dependsOn(':docker:datahub-ingestion:dockerClean')
 
 task cleanLocalDockerImages {
     doLast {

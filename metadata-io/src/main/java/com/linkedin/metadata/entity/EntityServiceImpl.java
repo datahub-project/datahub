@@ -146,7 +146,7 @@ public class EntityServiceImpl implements EntityService {
     OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
+  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 5;
 
   protected final AspectDao _aspectDao;
   private final EventProducer _producer;
