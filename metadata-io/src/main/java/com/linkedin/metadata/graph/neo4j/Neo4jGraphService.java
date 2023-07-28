@@ -727,7 +727,7 @@ public class Neo4jGraphService implements GraphService {
       @Nullable Long endTimeMillis) {
     final String sourceUiCheck = String.format("(EXISTS(rt.%s) AND rt.%s = '%s') ", SOURCE, SOURCE, UI);
     final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
-    final String returnTemplate = "RETURN start,r,b";
+    final String returnTemplate = "RETURN a,r,b";
     String withTimeTemplate = "";
     String timeFilterConditionTemplate = "AND ALL(rt IN relationships(p) WHERE left(type(rt), 2)='r_')";
 
