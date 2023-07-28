@@ -218,7 +218,6 @@ export const RelationshipsTab = () => {
                 />
             )}
             <Card
-                // bordered={false}
                 headStyle={{ border: '2px', fontSize: '16px' }}
                 className="RelationshipsTab"
                 tabList={tabs}
