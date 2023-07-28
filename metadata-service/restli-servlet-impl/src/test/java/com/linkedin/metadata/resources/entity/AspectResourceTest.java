@@ -14,6 +14,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -48,7 +50,7 @@ public class AspectResourceTest {
     _entityRegistry = new MockEntityRegistry();
     _updateIndicesService = mock(UpdateIndicesService.class);
     _preProcessHooks = mock(PreProcessHooks.class);
-    _entityService = new EntityService(_aspectDao, _producer, _entityRegistry, false, _updateIndicesService, _preProcessHooks);
+    _entityService = new EntityServiceImpl(_aspectDao, _producer, _entityRegistry, false, _updateIndicesService, _preProcessHooks);
     _authorizer = mock(Authorizer.class);
     _aspectResource.setAuthorizer(_authorizer);
     _aspectResource.setEntityService(_entityService);
@@ -77,7 +79,7 @@ public class AspectResourceTest {
     reset(_producer, _aspectDao);
 
     when(_aspectDao.runInTransactionWithRetry(any(), anyInt()))
-        .thenReturn(new EntityService.UpdateAspectResult(urn, null, properties, null, null, null, null, 0));
+        .thenReturn(new UpdateAspectResult(urn, null, properties, null, null, null, null, 0));
     _aspectResource.ingestProposal(mcp, "false");
     verify(_producer, times(5)).produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(_producer);
