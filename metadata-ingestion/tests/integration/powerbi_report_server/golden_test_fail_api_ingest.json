@@ -162,6 +162,40 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938a)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "powerbi_report_server"
+                },
+                {
+                    "id": "server_alias"
+                },
+                {
+                    "id": "Reports"
+                },
+                {
+                    "id": "path"
+                },
+                {
+                    "id": "to"
+                },
+                {
+                    "id": "Testa"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-report-server-test"
+    }
+},
+{
     "entityType": "corpuser",
     "entityUrn": "urn:li:corpuser:TEST_USER",
     "changeType": "UPSERT",
@@ -316,6 +350,40 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-report-server-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.ee56dc21-248a-4138-a446-ee5ab1fc938d)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "powerbi_report_server"
+                },
+                {
+                    "id": "server_alias"
+                },
+                {
+                    "id": "Reports"
+                },
+                {
+                    "id": "path"
+                },
+                {
+                    "id": "to"
+                },
+                {
+                    "id": "Testd"
+                }
+            ]
         }
     },
     "systemMetadata": {

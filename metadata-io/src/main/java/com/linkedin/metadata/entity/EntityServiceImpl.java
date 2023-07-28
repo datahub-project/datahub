@@ -132,7 +132,7 @@ public class EntityServiceImpl implements EntityService {
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
 
-  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
+  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 4;
 
   protected final AspectDao _aspectDao;
   private final EventProducer _producer;
@@ -145,6 +145,8 @@ public class EntityServiceImpl implements EntityService {
   protected static final int MAX_KEYS_PER_QUERY = 500;
 
 
+  private final Integer ebeanMaxTransactionRetry;
+
   public EntityServiceImpl(
       @Nonnull final AspectDao aspectDao,
       @Nonnull final EventProducer producer,
@@ -152,6 +154,17 @@ public class EntityServiceImpl implements EntityService {
       final boolean alwaysEmitChangeLog,
       final UpdateIndicesService updateIndicesService,
       final PreProcessHooks preProcessHooks) {
+    this(aspectDao, producer, entityRegistry, alwaysEmitChangeLog, updateIndicesService, preProcessHooks, DEFAULT_MAX_TRANSACTION_RETRY);
+  }
+
+  public EntityServiceImpl(
+          @Nonnull final AspectDao aspectDao,
+          @Nonnull final EventProducer producer,
+          @Nonnull final EntityRegistry entityRegistry,
+          final boolean alwaysEmitChangeLog,
+          final UpdateIndicesService updateIndicesService,
+          final PreProcessHooks preProcessHooks,
+          final Integer retry) {
 
     _aspectDao = aspectDao;
     _producer = producer;
@@ -160,6 +173,7 @@ public class EntityServiceImpl implements EntityService {
     _alwaysEmitChangeLog = alwaysEmitChangeLog;
     _updateIndicesService = updateIndicesService;
     _preProcessHooks = preProcessHooks;
+    ebeanMaxTransactionRetry = retry != null ? retry : DEFAULT_MAX_TRANSACTION_RETRY;
   }
 
   /**
