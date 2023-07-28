@@ -25,7 +25,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -160,7 +159,7 @@ class ModeSource(Source):
 
     config: ModeConfig
     report: SourceReport
-    tool = "mode"
+    platform = "mode"
 
     def __hash__(self):
         return id(self)
@@ -200,7 +199,9 @@ class ModeSource(Source):
         self, space_name: str, report_info: dict
     ) -> DashboardSnapshot:
         report_token = report_info.get("token", "")
-        dashboard_urn = builder.make_dashboard_urn(self.tool, report_info.get("id", ""))
+        dashboard_urn = builder.make_dashboard_urn(
+            self.platform, report_info.get("id", "")
+        )
         dashboard_snapshot = DashboardSnapshot(
             urn=dashboard_urn,
             aspects=[],
@@ -304,7 +305,9 @@ class ModeSource(Source):
             charts = self._get_charts(report_token, query.get("token", ""))
             # build chart urns
             for chart in charts:
-                chart_urn = builder.make_chart_urn(self.tool, chart.get("token", ""))
+                chart_urn = builder.make_chart_urn(
+                    self.platform, chart.get("token", "")
+                )
                 chart_urns.append(chart_urn)
 
         return chart_urns
@@ -580,7 +583,7 @@ class ModeSource(Source):
     def construct_chart_from_api_data(
         self, chart_data: dict, query: dict, path: str
     ) -> ChartSnapshot:
-        chart_urn = builder.make_chart_urn(self.tool, chart_data.get("token", ""))
+        chart_urn = builder.make_chart_urn(self.platform, chart_data.get("token", ""))
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[],
@@ -792,9 +795,6 @@ class ModeSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = ModeConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()

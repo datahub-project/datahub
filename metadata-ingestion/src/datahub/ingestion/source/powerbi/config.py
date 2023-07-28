@@ -191,7 +191,7 @@ class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-        "with platform instance name used in ingestion"
+        "with platform instance name used in ingestion "
         "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
@@ -234,7 +234,7 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
 
-    # Organisation Identifier
+    # Organization Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
     workspace_id: Optional[str] = pydantic.Field(
@@ -370,6 +370,11 @@ class PowerBiDashboardSourceConfig(
         default=False,
         description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
         "be extracted. Admin API access is required if this setting is enabled",
+    )
+    # Extract independent datasets
+    extract_independent_datasets: bool = pydantic.Field(
+        default=False,
+        description="Whether to extract datasets not used in any PowerBI visualization",
     )
 
     platform_instance: Optional[str] = pydantic.Field(

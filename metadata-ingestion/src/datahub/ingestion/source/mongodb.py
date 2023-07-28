@@ -2,8 +2,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
-import bson
+import bson.timestamp
 import pymongo
+import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
 from pydantic.fields import Field
@@ -21,7 +22,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
@@ -199,7 +199,7 @@ def construct_schema_pymongo(
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class MongoDBSource(Source):
     """
@@ -295,9 +295,6 @@ class MongoDBSource(Source):
             TypeClass = NullTypeClass
 
         return SchemaFieldDataType(type=TypeClass())
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         platform = "mongodb"

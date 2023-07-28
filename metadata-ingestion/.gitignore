@@ -6,7 +6,6 @@ pvenv36/
 /venv*/
 bq_credentials.json
 junit.*.xml
-tests/integrations/delta_lake/minio/minio
 /tmp
 *.bak
 
@@ -63,6 +62,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 junit.*xml
+
+# Integration tests artifacts
+tests/integrations/
 
 # Translations
 *.mo

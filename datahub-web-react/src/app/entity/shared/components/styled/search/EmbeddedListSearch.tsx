@@ -7,7 +7,7 @@ import {
     FacetMetadata,
     SearchAcrossEntitiesInput,
 } from '../../../../../../types.generated';
-import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
+import { UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
 import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
@@ -16,6 +16,7 @@ import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './typ
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
+import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -69,6 +70,7 @@ export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: Fa
 
 type Props = {
     query: string;
+    entityTypes?: EntityType[];
     page: number;
     unionType: UnionType;
     filters: FacetFilterInput[];
@@ -76,6 +78,7 @@ type Props = {
     onChangeFilters: (filters) => void;
     onChangePage: (page) => void;
     onChangeUnionType: (unionType: UnionType) => void;
+    onTotalChanged?: (newTotal: number) => void;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
     fixedQuery?: string | null;
@@ -84,6 +87,7 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    entityAction?: React.FC<EntityActionProps>;
     skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
@@ -103,6 +107,7 @@ type Props = {
 
 export const EmbeddedListSearch = ({
     query,
+    entityTypes,
     filters,
     page,
     unionType,
@@ -110,6 +115,7 @@ export const EmbeddedListSearch = ({
     onChangeFilters,
     onChangePage,
     onChangeUnionType,
+    onTotalChanged,
     emptySearchQuery,
     fixedFilters,
     fixedQuery,
@@ -118,6 +124,7 @@ export const EmbeddedListSearch = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    entityAction,
     skipCache,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
@@ -128,23 +135,13 @@ export const EmbeddedListSearch = ({
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
 
-    // Adjust filters based on props
-    const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
-        (filter) => filter.field !== ENTITY_FILTER_NAME,
-    );
-
     const baseFilters = {
         unionType,
-        filters: filtersWithoutEntities,
+        filters,
     };
 
     const finalFilters =
-        (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) ||
-        generateOrFilters(unionType, filtersWithoutEntities);
-
-    const entityFilters: Array<EntityType> = filters
-        .filter((filter) => filter.field === ENTITY_FILTER_NAME)
-        .flatMap((filter) => filter.values?.map((value) => value?.toUpperCase() as EntityType) || []);
+        (fixedFilters && mergeFilterSets(fixedFilters, baseFilters)) || generateOrFilters(unionType, filters);
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -158,10 +155,10 @@ export const EmbeddedListSearch = ({
     const { refetch: refetchForDownload } = useGetDownloadSearchResults({
         variables: {
             input: {
-                types: entityFilters,
+                types: entityTypes || [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
-                orFilters: generateOrFilters(unionType, filtersWithoutEntities),
+                orFilters: generateOrFilters(unionType, filters),
                 scrollId: null,
             },
         },
@@ -169,7 +166,7 @@ export const EmbeddedListSearch = ({
     });
 
     let searchInput: SearchAcrossEntitiesInput = {
-        types: entityFilters,
+        types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
@@ -202,6 +199,12 @@ export const EmbeddedListSearch = ({
             setShouldRefetchEmbeddedListSearch?.(false);
         }
     });
+
+    useEffect(() => {
+        if (data?.total !== undefined && onTotalChanged) {
+            onTotalChanged(data?.total);
+        }
+    }, [data?.total, onTotalChanged]);
 
     const searchResultEntities =
         data?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) || [];
@@ -264,7 +267,6 @@ export const EmbeddedListSearch = ({
                 placeholderText={placeholderText}
                 onToggleFilters={onToggleFilters}
                 downloadSearchResults={(input) => refetchForDownload(input)}
-                entityFilters={entityFilters}
                 filters={finalFilters}
                 query={finalQuery}
                 isSelectMode={isSelectMode}
@@ -292,6 +294,7 @@ export const EmbeddedListSearch = ({
                 isSelectMode={isSelectMode}
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                entityAction={entityAction}
             />
         </Container>
     );

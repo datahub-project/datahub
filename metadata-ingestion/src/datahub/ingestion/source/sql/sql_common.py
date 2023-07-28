@@ -309,6 +309,15 @@ config_options_to_report = [
 ]
 
 
+@dataclass
+class ProfileMetadata:
+    """
+    A class to hold information about the table for profile enrichment
+    """
+
+    dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -317,6 +326,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
+        self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -484,6 +494,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
                 profiler = self.get_profiler_instance(inspector)
+                try:
+                    self.add_profile_metadata(inspector)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to get enrichment data for profiler", exc_info=True
+                    )
+                    self.report.report_warning(
+                        "profile_metadata",
+                        f"Failed to get enrichment data for profile {e}",
+                    )
 
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(
@@ -516,13 +536,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
-
-    def standardize_schema_table_names(
-        self, schema: str, entity: str
-    ) -> Tuple[str, str]:
-        # Some SQLAlchemy dialects need a standardization step to clean the schema
-        # and table names. See BigQuery for an example of when this is useful.
-        return schema, entity
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -572,9 +585,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
-    def normalise_dataset_name(self, dataset_name: str) -> str:
-        return dataset_name
-
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
@@ -584,14 +594,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         tables_seen: Set[str] = set()
         try:
             for table in inspector.get_table_names(schema):
-                schema, table = self.standardize_schema_table_names(
-                    schema=schema, entity=table
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=table, inspector=inspector
                 )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 if dataset_name not in tables_seen:
                     tables_seen.add(dataset_name)
@@ -650,18 +655,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             inspector, schema, table
         )
 
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
-
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=table,
             description=description,
             customProperties=properties,
         )
@@ -866,14 +861,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
-                schema, view = self.standardize_schema_table_names(
-                    schema=schema, entity=view
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
-
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
@@ -1068,9 +1058,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 logger.debug("Source does not support generating profile candidates.")
 
         for table in inspector.get_table_names(schema):
-            schema, table = self.standardize_schema_table_names(
-                schema=schema, entity=table
-            )
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
@@ -1080,8 +1067,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
-
-            dataset_name = self.normalise_dataset_name(dataset_name)
 
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
@@ -1133,6 +1118,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 ),
             )
 
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        """
+        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
+        This is meant to change self.profile_metadata_info in the sub-class.
+        """
+        pass
+
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
@@ -1148,6 +1140,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if profile is None:
                 continue
             dataset_name = request.pretty_name
+            if (
+                dataset_name in self.profile_metadata_info.dataset_name_to_storage_bytes
+                and profile.sizeInBytes is None
+            ):
+                profile.sizeInBytes = (
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        dataset_name
+                    ]
+                )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,

@@ -17,7 +17,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -98,22 +97,24 @@ class CSVEnricherReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 class CSVEnricherSource(Source):
     """
-    This plugin is used to apply glossary terms, tags, owners and domain at the entity level. It can also be used to apply tags
-    and glossary terms at the column level. These values are read from a CSV file and can be used to either overwrite
-    or append the above aspects to entities.
+    This plugin is used to bulk upload metadata to Datahub.
+    It will apply glossary terms, tags, decription, owners and domain at the entity level. It can also be used to apply tags,
+    glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
+    or append existing values.
 
-    The format of the CSV must be like so, with a few example rows.
+    The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
 
-    |resource                                                        |subresource|glossary_terms                      |tags               |owners                                             |ownership_type |description    |domain                     |
-    |----------------------------------------------------------------|-----------|------------------------------------|-------------------|---------------------------------------------------|---------------|---------------|---------------------------|
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|           |[urn:li:glossaryTerm:AccountBalance]|[urn:li:tag:Legacy]|[urn:li:corpuser:datahub&#124;urn:li:corpuser:jdoe]|TECHNICAL_OWNER|new description|urn:li:domain:Engineering  |
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_foo  |[urn:li:glossaryTerm:AccountBalance]|                   |                                                   |               |field_foo!     |                           |
-    |urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)|field_bar  |                                    |[urn:li:tag:Legacy]|                                                   |               |field_bar?     |                           |
+    ```
+    resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe;urn:li:corpuser:jdoe],TECHNICAL_OWNER,"description for users table",urn:li:domain:Engineering
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description"
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
+    ```
 
     Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
-    be applied at the entity field. If a subresource IS populated (as it is for the second and third rows), glossary
-    terms and tags will be applied on the subresource. Every row MUST have a resource. Also note that owners can only
-    be applied at the resource level and will be ignored if populated for a row with a subresource.
+    be applied at the entity field. If a subresource is populated (as it is for the second and third rows), glossary
+    terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners can only
+    be applied at the resource level.
 
     :::note
     This source will not work on very large csv files that do not fit in memory.
@@ -544,7 +545,9 @@ class CSVEnricherSource(Source):
         term_urns: List[str] = terms_array_string.split(self.config.array_delimiter)
 
         term_associations: List[GlossaryTermAssociationClass] = [
-            GlossaryTermAssociationClass(term) for term in term_urns
+            GlossaryTermAssociationClass(term)
+            for term in term_urns
+            if term.startswith("urn:li:")
         ]
         return term_associations
 
@@ -557,7 +560,7 @@ class CSVEnricherSource(Source):
         tag_urns: List[str] = tags_array_string.split(self.config.array_delimiter)
 
         tag_associations: List[TagAssociationClass] = [
-            TagAssociationClass(tag) for tag in tag_urns
+            TagAssociationClass(tag) for tag in tag_urns if tag.startswith("urn:li:")
         ]
         return tag_associations
 
@@ -580,12 +583,11 @@ class CSVEnricherSource(Source):
         owner_urns: List[str] = owners_array_string.split(self.config.array_delimiter)
 
         owners: List[OwnerClass] = [
-            OwnerClass(owner_urn, type=ownership_type) for owner_urn in owner_urns
+            OwnerClass(owner_urn, type=ownership_type)
+            for owner_urn in owner_urns
+            if owner_urn.startswith("urn:li:")
         ]
         return owners
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use

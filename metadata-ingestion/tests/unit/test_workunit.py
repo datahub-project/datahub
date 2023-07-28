@@ -1,5 +1,6 @@
 import json
 
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -19,8 +20,8 @@ def test_get_aspects_of_type_mcp():
     wu = MetadataChangeProposalWrapper(
         entityUrn="urn:li:container:asdf", aspect=aspect
     ).as_workunit()
-    assert wu.get_aspects_of_type(StatusClass) == [aspect]
-    assert wu.get_aspects_of_type(ContainerClass) == []
+    assert wu.get_aspect_of_type(StatusClass) == aspect
+    assert wu.get_aspect_of_type(ContainerClass) is None
 
 
 def test_get_aspects_of_type_mce():
@@ -34,9 +35,9 @@ def test_get_aspects_of_type_mce():
         )
     )
     wu = MetadataWorkUnit(id="id", mce=mce)
-    assert wu.get_aspects_of_type(StatusClass) == [status_aspect, status_aspect_2]
-    assert wu.get_aspects_of_type(UpstreamLineageClass) == [lineage_aspect]
-    assert wu.get_aspects_of_type(ContainerClass) == []
+    assert wu.get_aspect_of_type(StatusClass) == status_aspect_2
+    assert wu.get_aspect_of_type(UpstreamLineageClass) == lineage_aspect
+    assert wu.get_aspect_of_type(ContainerClass) is None
 
 
 def test_get_aspects_of_type_mcpc():
@@ -48,12 +49,12 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=json.dumps(aspect.to_obj()).encode(),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == [aspect]
-    assert wu.get_aspects_of_type(ContainerClass) == []
+    assert wu.get_aspect_of_type(StatusClass) == aspect
+    assert wu.get_aspect_of_type(ContainerClass) is None
 
     # Failure scenarios
     mcpc = MetadataChangeProposalClass(
@@ -63,11 +64,11 @@ def test_get_aspects_of_type_mcpc():
         aspectName="not status",
         aspect=GenericAspectClass(
             value=json.dumps(aspect.to_obj()).encode(),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None
 
     mcpc = MetadataChangeProposalClass(
         entityUrn="urn:li:container:asdf",
@@ -76,11 +77,11 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=json.dumps({"not_status": True}).encode(),
-            contentType="application/json-patch+json",
+            contentType=JSON_PATCH_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None
 
     mcpc = MetadataChangeProposalClass(
         entityUrn="urn:li:container:asdf",
@@ -89,11 +90,11 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=(json.dumps(aspect.to_obj()) + "aaa").encode(),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None
 
     mcpc = MetadataChangeProposalClass(
         entityUrn="urn:li:container:asdf",
@@ -102,8 +103,8 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value='{"ß": 2}'.encode("latin_1"),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
-    assert wu.get_aspects_of_type(StatusClass) == []
+    assert wu.get_aspect_of_type(StatusClass) is None

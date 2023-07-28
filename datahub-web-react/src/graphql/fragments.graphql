@@ -200,6 +200,7 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             actor
             time
         }
+        associatedUrn
     }
 }
 
@@ -256,6 +257,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     embed {
         ...embedFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -365,6 +369,9 @@ fragment dataJobFields on DataJob {
     privileges {
         canEditLineage
     }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -427,6 +434,9 @@ fragment dashboardFields on Dashboard {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
     statsSummary {
         viewCount
@@ -514,6 +524,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
     featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
         relationships {
@@ -649,6 +662,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     deprecation {
         ...deprecationFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -795,6 +811,9 @@ fragment nonRecursiveMLModel on MLModel {
     institutionalMemory {
         ...institutionalMemoryFields
     }
+    browsePathV2 {
+        ...browsePathV2Fields
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
@@ -835,6 +854,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     properties {
         description
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -947,5 +969,150 @@ fragment inputFieldsFields on InputFields {
         schemaField {
             ...schemaFieldFields
         }
+    }
+}
+
+fragment browsePathV2Fields on BrowsePathV2 {
+    path {
+        name
+        entity {
+            urn
+            type
+            ... on Container {
+                properties {
+                    name
+                }
+            }
+            ... on DataFlow {
+                properties {
+                    name
+                }
+            }
+            ... on DataPlatformInstance {
+                platform {
+                    name
+                    properties {
+                        displayName
+                    }
+                }
+                instanceId
+            }
+        }
+    }
+}
+
+fragment entityDisplayNameFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        properties {
+            name
+            qualifiedName
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+        }
+    }
+    ... on Dashboard {
+        dashboardId
+        properties {
+            name
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+        }
+    }
+    ... on DataFlow {
+        properties {
+            name
+        }
+    }
+    ... on DataJob {
+        jobId
+        properties {
+            name
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+        }
+    }
+    ... on Container {
+        properties {
+            name
+        }
+    }
+    ... on MLFeatureTable {
+        name
+    }
+    ... on MLFeature {
+        name
+    }
+    ... on MLPrimaryKey {
+        name
+    }
+    ... on MLModel {
+        name
+    }
+    ... on MLModelGroup {
+        name
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+            colorHex
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on DataPlatformInstance {
+        instanceId
     }
 }

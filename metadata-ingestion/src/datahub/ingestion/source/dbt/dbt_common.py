@@ -35,12 +35,14 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.sql.sql_types import (
+    ATHENA_SQL_TYPES_MAP,
     BIGQUERY_TYPES_MAP,
     POSTGRES_TYPES_MAP,
     SNOWFLAKE_TYPES_MAP,
     SPARK_SQL_TYPES_MAP,
     TRINO_SQL_TYPES_MAP,
     VERTICA_SQL_TYPES_MAP,
+    resolve_athena_modified_type,
     resolve_postgres_modified_type,
     resolve_trino_modified_type,
     resolve_vertica_modified_type,
@@ -504,6 +506,7 @@ _field_type_mapping = {
     **BIGQUERY_TYPES_MAP,
     **SPARK_SQL_TYPES_MAP,
     **TRINO_SQL_TYPES_MAP,
+    **ATHENA_SQL_TYPES_MAP,
     **VERTICA_SQL_TYPES_MAP,
 }
 
@@ -517,9 +520,11 @@ def get_column_type(
     TypeClass: Any = _field_type_mapping.get(column_type)
 
     if TypeClass is None:
-        # resolve modified type
+        # resolve a modified type
         if dbt_adapter == "trino":
             TypeClass = resolve_trino_modified_type(column_type)
+        elif dbt_adapter == "athena":
+            TypeClass = resolve_athena_modified_type(column_type)
         elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
             # Redshift uses a variant of Postgres, so we can use the same logic.
             TypeClass = resolve_postgres_modified_type(column_type)

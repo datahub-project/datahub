@@ -108,6 +108,9 @@ fragment autoCompleteFields on Entity {
         properties {
             name
         }
+        parentNodes {
+            ...parentNodesFields
+        }
     }
     ... on GlossaryNode {
         properties {
@@ -295,6 +298,12 @@ fragment searchResultFields on Entity {
         }
         deprecation {
             ...deprecationFields
+        }
+        health {
+            type
+            status
+            message
+            causes
         }
         siblings {
             isPrimary
@@ -743,6 +752,9 @@ fragment facetFields on FacetMetadata {
                 properties {
                     name
                 }
+                parentNodes {
+                    ...parentNodesFields
+                }
             }
             ... on DataPlatform {
                 ...platformFields
@@ -885,6 +897,14 @@ query getEntityMentionNode($urn: String!) {
         urn
         type
         ...searchResultFields
+    }
+}
+
+query getEntityDisplayName($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...entityDisplayNameFields
     }
 }
 

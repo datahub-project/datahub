@@ -14,7 +14,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -54,7 +53,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
             CompletableFuture.runAsync(() -> {
               try {
                 _entityClient.deleteEntityReferences(assertionUrn, context.getAuthentication());
-              } catch (RemoteInvocationException e) {
+              } catch (Exception e) {
                 log.error(String.format("Caught exception while attempting to clear all entity references for assertion with urn %s", assertionUrn), e);
               }
             });

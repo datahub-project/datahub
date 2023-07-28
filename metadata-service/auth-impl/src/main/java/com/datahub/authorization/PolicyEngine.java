@@ -2,15 +2,19 @@ package com.datahub.authorization;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Owner;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.identity.RoleMembership;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
@@ -28,6 +32,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,14 +69,17 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> resource) {
 
     final PolicyEvaluationContext context = new PolicyEvaluationContext();
+    log.debug("Evaluating policy {}", policy.getDisplayName());
 
     // If the privilege is not in scope, deny the request.
     if (!isPrivilegeMatch(privilege, policy.getPrivileges(), context)) {
+      log.debug("Policy denied based on irrelevant privileges {} for {}", policy.getPrivileges(), privilege);
       return PolicyEvaluationResult.DENIED;
     }
 
     // If policy is not applicable, deny the request
     if (!isPolicyApplicable(policy, actor, resource, context)) {
+      log.debug("Policy does not applicable for actor {} and resource {}", actor, resource);
       return PolicyEvaluationResult.DENIED;
     }
 
@@ -193,6 +201,7 @@ public class PolicyEngine {
     }
     if (!requestResource.isPresent()) {
       // Resource filter present in policy, but no resource spec provided.
+      log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }
     final PolicyMatchFilter filter = getFilter(policyResourceFilter);
@@ -303,11 +312,34 @@ public class PolicyEngine {
     if (!actorFilter.isResourceOwners() || !requestResource.isPresent()) {
       return false;
     }
-    return isActorOwner(actor, requestResource.get(), context);
+    List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
+    return isActorOwner(actor, requestResource.get(), ownershipTypes, context);
   }
 
-  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, PolicyEvaluationContext context) {
-    Set<String> owners = resourceSpec.getOwners();
+  private Set<String> getOwnersForType(ResourceSpec resourceSpec, List<Urn> ownershipTypes) {
+    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+    EnvelopedAspect ownershipAspect;
+    try {
+      EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
+              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME), _systemAuthentication);
+      if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
+        return Collections.emptySet();
+      }
+      ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
+    } catch (Exception e) {
+      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
+      return Collections.emptySet();
+    }
+    Ownership ownership = new Ownership(ownershipAspect.getValue().data());
+    Stream<Owner> ownersStream = ownership.getOwners().stream();
+    if (ownershipTypes != null) {
+      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
+    }
+    return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
+  }
+
+  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> ownershipTypes, PolicyEvaluationContext context) {
+    Set<String> owners = this.getOwnersForType(resourceSpec.getSpec(), ownershipTypes);
     if (isUserOwner(actor, owners)) {
       return true;
     }

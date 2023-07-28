@@ -9,12 +9,14 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urljoin
 
 import requests
+from cached_property import cached_property
 from dateutil import parser
 from packaging import version
-from pydantic import root_validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests import Response
 from requests.adapters import HTTPAdapter
+from requests.models import HTTPBasicAuth
 from requests_gssapi import HTTPSPNEGOAuth
 
 import datahub.emitter.mce_builder as builder
@@ -29,7 +31,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -65,10 +66,13 @@ class NifiAuthType(Enum):
     SINGLE_USER = "SINGLE_USER"
     CLIENT_CERT = "CLIENT_CERT"
     KERBEROS = "KERBEROS"
+    BASIC_AUTH = "BASIC_AUTH"
 
 
 class NifiSourceConfig(EnvConfigMixin):
-    site_url: str = Field(description="URI to connect")
+    site_url: str = Field(
+        description="URL for Nifi, ending with /nifi/. e.g. https://mynifi.domain/nifi/"
+    )
 
     auth: NifiAuthType = Field(
         default=NifiAuthType.NO_AUTH,
@@ -91,7 +95,7 @@ class NifiSourceConfig(EnvConfigMixin):
     )
     site_url_to_site_name: Dict[str, str] = Field(
         default={},
-        description="Lookup to find site_name for site_url, required if using remote process groups in nifi flow",
+        description="Lookup to find site_name for site_url ending with /nifi/, required if using remote process groups in nifi flow",
     )
 
     # Required to be set if auth is of type SINGLE_USER
@@ -129,21 +133,51 @@ class NifiSourceConfig(EnvConfigMixin):
             raise ValueError(
                 "Config `client_cert_file` is required for CLIENT_CERT auth"
             )
-        elif values.get("auth") is NifiAuthType.SINGLE_USER and (
-            not values.get("username") or not values.get("password")
-        ):
+        elif values.get("auth") in (
+            NifiAuthType.SINGLE_USER,
+            NifiAuthType.BASIC_AUTH,
+        ) and (not values.get("username") or not values.get("password")):
             raise ValueError(
-                "Config `username` and `password` is required for SINGLE_USER auth"
+                f"Config `username` and `password` is required for {values.get('auth').value} auth"
             )
         return values
 
+    @root_validator(pre=False)
+    def validator_site_url_to_site_name(cls, values):
+        site_url_to_site_name = values.get("site_url_to_site_name")
+        site_url = values.get("site_url")
+        site_name = values.get("site_name")
 
-TOKEN_ENDPOINT = "/nifi-api/access/token"
-KERBEROS_TOKEN_ENDPOINT = "/nifi-api/access/kerberos"
-ABOUT_ENDPOINT = "/nifi-api/flow/about"
-CLUSTER_ENDPOINT = "/nifi-api/flow/cluster/summary"
-PG_ENDPOINT = "/nifi-api/flow/process-groups/"
-PROVENANCE_ENDPOINT = "/nifi-api/provenance/"
+        if site_url_to_site_name is None:
+            site_url_to_site_name = {}
+            values["site_url_to_site_name"] = site_url_to_site_name
+
+        if site_url not in site_url_to_site_name:
+            site_url_to_site_name[site_url] = site_name
+
+        return values
+
+    @validator("site_url")
+    def validator_site_url(cls, site_url: str) -> str:
+        assert site_url.startswith(
+            ("http://", "https://")
+        ), "site_url must start with http:// or https://"
+
+        if not site_url.endswith("/"):
+            site_url = site_url + "/"
+
+        if not site_url.endswith("/nifi/"):
+            site_url = site_url + "nifi/"
+
+        return site_url
+
+
+TOKEN_ENDPOINT = "access/token"
+KERBEROS_TOKEN_ENDPOINT = "access/kerberos"
+ABOUT_ENDPOINT = "flow/about"
+CLUSTER_ENDPOINT = "flow/cluster/summary"
+PG_ENDPOINT = "flow/process-groups/"
+PROVENANCE_ENDPOINT = "provenance"
 
 
 class NifiType(Enum):
@@ -355,15 +389,9 @@ class NifiSource(Source):
         if self.config.ca_file is not None:
             self.session.verify = self.config.ca_file
 
-        if self.config.site_url_to_site_name is None:
-            self.config.site_url_to_site_name = {}
-        if (
-            urljoin(self.config.site_url, "/nifi/")
-            not in self.config.site_url_to_site_name
-        ):
-            self.config.site_url_to_site_name[
-                urljoin(self.config.site_url, "/nifi/")
-            ] = self.config.site_name
+    @cached_property
+    def rest_api_base_url(self):
+        return self.config.site_url[: -len("nifi/")] + "nifi-api/"
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -523,7 +551,7 @@ class NifiSource(Source):
 
         for pg in flow_dto.get("processGroups", []):
             pg_response = self.session.get(
-                url=urljoin(self.config.site_url, PG_ENDPOINT) + pg.get("id")
+                url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + pg.get("id")
             )
 
             if not pg_response.ok:
@@ -591,7 +619,7 @@ class NifiSource(Source):
 
     def create_nifi_flow(self):
         about_response = self.session.get(
-            url=urljoin(self.config.site_url, ABOUT_ENDPOINT)
+            url=urljoin(self.rest_api_base_url, ABOUT_ENDPOINT)
         )
         nifi_version: Optional[str] = None
         if about_response.ok:
@@ -599,7 +627,7 @@ class NifiSource(Source):
         else:
             logger.warning("Failed to fetch version for nifi")
         cluster_response = self.session.get(
-            url=urljoin(self.config.site_url, CLUSTER_ENDPOINT)
+            url=urljoin(self.rest_api_base_url, CLUSTER_ENDPOINT)
         )
         clustered: Optional[bool] = None
         if cluster_response.ok:
@@ -609,7 +637,7 @@ class NifiSource(Source):
         else:
             logger.warning("Failed to fetch cluster summary for flow")
         pg_response = self.session.get(
-            url=urljoin(self.config.site_url, PG_ENDPOINT) + "root"
+            url=urljoin(self.rest_api_base_url, PG_ENDPOINT) + "root"
         )
 
         pg_response.raise_for_status()
@@ -640,41 +668,8 @@ class NifiSource(Source):
             of processor type {processor.type}, Start date: {startDate}, End date: {endDate}"
         )
 
-        older_version: bool = self.nifi_flow.version is not None and version.parse(
-            self.nifi_flow.version
-        ) < version.parse("1.13.0")
-
-        if older_version:
-            searchTerms = {
-                "ProcessorID": processor.id,
-                "EventType": eventType,
-            }
-        else:
-            searchTerms = {
-                "ProcessorID": {"value": processor.id},  # type: ignore
-                "EventType": {"value": eventType},  # type: ignore
-            }
-
-        payload = json.dumps(
-            {
-                "provenance": {
-                    "request": {
-                        "maxResults": 1000,
-                        "summarize": False,
-                        "searchTerms": searchTerms,
-                        "startDate": startDate.strftime("%m/%d/%Y %H:%M:%S %Z"),
-                        "endDate": (
-                            endDate.strftime("%m/%d/%Y %H:%M:%S %Z")
-                            if endDate
-                            else None
-                        ),
-                    }
-                }
-            }
-        )
-        logger.debug(payload)
-        provenance_response = self.session.post(
-            url=urljoin(self.config.site_url, PROVENANCE_ENDPOINT), data=payload
+        provenance_response = self.submit_provenance_query(
+            processor, eventType, startDate, endDate
         )
 
         if provenance_response.ok:
@@ -731,6 +726,58 @@ class NifiSource(Source):
             )
             logger.warning(provenance_response.text)
         return
+
+    def submit_provenance_query(self, processor, eventType, startDate, endDate):
+        older_version: bool = self.nifi_flow.version is not None and version.parse(
+            self.nifi_flow.version
+        ) < version.parse("1.13.0")
+
+        if older_version:
+            searchTerms = {
+                "ProcessorID": processor.id,
+                "EventType": eventType,
+            }
+        else:
+            searchTerms = {
+                "ProcessorID": {"value": processor.id},  # type: ignore
+                "EventType": {"value": eventType},  # type: ignore
+            }
+
+        payload = json.dumps(
+            {
+                "provenance": {
+                    "request": {
+                        "maxResults": 1000,
+                        "summarize": False,
+                        "searchTerms": searchTerms,
+                        "startDate": startDate.strftime("%m/%d/%Y %H:%M:%S %Z"),
+                        "endDate": (
+                            endDate.strftime("%m/%d/%Y %H:%M:%S %Z")
+                            if endDate
+                            else None
+                        ),
+                    }
+                }
+            }
+        )
+        logger.debug(payload)
+        self.session.headers.update({})
+
+        self.session.headers.update({"Content-Type": "application/json"})
+        provenance_response = self.session.post(
+            url=urljoin(self.rest_api_base_url, PROVENANCE_ENDPOINT),
+            data=payload,
+        )
+
+        # Revert to default content-type if basic-auth
+        if self.config.auth is NifiAuthType.BASIC_AUTH:
+            self.session.headers.update(
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            )
+
+        return provenance_response
 
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
@@ -931,9 +978,22 @@ class NifiSource(Source):
             # Token not required
             return
 
+        if self.config.auth is NifiAuthType.BASIC_AUTH:
+            assert self.config.username is not None
+            assert self.config.password is not None
+            self.session.auth = HTTPBasicAuth(
+                self.config.username, self.config.password
+            )
+            self.session.headers.update(
+                {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+            )
+            return
+
         if self.config.auth is NifiAuthType.CLIENT_CERT:
             self.session.mount(
-                urljoin(self.config.site_url, "/nifi-api/"),
+                self.rest_api_base_url,
                 SSLAdapter(
                     certfile=self.config.client_cert_file,
                     keyfile=self.config.client_key_file,
@@ -946,7 +1006,7 @@ class NifiSource(Source):
         token_response: Response
         if self.config.auth is NifiAuthType.SINGLE_USER:
             token_response = self.session.post(
-                url=urljoin(self.config.site_url, TOKEN_ENDPOINT),
+                url=urljoin(self.rest_api_base_url, TOKEN_ENDPOINT),
                 data={
                     "username": self.config.username,
                     "password": self.config.password,
@@ -954,7 +1014,7 @@ class NifiSource(Source):
             )
         elif self.config.auth is NifiAuthType.KERBEROS:
             token_response = self.session.post(
-                url=urljoin(self.config.site_url, KERBEROS_TOKEN_ENDPOINT),
+                url=urljoin(self.rest_api_base_url, KERBEROS_TOKEN_ENDPOINT),
                 auth=HTTPSPNEGOAuth(),
             )
         else:
@@ -963,9 +1023,6 @@ class NifiSource(Source):
         token_response.raise_for_status()
         self.session.headers.update({"Authorization": "Bearer " + token_response.text})
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             self.authenticate()
@@ -973,8 +1030,6 @@ class NifiSource(Source):
             logger.error("Failed to authenticate", exc_info=e)
             self.report.report_failure(self.config.site_url, "Failed to authenticate")
             return
-
-        self.session.headers.update({"Content-Type": "application/json"})
 
         # Creates nifi_flow by invoking /flow rest api and saves as self.nifi_flow
         try:
@@ -1002,7 +1057,7 @@ class NifiSource(Source):
             component_id = parent_rpg_id
         return urljoin(
             self.config.site_url,
-            f"/nifi/?processGroupId={parent_group_id}&componentIds={component_id}",
+            f"?processGroupId={parent_group_id}&componentIds={component_id}",
         )
 
     def construct_flow_workunits(

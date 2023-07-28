@@ -40,8 +40,12 @@ dependencies {
   runtime externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
   testRuntime externalDependency.logbackClassic
+  implementation externalDependency.charle
 }
-
+configurations.all{
+  exclude group: "com.charleskorn.kaml", module:"kaml"
+  
+}
 configurations {
   jetty9
 }

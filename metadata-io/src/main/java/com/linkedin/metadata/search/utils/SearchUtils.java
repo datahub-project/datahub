@@ -120,9 +120,8 @@ public class SearchUtils {
     }
   }
 
-  @Nonnull
-  public static Filter removeCriteria(@Nonnull Filter originalFilter, Predicate<Criterion> shouldRemove) {
-    if (originalFilter.getOr() != null) {
+  public static Filter removeCriteria(@Nullable Filter originalFilter, Predicate<Criterion> shouldRemove) {
+    if (originalFilter != null && originalFilter.getOr() != null) {
       return new Filter().setOr(new ConjunctiveCriterionArray(originalFilter.getOr()
           .stream()
           .map(criteria -> removeCriteria(criteria, shouldRemove))

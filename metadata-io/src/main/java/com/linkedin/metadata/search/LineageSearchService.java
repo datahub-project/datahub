@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search;
 
+import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -9,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
@@ -189,11 +189,14 @@ public class LineageSearchService {
     long numEntities = 0;
     String codePath = null;
     try {
-      if (canDoLightning(lineageRelationships, input, inputFilters, sortCriterion)) {
+      Filter reducedFilters =
+              SearchUtils.removeCriteria(inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
+
+      if (canDoLightning(lineageRelationships, input, reducedFilters, sortCriterion)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
         LineageSearchResult lineageSearchResult = getLightningSearchResult(lineageRelationships,
-                inputFilters, from, size, new HashSet<>(entities));
+                reducedFilters, from, size, new HashSet<>(entities));
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug("Lightning Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
         }
@@ -202,7 +205,7 @@ public class LineageSearchService {
       } else {
         codePath = "tortoise";
         LineageSearchResult lineageSearchResult = getSearchResultInBatches(lineageRelationships, input,
-                inputFilters, sortCriterion, from, size, finalFlags);
+                reducedFilters, sortCriterion, from, size, finalFlags);
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug("Lineage entity result: {}", lineageSearchResult.getEntities().get(0).toString());
         }
@@ -513,15 +516,13 @@ public class LineageSearchService {
     if (inputFilters == null) {
       return QueryUtils.newFilter(urnMatchCriterion);
     }
-    Filter reducedFilters =
-        SearchUtils.removeCriteria(inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
 
     // Add urn match criterion to each or clause
-    if (!CollectionUtils.isEmpty(reducedFilters.getOr())) {
-      for (ConjunctiveCriterion conjunctiveCriterion : reducedFilters.getOr()) {
+    if (!CollectionUtils.isEmpty(inputFilters.getOr())) {
+      for (ConjunctiveCriterion conjunctiveCriterion : inputFilters.getOr()) {
         conjunctiveCriterion.getAnd().add(urnMatchCriterion);
       }
-      return reducedFilters;
+      return inputFilters;
     }
     return QueryUtils.newFilter(urnMatchCriterion);
   }

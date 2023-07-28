@@ -1,5 +1,3 @@
-from datahub_provider._airflow_compat import AIRFLOW_PATCHED
-
 import datetime
 import json
 import os
@@ -15,10 +13,10 @@ import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
-from airflow.operators.dummy import DummyOperator
 
 import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
+from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_provider.entities import Dataset, Urn
 from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
@@ -238,12 +236,12 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         dag = DAG(dag_id="test_lineage_is_sent_to_backend", start_date=DEFAULT_DATE)
 
         with dag:
-            op1 = DummyOperator(
+            op1 = EmptyOperator(
                 task_id="task1_upstream",
                 inlets=inlets,
                 outlets=outlets,
             )
-            op2 = DummyOperator(
+            op2 = EmptyOperator(
                 task_id="task2",
                 inlets=inlets,
                 outlets=outlets,
@@ -257,13 +255,14 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
-            dag_run = DagRun(state="success", run_id=f"scheduled_{DEFAULT_DATE}")  # type: ignore
+            dag_run = DagRun(state="success", run_id=f"scheduled_{DEFAULT_DATE.isoformat()}")  # type: ignore
         else:
             from airflow.utils.state import DagRunState
 
             ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
             dag_run = DagRun(
-                state=DagRunState.SUCCESS, run_id=f"scheduled_{DEFAULT_DATE}"
+                state=DagRunState.SUCCESS,
+                run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",
             )
 
         ti.dag_run = dag_run  # type: ignore
@@ -372,7 +371,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 )
                 assert (
                     mock_emitter.method_calls[9].args[0].entityUrn
-                    == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
+                    == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
                 )
 
                 assert (
@@ -381,7 +380,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 )
                 assert (
                     mock_emitter.method_calls[10].args[0].entityUrn
-                    == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
+                    == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
                 )
                 assert (
                     mock_emitter.method_calls[11].args[0].aspectName
@@ -389,7 +388,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 )
                 assert (
                     mock_emitter.method_calls[11].args[0].entityUrn
-                    == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
+                    == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
                 )
                 assert (
                     mock_emitter.method_calls[12].args[0].aspectName
@@ -397,7 +396,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 )
                 assert (
                     mock_emitter.method_calls[12].args[0].entityUrn
-                    == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
+                    == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
                 )
                 assert mock_emitter.method_calls[13].args[0].aspectName == "status"
                 assert (
@@ -415,7 +414,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 )
                 assert (
                     mock_emitter.method_calls[15].args[0].entityUrn
-                    == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
+                    == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
                 )
                 assert (
                     mock_emitter.method_calls[16].args[0].aspectName
@@ -423,5 +422,5 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
                 )
                 assert (
                     mock_emitter.method_calls[16].args[0].entityUrn
-                    == "urn:li:dataProcessInstance:b6375e5f5faeb543cfb5d7d8a47661fb"
+                    == "urn:li:dataProcessInstance:5e274228107f44cc2dd7c9782168cc29"
                 )

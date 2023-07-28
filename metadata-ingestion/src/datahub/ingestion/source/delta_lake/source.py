@@ -21,7 +21,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags
 from datahub.ingestion.source.aws.s3_util import (
@@ -159,7 +158,7 @@ class DeltaLakeSource(Source):
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = hist["timestamp"]
             statement_type = OPERATION_STATEMENT_TYPES.get(
-                hist.get("operation"), OperationTypeClass.CUSTOM
+                hist.get("operation", "UNKNOWN"), OperationTypeClass.CUSTOM
             )
             custom_type = (
                 hist.get("operation")
@@ -276,7 +275,7 @@ class DeltaLakeSource(Source):
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        yield MetadataWorkUnit(id=delta_table.metadata().id, mce=mce)
+        yield MetadataWorkUnit(id=str(delta_table.metadata().id), mce=mce)
 
         yield from self.container_WU_creator.create_container_hierarchy(
             browse_path, dataset_urn
@@ -339,9 +338,6 @@ class DeltaLakeSource(Source):
             )
         for folder in os.listdir(path):
             yield os.path.join(path, folder)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(

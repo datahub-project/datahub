@@ -2,6 +2,7 @@ import typing
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.nifi import (
@@ -277,27 +278,29 @@ def mocked_functions(mock_provenance_events, mock_delete_provenance, provenance_
         mock_provenance_events.return_value = puts3_provenance_response
 
 
-def test_single_user_auth_without_password():
+@pytest.mark.parametrize("auth", ["SINGLE_USER", "BASIC_AUTH"])
+def test_auth_without_password(auth):
     with pytest.raises(
-        ValueError, match="`username` and `password` is required for SINGLE_USER auth"
+        ValueError, match=f"`username` and `password` is required for {auth} auth"
     ):
         NifiSourceConfig.parse_obj(
             {
                 "site_url": "https://localhost:8443",
-                "auth": "SINGLE_USER",
+                "auth": auth,
                 "username": "someuser",
             }
         )
 
 
-def test_single_user_auth_without_username_and_password():
+@pytest.mark.parametrize("auth", ["SINGLE_USER", "BASIC_AUTH"])
+def test_auth_without_username_and_password(auth):
     with pytest.raises(
-        ValueError, match="`username` and `password` is required for SINGLE_USER auth"
+        ValueError, match=f"`username` and `password` is required for {auth} auth"
     ):
         NifiSourceConfig.parse_obj(
             {
                 "site_url": "https://localhost:8443",
-                "auth": "SINGLE_USER",
+                "auth": auth,
             }
         )
 
@@ -315,7 +318,6 @@ def test_client_cert_auth_without_client_cert_file():
 
 
 def test_single_user_auth_failed_to_get_token():
-
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         username="username",
@@ -337,7 +339,6 @@ def test_single_user_auth_failed_to_get_token():
 
 
 def test_kerberos_auth_failed_to_get_token():
-
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         auth="KERBEROS",
@@ -357,7 +358,6 @@ def test_kerberos_auth_failed_to_get_token():
 
 
 def test_client_cert_auth_failed():
-
     config = NifiSourceConfig(
         site_url="https://localhost:12345",  # will never work
         auth="CLIENT_CERT",
@@ -378,7 +378,6 @@ def test_client_cert_auth_failed():
 
 
 def test_failure_to_create_nifi_flow():
-
     with patch("datahub.ingestion.source.nifi.NifiSource.authenticate"):
         config = NifiSourceConfig(
             site_url="https://localhost:12345",  # will never work
@@ -396,3 +395,53 @@ def test_failure_to_create_nifi_flow():
         assert "Failed to get root process group flow" in list(
             source.get_report().failures[config.site_url]
         )
+
+
+def test_site_url_no_context():
+    supported_urls = [
+        "https://localhost:8443",
+        "https://localhost:8443/",
+        "https://localhost:8443/nifi",
+        "https://localhost:8443/nifi/",
+    ]
+    ctx = PipelineContext("run-id")
+
+    for url in supported_urls:
+        config = NifiSourceConfig(
+            site_url=url,
+        )
+        assert config.site_url == "https://localhost:8443/nifi/"
+        assert config.site_url_to_site_name["https://localhost:8443/nifi/"] == "default"
+
+        assert (
+            NifiSource(config, ctx).rest_api_base_url
+            == "https://localhost:8443/nifi-api/"
+        )
+
+
+def test_site_url_with_context():
+    supported_urls = [
+        "https://host/context",
+        "https://host/context/",
+        "https://host/context/nifi",
+        "https://host/context/nifi/",
+    ]
+    ctx = PipelineContext("run-id")
+
+    for url in supported_urls:
+        config = NifiSourceConfig(
+            site_url=url,
+        )
+        assert config.site_url == "https://host/context/nifi/"
+        assert config.site_url_to_site_name["https://host/context/nifi/"] == "default"
+        assert (
+            NifiSource(config, ctx).rest_api_base_url
+            == "https://host/context/nifi-api/"
+        )
+
+
+def test_incorrect_site_urls():
+    unsupported_urls = ["localhost:8443", "localhost:8443/context/"]
+    for url in unsupported_urls:
+        with pytest.raises(ValidationError, match="site_url must start with http"):
+            NifiSourceConfig(site_url=url)

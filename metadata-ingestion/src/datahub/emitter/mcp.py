@@ -2,7 +2,7 @@ import dataclasses
 import json
 from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
-from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
+from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE, TIMESERIES_ASPECT_MAP
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -20,14 +20,12 @@ if TYPE_CHECKING:
 
 _ENTITY_TYPE_UNSET = "ENTITY_TYPE_UNSET"
 
-_ASPECT_CONTENT_TYPE = "application/json"
-
 
 def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
     serialized = json.dumps(pre_json_transform(codegen_obj.to_obj()))
     return GenericAspectClass(
         value=serialized.encode(),
-        contentType=_ASPECT_CONTENT_TYPE,
+        contentType=JSON_CONTENT_TYPE,
     )
 
 
@@ -42,7 +40,7 @@ def _try_from_generic_aspect(
         return True, None
     assert aspectName is not None, "aspectName must be set if aspect is set"
 
-    if aspect.contentType != _ASPECT_CONTENT_TYPE:
+    if aspect.contentType != JSON_CONTENT_TYPE:
         return False, None
 
     if aspectName not in ASPECT_MAP:
@@ -155,7 +153,7 @@ class MetadataChangeProposalWrapper:
             # Undo the double JSON serialization that happens in the MCP aspect.
             if (
                 obj.get("aspect")
-                and obj["aspect"].get("contentType") == _ASPECT_CONTENT_TYPE
+                and obj["aspect"].get("contentType") == JSON_CONTENT_TYPE
             ):
                 obj["aspect"] = {"json": json.loads(obj["aspect"]["value"])}
         return obj
@@ -174,7 +172,7 @@ class MetadataChangeProposalWrapper:
         # routine works.
         if obj.get("aspect") and obj["aspect"].get("json"):
             obj["aspect"] = {
-                "contentType": _ASPECT_CONTENT_TYPE,
+                "contentType": JSON_CONTENT_TYPE,
                 "value": json.dumps(obj["aspect"]["json"]),
             }
 
@@ -197,6 +195,11 @@ class MetadataChangeProposalWrapper:
         Raises:
             Exception if the generic aspect is invalid, e.g. contains invalid json.
         """
+
+        if mcpc.changeType != ChangeTypeClass.UPSERT:
+            # We can only generate MCPWs for upserts.
+            return None
+
         converted, aspect = _try_from_generic_aspect(mcpc.aspectName, mcpc.aspect)
         if converted:
             return cls(

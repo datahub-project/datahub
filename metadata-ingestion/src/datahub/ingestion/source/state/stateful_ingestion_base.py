@@ -68,10 +68,12 @@ class StatefulIngestionConfig(ConfigModel):
     ignore_old_state: bool = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
+        hidden_from_docs=True,
     )
     ignore_new_state: bool = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
+        hidden_from_docs=True,
     )
 
     @pydantic.root_validator()
@@ -321,7 +323,7 @@ class StateProviderWrapper:
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
-    ) -> Optional[Checkpoint]:
+    ) -> Optional[Checkpoint[StateType]]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config
             and self.stateful_ingestion_config.ignore_old_state
