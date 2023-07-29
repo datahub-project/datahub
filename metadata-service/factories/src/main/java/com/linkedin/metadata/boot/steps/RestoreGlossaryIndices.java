@@ -74,7 +74,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   private int getAndRestoreTermAspectIndices(int start, AuditStamp auditStamp, AspectSpec termAspectSpec)
       throws Exception {
     SearchResult termsResult =
-        _entitySearchService.search(Constants.GLOSSARY_TERM_ENTITY_NAME, "", null,
+        _entitySearchService.search(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME), "", null,
                 null, start, BATCH_SIZE, new SearchFlags().setFulltext(false)
                         .setSkipAggregates(true).setSkipHighlighting(true));
     List<Urn> termUrns = termsResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
@@ -116,7 +116,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
   }
 
   private int getAndRestoreNodeAspectIndices(int start, AuditStamp auditStamp, AspectSpec nodeAspectSpec) throws Exception {
-    SearchResult nodesResult = _entitySearchService.search(Constants.GLOSSARY_NODE_ENTITY_NAME, "",
+    SearchResult nodesResult = _entitySearchService.search(List.of(Constants.GLOSSARY_NODE_ENTITY_NAME), "",
             null, null, start, BATCH_SIZE,  new SearchFlags().setFulltext(false)
                     .setSkipAggregates(true).setSkipHighlighting(true));
     List<Urn> nodeUrns = nodesResult.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());

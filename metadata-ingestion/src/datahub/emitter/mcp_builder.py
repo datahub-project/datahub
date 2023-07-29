@@ -54,7 +54,9 @@ class DatahubKey(BaseModel):
         return _stable_guid_from_dict(bag)
 
 
-class PlatformKey(DatahubKey):
+class ContainerKey(DatahubKey):
+    """Base class for container guid keys. Most users should use one of the subclasses instead."""
+
     platform: str
     instance: Optional[str] = None
 
@@ -81,8 +83,15 @@ class PlatformKey(DatahubKey):
     def property_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
 
+    def as_urn(self) -> str:
+        return make_container_urn(guid=self.guid())
 
-class DatabaseKey(PlatformKey):
+
+# DEPRECATION: Keeping the `PlatformKey` name around for backwards compatibility.
+PlatformKey = ContainerKey
+
+
+class DatabaseKey(ContainerKey):
     database: str
 
 
@@ -90,11 +99,11 @@ class SchemaKey(DatabaseKey):
     db_schema: str = Field(alias="schema")
 
 
-class ProjectIdKey(PlatformKey):
+class ProjectIdKey(ContainerKey):
     project_id: str
 
 
-class MetastoreKey(PlatformKey):
+class MetastoreKey(ContainerKey):
     metastore: str
 
 
@@ -110,11 +119,11 @@ class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
 
-class FolderKey(PlatformKey):
+class FolderKey(ContainerKey):
     folder_abs_path: str
 
 
-class BucketKey(PlatformKey):
+class BucketKey(ContainerKey):
     bucket_name: str
 
 
@@ -127,7 +136,7 @@ class DatahubKeyJSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-KeyType = TypeVar("KeyType", bound=PlatformKey)
+KeyType = TypeVar("KeyType", bound=ContainerKey)
 
 
 def add_domain_to_entity_wu(
@@ -188,7 +197,7 @@ def gen_containers(
     container_key: KeyType,
     name: str,
     sub_types: List[str],
-    parent_container_key: Optional[PlatformKey] = None,
+    parent_container_key: Optional[ContainerKey] = None,
     extra_properties: Optional[Dict[str, str]] = None,
     domain_urn: Optional[str] = None,
     description: Optional[str] = None,
@@ -199,9 +208,7 @@ def gen_containers(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
-    container_urn = make_container_urn(
-        guid=container_key.guid(),
-    )
+    container_urn = container_key.as_urn()
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),

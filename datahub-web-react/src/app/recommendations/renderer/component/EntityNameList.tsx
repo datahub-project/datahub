@@ -1,7 +1,7 @@
 import React from 'react';
 import { Divider, List, Checkbox } from 'antd';
 import styled from 'styled-components';
-import { Entity, EntityPath } from '../../../../types.generated';
+import { Entity, EntityType, EntityPath } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { IconStyleType } from '../../../entity/Entity';
@@ -59,6 +59,11 @@ const ThinDivider = styled(Divider)`
     margin: 0px;
 `;
 
+export type EntityActionProps = {
+    urn: string;
+    type: EntityType;
+};
+
 type AdditionalProperties = {
     degree?: number;
     paths?: EntityPath[];
@@ -75,6 +80,7 @@ type Props = {
     selectedEntities?: EntityAndType[];
     setSelectedEntities?: (entities: EntityAndType[]) => any;
     bordered?: boolean;
+    entityAction?: React.FC<EntityActionProps>;
 };
 
 export const EntityNameList = ({
@@ -85,6 +91,7 @@ export const EntityNameList = ({
     selectedEntities = [],
     setSelectedEntities,
     bordered = true,
+    entityAction,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
@@ -111,6 +118,8 @@ export const EntityNameList = ({
         }
     };
 
+    const EntityAction = entityAction as React.FC<EntityActionProps>;
+
     return (
         <StyledList
             bordered={bordered}
@@ -127,6 +136,8 @@ export const EntityNameList = ({
                 const subType = capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]);
                 const entityCount = genericProps?.entityCount;
                 const deprecation = genericProps?.deprecation;
+                const health = genericProps?.health;
+
                 return (
                     <>
                         <ListItem isSelectMode={isSelectMode || false}>
@@ -155,7 +166,9 @@ export const EntityNameList = ({
                                 degree={additionalProperties?.degree}
                                 deprecation={deprecation}
                                 paths={additionalProperties?.paths}
+                                health={health || undefined}
                             />
+                            {entityAction && <EntityAction urn={entity.urn} type={entity.type} />}
                         </ListItem>
                         <ThinDivider />
                     </>
