@@ -42,7 +42,9 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         elif config_dict is None:
             raise ConfigurationError("Missing provider configuration.")
         else:
-            provider_config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
+            provider_config = (
+                DatahubIngestionStateProviderConfig.parse_obj_allow_extras(config_dict)
+            )
             if provider_config.datahub_api:
                 graph = DataHubGraph(provider_config.datahub_api)
                 return cls(graph, name)
