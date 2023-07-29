@@ -126,12 +126,11 @@ sql_common = {
 }
 
 sqllineage_lib = {
-    "sqllineage==1.3.6",
+    "sqllineage==1.3.8",
     # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # As per https://github.com/reata/sqllineage/issues/361
-    # and https://github.com/reata/sqllineage/pull/360
-    # sqllineage has compat issues with sqlparse 0.4.4.
-    "sqlparse==0.4.3",
+    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
+    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
+    "sqlparse==0.4.4",
 }
 
 sqlglot_lib = {
