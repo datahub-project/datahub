@@ -1113,4 +1113,7 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on DataPlatformInstance {
+        instanceId
+    }
 }
