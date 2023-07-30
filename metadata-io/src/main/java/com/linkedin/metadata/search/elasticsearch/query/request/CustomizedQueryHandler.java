@@ -1,7 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.metadata.config.search.custom.QueryConfiguration;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;

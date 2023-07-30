@@ -1,5 +1,6 @@
 import json
 
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
@@ -48,7 +49,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=json.dumps(aspect.to_obj()).encode(),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
@@ -63,7 +64,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName="not status",
         aspect=GenericAspectClass(
             value=json.dumps(aspect.to_obj()).encode(),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
@@ -76,7 +77,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=json.dumps({"not_status": True}).encode(),
-            contentType="application/json-patch+json",
+            contentType=JSON_PATCH_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
@@ -89,7 +90,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value=(json.dumps(aspect.to_obj()) + "aaa").encode(),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
@@ -102,7 +103,7 @@ def test_get_aspects_of_type_mcpc():
         aspectName=StatusClass.ASPECT_NAME,
         aspect=GenericAspectClass(
             value='{"ß": 2}'.encode("latin_1"),
-            contentType="application/json",
+            contentType=JSON_CONTENT_TYPE,
         ),
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)

@@ -23,13 +23,13 @@ public class MceConsumerApplicationTest extends AbstractTestNGSpringContextTests
     private TestRestTemplate restTemplate;
 
     @Autowired
-    private EntityService mockEntityService;
+    private EntityService _mockEntityService;
 
     @Test
     public void testRestliServletConfig() {
         RestoreIndicesResult mockResult = new RestoreIndicesResult();
         mockResult.setRowsMigrated(100);
-        when(mockEntityService.restoreIndices(any(), any())).thenReturn(mockResult);
+        when(_mockEntityService.restoreIndices(any(), any())).thenReturn(mockResult);
 
         String response = this.restTemplate
                 .postForObject("/gms/aspects?action=restoreIndices", "{\"urn\":\"\"}", String.class);

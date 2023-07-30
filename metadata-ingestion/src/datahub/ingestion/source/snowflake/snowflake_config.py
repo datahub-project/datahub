@@ -65,7 +65,12 @@ class SnowflakeV2Config(
 
     include_column_lineage: bool = Field(
         default=True,
-        description="If enabled, populates the column lineage. Supported only for snowflake table-to-table and view-to-table lineage edge (not supported in table-to-view or view-to-view lineage edge yet). Requires appropriate grants given to the role.",
+        description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
+    )
+
+    include_view_column_lineage: bool = Field(
+        default=False,
+        description="Populates view->view and table->view column lineage.",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
@@ -88,7 +93,11 @@ class SnowflakeV2Config(
 
     use_legacy_lineage_method: bool = Field(
         default=False,
-        description="Whether to use the legacy lineage computation method. If set to False, ingestion uses new optimised lineage extraction method that requires less ingestion process memory.",
+        description=(
+            "Whether to use the legacy lineage computation method. "
+            "By default, uses new optimised lineage extraction method that requires less ingestion process memory. "
+            "Table-to-view and view-to-view column-level lineage are not supported with the legacy method."
+        ),
     )
 
     validate_upstreams_against_patterns: bool = Field(
@@ -179,3 +188,7 @@ class SnowflakeV2Config(
         return BaseSnowflakeConfig.get_sql_alchemy_url(
             self, database=database, username=username, password=password, role=role
         )
+
+    @property
+    def parse_view_ddl(self) -> bool:
+        return self.include_view_column_lineage
