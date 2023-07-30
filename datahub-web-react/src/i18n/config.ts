@@ -12,10 +12,12 @@ const resources = {
     },
 };
 
-i18n.use(initReactI18next).init({
+i18n.use(LanguageDetector)
+    .use(initReactI18next).init({
     resources,
-    // 默认语言  zh/en  中文/英文
-    lng: 'zh',
+    // use browser language settings, fall back language is en
+    lng: navigator.language,
+    fallbackLng:"en",
     interpolation: {
         escapeValue: false,
     },
