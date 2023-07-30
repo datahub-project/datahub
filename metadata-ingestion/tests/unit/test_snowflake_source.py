@@ -593,7 +593,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     )
 
     assert cloud == SnowflakeCloudProvider.AZURE
-    assert cloud_region_id == "switzerlandnorth"
+    assert cloud_region_id == "switzerland-north"
 
     (
         cloud,
@@ -603,7 +603,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     )
 
     assert cloud == SnowflakeCloudProvider.AZURE
-    assert cloud_region_id == "central-india.azure"
+    assert cloud_region_id == "central-india"
 
 
 def test_unknown_cloud_region_from_snowflake_region_id():

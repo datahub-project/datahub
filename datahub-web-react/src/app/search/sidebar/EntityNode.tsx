@@ -41,7 +41,7 @@ const EntityNode = () => {
         if (count) toggle();
     };
 
-    const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
+    const { loaded, error, environmentAggregations, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
@@ -93,7 +93,7 @@ const EntityNode = () => {
                                   <PlatformNode />
                               </BrowseProvider>
                           ))}
-                    {error && <SidebarLoadingError />}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
                 </ExpandableNode.Body>
             }
         />

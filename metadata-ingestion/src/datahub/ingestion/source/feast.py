@@ -1,7 +1,5 @@
 import sys
 
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
-
 if sys.version_info < (3, 8):
     raise ImportError("Feast is only supported on Python 3.8+")
 
@@ -369,9 +367,6 @@ class FeastRepositorySource(Source):
     def create(cls, config_dict, ctx):
         config = FeastRepositorySourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         for feature_view in self.feature_store.list_feature_views():
