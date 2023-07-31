@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { t } from 'i18next';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -77,7 +78,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>关闭</Button>
+            <Button onClick={onClose}>Close</Button>
         </ButtonsContainer>
     );
 
@@ -123,24 +124,24 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         <Modal title={policy?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>规则类型</Typography.Title>
+                    <Typography.Title level={5}>{t ("Type")}</Typography.Title>
                     <ThinDivider />
                     <PoliciesTag>{policy?.type}</PoliciesTag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>规则状态</Typography.Title>
+                    <Typography.Title level={5}>{t ("State")}</Typography.Title>
                     <ThinDivider />
                     <Tag color={isActive ? 'green' : 'red'}>{policy?.state}</Tag>
                 </div>
                 <div>
-                    <Typography.Title level={5}>规则说明</Typography.Title>
+                    <Typography.Title level={5}>{t ("Description")}</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{policy?.description}</Typography.Text>
                 </div>
                 {isMetadataPolicy && (
                     <>
                         <div>
-                            <Typography.Title level={5}>资产类型</Typography.Title>
+                            <Typography.Title level={5}>{t ("Asset Type")}</Typography.Title>
                             <ThinDivider />
                             {(resourceTypes?.length &&
                                 resourceTypes.map((value, key) => {
@@ -158,7 +159,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>资产</Typography.Title>
+                            <Typography.Title level={5}>{t ("Assets")}</Typography.Title>
                             <ThinDivider />
                             {(resourceEntities?.length &&
                                 resourceEntities.map((value, key) => {
@@ -171,7 +172,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
                         <div>
-                            <Typography.Title level={5}>Domains</Typography.Title>
+                            <Typography.Title level={5}>{t ("Domains")}</Typography.Title>
                             <ThinDivider />
                             {(domains?.length &&
                                 domains.map((value, key) => {
@@ -186,7 +187,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     </>
                 )}
                 <Privileges>
-                    <Typography.Title level={5}>权限集</Typography.Title>
+                    <Typography.Title level={5}>{t ("Privileges")}</Typography.Title>
                     <ThinDivider />
                     {privileges?.map((priv, key) => (
                         // eslint-disable-next-line react/no-array-index-key
@@ -194,12 +195,12 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     ))}
                 </Privileges>
                 <div>
-                    <Typography.Title level={5}>应用到所有者</Typography.Title>
+                    <Typography.Title level={5}>{t ("Applies to Owners")}</Typography.Title>
                     <ThinDivider />
                     {resourceOwnersField(policy?.actors)}
                 </div>
                 <div>
-                    <Typography.Title level={5}>应用到用户</Typography.Title>
+                    <Typography.Title level={5}>{t("Applies to Users")}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         users={policy?.actors?.resolvedUsers}
@@ -210,7 +211,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
                 </div>
                 <div>
-                    <Typography.Title level={5}>应用到用户组</Typography.Title>
+                    <Typography.Title level={5}>{t ("Applies to Groups")}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         groups={policy?.actors?.resolvedGroups}
@@ -221,7 +222,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                     {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
                 </div>
                 <div>
-                    <Typography.Title level={5}>应用到角色</Typography.Title>
+                    <Typography.Title level={5}>{t ("Applies to Roles")}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup
                         roles={policy?.actors?.resolvedRoles}

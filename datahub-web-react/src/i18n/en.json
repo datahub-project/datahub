@@ -211,5 +211,12 @@
   "Create a new Policy": "Create a new Policy",
   "Save": "Save",
   "Next": "Next",
-  "Previous":"Previous"
+  "Previous":"Previous",
+  "Asset Type": "Asset Type",
+  "Assets": "Assets",
+  "Privileges": "Privileges",
+  "Applies to Owners": "Applies to Owners",
+  "Applies to Users": "Applies to Users",
+  "Applies to Groups": "Applies to Groups",
+  "Applies to Roles": "Applies to Roles"
 }

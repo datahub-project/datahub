@@ -211,5 +211,12 @@
   "Create a new Policy": "创建新策略",
   "Save": "保存",
   "Next": "下一步",
-  "Previous": "上一步"
+  "Previous": "上一步",
+  "Asset Type": "数据资产类型",
+  "Assets": "数据资产",
+  "Privileges": "策略集",
+  "Applies to Owners": "应用到所有者",
+  "Applies to Users": "应用到用户",
+  "Applies to Groups": "应用到用户组",
+  "Applies to Roles": "应用到角色"
 }
