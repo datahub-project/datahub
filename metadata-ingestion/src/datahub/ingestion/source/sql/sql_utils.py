@@ -231,27 +231,9 @@ def gen_lineage(
             yield wu
 
 
-# downgrade a schema field path
-def downgrade_v2_field_path(field_path: str) -> str:
-    if not field_path:
-        return field_path
-
-    if not field_path.startswith(VERSION_PREFIX):
-        return field_path
-
-    # strip out all annotation segments
-    segments = field_path.split(".")
-    cleaned_segments = [
-        segment
-        for segment in segments
-        if not (segment.startswith("[") or segment.endswith("]"))
-    ]
-    return ".".join(cleaned_segments)
-
-
 # downgrade a schema field
 def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
-    field.fieldPath = downgrade_v2_field_path(field.fieldPath)
+    field.fieldPath = DatasetUrn._get_simple_field_path_from_v2_field_path(field.fieldPath)
     return field
 
 
