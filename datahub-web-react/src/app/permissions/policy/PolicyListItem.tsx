@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components';
 
 import { Button, List, Space, Tag, Typography } from 'antd';
@@ -34,7 +35,7 @@ export default function PolicyListItem({ policy, onView }: Props) {
                     <Typography.Text type="secondary">{policy.description}</Typography.Text>
                 </Space>
                 <Space direction="vertical" align="end">
-                    <Typography.Title level={5}>State</Typography.Title>
+                    <Typography.Title level={5}>{t ("State")}</Typography.Title>
                     <Tag style={{ margin: 0 }} color={isActive ? 'green' : 'red'}>
                         {policy.state}
                     </Tag>
