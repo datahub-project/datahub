@@ -26,6 +26,7 @@ import {
     DownloadSearchResults,
 } from '../../../../../search/utils/types';
 import { useEntityContext } from '../../../EntityContext';
+import { useUserContext } from '../../../../../context/useUserContext';
 
 const Container = styled.div`
     display: flex;
@@ -103,6 +104,7 @@ type Props = {
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
+    applyView?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -130,10 +132,13 @@ export const EmbeddedListSearch = ({
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
+    applyView,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
+
+    console.log("test");
 
     const baseFilters = {
         unionType,
@@ -165,12 +170,16 @@ export const EmbeddedListSearch = ({
         skip: true,
     });
 
+    const userContext = useUserContext();
+    const selectedViewUrn = userContext.localState?.viewUrn;
+
     let searchInput: SearchAcrossEntitiesInput = {
         types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
+        viewUrn: selectedViewUrn,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
