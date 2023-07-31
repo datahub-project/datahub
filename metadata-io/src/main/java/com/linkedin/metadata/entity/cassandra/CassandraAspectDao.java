@@ -32,6 +32,7 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
@@ -596,6 +597,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     );
 
     saveAspect(aspect, insert);
+
+    // metrics
+    incrementWriteMetrics(aspectName, 1, aspectMetadata.getBytes(StandardCharsets.UTF_8).length);
   }
 
   @Override
