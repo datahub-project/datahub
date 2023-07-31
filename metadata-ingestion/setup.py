@@ -401,7 +401,7 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.4,<1.28.15",
+    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.4,<1.28.14",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
