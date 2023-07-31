@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import { Alert, Button, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
@@ -53,7 +54,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
             width={700}
             title={
                 <Typography.Text>
-                    <b> New Personal Access Token</b>
+                    <b> {t ("New Personal Access Token")}</b>
                 </Typography.Text>
             }
             visible={visible}
@@ -61,7 +62,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
             footer={
                 <>
                     <Button id="createTokenButton" onClick={onClose}>
-                        Close
+                        {t ("Close")}
                     </Button>
                 </>
             }
@@ -72,20 +73,20 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                     message={
                         <span>
                             <StyledInfoCircleOutlined />
-                            Make sure to copy your personal access token now. You won’t be able to see it again.
+                            {t ("Make sure to copy your personal access token now. You won’t be able to see it again.")}
                         </span>
                     }
                 />
             </ModalSection>
             <ModalSection>
-                <ModalSectionHeader strong>Token</ModalSectionHeader>
+                <ModalSectionHeader strong>{t ("Token")}</ModalSectionHeader>
                 <ModalSectionParagraph>{expiresInText}</ModalSectionParagraph>
                 <Typography.Paragraph copyable={{ text: accessToken }}>
                     <pre>{accessToken}</pre>
                 </Typography.Paragraph>
             </ModalSection>
             <ModalSection>
-                <ModalSectionHeader strong>Usage</ModalSectionHeader>
+                <ModalSectionHeader strong>{t ("Usage")}</ModalSectionHeader>
                 <ModalSectionParagraph>
                     To use the token, provide it as a <Typography.Text keyboard>Bearer</Typography.Text> token in the{' '}
                     <Typography.Text keyboard>Authorization</Typography.Text> header when making API requests:
@@ -95,7 +96,7 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
                 </Typography.Paragraph>
             </ModalSection>
             <ModalSection>
-                <ModalSectionHeader strong>Learn More</ModalSectionHeader>
+                <ModalSectionHeader strong>{t ("Learn More")}</ModalSectionHeader>
                 <ModalSectionParagraph>
                     To learn more about the DataHub APIs, check out the
                     <a href="https://www.datahubproject.io/docs/"> DataHub Docs.</a>

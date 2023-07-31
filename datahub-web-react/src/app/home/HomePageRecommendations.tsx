@@ -197,7 +197,7 @@ export const HomePageRecommendations = ({ user }: Props) => {
                         </BrowseCardContainer>
                     ) : (
                         <NoMetadataContainer>
-                            <NoMetadataEmpty description={t ('No Metadata Found')}/>
+                            <NoMetadataEmpty description={t ("No Metadata Found")}/>
                         </NoMetadataContainer>
                     )}
                 </RecommendationContainer>
