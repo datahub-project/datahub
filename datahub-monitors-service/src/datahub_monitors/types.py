@@ -133,6 +133,11 @@ class FreshnessFieldKind(Enum):
     HIGH_WATERMARK = "HIGH_WATERMARK"
 
 
+class MonitorMode(Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+
 class CronSchedule(PermissiveBaseModel):
     """The cron string"""
 
@@ -400,12 +405,17 @@ class Monitor(PermissiveBaseModel):
 
     assertion_monitor: Optional[AssertionMonitor]
 
+    mode: MonitorMode
+
     @root_validator(pre=True)
     def extract_info(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if "info" in values and "type" in values["info"]:
-            values["type"] = values["info"]["type"]
-        if "assertion_monitor" not in values:
-            values["assertion_monitor"] = values["info"]["assertionMonitor"]
+        if "info" in values:
+            if "type" in values["info"]:
+                values["type"] = values["info"]["type"]
+            if "assertionMonitor" in values["info"]:
+                values["assertion_monitor"] = values["info"]["assertionMonitor"]
+            if "status" in values["info"] and "mode" in values["info"]["status"]:
+                values["mode"] = values["info"]["status"]["mode"]
         return values
 
 

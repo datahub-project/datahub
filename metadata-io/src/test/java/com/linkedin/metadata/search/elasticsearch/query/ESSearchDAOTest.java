@@ -1,11 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.datahub.test.Snapshot;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESSampleDataFixture;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;

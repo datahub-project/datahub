@@ -12,12 +12,16 @@ import TabToolbar from '../../../components/styled/TabToolbar';
 import { isEntityEligibleForAssertionMonitoring } from './assertion/builder/utils';
 import { createAssertionGroups, getAssertionGroupSummary } from './acrylUtils';
 import { AssertionGroupTable } from './AssertionGroupTable';
+import {
+    updateDatasetAssertionsCache,
+    removeFromDatasetAssertionsCache,
+    createCachedAssertionWithMonitor,
+} from './acrylCacheUtils';
 
 /**
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertions = () => {
-    const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [showAssertionBuilder, setShowAssertionBuilder] = useState(false);
 
     const { urn, entityData } = useEntityData();
@@ -25,15 +29,14 @@ export const AcrylAssertions = () => {
     const { config } = useAppConfig();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
-    const { data, refetch } = useGetDatasetAssertionsWithMonitorsQuery({
+    const { data, refetch, client } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const assertions = combinedData?.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion) || [];
-    const filteredAssertions = assertions.filter((assertion) => !removedUrns.includes(assertion.urn));
-    const assertionGroups = createAssertionGroups(filteredAssertions);
+    const assertionGroups = createAssertionGroups(assertions);
 
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
 
@@ -46,16 +49,16 @@ export const AcrylAssertions = () => {
                     </Button>
                 </TabToolbar>
             )}
-            <DatasetAssertionsSummary summary={getAssertionGroupSummary(filteredAssertions)} />
+            <DatasetAssertionsSummary summary={getAssertionGroupSummary(assertions)} />
             <AssertionGroupTable
                 groups={assertionGroups}
                 onDeletedAssertion={(assertionUrn) => {
-                    // Hack to deal with eventual consistency.
-                    setRemovedUrns([...removedUrns, assertionUrn]);
-                    setTimeout(() => refetch(), 3000);
+                    removeFromDatasetAssertionsCache(urn, assertionUrn, client);
+                    setTimeout(() => refetch(), 5000);
                 }}
-                onUpdatedAssertion={() => {
-                    setTimeout(() => refetch(), 3000);
+                onUpdatedAssertion={(assertion) => {
+                    updateDatasetAssertionsCache(urn, assertion, client);
+                    setTimeout(() => refetch(), 5000);
                 }}
             />
             {showAssertionBuilder && (
@@ -63,10 +66,10 @@ export const AcrylAssertions = () => {
                     entityUrn={urn}
                     entityType={entityType}
                     platformUrn={entityData?.platform?.urn as string}
-                    onSubmit={() => {
+                    onSubmit={(assertion, monitor) => {
                         setShowAssertionBuilder(false);
-                        // TODO: Use the Apollo Cache.
-                        setTimeout(() => refetch(), 3000);
+                        updateDatasetAssertionsCache(urn, createCachedAssertionWithMonitor(assertion, monitor), client);
+                        setTimeout(() => refetch(), 5000);
                     }}
                     onCancel={() => setShowAssertionBuilder(false)}
                 />

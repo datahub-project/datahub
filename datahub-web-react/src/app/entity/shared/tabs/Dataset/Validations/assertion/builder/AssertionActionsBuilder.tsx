@@ -49,6 +49,7 @@ type Props = {
 
 export const AssertionActionsBuilder = ({ urn, assertion, onSubmit, onCancel }: Props) => {
     const [builderState, setBuilderState] = useState<AssertionActionsBuilderState>(assertionToBuilderState(assertion));
+    const [isSubmitting, setSubmitting] = useState(false);
 
     const onUpdatedAssertionActions = (newAssertion: Assertion) => {
         onSubmit?.(newAssertion);
@@ -65,7 +66,18 @@ export const AssertionActionsBuilder = ({ urn, assertion, onSubmit, onCancel }: 
             />
             <ControlsContainer>
                 <Button onClick={onCancel}>Cancel</Button>
-                <Button type="primary" onClick={updateAssertionActions}>
+                <Button
+                    type="primary"
+                    onClick={async () => {
+                        try {
+                            setSubmitting(true);
+                            await updateAssertionActions();
+                        } finally {
+                            setSubmitting(false);
+                        }
+                    }}
+                    disabled={isSubmitting}
+                >
                     Save
                 </Button>
             </ControlsContainer>

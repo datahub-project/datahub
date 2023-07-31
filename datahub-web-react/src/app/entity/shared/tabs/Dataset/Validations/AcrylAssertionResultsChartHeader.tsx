@@ -15,7 +15,7 @@ const Header = styled.div`
 `;
 
 const EvaluationsSummary = styled.div`
-    width: 260px;
+    width: 300px;
     display: flex;
     align-items: center;
     justify-content: left;
@@ -29,6 +29,11 @@ const EvaluationResults = styled.div``;
 
 const ResultTypeCount = styled.span`
     margin-right: 12px;
+`;
+
+const ErrorEvaluationsCount = styled(Typography.Text)`
+    font-weight: 600;
+    color: ${getResultColor(AssertionResultType.Error)};
 `;
 
 type Props = {
@@ -56,6 +61,7 @@ export const AcrylAssertionResultsChartHeader = ({ timeRange, lookbackWindow, se
      */
     const succeededCount = results?.succeeded;
     const failedCount = results?.failed;
+    const errorCount = results?.errored;
 
     /**
      * Invoked when user selects new lookback window (e.g. 1 year)
@@ -88,6 +94,12 @@ export const AcrylAssertionResultsChartHeader = ({ timeRange, lookbackWindow, se
                         </Typography.Text>{' '}
                         failed
                     </ResultTypeCount>
+                    {errorCount ? (
+                        <ResultTypeCount>
+                            <ErrorEvaluationsCount>{formatNumber(errorCount)}</ErrorEvaluationsCount> error
+                            {errorCount > 1 ? 's' : ''}
+                        </ResultTypeCount>
+                    ) : null}
                 </EvaluationResults>
             </EvaluationsSummary>
             <PrefixedSelect

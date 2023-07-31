@@ -1,25 +1,19 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Collapse, Radio, Typography } from 'antd';
+import { Button, Collapse } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersType,
     CronSchedule,
     DatasetFilter,
     DatasetFreshnessAssertionParameters,
-    FixedIntervalSchedule,
+    FreshnessAssertionSchedule,
     FreshnessAssertionScheduleType,
 } from '../../../../../../../../../types.generated';
-import { FixedIntervalScheduleBuilder } from './freshness/FixedIntervalSchedulerBuilder';
-import { CronScheduleBuilder } from './freshness/CronScheduleBuilder';
+import { EvaluationScheduleBuilder } from './freshness/EvaluationScheduleBuilder';
 import { DatasetFreshnessSourceBuilder } from './freshness/DatasetFreshnessSourceBuilder';
 import { DatasetFreshnessFilterBuilder } from './freshness/DatasetFreshnessFilterBuilder';
-
-const TypeLabel = styled(Typography.Title)`
-    && {
-        margin-bottom: 16px;
-    }
-`;
+import { DatasetFreshnessScheduleBuilder } from './freshness/DatasetFreshnessScheduleBuilder';
 
 const Step = styled.div`
     height: 100%;
@@ -42,10 +36,6 @@ const Controls = styled.div`
     margin-top: 8px;
 `;
 
-const SourceDescription = styled(Typography.Paragraph)`
-    margin-top: 12px;
-`;
-
 /**
  * Step for defining the Dataset Freshness assertion
  */
@@ -54,57 +44,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
     const freshnessFilter = freshnessAssertion?.filter;
     const freshnessSchedule = freshnessAssertion?.schedule;
     const freshnessScheduleType = freshnessSchedule?.type;
-    const freshnessScheduleCron = freshnessSchedule?.cron;
-    const freshnessScheduleFixedInterval = freshnessSchedule?.fixedInterval;
     const datasetFreshnessParameters = state.parameters?.datasetFreshnessParameters;
-
-    const updateScheduleType = (scheduleType: FreshnessAssertionScheduleType) => {
-        updateState({
-            ...state,
-            assertion: {
-                ...state.assertion,
-                freshnessAssertion: {
-                    ...state?.assertion?.freshnessAssertion,
-                    schedule: {
-                        ...state?.assertion?.freshnessAssertion?.schedule,
-                        type: scheduleType,
-                    },
-                },
-            },
-        });
-    };
-
-    const updateFixedIntervalSchedule = (fixedInterval: FixedIntervalSchedule) => {
-        updateState({
-            ...state,
-            assertion: {
-                ...state.assertion,
-                freshnessAssertion: {
-                    ...state?.assertion?.freshnessAssertion,
-                    schedule: {
-                        ...state?.assertion?.freshnessAssertion?.schedule,
-                        fixedInterval,
-                    },
-                },
-            },
-        });
-    };
-
-    const updateCronSchedule = (cron: CronSchedule) => {
-        updateState({
-            ...state,
-            assertion: {
-                ...state.assertion,
-                freshnessAssertion: {
-                    ...state.assertion?.freshnessAssertion,
-                    schedule: {
-                        ...state.assertion?.freshnessAssertion?.schedule,
-                        cron,
-                    },
-                },
-            },
-        });
-    };
 
     const updateDatasetFreshnessAssertionParameters = (parameters: DatasetFreshnessAssertionParameters) => {
         updateState({
@@ -120,7 +60,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
         });
     };
 
-    const updateSlaAssertionFilter = (filter?: DatasetFilter) => {
+    const updateAssertionSqlFilter = (filter?: DatasetFilter) => {
         updateState({
             ...state,
             assertion: {
@@ -133,49 +73,58 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
         });
     };
 
+    const updateAssertionSchedule = (schedule: CronSchedule) => {
+        // when the schedule changes, also update the freshness assertion cron schedule
+        updateState({
+            ...state,
+            schedule,
+            assertion: {
+                ...state.assertion,
+                freshnessAssertion: {
+                    ...state.assertion?.freshnessAssertion,
+                    schedule: {
+                        ...state.assertion?.freshnessAssertion?.schedule,
+                        cron: schedule,
+                    },
+                },
+            },
+        });
+    };
+
+    const updateFreshnessSchedule = (schedule: FreshnessAssertionSchedule) => {
+        updateState({
+            ...state,
+            assertion: {
+                ...state.assertion,
+                freshnessAssertion: {
+                    ...state.assertion?.freshnessAssertion,
+                    schedule,
+                },
+            },
+        });
+    };
+
     return (
         <Step>
             <Form>
-                <Section>
-                    <TypeLabel level={5}>Type</TypeLabel>
-                    <Radio.Group value={freshnessScheduleType} onChange={(e) => updateScheduleType(e.target.value)}>
-                        <Radio.Button value={FreshnessAssertionScheduleType.FixedInterval}>Fixed Interval</Radio.Button>
-                        <Radio.Button value={FreshnessAssertionScheduleType.Cron}>Schedule</Radio.Button>
-                    </Radio.Group>
-                    <SourceDescription type="secondary">
-                        {freshnessScheduleType === FreshnessAssertionScheduleType.FixedInterval
-                            ? 'Define an expected change interval to monitor for this dataset'
-                            : 'Define an expected change schedule to monitor for this dataset'}
-                    </SourceDescription>
-                </Section>
-                <Section>
-                    {freshnessScheduleType === FreshnessAssertionScheduleType.FixedInterval ? (
-                        <FixedIntervalScheduleBuilder
-                            value={freshnessScheduleFixedInterval as FixedIntervalSchedule}
-                            onChange={updateFixedIntervalSchedule}
-                        />
-                    ) : (
-                        <CronScheduleBuilder
-                            title="Expected Change Schedule"
-                            value={freshnessScheduleCron as CronSchedule}
-                            onChange={updateCronSchedule}
-                            actionText="Changes by"
-                            descriptionText="Assertion will fail if this dataset has not changed by the schedule timed, or between two consecutive schedule times"
-                        />
-                    )}
-                </Section>
+                <EvaluationScheduleBuilder value={state.schedule as CronSchedule} onChange={updateAssertionSchedule} />
+                <DatasetFreshnessScheduleBuilder
+                    value={freshnessSchedule as FreshnessAssertionSchedule}
+                    onChange={updateFreshnessSchedule}
+                />
                 <Section>
                     <Collapse>
                         <Collapse.Panel key="Advanced" header="Advanced">
                             <DatasetFreshnessSourceBuilder
                                 entityUrn={state.entityUrn as string}
                                 platformUrn={state.platformUrn as string}
+                                scheduleType={freshnessScheduleType as FreshnessAssertionScheduleType}
                                 value={datasetFreshnessParameters as DatasetFreshnessAssertionParameters}
                                 onChange={updateDatasetFreshnessAssertionParameters}
                             />
                             <DatasetFreshnessFilterBuilder
                                 value={freshnessFilter as DatasetFilter}
-                                onChange={updateSlaAssertionFilter}
+                                onChange={updateAssertionSqlFilter}
                                 sourceType={datasetFreshnessParameters?.sourceType}
                             />
                         </Collapse.Panel>
@@ -184,7 +133,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
             </Form>
             <Controls>
                 <Button onClick={prev}>Back</Button>
-                <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_SCHEDULE)}>
+                <Button type="primary" onClick={() => goTo(AssertionBuilderStep.CONFIGURE_ACTIONS)}>
                     Next
                 </Button>
             </Controls>

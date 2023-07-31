@@ -4,7 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 import { FileDoneOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../EntityContext';
-import { TestResults } from './TestResults';
+import { AcrylTestResults } from './AcrylTestResults';
 import TabToolbar from '../../../components/styled/TabToolbar';
 import { useGetValidationsTab } from './useGetValidationsTab';
 import { ANTD_GRAY } from '../../../constants';
@@ -81,7 +81,7 @@ export const AcrylValidationsTab = () => {
             ),
             path: TabPaths.TESTS,
             disabled: totalTests === 0,
-            content: <TestResults passing={passingTests} failing={failingTests} />,
+            content: <AcrylTestResults urn={urn} />,
         },
     ];
 
@@ -91,6 +91,7 @@ export const AcrylValidationsTab = () => {
                 <div>
                     {tabs.map((tab) => (
                         <TabButton
+                            key={tab.path}
                             type="text"
                             disabled={tab.disabled}
                             selected={selectedTab === tab.path}

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Typography } from 'antd';
+import { Button, Tooltip, Typography } from 'antd';
 import { ANTD_GRAY } from '../../../../../../constants';
 
 const Container = styled(Button)<{ enabled }>`
@@ -68,14 +68,16 @@ export function AssertionTypeOption({ name, description, icon, enabled = true, o
     };
 
     return (
-        <Container onClick={handleOnClick} enabled={enabled}>
-            <Header>
-                {icon}
-                <Title level={4} enabled={enabled}>
-                    {name}
-                </Title>
-            </Header>
-            <Description type="secondary">{description}</Description>
-        </Container>
+        <Tooltip title={!enabled ? 'Coming soon!' : undefined}>
+            <Container onClick={handleOnClick} enabled={enabled} key={name}>
+                <Header>
+                    {icon}
+                    <Title level={4} enabled={enabled}>
+                        {name}
+                    </Title>
+                </Header>
+                <Description type="secondary">{description}</Description>
+            </Container>
+        </Tooltip>
     );
 }

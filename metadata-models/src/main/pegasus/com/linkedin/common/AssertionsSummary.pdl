@@ -59,7 +59,8 @@ record AssertionsSummary {
         "fieldType": "URN",
         "fieldName": "failingAssertions",
         "hasValuesFieldName": "hasFailingAssertions",
-        "numValuesFieldName": "numFailingAssertions"
+        "numValuesFieldName": "numFailingAssertions",
+        "addHasValuesToFilters": true
       },
       "/*/type" : {
         "fieldType": "KEYWORD",

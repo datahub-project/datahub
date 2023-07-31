@@ -82,6 +82,8 @@ export enum EventType {
     UpdateTestEvent,
     DeleteTestEvent,
     CreateAssertionMonitorEvent,
+    StartAssertionMonitorEvent,
+    StopAssertionMonitorEvent,
 }
 
 /**
@@ -250,7 +252,7 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
  */
 export interface BrowseV2SelectNodeEvent extends BaseEvent {
     type: EventType.BrowseV2SelectNodeEvent;
-    targetNode: 'browse';
+    targetNode: 'browse' | 'platform';
     action: 'select' | 'deselect';
     entity: string;
     environment?: string;
@@ -506,6 +508,21 @@ export interface DeleteTestEvent extends BaseEvent {
 export interface CreateAssertionMonitorEvent extends BaseEvent {
     type: EventType.CreateAssertionMonitorEvent;
     assertionType: string;
+    entityUrn: string;
+}
+
+export interface StartAssertionMonitorEvent extends BaseEvent {
+    type: EventType.StartAssertionMonitorEvent;
+    assertionType: string;
+    assertionUrn: string;
+    monitorUrn: string;
+}
+
+export interface StopAssertionMonitorEvent extends BaseEvent {
+    type: EventType.StopAssertionMonitorEvent;
+    assertionType: string;
+    assertionUrn: string;
+    monitorUrn: string;
 }
 
 export interface ManuallyCreateLineageEvent extends BaseEvent {
@@ -704,4 +721,6 @@ export type Event =
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
-    | CreateAssertionMonitorEvent;
+    | CreateAssertionMonitorEvent
+    | StartAssertionMonitorEvent
+    | StopAssertionMonitorEvent;

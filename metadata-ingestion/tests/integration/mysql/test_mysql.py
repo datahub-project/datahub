@@ -48,6 +48,10 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
         ("mysql_to_file_with_db.yml", "mysql_mces_with_db_golden.json"),
         ("mysql_to_file_no_db.yml", "mysql_mces_no_db_golden.json"),
         ("mysql_profile_table_level_only.yml", "mysql_table_level_only.json"),
+        (
+            "mysql_profile_table_row_count_estimate_only.yml",
+            "mysql_table_row_count_estimate_only.json",
+        ),
     ],
 )
 @freeze_time(FROZEN_TIME)

@@ -332,7 +332,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             () -> {
               final SearchResult result;
               // This API is not used by the frontend for search bars so we default to structured
-              result = _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, searchFlags);
+              result = _entitySearchService.search(List.of(entityName), input, filter, sortCriterion, start, count, searchFlags);
               return validateSearchResult(result, _entityService);
             },
             MetricRegistry.name(this.getClass(), "search"));
@@ -428,7 +428,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
     return RestliUtil.toTask(() -> validateLineageScrollResult(
         _lineageSearchService.scrollAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService),
+            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags),
+            _entityService),
         "scrollAcrossLineage");
   }
 

@@ -26,6 +26,9 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 import java.util.Set;
 
+import static com.linkedin.metadata.Constants.*;
+
+
 @Slf4j
 public class BackfillBrowsePathsV2Step extends UpgradeStep {
 
@@ -133,7 +136,7 @@ public class BackfillBrowsePathsV2Step extends UpgradeStep {
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(Constants.BROWSE_PATHS_V2_ASPECT_NAME);
     proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(new SystemMetadata().setRunId(EntityService.DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
+    proposal.setSystemMetadata(new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(browsePathsV2));
     _entityService.ingestProposal(
         proposal,

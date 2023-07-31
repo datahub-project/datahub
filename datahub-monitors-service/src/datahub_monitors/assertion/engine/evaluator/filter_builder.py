@@ -2,6 +2,7 @@ import logging
 import re
 from typing import Optional
 
+from datahub_monitors.exceptions import InvalidParametersException
 from datahub_monitors.types import DatasetFilterType
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,10 @@ class FilterBuilder:
         sql = self._filter_params.get("sql")
 
         if not sql:
-            raise Exception(f"Invalid SQL filter {sql} provided.")
+            raise InvalidParametersException(
+                message=f"Invalid SQL filter {sql} provided.",
+                parameters=self._filter_params,
+            )
 
         return sql
 
@@ -31,7 +35,10 @@ class FilterBuilder:
         if type:
             if type == DatasetFilterType.SQL:
                 return self._build_sql_filter_string()
-            raise Exception(f"Unsupported filter type {type} provided.")
+            raise InvalidParametersException(
+                message=f"Unsupported filter type {type} provided.",
+                parameters=self._filter_params,
+            )
         else:
             return ""
 

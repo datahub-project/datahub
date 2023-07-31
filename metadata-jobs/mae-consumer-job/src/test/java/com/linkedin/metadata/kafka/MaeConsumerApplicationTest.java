@@ -15,10 +15,10 @@ import static org.testng.AssertJUnit.*;
 public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired
-  private EntityService mockEntityService;
+  private EntityService _mockEntityService;
 
   @Test
   public void testMaeConsumerAutoWiring() {
-    assertNotNull(mockEntityService);
+    assertNotNull(_mockEntityService);
   }
 }

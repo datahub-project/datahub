@@ -17,7 +17,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -589,9 +588,6 @@ class CSVEnricherSource(Source):
             if owner_urn.startswith("urn:li:")
         ]
         return owners
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use

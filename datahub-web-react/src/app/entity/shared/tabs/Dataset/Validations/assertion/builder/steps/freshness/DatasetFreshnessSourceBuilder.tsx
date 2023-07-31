@@ -1,32 +1,67 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Radio, Typography } from 'antd';
+import { Typography, Select } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import {
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
+    FreshnessAssertionScheduleType,
     FreshnessFieldSpec,
 } from '../../../../../../../../../../types.generated';
 import { FieldValueSourceBuilder } from './FieldValueSourceBuilder';
 import { useGetDatasetSchemaQuery } from '../../../../../../../../../../graphql/dataset.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';
-import { SourceOption, getSourceOption, getSourceOptions } from '../../utils';
+import {
+    getFreshnessSourceOption,
+    getFreshnessSourceOptions,
+    getFreshnessSourceOptionPlatformDescription,
+    getDefaultFreshnessSourceOption,
+} from '../../utils';
+import { useChangeSourceOptionIf } from '../../hooks';
 
 const Form = styled.div``;
 
 const SourceDescription = styled.div`
     margin-top: 12px;
     margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    border: 1px solid ${ANTD_GRAY[5]};
+    padding: 12px;
+    background-color: ${ANTD_GRAY[3]};
+    border-radius: 8px;
+    margin-bottom: 20px;
 `;
 
 const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
-    color: ${ANTD_GRAY[6]};
+    color: ${ANTD_GRAY[7]};
     margin-right: 4px;
+`;
+
+const StyledSelect = styled(Select)`
+    max-width: 340px;
+`;
+
+const PlatformDescription = styled.div`
+    margin-left: 8px;
+`;
+
+const SelectColumnDescription = styled.div`
+    margin-bottom: 12px;
+`;
+
+const SourceOptionSelectDescription = styled(Typography.Paragraph)`
+    && {
+        word-wrap: break-word;
+        white-space: break-spaces;
+    }
 `;
 
 type Props = {
     entityUrn: string;
     platformUrn: string;
+    scheduleType: FreshnessAssertionScheduleType;
     value?: DatasetFreshnessAssertionParameters | null;
     onChange: (newParams: DatasetFreshnessAssertionParameters) => void;
 };
@@ -44,8 +79,9 @@ type Props = {
  *
  * For applicable sources
  */
-export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, onChange }: Props) => {
-    const sourceType = value?.sourceType || DatasetFreshnessSourceType.AuditLog;
+export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, scheduleType, value, onChange }: Props) => {
+    const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn);
+    const sourceType = value?.sourceType || defaultSourceType;
     const field = value?.field;
     const fieldKind = field?.kind;
 
@@ -56,8 +92,9 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         fetchPolicy: 'cache-first',
     });
 
-    const sourceOptions = getSourceOptions(platformUrn);
-    const selectedSourceOption = getSourceOption(sourceType, fieldKind);
+    const sourceOptions = getFreshnessSourceOptions(platformUrn);
+    const selectedSourceOption = getFreshnessSourceOption(sourceType, fieldKind);
+    const platformDescription = getFreshnessSourceOptionPlatformDescription(platformUrn, sourceType);
 
     /**
      * Extract the schema fields eligible for selection. These must be timestamp type fields.
@@ -72,17 +109,20 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         nativeType: f.nativeDataType as string,
     }));
 
-    const updateSourceType = (newSourceOption: SourceOption) => {
-        const newField = newSourceOption.field
-            ? {
-                  kind: newSourceOption.field.kind,
-              }
-            : undefined;
-        onChange({
-            ...value,
-            sourceType: newSourceOption.type,
-            field: newField as FreshnessFieldSpec,
-        });
+    const updateSourceType = (newSourceType: string) => {
+        const newSourceOption = sourceOptions.find((option) => option.name === newSourceType);
+        if (newSourceOption) {
+            const newField = newSourceOption.field
+                ? {
+                      kind: newSourceOption.field.kind,
+                  }
+                : undefined;
+            onChange({
+                ...value,
+                sourceType: newSourceOption.type,
+                field: newField as FreshnessFieldSpec,
+            });
+        }
     };
 
     const updateFieldSpec = (newSpec: Partial<FreshnessFieldSpec>) => {
@@ -95,26 +135,48 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, value, o
         } as any);
     };
 
+    // If the selected source option is not allowed for the current schedule type, then change the source type to the default
+    useChangeSourceOptionIf(!selectedSourceOption.allowedScheduleTypes.includes(scheduleType), {
+        sourceType: defaultSourceType,
+        updateSourceType,
+    });
+
     return (
         <Form>
             <Typography.Title level={5}>Change Source</Typography.Title>
             <Typography.Paragraph type="secondary">
                 Select the mechanism used to determine whether a change has been made to this dataset.
             </Typography.Paragraph>
-            <Radio.Group value={sourceType} onChange={(e) => updateSourceType(e.target.value)}>
-                {sourceOptions.map((option) => (
-                    <Radio.Button value={option}>{option.name}</Radio.Button>
-                ))}
-            </Radio.Group>
+            <StyledSelect
+                value={selectedSourceOption.name}
+                onChange={(sourceOption) => updateSourceType(sourceOption as string)}
+            >
+                {sourceOptions.map((option) => {
+                    const isDisabled = !option.allowedScheduleTypes.includes(scheduleType);
+                    return (
+                        <Select.Option value={option.name} key={option.name} disabled={isDisabled}>
+                            <Typography.Text>{option.name}</Typography.Text>
+                            <SourceOptionSelectDescription type="secondary">
+                                {option.description}
+                            </SourceOptionSelectDescription>
+                        </Select.Option>
+                    );
+                })}
+            </StyledSelect>
             <SourceDescription>
                 <StyledInfoCircleOutlined />
-                {selectedSourceOption.description}
+                <PlatformDescription>{platformDescription}</PlatformDescription>
             </SourceDescription>
+            {selectedSourceOption.secondaryDescription && (
+                <>
+                    <Typography.Title level={5}>Select Column</Typography.Title>
+                    <SelectColumnDescription>
+                        <Typography.Text type="secondary">{selectedSourceOption.secondaryDescription}</Typography.Text>
+                    </SelectColumnDescription>
+                </>
+            )}
             {sourceType === DatasetFreshnessSourceType.FieldValue && (
                 <FieldValueSourceBuilder fields={eligibleFieldSpecs} value={field} onChange={updateFieldSpec} />
-            )}
-            {selectedSourceOption.secondaryDescription && (
-                <Typography.Text type="secondary">{selectedSourceOption.secondaryDescription}</Typography.Text>
             )}
         </Form>
     );

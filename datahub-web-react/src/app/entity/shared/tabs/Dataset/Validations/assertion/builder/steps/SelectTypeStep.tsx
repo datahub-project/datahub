@@ -5,10 +5,8 @@ import { AssertionTypeOption } from './AssertionTypeOption';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { getAssertionTypesForEntityType } from '../../../acrylUtils';
 import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
-import {
-    DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
-    DEFAULT_DATASET_FRESHNESS_ASSERTION_PARAMETERS_STATE,
-} from '../constants';
+import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE } from '../constants';
+import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
 
 const Step = styled.div`
     height: 100%;
@@ -54,7 +52,7 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                     type,
                     freshnessAssertion: DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
                 },
-                parameters: DEFAULT_DATASET_FRESHNESS_ASSERTION_PARAMETERS_STATE,
+                parameters: getDefaultDatasetFreshnessAssertionParametersState(state.platformUrn as string),
             };
         }
 

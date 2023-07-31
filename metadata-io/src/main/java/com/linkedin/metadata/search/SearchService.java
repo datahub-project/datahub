@@ -44,7 +44,7 @@ public class SearchService {
    * Gets a list of documents that match given search request. The results are aggregated and filters are applied to the
    * search hits and not the aggregation results.
    *
-   * @param entityName name of the entity
+   * @param entityNames names of the entity
    * @param input the search input text
    * @param postFilters the request map with fields and values as filters to be applied to search hits
    * @param sortCriterion {@link SortCriterion} to be applied to search results
@@ -54,10 +54,10 @@ public class SearchService {
    * @return a {@link SearchResult} that contains a list of matched documents and related search result metadata
    */
   @Nonnull
-  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  public SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
     SearchResult result =
-        _cachingEntitySearchService.search(entityName, input, postFilters, sortCriterion, from, size, searchFlags, null);
+        _cachingEntitySearchService.search(entityNames, input, postFilters, sortCriterion, from, size, searchFlags, null);
 
     try {
       return result.copy().setEntities(new SearchEntityArray(_searchRanker.rank(result.getEntities())));

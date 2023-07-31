@@ -301,6 +301,7 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -315,7 +316,6 @@ import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -354,6 +354,7 @@ import static graphql.scalars.ExtendedScalars.*;
  * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS graph.
  */
 @Slf4j
+@Getter
 public class GmsGraphQLEngine {
 
     private final EntityClient entityClient;
@@ -652,6 +653,7 @@ public class GmsGraphQLEngine {
         configureOrganisationRoleResolvers(builder);
         configureGlossaryNodeResolvers(builder);
         configureDomainResolvers(builder);
+        configureDataProductResolvers(builder);
         configureAssertionResolvers(builder);
         configurePolicyResolvers(builder);
         configureDataProcessInstanceResolvers(builder);
@@ -1683,6 +1685,13 @@ public class GmsGraphQLEngine {
             .dataFetcher("domain",
                 new LoadableTypeResolver<>(domainType,
                     (env) -> ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource()).getDomain().getUrn()))
+        );
+    }
+
+    private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("DataProduct", typeWiring -> typeWiring
+            .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
     }
 

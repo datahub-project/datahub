@@ -8,8 +8,8 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
+    ContainerKey,
     DatabaseKey,
-    PlatformKey,
     SchemaKey,
     add_dataset_to_container,
     add_domain_to_entity_wu,
@@ -28,7 +28,7 @@ def gen_schema_key(
     platform: str,
     platform_instance: Optional[str],
     env: Optional[str],
-) -> PlatformKey:
+) -> ContainerKey:
     return SchemaKey(
         database=db_name,
         schema=schema,
@@ -41,7 +41,7 @@ def gen_schema_key(
 
 def gen_database_key(
     database: str, platform: str, platform_instance: Optional[str], env: Optional[str]
-) -> PlatformKey:
+) -> ContainerKey:
     return DatabaseKey(
         database=database,
         platform=platform,
@@ -55,8 +55,8 @@ def gen_schema_container(
     schema: str,
     database: str,
     sub_types: List[str],
-    database_container_key: PlatformKey,
-    schema_container_key: PlatformKey,
+    database_container_key: ContainerKey,
+    schema_container_key: ContainerKey,
     domain_registry: Optional[DomainRegistry] = None,
     domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     name: Optional[str] = None,
@@ -113,7 +113,7 @@ def gen_domain_urn(
 
 def gen_database_container(
     database: str,
-    database_container_key: PlatformKey,
+    database_container_key: ContainerKey,
     sub_types: List[str],
     domain_config: Optional[Dict[str, AllowDenyPattern]] = None,
     domain_registry: Optional[DomainRegistry] = None,
@@ -152,7 +152,7 @@ def gen_database_container(
 
 def add_table_to_schema_container(
     dataset_urn: str,
-    parent_container_key: PlatformKey,
+    parent_container_key: ContainerKey,
 ) -> Iterable[MetadataWorkUnit]:
     yield from add_dataset_to_container(
         container_key=parent_container_key,

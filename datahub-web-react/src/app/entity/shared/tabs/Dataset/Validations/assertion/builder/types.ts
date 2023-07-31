@@ -214,7 +214,7 @@ export interface AssertionMonitorBuilderState {
 export enum AssertionBuilderStep {
     SELECT_TYPE = 'SELECT_TYPE',
     CONFIGURE_DATASET_FRESHNESS_ASSERTION = 'CONFIGURE_DATASET_FRESHNESS_ASSERTION',
-    CONFIGURE_SCHEDULE = 'CONFIGURE_SCHEDULE',
+    CONFIGURE_ACTIONS = 'CONFIGURE_ACTIONS',
 }
 
 /**
@@ -225,7 +225,7 @@ export type StepProps = {
     updateState: (newState: AssertionMonitorBuilderState) => void;
     goTo: (step: AssertionBuilderStep) => void;
     prev?: () => void;
-    submit: () => void;
+    submit: () => Promise<void>;
     cancel: () => void;
 };
 

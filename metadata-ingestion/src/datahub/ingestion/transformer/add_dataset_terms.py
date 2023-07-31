@@ -132,8 +132,9 @@ class PatternAddDatasetTerms(AddDatasetTerms):
     def __init__(self, config: PatternDatasetTermsConfig, ctx: PipelineContext):
         term_pattern = config.term_pattern
         generic_config = AddDatasetTermsConfig(
-            get_terms_to_add=lambda _: [
-                GlossaryTermAssociationClass(urn=urn) for urn in term_pattern.value(_)
+            get_terms_to_add=lambda entity_urn: [
+                GlossaryTermAssociationClass(urn=term_urn)
+                for term_urn in term_pattern.value(entity_urn)
             ],
             replace_existing=config.replace_existing,
             semantics=config.semantics,

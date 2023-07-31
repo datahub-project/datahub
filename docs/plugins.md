@@ -253,10 +253,10 @@ All other access are forbidden for the plugin.
 > Disclaimer: In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
 
 ## Migration Of Plugins From application.yml
-If you have any custom Authentication or Authorization plugin define in `authorization` or `authentication` section of  [application.yml](../metadata-service/factories/src/main/resources/application.yml) then migrate them as per below steps.
+If you have any custom Authentication or Authorization plugin define in `authorization` or `authentication` section of  [application.yml](../metadata-service/configuration/src/main/resources/application.yml) then migrate them as per below steps.
 
 1. Implement Plugin: For Authentication Plugin follow steps of [Implementing an Authentication Plugin](#implementing-an-authentication-plugin) and for Authorization Plugin follow steps of [Implementing an Authorization Plugin](#implementing-an-authorization-plugin)
-2. Install Plugin: Install the plugins as per steps mentioned in [Plugin Installation](#plugin-installation). Here you need to map the configuration from [application.yml](../metadata-service/factories/src/main/resources/application.yml) to configuration in `config.yml`. This mapping from `application.yml` to `config.yml` is described below 
+2. Install Plugin: Install the plugins as per steps mentioned in [Plugin Installation](#plugin-installation). Here you need to map the configuration from [application.yml](../metadata-service/configuration/src/main/resources/application.yml) to configuration in `config.yml`. This mapping from `application.yml` to `config.yml` is described below 
 
    **Mapping for Authenticators**
 
