@@ -58,41 +58,6 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-            "urn": "urn:li:corpuser:hsimpson",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                        "customProperties": {
-                            "givenName": "Homer"
-                        },
-                        "active": true,
-                        "displayName": "Homer Simpson",
-                        "email": "hsimpson",
-                        "title": "Mr. Everything",
-                        "managerUrn": "urn:li:corpuser:bsimpson",
-                        "departmentId": 1001,
-                        "departmentName": "1001",
-                        "firstName": "Homer",
-                        "lastName": "Simpson",
-                        "fullName": "Homer Simpson"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.identity.GroupMembership": {
-                        "groups": []
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "ldap-test"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
             "urn": "urn:li:corpuser:lsimpson",
             "aspects": [
                 {

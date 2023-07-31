@@ -385,13 +385,13 @@ class LDAPSource(StatefulIngestionSourceBase):
         if attrs.get(self.config.user_attrs_map["email"]):
             email = (attrs[self.config.user_attrs_map["email"]][0]).decode()
         else:
-            email = None
+            email = ldap_user
         if attrs.get(self.config.user_attrs_map["displayName"]):
             display_name = (
                 attrs[self.config.user_attrs_map["displayName"]][0]
             ).decode()
         else:
-            display_name = None
+            display_name = full_name
         if attrs.get(self.config.user_attrs_map["departmentId"]):
             department_id = (
                 attrs[self.config.user_attrs_map["departmentId"]][0]
@@ -454,21 +454,24 @@ class LDAPSource(StatefulIngestionSourceBase):
             full_name = cn[0].decode()
             admins = parse_users(attrs, self.config.group_attrs_map["admins"])
             members = parse_users(attrs, self.config.group_attrs_map["members"])
-            email = (
-                attrs[self.config.group_attrs_map["email"]][0].decode()
-                if self.config.group_attrs_map["email"] in attrs
-                else full_name
-            )
-            description = (
-                attrs[self.config.group_attrs_map["description"]][0].decode()
-                if self.config.group_attrs_map["description"] in attrs
-                else None
-            )
-            displayName = (
-                attrs[self.config.group_attrs_map["displayName"]][0].decode()
-                if self.config.group_attrs_map["displayName"] in attrs
-                else None
-            )
+
+            if attrs.get(self.config.group_attrs_map["email"]):
+                email = attrs[self.config.group_attrs_map["email"]][0].decode()
+            else:
+                email = full_name
+            if attrs.get(self.config.group_attrs_map["description"]):
+                description = attrs[self.config.group_attrs_map["description"]][
+                    0
+                ].decode()
+            else:
+                description = None
+            if attrs.get(self.config.group_attrs_map["displayName"]):
+                displayName = attrs[self.config.group_attrs_map["displayName"]][
+                    0
+                ].decode()
+            else:
+                displayName = None
+
             group_snapshot = CorpGroupSnapshotClass(
                 urn=f"urn:li:corpGroup:{full_name}",
                 aspects=[
