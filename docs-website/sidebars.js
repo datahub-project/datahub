@@ -446,6 +446,7 @@ module.exports = {
             "docs/components",
             "docs/architecture/metadata-ingestion",
             "docs/architecture/metadata-serving",
+            "docs/architecture/docker-containers",
           ],
         },
         {

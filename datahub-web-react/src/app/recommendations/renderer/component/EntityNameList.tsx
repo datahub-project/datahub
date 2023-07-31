@@ -136,6 +136,8 @@ export const EntityNameList = ({
                 const subType = capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]);
                 const entityCount = genericProps?.entityCount;
                 const deprecation = genericProps?.deprecation;
+                const health = genericProps?.health;
+
                 return (
                     <>
                         <ListItem isSelectMode={isSelectMode || false}>
@@ -164,6 +166,7 @@ export const EntityNameList = ({
                                 degree={additionalProperties?.degree}
                                 deprecation={deprecation}
                                 paths={additionalProperties?.paths}
+                                health={health || undefined}
                             />
                             {entityAction && <EntityAction urn={entity.urn} type={entity.type} />}
                         </ListItem>
