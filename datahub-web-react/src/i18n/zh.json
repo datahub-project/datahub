@@ -218,5 +218,17 @@
   "Applies to Owners": "应用到所有者",
   "Applies to Users": "应用到用户",
   "Applies to Groups": "应用到用户组",
-  "Applies to Roles": "应用到角色"
+  "Applies to Roles": "应用到角色",
+  "Resource Type": "资源类型",
+  "Select the types of resources this policy should apply to.  If none is selected, policy is applied to all types of resources.": "选择该策略应适用的资源类型。 如果选择为空，则策略适用于所有类型的资源。",
+  "Apply to ALL resource types by default. Select types to apply to specific types of entities.":"默认应用于所有资源类型。选择类型以应用于特定类型的实体。",
+  "Resource": "资源",
+  "Search for specific resources the policy should apply to. If none is selected, policy is applied to all resources of the given type.": "搜索策略应适用的特定资源。如果选择为空，则策略将应用于给定类型的所有资源。",
+  "No search results found": "未找到搜索结果",
+  "Apply to ALL resources by default. Select specific resources to apply to.": "默认应用于所有资源。选择要应用的特定资源。",
+  "Search for domains the policy should apply to. If none  is selected, policy is applied to all  resources in all domains.": "搜索策略应适用的域。如果选择为空，则策略将应用于所有域中的所有资源。",
+  "Apply to ALL domains by default. Select domains to apply to specific domains.": "默认应用于所有域。选择域以应用于特定域。",
+  "Select a set of privileges to permit.": "选择一组允许使用的权限。",
+  "Privileges": "权限集",
+  "All Privileges": "所有权限"
 }

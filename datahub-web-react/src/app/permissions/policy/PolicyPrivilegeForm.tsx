@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { t } from 'i18next';
 import { Form, Select, Tag, Tooltip, Typography } from 'antd';
 import styled from 'styled-components/macro';
 
@@ -48,12 +49,12 @@ const PrivilegesForm = styled(Form)`
  * access Policy.
  */
 export default function PolicyPrivilegeForm({
-    policyType,
-    resources: maybeResources,
-    setResources,
-    privileges,
-    setPrivileges,
-}: Props) {
+                                                policyType,
+                                                resources: maybeResources,
+                                                setResources,
+                                                privileges,
+                                                setPrivileges,
+                                            }: Props) {
     const entityRegistry = useEntityRegistry();
 
     // Configuration used for displaying options
@@ -264,7 +265,7 @@ export default function PolicyPrivilegeForm({
                     rel="noopener noreferrer"
                     to={() => `${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
                 >
-                    查看
+                    View
                 </Link>
             </SearchResultContainer>
         );
@@ -279,14 +280,14 @@ export default function PolicyPrivilegeForm({
     return (
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>资源类型</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>{t ("Resource Type")}</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        选择该规则需要应用到的资源类型. 如果选择<b>none</b>, 则该规则会被应用到<b>所有</b>资源类型.
+                        {t ("Select the types of resources this policy should apply to.  If none is selected, policy is applied to all types of resources.")}
                     </Typography.Paragraph>
                     <Select
                         value={resourceTypeSelectValue}
                         mode="multiple"
-                        placeholder="默认应用到所有资源类型.选择您要具体应用的类型.比如Dataset,Platform等"
+                        placeholder= {t ("Apply to ALL resource types by default. Select types to apply to specific types of entities.")}
                         onSelect={onSelectResourceType}
                         onDeselect={onDeselectResourceType}
                         tagRender={(tagProps) => (
@@ -308,16 +309,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>资源</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t ("Resource")}</Typography.Text>}>
                     <Typography.Paragraph>
-                        选择规则需要应用到的指定资源. 如果选择是 <b>none</b> 规则则会被应用到<b>所有</b>资源.
+                        {t ("Search for specific resources the policy should apply to. If none is selected, policy is applied to all resources of the given type.")}
                     </Typography.Paragraph>
                     <Select
-                        notFoundContent="未找到结果"
+                        notFoundContent= {t ("No search results found")}
                         value={resourceSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder="默认应用到所有资源. 选择您要具体应用的资源. 您可以输入要查询的资源名称或者关键字."
+                        placeholder={t ("Apply to ALL resources by default. Select specific resources to apply to.")}
                         onSelect={onSelectResource}
                         onDeselect={onDeselectResource}
                         onSearch={handleResourceSearch}
@@ -326,7 +327,7 @@ export default function PolicyPrivilegeForm({
                                 <Tooltip title={tagProps.value.toString()}>
                                     {displayStringWithMaxLength(
                                         resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
+                                        tagProps.value.toString(),
                                         75,
                                     )}
                                 </Tooltip>
@@ -340,16 +341,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Domain</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t ("Domain")}</Typography.Text>}>
                     <Typography.Paragraph>
-                        选择规则需要应用到的domains. 如果选择是 <b>none</b> , 规则则会被应用到<b>所有</b>domain中的资源.
+                        {t ("Search for domains the policy should apply to. If none  is selected, policy is applied to all  resources in all domains.")}
                     </Typography.Paragraph>
                     <Select
-                        notFoundContent="未找到结果"
+                        notFoundContent={t ("No search results found")}
                         value={domainSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder="默认应用到所有domains. 选择您要具体应用的 domains."
+                        placeholder={t ("Apply to ALL domains by default. Select domains to apply to specific domains.")}
                         onSelect={onSelectDomain}
                         onDeselect={onDeselectDomain}
                         onSearch={handleDomainSearch}
@@ -368,8 +369,8 @@ export default function PolicyPrivilegeForm({
                     </Select>
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>权限集</Typography.Text>}>
-                <Typography.Paragraph>选择您要授予的权限集.</Typography.Paragraph>
+            <Form.Item label={<Typography.Text strong>{t ("Privileges")}</Typography.Text>}>
+                <Typography.Paragraph>{t ("Select a set of privileges to permit.")}</Typography.Paragraph>
                 <Select
                     value={privilegesSelectValue}
                     mode="multiple"
@@ -384,7 +385,7 @@ export default function PolicyPrivilegeForm({
                     {privilegeOptions.map((priv) => (
                         <Select.Option value={priv.type}>{priv.displayName}</Select.Option>
                     ))}
-                    <Select.Option value="All">All Privileges</Select.Option>
+                    <Select.Option value="All">{t ("All Privileges")}</Select.Option>
                 </Select>
             </Form.Item>
         </PrivilegesForm>

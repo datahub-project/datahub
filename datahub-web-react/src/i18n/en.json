@@ -218,5 +218,17 @@
   "Applies to Owners": "Applies to Owners",
   "Applies to Users": "Applies to Users",
   "Applies to Groups": "Applies to Groups",
-  "Applies to Roles": "Applies to Roles"
+  "Applies to Roles": "Applies to Roles",
+  "Resource Type": "Resource Type",
+  "Select the types of resources this policy should apply to.  If none is selected, policy is applied to all types of resources.": "Select the types of resources this policy should apply to.  If none is selected, policy is applied to all types of resources.",
+  "Apply to ALL resource types by default. Select types to apply to specific types of entities.": "Apply to ALL resource types by default. Select types to apply to specific types of entities.",
+  "Resource": "Resource",
+  "Search for specific resources the policy should apply to. If none is selected, policy is applied to all resources of the given type.": "Search for specific resources the policy should apply to. If none is selected, policy is applied to all resources of the given type.",
+  "No search results found": "No search results found",
+  "Apply to ALL resources by default. Select specific resources to apply to.": "Apply to ALL resources by default. Select specific resources to apply to.",
+  "Search for domains the policy should apply to. If none  is selected, policy is applied to all  resources in all domains.": "Search for domains the policy should apply to. If none  is selected, policy is applied to all  resources in all domains.",
+  "Apply to ALL domains by default. Select domains to apply to specific domains.": "Apply to ALL domains by default. Select domains to apply to specific domains.",
+  "Select a set of privileges to permit.": "Select a set of privileges to permit.",
+  "Privileges":   "Privileges",
+  "All Privileges":   "All Privileges"
 }
