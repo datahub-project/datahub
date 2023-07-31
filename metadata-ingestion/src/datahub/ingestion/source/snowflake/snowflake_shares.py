@@ -59,7 +59,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                     # 2. if corresponding share is listed, then run `show grants to share <share_name>` to identify exact tables, views included in share.
                     # 3. emit siblings only for the objects listed above.
                     # This will work only if the configured role has accountadmin role access OR is owner of share.
-                    # Otherwise ghost nodes will be shown in "Composed Of" section for tables/views in original database which are not granted to share.
+                    # Otherwise ghost nodes may be shown in "Composed Of" section for tables/views in original database which are not granted to share.
                     yield from self.get_siblings(
                         db.name,
                         schema.name,

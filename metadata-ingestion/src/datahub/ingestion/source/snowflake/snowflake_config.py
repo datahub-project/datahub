@@ -138,7 +138,7 @@ class SnowflakeV2Config(
         default=None,
         description="Required if the current account has created any outbound snowflake shares and there is at least one consumer account in which database is created from such share."
         " If specified, connector creates siblings relationship between current account's database tables and all database tables created in consumer accounts from the share including current account's database."
-        " Map of database name X -> list of (platform instance of snowflake consumer account who've created database from share, name of database created from share) for all shares created from database name X.",
+        " Map of database name D -> list of (platform instance of snowflake consumer account who've created database from share, name of database created from share) for all shares created from database name D.",
     )
 
     @validator("include_column_lineage")
@@ -253,7 +253,7 @@ class SnowflakeV2Config(
         ):
             raise ValueError(
                 "Current `platform_instance` can not be present as any database in `outbound_shares_map`."
-                "Self-sharing not supported in Snowflake. Please check your configuration."
+                "Self-sharing is not supported in Snowflake. Please check your configuration."
             )
 
         # Check: platform_instance should be present
@@ -267,7 +267,10 @@ class SnowflakeV2Config(
 
         # Check: same database from some platform instance as inbound and outbound
         other_platform_instance_databases: Sequence[SnowflakeDatabaseDataHubId] = [
-            db for db in set(inbound_shares_map.values())
+            db
+            for db in set(
+                inbound_shares_map.values()
+            )  # using set as multiple inbound shares may be present from same original database
         ] + [db for dbs in outbound_shares_map.values() for db in dbs]
 
         for other_instance_db in other_platform_instance_databases:

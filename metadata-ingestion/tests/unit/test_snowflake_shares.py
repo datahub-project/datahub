@@ -111,7 +111,7 @@ def test_snowflake_shares_workunit_no_shares(
 
 
 def test_same_database_inbound_and_outbound_invalid_config() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Same database can not be present in both"):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
@@ -134,7 +134,9 @@ def test_same_database_inbound_and_outbound_invalid_config() -> None:
 
 
 def test_current_platform_instance_inbound_and_outbound_invalid() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Current `platform_instance` can not be present as"
+    ):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
@@ -155,7 +157,9 @@ def test_current_platform_instance_inbound_and_outbound_invalid() -> None:
             },
         )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Current `platform_instance` can not be present as"
+    ):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
@@ -178,7 +182,7 @@ def test_current_platform_instance_inbound_and_outbound_invalid() -> None:
 
 
 def test_another_instance_database_inbound_and_outbound_invalid() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="A database can exist only once either in"):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
@@ -233,22 +237,21 @@ def test_snowflake_shares_workunit_inbound_share(
         if wu.metadata.aspectName == "upstreamLineage":
             upstream_aspect = wu.get_aspect_of_type(UpstreamLineage)
             assert upstream_aspect is not None
-            upstream_lineage_aspect_entity_urns.add(wu.get_urn())
             assert len(upstream_aspect.upstreams) == 1
             assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
                 "instance1.db1", "instance2.original_db1"
             )
+            upstream_lineage_aspect_entity_urns.add(wu.get_urn())
         else:
             siblings_aspect = wu.get_aspect_of_type(Siblings)
             assert siblings_aspect is not None
-            sibling_aspect_entity_urns.add(wu.get_urn())
             assert len(siblings_aspect.siblings) == 1
             assert siblings_aspect.siblings == [
                 wu.get_urn().replace("instance1.db1", "instance2.original_db1")
             ]
+            sibling_aspect_entity_urns.add(wu.get_urn())
 
-    assert len(upstream_lineage_aspect_entity_urns) == 6
-    assert len(sibling_aspect_entity_urns) == 6
+    assert upstream_lineage_aspect_entity_urns == sibling_aspect_entity_urns
 
 
 def test_snowflake_shares_workunit_outbound_share(
@@ -284,12 +287,12 @@ def test_snowflake_shares_workunit_outbound_share(
     for wu in wus:
         siblings_aspect = wu.get_aspect_of_type(Siblings)
         assert siblings_aspect is not None
-        entity_urns.add(wu.get_urn())
         assert len(siblings_aspect.siblings) == 2
         assert siblings_aspect.siblings == [
             wu.get_urn().replace("instance1.db2", "instance2.db2_from_share"),
             wu.get_urn().replace("instance1.db2", "instance3.db2"),
         ]
+        entity_urns.add(wu.get_urn())
 
     assert len((entity_urns)) == 6
 
