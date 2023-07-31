@@ -1,7 +1,6 @@
 import uniq from 'lodash/uniq';
 import { NotificationSinkType, SubscriptionType } from '../../../../../types.generated';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../../settings/personal/notifications/constants';
-import { getDefaultCheckedKeys } from '../utils';
 import { Action, ActionTypes, ChannelSelections, State } from './types';
 
 export const createInitialState = (): State => ({
@@ -26,10 +25,8 @@ export const createInitialState = (): State => ({
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
         case ActionTypes.INITIALIZE: {
-            const { isPersonal, slackSinkEnabled, entityType, subscription, subscriptionChannel, settingsChannel } =
-                action.payload;
+            const { isPersonal, slackSinkEnabled, subscription, subscriptionChannel, settingsChannel } = action.payload;
 
-            const entityChangeTypes = subscription?.entityChangeTypes ?? getDefaultCheckedKeys(entityType);
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
             const isSlackAndSubscriptionEnabled =
                 slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack);
@@ -44,7 +41,7 @@ export const reducer = (state: State, action: Action): State => {
                 isPersonal,
                 edited: !subscription,
                 notificationTypes: {
-                    checkedKeys: entityChangeTypes,
+                    checkedKeys: [],
                     expandedKeys: [],
                 },
                 subscribeToUpstream: hasUpstreamSubscription,

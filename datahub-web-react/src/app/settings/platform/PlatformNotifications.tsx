@@ -372,7 +372,7 @@ export const PlatformNotifications = () => {
                                                         <Tooltip
                                                             title={`${sink.name} integration is currently disabled! You can enable it inside Integrations settings.`}
                                                         >
-                                                            <Checkbox checked disabled />
+                                                            <Checkbox disabled />
                                                         </Tooltip>
                                                     )}
                                                 </SettingValue>
