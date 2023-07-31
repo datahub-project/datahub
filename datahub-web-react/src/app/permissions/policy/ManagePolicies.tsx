@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { t } from 'i18next';
 import { Button, Empty, message, Modal, Pagination, Tag } from 'antd';
 import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
@@ -248,8 +249,8 @@ export const ManagePolicies = () => {
     // On Delete Policy handler
     const onRemovePolicy = (policy: Policy) => {
         Modal.confirm({
-            title: `删除 ${policy?.name}`,
-            content: `您确定要删除该规则吗?`,
+            title: `${t ("DeletePolicyNameTitle",{policyName:policy?.name})}`,
+            content: t ("Are you sure you want to remove policy?"),
             onOk() {
                 deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
                 analytics.event({
@@ -257,14 +258,14 @@ export const ManagePolicies = () => {
                     entityUrn: policy?.urn,
                     entityType: EntityType.DatahubPolicy,
                 });
-                message.success('规则删除成功.');
+                message.success(t ("Successfully removed policy."));
                 setTimeout(() => {
                     policiesRefetch();
                 }, 3000);
                 onCancelViewPolicy();
             },
             onCancel() {},
-            okText: '确定',
+            okText: t ("Yes"),
             maskClosable: true,
             closable: true,
         });
@@ -306,7 +307,7 @@ export const ManagePolicies = () => {
                 type: EventType.CreatePolicyEvent,
             });
         }
-        message.success('规则保存成功.');
+        message.success(t ("Successfully saved policy."));
         setTimeout(() => {
             policiesRefetch();
         }, 3000);
@@ -315,7 +316,7 @@ export const ManagePolicies = () => {
 
     const tableColumns = [
         {
-            title: '规则名称',
+            title: t ("Name"),
             dataIndex: 'name',
             key: 'name',
             render: (_, record: any) => {
@@ -330,7 +331,7 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: '规则类型',
+            title: t ("Type"),
             dataIndex: 'type',
             key: 'type',
             render: (type: string) => {
@@ -339,13 +340,13 @@ export const ManagePolicies = () => {
             },
         },
         {
-            title: '规则说明',
+            title: t ("Description"),
             dataIndex: 'description',
             key: 'description',
             render: (description: string) => description || '',
         },
         {
-            title: '适用用户',
+            title: t ("Actors"),
             dataIndex: 'actors',
             key: 'actors',
             render: (_, record: any) => {
@@ -358,15 +359,15 @@ export const ManagePolicies = () => {
                             maxCount={3}
                             size={28}
                         />
-                        {record?.allUsers ? <ActorTag>All Users</ActorTag> : null}
-                        {record?.allGroups ? <ActorTag>All Groups</ActorTag> : null}
-                        {record?.resourceOwners ? <ActorTag>All Owners</ActorTag> : null}
+                        {record?.allUsers ? <ActorTag>{t ("All Users")}</ActorTag> : null}
+                        {record?.allGroups ? <ActorTag>{t ("All Groups")}</ActorTag> : null}
+                        {record?.resourceOwners ? <ActorTag>{t ("All Owners")}</ActorTag> : null}
                     </>
                 );
             },
         },
         {
-            title: '规则状态',
+            title: t ("State"),
             dataIndex: 'state',
             key: 'state',
             render: (state: string) => {
@@ -381,7 +382,7 @@ export const ManagePolicies = () => {
             render: (_, record: any) => (
                 <ActionButtonContainer>
                     <EditPolicyButton disabled={!record?.editable} onClick={() => onEditPolicy(record?.policy)}>
-                        编辑
+                        {t ("EDIT")}
                     </EditPolicyButton>
                     {record?.state === PolicyState.Active ? (
                         <Button
@@ -395,7 +396,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'red' : ANTD_GRAY[6], width: 100 }}
                         >
-                            停用
+                            {t ("DEACTIVATE")}
                         </Button>
                     ) : (
                         <Button
@@ -409,7 +410,7 @@ export const ManagePolicies = () => {
                             }}
                             style={{ color: record?.editable ? 'green' : ANTD_GRAY[6], width: 100 }}
                         >
-                            激活
+                            {t ("ACTIVATE")}
                         </Button>
                     )}
                     <Button
@@ -447,10 +448,10 @@ export const ManagePolicies = () => {
         <PageContainer>
             <OnboardingTour stepIds={[POLICIES_INTRO_ID, POLICIES_CREATE_POLICY_ID]} />
             {policiesLoading && !policiesData && (
-                <Message type="loading" content="加载规则..." style={{ marginTop: '10%' }} />
+                <Message type="loading" content= {t ("Loading policies...")} style={{ marginTop: '10%' }} />
             )}
-            {policiesError && <Message type="error" content="规则加载失败! 发生未知错误." />}
-            {updateError && message.error('规则更新失败. 发生未知错误.')}
+            {policiesError && <Message type="error" content={ t ("Failed to load policies! An unexpected error occurred.")} />}
+            {updateError && message.error(t ("Failed to update policies. An unexpected error occurred."))}
             <SourceContainer>
                 <TabToolbar>
                     <div>
@@ -460,12 +461,12 @@ export const ManagePolicies = () => {
                             onClick={onClickNewPolicy}
                             data-testid="add-policy-button"
                         >
-                            <PlusOutlined /> 创建规则
+                            <PlusOutlined /> {t ("Create new policy")}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="查找规则..."
+                        placeholderText= {t ("Search policies...")}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -486,7 +487,7 @@ export const ManagePolicies = () => {
                     dataSource={tableData}
                     rowKey="urn"
                     locale={{
-                        emptyText: <Empty description="未找到规则!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                        emptyText: <Empty description={t ("No Policies!")} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
                     pagination={false}
                 />
