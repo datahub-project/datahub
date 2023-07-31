@@ -46,8 +46,8 @@ public class CreateSubscriptionResolverTest {
     input.setEntityChangeTypes(ENTITY_CHANGE_GRAPHQL_TYPES_1);
 
     final SubscriptionNotificationConfigInput notificationConfigInput = new SubscriptionNotificationConfigInput();
-    notificationConfigInput.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
     final NotificationSettingsInput notificationSettings = new NotificationSettingsInput();
+    notificationSettings.setSinkTypes(NOTIFICATION_SINK_GRAPHQL_TYPES);
     final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
     slackSettings.setUserHandle(SLACK_USER_HANDLE);
     notificationSettings.setSlackSettings(slackSettings);

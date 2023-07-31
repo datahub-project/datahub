@@ -5,6 +5,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.ResourceSpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
 import com.linkedin.metadata.resources.operations.Utils;
@@ -15,6 +16,7 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestProposalResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
@@ -78,6 +80,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Named("entityService")
   private EntityService _entityService;
 
+  @VisibleForTesting
+  void setEntityService(EntityService entityService) {
+    _entityService = entityService;
+  }
+
   @Inject
   @Named("entitySearchService")
   private EntitySearchService _entitySearchService;
@@ -89,6 +96,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Inject
   @Named("authorizerChain")
   private Authorizer _authorizer;
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    _authorizer = authorizer;
+  }
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -188,11 +200,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
+        IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
         Urn responseUrn = result.getUrn();
 
-        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
-                .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+        if (!asyncBool) {
+          AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
+              .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+        }
 
         if (!result.isQueued()) {
           tryIndexRunId(responseUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);

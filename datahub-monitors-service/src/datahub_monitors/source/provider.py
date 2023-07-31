@@ -11,6 +11,7 @@ from datahub_monitors.constants import (
     REDSHIFT_PLATFORM_URN,
     SNOWFLAKE_PLATFORM_URN,
 )
+from datahub_monitors.exceptions import UnsupportedPlatformException
 from datahub_monitors.source.bigquery.bigquery import BigQuerySource
 from datahub_monitors.source.redshift.redshift import RedshiftSource
 from datahub_monitors.source.snowflake.snowflake import SnowflakeSource
@@ -30,6 +31,7 @@ class SourceProvider:
         elif connection.platform_urn == BIGQUERY_PLATFORM_URN:
             return BigQuerySource(cast(BigQueryConnection, connection))
         else:
-            raise Exception(
-                f"No source class registered for connection with platform urn {connection.platform_urn}"
+            raise UnsupportedPlatformException(
+                message=f"No source class registered for connection with platform urn {connection.platform_urn}",
+                platform_urn=connection.platform_urn,
             )

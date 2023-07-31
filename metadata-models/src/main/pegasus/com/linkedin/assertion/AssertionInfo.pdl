@@ -21,10 +21,10 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       DATASET
 
       /**
-       * An SLA assertion, or an assertion which indicates when a particular operation should occur
+       * A freshness assertion, or an assertion which indicates when a particular operation should occur
        * to an asset.
        */
-       SLA
+      FRESHNESS
 
       /**
        * A schema or structural assertion.
@@ -40,9 +40,9 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     datasetAssertion: optional DatasetAssertionInfo
 
     /**
-    * An SLA Assertion definition. This field is populated when the type is SLA.
+    * An Freshness Assertion definition. This field is populated when the type is SLA.
     */
-    slaAssertion: optional SlaAssertionInfo
+    freshnessAssertion: optional FreshnessAssertionInfo
 
     /**
     * An schema Assertion definition. This field is populated when the type is DATASET_SCHEMA

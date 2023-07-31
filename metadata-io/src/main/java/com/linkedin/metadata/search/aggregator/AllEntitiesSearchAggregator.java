@@ -1,9 +1,9 @@
 package com.linkedin.metadata.search.aggregator;
 
 import com.codahale.metrics.Timer;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -171,7 +171,7 @@ public class AllEntitiesSearchAggregator {
     // Query the entity search service for all entities asynchronously
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
-          _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags, facets)))
+          _cachingEntitySearchService.search(List.of(entity), input, postFilters, sortCriterion, queryFrom, querySize, searchFlags, facets)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }

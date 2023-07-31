@@ -256,11 +256,13 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       final SubscriptionInfo subscriptionInfo = entry.getValue();
       if (subscriptionInfo.hasNotificationConfig()) {
         final SubscriptionNotificationConfig notificationConfig = subscriptionInfo.getNotificationConfig();
-        for (final NotificationSinkType sinkType : notificationConfig.getSinkTypes()) {
-          if (!sinkTypeToSubscriptionUrns.containsKey(sinkType)) {
-            sinkTypeToSubscriptionUrns.put(sinkType, new HashSet<>());
+        if (notificationConfig != null && notificationConfig.getNotificationSettings() != null) {
+          for (final NotificationSinkType sinkType : notificationConfig.getNotificationSettings().getSinkTypes()) {
+            if (!sinkTypeToSubscriptionUrns.containsKey(sinkType)) {
+              sinkTypeToSubscriptionUrns.put(sinkType, new HashSet<>());
+            }
+            sinkTypeToSubscriptionUrns.get(sinkType).add(entry.getKey());
           }
-          sinkTypeToSubscriptionUrns.get(sinkType).add(entry.getKey());
         }
       }
     }

@@ -1,5 +1,6 @@
 from typing import Dict
 
+import datahub.telemetry.telemetry  # noqa: F401
 import fastapi
 
 from datahub_monitors.app.monitors import manager

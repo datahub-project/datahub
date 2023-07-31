@@ -6,8 +6,8 @@ import com.linkedin.assertion.AssertionStdOperator;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
-import com.linkedin.assertion.SlaAssertionInfo;
-import com.linkedin.assertion.SlaAssertionType;
+import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import org.testng.Assert;
@@ -32,22 +32,22 @@ public class AssertionUtilsTest {
     Urn result = AssertionUtils.getAsserteeUrnFromInfo(info);
     Assert.assertEquals(result, TEST_DATASET_URN);
 
-    // Case 2: Dataset SLA Assertion
+    // Case 2: Dataset FRESHNESS Assertion
     info = new AssertionInfo();
-    info.setType(AssertionType.SLA);
-    info.setSlaAssertion(new SlaAssertionInfo()
-        .setType(SlaAssertionType.DATASET_CHANGE)
+    info.setType(AssertionType.FRESHNESS);
+    info.setFreshnessAssertion(new FreshnessAssertionInfo()
+        .setType(FreshnessAssertionType.DATASET_CHANGE)
         .setEntity(TEST_DATASET_URN)
     );
     result = AssertionUtils.getAsserteeUrnFromInfo(info);
     Assert.assertEquals(result, TEST_DATASET_URN);
 
 
-    // Case 3: DataJob SLA Assertion
+    // Case 3: DataJob FRESHNESS Assertion
     info = new AssertionInfo();
-    info.setType(AssertionType.SLA);
-    info.setSlaAssertion(new SlaAssertionInfo()
-        .setType(SlaAssertionType.DATASET_CHANGE)
+    info.setType(AssertionType.FRESHNESS);
+    info.setFreshnessAssertion(new FreshnessAssertionInfo()
+        .setType(FreshnessAssertionType.DATASET_CHANGE)
         .setEntity(TEST_DATAJOB_URN)
     );
     result = AssertionUtils.getAsserteeUrnFromInfo(info);
@@ -56,8 +56,8 @@ public class AssertionUtilsTest {
     // Case 4: Unsupported Assertion Type
     final AssertionInfo badInfo = new AssertionInfo();
     info.setType(AssertionType.$UNKNOWN);
-    info.setSlaAssertion(new SlaAssertionInfo()
-        .setType(SlaAssertionType.DATA_JOB_RUN)
+    info.setFreshnessAssertion(new FreshnessAssertionInfo()
+        .setType(FreshnessAssertionType.DATA_JOB_RUN)
         .setEntity(TEST_DATASET_URN)
     );
     Assert.assertThrows(RuntimeException.class, () -> AssertionUtils.getAsserteeUrnFromInfo(badInfo));

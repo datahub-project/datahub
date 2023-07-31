@@ -45,27 +45,27 @@ ExpandableNode.Header = styled.div<{ isOpen: boolean; isSelected?: boolean; show
     justify-content: space-between;
     cursor: pointer;
     user-select: none;
-    padding: 2px 4px 2px 4px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    padding-right: 2px;
     border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ isSelected: boolean }>`
-    && {
+    & {
         border: 1px solid ${(props) => (props.isSelected ? props.theme.styles['primary-color'] : 'transparent')};
         background-color: ${(props) => (props.isSelected ? props.theme.styles['primary-color-light'] : 'transparent')};
         border-radius: 8px;
-        transition: box-shadow 100ms ease-in-out;
-        box-shadow: 'none';
     }
-    &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
+
+    &:hover {
+        background-color: ${(props) => props.theme.styles['primary-color-light']};
     }
 `;
 
 ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
-    gap: 4px;
 `;
 
 const BaseButton = styled(Button)`
@@ -84,8 +84,12 @@ const RotatingButton = styled(BaseButton)<{ deg: number }>`
     transition: transform 250ms;
 `;
 
-ExpandableNode.StaticButton = ({ icon }: { icon: JSX.Element }) => {
-    return <BaseButton ghost size="small" type="ghost" icon={icon} />;
+ExpandableNode.StaticButton = ({ icon, onClick }: { icon: JSX.Element; onClick?: () => void }) => {
+    const onClickButton: MouseEventHandler = (e) => {
+        e.stopPropagation();
+        onClick?.();
+    };
+    return <BaseButton ghost size="small" type="ghost" icon={icon} onClick={onClickButton} />;
 };
 
 ExpandableNode.TriangleButton = ({
@@ -129,8 +133,9 @@ ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: stri
 };
 
 // Reduce the ellipsis tolerance the deeper we get into the browse path
-const BaseTitleContainer = styled.div<{ depth: number }>`
-    max-width: ${(props) => 200 - props.depth * 8}px;
+const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number; padLeft: boolean }>`
+    max-width: ${(props) => props.maxWidth - props.depth * 8}px;
+    padding-left: ${(props) => (props.padLeft ? 4 : 0)}px;
 `;
 
 const BaseTitle = styled(Typography.Text)<{ color: string; size: number }>`
@@ -143,15 +148,19 @@ ExpandableNode.Title = ({
     size,
     depth = 0,
     children,
+    maxWidth = 200,
+    padLeft = false,
 }: {
     color: string;
     size: number;
     depth?: number;
     children: ReactNode;
+    maxWidth?: number;
+    padLeft?: boolean;
 }) => {
     return (
-        <BaseTitleContainer depth={depth}>
-            <BaseTitle ellipsis={{ tooltip: true }} color={color} size={size}>
+        <BaseTitleContainer depth={depth} maxWidth={maxWidth} padLeft={padLeft}>
+            <BaseTitle ellipsis={{ tooltip: { mouseEnterDelay: 1 } }} color={color} size={size}>
                 {children}
             </BaseTitle>
         </BaseTitleContainer>

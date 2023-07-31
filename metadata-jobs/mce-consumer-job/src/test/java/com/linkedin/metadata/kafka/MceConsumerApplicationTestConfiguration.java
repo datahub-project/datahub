@@ -34,7 +34,7 @@ public class MceConsumerApplicationTestConfiguration {
     public KafkaHealthChecker kafkaHealthChecker;
 
     @MockBean
-    public EntityService entityService;
+    public EntityService _entityService;
 
     @Bean("restliEntityClient")
     @Primary

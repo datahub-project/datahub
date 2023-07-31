@@ -408,7 +408,9 @@ public class SlackNotificationSinkTest {
 
     ChatPostMessageRequest dmMsgRequest = ChatPostMessageRequest.builder()
         .channel("12345")
-        .text(String.format("%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"))
+        .text(String.format(
+            "%s  Assertion now *%s* on *<%s|%s>*", ":white_check_mark:", "passing", "http://localhost:9002/datasets/test/Validation", "SampleName"
+        ))
         .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
         .build();
     ChatPostMessageResponse defaultChannelMsgResponse = new ChatPostMessageResponse();

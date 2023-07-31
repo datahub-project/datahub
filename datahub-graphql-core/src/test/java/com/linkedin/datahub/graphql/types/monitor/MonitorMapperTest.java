@@ -9,8 +9,8 @@ import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
-import com.linkedin.monitor.DatasetSlaAssertionParameters;
-import com.linkedin.monitor.DatasetSlaSourceType;
+import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
+import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -23,6 +23,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
+import com.linkedin.assertion.FreshnessFieldKind;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import java.util.HashMap;
 import org.testng.Assert;
@@ -71,19 +72,23 @@ public class MonitorMapperTest {
     Assert.assertEquals(output.getAssertions().get(0).getParameters().getType().toString(),
         input.getAssertions().get(0).getParameters().getType().toString());
 
-    if (input.getAssertions().get(0).getParameters().hasDatasetSlaParameters()) {
-      // Verify the dataset SLA parameters.
-      DatasetSlaAssertionParameters inputParams = input.getAssertions().get(0).getParameters().getDatasetSlaParameters();
-      com.linkedin.datahub.graphql.generated.DatasetSlaAssertionParameters outputParams =
-          output.getAssertions().get(0).getParameters().getDatasetSlaParameters();
+    if (input.getAssertions().get(0).getParameters().hasDatasetFreshnessParameters()) {
+      // Verify the dataset FRESHNESS parameters.
+      DatasetFreshnessAssertionParameters inputParams = input.getAssertions().get(0).getParameters().getDatasetFreshnessParameters();
+      com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameters outputParams =
+          output.getAssertions().get(0).getParameters().getDatasetFreshnessParameters();
       Assert.assertEquals(outputParams.getSourceType().toString(), inputParams.getSourceType().toString());
 
       if (inputParams.hasField()) {
         FreshnessFieldSpec inputFieldSpec = inputParams.getField();
-        com.linkedin.datahub.graphql.generated.SchemaFieldSpec outputFieldSpec = outputParams.getField();
+        com.linkedin.datahub.graphql.generated.FreshnessFieldSpec outputFieldSpec = outputParams.getField();
         Assert.assertEquals(outputFieldSpec.getNativeType(), inputFieldSpec.getNativeType());
         Assert.assertEquals(outputFieldSpec.getType(), inputFieldSpec.getType());
         Assert.assertEquals(outputFieldSpec.getPath(), inputFieldSpec.getPath());
+
+        if (inputFieldSpec.hasKind()) {
+          Assert.assertEquals(outputFieldSpec.getKind().name(), inputFieldSpec.getKind().name());
+        }
       }
 
       if (inputParams.hasAuditLog()) {
@@ -127,7 +132,7 @@ public class MonitorMapperTest {
             .setAssertion(TEST_ASSERTION_URN)
             .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
             .setParameters(new AssertionEvaluationParameters()
-                .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_SLA)
+                .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FRESHNESS)
             )
         )
       )));
@@ -145,10 +150,12 @@ public class MonitorMapperTest {
                 .setAssertion(TEST_ASSERTION_URN)
                 .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
                 .setParameters(new AssertionEvaluationParameters()
-                    .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_SLA)
-                    .setDatasetSlaParameters(new DatasetSlaAssertionParameters()
-                        .setSourceType(DatasetSlaSourceType.FIELD_VALUE)
-                        .setField(new FreshnessFieldSpec().setNativeType("varchar").setType("STRING").setPath("name"))
+                    .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FRESHNESS)
+                    .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+                        .setSourceType(DatasetFreshnessSourceType.FIELD_VALUE)
+                        .setField(new FreshnessFieldSpec()
+                            .setNativeType("varchar").setType("STRING").setPath("name").setKind(FreshnessFieldKind.LAST_MODIFIED)
+                        )
                     )
                 )
           )

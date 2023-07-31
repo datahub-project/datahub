@@ -12,6 +12,8 @@ import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
+
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsTestUtils.*;
 import static com.linkedin.metadata.service.SettingsService.*;
@@ -42,6 +44,7 @@ public class UpdateUserNotificationSettingsResolverTest {
     final SlackNotificationSettingsInput slackSettings = new SlackNotificationSettingsInput();
     slackSettings.setUserHandle(SLACK_USER_HANDLE);
     notificationSettings.setSlackSettings(slackSettings);
+    notificationSettings.setSinkTypes(new ArrayList<>());
     input.setNotificationSettings(notificationSettings);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
 

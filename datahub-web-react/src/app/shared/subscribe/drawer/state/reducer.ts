@@ -27,7 +27,7 @@ export const reducer = (state: State, action: Action): State => {
         case ActionTypes.INITIALIZE: {
             const { isPersonal, slackSinkEnabled, subscription, subscriptionChannel, settingsChannel } = action.payload;
 
-            const notificationSinkTypes = subscription?.notificationConfig?.sinkTypes ?? [];
+            const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
             const isSlackAndSubscriptionEnabled =
                 slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack);
             const hasUpstreamSubscription =

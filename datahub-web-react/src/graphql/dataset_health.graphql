@@ -1,0 +1,5 @@
+query getTotalDatasets {
+    searchAcrossEntities(input: { query: "*", types: [DATASET], start: 0, count: 0 }) {
+        total
+    }
+}

@@ -1,14 +1,13 @@
 import React, { Key } from 'react';
-import { Typography, message, notification } from 'antd';
+import { Tooltip, Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
-import { CheckCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import {
     DataHubSubscription,
     EntityChangeType,
     EntityType,
     NotificationSettingsInput,
-    NotificationSinkType,
     SubscriptionType,
 } from '../../../../types.generated';
 import {
@@ -29,6 +28,11 @@ const NotificationTypeText = styled(Typography.Text)`
     line-height: 20px;
     font-weight: 500;
     margin-right: 8px;
+`;
+
+const TooltipIcon = styled(QuestionCircleOutlined)`
+    margin-left: 4px;
+    font-size: 12px;
 `;
 
 const ASSERTION_NODE_KEY = 'assertion_changes';
@@ -73,11 +77,11 @@ const incidentsNode: DataNode = {
     children: [
         {
             key: EntityChangeType.IncidentRaised,
-            title: <NotificationTypeText>Raised incidents</NotificationTypeText>,
+            title: <NotificationTypeText>An incident is raised</NotificationTypeText>,
         },
         {
             key: EntityChangeType.IncidentResolved,
-            title: <NotificationTypeText>Resolved incidents</NotificationTypeText>,
+            title: <NotificationTypeText>An incident is resolved</NotificationTypeText>,
         },
     ],
 };
@@ -107,7 +111,14 @@ const schemaNode: DataNode = {
         },
         {
             key: EntityChangeType.OperationColumnModified,
-            title: <NotificationTypeText>A column is modified</NotificationTypeText>,
+            title: (
+                <NotificationTypeText>
+                    A column is modified
+                    <Tooltip title="Receive notifications when a column is renamed or its type is changed">
+                        <TooltipIcon />
+                    </Tooltip>
+                </NotificationTypeText>
+            ),
         },
     ],
 };
@@ -161,7 +172,14 @@ const glossaryTermChangeNode: DataNode = {
         },
         {
             key: EntityChangeType.GlossaryTermProposed,
-            title: <NotificationTypeText>A new glossary term is proposed</NotificationTypeText>,
+            title: (
+                <NotificationTypeText>
+                    A new glossary term is proposed
+                    <Tooltip title="Someone has proposed adding a glossary term, but it has not beed added">
+                        <TooltipIcon />
+                    </Tooltip>
+                </NotificationTypeText>
+            ),
         },
     ],
 };
@@ -180,7 +198,14 @@ const tagChangeNode: DataNode = {
         },
         {
             key: EntityChangeType.TagProposed,
-            title: <NotificationTypeText>A new tag is proposed</NotificationTypeText>,
+            title: (
+                <NotificationTypeText>
+                    A new tag is proposed
+                    <Tooltip title="Someone has proposed adding a tag, but it has not beed added">
+                        <TooltipIcon />
+                    </Tooltip>
+                </NotificationTypeText>
+            ),
         },
     ],
 };
@@ -242,7 +267,6 @@ export const createSubscriptionFunction = ({
     entityUrn,
     subscriptionTypes,
     entityChangeTypes,
-    sinkTypes,
     notificationSettings,
     onRefetch,
 }: {
@@ -251,7 +275,6 @@ export const createSubscriptionFunction = ({
     entityUrn: string;
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
-    sinkTypes: Array<NotificationSinkType>;
     notificationSettings: NotificationSettingsInput | undefined;
     onRefetch?: () => void;
 }) => {
@@ -263,7 +286,6 @@ export const createSubscriptionFunction = ({
                 subscriptionTypes,
                 entityChangeTypes,
                 notificationConfig: {
-                    sinkTypes,
                     notificationSettings,
                 },
             },
@@ -292,7 +314,6 @@ export const updateSubscriptionFunction = ({
     subscription,
     subscriptionTypes,
     entityChangeTypes,
-    sinkTypes,
     notificationSettings,
     onRefetch,
 }: {
@@ -300,7 +321,6 @@ export const updateSubscriptionFunction = ({
     subscription: DataHubSubscription | undefined;
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
-    sinkTypes: Array<NotificationSinkType>;
     notificationSettings: NotificationSettingsInput | undefined;
     onRefetch?: () => void;
 }) => {
@@ -312,7 +332,6 @@ export const updateSubscriptionFunction = ({
                     subscriptionTypes,
                     entityChangeTypes,
                     notificationConfig: {
-                        sinkTypes,
                         notificationSettings,
                     },
                 },
@@ -347,7 +366,7 @@ export const getSubscriptionChannel = (isPersonal: boolean, subscription?: DataH
     return isPersonal ? subUserHandle : subGroupChannel;
 };
 
-export const getUserSettingsChannel = (
+export const getSettingsChannel = (
     isPersonal: boolean,
     userNotificationSettings?: GetUserNotificationSettingsQuery,
     groupNotificationSettings?: GetGroupNotificationSettingsQuery,

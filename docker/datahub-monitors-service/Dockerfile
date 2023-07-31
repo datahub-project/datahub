@@ -72,5 +72,5 @@ FROM ${APP_ENV}-install as final
 RUN addgroup --system datahub && adduser --system datahub --ingroup datahub
 USER datahub
 WORKDIR /datahub-src/datahub-monitors-service
-HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/ping || exit 1
+HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_monitors_service.sh

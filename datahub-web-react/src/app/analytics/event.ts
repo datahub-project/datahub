@@ -23,6 +23,7 @@ export enum EventType {
     BrowseV2ToggleSidebarEvent,
     BrowseV2ToggleNodeEvent,
     BrowseV2SelectNodeEvent,
+    BrowseV2EntityLinkClickEvent,
     EntityViewEvent,
     EntitySectionViewEvent,
     EntityActionEvent,
@@ -81,6 +82,8 @@ export enum EventType {
     UpdateTestEvent,
     DeleteTestEvent,
     CreateAssertionMonitorEvent,
+    StartAssertionMonitorEvent,
+    StopAssertionMonitorEvent,
 }
 
 /**
@@ -249,8 +252,20 @@ export interface BrowseV2ToggleNodeEvent extends BaseEvent {
  */
 export interface BrowseV2SelectNodeEvent extends BaseEvent {
     type: EventType.BrowseV2SelectNodeEvent;
-    targetNode: 'browse';
+    targetNode: 'browse' | 'platform';
     action: 'select' | 'deselect';
+    entity: string;
+    environment?: string;
+    platform?: string;
+    targetDepth: number;
+}
+
+/**
+ * Logged when a user clicks a container link in the sidebar
+ */
+export interface BrowseV2EntityLinkClickEvent extends BaseEvent {
+    type: EventType.BrowseV2EntityLinkClickEvent;
+    targetNode: 'browse';
     entity: string;
     environment?: string;
     platform?: string;
@@ -493,6 +508,21 @@ export interface DeleteTestEvent extends BaseEvent {
 export interface CreateAssertionMonitorEvent extends BaseEvent {
     type: EventType.CreateAssertionMonitorEvent;
     assertionType: string;
+    entityUrn: string;
+}
+
+export interface StartAssertionMonitorEvent extends BaseEvent {
+    type: EventType.StartAssertionMonitorEvent;
+    assertionType: string;
+    assertionUrn: string;
+    monitorUrn: string;
+}
+
+export interface StopAssertionMonitorEvent extends BaseEvent {
+    type: EventType.StopAssertionMonitorEvent;
+    assertionType: string;
+    assertionUrn: string;
+    monitorUrn: string;
 }
 
 export interface ManuallyCreateLineageEvent extends BaseEvent {
@@ -638,6 +668,7 @@ export type Event =
     | BrowseV2ToggleSidebarEvent
     | BrowseV2ToggleNodeEvent
     | BrowseV2SelectNodeEvent
+    | BrowseV2EntityLinkClickEvent
     | EntityViewEvent
     | EntitySectionViewEvent
     | EntityActionEvent
@@ -690,4 +721,6 @@ export type Event =
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
-    | CreateAssertionMonitorEvent;
+    | CreateAssertionMonitorEvent
+    | StartAssertionMonitorEvent
+    | StopAssertionMonitorEvent;

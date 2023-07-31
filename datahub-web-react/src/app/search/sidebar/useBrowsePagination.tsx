@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useIntersect from '../../shared/useIntersect';
 import { BROWSE_LOAD_MORE_MARGIN, BROWSE_PAGE_SIZE } from './constants';
 import { GetBrowseResultsV2Query, useGetBrowseResultsV2LazyQuery } from '../../../graphql/browseV2.generated';
@@ -10,6 +10,7 @@ type Props = {
 };
 
 const useBrowsePagination = ({ skip }: Props) => {
+    const initializing = useRef(true);
     const type = useEntityType();
     const path = useBrowsePath();
     const sidebarFilters = useSidebarFilters();
@@ -34,6 +35,10 @@ const useBrowsePagination = ({ skip }: Props) => {
         fetchPolicy: 'cache-first',
     });
 
+    const retry = () => {
+        if (refetch) refetch();
+    };
+
     const getBrowseResultsV2WithDeps = useCallback(
         (start: number) => {
             if (skip) return;
@@ -55,12 +60,14 @@ const useBrowsePagination = ({ skip }: Props) => {
     );
 
     useEffect(() => {
+        initializing.current = true;
         getBrowseResultsV2WithDeps(0);
     }, [getBrowseResultsV2WithDeps]);
 
     useEffect(() => {
         const newStart = data?.browseV2?.start ?? -1;
-        if (!data || newStart < 0) return;
+        if (newStart === 0) initializing.current = false;
+        if (initializing.current || !data || newStart < 0) return;
 
         setStartToBrowseMap((previousMap) => {
             const newMap: typeof previousMap = { [newStart]: data };
@@ -77,9 +84,9 @@ const useBrowsePagination = ({ skip }: Props) => {
 
     const advancePage = useCallback(() => {
         const newStart = latestStart + BROWSE_PAGE_SIZE;
-        if (done || latestStart < 0 || total <= 0 || newStart >= total) return;
+        if (initializing.current || error || done || latestStart < 0 || total <= 0 || newStart >= total) return;
         getBrowseResultsV2WithDeps(newStart);
-    }, [done, getBrowseResultsV2WithDeps, latestStart, total]);
+    }, [done, error, getBrowseResultsV2WithDeps, latestStart, total]);
 
     const { observableRef } = useIntersect({
         skip,
@@ -93,7 +100,7 @@ const useBrowsePagination = ({ skip }: Props) => {
         groups,
         path: latestData?.browseV2?.metadata.path,
         observable: <div ref={observableRef} style={{ width: '1px', height: '1px' }} />,
-        refetch,
+        retry,
     } as const;
 };
 

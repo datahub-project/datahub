@@ -118,7 +118,7 @@ public class IncidentServiceTest {
         mockClient,
         Mockito.mock(Authentication.class));
     service.raiseIncident(
-        IncidentType.SLA,
+        IncidentType.FRESHNESS,
         null,
         null,
         null,
@@ -130,7 +130,7 @@ public class IncidentServiceTest {
     );
 
     final IncidentInfo expectedInfo = new IncidentInfo()
-        .setType(IncidentType.SLA)
+        .setType(IncidentType.FRESHNESS)
         .setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)))
         .setStatus(new IncidentStatus()
             .setState(IncidentState.ACTIVE)
@@ -158,7 +158,7 @@ public class IncidentServiceTest {
         mockClient,
         Mockito.mock(Authentication.class));
     service.raiseIncident(
-        IncidentType.SLA,
+        IncidentType.FRESHNESS,
         "custom type",
         2,
         "title",
@@ -170,7 +170,7 @@ public class IncidentServiceTest {
     );
 
     final IncidentInfo expectedInfo = new IncidentInfo()
-        .setType(IncidentType.SLA)
+        .setType(IncidentType.FRESHNESS)
         .setCustomType("custom type")
         .setPriority(2)
         .setTitle("title")
@@ -308,7 +308,7 @@ public class IncidentServiceTest {
 
   private static IncidentInfo mockIncidentInfo() throws Exception {
     return new IncidentInfo()
-        .setType(IncidentType.SLA)
+        .setType(IncidentType.FRESHNESS)
         .setEntities(new UrnArray(ImmutableList.of(TEST_DATASET_URN)))
         .setStatus(new IncidentStatus()
             .setState(IncidentState.ACTIVE)

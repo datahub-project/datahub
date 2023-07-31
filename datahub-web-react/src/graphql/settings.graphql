@@ -1,5 +1,6 @@
 query getUserNotificationSettings {
     getUserNotificationSettings {
+        sinkTypes
         slackSettings {
             userHandle
         }
@@ -8,6 +9,7 @@ query getUserNotificationSettings {
 
 query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
     getGroupNotificationSettings(input: $input) {
+        sinkTypes
         slackSettings {
             channels
         }
@@ -16,6 +18,7 @@ query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
 
 mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsInput!) {
     updateUserNotificationSettings(input: $input) {
+        sinkTypes
         slackSettings {
             userHandle
         }
@@ -24,6 +27,7 @@ mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsIn
 
 mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettingsInput!) {
     updateGroupNotificationSettings(input: $input) {
+        sinkTypes
         slackSettings {
             channels
         }

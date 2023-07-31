@@ -188,6 +188,13 @@ def side_effect_workbook_data(*arg, **kwargs):
     ], mock_pagination
 
 
+def side_effect_datasource_get_by_id(id, *arg, **kwargs):
+    datasources, _ = side_effect_datasource_data()
+    for ds in datasources:
+        if ds._id == id:
+            return ds
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -198,6 +205,7 @@ def tableau_ingest_common(
     pipeline_config=config_source_default,
     sign_out_side_effect=lambda: None,
     pipeline_name="tableau-test-pipeline",
+    datasources_side_effect=side_effect_datasource_data,
 ):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -215,7 +223,10 @@ def tableau_ingest_common(
             mock_client.projects = mock.Mock()
             mock_client.projects.get.side_effect = side_effect_project_data
             mock_client.datasources = mock.Mock()
-            mock_client.datasources.get.side_effect = side_effect_datasource_data
+            mock_client.datasources.get.side_effect = datasources_side_effect
+            mock_client.datasources.get_by_id.side_effect = (
+                side_effect_datasource_get_by_id
+            )
             mock_client.workbooks = mock.Mock()
             mock_client.workbooks.get.side_effect = side_effect_workbook_data
             mock_client.views.get.side_effect = side_effect_usage_stat
@@ -243,12 +254,13 @@ def tableau_ingest_common(
             pipeline.run()
             pipeline.raise_from_status()
 
-            mce_helpers.check_golden_file(
-                pytestconfig,
-                output_path=f"{tmp_path}/{output_file_name}",
-                golden_path=test_resources_dir / golden_file_name,
-                ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
-            )
+            if golden_file_name:
+                mce_helpers.check_golden_file(
+                    pytestconfig,
+                    output_path=f"{tmp_path}/{output_file_name}",
+                    golden_path=test_resources_dir / golden_file_name,
+                    ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+                )
             return pipeline
 
 
@@ -766,4 +778,29 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
     assert (
         mcp.entityUrn
         == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_mces.json"
+    golden_file_name: str = "tableau_mces_golden.json"
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
+        datasources_side_effect=ValueError("project_id must be defined."),
     )

@@ -177,9 +177,9 @@ A type of an Anomaly
 """
 enum AnomalyType {
   """
-  An inferred SLA Assertion has failed, triggering the Anomaly.
+  An inferred Freshness Assertion has failed, triggering the Anomaly.
   """
-  SLA
+  FRESHNESS
 
   """
   An inferred assertion on a particular column(s) of a Dataset has triggered the Anomaly.

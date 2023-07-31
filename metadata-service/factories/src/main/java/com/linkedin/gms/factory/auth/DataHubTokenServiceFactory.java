@@ -36,7 +36,7 @@ public class DataHubTokenServiceFactory {
    */
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService _entityService;
 
   @Bean(name = "dataHubTokenService")
   @Scope("singleton")
@@ -46,7 +46,7 @@ public class DataHubTokenServiceFactory {
         this.signingKey,
         this.signingAlgorithm,
         this.issuer,
-        this.entityService,
+        this._entityService,
         this.saltingKey
     );
   }

@@ -4,7 +4,7 @@ import { Steps } from 'antd';
 import { AssertionMonitorBuilderState, StepProps, AssertionBuilderStep } from './types';
 import { AssertionBuilderStepTitles, AssertionsBuilderStepComponent } from './conf';
 import { DEFAULT_BUILDER_STATE } from './constants';
-import { EntityType, Monitor } from '../../../../../../../../types.generated';
+import { EntityType, Monitor, Assertion } from '../../../../../../../../types.generated';
 import { useCreateAssertionMonitor } from './useCreateAssertionMonitor';
 
 const Container = styled.div`
@@ -36,7 +36,7 @@ type Props = {
     entityType: EntityType;
     platformUrn: string;
     initialState?: AssertionMonitorBuilderState;
-    onSubmit?: (monitor: Monitor) => void;
+    onSubmit?: (assertion: Assertion, monitor: Monitor) => void;
     onCancel?: () => void;
 };
 
@@ -53,12 +53,12 @@ export const AssertionMonitorBuilder = ({
         initialState || { ...DEFAULT_BUILDER_STATE, entityUrn, entityType, platformUrn },
     );
 
-    const onCreateAssertionMonitor = (newMonitor: Monitor) => {
-        onSubmit?.(newMonitor);
+    const onCreateAssertionMonitor = (newAssertion: Assertion, newMonitor: Monitor) => {
+        onSubmit?.(newAssertion, newMonitor);
         setBuilderState(DEFAULT_BUILDER_STATE);
     };
 
-    const createAssertionMonitor = useCreateAssertionMonitor(builderState, onCreateAssertionMonitor);
+    const createAssertionMonitor = useCreateAssertionMonitor(entityUrn, builderState, onCreateAssertionMonitor);
 
     /**
      * The current step id, e.g. SELECT_TYPE

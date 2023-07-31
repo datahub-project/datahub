@@ -27,7 +27,7 @@ public class SystemMonitorsResolverTest {
 
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
   private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn(
-      String.format("urn:li:monitor:(%s,%s)", TEST_ENTITY_URN.toString(), AcrylConstants.SLA_SYSTEM_MONITOR_ID));
+      String.format("urn:li:monitor:(%s,%s)", TEST_ENTITY_URN.toString(), AcrylConstants.FRESHNESS_SYSTEM_MONITOR_ID));
   private static final MonitorKey TEST_MONITOR_KEY = new MonitorKey()
       .setEntity(UrnUtils.getUrn(TEST_MONITOR_URN.getEntityKey().get(0)))
       .setId(TEST_MONITOR_URN.getEntityKey().get(1)
@@ -51,7 +51,7 @@ public class SystemMonitorsResolverTest {
 
     SystemMonitorsResult result = resolver.get(mockEnv).get();
     assertNotNull(result);
-    assertEquals(result.getMonitors().get(0).getType().toString(), SystemMonitorType.SLA.toString());
+    assertEquals(result.getMonitors().get(0).getType().toString(), SystemMonitorType.FRESHNESS.toString());
     assertEquals(result.getMonitors().get(0).getMonitor().getUrn(), TEST_MONITOR_URN.toString());
   }
 

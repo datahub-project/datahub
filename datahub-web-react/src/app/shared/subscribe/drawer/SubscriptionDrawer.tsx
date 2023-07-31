@@ -8,7 +8,7 @@ import UpstreamSection from './section/UpstreamSection';
 import NotificationRecipientSection from './section/NotificationRecipientSection';
 import Footer from './section/Footer';
 import SelectGroupSection from './section/SelectGroupSection';
-import { DataHubSubscription, EntityType } from '../../../../types.generated';
+import { DataHubSubscription, EntityType, NotificationSinkType } from '../../../../types.generated';
 import { getSubscriptionChannel } from './utils';
 import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
 import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated';
@@ -72,6 +72,7 @@ const SubscriptionDrawerContent = ({
 
     const {
         slack: {
+            enabled: slackEnabled,
             subscription: { channel, saveAsDefault },
         },
     } = useDrawerState();
@@ -123,7 +124,8 @@ const SubscriptionDrawerContent = ({
 
     const onUpdate = () => {
         upsertSubscription();
-        if (channel && saveAsDefault) updateSinkSettings(channel);
+        if (channel && saveAsDefault)
+            updateSinkSettings({ text: channel, sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [] });
         onClose();
     };
 

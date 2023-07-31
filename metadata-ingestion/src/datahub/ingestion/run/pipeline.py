@@ -328,7 +328,7 @@ class Pipeline:
         dry_run: bool = False,
         preview_mode: bool = False,
         preview_workunits: int = 10,
-        report_to: Optional[str] = None,
+        report_to: Optional[str] = "datahub",
         no_default_report: bool = False,
         raw_config: Optional[dict] = None,
     ) -> "Pipeline":

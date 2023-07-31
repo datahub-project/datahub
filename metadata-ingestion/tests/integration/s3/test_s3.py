@@ -3,6 +3,7 @@ import logging
 import os
 from datetime import datetime
 
+import moto.s3
 import pytest
 from boto3.session import Session
 from moto import mock_s3
@@ -55,8 +56,12 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
         test_resources_dir = (
             pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
         )
+
+        current_time_sec = datetime.strptime(
+            FROZEN_TIME, "%Y-%m-%d %H:%M:%S"
+        ).timestamp()
         for root, _dirs, files in os.walk(test_resources_dir):
-            for file in files:
+            for file in sorted(files):
                 full_path = os.path.join(root, file)
                 rel_path = os.path.relpath(full_path, test_resources_dir)
                 bkt.upload_file(full_path, rel_path)
@@ -65,6 +70,13 @@ def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
                     Key=rel_path,
                     Tagging={"TagSet": [{"Key": "baz", "Value": "bob"}]},
                 )
+                key = (
+                    moto.s3.models.s3_backends["123456789012"]["global"]
+                    .buckets[bucket_name]
+                    .keys[rel_path]
+                )
+                current_time_sec += 10
+                key.last_modified = datetime.fromtimestamp(current_time_sec)
     yield
 
 
@@ -73,7 +85,8 @@ def touch_local_files(pytestconfig):
     test_resources_dir = (
         pytestconfig.rootpath / "tests/integration/s3/test_data/local_system/"
     )
-    current_time_sec = datetime.now().timestamp()
+    current_time_sec = datetime.strptime(FROZEN_TIME, "%Y-%m-%d %H:%M:%S").timestamp()
+
     for root, _dirs, files in os.walk(test_resources_dir):
         _dirs.sort()
         for file in sorted(files):
@@ -127,6 +140,7 @@ def test_data_lake_s3_ingest(
 def test_data_lake_local_ingest(
     pytestconfig, touch_local_files, source_file, tmp_path, mock_time
 ):
+    os.environ["SPARK_VERSION"] = "3.0.3"
     test_resources_dir = pytestconfig.rootpath / "tests/integration/s3/"
     f = open(os.path.join(SOURCE_FILES_PATH, source_file))
     source = json.load(f)

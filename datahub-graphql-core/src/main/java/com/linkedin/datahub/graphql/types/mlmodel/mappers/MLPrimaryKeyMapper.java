@@ -65,7 +65,7 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         mappingHelper.mapToResult(ML_PRIMARY_KEY_KEY_ASPECT_NAME, this::mapMLPrimaryKeyKey);
         mappingHelper.mapToResult(ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME, this::mapMLPrimaryKeyProperties);
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (mlPrimaryKey, dataMap) ->
-            mlPrimaryKey.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            mlPrimaryKey.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (mlPrimaryKey, dataMap) ->
             mlPrimaryKey.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlPrimaryKey, dataMap) ->

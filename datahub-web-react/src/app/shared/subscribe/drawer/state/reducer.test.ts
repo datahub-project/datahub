@@ -5,7 +5,10 @@ import { ActionTypes, ChannelSelections } from './types';
 const entityType = EntityType.Dataset;
 const slackSubscription: Partial<DataHubSubscription> = {
     notificationConfig: {
-        sinkTypes: [NotificationSinkType.Slack],
+        notificationSettings: {
+            sinkTypes: [NotificationSinkType.Slack],
+            slackSettings: {},
+        },
     },
 };
 

@@ -2,12 +2,14 @@ import {
     AssertionAction,
     AssertionType,
     AssertionEvaluationParametersType,
-    DatasetSlaSourceType,
+    DatasetFreshnessSourceType,
     DateInterval,
     EntityType,
     SchemaFieldDataType,
-    SlaAssertionScheduleType,
-    SlaAssertionType,
+    FreshnessAssertionScheduleType,
+    FreshnessAssertionType,
+    FreshnessFieldKind,
+    DatasetFilterType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -42,11 +44,11 @@ export interface AssertionMonitorBuilderState {
         /**
          * The schedule on which to execute the source (optional)
          */
-        slaAssertion?: {
+        freshnessAssertion?: {
             /**
-             * The type of the SLA assertion
+             * The type of the Freshness assertion
              */
-            type?: SlaAssertionType | null;
+            type?: FreshnessAssertionType | null;
 
             /**
              * The schedule defining the assertion itself.
@@ -55,7 +57,7 @@ export interface AssertionMonitorBuilderState {
                 /**
                  * The type of the schedule.
                  */
-                type?: SlaAssertionScheduleType | null;
+                type?: FreshnessAssertionScheduleType | null;
 
                 /**
                  * A cron schedule definition
@@ -91,6 +93,21 @@ export interface AssertionMonitorBuilderState {
                      */
                     multiple?: number;
                 } | null;
+            } | null;
+
+            /**
+             * An optional filter used to further partition the dataset
+             */
+            filter?: {
+                /**
+                 * The filter type
+                 */
+                type?: DatasetFilterType | null;
+
+                /**
+                 * The raw query if using a SQL FilterType
+                 */
+                sql?: string | null;
             } | null;
         } | null;
 
@@ -135,13 +152,13 @@ export interface AssertionMonitorBuilderState {
         type?: AssertionEvaluationParametersType | null;
 
         /**
-         * Information required to execute a dataset change operation SLA assertion.
+         * Information required to execute a dataset change operation Freshness assertion.
          */
-        datasetSlaParameters?: {
+        datasetFreshnessParameters?: {
             /**
              * The source type of the operation
              */
-            sourceType?: DatasetSlaSourceType | null;
+            sourceType?: DatasetFreshnessSourceType | null;
 
             /**
              * The field that should be used when determining whether an operation has occurred. Only applicable if source type = "FIELD_VALUE"
@@ -166,6 +183,11 @@ export interface AssertionMonitorBuilderState {
                  * The native type of the field
                  */
                 nativeType?: string | null;
+
+                /**
+                 * The type of the field being used to verify the Freshness Assertion
+                 */
+                kind?: FreshnessFieldKind | null;
             } | null;
 
             /**
@@ -191,8 +213,8 @@ export interface AssertionMonitorBuilderState {
  */
 export enum AssertionBuilderStep {
     SELECT_TYPE = 'SELECT_TYPE',
-    CONFIGURE_DATASET_SLA_ASSERTION = 'CONFIGURE_DATASET_SLA_ASSERTION',
-    CONFIGURE_SCHEDULE = 'CONFIGURE_SCHEDULE',
+    CONFIGURE_DATASET_FRESHNESS_ASSERTION = 'CONFIGURE_DATASET_FRESHNESS_ASSERTION',
+    CONFIGURE_ACTIONS = 'CONFIGURE_ACTIONS',
 }
 
 /**
@@ -203,6 +225,34 @@ export type StepProps = {
     updateState: (newState: AssertionMonitorBuilderState) => void;
     goTo: (step: AssertionBuilderStep) => void;
     prev?: () => void;
-    submit: () => void;
+    submit: () => Promise<void>;
     cancel: () => void;
+};
+
+/**
+ * State required to use the assertion actions builder.
+ */
+export interface AssertionActionsBuilderState {
+    /**
+     * Configurations for actions to be performed on assertion success or failure.
+     */
+    actions?: {
+        /**
+         * Actions to run on assertion success.
+         */
+        onSuccess?: AssertionAction[] | null;
+
+        /**
+         * Actions to run on assertion failure.
+         */
+        onFailure?: AssertionAction[] | null;
+    } | null;
+}
+
+/**
+ * State required to use the assertiona actions form.
+ */
+export type AssertionActionsFormState = {
+    onFailure?: AssertionAction[] | null;
+    onSuccess?: AssertionAction[] | null;
 };

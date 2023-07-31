@@ -19,6 +19,8 @@ import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * This is an opt-in optional upgrade step to migrate your browse paths to the new truncated form.
@@ -124,7 +126,7 @@ public class UpgradeDefaultBrowsePathsStep extends UpgradeStep {
     proposal.setEntityType(urn.getEntityType());
     proposal.setAspectName(Constants.BROWSE_PATHS_ASPECT_NAME);
     proposal.setChangeType(ChangeType.UPSERT);
-    proposal.setSystemMetadata(new SystemMetadata().setRunId(EntityService.DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
+    proposal.setSystemMetadata(new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(System.currentTimeMillis()));
     proposal.setAspect(GenericRecordUtils.serializeAspect(newPaths));
     _entityService.ingestProposal(
         proposal,

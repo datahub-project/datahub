@@ -49,6 +49,7 @@ export type EntityTab = {
         enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
     };
     properties?: any;
+    id?: string;
 };
 
 export type EntitySidebarSection = {
