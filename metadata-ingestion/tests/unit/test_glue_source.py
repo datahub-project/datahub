@@ -89,7 +89,7 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
     )
     schema_fields = avro_schema_to_mce_fields(json.dumps(avro_schema))
     actual_schema_field_type = schema_fields[0].type
-    assert type(actual_schema_field_type.type) == expected_type
+    assert isinstance(actual_schema_field_type.type, expected_type)
 
 
 @pytest.mark.parametrize(
