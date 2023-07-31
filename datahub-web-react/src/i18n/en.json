@@ -201,5 +201,15 @@
   "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.": "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.",
   "Search for users...": "Search for users...",
   "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.": "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.",
-  "Search for groups...": "Search for groups..."
+  "Search for groups...": "Search for groups...",
+  "Choose Policy Type": "Choose Policy Type",
+  "Configure Privileges": "Configure Privileges",
+  "Assign Users & Groups": "Assign Users & Groups",
+  "Exit Policy Editor": "Exit Policy Editor",
+  "Are you sure you want to exit policy editor? All changes will be lost": "Are you sure you want to exit policy editor? All changes will be lost",
+  "Edit a Policy": "Edit a Policy",
+  "Create a new Policy": "Create a new Policy",
+  "Save": "Save",
+  "Next": "Next",
+  "Previous":"Previous"
 }

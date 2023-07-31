@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components/macro';
 import { Button, Modal, Steps } from 'antd';
 import PolicyPrivilegeForm from './PolicyPrivilegeForm';
@@ -70,7 +71,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step 1: Choose Policy Type
     const typeStep = () => {
         return {
-            title: '选择规则类型',
+            title: t ("Choose Policy Type"),
             content: (
                 <PolicyTypeForm
                     policyType={policy.type}
@@ -87,7 +88,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
 
     // Step 2: Select privileges step.
     const privilegeStep = () => ({
-        title: '配置权限集',
+        title: t("Configure Privileges"),
         content: (
             <PolicyPrivilegeForm
                 policyType={policy.type}
@@ -106,7 +107,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // Step 3: Assign Actors Step
     const actorStep = () => {
         return {
-            title: '分配用户和用户组',
+            title: t ("Assign Users & Groups"),
             content: (
                 <PolicyActorForm
                     policyType={policy.type}
@@ -143,13 +144,14 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
     // modalClosePopup for outside policy modal click
     const modalClosePopup = () => {
         Modal.confirm({
-            title: '退出权限集编辑器',
-            content: `您确定要退出权限集编辑器吗? 所有未提交的变动不会保存`,
+            title: t ("Exit Policy Editor"),
+            content: t ("Are you sure you want to exit policy editor? All changes will be lost"),
             onOk() {
                 onClose();
             },
             onCancel() {},
-            okText: '确定',
+            okText: t ("Yes"),
+            cancelText: t("Cancel"),
             maskClosable: true,
             closable: true,
         });
@@ -159,7 +161,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         <ClickOutside onClickOutside={modalClosePopup} wrapperClassName="PolicyBuilderModal">
             <Modal
                 wrapClassName="PolicyBuilderModal"
-                title={isEditing ? '编辑规则' : '创建规则'}
+                title={isEditing ? t ("Edit a Policy") : t ("Create a new Policy")}
                 visible={visible}
                 onCancel={onClose}
                 closable
@@ -174,17 +176,17 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
                 <div className="steps-content">{activeStep.content}</div>
                 <StepsContainer>
                     <PrevButtonContainer>
-                        {activeStepIndex > 0 && <Button onClick={() => prev()}>上一步</Button>}
+                        {activeStepIndex > 0 && <Button onClick={() => prev()}>{t ("Previous")}</Button>}
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
                             <Button id="nextButton" type="primary" onClick={() => next()}>
-                                下一步
+                                {t ("Next")}
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
                             <Button id="saveButton" type="primary" onClick={onSavePolicy}>
-                                保存
+                                {t ("Save")}
                             </Button>
                         )}
                     </NextButtonContainer>

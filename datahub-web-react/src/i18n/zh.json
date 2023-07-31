@@ -201,5 +201,15 @@
   "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.": "搜索该策略应适用的特定用户，或选择 `所有用户` 将其适用于所有用户。",
   "Search for users...": "查找用户...",
   "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.": "搜索此策略应适用的特定组，或选择 `所有组` 将其适用于所有组。",
-  "Search for groups...": "查找用户组..."
+  "Search for groups...": "查找用户组...",
+  "Choose Policy Type": "选择策略类型",
+  "Configure Privileges": "配置策略",
+  "Assign Users & Groups": "分配用户 & 用户组",
+  "Exit Policy Editor": "退出策略编辑器",
+  "Are you sure you want to exit policy editor? All changes will be lost": "您确定要退出策略编辑器吗？所有更改都将丢失",
+  "Edit a Policy": "编辑策略",
+  "Create a new Policy": "创建新策略",
+  "Save": "保存",
+  "Next": "下一步",
+  "Previous": "上一步"
 }
