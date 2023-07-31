@@ -635,6 +635,7 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
         .iconUrl(String.format("%s%s", this.baseUrl, ACRYL_LOGO_FILE_PATH))
         .build();
     final ChatPostMessageResponse response = sendMessage(msgRequest, retryMode);
+    // if response is null, the message has been dropped due to rate limiting. It has already been logged.
     if (response != null) {
       if (response.isOk()) {
         log.debug(String.format("Successfully sent Slack notification to channel %s", channel));
@@ -649,10 +650,15 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     return sendMessage(request, 0, retryMode);
   }
 
+  /*
+   * Attempt to send a slack message if the current time is not before the timestamp we may have set to wait until if we have been
+   * rate limited. Returns null if the message was dropped due to rate limiting.
+   */
   @Nullable
   private ChatPostMessageResponse sendMessage(final ChatPostMessageRequest request, int retryAttempt, RetryMode retryMode) throws Exception {
-    if (System.currentTimeMillis() < this.retryAfterTimestamp) {
-      return optionallyRetrySendMessage(request, retryAttempt, retryMode);
+    long currentTime = System.currentTimeMillis();
+    if (currentTime < this.retryAfterTimestamp) {
+      return optionallyRetrySendMessage(request, retryAttempt, retryMode, currentTime);
     }
     try {
       return slackClient.chatPostMessage(request);
@@ -675,9 +681,10 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     log.info(String.format("Reached Slack API rate limit. No new notifications will be sent for %s second(s)", retryAfter));
     if (retryAfter != null) {
       try {
+        long currentTime = System.currentTimeMillis();
         int retryAfterInt = Integer.parseInt(retryAfter);
-        this.retryAfterTimestamp = System.currentTimeMillis() + retryAfterInt * 1000L;
-        return optionallyRetrySendMessage(request, retryAttempt, retryMode);
+        this.retryAfterTimestamp = currentTime + retryAfterInt * 1000L;
+        return optionallyRetrySendMessage(request, retryAttempt, retryMode, currentTime);
       } catch (NumberFormatException exc) {
         log.debug("Issue parsing retryAfter from slack API response headers", exc);
       }
@@ -686,9 +693,14 @@ private String buildAssertionStatusChangeMessage(NotificationRequest request) {
     return null;
   }
 
-  private ChatPostMessageResponse optionallyRetrySendMessage(final ChatPostMessageRequest request, int retryAttempt, RetryMode retryMode) throws Exception {
+  private ChatPostMessageResponse optionallyRetrySendMessage(
+      final ChatPostMessageRequest request,
+      int retryAttempt,
+      RetryMode retryMode,
+      long currentTime
+  ) throws Exception {
     if (this.retryEnabled && retryMode.equals(RetryMode.ENABLED) && retryAttempt < maxRetries) {
-      Thread.sleep(this.retryAfterTimestamp - System.currentTimeMillis());
+      Thread.sleep(this.retryAfterTimestamp - currentTime);
       return sendMessage(request, retryAttempt + 1, retryMode);
     }
     log.debug("Skipping sending notification for request {}. Pausing due to hitting our rate limit", request);
