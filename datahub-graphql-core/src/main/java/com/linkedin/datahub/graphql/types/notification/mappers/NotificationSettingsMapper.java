@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.notification.mappers;
 
-import com.linkedin.datahub.graphql.generated.IntendedUserType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
