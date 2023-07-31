@@ -631,7 +631,6 @@ class TableauSource(StatefulIngestionSourceBase):
                     )
                     continue
                 self.datasource_project_map[ds.id] = ds.project_id
-            self.report.get_all_datasources_query_failed = False
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
             logger.info(f"Get all datasources query failed due to error {e}")
@@ -781,7 +780,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
             offset += count
 
-            for obj in connection_objects.get(tableau_constant.NODES, []):
+            for obj in connection_objects.get(tableau_constant.NODES) or []:
                 yield obj
 
     def emit_workbooks(self) -> Iterable[MetadataWorkUnit]:
@@ -995,18 +994,19 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
                 continue
 
-            schema = table.get(tableau_constant.SCHEMA, "")
-            table_name = table.get(tableau_constant.NAME, "")
-            full_name = table.get(tableau_constant.FULL_NAME, "")
+            schema = table.get(tableau_constant.SCHEMA) or ""
+            table_name = table.get(tableau_constant.NAME) or ""
+            full_name = table.get(tableau_constant.FULL_NAME) or ""
             upstream_db = (
-                table.get(tableau_constant.DATABASE, {}).get(tableau_constant.NAME, "")
-                if table.get(tableau_constant.DATABASE) is not None
+                table[tableau_constant.DATABASE][tableau_constant.NAME]
+                if table.get(tableau_constant.DATABASE)
+                and table[tableau_constant.DATABASE].get(tableau_constant.NAME)
                 else ""
             )
             logger.debug(
                 "Processing Table with Connection Type: {0} and id {1}".format(
-                    table.get(tableau_constant.CONNECTION_TYPE, ""),
-                    table.get(tableau_constant.ID, ""),
+                    table.get(tableau_constant.CONNECTION_TYPE) or "",
+                    table.get(tableau_constant.ID) or "",
                 )
             )
             schema = self._get_schema(schema, upstream_db, full_name)
@@ -1026,7 +1026,7 @@ class TableauSource(StatefulIngestionSourceBase):
             table_urn = make_table_urn(
                 self.config.env,
                 upstream_db,
-                table.get(tableau_constant.CONNECTION_TYPE, ""),
+                table.get(tableau_constant.CONNECTION_TYPE) or "",
                 schema,
                 table_name,
                 self.config.platform_instance_map,
@@ -1279,7 +1279,9 @@ class TableauSource(StatefulIngestionSourceBase):
                         f"Adding datasource {datasource_name}({datasource.get('id')}) to container"
                     )
                     yield from add_entity_to_container(
-                        self.gen_workbook_key(datasource[tableau_constant.WORKBOOK]),
+                        self.gen_workbook_key(
+                            datasource[tableau_constant.WORKBOOK][tableau_constant.ID]
+                        ),
                         tableau_constant.DATASET,
                         dataset_snapshot.urn,
                     )
@@ -1330,12 +1332,13 @@ class TableauSource(StatefulIngestionSourceBase):
 
             dataset_snapshot.aspects.append(dataset_properties)
 
-            view_properties = ViewPropertiesClass(
-                materialized=False,
-                viewLanguage=tableau_constant.SQL,
-                viewLogic=clean_query(csql.get(tableau_constant.QUERY) or ""),
-            )
-            dataset_snapshot.aspects.append(view_properties)
+            if csql.get(tableau_constant.QUERY):
+                view_properties = ViewPropertiesClass(
+                    materialized=False,
+                    viewLanguage=tableau_constant.SQL,
+                    viewLogic=clean_query(csql[tableau_constant.QUERY]),
+                )
+                dataset_snapshot.aspects.append(view_properties)
 
             yield self.get_metadata_change_event(dataset_snapshot)
             yield self.get_metadata_change_proposal(
@@ -1368,7 +1371,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 fieldPath=field[tableau_constant.NAME],
                 type=SchemaFieldDataType(type=TypeClass()),
                 nativeDataType=nativeDataType,
-                description=field.get(tableau_constant.DESCRIPTION, ""),
+                description=field.get(tableau_constant.DESCRIPTION),
             )
             fields.append(schema_field)
 
@@ -1390,8 +1393,12 @@ class TableauSource(StatefulIngestionSourceBase):
             and ds[tableau_constant.LUID] not in self.datasource_project_map.keys()
             and self.report.get_all_datasources_query_failed
         ):
+            logger.debug(
+                f"published datasource {ds.get(tableau_constant.NAME)} project_luid not found."
+                f" Running get datasource query for {ds[tableau_constant.LUID]}"
+            )
             # Query and update self.datasource_project_map with luid
-            self._query_published_datasource_for_project_luid(ds)
+            self._query_published_datasource_for_project_luid(ds[tableau_constant.LUID])
 
         if (
             ds.get(tableau_constant.LUID)
@@ -1407,16 +1414,12 @@ class TableauSource(StatefulIngestionSourceBase):
 
         return None
 
-    def _query_published_datasource_for_project_luid(self, ds: dict) -> None:
+    def _query_published_datasource_for_project_luid(self, ds_luid: str) -> None:
         if self.server is None:
             return
 
         try:
-            logger.debug(
-                f"published datasource {ds.get(tableau_constant.NAME)} project_luid not found."
-                f" Running get datasource query for {ds[tableau_constant.LUID]}"
-            )
-            ds_result = self.server.datasources.get_by_id(ds[tableau_constant.LUID])
+            ds_result = self.server.datasources.get_by_id(ds_luid)
             if ds_result.project_id not in self.tableau_project_registry:
                 logger.debug(
                     f"project id ({ds_result.project_id}) of datasource {ds_result.name} is not present in project "
@@ -1427,7 +1430,7 @@ class TableauSource(StatefulIngestionSourceBase):
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
             logger.warning(
-                f"Failed to get datasource project_luid for {ds[tableau_constant.LUID]} due to error {e}"
+                f"Failed to get datasource project_luid for {ds_luid} due to error {e}"
             )
             logger.debug("Error stack trace", exc_info=True)
 
@@ -1755,11 +1758,11 @@ class TableauSource(StatefulIngestionSourceBase):
         # Ownership
         owner = (
             self._get_ownership(
-                datasource_info.get(tableau_constant.OWNER, {}).get(
-                    tableau_constant.USERNAME, ""
-                )
+                datasource_info[tableau_constant.OWNER][tableau_constant.USERNAME]
             )
             if datasource_info
+            and datasource_info.get(tableau_constant.OWNER)
+            and datasource_info[tableau_constant.OWNER].get(tableau_constant.USERNAME)
             else None
         )
         if owner is not None:
@@ -1769,24 +1772,15 @@ class TableauSource(StatefulIngestionSourceBase):
         dataset_props = DatasetPropertiesClass(
             name=datasource.get(tableau_constant.NAME),
             description=datasource.get(tableau_constant.DESCRIPTION),
-            customProperties={
-                tableau_constant.HAS_EXTRACTS: str(
-                    datasource.get(tableau_constant.HAS_EXTRACTS, "")
-                ),
-                tableau_constant.EXTRACT_LAST_REFRESH_TIME: datasource.get(
-                    tableau_constant.EXTRACT_LAST_REFRESH_TIME, ""
-                )
-                or "",
-                tableau_constant.EXTRACT_LAST_INCREMENTAL_UPDATE_TIME: datasource.get(
-                    tableau_constant.EXTRACT_LAST_INCREMENTAL_UPDATE_TIME, ""
-                )
-                or "",
-                tableau_constant.EXTRACT_LAST_UPDATE_TIME: datasource.get(
-                    tableau_constant.EXTRACT_LAST_UPDATE_TIME, ""
-                )
-                or "",
-                tableau_constant.TYPE: datasource.get(tableau_constant.TYPE_NAME, ""),
-            },
+            customProperties=self.get_custom_props_from_dict(
+                datasource,
+                [
+                    tableau_constant.HAS_EXTRACTS,
+                    tableau_constant.EXTRACT_LAST_REFRESH_TIME,
+                    tableau_constant.EXTRACT_LAST_INCREMENTAL_UPDATE_TIME,
+                    tableau_constant.EXTRACT_LAST_UPDATE_TIME,
+                ],
+            ),
         )
         dataset_snapshot.aspects.append(dataset_props)
 
@@ -1847,11 +1841,14 @@ class TableauSource(StatefulIngestionSourceBase):
                 dataset_snapshot.urn,
             )
 
+    def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
+        return {key: str(obj[key]) for key in keys if obj.get(key)} or None
+
     def _get_datasource_container_key(self, datasource, workbook, is_embedded_ds):
         container_key: Optional[ContainerKey] = None
         if is_embedded_ds:  # It is embedded then parent is container is workbook
             if workbook is not None:
-                container_key = self.gen_workbook_key(workbook)
+                container_key = self.gen_workbook_key(workbook[tableau_constant.ID])
             else:
                 logger.warning(
                     f"Parent container not set for embedded datasource {datasource[tableau_constant.ID]}"
@@ -1950,7 +1947,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 schema_field = SchemaField(
                     fieldPath=field[tableau_constant.NAME],
                     type=SchemaFieldDataType(type=TypeClass()),
-                    description="",
+                    description=field.get(tableau_constant.DESCRIPTION),
                     nativeDataType=nativeDataType,
                 )
 
@@ -1970,7 +1967,7 @@ class TableauSource(StatefulIngestionSourceBase):
     def get_sheetwise_upstream_datasources(self, sheet: dict) -> set:
         sheet_upstream_datasources = set()
 
-        for field in sheet.get(tableau_constant.DATA_SOURCE_FIELDS, ""):
+        for field in sheet.get(tableau_constant.DATA_SOURCE_FIELDS) or []:
             if field and field.get(tableau_constant.DATA_SOURCE):
                 sheet_upstream_datasources.add(
                     field[tableau_constant.DATA_SOURCE][tableau_constant.ID]
@@ -2057,12 +2054,15 @@ class TableauSource(StatefulIngestionSourceBase):
             sheet.get(tableau_constant.CONTAINED_IN_DASHBOARDS) is not None
             and len(sheet[tableau_constant.CONTAINED_IN_DASHBOARDS]) > 0
             and sheet[tableau_constant.CONTAINED_IN_DASHBOARDS][0] is not None
+            and sheet[tableau_constant.CONTAINED_IN_DASHBOARDS][0].get(
+                tableau_constant.PATH
+            )
         ):
             # sheet contained in dashboard
             site_part = f"/t/{self.config.site}" if self.config.site else ""
-            dashboard_path = sheet[tableau_constant.CONTAINED_IN_DASHBOARDS][0].get(
-                tableau_constant.PATH, ""
-            )
+            dashboard_path = sheet[tableau_constant.CONTAINED_IN_DASHBOARDS][0][
+                tableau_constant.PATH
+            ]
             sheet_external_url = f"{self.config.connect_uri}{site_part}/authoring/{dashboard_path}/{sheet.get(tableau_constant.NAME, '')}"
         else:
             # hidden or viz-in-tooltip sheet
@@ -2086,15 +2086,15 @@ class TableauSource(StatefulIngestionSourceBase):
         # Chart Info
         chart_info = ChartInfoClass(
             description="",
-            title=sheet.get(tableau_constant.NAME, ""),
+            title=sheet.get(tableau_constant.NAME) or "",
             lastModified=last_modified,
             externalUrl=sheet_external_url
             if self.config.ingest_external_links_for_charts
             else None,
             inputs=sorted(datasource_urn),
-            customProperties={
-                tableau_constant.LUID: sheet.get(tableau_constant.LUID) or ""
-            },
+            customProperties=self.get_custom_props_from_dict(
+                sheet, [tableau_constant.LUID]
+            ),
         )
         chart_snapshot.aspects.append(chart_info)
         # chart_snapshot doesn't support the stat aspect as list element and hence need to emit MCP
@@ -2130,13 +2130,10 @@ class TableauSource(StatefulIngestionSourceBase):
             chart_snapshot.aspects.append(owner)
 
         #  Tags
-        tag_list = sheet.get(tableau_constant.TAGS, [])
-        if tag_list and self.config.ingest_tags:
-            tag_list_str = [
-                t.get(tableau_constant.NAME, "") for t in tag_list if t is not None
-            ]
+        tags = self.get_tags(sheet)
+        if tags:
             chart_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tag_list_str)
+                builder.make_global_tag_aspect_with_tag_list(tags)
             )
         yield self.get_metadata_change_event(chart_snapshot)
         if sheet_external_url is not None and self.config.ingest_embed_url is True:
@@ -2148,7 +2145,7 @@ class TableauSource(StatefulIngestionSourceBase):
             )
         if workbook is not None:
             yield from add_entity_to_container(
-                self.gen_workbook_key(workbook),
+                self.gen_workbook_key(workbook[tableau_constant.ID]),
                 tableau_constant.CHART,
                 chart_snapshot.urn,
             )
@@ -2203,7 +2200,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 )
 
     def emit_workbook_as_container(self, workbook: Dict) -> Iterable[MetadataWorkUnit]:
-        workbook_container_key = self.gen_workbook_key(workbook)
+        workbook_container_key = self.gen_workbook_key(workbook[tableau_constant.ID])
         creator = workbook.get(tableau_constant.OWNER, {}).get(
             tableau_constant.USERNAME
         )
@@ -2215,11 +2212,9 @@ class TableauSource(StatefulIngestionSourceBase):
         )
 
         site_part = f"/site/{self.config.site}" if self.config.site else ""
-        workbook_uri = workbook.get("uri", "")
+        workbook_uri = workbook.get("uri")
         workbook_part = (
-            workbook_uri[workbook_uri.index("/workbooks/") :]
-            if workbook.get("uri")
-            else None
+            workbook_uri[workbook_uri.index("/workbooks/") :] if workbook_uri else None
         )
         workbook_external_url = (
             f"{self.config.connect_uri}/#{site_part}{workbook_part}"
@@ -2227,12 +2222,8 @@ class TableauSource(StatefulIngestionSourceBase):
             else None
         )
 
-        tag_list = workbook.get(tableau_constant.TAGS, [])
-        tag_list_str = (
-            [t.get(tableau_constant.NAME, "") for t in tag_list if t is not None]
-            if (tag_list and self.config.ingest_tags)
-            else None
-        )
+        tags = self.get_tags(workbook)
+
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
         if project_luid and project_luid in self.tableau_project_registry.keys():
@@ -2246,20 +2237,20 @@ class TableauSource(StatefulIngestionSourceBase):
 
         yield from gen_containers(
             container_key=workbook_container_key,
-            name=workbook.get(tableau_constant.NAME, ""),
+            name=workbook.get(tableau_constant.NAME) or "",
             parent_container_key=parent_key,
             description=workbook.get(tableau_constant.DESCRIPTION),
             sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
             owner_urn=owner_urn,
             external_url=workbook_external_url,
-            tags=tag_list_str,
+            tags=tags,
         )
 
-    def gen_workbook_key(self, workbook: Dict) -> WorkbookKey:
+    def gen_workbook_key(self, workbook_id: str) -> WorkbookKey:
         return WorkbookKey(
             platform=self.platform,
             instance=self.config.platform_instance,
-            workbook_id=workbook[tableau_constant.ID],
+            workbook_id=workbook_id,
         )
 
     def gen_project_key(self, project_luid):
@@ -2348,6 +2339,18 @@ class TableauSource(StatefulIngestionSourceBase):
                 dashboard, dashboard.get(tableau_constant.WORKBOOK)
             )
 
+    def get_tags(self, obj: dict) -> Optional[List[str]]:
+        tag_list = obj.get(tableau_constant.TAGS, [])
+        if tag_list and self.config.ingest_tags:
+            tag_list_str = [
+                t[tableau_constant.NAME]
+                for t in tag_list
+                if t is not None and t.get(tableau_constant.NAME)
+            ]
+
+            return tag_list_str
+        return None
+
     def emit_dashboard(
         self, dashboard: dict, workbook: Optional[Dict]
     ) -> Iterable[MetadataWorkUnit]:
@@ -2389,19 +2392,16 @@ class TableauSource(StatefulIngestionSourceBase):
             dashboardUrl=dashboard_external_url
             if self.config.ingest_external_links_for_dashboards
             else None,
-            customProperties={
-                tableau_constant.LUID: dashboard.get(tableau_constant.LUID) or ""
-            },
+            customProperties=self.get_custom_props_from_dict(
+                dashboard, [tableau_constant.LUID]
+            ),
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        tag_list = dashboard.get(tableau_constant.TAGS, [])
-        if tag_list and self.config.ingest_tags:
-            tag_list_str = [
-                t.get(tableau_constant.NAME, "") for t in tag_list if t is not None
-            ]
+        tags = self.get_tags(dashboard)
+        if tags:
             dashboard_snapshot.aspects.append(
-                builder.make_global_tag_aspect_with_tag_list(tag_list_str)
+                builder.make_global_tag_aspect_with_tag_list(tags)
             )
 
         if self.config.extract_usage_stats:
@@ -2459,7 +2459,7 @@ class TableauSource(StatefulIngestionSourceBase):
 
         if workbook is not None:
             yield from add_entity_to_container(
-                self.gen_workbook_key(workbook),
+                self.gen_workbook_key(workbook[tableau_constant.ID]),
                 tableau_constant.DASHBOARD,
                 dashboard_snapshot.urn,
             )
