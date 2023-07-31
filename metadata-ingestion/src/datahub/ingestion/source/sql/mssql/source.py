@@ -140,11 +140,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(
-    SourceCapability.USAGE_STATS,
-    "Not provided by this module, use `bigquery-usage` for that.",
-    supported=False,
-)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class SQLServerSource(SQLAlchemySource):
     """
@@ -604,37 +599,31 @@ class SQLServerSource(SQLAlchemySource):
         self,
         data_job: MSSQLDataJob,
     ) -> Iterable[MetadataWorkUnit]:
-        wu = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityType=data_job.type,
             entityUrn=data_job.urn,
             changeType=ChangeTypeClass.UPSERT,
             aspect=data_job.as_datajob_info_aspect,
         ).as_workunit()
-        self.report.report_workunit(wu)
-        yield wu
 
-        wu = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityType=data_job.type,
             entityUrn=data_job.urn,
             changeType=ChangeTypeClass.UPSERT,
             aspect=data_job.as_datajob_input_output_aspect,
         ).as_workunit()
-        self.report.report_workunit(wu)
-        yield wu
         # TODO: Add SubType when it appear
 
     def construct_flow_workunits(
         self,
         data_flow: MSSQLDataFlow,
     ) -> Iterable[MetadataWorkUnit]:
-        wu = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityType=data_flow.type,
             entityUrn=data_flow.urn,
             changeType=ChangeTypeClass.UPSERT,
             aspect=data_flow.as_dataflow_info_aspect,
         ).as_workunit()
-        self.report.report_workunit(wu)
-        yield wu
         # TODO: Add SubType when it appear
 
     def get_inspectors(self) -> Iterable[Inspector]:
