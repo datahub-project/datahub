@@ -136,11 +136,11 @@ public class Application extends Controller {
             .stream()
             // Remove X-DataHub-Actor to prevent malicious delegation.
             .filter(entry -> !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(entry.getKey()))
-            .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
-            .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
-            .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equals(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
             // Remove Host s.th. service meshes do not route to wrong host
-            .filter(entry -> !Http.HeaderNames.HOST.equals(entry.getKey()))
+            .filter(entry -> !Http.HeaderNames.HOST.equalsIgnoreCase(entry.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
         )
         .addHeader(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue)
@@ -152,8 +152,8 @@ public class Application extends Controller {
           final ResponseHeader header = new ResponseHeader(apiResponse.getStatus(), apiResponse.getHeaders()
               .entrySet()
               .stream()
-              .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equals(entry.getKey()))
-              .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equals(entry.getKey()))
+              .filter(entry -> !Http.HeaderNames.CONTENT_LENGTH.equalsIgnoreCase(entry.getKey()))
+              .filter(entry -> !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
               .map(entry -> Pair.of(entry.getKey(), String.join(";", entry.getValue())))
               .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
           final HttpEntity body = new HttpEntity.Strict(apiResponse.getBodyAsBytes(), Optional.ofNullable(apiResponse.getContentType()));
