@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { t } from 'i18next';
 import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
 import styled from 'styled-components';
 import { red } from '@ant-design/colors';
@@ -91,7 +92,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to create Token!: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t ("Failed to create Token!")`: \n ${e.message || ''}`, duration: 3 });
             })
             .finally(() => {
                 onCreateToken();
@@ -112,7 +113,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     return (
         <>
             <Modal
-                title="Create new Token"
+                title={t ("Create new Token")}
                 visible={visible}
                 onCancel={onModalClose}
                 footer={
@@ -134,31 +135,31 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                         setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                     }
                 >
-                    <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                        <Typography.Paragraph>Give your new token a name. </Typography.Paragraph>
+                    <Form.Item label={<Typography.Text strong>{t ("Name")}</Typography.Text>}>
+                        <Typography.Paragraph>{t ("Give your new token a name.")} </Typography.Paragraph>
                         <Form.Item
-                            name="name"
+                            name={t ("name")}
                             rules={[
                                 {
                                     required: true,
-                                    message: 'Enter a token name.',
+                                    message: t ("Enter a token name."),
                                 },
                                 { whitespace: true },
                                 { min: 1, max: 50 },
                             ]}
                             hasFeedback
                         >
-                            <Input placeholder="A name for your token" />
+                            <Input placeholder= {t ("A name for your token")} />
                         </Form.Item>
                     </Form.Item>
-                    <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                        <Typography.Paragraph>An optional description for your new token.</Typography.Paragraph>
-                        <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
-                            <Input placeholder="A description for your token" />
+                    <Form.Item label={<Typography.Text strong>{t ("Description")}</Typography.Text>}>
+                        <Typography.Paragraph>{t ("An optional description for your new token.")}</Typography.Paragraph>
+                        <Form.Item name={t ("description")} rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
+                            <Input placeholder={t ("A description for your token")} />
                         </Form.Item>
                     </Form.Item>
                     <ExpirationSelectContainer>
-                        <Typography.Text strong>Expires in</Typography.Text>
+                        <Typography.Text strong>{t ("Expires in")}</Typography.Text>
                         <Form.Item name="duration" noStyle>
                             <ExpirationDurationSelect>
                                 {ACCESS_TOKEN_DURATIONS.map((duration) => (
