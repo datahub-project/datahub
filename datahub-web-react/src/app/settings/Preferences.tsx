@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components';
 import { Divider, Typography, Switch, Card, message } from 'antd';
 
@@ -63,19 +64,18 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <TokensHeaderContainer>
-                        <TokensTitle level={2}>显示设置</TokensTitle>
-                        <Typography.Paragraph type="secondary">管理您的显示选项.</Typography.Paragraph>
+                        <TokensTitle level={2}>{t ("Appearance")}</TokensTitle>
+                        <Typography.Paragraph type="secondary">{t ("Manage your appearance settings.")}</Typography.Paragraph>
                     </TokensHeaderContainer>
                 </TokensContainer>
                 <Divider />
                 <Card>
                     <UserSettingRow>
                         <span>
-                            <SettingText>使用简化版主页 </SettingText>
+                            <SettingText>{t ("Show simplified homepage")} </SettingText>
                             <div>
                                 <DescriptionText>
-                                    简化版主页仅显示 Domains, Charts, Datasets, Dashboards 以及
-                                    Glossary Terms
+                                    {t ("Limits entity browse cards on homepage to Domains, Charts, Datasets, Dashboards and Glossary Terms")}
                                 </DescriptionText>
                             </div>
                         </span>
@@ -95,7 +95,7 @@ export const Preferences = () => {
                                         ? EventType.ShowStandardHomepageEvent
                                         : EventType.ShowSimplifiedHomepageEvent,
                                 });
-                                message.success({ content: '设置成功!', duration: 2 });
+                                message.success({ content: t ("Setting updated!"), duration: 2 });
                                 refetchUser?.();
                             }}
                         />
