@@ -230,5 +230,12 @@
   "Apply to ALL domains by default. Select domains to apply to specific domains.": "默认应用于所有域。选择域以应用于特定域。",
   "Select a set of privileges to permit.": "选择一组允许使用的权限。",
   "Privileges": "权限集",
-  "All Privileges": "所有权限"
+  "All Privileges": "所有权限",
+  "A name for your new policy.":"策略名称",
+  "Your policy name":"您的策略名称",
+  "The type of policy you would like to create.": "您要创建的策略类型",
+  "The Platform policy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.": "Platform 策略类型允许您为用户分配顶级 DataHub 平台权限。这些权限包括管理用户和组、创建策略、查看分析仪表板等。",
+  "The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.": "Metadata 策略类型允许你为用户分配元数据权限。这些权限包括操作与数据集、图表、仪表盘等相关的所有权、标记、文档等元数据的能力。",
+  "An optional description for your new policy.": "新策略的描述(可选)",
+  "Your policy description": ""
 }

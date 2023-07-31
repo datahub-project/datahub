@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import { Form, Input, Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { PolicyType } from '../../../types.generated';
@@ -25,51 +26,48 @@ const TypeDescriptionParagraph = styled(Typography.Paragraph)`
 `;
 
 export default function PolicyTypeForm({
-    policyType,
-    setPolicyType,
-    policyName,
-    setPolicyName,
-    policyDescription,
-    setPolicyDescription,
-}: Props) {
+                                           policyType,
+                                           setPolicyType,
+                                           policyName,
+                                           setPolicyName,
+                                           policyDescription,
+                                           setPolicyDescription,
+                                       }: Props) {
     const updatePolicyName = (name: string) => {
         setPolicyName(name);
     };
 
     return (
         <TypeForm layout="vertical">
-            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>规则名称</Typography.Text>}>
-                <Typography.Paragraph>您的规则名称.</Typography.Paragraph>
+            <Form.Item name="policyName" labelAlign="right" label={<Typography.Text strong>{t ("Name")}</Typography.Text>}>
+                <Typography.Paragraph>{t ("A name for your new policy.")}</Typography.Paragraph>
                 <Input
-                    placeholder="您的规则名称"
+                    placeholder= {t ("Your policy name")}
                     value={policyName}
                     onChange={(event) => updatePolicyName(event.target.value)}
                 />
             </Form.Item>
-            <Form.Item name="policyType" label={<Typography.Text strong>规则类型</Typography.Text>}>
-                <Typography.Paragraph>您要创建的规则类型.</Typography.Paragraph>
+            <Form.Item name="policyType" label={<Typography.Text strong>{t("Type")}</Typography.Text>}>
+                <Typography.Paragraph>{t ("The type of policy you would like to create.")}</Typography.Paragraph>
                 <Select defaultValue={policyType} onSelect={(value) => setPolicyType(value as PolicyType)}>
                     <Select.Option value={PolicyType.Platform}>Platform</Select.Option>
                     <Select.Option value={PolicyType.Metadata}>Metadata</Select.Option>
                 </Select>
                 <TypeDescriptionParagraph type="secondary">
-                    The <b>Platform</b> policy type allows you to assign top-level DataHub Platform privileges to users.
-                    These include managing users and groups, creating policies, viewing analytics dashboards and more.
+                    {t ("The Platform policy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.")}
                     <br />
                     <br />
-                    The <b>Metadata</b> policy type allows you to assign metadata privileges to users. These include the
-                    ability to manipulate metadata like ownership, tags, documentation associated with Datasets, Charts,
-                    Dashboards, & more.
+                    {t ("The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.")}
                 </TypeDescriptionParagraph>
             </Form.Item>
             <Form.Item
                 name="policyDescription"
                 labelAlign="right"
-                label={<Typography.Text strong>规则说明</Typography.Text>}
+                label={<Typography.Text strong>{t ("Description")}</Typography.Text>}
             >
-                <Typography.Paragraph>规则说明（可选）.</Typography.Paragraph>
+                <Typography.Paragraph>{t ("An optional description for your new policy.")}</Typography.Paragraph>
                 <Input
-                    placeholder="规则说明"
+                    placeholder={t ("Your policy description")}
                     value={policyDescription}
                     onChange={(event) => setPolicyDescription(event.target.value)}
                 />

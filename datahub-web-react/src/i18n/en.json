@@ -230,5 +230,12 @@
   "Apply to ALL domains by default. Select domains to apply to specific domains.": "Apply to ALL domains by default. Select domains to apply to specific domains.",
   "Select a set of privileges to permit.": "Select a set of privileges to permit.",
   "Privileges":   "Privileges",
-  "All Privileges":   "All Privileges"
+  "All Privileges":   "All Privileges",
+  "A name for your new policy.": "A name for your new policy.",
+  "Your policy name": "Your policy name",
+  "The type of policy you would like to create.": "The type of policy you would like to create.",
+  "The Platform policy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.": "The Platformpolicy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.",
+  "The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.": "The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.",
+  "An optional description for your new policy.": "An optional description for your new policy.",
+  "Your policy description": "Your policy description"
 }
