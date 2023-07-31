@@ -121,6 +121,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
   public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
   public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
+  public static final String SUBSCRIPTIONS_SCHEMA_FILE = "subscriptions.graphql";
 
   // OSS Types
   private GlossaryTermType glossaryTermType;
@@ -209,7 +210,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         MONITORS_SCHEMA_FILE,
         ANOMALY_SCHEMA_FILE,
         INTEGRATIONS_SCHEMA_FILE,
-        NOTIFICATIONS_SCHEMA_FILE
+        NOTIFICATIONS_SCHEMA_FILE,
+        SUBSCRIPTIONS_SCHEMA_FILE
         );
   }
 
