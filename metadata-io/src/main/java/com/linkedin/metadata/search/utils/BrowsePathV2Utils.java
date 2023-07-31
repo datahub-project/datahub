@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 
@@ -140,7 +141,9 @@ public class BrowsePathV2Utils {
   private static BrowsePathEntryArray getDefaultDatasetPathEntries(@Nonnull final String datasetName, @Nonnull final Character delimiter) {
     BrowsePathEntryArray browsePathEntries = new BrowsePathEntryArray();
     if (datasetName.contains(delimiter.toString())) {
-      final List<String> datasetNamePathParts = Arrays.asList(datasetName.split(Pattern.quote(delimiter.toString())));
+      final List<String> datasetNamePathParts = Arrays.stream(datasetName.split(Pattern.quote(delimiter.toString())))
+              .filter((name) -> !name.isEmpty())
+              .collect(Collectors.toList());
       // Omit the name from the path.
       datasetNamePathParts.subList(0, datasetNamePathParts.size() - 1).forEach((part -> {
         browsePathEntries.add(createBrowsePathEntry(part, null));
