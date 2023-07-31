@@ -1,11 +1,10 @@
+import { renderers as acrylRenderers } from './acrylRenderers';
 import FilterRendererRegistry from './FilterRendererRegistry';
 
 /**
  * Configure the render registry.
  */
-const RENDERERS = [
-    /* Renderers will be registered here  */
-];
+const RENDERERS = [...acrylRenderers];
 const REGISTRY = new FilterRendererRegistry();
 RENDERERS.forEach((renderer) => REGISTRY.register(renderer));
 
