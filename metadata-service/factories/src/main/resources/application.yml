@@ -297,6 +297,7 @@ notifications:
         defaultChannel: ${SLACK_DEFAULT_CHANNEL:datahub-slack-notifications}
         # Whether we should attempt to retry sending important Slack notifications
         retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
+        maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:
