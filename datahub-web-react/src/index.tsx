@@ -4,7 +4,6 @@ import './graphql-mock/createServer';
 import './i18n/config'
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import "./i18n/config";
 
 ReactDOM.render(
     <React.StrictMode>
