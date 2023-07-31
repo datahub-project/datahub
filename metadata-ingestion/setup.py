@@ -413,7 +413,6 @@ mypy_stubs = {
     "types-protobuf>=4.21.0.1",
 }
 
-
 pytest_dep = "pytest>=6.2.2"
 deepdiff_dep = "deepdiff"
 test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
