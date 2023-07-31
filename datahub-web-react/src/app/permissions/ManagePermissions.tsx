@@ -1,4 +1,5 @@
 import React from 'react';
+import {t } from 'i18next';
 import { Typography } from 'antd';
 import styled from 'styled-components';
 import { RoutedTabs } from '../shared/RoutedTabs';
@@ -37,10 +38,8 @@ const Content = styled.div`
 enum TabType {
     Roles = 'Roles',
     Policies = 'Policies',
-    RolesZh = '角色',
-    PoliciesZh = '规则',
 }
-const ENABLED_TAB_TYPES = [TabType.RolesZh, TabType.PoliciesZh];
+const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
 export const ManagePermissions = () => {
     /**
@@ -50,7 +49,7 @@ export const ManagePermissions = () => {
     const getTabs = () => {
         return [
             {
-                name: TabType.RolesZh,
+                name: TabType.Roles,
                 path: TabType.Roles.toLocaleLowerCase(),
                 content: <ManageRoles />,
                 display: {
@@ -58,7 +57,7 @@ export const ManagePermissions = () => {
                 },
             },
             {
-                name: TabType.PoliciesZh,
+                name: TabType.Policies,
                 path: TabType.Policies.toLocaleLowerCase(),
                 content: <ManagePolicies />,
                 display: {
@@ -74,9 +73,9 @@ export const ManagePermissions = () => {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>权限管理</PageTitle>
+                <PageTitle level={3}>{t ("Manage Permissions")}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    查看与管理您的DataHub权限.
+                    {t ("View your DataHub permissions. Take administrative actions.")}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <Content>
