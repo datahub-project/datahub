@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { Maybe } from 'graphql/jsutils/Maybe';
@@ -236,27 +237,24 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>应用到</Typography.Title>
-                <Typography.Paragraph>选择规则需要应用到的用户或者用户组.</Typography.Paragraph>
+                <Typography.Title level={4}>{t ("Applies to")}</Typography.Title>
+                <Typography.Paragraph>{t ("Select the users & groups that this policy should apply to.")}</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item label={<Typography.Text strong>所有者</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>{t ("Owners")}</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
-                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
-                        selected privileges.
+                        {t ("Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected privileges.")}
                     </Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
                             <Typography.Paragraph>
-                                List of types of ownership which will be used to match owners. If empty, the policies
-                                will applied to any type of ownership.
+                                {t("List of types of ownership which will be used to match owners. If empty, the policies will applied to any type of ownership.")}
                             </Typography.Paragraph>
                             <Select
                                 value={ownershipTypesSelectValue}
                                 mode="multiple"
-                                placeholder="所有者类型"
+                                placeholder={ t ("Ownership Types")}
                                 onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
                                 onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
                                 tagRender={(tagProps) => {
@@ -279,15 +277,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>用户</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{t ("Users")}</Typography.Text>}>
                 <Typography.Paragraph>
-                    选择指定的用户来应用规则，如果选择 `所有用户`，那么该规则会应用到所有用户.
+                    {t ("Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.")}
                 </Typography.Paragraph>
                 <Select
                     value={usersSelectValue}
                     mode="multiple"
                     filterOption={false}
-                    placeholder="查询用户..."
+                    placeholder={t ("Search for users...")}
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
@@ -296,17 +294,17 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">所有用户</Select.Option>
+                    <Select.Option value="All">{t ("All Users")}</Select.Option>
                 </Select>
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>用户组</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{t ("Groups")}</Typography.Text>}>
                 <Typography.Paragraph>
-                    选择指定的用户组来应用规则，如果选择 `所有用户组`，那么该规则会应用到所有用户组.
+                    {t ("Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.")}
                 </Typography.Paragraph>
                 <Select
                     value={groupsSelectValue}
                     mode="multiple"
-                    placeholder="查询用户组..."
+                    placeholder={t ("Search for groups...")}
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
@@ -316,7 +314,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">所有用户组</Select.Option>
+                    <Select.Option value="All">{t ("All Groups")}</Select.Option>
                 </Select>
             </Form.Item>
         </ActorForm>

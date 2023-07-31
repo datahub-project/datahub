@@ -194,5 +194,12 @@
   "Search policies...": "查找策略...",
   "No Policies!": "未找到策略!",
   "Applies to": "应用到",
-  "Select the users & groups that this policy should apply to.":"选择该策略应适用的用户 & 用户组."
+  "Select the users & groups that this policy should apply to.":"选择该策略应适用的用户 & 用户组.",
+  "Owners": "所有者",
+  "Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected privileges.": "该策略是否适用于元数据资产的所有者。如果为 是，那些直接或通过适用者组间接标记为元数据资产所有者的人，将拥有所选权限。",
+  "List of types of ownership which will be used to match owners. If empty, the policies will applied to any type of ownership.": "用于匹配所有者的所有权类型列表。如果为空，则策略 将适用于任何类型的所有权。",
+  "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.": "搜索该策略应适用的特定用户，或选择 `所有用户` 将其适用于所有用户。",
+  "Search for users...": "查找用户...",
+  "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.": "搜索此策略应适用的特定组，或选择 `所有组` 将其适用于所有组。",
+  "Search for groups...": "查找用户组..."
 }

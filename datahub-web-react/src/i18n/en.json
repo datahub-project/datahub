@@ -194,5 +194,12 @@
   "Search policies...": "Search policies...",
   "No Policies!": "No Policies!",
   "Applies to": "Applies to",
-  "Select the users & groups that this policy should apply to.": "Select the users & groups that this policy should apply to."
+  "Select the users & groups that this policy should apply to.": "Select the users & groups that this policy should apply to.",
+  "Owners": "Owners",
+  "Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected privileges.": "Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected privileges.",
+  "List of types of ownership which will be used to match owners. If empty, the policies will applied to any type of ownership.": "List of types of ownership which will be used to match owners. If empty, the policies will applied to any type of ownership.",
+  "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.": "Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.",
+  "Search for users...": "Search for users...",
+  "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.": "Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.",
+  "Search for groups...": "Search for groups..."
 }
