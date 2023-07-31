@@ -7,19 +7,29 @@ To use LookML ingestion through the UI, or automate github checkout through the 
 In a nutshell, there are three steps:
 
 1. Generate a private-public ssh key pair. This will typically generate two files, e.g. looker_datahub_deploy_key (this is the private key) and looker_datahub_deploy_key.pub (this is the public key)
-![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/ssh-key-generation.png)
+   ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/ssh-key-generation.png)
 
 2. Add the public key to your Looker git repo as a deploy key with read access (no need to provision write access). Follow the guide [here](https://docs.github.com/en/developers/overview/managing-deploy-keys#deploy-keys) for that.
-![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
+   ![Image](https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gitssh/git-deploy-key.png)
 
 3. Make note of the private key file, you will need to paste the contents of the file into the **GitHub Deploy Key** field later while setting up [ingestion using the UI](#ui-based-ingestion-recommended-for-ease-of-use).
+
+### Setup your connection mapping
+
+The connection mapping enables DataHub to accurately generate lineage to your upstream warehouse.
+It maps Looker connection names to the platform and database that they're pointing to.
+
+There's two ways to configure this:
+
+1. Provide Looker **admin** API credentials, and we'll automatically map lineage correctly. Details on how to do this are below.
+2. Manually populate the `connection_to_platform_map` and `project_name` configuration fields. See the starter recipe for an example of what this should look like.
 
 #### [Optional] Create an API key with admin privileges
 
 See the [Looker authentication docs](https://docs.looker.com/reference/api-and-integration/api-auth#authentication_with_an_sdk) for the steps to create a client ID and secret.
 You need to ensure that the API key is attached to a user that has Admin privileges.
 
-If that is not possible, read the configuration section and provide an offline specification of the `connection_to_platform_map` and the `project_name`.
+If you don't want to provide admin API credentials, you can manually populate the `connection_to_platform_map` and `project_name` in the ingestion configuration.
 
 ### Ingestion Options
 
@@ -80,7 +90,6 @@ on:
   release:
     types: [published, edited]
   workflow_dispatch:
-    
 
 jobs:
   lookml-metadata-upload:
@@ -89,12 +98,13 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
       - name: Run LookML ingestion
         run: |
           pip install 'acryl-datahub[lookml,datahub-rest]'
           cat << EOF > lookml_ingestion.yml
-          # LookML ingestion configuration
+          # LookML ingestion configuration.
+          # This is a full ingestion recipe, and supports all config options that the LookML source supports.
           source:
             type: "lookml"
             config:
@@ -106,8 +116,8 @@ jobs:
               # Options
               #connection_to_platform_map:
               #  connection-name:
-                  #platform: platform-name (e.g. snowflake)
-                  #default_db: default-db-name (e.g. DEMO_PIPELINE)
+              #    platform: platform-name (e.g. snowflake)
+              #    default_db: default-db-name (e.g. DEMO_PIPELINE)
               api:
                 client_id: ${LOOKER_CLIENT_ID}
                 client_secret: ${LOOKER_CLIENT_SECRET}
@@ -115,13 +125,13 @@ jobs:
           sink:
             type: datahub-rest
             config:
-              server: ${DATAHUB_GMS_HOST}
-              token: ${DATAHUB_TOKEN}
+              server: ${DATAHUB_GMS_URL}
+              token: ${DATAHUB_GMS_TOKEN}
           EOF
           datahub ingest -c lookml_ingestion.yml
         env:
-          DATAHUB_GMS_HOST: ${{ secrets.DATAHUB_GMS_HOST }}
-          DATAHUB_TOKEN: ${{ secrets.DATAHUB_TOKEN }}
+          DATAHUB_GMS_URL: ${{ secrets.DATAHUB_GMS_URL }}
+          DATAHUB_GMS_TOKEN: ${{ secrets.DATAHUB_GMS_TOKEN }}
           LOOKER_BASE_URL: ${{ secrets.LOOKER_BASE_URL }}
           LOOKER_CLIENT_ID: ${{ secrets.LOOKER_CLIENT_ID }}
           LOOKER_CLIENT_SECRET: ${{ secrets.LOOKER_CLIENT_SECRET }}
