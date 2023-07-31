@@ -223,10 +223,9 @@ kafka:
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
-    #url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8080/schema-registry/api/}
-    #awsGlue:
-    #  region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
-    #  registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+    awsGlue:
+      region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
+      registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
   schema:
     registry:
       security:
