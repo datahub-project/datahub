@@ -27,6 +27,7 @@ export const reducer = (state: State, action: Action): State => {
         case ActionTypes.INITIALIZE: {
             const { isPersonal, slackSinkEnabled, subscription, subscriptionChannel, settingsChannel } = action.payload;
 
+            const entityChangeTypes = subscription?.entityChangeTypes ?? [];
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
             const isSlackAndSubscriptionEnabled =
                 slackSinkEnabled && notificationSinkTypes.includes(NotificationSinkType.Slack);
@@ -41,7 +42,7 @@ export const reducer = (state: State, action: Action): State => {
                 isPersonal,
                 edited: !subscription,
                 notificationTypes: {
-                    checkedKeys: [],
+                    checkedKeys: entityChangeTypes,
                     expandedKeys: [],
                 },
                 subscribeToUpstream: hasUpstreamSubscription,
