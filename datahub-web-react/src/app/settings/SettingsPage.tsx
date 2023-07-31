@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import { Menu, Typography, Divider } from 'antd';
 import {
     BankOutlined,
@@ -96,8 +97,8 @@ export const SettingsPage = () => {
         <PageContainer>
             <SettingsBarContainer>
                 <SettingsBarHeader>
-                    <PageTitle level={3}>设置</PageTitle>
-                    <Typography.Paragraph type="secondary">设置您的DataHub.</Typography.Paragraph>
+                    <PageTitle level={3}>{t ("Settings")}</PageTitle>
+                    <Typography.Paragraph type="secondary">{t ("Manage your DataHub settings.")}</Typography.Paragraph>
                 </SettingsBarHeader>
                 <ThinDivider />
                 <Menu
@@ -109,46 +110,46 @@ export const SettingsPage = () => {
                         history.replace(`${url}/${newPath.key}`);
                     }}
                 >
-                    <Menu.ItemGroup title="开发设置">
+                    <Menu.ItemGroup title= { t ("Developer")}>
                         <Menu.Item key="tokens">
                             <SafetyCertificateOutlined />
-                            <ItemTitle>访问令牌</ItemTitle>
+                            <ItemTitle>{t ("Access Tokens")}</ItemTitle>
                         </Menu.Item>
                     </Menu.ItemGroup>
                     {(showPolicies || showUsersGroups) && (
-                        <Menu.ItemGroup title="访问">
+                        <Menu.ItemGroup title= {t ("Access")}>
                             {showUsersGroups && (
                                 <Menu.Item key="identities">
                                     <UsergroupAddOutlined />
-                                    <ItemTitle>用户和用户组</ItemTitle>
+                                    <ItemTitle>{t ("Users & Groups")}</ItemTitle>
                                 </Menu.Item>
                             )}
                             {showPolicies && (
                                 <Menu.Item key="permissions">
                                     <BankOutlined />
-                                    <ItemTitle>权限</ItemTitle>
+                                    <ItemTitle>{t ("Permissions")}</ItemTitle>
                                 </Menu.Item>
                             )}
                         </Menu.ItemGroup>
                     )}
 
-                    <Menu.ItemGroup title="管理">
+                    <Menu.ItemGroup title= {t ("Manage")}>
                         {showViews && (
                             <Menu.Item key="views">
-                                <FilterOutlined /> <ItemTitle>我的视图</ItemTitle>
+                                <FilterOutlined /> <ItemTitle>{t ("My Views")}</ItemTitle>
                             </Menu.Item>
                         )}
                         {showOwnershipTypes && (
                             <Menu.Item key="ownership">
-                                <TeamOutlined /> <ItemTitle>所有者类型</ItemTitle>
+                                <TeamOutlined /> <ItemTitle>{t ("Ownership Types")}</ItemTitle>
                             </Menu.Item>
                         )}
                     </Menu.ItemGroup>
 
-                    <Menu.ItemGroup title="首选项">
+                    <Menu.ItemGroup title={t ("Preferences")}>
                         <Menu.Item key="preferences">
                             <ToolOutlined />
-                            <ItemTitle>显示设置</ItemTitle>
+                            <ItemTitle>{t ("Appearance")}</ItemTitle>
                         </Menu.Item>
                     </Menu.ItemGroup>
                 </Menu>

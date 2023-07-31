@@ -65,6 +65,7 @@
   "View your DataHub users & groups": "管理与查看您Datahub中的用户和用户组",
   "Users": "用户",
   "Groups": "用户组",
+  "Users & Groups": "用户 & 用户组",
   "Loading users...": "用户加载中...",
   "Failed to load users! An unexpected error occurred.": "用户加载失败!发生未知错误.",
   "An unexpected error occurred.": "发生未知错误.",
