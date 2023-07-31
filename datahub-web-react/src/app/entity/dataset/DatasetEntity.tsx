@@ -20,7 +20,7 @@ import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { ValidationsTab } from '../shared/tabs/Dataset/Validations/ValidationsTab';
+import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import { OperationsTab } from './profile/OperationsTab';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
@@ -154,8 +154,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Validation',
-                    component: ValidationsTab,
-                    // In SaaS, Validations tab is always enabled due to native assertion monitoring / observability module.
+                    component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                 },
                 {
                     name: 'Operations',

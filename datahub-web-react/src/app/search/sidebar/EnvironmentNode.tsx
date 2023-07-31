@@ -38,7 +38,7 @@ const EnvironmentNode = () => {
         if (count) toggle();
     };
 
-    const { loaded, error, platformAggregations } = useAggregationsQuery({
+    const { loaded, error, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [PLATFORM_FILTER_NAME],
     });
@@ -75,7 +75,7 @@ const EnvironmentNode = () => {
                             <PlatformNode />
                         </BrowseProvider>
                     ))}
-                    {error && <SidebarLoadingError />}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
                 </ExpandableNode.Body>
             }
         />

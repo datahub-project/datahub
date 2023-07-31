@@ -6,9 +6,9 @@ import {
     AssertionActionType,
     AssertionType,
     CronSchedule,
-    SlaAssertionScheduleType,
+    FreshnessAssertionScheduleType,
 } from '../../../../../../../../../types.generated';
-import { CronScheduleBuilder } from './sla/CronScheduleBuilder';
+import { CronScheduleBuilder } from './freshness/CronScheduleBuilder';
 import { toggleRaiseIncidentState, toggleResolveIncidentState } from './utils';
 
 const Step = styled.div`
@@ -40,7 +40,7 @@ const ControlsContainer = styled.div`
  * Step for defining the schedule + actions for an assertion
  */
 export const ConfigureEvaluationScheduleStep = ({ state, updateState, prev, submit }: StepProps) => {
-    const showSchedule = state.assertion?.slaAssertion?.schedule?.type !== SlaAssertionScheduleType.Cron;
+    const showSchedule = state.assertion?.freshnessAssertion?.schedule?.type !== FreshnessAssertionScheduleType.Cron;
     const actions = state.assertion?.actions;
 
     const raiseIncidents =
@@ -56,14 +56,14 @@ export const ConfigureEvaluationScheduleStep = ({ state, updateState, prev, subm
     };
 
     /**
-     * Auto-Configure the Schedule for any SLA Assertions that leverage a cron schedule.
+     * Auto-Configure the Schedule for any Freshness Assertions that leverage a cron schedule.
      * This is because CRON schedules should be executed on their schedules,
      * as it does not make sense to evaluate a cron-schedule assertion on some fixed cadence.
      */
     useEffect(() => {
         if (!state.schedule) {
-            if (state.assertion?.type === AssertionType.Sla) {
-                const cronSchedule = state.assertion?.slaAssertion?.schedule?.cron;
+            if (state.assertion?.type === AssertionType.Freshness) {
+                const cronSchedule = state.assertion?.freshnessAssertion?.schedule?.cron;
                 if (cronSchedule) {
                     updateState({
                         ...state,

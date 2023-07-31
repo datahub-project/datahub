@@ -1,15 +1,18 @@
 import { message } from 'antd';
 import analytics, { EventType } from '../../../../../../../analytics';
-import { useCreateSlaAssertionMutation } from '../../../../../../../../graphql/assertion.generated';
+import { useCreateFreshnessAssertionMutation } from '../../../../../../../../graphql/assertion.generated';
 import { AssertionType, Monitor } from '../../../../../../../../types.generated';
-import { builderStateToCreateAssertionMonitorVariables, builderStateToCreateSlaAssertionVariables } from './utils';
+import {
+    builderStateToCreateAssertionMonitorVariables,
+    builderStateToCreateFreshnessAssertionVariables,
+} from './utils';
 import { useCreateAssertionMonitorMutation } from '../../../../../../../../graphql/monitor.generated';
 
 export const useCreateAssertionMonitor = (builderState, onCreate): (() => void) => {
     /**
      * Mutations for creating Assertions, and the Monitor that evaluates them.
      */
-    const [createSlaAssertionMutation] = useCreateSlaAssertionMutation();
+    const [createFreshnessAssertionMutation] = useCreateFreshnessAssertionMutation();
     const [createAssertionMonitorMutation] = useCreateAssertionMonitorMutation();
 
     /**
@@ -17,8 +20,8 @@ export const useCreateAssertionMonitor = (builderState, onCreate): (() => void) 
      */
     const getCreateAssertionMutation = () => {
         switch (builderState.assertion?.type) {
-            case AssertionType.Sla:
-                return createSlaAssertionMutation;
+            case AssertionType.Freshness:
+                return createFreshnessAssertionMutation;
             default:
                 return null;
         }
@@ -29,8 +32,8 @@ export const useCreateAssertionMonitor = (builderState, onCreate): (() => void) 
      */
     const getCreateAssertionVariables = () => {
         switch (builderState.assertion?.type) {
-            case AssertionType.Sla:
-                return builderStateToCreateSlaAssertionVariables(builderState);
+            case AssertionType.Freshness:
+                return builderStateToCreateFreshnessAssertionVariables(builderState);
             default:
                 return null;
         }
@@ -82,7 +85,7 @@ export const useCreateAssertionMonitor = (builderState, onCreate): (() => void) 
             })
                 .then(({ data, errors }) => {
                     if (!errors) {
-                        createMonitor(data?.createSlaAssertion?.urn);
+                        createMonitor(data?.createFreshnessAssertion?.urn);
                     }
                 })
                 .catch(() => {

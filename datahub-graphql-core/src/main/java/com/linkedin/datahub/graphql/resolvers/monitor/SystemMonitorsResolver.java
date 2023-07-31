@@ -89,11 +89,11 @@ public class SystemMonitorsResolver implements DataFetcher<CompletableFuture<Sys
     final List<SystemMonitor> monitors = new ArrayList<>();
 
     // 1. Try to add SLA Monitor Type.
-    Urn slaMonitorUrn = getMonitorUrnForSystemMonitorType(entityUrn, SystemMonitorType.SLA);
+    Urn slaMonitorUrn = getMonitorUrnForSystemMonitorType(entityUrn, SystemMonitorType.FRESHNESS);
     if (_monitorService.getMonitorInfo(slaMonitorUrn) != null) {
       Monitor partialMonitor = new Monitor();
       partialMonitor.setUrn(slaMonitorUrn.toString());
-      monitors.add(new SystemMonitor(SystemMonitorType.SLA, partialMonitor));
+      monitors.add(new SystemMonitor(SystemMonitorType.FRESHNESS, partialMonitor));
     }
 
     return monitors;

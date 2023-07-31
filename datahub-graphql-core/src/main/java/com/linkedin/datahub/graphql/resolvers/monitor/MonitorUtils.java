@@ -48,8 +48,8 @@ public class MonitorUtils {
    */
   public static String getIdForSystemMonitorType(@Nonnull final SystemMonitorType type) {
     switch (type) {
-      case SLA:
-        return SLA_SYSTEM_MONITOR_ID;
+      case FRESHNESS:
+        return FRESHNESS_SYSTEM_MONITOR_ID;
       default:
         throw new IllegalArgumentException(String.format("Unrecognized SystemMonitorType %s provided!", type));
     }

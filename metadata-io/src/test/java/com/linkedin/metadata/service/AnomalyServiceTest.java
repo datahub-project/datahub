@@ -118,7 +118,7 @@ public class AnomalyServiceTest {
         mockClient,
         Mockito.mock(Authentication.class));
     service.raiseAnomaly(
-        AnomalyType.SLA,
+        AnomalyType.FRESHNESS,
         null,
         null,
         TEST_DATASET_URN,
@@ -127,7 +127,7 @@ public class AnomalyServiceTest {
     );
 
     final AnomalyInfo expectedInfo = new AnomalyInfo()
-        .setType(AnomalyType.SLA)
+        .setType(AnomalyType.FRESHNESS)
         .setEntity(TEST_DATASET_URN)
         .setStatus(new AnomalyStatus()
             .setState(AnomalyState.ACTIVE)
@@ -156,7 +156,7 @@ public class AnomalyServiceTest {
         mockClient,
         Mockito.mock(Authentication.class));
     service.raiseAnomaly(
-        AnomalyType.SLA,
+        AnomalyType.FRESHNESS,
         2,
 
         "description",
@@ -166,7 +166,7 @@ public class AnomalyServiceTest {
     );
 
     final AnomalyInfo expectedInfo = new AnomalyInfo()
-        .setType(AnomalyType.SLA)
+        .setType(AnomalyType.FRESHNESS)
         .setSeverity(2)
         .setDescription("description")
         .setEntity(TEST_DATASET_URN)
@@ -302,7 +302,7 @@ public class AnomalyServiceTest {
 
   private static AnomalyInfo mockAnomalyInfo() throws Exception {
     return new AnomalyInfo()
-        .setType(AnomalyType.SLA)
+        .setType(AnomalyType.FRESHNESS)
         .setEntity(TEST_DATASET_URN)
         .setStatus(new AnomalyStatus()
             .setState(AnomalyState.ACTIVE)

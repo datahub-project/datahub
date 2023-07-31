@@ -62,6 +62,8 @@ BigQueryAuditMetadata = Any
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX = "((.+)[_$])?(\\d{8})$"
+
 
 @dataclass(frozen=True, order=True)
 class BigqueryTableIdentifier:
@@ -70,7 +72,12 @@ class BigqueryTableIdentifier:
     table: str
 
     invalid_chars: ClassVar[Set[str]] = {"$", "@"}
-    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[str] = "((.+)[_$])?(\\d{8})$"
+
+    # Note: this regex may get overwritten by the sharded_table_pattern config.
+    # The class-level constant, however, will not be overwritten.
+    _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: ClassVar[
+        str
+    ] = _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX
     _BIGQUERY_WILDCARD_REGEX: ClassVar[str] = "((_(\\d+)?)\\*$)|\\*$"
     _BQ_SHARDED_TABLE_SUFFIX: str = "_yyyymmdd"
 

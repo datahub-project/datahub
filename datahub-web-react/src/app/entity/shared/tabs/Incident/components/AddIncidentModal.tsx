@@ -65,7 +65,7 @@ export const AddIncidentModal = ({ visible, onClose, refetch }: AddIncidentProps
             }
         }
         handleClose();
-        setTimeout(function () {
+        setTimeout(() => {
             refetch?.();
             refetchEntity?.();
         }, 2000);

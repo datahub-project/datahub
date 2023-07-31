@@ -10,10 +10,10 @@ from datahub_monitors.graphql.query import GRAPHQL_LIST_MONITORS_QUERY
 from datahub_monitors.types import (
     AssertionEvaluationParametersType,
     AssertionType,
-    DatasetSlaSourceType,
+    DatasetFreshnessSourceType,
+    FreshnessAssertionScheduleType,
+    FreshnessAssertionType,
     MonitorType,
-    SlaAssertionScheduleType,
-    SlaAssertionType,
 )
 
 
@@ -37,8 +37,8 @@ def test_fetch_assertions() -> None:
                                         "assertion": {
                                             "urn": "urn:li:assertion:test",
                                             "info": {
-                                                "type": "SLA",
-                                                "slaAssertion": {
+                                                "type": "FRESHNESS",
+                                                "freshnessAssertion": {
                                                     "type": "DATASET_CHANGE",
                                                     "schedule": {
                                                         "type": "CRON",
@@ -69,8 +69,8 @@ def test_fetch_assertions() -> None:
                                             "timezone": "America/Los_Angeles",
                                         },
                                         "parameters": {
-                                            "type": "DATASET_SLA",
-                                            "datasetSlaParameters": {
+                                            "type": "DATASET_FRESHNESS",
+                                            "datasetFreshnessParameters": {
                                                 "sourceType": "INFORMATION_SCHEMA"
                                             },
                                         },
@@ -99,28 +99,29 @@ def test_fetch_assertions() -> None:
     assert len(monitors) == 1
     assert monitors[0].type == MonitorType.ASSERTION
     assert (
-        monitors[0].assertion_monitor.assertions[0].assertion.type == AssertionType.SLA
+        monitors[0].assertion_monitor.assertions[0].assertion.type
+        == AssertionType.FRESHNESS
     )
     assert (
-        monitors[0].assertion_monitor.assertions[0].assertion.sla_assertion.type
-        == SlaAssertionType.DATASET_CHANGE
-    )
-    assert (
-        monitors[0]
-        .assertion_monitor.assertions[0]
-        .assertion.sla_assertion.schedule.type
-        == SlaAssertionScheduleType.CRON
+        monitors[0].assertion_monitor.assertions[0].assertion.freshness_assertion.type
+        == FreshnessAssertionType.DATASET_CHANGE
     )
     assert (
         monitors[0]
         .assertion_monitor.assertions[0]
-        .assertion.sla_assertion.schedule.cron.cron
+        .assertion.freshness_assertion.schedule.type
+        == FreshnessAssertionScheduleType.CRON
+    )
+    assert (
+        monitors[0]
+        .assertion_monitor.assertions[0]
+        .assertion.freshness_assertion.schedule.cron.cron
         == "0 * * * *"
     )
     assert (
         monitors[0]
         .assertion_monitor.assertions[0]
-        .assertion.sla_assertion.schedule.cron.timezone
+        .assertion.freshness_assertion.schedule.cron.timezone
         == "America/Los_Angeles"
     )
     assert monitors[0].assertion_monitor.assertions[0].schedule.cron == "0 * * * *"
@@ -130,13 +131,13 @@ def test_fetch_assertions() -> None:
     )
     assert (
         monitors[0].assertion_monitor.assertions[0].parameters.type
-        == AssertionEvaluationParametersType.DATASET_SLA
+        == AssertionEvaluationParametersType.DATASET_FRESHNESS
     )
     assert (
         monitors[0]
         .assertion_monitor.assertions[0]
-        .parameters.dataset_sla_parameters.source_type
-        == DatasetSlaSourceType.INFORMATION_SCHEMA
+        .parameters.dataset_freshness_parameters.source_type
+        == DatasetFreshnessSourceType.INFORMATION_SCHEMA
     )
 
     # Verify that the execute_graphql method was called

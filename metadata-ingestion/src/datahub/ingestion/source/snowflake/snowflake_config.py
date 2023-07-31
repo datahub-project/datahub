@@ -28,7 +28,7 @@ logger = logging.Logger(__name__)
 #
 # DBT incremental models create temporary tables ending with __dbt_tmp
 # Ref - https://discourse.getdbt.com/t/handling-bigquery-incremental-dbt-tmp-tables/7540
-DEFAULT_UPSTREAMS_DENY_LIST = [
+DEFAULT_TABLES_DENY_LIST = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
     r".*__DBT_TMP$",  # dbt
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
@@ -71,10 +71,6 @@ class SnowflakeV2Config(
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
     _provision_role_removed = pydantic_removed_field("provision_role")
 
-    # FIXME: This validator already exists in one of the parent classes, but for some reason it
-    # does not have any effect there. As such, we have to re-add it here.
-    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
-
     extract_tags: TagOption = Field(
         default=TagOption.skip,
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
@@ -105,9 +101,14 @@ class SnowflakeV2Config(
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
     )
 
-    upstreams_deny_pattern: List[str] = Field(
-        default=DEFAULT_UPSTREAMS_DENY_LIST,
-        description="[Advanced] Regex patterns for upstream tables to filter in ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools. Not used if `use_legacy_lineage_method=True`",
+    # This is required since access_history table does not capture whether the table was temporary table.
+    temporary_tables_pattern: List[str] = Field(
+        default=DEFAULT_TABLES_DENY_LIST,
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools. Not used if `use_legacy_lineage_method=True`",
+    )
+
+    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
+        "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
     @validator("include_column_lineage")

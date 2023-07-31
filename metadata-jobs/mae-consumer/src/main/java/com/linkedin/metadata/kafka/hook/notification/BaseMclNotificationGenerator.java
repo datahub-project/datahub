@@ -182,7 +182,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
       recipients.addAll(sinkRecipients);
     }
 
-    return recipients;
+    return getUniqueRecipients(recipients);
   }
 
   @Nonnull

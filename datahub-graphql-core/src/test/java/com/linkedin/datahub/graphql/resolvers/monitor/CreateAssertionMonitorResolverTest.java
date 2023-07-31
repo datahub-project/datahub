@@ -13,8 +13,8 @@ import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
 import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
-import com.linkedin.datahub.graphql.generated.DatasetSlaAssertionParametersInput;
-import com.linkedin.datahub.graphql.generated.DatasetSlaSourceType;
+import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -29,7 +29,7 @@ import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
-import com.linkedin.monitor.DatasetSlaAssertionParameters;
+import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -54,9 +54,9 @@ public class CreateAssertionMonitorResolverTest {
       TEST_ASSERTION_URN.toString(),
       new CronScheduleInput("1 * * * *", "America/Los_Angeles"),
       new AssertionEvaluationParametersInput(
-          AssertionEvaluationParametersType.DATASET_SLA,
-          new DatasetSlaAssertionParametersInput(
-              DatasetSlaSourceType.AUDIT_LOG,
+          AssertionEvaluationParametersType.DATASET_FRESHNESS,
+          new DatasetFreshnessAssertionParametersInput(
+              DatasetFreshnessSourceType.AUDIT_LOG,
               null,
               new AuditLogSpecInput(ImmutableList.of("INSERT"), "testUser")
           )
@@ -79,9 +79,9 @@ public class CreateAssertionMonitorResolverTest {
                     .setAssertion(TEST_ASSERTION_URN)
                     .setSchedule(new CronSchedule().setCron("1 * * * *").setTimezone("America/Los_Angeles"))
                     .setParameters(new AssertionEvaluationParameters()
-                      .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_SLA)
-                      .setDatasetSlaParameters(new DatasetSlaAssertionParameters()
-                        .setSourceType(com.linkedin.monitor.DatasetSlaSourceType.AUDIT_LOG)
+                      .setType(com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FRESHNESS)
+                      .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+                        .setSourceType(com.linkedin.monitor.DatasetFreshnessSourceType.AUDIT_LOG)
                         .setAuditLog(new AuditLogSpec().setOperationTypes(new StringArray(ImmutableList.of("INSERT"))).setUserName("testUser"))
                       )
                   )

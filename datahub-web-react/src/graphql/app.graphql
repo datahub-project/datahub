@@ -44,6 +44,11 @@ query appConfig {
             queriesTab {
                 queriesTabResultSize
             }
+            entityProfiles {
+                domain {
+                    defaultTab
+                }
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -60,6 +65,8 @@ query appConfig {
             showBrowseV2
             assertionMonitorsEnabled
             subscriptionsEnabled
+            datasetHealthDashboardEnabled
+            showAcrylInfo
         }
         chromeExtensionConfig {
             enabled

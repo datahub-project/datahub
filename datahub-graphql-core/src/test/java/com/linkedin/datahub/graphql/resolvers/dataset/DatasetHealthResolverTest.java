@@ -12,7 +12,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -37,8 +36,6 @@ public class DatasetHealthResolverTest {
   @Test
   public void testGetSuccessHealthy() throws Exception {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
-    EntityClient entityClient = Mockito.mock(EntityClient.class);
-
     TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
 
     Mockito.when(graphClient.getRelatedEntities(
@@ -81,8 +78,7 @@ public class DatasetHealthResolverTest {
             ))
     );
 
-    DatasetHealthResolver resolver = new DatasetHealthResolver(entityClient, graphClient, mockAspectService,
-        new DatasetHealthResolver.Config(true, false, false));
+    DatasetHealthResolver resolver = new DatasetHealthResolver(graphClient, mockAspectService);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -104,8 +100,6 @@ public class DatasetHealthResolverTest {
   @Test
   public void testGetSuccessNullHealth() throws Exception {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
-    EntityClient entityClient = Mockito.mock(EntityClient.class);
-
     TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
 
     // 0 associated assertions, meaning we don't report any health.
@@ -124,8 +118,7 @@ public class DatasetHealthResolverTest {
             .setRelationships(new EntityRelationshipArray(Collections.emptyList()))
     );
 
-    DatasetHealthResolver resolver = new DatasetHealthResolver(entityClient, graphClient, mockAspectService,
-        new DatasetHealthResolver.Config(true, false, false));
+    DatasetHealthResolver resolver = new DatasetHealthResolver(graphClient, mockAspectService);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -153,8 +146,6 @@ public class DatasetHealthResolverTest {
   @Test
   public void testGetSuccessUnhealthy() throws Exception {
     GraphClient graphClient = Mockito.mock(GraphClient.class);
-    EntityClient entityClient = Mockito.mock(EntityClient.class);
-
     TimeseriesAspectService mockAspectService = Mockito.mock(TimeseriesAspectService.class);
 
     Mockito.when(graphClient.getRelatedEntities(
@@ -204,8 +195,7 @@ public class DatasetHealthResolverTest {
             ))
     );
 
-    DatasetHealthResolver resolver = new DatasetHealthResolver(entityClient, graphClient, mockAspectService,
-        new DatasetHealthResolver.Config(true, false, false));
+    DatasetHealthResolver resolver = new DatasetHealthResolver(graphClient, mockAspectService);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);

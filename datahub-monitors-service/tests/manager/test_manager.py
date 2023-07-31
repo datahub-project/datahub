@@ -13,8 +13,8 @@ from datahub_monitors.types import (
     AssertionMonitor,
     AssertionType,
     CronSchedule,
-    DatasetSlaAssertionParameters,
-    DatasetSlaSourceType,
+    DatasetFreshnessAssertionParameters,
+    DatasetFreshnessSourceType,
     Monitor,
     MonitorType,
 )
@@ -31,12 +31,14 @@ assertion = Assertion(
     type=AssertionType.DATASET,
     entity=entity,
     connectionUrn="urn:li:dataPlatform:snowflake",
-    slaAssertion=None,
+    freshnessAssertion=None,
 )
 parameters = AssertionEvaluationParameters(
-    type=AssertionEvaluationParametersType.DATASET_SLA,
-    datasetSlaParameters=DatasetSlaAssertionParameters(
-        sourceType=DatasetSlaSourceType.INFORMATION_SCHEMA, field=None, auditLog=None
+    type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
+    datasetFreshnessParameters=DatasetFreshnessAssertionParameters(
+        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA,
+        field=None,
+        auditLog=None,
     ),
 )
 schedule = CronSchedule(cron="* * * * *", timezone="America/Los_Angeles")

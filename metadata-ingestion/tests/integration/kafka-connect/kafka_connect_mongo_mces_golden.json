@@ -46,7 +46,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mongodb,test_db.purchases,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,mongodb.test_db.purchases,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafkax.mongodb.test_db.purchases,PROD)"
             ]
         }
     },

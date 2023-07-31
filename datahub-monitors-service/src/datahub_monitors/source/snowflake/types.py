@@ -1,0 +1,34 @@
+DEFAULT_OPERATION_TYPES_FILTER = "'INSERT', 'UPDATE', 'CREATE', 'CREATE_TABLE', 'CREATE_TABLE_AS_SELECT', 'COPY'"  # Note that Alter is not included :)
+
+SUPPORTED_LAST_MODIFIED_COLUMN_TYPES = [
+    "DATE",
+    "TIMESTAMP",
+    "TIMESTAMP_TZ",
+    "TIMESTAMP_LTZ",
+    "TIMESTAMP_NTZ",
+    "DATETIME",
+]
+
+SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES = [
+    "NUMBER",
+    "DECIMAL",
+    "NUMERIC",
+    "INT",
+    "INTEGER",
+    "BIGINT",
+    "SMALLINT",
+    "TINYINT",
+    "BYTEINT",
+    "FLOAT",
+    "FLOAT4",
+    "FLOAT8",
+    "DOUBLE",
+    "DOUBLE PRECISION",
+    "REAL",
+    "DATE",
+    "TIMESTAMP",
+    "TIMESTAMP_TZ",
+    "TIMESTAMP_LTZ",
+    "TIMESTAMP_NTZ",
+    "DATETIME",
+]

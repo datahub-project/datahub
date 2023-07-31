@@ -941,6 +941,11 @@ enum EntityType {
     An anomaly detected or an asset
     """
     ANOMALY
+
+    """"
+    A Role from an organisation
+    """
+    ROLE
 }
 
 """
@@ -1316,6 +1321,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     domain: DomainAssociation
 
     """
+    The Roles and the properties to access the dataset
+    """
+    access: Access
+
+    """
     Statistics about how this Dataset is used
     The first parameter, `resource`, is deprecated and no longer needs to be provided
     """
@@ -1469,6 +1479,94 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+}
+
+type RoleAssociation {
+
+    """
+    The Role entity itself
+    """
+    role: Role!
+
+    """
+    Reference back to the tagged urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
+
+}
+
+type Access {
+    roles: [RoleAssociation!]
+}
+
+type Role implements Entity {
+    """
+    A primary key of the Metadata Entity
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    List of relationships between the source Entity and some destination entities with a given types
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Id of the Role
+    """
+    id: String!
+
+    """
+    Role properties to include Request Access Url
+    """
+    properties: RoleProperties!
+
+    """
+    A standard Entity Type
+    """
+    actors: Actor!
+
+
+}
+
+type Actor {
+    """
+    List of users for which the role is provisioned
+    """
+    users: [RoleUser!]
+}
+
+type RoleUser {
+    """
+    Linked corp user of a role
+    """
+    user: CorpUser!
+}
+
+type RoleProperties {
+    """
+    Name of the Role in an organisation 
+    """
+    name: String!
+
+    """
+    Description about the role
+    """
+    description: String
+
+    """
+    Role type can be READ, WRITE or ADMIN
+    """
+    type: String
+
+    """
+    Url to request a role for a user in an organisation
+    """
+    requestUrl: String
 }
 
 type FineGrainedLineage {
@@ -2575,6 +2673,11 @@ type InstitutionalMemoryMetadata {
     Description of the resource
     """
     description: String! @deprecated
+
+    """
+    Reference back to the owned urn for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
 }
 
 """
@@ -6835,7 +6938,7 @@ The result of evaluating an assertion.
 """
 type AssertionResult {
     """
-    The final result, e.g. either SUCCESS or FAILURE.
+    The final result, e.g. either INIT, SUCCESS, FAILURE, or ERROR.
     """
     type: AssertionResultType!
 
@@ -6869,6 +6972,61 @@ type AssertionResult {
     """
     nativeResults: [StringMapEntry!]
 
+    """
+    Error details, if type is ERROR
+    """
+    error: AssertionResultError
+
+}
+
+"""
+An error encountered when evaluating an AssertionResult
+"""
+type AssertionResultError {
+    """
+    The type of error encountered
+    """
+    type: AssertionResultErrorType!
+
+    """
+    Additional metadata depending on the type of error
+    """
+    properties: [StringMapEntry!]
+}
+
+"""
+The type of error encountered when evaluating an AssertionResult
+"""
+enum AssertionResultErrorType {
+    """
+    Source is unreachable
+    """
+    SOURCE_CONNECTION_ERROR
+
+    """
+    Source query failed to execute
+    """
+    SOURCE_QUERY_FAILED
+
+    """
+    Invalid parameters were detected
+    """
+    INVALID_PARAMETERS
+
+    """
+    Event type not supported by the specified source
+    """
+    INVALID_SOURCE_TYPE
+
+    """
+    Platform not supported
+    """
+    UNSUPPORTED_PLATFORM
+
+    """
+    Unknown error
+    """
+    UNKNOWN_ERROR
 }
 
 type BatchSpec {
@@ -6898,6 +7056,11 @@ The result type of an assertion, success or failure.
 """
 enum AssertionResultType {
     """
+    The assertion has not yet been fully evaluated.
+    """
+    INIT
+
+    """
     The assertion succeeded.
     """
     SUCCESS
@@ -6906,6 +7069,11 @@ enum AssertionResultType {
     The assertion failed.
     """
     FAILURE
+
+    """
+    The assertion errored.
+    """
+    ERROR
 }
 
 """
@@ -7151,9 +7319,9 @@ The top-level assertion type. Currently single Dataset assertions are the only t
 enum AssertionType {
     DATASET
     """
-    An SLA assertion
+    A Freshness assertion
     """
-    SLA
+    FRESHNESS
 }
 
 """
@@ -7174,6 +7342,11 @@ type AssertionRunEventsResult {
   The number of succeeded run events
   """
   succeeded: Int!
+
+  """
+  The number of errored run events
+  """
+  errored: Int!
 
   """
   The run events themselves
@@ -8220,6 +8393,16 @@ type ActorFilter {
   resourceOwners: Boolean!
 
   """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
+
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True), resolved.
+  """
+  resolvedOwnershipTypes: [OwnershipTypeEntity!]
+
+  """
   Whether the filter should apply to all users
   """
   allUsers: Boolean!
@@ -8346,6 +8529,11 @@ input ActorFilterInput {
   Only applies to policies of type METADATA, which have a resource associated with them
   """
   resourceOwners: Boolean!
+
+  """
+  Set of OwnershipTypes to apply the policy to (if resourceOwners field is set to True)
+  """
+  resourceOwnersTypes: [String!]
 
   """
   Whether the filter should apply to all users
@@ -11327,4 +11515,45 @@ input UpdateOwnershipTypeInput {
     The description of the Custom Ownership Type
     """
     description: String
+}
+
+"""
+Describes a generic filter on a dataset
+"""
+type DatasetFilter {
+    """
+    Type of partition
+    """
+    type: DatasetFilterType!
+
+    """
+    The raw query if using a SQL FilterType
+    """
+    sql: String
+}
+
+"""
+Type of partition
+"""
+enum DatasetFilterType {
+  """
+  Use a SQL string to apply the filter
+  """
+  SQL
+}
+
+
+"""
+Input required to create or update a DatasetFilter
+"""
+input DatasetFilterInput {
+    """
+    Type of partition
+    """
+    type: DatasetFilterType!
+
+    """
+    The raw query if using a SQL FilterType
+    """
+    sql: String
 }

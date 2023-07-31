@@ -14,7 +14,7 @@ fragment monitorDetails on Monitor {
                 }
                 parameters {
                     type
-                    datasetSlaParameters {
+                    datasetFreshnessParameters {
                         sourceType
                         auditLog {
                             operationTypes
@@ -29,6 +29,9 @@ fragment monitorDetails on Monitor {
                 }
             }
         }
+        status {
+            mode
+        }
     }
 }
 
@@ -39,5 +42,53 @@ mutation deleteMonitor($urn: String!) {
 mutation createAssertionMonitor($input: CreateAssertionMonitorInput!) {
     createAssertionMonitor(input: $input) {
         ...monitorDetails
+    }
+}
+
+mutation updateMonitorStatus($input: UpdateMonitorStatusInput!) {
+    updateMonitorStatus(input: $input) {
+        ...monitorDetails
+    }
+}
+
+fragment assertionsQueryWithMonitors on Dataset {
+    assertions(start: 0, count: 1000) {
+        start
+        count
+        total
+        assertions {
+            ...assertionDetails
+            monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {
+                relationships {
+                    entity {
+                        ... on Monitor {
+                            ...monitorDetails
+                        }
+                    }
+                }
+            }
+            runEvents(status: COMPLETE, limit: 1) {
+                total
+                failed
+                succeeded
+                runEvents {
+                    ...assertionRunEventDetails
+                }
+            }
+        }
+    }
+}
+
+query getDatasetAssertionsWithMonitors($urn: String!) {
+    dataset(urn: $urn) {
+        ...assertionsQueryWithMonitors
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ...assertionsQuery
+            }
+        }
     }
 }

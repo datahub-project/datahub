@@ -14,23 +14,15 @@ public class Constants {
     public static final String APP_SCHEMA_FILE = "app.graphql";
     public static final String AUTH_SCHEMA_FILE = "auth.graphql";
     public static final String ANALYTICS_SCHEMA_FILE = "analytics.graphql";
-    public static final String CONSTRAINTS_SCHEMA_FILE = "constraints.graphql";
-    public static final String INCIDENTS_SCHEMA_FILE = "incident.graphql";
-    public static final String ACTIONS_SCHEMA_FILE = "actions.graphql";
     public static final String RECOMMENDATIONS_SCHEMA_FILE = "recommendation.graphql";
     public static final String INGESTION_SCHEMA_FILE = "ingestion.graphql";
     public static final String TIMELINE_SCHEMA_FILE = "timeline.graphql";
     public static final String TESTS_SCHEMA_FILE = "tests.graphql";
     public static final String STEPS_SCHEMA_FILE = "step.graphql";
     public static final String LINEAGE_SCHEMA_FILE = "lineage.graphql";
-    public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
-    public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
     public static final String BROWSE_PATH_DELIMITER = "/";
     public static final String BROWSE_PATH_V2_DELIMITER = "␟";
     public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
-    // Assertion extensions not in OSS
-    public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
-
     public static final String ENTITY_FILTER_NAME = "_entityType";
 
 }
