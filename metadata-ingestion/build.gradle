@@ -23,14 +23,17 @@ task checkPythonVersion(type: Exec) {
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0'"
+  commandLine 'bash', '-c',
+    "${python_executable} -m venv ${venv_name} && " +
+    "${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0'"
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
   def sentinel_file = ".preflight_sentinel"
   outputs.file(sentinel_file)
-  commandLine "scripts/datahub_preflight.sh"
-  commandLine 'bash', '-c', "touch ${sentinel_file}"
+  commandLine 'bash', '-c',
+    "scripts/datahub_preflight.sh && " +
+    "touch ${sentinel_file}"
 }
 
 task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
@@ -38,8 +41,9 @@ task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
-  commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e ."
-  commandLine 'bash', '-c', "touch ${sentinel_file}"
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e . &&" +
+    "touch ${sentinel_file}"
 }
 
 task installPackage(type: Exec, dependsOn: installPackageOnly) {

@@ -49,6 +49,8 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
     final String query = input.getQuery() != null ? input.getQuery() : "*";
+    // escape forward slash since it is a reserved character in Elasticsearch
+    final String sanitizedQuery = ResolverUtils.escapeForwardSlash(query);
 
     return CompletableFuture.supplyAsync(() -> {
       try {
@@ -64,7 +66,7 @@ public class BrowseV2Resolver implements DataFetcher<CompletableFuture<BrowseRes
             maybeResolvedView != null
             ? SearchUtils.combineFilters(filter, maybeResolvedView.getDefinition().getFilter())
             : filter,
-            query,
+            sanitizedQuery,
             start,
             count,
             context.getAuthentication()
