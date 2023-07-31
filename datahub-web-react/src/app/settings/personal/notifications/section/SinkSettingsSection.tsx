@@ -3,6 +3,8 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Typography, Switch, Input, Button, Form } from 'antd';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { UpdateSettingsInput } from '../../../../shared/subscribe/drawer/useSinkSettings';
+import { NotificationSinkType } from '../../../../../types.generated';
 
 const SinkSettings = styled.div`
     margin-top: 12px;
@@ -69,9 +71,10 @@ type Props = {
     isPersonal: boolean;
     sinkEnabled: boolean;
     sinkName: string;
-    updateSinkSetting: (sinkSettingValue: string) => void;
+    updateSinkSetting: (input: UpdateSettingsInput) => void;
     sinkSettingValue?: string;
     groupName?: string;
+    sinkTypes?: NotificationSinkType[];
 };
 
 /**
@@ -84,22 +87,26 @@ export const SinkSettingsSection = ({
     sinkSettingValue,
     updateSinkSetting,
     groupName,
+    sinkTypes,
 }: Props) => {
     const [editing, setIsEditing] = useState<boolean>(false);
-    const [allowEditing, setAllowEditing] = useState<boolean>(!!sinkSettingValue);
+    const [allowEditing, setAllowEditing] = useState<boolean>(!!sinkTypes?.includes(NotificationSinkType.Slack));
     const [inputValue, setInputValue] = useState(sinkSettingValue);
     const [form] = Form.useForm();
     form.setFieldsValue({ slackFormValue: inputValue });
     useEffect(() => {
-        if (sinkSettingValue === undefined) {
+        if (!sinkSettingValue) {
             setIsEditing(true);
-            setAllowEditing(false);
         } else {
             setIsEditing(false);
-            setAllowEditing(true);
         }
         setInputValue(sinkSettingValue);
     }, [sinkSettingValue]);
+    useEffect(() => {
+        if (sinkTypes) {
+            setAllowEditing(sinkTypes.includes(NotificationSinkType.Slack));
+        }
+    }, [sinkTypes]);
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
     const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to. ${sinkName} ${
@@ -108,7 +115,7 @@ export const SinkSettingsSection = ({
     const sinkDisabledDescription = `In order to enable, ask your DataHub admin to setup the ${sinkName} integration.`;
     const saveButtonOnClick = () => {
         if (inputValue) {
-            updateSinkSetting(inputValue);
+            updateSinkSetting({ text: inputValue, sinkTypes: allowEditing ? [NotificationSinkType.Slack] : [] });
         }
         setIsEditing(false);
     };
@@ -116,14 +123,14 @@ export const SinkSettingsSection = ({
         setInputValue(sinkSettingValue);
         setIsEditing(false);
     };
+    const onToggle = (enabled: boolean) => {
+        setAllowEditing(enabled);
+        updateSinkSetting({ text: sinkSettingValue || '', sinkTypes: enabled ? [NotificationSinkType.Slack] : [] });
+    };
 
     return (
         <SinkSettings>
-            <Switch
-                disabled={!sinkEnabled}
-                checked={allowEditing && sinkEnabled}
-                onChange={(checked) => setAllowEditing(checked)}
-            />
+            <Switch disabled={!sinkEnabled} checked={allowEditing && sinkEnabled} onChange={onToggle} />
             <SinkTextContainer>
                 <SinkTitle strong>{`${sinkName} Notifications`}</SinkTitle>
                 <SinkDescription>

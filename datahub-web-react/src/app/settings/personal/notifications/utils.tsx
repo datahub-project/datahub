@@ -4,13 +4,16 @@ import {
     useUpdateGroupNotificationSettingsMutation,
     useUpdateUserNotificationSettingsMutation,
 } from '../../../../graphql/settings.generated';
+import { NotificationSinkType } from '../../../../types.generated';
 
 export const updateUserNotificationSettingsFunction = ({
     newUserHandle,
+    sinkTypes,
     updateUserNotificationSettings,
     refetchUserNotificationSettings,
 }: {
     newUserHandle: string;
+    sinkTypes: NotificationSinkType[];
     updateUserNotificationSettings: ReturnType<typeof useUpdateUserNotificationSettingsMutation>[0];
     refetchUserNotificationSettings: () => void;
 }) => {
@@ -18,6 +21,7 @@ export const updateUserNotificationSettingsFunction = ({
         variables: {
             input: {
                 notificationSettings: {
+                    sinkTypes,
                     slackSettings: {
                         userHandle: newUserHandle,
                     },
@@ -26,7 +30,9 @@ export const updateUserNotificationSettingsFunction = ({
         },
     })
         .then(() => {
-            refetchUserNotificationSettings();
+            setTimeout(() => {
+                refetchUserNotificationSettings();
+            }, 3000);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -39,11 +45,13 @@ export const updateUserNotificationSettingsFunction = ({
 export const updateGroupNotificationSettingsFunction = ({
     groupUrn,
     newGroupChannel,
+    sinkTypes,
     updateGroupNotificationSettings,
     refetchGroupNotificationSettings,
 }: {
     groupUrn: string;
     newGroupChannel: string;
+    sinkTypes: NotificationSinkType[];
     updateGroupNotificationSettings: ReturnType<typeof useUpdateGroupNotificationSettingsMutation>[0];
     refetchGroupNotificationSettings: () => void;
 }) => {
@@ -52,6 +60,7 @@ export const updateGroupNotificationSettingsFunction = ({
             input: {
                 groupUrn,
                 notificationSettings: {
+                    sinkTypes,
                     slackSettings: {
                         channels: [newGroupChannel],
                     },
@@ -60,7 +69,9 @@ export const updateGroupNotificationSettingsFunction = ({
         },
     })
         .then(() => {
-            refetchGroupNotificationSettings();
+            setTimeout(() => {
+                refetchGroupNotificationSettings();
+            }, 3000);
         })
         .catch((e: unknown) => {
             message.destroy();

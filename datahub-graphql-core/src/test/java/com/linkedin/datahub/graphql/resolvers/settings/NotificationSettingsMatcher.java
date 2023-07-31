@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
+import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -22,11 +23,23 @@ public class NotificationSettingsMatcher implements ArgumentMatcher<Notification
   public boolean slackSettingsMatches(@Nonnull final NotificationSettings actual) {
     final SlackNotificationSettings expectedSlackSettings = _expected.getSlackSettings();
     final SlackNotificationSettings actualSlackSettings = actual.getSlackSettings();
-    if (expectedSlackSettings == null && actualSlackSettings == null) {
+    final List<NotificationSinkType> expectedSinkTypes = _expected.getSinkTypes();
+    final List<NotificationSinkType> actualSinkTypes = actual.getSinkTypes();
+
+    if (expectedSlackSettings == null && actualSlackSettings == null && expectedSinkTypes == null && actualSinkTypes == null) {
       return true;
     }
 
     if (expectedSlackSettings == null ^ actualSlackSettings == null) {
+      return false;
+    }
+
+    if (expectedSinkTypes == null ^ actualSinkTypes == null) {
+      return false;
+    }
+
+    if (actualSinkTypes != null && expectedSinkTypes != null && (!actualSinkTypes.containsAll(expectedSinkTypes)
+        || !expectedSinkTypes.containsAll(actualSinkTypes))) {
       return false;
     }
 

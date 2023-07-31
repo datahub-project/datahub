@@ -47,15 +47,6 @@ public class SubscriptionResolverUtils {
   public static SubscriptionNotificationConfig mapSubscriptionNotificationConfig(
       @Nonnull com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfigInput notificationConfig) {
     final SubscriptionNotificationConfig result = new SubscriptionNotificationConfig();
-    final NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
-    for (com.linkedin.datahub.graphql.generated.NotificationSinkType sinkType : notificationConfig.getSinkTypes()) {
-      try {
-        sinkTypes.add(NotificationSinkType.valueOf(sinkType.toString()));
-      } catch (IllegalArgumentException e) {
-        log.warn(String.format("Unable to map notification sink type: %s. Skipping...", sinkType));
-      }
-    }
-    result.setSinkTypes(sinkTypes);
 
     if (notificationConfig.getNotificationSettings() != null) {
       final NotificationSettings notificationSettings =
@@ -70,6 +61,19 @@ public class SubscriptionResolverUtils {
   public static NotificationSettings mapNotificationSettings(
       @Nonnull com.linkedin.datahub.graphql.generated.NotificationSettingsInput notificationSettings) {
     final NotificationSettings result = new NotificationSettings();
+    final NotificationSinkTypeArray sinkTypes = new NotificationSinkTypeArray();
+
+    if (notificationSettings.getSinkTypes() != null) {
+      for (com.linkedin.datahub.graphql.generated.NotificationSinkType sinkType : notificationSettings.getSinkTypes()) {
+        try {
+          sinkTypes.add(NotificationSinkType.valueOf(sinkType.toString()));
+        } catch (IllegalArgumentException e) {
+          log.warn(String.format("Unable to map notification sink type: %s. Skipping...", sinkType));
+        }
+      }
+      result.setSinkTypes(sinkTypes);
+    }
+
     if (notificationSettings.getSlackSettings() != null) {
       result.setSlackSettings(mapSlackNotificationSettings(notificationSettings.getSlackSettings()));
     }

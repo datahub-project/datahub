@@ -28,9 +28,6 @@ public class DataHubSubscriptionMatcher implements ArgumentMatcher<DataHubSubscr
 
   private boolean notificationConfigMatches(final SubscriptionNotificationConfig expected,
       final SubscriptionNotificationConfig actual) {
-    if (!listMatches(expected.getSinkTypes(), actual.getSinkTypes())) {
-      return false;
-    }
 
     final NotificationSettings expectedNotificationSettings = expected.getNotificationSettings();
     final NotificationSettings actualNotificationSettings = actual.getNotificationSettings();

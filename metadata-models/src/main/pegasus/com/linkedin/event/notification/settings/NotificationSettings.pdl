@@ -1,11 +1,17 @@
 namespace com.linkedin.event.notification.settings
 
 import com.linkedin.common.Urn
+import com.linkedin.event.notification.NotificationSinkType
 
 /**
  * Notification settings for an actor or subscription.
  */
 record NotificationSettings {
+    /**
+     * Sink types that notifications are sent to.
+     */
+    sinkTypes: array[NotificationSinkType]
+
     /**
      * Slack Notification Settings
      */
