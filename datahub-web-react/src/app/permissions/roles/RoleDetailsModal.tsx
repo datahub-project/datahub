@@ -1,4 +1,5 @@
 import React from 'react';
+import { t } from 'i18next';
 import { Button, Divider, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -39,7 +40,7 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
 
     const actionButtons = (
         <ButtonsContainer>
-            <Button onClick={onClose}>关闭</Button>
+            <Button onClick={onClose}>Close</Button>
         </ButtonsContainer>
     );
 
@@ -52,17 +53,17 @@ export default function RoleDetailsModal({ role, visible, onClose }: Props) {
         <Modal title={role?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
-                    <Typography.Title level={5}>说明</Typography.Title>
+                    <Typography.Title level={5}>{t ("Description")}</Typography.Title>
                     <ThinDivider />
                     <Typography.Text type="secondary">{role?.description}</Typography.Text>
                 </div>
                 <div>
-                    <Typography.Title level={5}>用户</Typography.Title>
+                    <Typography.Title level={5}>{t ("Users")}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup users={users} entityRegistry={entityRegistry} maxCount={50} size={28} />
                 </div>
                 <div>
-                    <Typography.Title level={5}>已分配的规则</Typography.Title>
+                    <Typography.Title level={5}>{t("Associated Policies")}</Typography.Title>
                     <ThinDivider />
                     <AvatarsGroup policies={policies} entityRegistry={entityRegistry} maxCount={50} size={28} />
                 </div>
