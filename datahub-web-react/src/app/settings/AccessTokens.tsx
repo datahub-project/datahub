@@ -235,7 +235,8 @@ export const AccessTokens = () => {
                     message={
                         <span>
                             <StyledInfoCircleOutlined />
-                            {t ("Token based authentication is currently disabled. Contact your DataHub administrator to enable this feature.")}
+                            {t ("Token based authentication is currently disabled.")}
+                            {t ("Contact your DataHub administrator to enable this feature.")}
                         </span>
                     }
                 />
