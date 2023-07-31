@@ -1,0 +1,14 @@
+source:
+  type: mysql
+  config:
+    username: root
+    password: example
+    host_port: localhost:53307
+    database: northwind
+    profiling:
+      enabled: True
+      profile_table_level_only: true
+sink:
+  type: file
+  config:
+    filename: "./mysql_mces.json"

@@ -22,7 +22,12 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
 task installPackage(type: Exec, dependsOn: environmentSetup) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
-  commandLine 'bash', '-x', '-c', "${pip_install_command} -e ."
+  // Workaround for https://github.com/yaml/pyyaml/issues/601.
+  // See https://github.com/yaml/pyyaml/issues/601#issuecomment-1638509577.
+  // and https://github.com/datahub-project/datahub/pull/8435.
+  commandLine 'bash', '-x', '-c',
+    "${pip_install_command} install 'Cython<3.0' 'PyYAML<6' --no-build-isolation && " +
+    "${pip_install_command} -e ."
 }
 
 task install(dependsOn: [installPackage])

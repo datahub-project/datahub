@@ -31,6 +31,16 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
         description="my feature",
         groups=model_group_urns,
         mlFeatures=feature_urns,
+        trainingMetrics=[
+            models.MLMetricClass(
+                name="accuracy", description="accuracy of the model", value="1.0"
+            )
+        ],
+        hyperParams=[
+            models.MLHyperParamClass(
+                name="hyper_1", description="hyper_1", value="0.102"
+            )
+        ],
     ),
 )
 

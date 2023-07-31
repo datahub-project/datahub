@@ -2,13 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.subscription;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.subscription.SubscriptionService;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
-import com.linkedin.datahub.graphql.generated.NotificationSinkType;
-import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Comparator;
 import java.util.List;
@@ -43,9 +40,6 @@ public class ListSubscriptionsResolverTest {
 
     final ListSubscriptionsInput input = new ListSubscriptionsInput();
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
-
-    final SubscriptionNotificationConfig notificationConfig = new SubscriptionNotificationConfig();
-    notificationConfig.setSinkTypes(ImmutableList.of(NotificationSinkType.SLACK));
 
     _resolver = new ListSubscriptionsResolver(_subscriptionService);
   }

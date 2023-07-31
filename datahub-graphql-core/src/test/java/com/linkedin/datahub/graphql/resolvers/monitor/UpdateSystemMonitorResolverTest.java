@@ -25,13 +25,13 @@ public class UpdateSystemMonitorResolverTest {
 
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
   private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn(
-      String.format("urn:li:monitor:(%s,%s)", TEST_ENTITY_URN, AcrylConstants.SLA_SYSTEM_MONITOR_ID));
+      String.format("urn:li:monitor:(%s,%s)", TEST_ENTITY_URN, AcrylConstants.FRESHNESS_SYSTEM_MONITOR_ID));
 
   private static final UpdateSystemMonitorsInput TEST_INPUT = new UpdateSystemMonitorsInput(
       TEST_ENTITY_URN.toString(),
       ImmutableList.of(
         new UpdateSystemMonitorInput(
-            SystemMonitorType.SLA,
+            SystemMonitorType.FRESHNESS,
             com.linkedin.datahub.graphql.generated.MonitorMode.INACTIVE
         )
       )

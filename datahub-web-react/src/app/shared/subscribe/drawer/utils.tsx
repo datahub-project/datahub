@@ -1,9 +1,26 @@
 import React, { Key } from 'react';
-import { Typography, message, notification } from 'antd';
+import { Tooltip, Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
-import { CheckCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { EntityChangeType, EntityType } from '../../../../types.generated';
+import {
+    DataHubSubscription,
+    EntityChangeType,
+    EntityType,
+    NotificationSettingsInput,
+    SubscriptionType,
+} from '../../../../types.generated';
+import {
+    GetGroupNotificationSettingsQuery,
+    GetUserNotificationSettingsQuery,
+} from '../../../../graphql/settings.generated';
+import {
+    useCreateSubscriptionMutation,
+    useDeleteSubscriptionMutation,
+    useUpdateSubscriptionMutation,
+} from '../../../../graphql/subscriptions.generated';
+
+const REFETCH_DELAY = 3000;
 
 const NotificationTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -13,8 +30,13 @@ const NotificationTypeText = styled(Typography.Text)`
     margin-right: 8px;
 `;
 
+const TooltipIcon = styled(QuestionCircleOutlined)`
+    margin-left: 4px;
+    font-size: 12px;
+`;
+
 const ASSERTION_NODE_KEY = 'assertion_changes';
-const INCIDENTS_NODE_KEY = EntityChangeType.IncidentRaised;
+const INCIDENTS_NODE_KEY = 'incident_changes';
 const DEPRECATION_NODE_KEY = EntityChangeType.Deprecated;
 const SCHEMA_NODE_KEY = 'schema_changes';
 const SCHEMA_NODE_CHILDREN = [
@@ -39,6 +61,7 @@ const NESTED_NODE_KEY_PARENTS = new Set([
     GLOSSARY_TERM_CHANGE_NODE_KEY,
     TAG_CHANGE_NODE_KEY,
     ASSERTION_NODE_KEY,
+    INCIDENTS_NODE_KEY,
 ]);
 
 export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
@@ -53,7 +76,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
             ];
-            break;
         default:
             return [
                 DEPRECATION_NODE_KEY,
@@ -61,7 +83,6 @@ export const getDefaultSelectedKeys = (entityType: EntityType): string[] => {
                 GLOSSARY_TERM_CHANGE_NODE_KEY,
                 TAG_CHANGE_NODE_KEY,
             ];
-            break;
     }
 };
 
@@ -81,7 +102,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 TAG_CHANGE_NODE_KEY,
                 ...TAG_CHANGE_NODE_CHILDREN,
             ];
-            break;
         default:
             return [
                 DEPRECATION_NODE_KEY,
@@ -92,7 +112,6 @@ export const getDefaultCheckedKeys = (entityType: EntityType): string[] => {
                 TAG_CHANGE_NODE_KEY,
                 ...TAG_CHANGE_NODE_CHILDREN,
             ];
-            break;
     }
 };
 
@@ -106,23 +125,33 @@ const assertionsNode: DataNode = {
     children: [
         {
             key: EntityChangeType.AssertionFailed,
-            title: <NotificationTypeText>Failing assertions</NotificationTypeText>,
+            title: <NotificationTypeText>Changes to failing</NotificationTypeText>,
         },
         {
             key: EntityChangeType.AssertionPassed,
-            title: <NotificationTypeText>Passing assertions</NotificationTypeText>,
+            title: <NotificationTypeText>Changes to passing</NotificationTypeText>,
         },
     ],
 };
 
 const incidentsNode: DataNode = {
     key: INCIDENTS_NODE_KEY,
-    title: <NotificationTypeText>Raised incidents</NotificationTypeText>,
+    title: <NotificationTypeText>Incident status changes</NotificationTypeText>,
+    children: [
+        {
+            key: EntityChangeType.IncidentRaised,
+            title: <NotificationTypeText>An incident is raised</NotificationTypeText>,
+        },
+        {
+            key: EntityChangeType.IncidentResolved,
+            title: <NotificationTypeText>An incident is resolved</NotificationTypeText>,
+        },
+    ],
 };
 
 const deprecationNode: DataNode = {
     key: DEPRECATION_NODE_KEY,
-    title: <NotificationTypeText>Deprecation</NotificationTypeText>,
+    title: <NotificationTypeText>Entity has been deprecated</NotificationTypeText>,
 };
 
 // TODO: in V2 add documentation changes notifications
@@ -133,7 +162,7 @@ const deprecationNode: DataNode = {
 
 const schemaNode: DataNode = {
     key: SCHEMA_NODE_KEY,
-    title: <NotificationTypeText>Schema changes</NotificationTypeText>,
+    title: <NotificationTypeText>Schema change events</NotificationTypeText>,
     children: [
         {
             key: EntityChangeType.OperationColumnAdded,
@@ -145,7 +174,14 @@ const schemaNode: DataNode = {
         },
         {
             key: EntityChangeType.OperationColumnModified,
-            title: <NotificationTypeText>A column is modified</NotificationTypeText>,
+            title: (
+                <NotificationTypeText>
+                    A column is modified
+                    <Tooltip title="Receive notifications when a column is renamed or its type is changed">
+                        <TooltipIcon />
+                    </Tooltip>
+                </NotificationTypeText>
+            ),
         },
     ],
 };
@@ -199,7 +235,14 @@ const glossaryTermChangeNode: DataNode = {
         },
         {
             key: EntityChangeType.GlossaryTermProposed,
-            title: <NotificationTypeText>A glossary term is proposed</NotificationTypeText>,
+            title: (
+                <NotificationTypeText>
+                    A new glossary term is proposed
+                    <Tooltip title="Someone has proposed adding a glossary term, but it has not beed added">
+                        <TooltipIcon />
+                    </Tooltip>
+                </NotificationTypeText>
+            ),
         },
     ],
 };
@@ -218,7 +261,14 @@ const tagChangeNode: DataNode = {
         },
         {
             key: EntityChangeType.TagProposed,
-            title: <NotificationTypeText>A tag is proposed</NotificationTypeText>,
+            title: (
+                <NotificationTypeText>
+                    A new tag is proposed
+                    <Tooltip title="Someone has proposed adding a tag, but it has not beed added">
+                        <TooltipIcon />
+                    </Tooltip>
+                </NotificationTypeText>
+            ),
         },
     ],
 };
@@ -227,42 +277,41 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
     switch (entityType) {
         case EntityType.Dataset:
             return [
+                deprecationNode,
                 assertionsNode,
                 incidentsNode,
-                deprecationNode,
                 schemaNode,
                 ownershipChangeNode,
                 glossaryTermChangeNode,
                 tagChangeNode,
             ];
-            break;
         default:
-            return [
-                assertionsNode,
-                incidentsNode,
-                deprecationNode,
-                ownershipChangeNode,
-                glossaryTermChangeNode,
-                tagChangeNode,
-            ];
-            break;
+            return [deprecationNode, ownershipChangeNode, glossaryTermChangeNode, tagChangeNode];
     }
 };
 
-export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscription, refetch) => {
+export const deleteSubscriptionFunction = ({
+    subscriptionUrn,
+    deleteSubscription,
+    onRefetch,
+}: {
+    subscriptionUrn: string;
+    deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
+    onRefetch?: () => void;
+}) => {
     deleteSubscription({
         variables: {
             input: { subscriptionUrn },
         },
     })
         .then(() => {
-            refetch?.();
             notification.success({
                 message: `Success`,
                 description: 'You have unsubscribed from this entity.',
                 placement: 'bottomLeft',
                 duration: 3,
             });
+            if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -275,16 +324,23 @@ export const deleteSubscriptionFunction = (subscriptionUrn: string, deleteSubscr
         });
 };
 
-export const createSubscriptionFunction = (
+export const createSubscriptionFunction = ({
     createSubscription,
-    refetch,
     groupUrn,
     entityUrn,
     subscriptionTypes,
     entityChangeTypes,
-    sinkTypes,
     notificationSettings,
-) => {
+    onRefetch,
+}: {
+    createSubscription: ReturnType<typeof useCreateSubscriptionMutation>[0];
+    groupUrn: string | undefined;
+    entityUrn: string;
+    subscriptionTypes: Array<SubscriptionType>;
+    entityChangeTypes: Array<EntityChangeType>;
+    notificationSettings: NotificationSettingsInput | undefined;
+    onRefetch?: () => void;
+}) => {
     createSubscription({
         variables: {
             input: {
@@ -293,7 +349,6 @@ export const createSubscriptionFunction = (
                 subscriptionTypes,
                 entityChangeTypes,
                 notificationConfig: {
-                    sinkTypes,
                     notificationSettings,
                 },
             },
@@ -307,9 +362,7 @@ export const createSubscriptionFunction = (
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
             });
-            setTimeout(() => {
-                refetch();
-            }, 3000);
+            if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
             message.destroy();
@@ -319,15 +372,21 @@ export const createSubscriptionFunction = (
         });
 };
 
-export const updateSubscriptionFunction = (
+export const updateSubscriptionFunction = ({
     updateSubscription,
-    refetch,
     subscription,
     subscriptionTypes,
     entityChangeTypes,
-    sinkTypes,
     notificationSettings,
-) => {
+    onRefetch,
+}: {
+    updateSubscription: ReturnType<typeof useUpdateSubscriptionMutation>[0];
+    subscription: DataHubSubscription | undefined;
+    subscriptionTypes: Array<SubscriptionType>;
+    entityChangeTypes: Array<EntityChangeType>;
+    notificationSettings: NotificationSettingsInput | undefined;
+    onRefetch?: () => void;
+}) => {
     if (subscription && subscription.subscriptionUrn) {
         updateSubscription({
             variables: {
@@ -336,7 +395,6 @@ export const updateSubscriptionFunction = (
                     subscriptionTypes,
                     entityChangeTypes,
                     notificationConfig: {
-                        sinkTypes,
                         notificationSettings,
                     },
                 },
@@ -350,9 +408,7 @@ export const updateSubscriptionFunction = (
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
                 });
-                setTimeout(() => {
-                    refetch();
-                }, 3000);
+                if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
             })
             .catch((e: unknown) => {
                 message.destroy();
@@ -364,4 +420,23 @@ export const updateSubscriptionFunction = (
                 }
             });
     }
+};
+
+export const getSubscriptionChannel = (isPersonal: boolean, subscription?: DataHubSubscription) => {
+    const subUserHandle = subscription?.notificationConfig?.notificationSettings?.slackSettings.userHandle || undefined;
+    const subChannels = subscription?.notificationConfig?.notificationSettings?.slackSettings?.channels;
+    const subGroupChannel = subChannels?.length ? subChannels[0] : undefined;
+    return isPersonal ? subUserHandle : subGroupChannel;
+};
+
+export const getSettingsChannel = (
+    isPersonal: boolean,
+    userNotificationSettings?: GetUserNotificationSettingsQuery,
+    groupNotificationSettings?: GetGroupNotificationSettingsQuery,
+) => {
+    const settingsUserHandle =
+        userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
+    const settingsChannels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
+    const settingsGroupChannel = settingsChannels?.length ? settingsChannels[0] : undefined;
+    return isPersonal ? settingsUserHandle : settingsGroupChannel;
 };

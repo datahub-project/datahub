@@ -8,7 +8,7 @@ import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { PLATFORM_FILTER_NAME, TAGS_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../utils/constants';
-import { IconSpacer, Label } from './ActiveFilter';
+import { IconSpacer, Label } from './styledComponents';
 import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected } from './utils';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ParentNodes from './ParentNodes';

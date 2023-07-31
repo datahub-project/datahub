@@ -11,8 +11,8 @@ import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
-import com.linkedin.monitor.DatasetSlaAssertionParameters;
-import com.linkedin.monitor.DatasetSlaSourceType;
+import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
+import com.linkedin.monitor.DatasetFreshnessSourceType;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -82,9 +82,9 @@ public class MonitorServiceTest {
         .setCron("1 * * * *")
         .setTimezone("America/Los_Angeles");
     AssertionEvaluationParameters parameters = new AssertionEvaluationParameters()
-        .setType(AssertionEvaluationParametersType.DATASET_SLA)
-        .setDatasetSlaParameters(new DatasetSlaAssertionParameters()
-            .setSourceType(DatasetSlaSourceType.AUDIT_LOG)
+        .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+        .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+            .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
             .setAuditLog(new AuditLogSpec().setUserName("test").setOperationTypes(new StringArray()))
         );
 
@@ -129,9 +129,9 @@ public class MonitorServiceTest {
         .setCron("1 * * * *")
         .setTimezone("America/Los_Angeles");
     AssertionEvaluationParameters parameters = new AssertionEvaluationParameters()
-        .setType(AssertionEvaluationParametersType.DATASET_SLA)
-        .setDatasetSlaParameters(new DatasetSlaAssertionParameters()
-            .setSourceType(DatasetSlaSourceType.AUDIT_LOG)
+        .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+        .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+            .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
             .setAuditLog(new AuditLogSpec().setUserName("test").setOperationTypes(new StringArray()))
         );
 
@@ -155,9 +155,9 @@ public class MonitorServiceTest {
         .setCron("1 * * * *")
         .setTimezone("America/Los_Angeles");
     AssertionEvaluationParameters parameters = new AssertionEvaluationParameters()
-        .setType(AssertionEvaluationParametersType.DATASET_SLA)
-        .setDatasetSlaParameters(new DatasetSlaAssertionParameters()
-            .setSourceType(DatasetSlaSourceType.AUDIT_LOG)
+        .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+        .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+            .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
             .setAuditLog(new AuditLogSpec().setUserName("test").setOperationTypes(new StringArray()))
         );
 
@@ -274,9 +274,9 @@ public class MonitorServiceTest {
               .setAssertion(TEST_ASSERTION_URN)
               .setSchedule(new CronSchedule().setCron("* * * * *").setTimezone("America/Los_Angeles"))
               .setParameters(new AssertionEvaluationParameters()
-                .setType(AssertionEvaluationParametersType.DATASET_SLA)
-                .setDatasetSlaParameters(new DatasetSlaAssertionParameters()
-                  .setSourceType(DatasetSlaSourceType.AUDIT_LOG)
+                .setType(AssertionEvaluationParametersType.DATASET_FRESHNESS)
+                .setDatasetFreshnessParameters(new DatasetFreshnessAssertionParameters()
+                  .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
                   .setAuditLog(new AuditLogSpec().setOperationTypes(new StringArray()).setUserName("test"))
                 )
               )

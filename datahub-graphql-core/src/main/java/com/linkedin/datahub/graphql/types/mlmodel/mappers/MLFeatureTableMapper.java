@@ -68,7 +68,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         mappingHelper.mapToResult(ML_FEATURE_TABLE_KEY_ASPECT_NAME, this::mapMLFeatureTableKey);
         mappingHelper.mapToResult(ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME, (entity, dataMap) -> this.mapMLFeatureTableProperties(entity, dataMap, entityUrn));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (mlFeatureTable, dataMap) ->
-            mlFeatureTable.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            mlFeatureTable.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (mlFeatureTable, dataMap) ->
             mlFeatureTable.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlFeatureTable, dataMap) ->

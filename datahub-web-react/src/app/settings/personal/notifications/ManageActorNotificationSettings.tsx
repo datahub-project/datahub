@@ -2,16 +2,10 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
 import { SinkSettingsSection } from './section/SinkSettingsSection';
-import {
-    useGetGlobalSettingsQuery,
-    useGetGroupNotificationSettingsQuery,
-    useGetUserNotificationSettingsQuery,
-    useUpdateGroupNotificationSettingsMutation,
-    useUpdateUserNotificationSettingsMutation,
-} from '../../../../graphql/settings.generated';
-import { updateGroupNotificationSettingsFunction, updateUserNotificationSettingsFunction } from './utils';
+import { useGetGlobalSettingsQuery } from '../../../../graphql/settings.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../platform/types';
 import { isSinkEnabled } from '../../utils';
+import useSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
 
 const NotificationSettingsTitle = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
@@ -41,42 +35,10 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
-
-    const { data: userNotificationSettings, refetch: refetchUserNotificationSettings } =
-        useGetUserNotificationSettingsQuery({ skip: !isPersonal });
-    const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
-    const { data: groupNotificationSettings, refetch: refetchGroupNotificationSettings } =
-        useGetGroupNotificationSettingsQuery({
-            skip: isPersonal || !groupUrn,
-            variables: { input: { groupUrn: groupUrn || '' } },
-        });
-    const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
-    const userHandle = userNotificationSettings?.getUserNotificationSettings?.slackSettings?.userHandle || undefined;
-    const channels = groupNotificationSettings?.getGroupNotificationSettings?.slackSettings?.channels;
-    const groupChannel = channels?.length ? channels[0] : undefined;
-
-    const onUpdateUserNotificationSettings = (newUserHandle: string) => {
-        updateUserNotificationSettingsFunction(
-            newUserHandle,
-            updateUserNotificationSettings,
-            refetchUserNotificationSettings,
-        );
-    };
-
-    const onUpdateGroupNotificationSettings = (newGroupChannel: string) => {
-        updateGroupNotificationSettingsFunction(
-            groupUrn || '',
-            newGroupChannel,
-            updateGroupNotificationSettings,
-            refetchGroupNotificationSettings,
-        );
-    };
+    const { settingsChannel, updateSinkSettings, sinkTypes } = useSinkSettings({ isPersonal, groupUrn });
 
     const pageTitle = isPersonal ? 'My Notifications' : 'Group Notifications';
     const slackSinkTitle = 'Slack';
-    const slackSinkSettingValue = isPersonal ? userHandle : groupChannel;
-    const updateSinkSetting = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
-
     return (
         <>
             <NotificationSettingsTitle>{pageTitle}</NotificationSettingsTitle>
@@ -85,9 +47,10 @@ export const ManageActorNotificationSettings = ({ isPersonal, groupUrn, groupNam
                     isPersonal={isPersonal}
                     sinkEnabled={slackSinkEnabled}
                     sinkName={slackSinkTitle}
-                    sinkSettingValue={slackSinkSettingValue}
-                    updateSinkSetting={updateSinkSetting}
+                    sinkSettingValue={settingsChannel}
+                    updateSinkSetting={updateSinkSettings}
                     groupName={groupName}
+                    sinkTypes={sinkTypes}
                 />
             </NotificationSettingsContainer>
         </>

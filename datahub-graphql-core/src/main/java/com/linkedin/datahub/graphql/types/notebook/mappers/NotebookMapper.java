@@ -74,7 +74,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
     mappingHelper.mapToResult(GLOBAL_TAGS_ASPECT_NAME, (notebook, dataMap) ->
         notebook.setTags(GlobalTagsMapper.map(new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (notebook, dataMap) -> 
-      notebook.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+      notebook.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(SUB_TYPES_ASPECT_NAME, this::mapSubTypes);
     mappingHelper.mapToResult(GLOSSARY_TERMS_ASPECT_NAME, (notebook, dataMap) -> 

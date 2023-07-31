@@ -6,7 +6,10 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SlackNotificationSettings;
+import com.linkedin.event.notification.NotificationSinkTypeArray;
 import com.linkedin.identity.CorpUserSettings;
+
+import java.util.ArrayList;
 import java.util.List;
 
 import static com.linkedin.metadata.service.SettingsService.*;
@@ -28,14 +31,14 @@ public class NotificationSettingsTestUtils {
           SLACK_CHANNELS));
   public static final com.linkedin.event.notification.settings.NotificationSettings USER_NOTIFICATION_SETTINGS =
       new com.linkedin.event.notification.settings.NotificationSettings().setSlackSettings(
-          USER_SLACK_NOTIFICATION_SETTINGS);
+          USER_SLACK_NOTIFICATION_SETTINGS).setSinkTypes(new NotificationSinkTypeArray());
   public static final com.linkedin.identity.CorpUserSettings CORP_USER_SETTINGS =
       new com.linkedin.identity.CorpUserSettings().setNotificationSettings(USER_NOTIFICATION_SETTINGS);
   public static final CorpUserSettings UPDATED_CORP_USER_SETTINGS =
       DEFAULT_CORP_USER_SETTINGS.setNotificationSettings(USER_NOTIFICATION_SETTINGS);
   public static final com.linkedin.event.notification.settings.NotificationSettings GROUP_NOTIFICATION_SETTINGS =
       new com.linkedin.event.notification.settings.NotificationSettings().setSlackSettings(
-          GROUP_SLACK_NOTIFICATION_SETTINGS);
+          GROUP_SLACK_NOTIFICATION_SETTINGS).setSinkTypes(new NotificationSinkTypeArray());
   public static final com.linkedin.identity.CorpGroupSettings CORP_GROUP_SETTINGS =
       new com.linkedin.identity.CorpGroupSettings().setNotificationSettings(GROUP_NOTIFICATION_SETTINGS);
 
@@ -44,6 +47,7 @@ public class NotificationSettingsTestUtils {
     final SlackNotificationSettings slackNotificationSettings = new SlackNotificationSettings();
     slackNotificationSettings.setUserHandle(SLACK_USER_HANDLE);
     notificationSettings.setSlackSettings(slackNotificationSettings);
+    notificationSettings.setSinkTypes(new ArrayList<>());
     return notificationSettings;
   }
 
@@ -52,6 +56,7 @@ public class NotificationSettingsTestUtils {
     final SlackNotificationSettings slackNotificationSettings = new SlackNotificationSettings();
     slackNotificationSettings.setChannels(SLACK_CHANNELS);
     notificationSettings.setSlackSettings(slackNotificationSettings);
+    notificationSettings.setSinkTypes(new ArrayList<>());
     return notificationSettings;
   }
 

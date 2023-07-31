@@ -134,12 +134,22 @@ input UpdateGroupNotificationSettingsInput {
 
 input NotificationSettingsInput {
     """
+    Sink types that notifications are sent to.
+    """
+    sinkTypes: [NotificationSinkType!]!
+
+    """
     Slack Notification Settings
     """
     slackSettings: SlackNotificationSettingsInput!
 }
 
 type NotificationSettings {
+    """
+    Sink types that notifications are sent to.
+    """
+    sinkTypes: [NotificationSinkType!]!
+
     """
     Slack Notification Settings
     """
@@ -220,11 +230,6 @@ input UpdateSubscriptionInput {
 }
 
 input SubscriptionNotificationConfigInput {
-    """
-    Sink types that notifications for the subscription are sent to.
-    """
-    sinkTypes: [NotificationSinkType!]!
-
     """
     (Optional) The subscription's Notification Settings.
     """
@@ -365,11 +370,6 @@ enum EntityChangeType {
 }
 
 type SubscriptionNotificationConfig {
-    """
-    Sink types that notifications for the subscription are sent to.
-    """
-    sinkTypes: [NotificationSinkType!]!
-
     """
     (Optional) The subscription's Notification Settings.
     """

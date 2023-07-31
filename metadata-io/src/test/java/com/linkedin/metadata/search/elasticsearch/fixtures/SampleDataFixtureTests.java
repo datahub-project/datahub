@@ -55,6 +55,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.ESTestUtils.*;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static com.linkedin.metadata.utils.SearchUtil.*;
@@ -195,10 +196,10 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testFixtureInitialization() {
         assertNotNull(searchService);
-        SearchResult noResult = search(searchService, "no results");
+        SearchResult noResult = searchAcrossEntities(searchService, "no results");
         assertEquals(0, noResult.getEntities().size());
 
-        final SearchResult result = search(searchService, "test");
+        final SearchResult result = searchAcrossEntities(searchService, "test");
 
         Map<String, Integer> expectedTypes = Map.of(
                 "dataset", 13,
@@ -244,7 +245,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 .build();
 
         expected.forEach((key, value) -> {
-            SearchResult result = search(searchService, key);
+            SearchResult result = searchAcrossEntities(searchService, key);
             assertEquals(result.getEntities().size(), value.intValue(),
                     String.format("Unexpected data platform `%s` hits.", key)); // max is 100 without pagination
         });
@@ -260,14 +261,14 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
                 "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)"
         ).forEach(query ->
-            assertTrue(search(searchService, query).getEntities().size() >= 1,
+            assertTrue(searchAcrossEntities(searchService, query).getEntities().size() >= 1,
                     String.format("Unexpected >1 urn result for `%s`", query))
         );
     }
 
     @Test
     public void testExactTable() {
-        SearchResult results = search(searchService, "stg_customers");
+        SearchResult results = searchAcrossEntities(searchService, "stg_customers");
         assertEquals(results.getEntities().size(), 1, "Unexpected single urn result for `stg_customers`");
         assertEquals(results.getEntities().get(0).getEntity().toString(),
                 "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)");
@@ -284,7 +285,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         testSets.forEach(testSet -> {
             Integer expectedResults = null;
             for (String testQuery : testSet) {
-                SearchResult results = search(searchService, testQuery);
+                SearchResult results = searchAcrossEntities(searchService, testQuery);
 
                 assertTrue(results.hasEntities() && !results.getEntities().isEmpty(),
                         String.format("Expected search results for `%s`", testQuery));
@@ -302,7 +303,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         Set<String> testSet = Set.of("customer", "customers");
 
         Set<SearchResult> results = testSet.stream()
-                .map(test -> search(searchService, test))
+                .map(test -> searchAcrossEntities(searchService, test))
                 .collect(Collectors.toSet());
 
         results.forEach(r -> assertTrue(r.hasEntities() && !r.getEntities().isEmpty(), "Expected search results"));
@@ -355,7 +356,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "customer acquisition cost"
         );
         List<Integer> resultCounts = testSet.stream().map(q -> {
-            SearchResult result = search(searchService, q);
+            SearchResult result = searchAcrossEntities(searchService, q);
             assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                     "Expected search results for: " + q);
             return result.getEntities().size();
@@ -388,7 +389,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 "big query"
         );
         List<SearchResult> results = testSet.stream().map(query -> {
-            SearchResult result = search(searchService, query);
+            SearchResult result = searchAcrossEntities(searchService, query);
             assertTrue(result.hasEntities() && !result.getEntities().isEmpty(), "Expected search results for: " + query);
             return result;
         }).collect(Collectors.toList());
@@ -627,7 +628,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
 
         Map<String, SearchResult> results = expectedFulltextMinimums.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> search(searchService, entry.getKey())));
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> searchAcrossEntities(searchService, entry.getKey())));
 
         results.forEach((key, value) -> {
             Integer actualCount = value.getEntities().size();
@@ -697,7 +698,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testFacets() {
         Set<String> expectedFacets = Set.of("entity", "typeNames", "platform", "origin", "tags");
-        SearchResult testResult = search(searchService, "cypress");
+        SearchResult testResult = searchAcrossEntities(searchService, "cypress");
         expectedFacets.forEach(facet -> {
             assertTrue(testResult.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
                     String.format("Failed to find facet `%s` in %s", facet,
@@ -709,7 +710,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testNestedAggregation() {
         Set<String> expectedFacets = Set.of("platform");
-        SearchResult testResult = search(searchService, "cypress", List.copyOf(expectedFacets));
+        SearchResult testResult = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResult.getMetadata().getAggregations().size(), 1);
         expectedFacets.forEach(facet -> {
             assertTrue(testResult.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
@@ -719,7 +720,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         });
 
         expectedFacets = Set.of("platform", "typeNames", "_entityType", "entity");
-        SearchResult testResult2 = search(searchService, "cypress", List.copyOf(expectedFacets));
+        SearchResult testResult2 = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResult2.getMetadata().getAggregations().size(), 4);
         expectedFacets.forEach(facet -> {
             assertTrue(testResult2.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
@@ -729,11 +730,11 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         });
         String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
         expectedFacets = Set.of(singleNestedFacet);
-        SearchResult testResultSingleNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        SearchResult testResultSingleNested = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
 
         expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
-        SearchResult testResultNested = search(searchService, "cypress", List.copyOf(expectedFacets));
+        SearchResult testResultNested = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResultNested.getMetadata().getAggregations().size(), 4);
         expectedFacets.forEach(facet -> {
             assertTrue(testResultNested.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
@@ -835,6 +836,19 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         // expect total number of results scrolling through to be the number that we saw
         assertEquals(totalResults, expectedTotal);
     }
+    
+    @Test
+    public void testSearchAcrossMultipleEntities() {
+        String query = "logging_events";
+        SearchResult result = search(searchService, query);
+        assertEquals((int) result.getNumEntities(), 8);
+        result = search(searchService, List.of(DATASET_ENTITY_NAME, DATA_JOB_ENTITY_NAME), query);
+        assertEquals((int) result.getNumEntities(), 8);
+        result = search(searchService, List.of(DATASET_ENTITY_NAME), query);
+        assertEquals((int) result.getNumEntities(), 4);
+        result = search(searchService, List.of(DATA_JOB_ENTITY_NAME), query);
+        assertEquals((int) result.getNumEntities(), 4);
+    }
 
     @Test
     public void testQuotedAnalyzer() throws IOException {
@@ -900,7 +914,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
 
         testSet.forEach(query -> {
-            SearchResult result = search(searchService, query);
+            SearchResult result = searchAcrossEntities(searchService, query);
 
             assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                     String.format("%s - Expected partial urn search results", query));
@@ -966,7 +980,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryFieldMatch() {
         String query = STRUCTURED_QUERY_PREFIX + "name: customers";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -979,7 +993,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryFieldPrefixMatch() {
         String query = STRUCTURED_QUERY_PREFIX + "name: customers*";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -992,7 +1006,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryCustomPropertiesKeyPrefix() {
         String query = STRUCTURED_QUERY_PREFIX + "customProperties: node_type=*";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1005,7 +1019,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryCustomPropertiesMatch() {
         String query = STRUCTURED_QUERY_PREFIX + "customProperties: node_type=model";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1023,7 +1037,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         );
 
         Map<String, SearchResult> results = expectedResults.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> search(searchService, entry.getKey())));
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> searchAcrossEntities(searchService, entry.getKey())));
 
         results.forEach((key, value) -> {
             Integer actualCount = value.getEntities().size();
@@ -1037,7 +1051,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryFieldPaths() {
         String query = STRUCTURED_QUERY_PREFIX + "fieldPaths: customer_id";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1050,7 +1064,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryBoolean() {
         String query = STRUCTURED_QUERY_PREFIX + "editedFieldTags:urn\\:li\\:tag\\:Legacy OR tags:urn\\:li\\:tag\\:testTag";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1060,7 +1074,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 2);
 
         query = STRUCTURED_QUERY_PREFIX + "editedFieldTags:urn\\:li\\:tag\\:Legacy";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1070,7 +1084,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 1);
 
         query = STRUCTURED_QUERY_PREFIX + "tags:urn\\:li\\:tag\\:testTag";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1083,7 +1097,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testStructQueryBrowsePaths() {
         String query = STRUCTURED_QUERY_PREFIX + "browsePaths:*/dbt/*";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1096,7 +1110,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testOr() {
         String query = "stg_customers | logging_events";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1104,7 +1118,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 9);
 
         query = "stg_customers";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1112,7 +1126,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 1);
 
         query = "logging_events";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1123,7 +1137,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testNegate() {
         String query = "logging_events -bckp";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1131,7 +1145,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 7);
 
         query = "logging_events";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1142,7 +1156,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testPrefix() {
         String query = "bigquery";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1150,7 +1164,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 8);
 
         query = "big*";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1161,7 +1175,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testParens() {
         String query = "dbt | (bigquery + covid19)";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1169,7 +1183,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 11);
 
         query = "dbt";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1177,7 +1191,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 9);
 
         query = "bigquery + covid19";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1185,7 +1199,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 2);
 
         query = "bigquery";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1193,7 +1207,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertEquals(result.getEntities().size(), 8);
 
         query = "covid19";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1204,7 +1218,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testPrefixVsExact() {
         String query = "\"customers\"";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
 
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                 String.format("%s - Expected search results", query));
@@ -1222,7 +1236,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     public void testPrefixVsExactCaseSensitivity() {
         List<String> insensitiveExactMatches = List.of("testExactMatchCase", "testexactmatchcase", "TESTEXACTMATCHCASE");
         for (String query : insensitiveExactMatches) {
-            SearchResult result = search(searchService, query);
+            SearchResult result = searchAcrossEntities(searchService, query);
 
             assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
                     String.format("%s - Expected search results", query));
@@ -1239,7 +1253,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     @Test
     public void testColumnExactMatch() {
         String query = "unit_data";
-        SearchResult result = search(searchService, query);
+        SearchResult result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
             String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
@@ -1252,7 +1266,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             "Expected table name exact match first");
 
         query = "special_column_only_present_here_info";
-        result = search(searchService, query);
+        result = searchAcrossEntities(searchService, query);
         assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
             String.format("%s - Expected search results", query));
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),

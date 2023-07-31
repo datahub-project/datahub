@@ -100,6 +100,7 @@ export const updateEntityLink = ({ entity, institutionalMemory }: UpdateEntityLi
             label: e.description as string,
             author: { urn: e.author, username: '', type: EntityType.CorpUser },
             created: { time: Date.now(), actor: getActor(), __typename: 'AuditStamp' },
+            associatedUrn: dataEntity.urn,
         };
         return link;
     });

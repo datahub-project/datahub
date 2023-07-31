@@ -64,7 +64,8 @@ record IncidentsSummary {
             "fieldType": "URN",
             "fieldName": "activeIncidents",
             "hasValuesFieldName": "hasActiveIncidents",
-            "numValuesFieldName": "numActiveIncidents"
+            "numValuesFieldName": "numActiveIncidents",
+            "addHasValuesToFilters": true
         },
         "/*/type" : {
             "fieldType": "KEYWORD",

@@ -1,6 +1,8 @@
 import React from 'react';
-import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
 import {
+    AssertionResult,
+    AssertionResultErrorType,
     AssertionResultType,
     AssertionStdParameter,
     AssertionStdParameterType,
@@ -30,29 +32,39 @@ export const getResultText = (result: AssertionResultType) => {
             return 'Passed';
         case AssertionResultType.Failure:
             return 'Failed';
+        case AssertionResultType.Error:
+            return 'Error';
+        case AssertionResultType.Init:
+            return 'Initializing';
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
 };
 
 /**
- * Returns the display color assoociated with an AssertionResultType
+ * Returns the display color associated with an AssertionResultType
  */
 const SUCCESS_COLOR_HEX = '#4db31b';
 const FAILURE_COLOR_HEX = '#F5222D';
+const ERROR_COLOR_HEX = '#FAAD14';
+const INIT_COLOR_HEX = '#8C8C8C';
 export const getResultColor = (result: AssertionResultType) => {
     switch (result) {
         case AssertionResultType.Success:
             return SUCCESS_COLOR_HEX;
         case AssertionResultType.Failure:
             return FAILURE_COLOR_HEX;
+        case AssertionResultType.Error:
+            return ERROR_COLOR_HEX;
+        case AssertionResultType.Init:
+            return INIT_COLOR_HEX;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }
 };
 
 /**
- * Returns the display icon assoociated with an AssertionResultType
+ * Returns the display icon associated with an AssertionResultType
  */
 export const getResultIcon = (result: AssertionResultType) => {
     const resultColor = getResultColor(result);
@@ -61,8 +73,34 @@ export const getResultIcon = (result: AssertionResultType) => {
             return <CheckCircleOutlined style={{ color: resultColor }} />;
         case AssertionResultType.Failure:
             return <CloseCircleOutlined style={{ color: resultColor }} />;
+        case AssertionResultType.Error:
+            return <ExclamationCircleOutlined style={{ color: resultColor }} />;
+        case AssertionResultType.Init:
+            return <StopOutlined style={{ color: resultColor }} />;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
+    }
+};
+
+export const getResultErrorMessage = (result: AssertionResult) => {
+    if (result.type !== AssertionResultType.Error) {
+        return undefined;
+    }
+
+    const errorType = result.error?.type;
+    switch (errorType) {
+        case AssertionResultErrorType.SourceConnectionError:
+            return 'Unable to connect to dataset. Please check the dataset connection.';
+        case AssertionResultErrorType.SourceQueryFailed:
+            return 'Unable to evaluate assertion. Please check the assertion configuration.';
+        case AssertionResultErrorType.InvalidParameters:
+            return 'Invalid parameters. Please check the assertion configuration.';
+        case AssertionResultErrorType.InvalidSourceType:
+            return 'Invalid source type selected.';
+        case AssertionResultErrorType.UnsupportedPlatform:
+            return 'Unsupported platform.';
+        default:
+            return 'An unknown error occurred.';
     }
 };
 

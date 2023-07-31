@@ -1,8 +1,10 @@
+import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { Typography, Switch, Input, Button, Form } from 'antd';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
-import { validateGroupSlackChannel, validateSlackUserHandle } from '../../utils';
+import { UpdateSettingsInput } from '../../../../shared/subscribe/drawer/useSinkSettings';
+import { NotificationSinkType } from '../../../../../types.generated';
 
 const SinkSettings = styled.div`
     margin-top: 12px;
@@ -27,15 +29,12 @@ const SinkDescription = styled(Typography.Text)`
 `;
 
 const SinkEditButton = styled(Button)`
-    margin-left: -6px;
+    padding: 0 4px;
 `;
 
 const EditDescription = styled(Typography.Text)`
     text-decoration: underline;
-`;
-
-const SinkSettingValueText = styled(Typography.Text)`
-    font-size: 14px;
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 const SinkButtonsContainer = styled.div`
@@ -47,11 +46,6 @@ const SinkButtonsContainer = styled.div`
     gap: 2px;
 `;
 
-const ReadOnlyContainer = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 0px;
 `;
@@ -61,17 +55,26 @@ const StyledInput = styled(Input)`
     border-color: ${ANTD_GRAY[8]};
 `;
 
-const SaveButton = styled(Button)``;
+const SaveButton = styled(Button)`
+    margin: 0 4px;
+`;
 
 const CancelButton = styled(Button)``;
+
+const HelperText = styled.div`
+    color: ${ANTD_GRAY[8]};
+    margin-top: 6px;
+    font-size: 14px;
+`;
 
 type Props = {
     isPersonal: boolean;
     sinkEnabled: boolean;
     sinkName: string;
-    updateSinkSetting: (sinkSettingValue: string) => void;
+    updateSinkSetting: (input: UpdateSettingsInput) => void;
     sinkSettingValue?: string;
     groupName?: string;
+    sinkTypes?: NotificationSinkType[];
 };
 
 /**
@@ -84,30 +87,35 @@ export const SinkSettingsSection = ({
     sinkSettingValue,
     updateSinkSetting,
     groupName,
+    sinkTypes,
 }: Props) => {
     const [editing, setIsEditing] = useState<boolean>(false);
-    const [allowEditing, setAllowEditing] = useState<boolean>(!!sinkSettingValue);
+    const [allowEditing, setAllowEditing] = useState<boolean>(!!sinkTypes?.includes(NotificationSinkType.Slack));
     const [inputValue, setInputValue] = useState(sinkSettingValue);
     const [form] = Form.useForm();
     form.setFieldsValue({ slackFormValue: inputValue });
     useEffect(() => {
-        if (sinkSettingValue === undefined) {
+        if (!sinkSettingValue) {
             setIsEditing(true);
-            setAllowEditing(false);
         } else {
             setIsEditing(false);
-            setAllowEditing(true);
         }
         setInputValue(sinkSettingValue);
     }, [sinkSettingValue]);
+    useEffect(() => {
+        if (sinkTypes) {
+            setAllowEditing(sinkTypes.includes(NotificationSinkType.Slack));
+        }
+    }, [sinkTypes]);
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to at`;
+    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to. ${sinkName} ${
+        isPersonal ? 'member' : 'channel'
+    } ID: `;
     const sinkDisabledDescription = `In order to enable, ask your DataHub admin to setup the ${sinkName} integration.`;
-    const inputPlaceholder = isPersonal ? '@your name' : '#engineering';
     const saveButtonOnClick = () => {
         if (inputValue) {
-            updateSinkSetting(inputValue);
+            updateSinkSetting({ text: inputValue, sinkTypes: allowEditing ? [NotificationSinkType.Slack] : [] });
         }
         setIsEditing(false);
     };
@@ -115,61 +123,65 @@ export const SinkSettingsSection = ({
         setInputValue(sinkSettingValue);
         setIsEditing(false);
     };
+    const onToggle = (enabled: boolean) => {
+        setAllowEditing(enabled);
+        updateSinkSetting({ text: sinkSettingValue || '', sinkTypes: enabled ? [NotificationSinkType.Slack] : [] });
+    };
 
     return (
         <SinkSettings>
-            <Switch
-                disabled={!sinkEnabled}
-                checked={allowEditing && sinkEnabled}
-                onChange={(checked) => setAllowEditing(checked)}
-            />
+            <Switch disabled={!sinkEnabled} checked={allowEditing && sinkEnabled} onChange={onToggle} />
             <SinkTextContainer>
                 <SinkTitle strong>{`${sinkName} Notifications`}</SinkTitle>
-                <SinkDescription>{sinkEnabled ? sinkEnabledDescription : sinkDisabledDescription}</SinkDescription>
+                <SinkDescription>
+                    {sinkEnabled ? sinkEnabledDescription : sinkDisabledDescription}
+                    {sinkEnabled && inputValue && !editing && (
+                        <>
+                            <strong>{inputValue}</strong>
+                            <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
+                                <EditDescription strong>edit</EditDescription>
+                            </SinkEditButton>
+                        </>
+                    )}
+                </SinkDescription>
                 {sinkEnabled && (
-                    <SinkButtonsContainer>
-                        {editing ? (
-                            <>
-                                <Form form={form}>
-                                    <StyledFormItem
-                                        name="slackFormValue"
-                                        rules={[
-                                            ({ getFieldValue }) => ({
-                                                validator() {
-                                                    const fieldValue = getFieldValue('slackFormValue');
-                                                    return isPersonal
-                                                        ? validateSlackUserHandle(fieldValue)
-                                                        : validateGroupSlackChannel(fieldValue);
-                                                },
-                                            }),
-                                        ]}
+                    <>
+                        <SinkButtonsContainer>
+                            {editing && (
+                                <>
+                                    <Form form={form}>
+                                        <StyledFormItem name="slackFormValue">
+                                            <StyledInput
+                                                placeholder="ABC12345678"
+                                                value={inputValue}
+                                                onChange={(e) => setInputValue(e.target.value)}
+                                                disabled={!allowEditing}
+                                            />
+                                        </StyledFormItem>
+                                    </Form>
+                                    <SaveButton
+                                        type="primary"
+                                        onClick={saveButtonOnClick}
+                                        disabled={!inputValue || inputValue.length < 2}
                                     >
-                                        <StyledInput
-                                            placeholder={inputPlaceholder}
-                                            value={inputValue}
-                                            onChange={(e) => setInputValue(e.target.value)}
-                                            disabled={!allowEditing}
-                                        />
-                                    </StyledFormItem>
-                                </Form>
-                                <SaveButton
-                                    type="primary"
-                                    onClick={saveButtonOnClick}
-                                    disabled={!inputValue || inputValue.length < 2}
-                                >
-                                    Save
-                                </SaveButton>
-                                <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
-                            </>
-                        ) : (
-                            <ReadOnlyContainer>
-                                <SinkSettingValueText strong>{inputValue}</SinkSettingValueText>
-                                <SinkEditButton type="link" onClick={() => setIsEditing(true)}>
-                                    <EditDescription strong>edit</EditDescription>
-                                </SinkEditButton>
-                            </ReadOnlyContainer>
+                                        Save
+                                    </SaveButton>
+                                    <CancelButton onClick={cancelButtonOnClick}>Cancel</CancelButton>
+                                </>
+                            )}
+                        </SinkButtonsContainer>
+                        {editing && (
+                            <HelperText>
+                                {isPersonal ? (
+                                    <>
+                                        Find a member ID from the <MoreOutlined /> menu in your Slack profile
+                                    </>
+                                ) : (
+                                    <>Find a channel ID at the bottom of the &quot;About&quot; tab for a channel</>
+                                )}
+                            </HelperText>
                         )}
-                    </SinkButtonsContainer>
+                    </>
                 )}
             </SinkTextContainer>
         </SinkSettings>

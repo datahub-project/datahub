@@ -690,8 +690,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
     switch (info.getType()) {
       case DATASET:
         return info.getDatasetAssertion().getDataset();
-      case SLA:
-        return info.getSlaAssertion().getEntity();
+      case FRESHNESS:
+        return info.getFreshnessAssertion().getEntity();
       default:
         throw new IllegalArgumentException("Failed to extract assertee urn from assertionInfo aspect! Unrecognized assertion type provided.");
     }
@@ -704,8 +704,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return DatasetAssertionScope.DATASET_COLUMN.equals(info.getDatasetAssertion().getScope())
             ? IncidentType.DATASET_COLUMN
             : IncidentType.DATASET_ROWS;
-      case SLA:
-        return IncidentType.SLA;
+      case FRESHNESS:
+        return IncidentType.FRESHNESS;
       default:
         throw new IllegalArgumentException("Failed to map to an incident type! Unsupported Assertion type provided.");
     }
@@ -718,8 +718,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return DatasetAssertionScope.DATASET_COLUMN.equals(info.getDatasetAssertion().getScope())
             ? AnomalyType.DATASET_COLUMN
             : AnomalyType.DATASET_ROWS;
-      case SLA:
-        return AnomalyType.SLA;
+      case FRESHNESS:
+        return AnomalyType.FRESHNESS;
       default:
         throw new IllegalArgumentException("Failed to map to an anomaly type! Unsupported Assertion type provided.");
     }

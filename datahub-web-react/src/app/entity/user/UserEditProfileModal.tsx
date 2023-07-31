@@ -1,9 +1,14 @@
+import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { useAppConfig } from '../../useAppConfig';
-import { validateSlackUserHandle } from '../../settings/personal/utils';
+
+const StyledInput = styled(Input)`
+    margin-bottom: 4px;
+`;
 
 type PropsData = {
     name: string | undefined;
@@ -28,7 +33,6 @@ export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 export default function UserEditProfileModal({ visible, onClose, onSave, editModalData }: Props) {
     const { config } = useAppConfig();
     const { readOnlyModeEnabled } = config.featureFlags;
-    const verticalEllipsis = String.fromCharCode(8942);
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
     const [form] = Form.useForm();
 
@@ -214,33 +218,25 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                             <Typography.Text strong>Slack Member ID</Typography.Text>
                         </>
                     }
-                    rules={[
-                        { whitespace: true },
-                        { min: 2, max: 50 },
-                        ({ getFieldValue }) => ({
-                            validator() {
-                                return validateSlackUserHandle(getFieldValue('slack'));
-                            },
-                        }),
-                    ]}
+                    rules={[{ whitespace: true }, { min: 2, max: 50 }]}
                     hasFeedback
                 >
-                    <Input
-                        placeholder="#john_smith"
+                    <StyledInput
+                        placeholder="ABC12345678"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
                     />
+                    <Typography.Text type="secondary">
+                        Find your member ID from the <MoreOutlined /> menu in your Slack profile. More info{' '}
+                        <a
+                            href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            here.
+                        </a>
+                    </Typography.Text>
                 </Form.Item>
-                <Typography.Text type="secondary">
-                    Find your member ID from the {verticalEllipsis} menu in your Slack profile. More info{' '}
-                    <a
-                        href="https://slack.com/intl/en-ca/help/articles/212906697-Where-can-I-find-my-Slack-member-ID-"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        here.
-                    </a>
-                </Typography.Text>
                 <Form.Item
                     name="phone"
                     label={<Typography.Text strong>Phone</Typography.Text>}

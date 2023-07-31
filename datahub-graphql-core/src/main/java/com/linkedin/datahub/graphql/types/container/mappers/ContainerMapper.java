@@ -87,7 +87,7 @@ public class ContainerMapper {
 
     final EnvelopedAspect envelopedInstitutionalMemory = aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
     if (envelopedInstitutionalMemory != null) {
-      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data())));
+      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect statusAspect = aspects.get(Constants.STATUS_ASPECT_NAME);

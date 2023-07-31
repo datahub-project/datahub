@@ -70,6 +70,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -154,6 +174,30 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
     "changeType": "UPSERT",
@@ -211,11 +255,11 @@
                             "primary_key": "col_Int64",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "10",
                             "total_bytes": "671",
-                            "data_paths": "['/var/lib/clickhouse/store/689/689251e9-d514-4a89-ac7b-14857a8a395a/']",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/mv_target_table.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/6cb/6cbac4d1-c700-4f8a-9cc9-542cc349e497/']",
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/mv_target_table.sql"
                         },
                         "name": "mv_target_table",
                         "description": "This is target table for materialized view",
@@ -353,6 +397,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -385,11 +457,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/1bb/1bb7aa71-5c5e-426b-ba29-a12b800e6dcf/']",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/339/339ddf61-6dc4-47ae-9ae5-a358864e6457/']",
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/test_data_types.sql"
                         },
                         "name": "test_data_types",
                         "description": "This table has basic types",
@@ -956,6 +1028,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1012,11 +1112,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_dict.sql"
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/test_dict.sql"
                         },
                         "name": "test_dict",
                         "description": "",
@@ -1115,6 +1215,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_dict,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1147,11 +1275,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "default",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/531/531fc424-a69b-4d7c-8b4c-a7dbbc2e919f/']",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_nested_data_types.sql"
+                            "data_paths": "['/var/lib/clickhouse/store/22c/22c46b00-4f2a-444a-8bee-73e60b9deba6/']",
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/test_nested_data_types.sql"
                         },
                         "name": "test_nested_data_types",
                         "description": "This table has nested types",
@@ -1354,6 +1482,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_nested_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1410,11 +1566,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "None",
                             "total_bytes": "None",
-                            "data_paths": "['/var/lib/clickhouse/store/689/689251e9-d514-4a89-ac7b-14857a8a395a/']",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/mv_with_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/6cb/6cbac4d1-c700-4f8a-9cc9-542cc349e497/']",
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/mv_with_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1571,6 +1727,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_with_target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1627,11 +1811,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "0",
                             "total_bytes": "0",
-                            "data_paths": "['/var/lib/clickhouse/store/42b/42b5020e-8007-4b11-b491-f4604a33d2e9/']",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/mv_without_target_table.sql",
+                            "data_paths": "['/var/lib/clickhouse/store/0f1/0f172bf3-80e5-4ba7-9ae3-938da0a9799d/']",
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/mv_without_target_table.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1788,6 +1972,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.mv_without_target_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -1844,11 +2056,11 @@
                             "primary_key": "",
                             "sampling_key": "",
                             "storage_policy": "",
-                            "metadata_modification_time": "2023-05-11 23:34:18",
+                            "metadata_modification_time": "2023-07-24 21:34:01",
                             "total_rows": "None",
                             "total_bytes": "None",
                             "data_paths": "[]",
-                            "metadata_path": "/var/lib/clickhouse/store/bf5/bf553974-954c-4cca-8a8f-c56557cdcfe0/test_view.sql",
+                            "metadata_path": "/var/lib/clickhouse/store/0a2/0a2bd3dd-893f-4f9a-b310-92e4c830091a/test_view.sql",
                             "view_definition": "",
                             "is_view": "True"
                         },
@@ -1944,6 +2156,34 @@
             "materialized": false,
             "viewLogic": "",
             "viewLanguage": "SQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "clickhouse-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,clickhousetestserver.db1.test_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:clickhouse,clickhousetestserver)"
+                },
+                {
+                    "id": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c",
+                    "urn": "urn:li:container:ab016b94aa0d75c5b9205c33260e989c"
+                },
+                {
+                    "id": "urn:li:container:1154d1da73a95376c9f33f47694cf1de",
+                    "urn": "urn:li:container:1154d1da73a95376c9f33f47694cf1de"
+                }
+            ]
         }
     },
     "systemMetadata": {

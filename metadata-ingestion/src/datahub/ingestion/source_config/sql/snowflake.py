@@ -91,7 +91,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     )
     include_view_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
+        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
     )
     connect_args: Optional[Dict[str, Any]] = pydantic.Field(
         default=None,

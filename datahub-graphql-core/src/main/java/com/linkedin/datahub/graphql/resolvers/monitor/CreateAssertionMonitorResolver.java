@@ -13,17 +13,18 @@ import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersInput
 import com.linkedin.datahub.graphql.generated.AuditLogSpecInput;
 import com.linkedin.datahub.graphql.generated.CreateAssertionMonitorInput;
 import com.linkedin.datahub.graphql.generated.CronScheduleInput;
-import com.linkedin.datahub.graphql.generated.DatasetSlaAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.FreshnessFieldSpecInput;
 import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationParametersType;
 import com.linkedin.monitor.AuditLogSpec;
-import com.linkedin.monitor.DatasetSlaAssertionParameters;
-import com.linkedin.monitor.DatasetSlaSourceType;
+import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
+import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.assertion.FreshnessFieldKind;
 import com.linkedin.assertion.FreshnessFieldSpec;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -89,35 +90,35 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
     final AssertionEvaluationParameters result = new AssertionEvaluationParameters();
     result.setType(AssertionEvaluationParametersType.valueOf(input.getType().toString()));
 
-    if (AssertionEvaluationParametersType.DATASET_SLA.equals(result.getType()) && input.getDatasetSlaParameters() != null) {
-      result.setDatasetSlaParameters(createDatasetSlaParameters(input.getDatasetSlaParameters()));
+    if (AssertionEvaluationParametersType.DATASET_FRESHNESS.equals(result.getType()) && input.getDatasetFreshnessParameters() != null) {
+      result.setDatasetFreshnessParameters(createDatasetFreshnessParameters(input.getDatasetFreshnessParameters()));
     } else {
       throw new DataHubGraphQLException(
-          "Invalid input. Dataset SLA Parameters are required when type is DATASET_SLA.",
+          "Invalid input. Dataset FRESHNESS Parameters are required when type is DATASET_FRESHNESS.",
           DataHubGraphQLErrorCode.BAD_REQUEST);
     }
     return result;
   }
 
-  private DatasetSlaAssertionParameters createDatasetSlaParameters(@Nonnull final DatasetSlaAssertionParametersInput input) {
-    final DatasetSlaAssertionParameters result = new DatasetSlaAssertionParameters();
-    result.setSourceType(DatasetSlaSourceType.valueOf(input.getSourceType().toString()));
-    if (DatasetSlaSourceType.AUDIT_LOG.equals(result.getSourceType())) {
+  private DatasetFreshnessAssertionParameters createDatasetFreshnessParameters(@Nonnull final DatasetFreshnessAssertionParametersInput input) {
+    final DatasetFreshnessAssertionParameters result = new DatasetFreshnessAssertionParameters();
+    result.setSourceType(DatasetFreshnessSourceType.valueOf(input.getSourceType().toString()));
+    if (DatasetFreshnessSourceType.AUDIT_LOG.equals(result.getSourceType())) {
       if (input.getAuditLog() != null) {
         result.setAuditLog(createAuditLogSpec(input.getAuditLog()));
       } else {
         throw new DataHubGraphQLException(
-            "Invalid input. Audit Log info is required if type SLA source type is AUDIT_LOG.",
+            "Invalid input. Audit Log info is required if type FRESHNESS source type is AUDIT_LOG.",
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
 
     }
-    if (DatasetSlaSourceType.FIELD_VALUE.equals(result.getSourceType())) {
+    if (DatasetFreshnessSourceType.FIELD_VALUE.equals(result.getSourceType())) {
       if (input.getField() != null) {
-        result.setField(createFieldSpec(input.getField()));
+        result.setField(createFreshnessFieldSpec(input.getField()));
       } else {
         throw new DataHubGraphQLException(
-            "Invalid input. Field info is required if type SLA source type is FIELD_VALUE.",
+            "Invalid input. Field info is required if type FRESHNESS source type is FIELD_VALUE.",
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
     }
@@ -135,11 +136,20 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
     return result;
   }
 
-  private FreshnessFieldSpec createFieldSpec(@Nonnull final SchemaFieldSpecInput input) {
+  private FreshnessFieldSpec createFreshnessFieldSpec(@Nonnull final FreshnessFieldSpecInput input) {
     final FreshnessFieldSpec result = new FreshnessFieldSpec();
     result.setType(input.getType());
     result.setNativeType(input.getNativeType(), SetMode.IGNORE_NULL);
     result.setPath(input.getPath(), SetMode.IGNORE_NULL);
+
+    if (input.getKind() != null) {
+        result.setKind(FreshnessFieldKind.valueOf(input.getKind().toString()));
+    } else {
+        throw new DataHubGraphQLException(
+            "Invalid input. Freshness Field Kind info is required if type Freshness source type is FIELD_VALUE.",
+            DataHubGraphQLErrorCode.BAD_REQUEST);
+    }
+  
     return result;
   }
 }

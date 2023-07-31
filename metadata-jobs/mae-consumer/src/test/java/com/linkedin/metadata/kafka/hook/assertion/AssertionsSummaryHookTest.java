@@ -36,6 +36,7 @@ public class AssertionsSummaryHookTest {
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_DATASET_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)");
   private static final String TEST_ASSERTION_TYPE = AssertionType.DATASET.toString();
+  private static final Urn TEST_INFERRED_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:inferred-test");
 
   @Test
   public void testInvokeNotEnabled() throws Exception {
@@ -266,6 +267,15 @@ public class AssertionsSummaryHookTest {
                 .setDataset(TEST_DATASET_URN)
         )
     );
+
+    Mockito.when(mockService.getAssertionInfo(TEST_INFERRED_ASSERTION_URN))
+        .thenReturn(new AssertionInfo()
+            .setType(AssertionType.DATASET)
+            .setSource(new AssertionSource().setType(AssertionSourceType.INFERRED))
+            .setDatasetAssertion(new DatasetAssertionInfo()
+                .setDataset(TEST_DATASET_URN)
+            )
+        );
 
     Mockito.when(mockService.getAssertionsSummary(TEST_DATASET_URN)).thenReturn(summary);
 

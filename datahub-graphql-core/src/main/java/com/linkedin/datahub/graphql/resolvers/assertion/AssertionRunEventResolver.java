@@ -84,6 +84,11 @@ public class AssertionRunEventResolver implements DataFetcher<CompletableFuture<
                 && runEvent.getResult() != null
                 && AssertionResultType.SUCCESS.equals(runEvent.getResult().getType()
             )).count()));
+        result.setErrored(Math.toIntExact(runEvents.stream().filter(runEvent ->
+            AssertionRunStatus.COMPLETE.equals(runEvent.getStatus())
+                && runEvent.getResult() != null
+                && AssertionResultType.ERROR.equals(runEvent.getResult().getType()
+            )).count()));
         result.setRunEvents(runEvents);
         return result;
       } catch (RemoteInvocationException e) {

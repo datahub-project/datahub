@@ -101,7 +101,7 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         mappingHelper.mapToResult(CAVEATS_AND_RECOMMENDATIONS_ASPECT_NAME, (mlModel, dataMap) ->
             mlModel.setCaveatsAndRecommendations(CaveatsAndRecommendationsMapper.map(new CaveatsAndRecommendations(dataMap))));
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (mlModel, dataMap) ->
-            mlModel.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            mlModel.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(SOURCE_CODE_ASPECT_NAME, this::mapSourceCode);
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (mlModel, dataMap) ->
             mlModel.setStatus(StatusMapper.map(new Status(dataMap))));

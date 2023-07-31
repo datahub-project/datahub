@@ -813,7 +813,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     logger.debug(
-                        f"View {database}.{schema}.{table.name} is filtered by view_pattern"
+                        f"View {database}.{schema}.{view.name} is filtered by view_pattern"
                     )
                     self.report.view_filtered[f"{database}.{schema}"] = (
                         self.report.view_filtered.get(f"{database}.{schema}", 0) + 1

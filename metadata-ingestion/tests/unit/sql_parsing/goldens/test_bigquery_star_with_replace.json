@@ -1,0 +1,47 @@
+{
+    "query_type": "CREATE",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)",
+                "column": "col1"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)",
+                    "column": "col1"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)",
+                "column": "col2"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)",
+                    "column": "col2"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.test_table,PROD)",
+                "column": "something"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)",
+                    "column": "something"
+                }
+            ]
+        }
+    ]
+}

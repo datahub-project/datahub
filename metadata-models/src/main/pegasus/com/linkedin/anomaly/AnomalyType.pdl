@@ -5,9 +5,9 @@ namespace com.linkedin.anomaly
  */
 enum AnomalyType {
   /**
-  * An inferred SLA Assertion has failed, triggering the anomaly.
+  * An inferred Freshness Assertion has failed, triggering the anomaly.
   */
-  SLA
+  FRESHNESS
 
   /**
   * An inferred assertion on a particular column(s) of a Dataset has triggered the anomaly.

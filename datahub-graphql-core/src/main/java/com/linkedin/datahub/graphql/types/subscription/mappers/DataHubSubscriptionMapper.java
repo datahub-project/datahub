@@ -5,7 +5,6 @@ import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
-import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
@@ -66,11 +65,6 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
   private SubscriptionNotificationConfig mapNotificationConfig(
       @Nonnull final com.linkedin.subscription.SubscriptionNotificationConfig notificationConfig) {
     final SubscriptionNotificationConfig result = new SubscriptionNotificationConfig();
-    final List<NotificationSinkType> sinkTypes = notificationConfig.getSinkTypes()
-        .stream()
-        .map(sinkType -> NotificationSinkType.valueOf(sinkType.toString()))
-        .collect(Collectors.toList());
-    result.setSinkTypes(sinkTypes);
 
     if (notificationConfig.hasNotificationSettings()) {
       final NotificationSettings notificationSettings =

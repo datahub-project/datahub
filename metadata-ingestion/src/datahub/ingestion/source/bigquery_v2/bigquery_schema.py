@@ -319,7 +319,7 @@ from
 -- We filter column limit + 1 to make sure we warn about the limit being reached but not reading too much data
 where column_num <= {column_limit} and shard_num = 1
 ORDER BY
-  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, table_name, data_type DESC"""
+  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, data_type DESC"""
 
     columns_for_table: str = """
 select

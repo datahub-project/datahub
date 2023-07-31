@@ -3,10 +3,9 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import EntityNode from './EntityNode';
 import { BrowseProvider } from './BrowseContext';
-import useAggregationsQuery from './useAggregationsQuery';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
 import SidebarLoadingError from './SidebarLoadingError';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
+import useSidebarEntities from './useSidebarEntities';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
@@ -14,6 +13,7 @@ const Sidebar = styled.div<{ visible: boolean; width: number }>`
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
     background-color: #f8f9fa;
+    background: white;
 `;
 
 const SidebarHeader = styled.div`
@@ -40,9 +40,8 @@ type Props = {
 };
 
 const BrowseSidebar = ({ visible, width }: Props) => {
-    const { error, entityAggregations } = useAggregationsQuery({
+    const { error, entityAggregations, retry } = useSidebarEntities({
         skip: !visible,
-        facets: [ENTITY_FILTER_NAME],
     });
 
     return (
@@ -57,7 +56,7 @@ const BrowseSidebar = ({ visible, width }: Props) => {
                         <EntityNode />
                     </BrowseProvider>
                 ))}
-                {error && <SidebarLoadingError />}
+                {error && <SidebarLoadingError onClickRetry={retry} />}
             </SidebarBody>
         </Sidebar>
     );

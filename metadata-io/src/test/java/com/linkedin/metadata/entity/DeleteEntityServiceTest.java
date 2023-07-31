@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
@@ -9,7 +10,6 @@ import com.linkedin.container.Container;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphService;
@@ -37,7 +37,7 @@ public class DeleteEntityServiceTest {
 
   protected EbeanAspectDao _aspectDao;
 
-  protected EntityService _entityService;
+  protected EntityServiceImpl _entityServiceImpl;
   protected GraphService _graphService = Mockito.mock(GraphService.class);
 
   protected DeleteEntityService _deleteEntityService;
@@ -52,9 +52,9 @@ public class DeleteEntityServiceTest {
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
-    _entityService = new EntityService(_aspectDao, mock(EventProducer.class), _entityRegistry, true,
+    _entityServiceImpl = new EntityServiceImpl(_aspectDao, mock(EventProducer.class), _entityRegistry, true,
         _mockUpdateIndicesService, preProcessHooks);
-    _deleteEntityService = new DeleteEntityService(_entityService, _graphService);
+    _deleteEntityService = new DeleteEntityService(_entityServiceImpl, _graphService);
   }
 
   /**

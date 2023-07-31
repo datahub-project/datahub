@@ -20,6 +20,11 @@ extend type Mutation {
   Updates the state of a "system" (e.g. anomaly) monitor.
   """
   updateSystemMonitors(input: UpdateSystemMonitorsInput!): Boolean!
+
+  """
+  Updates the state of a monitor, returns the updated monitor
+  """
+  updateMonitorStatus(input: UpdateMonitorStatusInput!): Monitor!
 }
 
 """
@@ -37,9 +42,9 @@ A type of built-in system monitor, e.g. those that generate anomalies.
 """
 enum SystemMonitorType {
   """
-  An SLA or Freshness monitor.
+  An Freshness or Freshness monitor.
   """
-  SLA
+  FRESHNESS
 }
 
 """
@@ -77,6 +82,21 @@ input UpdateSystemMonitorsInput {
   in the set has a different SystemMonitorType.
   """
   monitors: [UpdateSystemMonitorInput!]!
+}
+
+"""
+Input required to update a Monitor's statu
+"""
+input UpdateMonitorStatusInput {
+  """
+  The urn of the monitor to update.
+  """
+  urn: String!
+
+  """
+  The new mode / status of the monitor.
+  """
+  mode: MonitorMode!
 }
 
 """
@@ -192,9 +212,9 @@ The type of assertion evaluation parameters
 """
 enum AssertionEvaluationParametersType {
   """
-  Parameters required to evaluate a Dataset SLA
+  Parameters required to evaluate a Dataset Freshness Assertions
   """
-  DATASET_SLA
+  DATASET_FRESHNESS
 }
 
 """
@@ -207,24 +227,24 @@ type AssertionEvaluationParameters {
   type: AssertionEvaluationParametersType!
 
   """
-  The parameters required to evaluate a dataset SLA assertion. Present if type is DATASET_SLA.
+  The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
   """
-  datasetSlaParameters: DatasetSlaAssertionParameters
+  datasetFreshnessParameters: DatasetFreshnessAssertionParameters
 }
 
 """
-The parameters required to evaluate a dataset SLA assertion. Present if type is DATASET_SLA.
+The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
 """
-type DatasetSlaAssertionParameters {
+type DatasetFreshnessAssertionParameters {
     """
     The source of the change operation.
     """
-    sourceType: DatasetSlaSourceType!
+    sourceType: DatasetFreshnessSourceType!
 
     """
     Information about the field to use. Present when sourceType is FIELD_VALUE
     """
-    field: SchemaFieldSpec
+    field: FreshnessFieldSpec
 
     """
     Determine that a change has occurred by inspecting an audit log API
@@ -235,7 +255,7 @@ type DatasetSlaAssertionParameters {
 """
 The source of the change operation.
 """
-enum DatasetSlaSourceType {
+enum DatasetFreshnessSourceType {
   """
   Determine that a change has occurred by inspecting a particular field, e.g. a timestamp column.
   """
@@ -270,6 +290,43 @@ type SchemaFieldSpec {
   The native field type
   """
   nativeType: String!
+}
+
+"""
+Information about the field to use in a Freshness assertion
+"""
+type FreshnessFieldSpec {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+
+  """
+  The type of the field being used to verify the Freshness Assertion
+  """
+  kind: FreshnessFieldKind!
+}
+
+enum FreshnessFieldKind {
+  """
+  Determine that a change has occurred by inspecting a last modified field
+  """
+  LAST_MODIFIED
+
+  """
+  Determine that a change has occurred by inspecting an ascending number or date field
+  """
+  HIGH_WATERMARK
 }
 
 """
@@ -352,24 +409,24 @@ input AssertionEvaluationParametersInput {
     type: AssertionEvaluationParametersType!
 
     """
-    The parameters required to evaluate a dataset SLA assertion. Present if type is DATASET_SLA.
+    The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
     """
-    datasetSlaParameters: DatasetSlaAssertionParametersInput
+    datasetFreshnessParameters: DatasetFreshnessAssertionParametersInput
 }
 
 """
-Input for the parameters required to evaluate a dataset SLA assertion. Present if type is DATASET_SLA.
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
 """
-input DatasetSlaAssertionParametersInput {
+input DatasetFreshnessAssertionParametersInput {
     """
     The source of the change operation.
     """
-    sourceType: DatasetSlaSourceType!
+    sourceType: DatasetFreshnessSourceType!
 
     """
     Information about the field to use. Present when sourceType is FIELD_VALUE
     """
-    field: SchemaFieldSpecInput
+    field: FreshnessFieldSpecInput
 
     """
     Determine that a change has occurred by inspecting an audit log API
@@ -395,6 +452,31 @@ input SchemaFieldSpecInput {
     The native field type
     """
     nativeType: String!
+}
+
+"""
+Input for information about the field to use in a Freshness assertion
+"""
+input FreshnessFieldSpecInput {
+    """
+    The field path
+    """
+    path: String!
+
+    """
+    The DataHub standard schema field type.
+    """
+    type: String!
+
+    """
+    The native field type
+    """
+    nativeType: String!
+
+    """
+    The type of the field being used to verify the Freshness Assertion
+    """
+    kind: FreshnessFieldKind!
 }
 
 """

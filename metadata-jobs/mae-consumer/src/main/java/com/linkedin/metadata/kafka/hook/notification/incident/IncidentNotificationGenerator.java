@@ -17,6 +17,7 @@ import com.linkedin.event.notification.NotificationRequest;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentState;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
@@ -129,10 +130,10 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     log.debug(info.toString());
 
     final Urn entityUrn = info.getEntities().get(0);
+    EntityChangeType changeType = getEntityChangeType(info);
 
     Set<NotificationRecipient> recipients =
-        new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn,
-            EntityChangeType.INCIDENT_RAISED));
+        new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn, changeType));
     if (recipients.isEmpty()) {
       log.warn("Skipping incident notification generation - no recipients");
       return;
@@ -184,9 +185,10 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Notify a specific slack channel to alert the owners of the asset.
     final Urn entityUrn = newInfo.getEntities().get(0);
+    EntityChangeType changeType = getEntityChangeType(newInfo);
 
     Set<NotificationRecipient> recipients = new HashSet<>(
-        buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn, EntityChangeType.INCIDENT_RAISED));
+        buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn, changeType));
     if (recipients.isEmpty()) {
       log.info("Skipping incident generation - no recipients");
       return;
@@ -230,6 +232,10 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));
     sendNotificationRequest(notificationRequest);
 
+  }
+
+  private EntityChangeType getEntityChangeType(@Nonnull final IncidentInfo info) {
+    return info.getStatus().getState().equals(IncidentState.ACTIVE) ? EntityChangeType.INCIDENT_RAISED : EntityChangeType.INCIDENT_RESOLVED;
   }
 
   private boolean isNewIncident(final MetadataChangeLog event) {

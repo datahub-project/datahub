@@ -9,9 +9,7 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import pydeequ
 from more_itertools import peekable
-from pydeequ.analyzers import AnalyzerContext
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
@@ -62,7 +60,6 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
-from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -285,6 +282,10 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        # Deequ fails if Spark is not available which is not needed for non profiling use cases
+        import pydeequ
+
         conf = SparkConf()
 
         conf.set(
@@ -477,6 +478,12 @@ class S3Source(StatefulIngestionSourceBase):
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        # Deequ fails if Spark is not available which is not needed for non profiling use cases
+        from pydeequ.analyzers import AnalyzerContext
+
+        from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
+
         # read in the whole table with Spark for profiling
         table = None
         try:

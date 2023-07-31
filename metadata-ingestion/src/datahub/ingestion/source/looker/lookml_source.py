@@ -1853,6 +1853,13 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             yield from self.get_internal_workunits()
 
+            if not self.report.events_produced and not self.report.failures:
+                # Don't pass if we didn't produce any events.
+                self.report.report_failure(
+                    "<main>",
+                    "No metadata was produced. Check the logs for more details.",
+                )
+
     def _recursively_check_manifests(
         self, tmp_dir: str, project_name: str, project_visited: Set[str]
     ) -> None:
@@ -1976,7 +1983,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if connectionDefinition is None:
                 self.reporter.report_warning(
                     f"model-{model_name}",
-                    f"Failed to load connection {model.connection}. Check your API key permissions.",
+                    f"Failed to load connection {model.connection}. Check your API key permissions and/or connection_to_platform_map configuration.",
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue

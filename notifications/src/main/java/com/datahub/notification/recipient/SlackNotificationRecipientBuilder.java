@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientType;
+import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.settings.NotificationSetting;
@@ -68,6 +69,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   protected List<NotificationRecipient> buildUserNotificationRecipients(
       @Nonnull final List<NotificationSettings> userNotificationSettings) {
     return userNotificationSettings.stream()
+        .filter(settings -> settings.getSinkTypes().contains(NotificationSinkType.SLACK))
         .map(NotificationSettings::getSlackSettings)
         .filter(Objects::nonNull)
         .filter(SlackNotificationSettings::hasUserHandle)
@@ -82,6 +84,7 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
   protected List<NotificationRecipient> buildGroupNotificationRecipients(
       @Nonnull final List<NotificationSettings> groupNotificationSettings) {
     return groupNotificationSettings.stream()
+        .filter(settings -> settings.getSinkTypes().contains(NotificationSinkType.SLACK))
         .map(NotificationSettings::getSlackSettings)
         .filter(Objects::nonNull)
         .filter(SlackNotificationSettings::hasChannels)

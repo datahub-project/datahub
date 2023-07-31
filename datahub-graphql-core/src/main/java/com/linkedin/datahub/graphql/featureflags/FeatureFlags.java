@@ -15,5 +15,7 @@ public class FeatureFlags {
   private boolean showSearchFiltersV2 = false;
   private boolean showBrowseV2 = false;
   private boolean subscriptionsEnabled = false;
+  private boolean datasetHealthDashboardEnabled = false;
   private PreProcessHooks preProcessHooks;
+  private boolean showAcrylInfo = false;
 }

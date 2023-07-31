@@ -1,10 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Image, Typography } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { Button, Tooltip, Typography } from 'antd';
 import { ANTD_GRAY } from '../../../../../../constants';
 
-const Container = styled(Button)`
+const Container = styled(Button)<{ enabled }>`
     margin-right: 12px;
     margin-left: 12px;
     margin-bottom: 12px;
@@ -18,13 +17,16 @@ const Container = styled(Button)`
     flex-direction: column;
     border: 1px solid ${ANTD_GRAY[4]};
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    &&:hover {
-        box-shadow: ${(props) => props.theme.styles['box-shadow-hover']};
-    }
+    ${(props) =>
+        props.enabled &&
+        `&&:hover {
+        box-shadow: ${props.theme.styles['box-shadow-hover']};
+    }`}
     && {
         text-align: start;
     }
     white-space: unset;
+    color: ${(props) => (props.enabled ? 'normal' : ANTD_GRAY[6])};
 `;
 
 const Header = styled.div`
@@ -34,21 +36,13 @@ const Header = styled.div`
     margin-bottom: 12px;
 `;
 
-const Title = styled(Typography.Title)`
+const Title = styled(Typography.Title)<{ enabled }>`
     && {
         padding: 0px;
         margin: 0px;
+        color: ${(props) => (props.enabled ? 'normal' : ANTD_GRAY[6])};
     }
     margin-right: 8px;
-`;
-
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-right: 8px;
-        font-size: 18px;
-    }
 `;
 
 const Description = styled(Typography.Paragraph)`
@@ -58,22 +52,32 @@ const Description = styled(Typography.Paragraph)`
 interface TypeOptionProps {
     name: string;
     description: string;
-    imageSrc?: string | null;
+    icon?: React.ReactNode | null;
+    enabled?: boolean;
     onClick: () => void;
 }
 
 /**
  * A specific Assertion Type option.
  */
-export function AssertionTypeOption({ name, description, imageSrc, onClick }: TypeOptionProps) {
+export function AssertionTypeOption({ name, description, icon, enabled = true, onClick }: TypeOptionProps) {
+    const handleOnClick = () => {
+        if (enabled) {
+            onClick();
+        }
+    };
+
     return (
-        <Container onClick={onClick}>
-            <Header>
-                <StyledClockCircleOutlined />
-                <Title level={4}>{name}</Title>
-            </Header>
-            {imageSrc && <Image src={imageSrc} />}
-            <Description type="secondary">{description}</Description>
-        </Container>
+        <Tooltip title={!enabled ? 'Coming soon!' : undefined}>
+            <Container onClick={handleOnClick} enabled={enabled} key={name}>
+                <Header>
+                    {icon}
+                    <Title level={4} enabled={enabled}>
+                        {name}
+                    </Title>
+                </Header>
+                <Description type="secondary">{description}</Description>
+            </Container>
+        </Tooltip>
     );
 }

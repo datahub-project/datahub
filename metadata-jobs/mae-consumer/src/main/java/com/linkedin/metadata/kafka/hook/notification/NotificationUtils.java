@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -15,6 +16,9 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.pegasus2avro.subscription.SubscriptionType;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
+
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -183,6 +187,11 @@ public class NotificationUtils {
         && event.hasSystemMetadata()
         && event.getSystemMetadata().hasRunId()
         && !event.getSystemMetadata().getRunId().equals(DEFAULT_RUN_ID);
+  }
+
+  public static List<NotificationRecipient> getUniqueRecipients(List<NotificationRecipient> recipients) {
+    HashSet<String> existingIds = new HashSet<>();
+    return recipients.stream().filter(recipient -> existingIds.add(recipient.getId())).collect(Collectors.toList());
   }
 
   private NotificationUtils() { }

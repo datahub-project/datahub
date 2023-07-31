@@ -82,6 +82,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.include_able_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
@@ -156,6 +181,31 @@
             "materialized": false,
             "viewLogic": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
             "viewLanguage": "lookml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.looker_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "views"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -291,6 +341,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.extending_looker_events,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
@@ -373,6 +448,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.autodetect_sql_name_based_on_view_name,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
@@ -447,6 +547,31 @@
             "materialized": false,
             "viewLogic": "include: \"/included_view_file.view\"\n\nview: looker_events {\n  sql_table_name: looker_schema.events ;;\n}\n\nview: extending_looker_events {\n  extends: [looker_events]\n\n  measure: additional_measure {\n    type: count\n  }\n}\n\nview: autodetect_sql_name_based_on_view_name {}\n\nview: test_include_external_view {\n  extends: [include_able_view]\n}\n",
             "viewLanguage": "lookml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.test_include_external_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "views"
+                }
+            ]
         }
     },
     "systemMetadata": {

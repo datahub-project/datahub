@@ -99,8 +99,8 @@ fragment subscriptionFields on DataHubSubscription {
         time
     }
     notificationConfig {
-        sinkTypes
         notificationSettings {
+            sinkTypes
             slackSettings {
                 userHandle
                 channels

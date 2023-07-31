@@ -17,9 +17,9 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParameterType;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameters;
 import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AssertionSourceType;
-import com.linkedin.datahub.graphql.generated.SlaAssertionInfo;
-import com.linkedin.datahub.graphql.generated.SlaAssertionSchedule;
-import com.linkedin.datahub.graphql.generated.SlaAssertionScheduleType;
+import com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo;
+import com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule;
+import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleType;
 import com.linkedin.datahub.graphql.generated.FixedIntervalSchedule;
 import com.linkedin.datahub.graphql.generated.DateInterval;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -27,9 +27,10 @@ import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
-import com.linkedin.datahub.graphql.generated.SlaAssertionType;
-import com.linkedin.datahub.graphql.generated.SlaCronSchedule;
+import com.linkedin.datahub.graphql.generated.FreshnessAssertionType;
+import com.linkedin.datahub.graphql.generated.FreshnessCronSchedule;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
+import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -82,10 +83,10 @@ public class AssertionMapper {
       DatasetAssertionInfo datasetAssertion = mapDatasetAssertionInfo(gmsAssertionInfo.getDatasetAssertion());
       assertionInfo.setDatasetAssertion(datasetAssertion);
     }
-    // SLA Assertions
-    if (gmsAssertionInfo.hasSlaAssertion()) {
-      SlaAssertionInfo slaAssertionInfo = mapSlaAssertionInfo(gmsAssertionInfo.getSlaAssertion());
-      assertionInfo.setSlaAssertion(slaAssertionInfo);
+    // FRESHNESS Assertions
+    if (gmsAssertionInfo.hasFreshnessAssertion()) {
+      FreshnessAssertionInfo freshnessAssertionInfo = mapFreshnessAssertionInfo(gmsAssertionInfo.getFreshnessAssertion());
+      assertionInfo.setFreshnessAssertion(freshnessAssertionInfo);
     }
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
@@ -193,28 +194,31 @@ public class AssertionMapper {
     return result;
   }
 
-  private static SlaAssertionInfo mapSlaAssertionInfo(
-      final com.linkedin.assertion.SlaAssertionInfo gmsSlaAssertionInfo) {
-    SlaAssertionInfo slaAssertionInfo = new SlaAssertionInfo();
-    slaAssertionInfo.setEntityUrn(gmsSlaAssertionInfo.getEntity().toString());
-    slaAssertionInfo.setType(SlaAssertionType.valueOf(gmsSlaAssertionInfo.getType().name()));
-    if (gmsSlaAssertionInfo.hasSchedule()) {
-      slaAssertionInfo.setSchedule(mapSlaAssertionSchedule(gmsSlaAssertionInfo.getSchedule()));
+  private static FreshnessAssertionInfo mapFreshnessAssertionInfo(
+      final com.linkedin.assertion.FreshnessAssertionInfo gmsFreshnessAssertionInfo) {
+    FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
+    freshnessAssertionInfo.setEntityUrn(gmsFreshnessAssertionInfo.getEntity().toString());
+    freshnessAssertionInfo.setType(FreshnessAssertionType.valueOf(gmsFreshnessAssertionInfo.getType().name()));
+    if (gmsFreshnessAssertionInfo.hasSchedule()) {
+      freshnessAssertionInfo.setSchedule(mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule()));
     }
-    return slaAssertionInfo;
+    if (gmsFreshnessAssertionInfo.hasFilter()) {
+      freshnessAssertionInfo.setFilter(DatasetFilterMapper.map(gmsFreshnessAssertionInfo.getFilter()));
+    }
+    return freshnessAssertionInfo;
   }
 
-  private static SlaAssertionSchedule mapSlaAssertionSchedule(
-      final com.linkedin.assertion.SlaAssertionSchedule gmsSlaAssertionSchedule) {
-    SlaAssertionSchedule slaAssertionSchedule = new SlaAssertionSchedule();
-    slaAssertionSchedule.setType(SlaAssertionScheduleType.valueOf(gmsSlaAssertionSchedule.getType().name()));
-    if (gmsSlaAssertionSchedule.hasCron()) {
-      slaAssertionSchedule.setCron(mapCronSchedule(gmsSlaAssertionSchedule.getCron()));
+  private static FreshnessAssertionSchedule mapFreshnessAssertionSchedule(
+      final com.linkedin.assertion.FreshnessAssertionSchedule gmsFreshnessAssertionSchedule) {
+    FreshnessAssertionSchedule freshnessAssertionSchedule = new FreshnessAssertionSchedule();
+    freshnessAssertionSchedule.setType(FreshnessAssertionScheduleType.valueOf(gmsFreshnessAssertionSchedule.getType().name()));
+    if (gmsFreshnessAssertionSchedule.hasCron()) {
+      freshnessAssertionSchedule.setCron(mapCronSchedule(gmsFreshnessAssertionSchedule.getCron()));
     }
-    if (gmsSlaAssertionSchedule.hasFixedInterval()) {
-      slaAssertionSchedule.setFixedInterval(mapFixedIntervalSchedule(gmsSlaAssertionSchedule.getFixedInterval()));
+    if (gmsFreshnessAssertionSchedule.hasFixedInterval()) {
+      freshnessAssertionSchedule.setFixedInterval(mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval()));
     }
-    return slaAssertionSchedule;
+    return freshnessAssertionSchedule;
   }
 
   private static FixedIntervalSchedule mapFixedIntervalSchedule(com.linkedin.assertion.FixedIntervalSchedule gmsFixedIntervalSchedule) {
@@ -224,9 +228,9 @@ public class AssertionMapper {
     return fixedIntervalSchedule;
   }
 
-  private static SlaCronSchedule mapCronSchedule(
-      final com.linkedin.assertion.SlaCronSchedule gmsCronSchedule) {
-    SlaCronSchedule cronSchedule = new SlaCronSchedule();
+  private static FreshnessCronSchedule mapCronSchedule(
+      final com.linkedin.assertion.FreshnessCronSchedule gmsCronSchedule) {
+    FreshnessCronSchedule cronSchedule = new FreshnessCronSchedule();
     cronSchedule.setCron(gmsCronSchedule.getCron());
     cronSchedule.setTimezone(gmsCronSchedule.getTimezone());
     cronSchedule.setWindowStartOffsetMs(gmsCronSchedule.getWindowStartOffsetMs(GetMode.NULL));
