@@ -36,8 +36,8 @@ const Content = styled.div`
 `;
 
 enum TabType {
-    Roles = 'Roles',
-    Policies = 'Policies',
+    Roles = t ("Roles"),
+    Policies = t ("Policies"),
 }
 const ENABLED_TAB_TYPES = [TabType.Roles, TabType.Policies];
 
