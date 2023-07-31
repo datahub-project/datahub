@@ -86,7 +86,7 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/analytics">
                         <Button type="text">
-                            <Tooltip title={t ('View DataHub usage analytics')}>
+                            <Tooltip title={t ("View DataHub usage analytics")}>
                                 <NavTitleContainer>
                                     <BarChartOutlined />
                                     <NavTitleText><Trans>Analytics</Trans></NavTitleText>
@@ -100,7 +100,7 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper>
                     <Link to="/ingestion">
                         <Button id={HOME_PAGE_INGESTION_ID} type="text">
-                            <Tooltip title={t ('Connect DataHub to your organization\'s data sources')}>
+                            <Tooltip title={t ("Connect DataHub to your organization's data sources")}>
                                 <NavTitleContainer>
                                     <ApiOutlined />
                                     <NavTitleText><Trans>Ingestion</Trans></NavTitleText>
@@ -148,7 +148,7 @@ export function HeaderLinks(props: Props) {
                 <LinkWrapper style={{ marginRight: 12 }}>
                     <Link to="/settings">
                         <Button type="text">
-                            <Tooltip title={t ('Manage your DataHub settings')}>
+                            <Tooltip title={t ("Manage your DataHub settings")}>
                                 <SettingOutlined />
                             </Tooltip>
                         </Button>
