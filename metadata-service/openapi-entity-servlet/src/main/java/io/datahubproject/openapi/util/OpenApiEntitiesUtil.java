@@ -1,13 +1,12 @@
 package io.datahubproject.openapi.util;
 
-import com.datahub.authentication.Authentication;
-import com.linkedin.common.AuditStamp;
-import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
+import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.SystemMetadata;
 import lombok.extern.slf4j.Slf4j;
@@ -16,12 +15,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static io.datahubproject.openapi.util.ReflectionCache.toLowerFirst;
 import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
 
@@ -40,29 +39,15 @@ public class OpenApiEntitiesUtil {
     private OpenApiEntitiesUtil() {
     }
 
-    public static Pair<AuditStamp, com.linkedin.mxe.SystemMetadata> buildSystemMetadata(Authentication authentication) {
-        long timestamp = System.currentTimeMillis();
-        com.linkedin.mxe.SystemMetadata generatedSystemMetadata = new com.linkedin.mxe.SystemMetadata()
-                .setLastObserved(timestamp)
-                .setRunId(DEFAULT_RUN_ID);
-
-        String actorUrnStr = authentication.getActor().toUrnStr();
-        AuditStamp auditStamp = new com.linkedin.common.AuditStamp().setTime(timestamp)
-                .setActor(UrnUtils.getUrn(actorUrnStr));
-
-        return Pair.of(auditStamp, generatedSystemMetadata);
-    }
-
     private final static ReflectionCache REFLECT = ReflectionCache.builder()
             .basePackage("io.datahubproject.openapi.generated")
             .build();
 
 
-    public static <T> UpsertAspectRequest convertAspectToUpsert(String entityType, String entityUrn,
-                                                                Object aspectRequest, Class<T> aspectRequestClazz) {
+    public static <T> UpsertAspectRequest convertAspectToUpsert(String entityUrn, Object aspectRequest, Class<T> aspectRequestClazz) {
         try {
             UpsertAspectRequest.UpsertAspectRequestBuilder builder = UpsertAspectRequest.builder();
-            builder.entityType(entityType);
+            builder.entityType(Urn.createFromString(entityUrn).getEntityType());
             builder.entityUrn(entityUrn);
 
             // i.e. GlobalTagsAspectRequestV2
@@ -79,19 +64,18 @@ public class OpenApiEntitiesUtil {
 
             return null;
         } catch (Exception e) {
-            log.error("Error reflecting entity: {} aspect: {}", entityType, aspectRequestClazz.getName());
+            log.error("Error reflecting urn: {} aspect: {}", entityUrn, aspectRequestClazz.getName());
             throw new RuntimeException(e);
         }
     }
     public static <T> List<UpsertAspectRequest> convertEntityToUpsert(Object openapiEntity, Class<T> fromClazz, EntityRegistry entityRegistry) {
-        final String entityType = toLowerFirst(fromClazz.getSimpleName().replace(ENTITY_REQUEST_SUFFIX, ""));
-        final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+        final EntitySpec entitySpec = requestClassToEntitySpec(entityRegistry, fromClazz);
 
         return entitySpec.getAspectSpecs().stream()
                 .map(aspectSpec -> {
                     try {
                         UpsertAspectRequest.UpsertAspectRequestBuilder builder = UpsertAspectRequest.builder();
-                        builder.entityType(entityType);
+                        builder.entityType(entitySpec.getName());
                         builder.entityUrn((String) REFLECT.lookupMethod(fromClazz, "getUrn").invoke(openapiEntity));
 
                         String upperAspectName = toUpperFirst(aspectSpec.getName());
@@ -114,7 +98,7 @@ public class OpenApiEntitiesUtil {
 
                         return null;
                     } catch (Exception e) {
-                        log.error("Error reflecting entity: {} aspect: {}", entityType, aspectSpec.getName());
+                        log.error("Error reflecting entity: {} aspect: {}", entitySpec.getName(), aspectSpec.getName());
                         throw new RuntimeException(e);
                     }
                 }).filter(Objects::nonNull).collect(Collectors.toList());
@@ -134,8 +118,14 @@ public class OpenApiEntitiesUtil {
     }
 
     public static <T> Optional<T> convertEntity(UrnResponseMap urnResponseMap, Class<T> toClazz, boolean withSystemMetadata) {
-        if (urnResponseMap != null) {
-            return urnResponseMap.getResponses().entrySet().stream().findFirst().map(entry -> {
+        return Optional.ofNullable(urnResponseMap)
+                .flatMap(respMap -> respMap.getResponses().entrySet().stream().findFirst())
+                .flatMap(entry -> convertEntities(Set.of(entry), toClazz, withSystemMetadata).stream().findFirst());
+    }
+
+    public static <T> List<T> convertEntities(Set<Map.Entry<String, EntityResponse>> entityResponseSet, Class<T> toClazz, boolean withSystemMetadata) {
+        if (entityResponseSet != null) {
+            return entityResponseSet.stream().map(entry -> {
                 try {
                     // i.e. DataContractEntityResponseV2.Builder
                     Pair<Class<?>, Object> builderPair = REFLECT.getBuilder(toClazz);
@@ -174,9 +164,9 @@ public class OpenApiEntitiesUtil {
                 } catch (IllegalAccessException | InvocationTargetException e) {
                     throw new RuntimeException(e);
                 }
-            });
+            }).collect(Collectors.toList());
         }
-        return Optional.empty();
+        return List.of();
     }
 
     public static <I, T> T convertToResponseAspect(I source, Class<T> targetClazz) {
@@ -204,8 +194,7 @@ public class OpenApiEntitiesUtil {
                 Pair<Class<?>, Object> builderPair = REFLECT.getBuilder(targetClazz);
                 copy(Pair.of(sourceClazz, source), builderPair, "urn");
 
-                final String entityType = toLowerFirst(sourceClazz.getSimpleName().replace(ENTITY_REQUEST_SUFFIX, ""));
-                final EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+                final EntitySpec entitySpec = requestClassToEntitySpec(entityRegistry, sourceClazz);
                 entitySpec.getAspectSpecs().stream()
                         .forEach(aspectSpec -> {
                             try {
@@ -223,6 +212,22 @@ public class OpenApiEntitiesUtil {
         return null;
     }
 
+    public static <T, S> Optional<S> convertToScrollResponse(Class<S> scrollRespClazz, String scrollId, List<T> entityResults) {
+        if (entityResults != null) {
+            try {
+                Pair<Class<?>, Object> builderPair = REFLECT.getBuilder(scrollRespClazz);
+                REFLECT.lookupMethod(builderPair.getFirst(), "scrollId", String.class).invoke(builderPair.getSecond(), scrollId);
+                REFLECT.lookupMethod(builderPair.getFirst(), "entities", List.class).invoke(builderPair.getSecond(), entityResults);
+
+                return Optional.of(scrollRespClazz.cast(REFLECT.lookupMethod(builderPair, "build").invoke(builderPair.getSecond())));
+
+            } catch (InvocationTargetException | IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return Optional.empty();
+    }
+
 
 
     private static void copy(Pair<Class<?>, Object> sourcePair, Pair<Class<?>, Object> builderPair, String method)
@@ -238,7 +243,7 @@ public class OpenApiEntitiesUtil {
                     Pair<Class<?>, Object> aspectBuilder = REFLECT.getBuilder(paramClazz);
 
                     for (Method m : sourceMethod.getReturnType().getMethods()) {
-                        if (m.getName().startsWith("get") && !Set.of("getClass").contains(m.getName())) {
+                        if (m.getName().startsWith("get") && !Objects.equals("getClass", m.getName())) {
                             String getterMethod = m.getName().replaceFirst("^get", "");
                             copy(Pair.of(sourceMethod.getReturnType(), sourceMethod.invoke(sourcePair.getSecond())),
                                     aspectBuilder, getterMethod);
@@ -262,5 +267,13 @@ public class OpenApiEntitiesUtil {
         }
     }
 
+    public static <T> EntitySpec requestClassToEntitySpec(EntityRegistry entityRegistry, Class<T> reqClazz) {
+        final String entityType = toLowerFirst(reqClazz.getSimpleName().replace(ENTITY_REQUEST_SUFFIX, ""));
+        return entityRegistry.getEntitySpec(entityType);
+    }
 
+    public static <T> EntitySpec responseClassToEntitySpec(EntityRegistry entityRegistry, Class<T> respClazz) {
+        String entityType = toLowerFirst(respClazz.getSimpleName().replace(ENTITY_RESPONSE_SUFFIX, ""));
+        return entityRegistry.getEntitySpec(entityType);
+    }
 }

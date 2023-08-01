@@ -36,6 +36,14 @@ import javax.annotation.Nullable;
 public interface EntityService {
 
   /**
+   * Just whether the entity/aspect exists
+   * @param urn urn for the entity
+   * @param aspectName aspect for the entity
+   * @return exists or not
+   */
+  Boolean exists(Urn urn, String aspectName);
+
+  /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided
    * set of aspect names.
    *
@@ -255,7 +263,7 @@ public interface EntityService {
       @Nonnull final List<SystemMetadata> systemMetadata);
 
   @Deprecated
-  void ingestEntity(Entity entity, AuditStamp auditStamp);
+  SystemMetadata ingestEntity(Entity entity, AuditStamp auditStamp);
 
   @Deprecated
   void ingestEntity(@Nonnull Entity entity, @Nonnull AuditStamp auditStamp,

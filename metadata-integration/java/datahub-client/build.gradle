@@ -55,7 +55,7 @@ dependencies {
   testCompile externalDependency.httpAsyncClient
   testRuntime externalDependency.logbackClassic
 
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  swaggerCodegen externalDependency.swaggerCli
 }
 
 task copyAvroSchemas {

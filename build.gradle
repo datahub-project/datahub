@@ -198,6 +198,7 @@ project.ext.externalDependency = [
     'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.1.12',
+    'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.41',
     'testng': 'org.testng:testng:7.3.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,

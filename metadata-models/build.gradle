@@ -32,7 +32,7 @@ dependencies {
   compileOnly externalDependency.jacksonCore
   compileOnly externalDependency.jacksonDataBind
 
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.36'
+  swaggerCodegen externalDependency.swaggerCli
   testCompile externalDependency.guava
 }
 

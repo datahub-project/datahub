@@ -1,0 +1,66 @@
+plugins {
+    id 'java'
+    id 'org.hidetake.swagger.generator'
+}
+
+dependencies {
+
+    compile project(':metadata-auth:auth-api')
+    compile project(':metadata-service:factories')
+    compile project(':metadata-service:openapi-servlet')
+    implementation project(':metadata-models')
+
+    compile externalDependency.springBoot
+    compile externalDependency.springCore
+    compile externalDependency.springDocUI
+    compile externalDependency.springWeb
+    compile externalDependency.springWebMVC
+    compile externalDependency.springBeans
+    compile externalDependency.springContext
+
+    compile externalDependency.reflections
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
+
+    implementation externalDependency.antlr4Runtime
+    implementation externalDependency.antlr4
+
+    annotationProcessor externalDependency.lombok
+
+    testCompile externalDependency.testng
+    testCompile externalDependency.mockito
+    testImplementation externalDependency.springBootTest
+
+    swaggerCodegen externalDependency.swaggerCli
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ["$buildDir/openapi/generated/src/main/java", 'src/main/java']
+        }
+    }
+}
+
+// https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
+task openApiGenerate(type: GenerateSwaggerCode) {
+    inputFile = file("$projectDir/src/main/resources/open-api.yaml")
+    outputDir = file("$buildDir/openapi/generated")
+
+    language = 'spring'
+
+    components = ["apis"]
+    templateDir = file("$projectDir/src/main/resources/JavaSpring")
+    additionalProperties = [
+            'group-id'           : "io.datahubproject",
+            'dateLibrary'        : "java8",
+            'java11'             : "true",
+            'modelPropertyNaming': "original",
+            'modelPackage'       : "io.datahubproject.openapi.generated",
+            'apiPackage'         : "io.datahubproject.openapi.generated.controller",
+            'delegatePattern'    : "true"
+    ]
+}
+tasks.getByName("compileJava").dependsOn(openApiGenerate)
+
+checkstyleMain.exclude '**/generated/**'

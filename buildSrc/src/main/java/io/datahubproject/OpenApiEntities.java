@@ -38,7 +38,8 @@ public class OpenApiEntities {
     private Path combinedDirectory;
 
     private final static Set<String> SUPPORTED_ASPECT_PATHS = Set.of(
-            "domains", "ownership", "status", "globalTags", "glossaryTerms", "dataContractInfo"
+            "domains", "ownership", "deprecation", "status", "globalTags", "glossaryTerms", "dataContractInfo",
+            "browsePathsV2"
     );
 
     public OpenApiEntities(JsonNodeFactory NODE_FACTORY) {
@@ -56,6 +57,7 @@ public class OpenApiEntities {
         try {
             Entities entities = mapper.readValue(Paths.get(entityRegistryYaml).toFile(), Entities.class);
             entityMap = entities.getEntities().stream()
+                    .filter(e -> "core".equals(e.getCategory()))
                     .collect(Collectors.toMap(Entity::getName, Function.identity()));
         } catch (IOException e) {
             e.printStackTrace();
@@ -79,6 +81,8 @@ public class OpenApiEntities {
                 .flatMap(it -> StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, Spliterator.ORDERED), false))
                 .collect(Collectors.toSet());
         withWrappedAspects(schemasNode, aspectDefinitions);
+
+        // Add entity schema
         Set<String> entitySchema = withEntitySchema(schemasNode, aspectDefinitions);
 
         // Write specific sections: components.* and paths
@@ -109,6 +113,7 @@ public class OpenApiEntities {
                     ObjectNode entityDefinitions = NODE_FACTORY.objectNode();
                     entityDefinitions.set(upperName + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(entity, definitions, true));
                     entityDefinitions.set(upperName + ENTITY_REQUEST_SUFFIX, buildEntitySchema(entity, definitions, false));
+                    entityDefinitions.set("Scroll" + upperName + ENTITY_RESPONSE_SUFFIX, buildEntityScrollSchema(entity));
 
                     schemasNode.setAll(entityDefinitions);
 
@@ -170,6 +175,29 @@ public class OpenApiEntities {
         return entityNode;
     }
 
+    private ObjectNode buildEntityScrollSchema(Entity entity) {
+        ObjectNode scrollResponsePropertiesNode = NODE_FACTORY.objectNode();
+
+        scrollResponsePropertiesNode.set("scrollId", NODE_FACTORY.objectNode()
+                .put("description", "Scroll id for pagination.")
+                .put("type", "string"));
+
+        scrollResponsePropertiesNode.set("entities", NODE_FACTORY.objectNode()
+                .put("description", Optional.ofNullable(entity.getDoc())
+                        .orElse(toUpperFirst(entity.getName()) + " object."))
+                .put("type", "array")
+                .set("items", NODE_FACTORY.objectNode().put("$ref",
+                        String.format("#/components/schemas/%s%s", toUpperFirst(entity.getName()), ENTITY_RESPONSE_SUFFIX))));
+
+        ObjectNode scrollResponseNode = NODE_FACTORY.objectNode()
+                .put("type", "object")
+                .put("description", "Scroll across " + toUpperFirst(entity.getName()) + " objects.")
+                .set("properties", scrollResponsePropertiesNode);
+        scrollResponseNode.set("required", NODE_FACTORY.arrayNode().add("entities"));
+
+        return scrollResponseNode;
+    }
+
 
     private ObjectNode buildAspectRef(String aspect, boolean withSystemMetadata) {
         if (withSystemMetadata) {
@@ -194,29 +222,31 @@ public class OpenApiEntities {
                     .distinct()
                     .forEach(aspects::add);
 
-            if (aspects.size() > 0) {
-                ObjectNode itemsNode = NODE_FACTORY.objectNode()
-                        .put("type", "string");
-                itemsNode.set("enum", aspects);
-                itemsNode.set("default", aspects);
-
-                ObjectNode schemaNode = NODE_FACTORY.objectNode()
-                        .put("type", "array")
-                        .set("items", itemsNode);
-                ObjectNode parameterSchemaNode = NODE_FACTORY.objectNode()
-                        .put("in", "query")
-                        .put("name", "aspects")
-                        .put("explode", true)
-                        .put("description", "Aspects to include in response.")
-                        .set("schema", schemaNode);
-
-                parameterSchemaNode.set("example", aspects);
-
-                ObjectNode parameterNode = NODE_FACTORY.objectNode()
-                        .set(parameterName + MODEL_VERSION, parameterSchemaNode);
-
-                return Optional.of(Pair.of(parameterName, parameterNode));
+            if (aspects.isEmpty()) {
+                aspects.add(entity.getKeyAspect());
             }
+
+            ObjectNode itemsNode = NODE_FACTORY.objectNode()
+                    .put("type", "string");
+            itemsNode.set("enum", aspects);
+            itemsNode.set("default", aspects);
+
+            ObjectNode schemaNode = NODE_FACTORY.objectNode()
+                    .put("type", "array")
+                    .set("items", itemsNode);
+            ObjectNode parameterSchemaNode = NODE_FACTORY.objectNode()
+                    .put("in", "query")
+                    .put("name", "aspects")
+                    .put("explode", true)
+                    .put("description", "Aspects to include in response.")
+                    .set("schema", schemaNode);
+
+            parameterSchemaNode.set("example", aspects);
+
+            ObjectNode parameterNode = NODE_FACTORY.objectNode()
+                    .set(parameterName + MODEL_VERSION, parameterSchemaNode);
+
+            return Optional.of(Pair.of(parameterName, parameterNode));
         }
 
         return Optional.empty();
@@ -253,24 +283,60 @@ public class OpenApiEntities {
     }
 
     private ObjectNode extraParameters(ObjectNode parametersNode) {
-        parametersNode.set("PaginationStart" + MODEL_VERSION, NODE_FACTORY.objectNode()
+        parametersNode.set("ScrollId" + MODEL_VERSION, NODE_FACTORY.objectNode()
                 .put("in", "query")
-                .put("name", "start")
-                .put("description", "Start at this page.")
+                .put("name", "scrollId")
+                .put("description", "Scroll pagination token.")
                 .set("schema", NODE_FACTORY.objectNode()
-                        .put("type", "integer")
-                        .put("default", 0)
-                        .put("minimum", 0))
-        );
+                        .put("type", "string")));
+
+        ArrayNode sortFields = NODE_FACTORY.arrayNode();
+        sortFields.add("urn");
+        ObjectNode sortFieldsNode = NODE_FACTORY.objectNode()
+                .put("type", "string");
+        sortFieldsNode.set("enum", sortFields);
+        sortFieldsNode.set("default", sortFields.get(0));
+
+        ObjectNode sortFieldsSchemaNode = NODE_FACTORY.objectNode()
+                .put("type", "array")
+                .put("default", "urn")
+                .set("items", sortFieldsNode);
+        parametersNode.set("SortBy" + MODEL_VERSION, NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "sort")
+                .put("explode", true)
+                .put("description", "Sort fields for pagination.")
+                .put("example", "urn")
+                .set("schema", sortFieldsSchemaNode));
+
+        parametersNode.set("SortOrder" + MODEL_VERSION, NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "sortOrder")
+                .put("explode", true)
+                .put("description", "Sort direction field for pagination.")
+                .put("example", "ASCENDING")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("default", "ASCENDING")
+                        .put("$ref", "#/components/schemas/SortOrder")));
+
         parametersNode.set("PaginationCount" + MODEL_VERSION, NODE_FACTORY.objectNode()
                 .put("in", "query")
                 .put("name", "count")
                 .put("description", "Number of items per page.")
+                .put("example", "10")
                 .set("schema", NODE_FACTORY.objectNode()
                         .put("type", "integer")
                         .put("default", 10)
-                        .put("minimum", 1))
-        );
+                        .put("minimum", 1)));
+        parametersNode.set("ScrollQuery" + MODEL_VERSION, NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "query")
+                .put("description", "Structured search query.")
+                .put("example", "*")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "string")
+                        .put("default", "*")));
+
         return parametersNode;
     }
 
@@ -320,29 +386,40 @@ public class OpenApiEntities {
         ArrayNode tagsNode = NODE_FACTORY.arrayNode()
                 .add(entity.getName() + " Entity");
 
-/*      TODO: search based paging
-        ObjectNode getMethod = NODE_FACTORY.objectNode()
-                .put("summary", String.format("List %s.", upperFirst))
-                .put("operationId", String.format("list", upperFirst));
+        ObjectNode scrollMethod = NODE_FACTORY.objectNode()
+                .put("summary", String.format("Scroll %s.", upperFirst))
+                .put("operationId", String.format("scroll", upperFirst));
 
-        ArrayNode listPathParametersNode = NODE_FACTORY.arrayNode();
-        getMethod.set("parameters", listPathParametersNode);
+        ArrayNode scrollPathParametersNode = NODE_FACTORY.arrayNode();
+        scrollMethod.set("parameters", scrollPathParametersNode);
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("in", "query")
+                .put("name", "systemMetadata")
+                .put("description", "Include systemMetadata with response.")
+                .set("schema", NODE_FACTORY.objectNode()
+                        .put("type", "boolean")
+                        .put("default", false)));
         if (parameterDefinitions.contains(aspectParameterName)) {
-            listPathParametersNode.add(NODE_FACTORY.objectNode()
+            scrollPathParametersNode.add(NODE_FACTORY.objectNode()
                     .put("$ref", String.format("#/components/parameters/%s", aspectParameterName + MODEL_VERSION)));
         }
-        listPathParametersNode.add(NODE_FACTORY.objectNode()
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
                 .put("$ref", "#/components/parameters/PaginationCount" + MODEL_VERSION));
-        listPathParametersNode.add(NODE_FACTORY.objectNode()
-                .put("$ref", "#/components/parameters/PaginationStart" + MODEL_VERSION));
-
-        getMethod.set("tags", tagsNode);
-        getMethod.set("responses", NODE_FACTORY.objectNode()
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("$ref", "#/components/parameters/ScrollId" + MODEL_VERSION));
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("$ref", "#/components/parameters/SortBy" + MODEL_VERSION));
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("$ref", "#/components/parameters/SortOrder" + MODEL_VERSION));
+        scrollPathParametersNode.add(NODE_FACTORY.objectNode()
+                .put("$ref", "#/components/parameters/ScrollQuery" + MODEL_VERSION));
+        scrollMethod.set("parameters", scrollPathParametersNode);
+        scrollMethod.set("responses", NODE_FACTORY.objectNode()
                 .set("200", NODE_FACTORY.objectNode().put("description", "Success")
                         .set("content", NODE_FACTORY.objectNode().set("application/json", NODE_FACTORY.objectNode()
-                                .set("schema", NODE_FACTORY.objectNode().put("type", "array")
-                                        .set("items", NODE_FACTORY.objectNode().put("$ref",
-                                                String.format("#/components/schemas/%s%s", upperFirst, ENTITY_RESPONSE_SUFFIX))))))));*/
+                                .set("schema", NODE_FACTORY.objectNode()
+                                        .put("$ref", String.format("#/components/schemas/Scroll%s%s", upperFirst, ENTITY_RESPONSE_SUFFIX)))))));
+        scrollMethod.set("tags", tagsNode);
 
         ObjectNode postMethod = NODE_FACTORY.objectNode()
                 .put("summary", "Create " + upperFirst)
@@ -363,7 +440,7 @@ public class OpenApiEntities {
         postMethod.set("tags", tagsNode);
 
         ObjectNode listMethods = NODE_FACTORY.objectNode();
-        // listMethods.set("get", getMethod);
+        listMethods.set("get", scrollMethod);
         listMethods.set("post", postMethod);
 
         return listMethods;

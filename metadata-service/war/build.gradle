@@ -20,6 +20,7 @@ dependencies {
   runtime project(':metadata-service:health-servlet')
   runtime project(':metadata-service:openapi-servlet')
   runtime project(':metadata-service:openapi-entity-servlet')
+  runtime project(':metadata-service:openapi-analytics-servlet')
   runtime project(':metadata-service:schema-registry-servlet')
   runtime project(':metadata-jobs:mce-consumer')
   runtime project(':metadata-jobs:mae-consumer')

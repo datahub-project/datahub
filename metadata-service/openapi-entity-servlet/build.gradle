@@ -31,7 +31,8 @@ dependencies {
   testCompile externalDependency.mockito
   testImplementation externalDependency.springBootTest
 
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.36'
+  swaggerCodegen externalDependency.swaggerCli
+  swaggerCodegen project(':metadata-service:openapi-entity-servlet:generators')
 }
 
 sourceSets {
@@ -56,10 +57,13 @@ task mergeApiComponents(dependsOn: ':metadata-models:generateJsonSchema') {
 }
 
 // https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
-task openApiGenerate(type: GenerateSwaggerCode, dependsOn: mergeApiComponents) {
+task openApiGenerate(type: GenerateSwaggerCode, dependsOn: [mergeApiComponents, ':metadata-service:openapi-entity-servlet:generators:jar']) {
   inputFile = file("$buildDir/openapi/open-api.yaml")
   outputDir = file("$buildDir/openapi/generated")
-  language = "spring"
+
+  // custom generator class
+  language = 'io.datahubproject.CustomSpringCodegen'
+
   components = ["apis"]
   templateDir = file("$projectDir/src/main/resources/JavaSpring")
   additionalProperties = [
@@ -69,7 +73,7 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: mergeApiComponents) {
           'modelPropertyNaming': "original",
           'modelPackage'       : "io.datahubproject.openapi.generated",
           'apiPackage'         : "io.datahubproject.openapi.generated.controller",
-          'delegatePattern'    : "true"
+          'delegatePattern'    : "false"
   ]
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
