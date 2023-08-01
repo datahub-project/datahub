@@ -107,6 +107,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.time import datetime_to_ts_millis
 
@@ -1213,49 +1214,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             elif column.description:
                 description = column.description
 
-            meta_aspects: Dict[str, Any] = {}
-            if self.config.enable_meta_mapping and column.meta:
-                meta_aspects = action_processor.process(column.meta)
-
-            if meta_aspects.get(Constants.ADD_OWNER_OPERATION):
-                logger.warning("The add_owner operation is not supported for columns.")
-
-            meta_tags: Optional[GlobalTagsClass] = meta_aspects.get(
-                Constants.ADD_TAG_OPERATION
-            )
-            globalTags = None
-            if meta_tags or column.tags:
-                # Merge tags from meta mapping and column tags.
-                globalTags = GlobalTagsClass(
-                    tags=(meta_tags.tags if meta_tags else [])
-                    + [
-                        TagAssociationClass(mce_builder.make_tag_urn(tag))
-                        for tag in column.tags
-                    ]
-                )
-
-            glossaryTerms = None
-            if meta_aspects.get(Constants.ADD_TERM_OPERATION):
-                glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-
             field_name = column.name
             if self.config.convert_column_urns_to_lowercase:
                 field_name = field_name.lower()
 
-            field = SchemaField(
-                fieldPath=field_name,
-                nativeDataType=column.data_type,
-                type=get_column_type(
-                    report, node.dbt_name, column.data_type, node.dbt_adapter
-                ),
+            schema_fields = get_schema_fields_for_hive_column(
+                hive_column_name=field_name,
+                hive_column_type=column.data_type,
                 description=description,
-                nullable=False,  # TODO: actually autodetect this
-                recursive=False,
-                globalTags=globalTags,
-                glossaryTerms=glossaryTerms,
+                default_nullable=True,
+                meta_mapping_processor=action_processor,
+                meta_props=column.meta,
             )
-
-            canonical_schema.append(field)
+            assert schema_fields
+            canonical_schema.extend(schema_fields)
 
         last_modified = None
         if node.max_loaded_at is not None:
