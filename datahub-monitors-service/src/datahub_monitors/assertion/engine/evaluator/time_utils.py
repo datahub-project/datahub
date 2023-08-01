@@ -1,4 +1,3 @@
-import time
 from datetime import datetime
 
 from croniter import croniter
@@ -19,7 +18,7 @@ def get_next_cron_schedule_time(schedule: CronSchedule) -> int:
     now = datetime.now(timezone(schedule.timezone))
     cron = croniter(schedule.cron, now)
     next_date = cron.get_next(ret_type=datetime)
-    return int(time.mktime(next_date.timetuple()) * 1000)
+    return next_date.timestamp() * 1000
 
 
 def get_prev_cron_schedule_time(schedule: CronSchedule) -> int:
@@ -33,7 +32,7 @@ def get_prev_cron_schedule_time(schedule: CronSchedule) -> int:
     prev_date_ms = prev_date.timestamp() * 1000
     if (now_ms - prev_date_ms) < MIN_PREV_CRON_INTERVAL_MS:
         prev_date = cron.get_prev(ret_type=datetime)
-    return int(time.mktime(prev_date.timetuple()) * 1000)
+    return prev_date.timestamp() * 1000
 
 
 def get_milliseconds_for_unit(unit: CalendarInterval) -> int:
