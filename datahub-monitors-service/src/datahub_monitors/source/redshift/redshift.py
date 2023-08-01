@@ -2,6 +2,7 @@ import logging
 from datetime import timezone
 from typing import Any, List, Optional
 
+from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.connection.redshift.redshift_connection import RedshiftConnection
 from datahub_monitors.exceptions import (
     InvalidParametersException,
@@ -174,6 +175,7 @@ class RedshiftSource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
+            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
 
             if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(
@@ -196,6 +198,7 @@ class RedshiftSource(Source):
                 FROM {operation_params.database}.{operation_params.schema}.{operation_params.table}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
+                {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
                 ;
             """
