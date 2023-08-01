@@ -254,6 +254,7 @@ fragment searchResultFields on Entity {
     urn
     type
     ... on Dataset {
+        exists
         name
         origin
         uri
@@ -311,6 +312,7 @@ fragment searchResultFields on Entity {
                 urn
                 type
                 ... on Dataset {
+                    exists
                     platform {
                         ...platformFields
                     }
