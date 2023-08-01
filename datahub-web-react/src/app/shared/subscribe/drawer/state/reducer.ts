@@ -6,6 +6,9 @@ import { Action, ActionTypes, ChannelSelections, State } from './types';
 export const createInitialState = (): State => ({
     edited: false,
     isPersonal: true,
+    settings: {
+        slack: {},
+    },
     notificationTypes: {
         checkedKeys: [],
         expandedKeys: [],
@@ -15,7 +18,6 @@ export const createInitialState = (): State => ({
     slack: {
         enabled: false,
         channelSelection: ChannelSelections.SUBSCRIPTION,
-        settings: {},
         subscription: {
             saveAsDefault: false,
         },
@@ -25,7 +27,14 @@ export const createInitialState = (): State => ({
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
         case ActionTypes.INITIALIZE: {
-            const { isPersonal, slackSinkEnabled, subscription, subscriptionChannel, settingsChannel } = action.payload;
+            const {
+                isPersonal,
+                slackSinkEnabled,
+                subscription,
+                subscriptionChannel,
+                settingsChannel,
+                settingsSinkTypes,
+            } = action.payload;
 
             const entityChangeTypes = subscription?.entityChangeTypes ?? [];
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
@@ -41,6 +50,12 @@ export const reducer = (state: State, action: Action): State => {
                 ...state,
                 isPersonal,
                 edited: !subscription,
+                settings: {
+                    sinkTypes: settingsSinkTypes,
+                    slack: {
+                        channel: settingsChannel,
+                    },
+                },
                 notificationTypes: {
                     checkedKeys: entityChangeTypes,
                     expandedKeys: [],
@@ -51,9 +66,6 @@ export const reducer = (state: State, action: Action): State => {
                     ...state.slack,
                     enabled: isSlackAndSubscriptionEnabled,
                     channelSelection,
-                    settings: {
-                        channel: settingsChannel,
-                    },
                     subscription: {
                         channel: subscriptionChannel,
                         saveAsDefault: !settingsChannel,
@@ -91,7 +103,7 @@ export const reducer = (state: State, action: Action): State => {
                             action.payload === ChannelSelections.SETTINGS
                                 ? undefined
                                 : state.slack.subscription.channel,
-                        saveAsDefault: !state.slack.settings.channel,
+                        saveAsDefault: !state.settings.slack.channel,
                     },
                 },
             };
