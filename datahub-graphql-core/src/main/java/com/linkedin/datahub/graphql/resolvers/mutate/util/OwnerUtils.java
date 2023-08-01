@@ -72,8 +72,7 @@ public class OwnerUtils {
   private static MetadataChangeProposal buildAddOwnersProposal(List<OwnerInput> owners, Urn resourceUrn, Urn actor, EntityService entityService) {
     Ownership ownershipAspect = (Ownership) getAspectFromEntity(
         resourceUrn.toString(),
-        Constants.OWNERSHIP_ASPECT_NAME,
-        entityService,
+        Constants.OWNERSHIP_ASPECT_NAME, entityService,
         new Ownership());
     for (OwnerInput input : owners) {
       addOwner(ownershipAspect, UrnUtils.getUrn(input.getOwnerUrn()), input.getType(), UrnUtils.getUrn(input.getOwnershipTypeUrn()));
