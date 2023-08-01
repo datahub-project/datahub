@@ -75,7 +75,11 @@ class DatasetTagsTransformer(DatasetTransformer, metaclass=ABCMeta):
     ) -> None:
         """Check if user want to keep existing tags"""
         if in_global_tags_aspect is not None and config.replace_existing is False:
-            out_global_tags_aspect.tags.extend(in_global_tags_aspect.tags)
+            tags_seen = set()
+            for item in in_global_tags_aspect.tags:
+                if item.tag not in tags_seen:
+                    out_global_tags_aspect.tags.append(item)
+                    tags_seen.add(item.tag)
 
     @staticmethod
     def get_result_semantics(

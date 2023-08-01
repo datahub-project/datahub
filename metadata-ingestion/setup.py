@@ -374,7 +374,9 @@ plugins: Dict[str, Set[str]] = {
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
+
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
+
     "unity-catalog": databricks | sqllineage_lib,
 }
 
@@ -488,7 +490,8 @@ base_dev_requirements = {
             "powerbi-report-server",
             "salesforce",
             "unity-catalog",
-            "nifi"
+            "nifi",
+            "vertica"
             # airflow is added below
         ]
         if plugin
@@ -522,7 +525,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            # "vertica",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
