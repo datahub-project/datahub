@@ -31,7 +31,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Request;
@@ -49,7 +48,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
-import static com.linkedin.metadata.search.utils.SearchUtils.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
@@ -164,14 +162,6 @@ public class ESSearchDAO {
               .extractScrollResult(searchResponse,
               filter, scrollId, keepAlive, size, supportsPointInTime()));
     } catch (Exception e) {
-      if (e instanceof ElasticsearchStatusException) {
-        final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
-        if (statusException.status().getStatus() == 400) {
-          // Malformed query -- Could indicate bad search syntax. Return empty response.
-          log.warn("Received 400 from Elasticsearch. Returning empty search response", e);
-          return EMPTY_SCROLL_RESULT;
-        }
-      }
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
     }

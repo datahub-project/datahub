@@ -1819,6 +1819,8 @@ public class EntityServiceImpl implements EntityService {
         latest.setCreatedBy(survivingAspect.getCreatedBy());
         latest.setCreatedFor(survivingAspect.getCreatedFor());
         _aspectDao.saveAspect(latest, false);
+        // metrics
+        _aspectDao.incrementWriteMetrics(aspectName, 1, latest.getAspect().getBytes(StandardCharsets.UTF_8).length);
         _aspectDao.deleteAspect(survivingAspect);
       } else {
         if (isKeyAspect) {
@@ -2022,6 +2024,9 @@ public class EntityServiceImpl implements EntityService {
 
       _aspectDao.saveAspect(latest, false);
 
+      // metrics
+      _aspectDao.incrementWriteMetrics(aspectName, 1, latest.getAspect().getBytes(StandardCharsets.UTF_8).length);
+
       return new UpdateAspectResult(urn, oldValue, oldValue,
           EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), latestSystemMetadata,
           MetadataAuditOperation.UPDATE, auditStamp, 0);
@@ -2029,12 +2034,16 @@ public class EntityServiceImpl implements EntityService {
 
     // 4. Save the newValue as the latest version
     log.debug("Ingesting aspect with name {}, urn {}", aspectName, urn);
+    String newValueStr = EntityUtils.toJsonAspect(newValue);
     long versionOfOld = _aspectDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EntityUtils.toJsonAspect(oldValue),
         latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
         latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
-        EntityUtils.toJsonAspect(newValue), auditStamp.getActor().toString(),
+            newValueStr, auditStamp.getActor().toString(),
         auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
         new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(providedSystemMetadata), nextVersion);
+
+    // metrics
+    _aspectDao.incrementWriteMetrics(aspectName, 1, newValueStr.getBytes(StandardCharsets.UTF_8).length);
 
     return new UpdateAspectResult(urn, oldValue, newValue,
         latest == null ? null : EntityUtils.parseSystemMetadata(latest.getSystemMetadata()), providedSystemMetadata,
@@ -2080,9 +2089,13 @@ public class EntityServiceImpl implements EntityService {
       newSystemMetadata.setLastObserved(System.currentTimeMillis());
 
       log.debug("Updating aspect with name {}, urn {}", aspectName, urn);
-      _aspectDao.saveAspect(urn.toString(), aspectName, EntityUtils.toJsonAspect(value), auditStamp.getActor().toString(),
+      String aspectStr = EntityUtils.toJsonAspect(value);
+      _aspectDao.saveAspect(urn.toString(), aspectName, aspectStr, auditStamp.getActor().toString(),
           auditStamp.hasImpersonator() ? auditStamp.getImpersonator().toString() : null,
           new Timestamp(auditStamp.getTime()), EntityUtils.toJsonAspect(newSystemMetadata), version, oldAspect == null);
+
+      // metrics
+      _aspectDao.incrementWriteMetrics(aspectName, 1, aspectStr.getBytes(StandardCharsets.UTF_8).length);
 
       return new UpdateAspectResult(urn, oldValue, value, oldSystemMetadata, newSystemMetadata,
           MetadataAuditOperation.UPDATE, auditStamp, version);

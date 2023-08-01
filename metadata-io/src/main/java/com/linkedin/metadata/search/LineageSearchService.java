@@ -606,6 +606,7 @@ public class LineageSearchService {
   private LineageScrollResult getScrollResultInBatches(List<LineageRelationship> lineageRelationships,
       @Nonnull String input, @Nullable Filter inputFilters, @Nullable SortCriterion sortCriterion, @Nullable String scrollId,
       @Nonnull String keepAlive, int size, @Nonnull SearchFlags searchFlags) {
+    final SearchFlags finalFlags = applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);
     LineageScrollResult finalResult =
         new LineageScrollResult().setEntities(new LineageSearchEntityArray(Collections.emptyList()))
             .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
@@ -623,7 +624,7 @@ public class LineageSearchService {
 
       LineageScrollResult resultForBatch = buildLineageScrollResult(
           _searchService.scrollAcrossEntities(entitiesToQuery, input, finalFilter, sortCriterion, scrollId, keepAlive, querySize,
-              searchFlags), urnToRelationship);
+              finalFlags), urnToRelationship);
       querySize = Math.max(0, size - resultForBatch.getEntities().size());
       finalResult = mergeScrollResult(finalResult, resultForBatch);
     }
