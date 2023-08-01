@@ -469,24 +469,21 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion-slim/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-#      - name: Docker Prune
-#        if: steps.filter.outputs.datahub-ingestion-base == 'true'
-#        run: docker image prune -a -f
-#      - name: Build and push Full Image
-#        if: steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true'
-#        uses: ./.github/actions/docker-custom-build-and-push
-#        with:
-#          images: |
-#            ${{ env.DATAHUB_INGESTION_IMAGE }}
-#          build-args: |
-#            DOCKER_VERSION=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true') && needs.setup.outputs.tag || 'head' }}
-#          tags: ${{ needs.setup.outputs.tag }}
-#          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-#          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-#          publish: ${{ needs.setup.outputs.publish }}
-#          context: .
-#          file: ./docker/datahub-ingestion/Dockerfile
-#          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push Full Image
+        if: steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true'
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_INGESTION_IMAGE }}
+          build-args: |
+            DOCKER_VERSION=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true') && needs.setup.outputs.tag || 'head' }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag
         id: tag
         run: |
@@ -502,25 +499,25 @@ jobs:
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
-#      - name: Download image Full Image
-#        uses: ishworkh/docker-image-artifact-download@v1
-#        if: ${{ needs.setup.outputs.publish != 'true' }}
-#        with:
-#          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_build.outputs.tag }}
-#      - name: Run Trivy vulnerability scanner Full Image
-#        uses: aquasecurity/trivy-action@0.8.0
-#        env:
-#          TRIVY_OFFLINE_SCAN: true
-#        with:
-#          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_build.outputs.tag }}
-#          format: "template"
-#          template: "@/contrib/sarif.tpl"
-#          output: "trivy-results.sarif"
-#          severity: "CRITICAL,HIGH"
-#          ignore-unfixed: true
-#          vuln-type: "os,library"
-#      - name: Docker Prune
-#        run: docker image prune -a -f
+      - name: Download image Full Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_build.outputs.tag }}
+      - name: Run Trivy vulnerability scanner Full Image
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_build.outputs.tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Docker Prune
+        run: docker image prune "${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_build.outputs.tag }}"
       - name: Download image Slim Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -558,8 +555,8 @@ jobs:
         kafka_setup_build,
         mysql_setup_build,
         elasticsearch_setup_build,
-#        mae_consumer_build,
-#        mce_consumer_build,
+        mae_consumer_build,
+        mce_consumer_build,
         datahub_upgrade_build,
         datahub_ingestion_build,
       ]
@@ -615,16 +612,16 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-#      - name: Download MCE Consumer image
-#        uses: ishworkh/docker-image-artifact-download@v1
-#        if: ${{ needs.setup.outputs.publish != 'true' }}
-#        with:
-#          image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-#      - name: Download MAE Consumer image
-#        uses: ishworkh/docker-image-artifact-download@v1
-#        if: ${{ needs.setup.outputs.publish != 'true' }}
-#        with:
-#          image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download MCE Consumer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download MAE Consumer image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download upgrade image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}

@@ -24,7 +24,6 @@ ARG RELEASE_VERSION
 WORKDIR /datahub-ingestion
 RUN sed -i.bak "s/__version__ = \"0.0.0.dev0\"/__version__ = \"$RELEASE_VERSION\"/" src/datahub/__init__.py && \
     cat src/datahub/__init__.py && \
-    pip install --no-deps ".[all]" && \
     chown -R datahub /datahub-ingestion
 
 FROM base as dev-install
