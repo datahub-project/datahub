@@ -8,15 +8,9 @@ from typing import Dict, List, Optional
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
-from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
-from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_utils import (
-    SnowflakeCommonMixin,
-    SnowflakeQueryMixin,
-)
+from datahub.ingestion.source.snowflake.snowflake_utils import SnowflakeQueryMixin
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -183,10 +177,8 @@ class _SnowflakeTagCache:
         )
 
 
-class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
-    def __init__(self, config: SnowflakeV2Config, report: SnowflakeV2Report) -> None:
-        self.config = config
-        self.report = report
+class SnowflakeDataDictionary(SnowflakeQueryMixin):
+    def __init__(self) -> None:
         self.logger = logger
         self.connection: Optional[SnowflakeConnection] = None
 
@@ -229,11 +221,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 last_altered=database["LAST_ALTERED"],
                 comment=database["COMMENT"],
             )
-            self.report.report_entity_scanned(snowflake_db.name, "database")
-            if not self.config.database_pattern.allowed(snowflake_db.name):
-                self.report.report_dropped(f"{snowflake_db.name}.*")
-            else:
-                databases.append(snowflake_db)
+            databases.append(snowflake_db)
 
         return databases
 
@@ -251,16 +239,7 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
                 last_altered=schema["LAST_ALTERED"],
                 comment=schema["COMMENT"],
             )
-            self.report.report_entity_scanned(snowflake_schema.name, "schema")
-            if not is_schema_allowed(
-                self.config.schema_pattern,
-                snowflake_schema.name,
-                db_name,
-                self.config.match_fully_qualified_names,
-            ):
-                self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
-            else:
-                snowflake_schemas.append(snowflake_schema)
+            snowflake_schemas.append(snowflake_schema)
         return snowflake_schemas
 
     @lru_cache(maxsize=1)
@@ -283,24 +262,17 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
             if table["TABLE_SCHEMA"] not in tables:
                 tables[table["TABLE_SCHEMA"]] = []
 
-            table_identifier = self.get_dataset_identifier(
-                table["TABLE_NAME"], table["TABLE_SCHEMA"], db_name
-            )
-            self.report.report_entity_scanned(table_identifier)
-            if not self.config.table_pattern.allowed(table_identifier):
-                self.report.report_dropped(table_identifier)
-            else:
-                tables[table["TABLE_SCHEMA"]].append(
-                    SnowflakeTable(
-                        name=table["TABLE_NAME"],
-                        created=table["CREATED"],
-                        last_altered=table["LAST_ALTERED"],
-                        size_in_bytes=table["BYTES"],
-                        rows_count=table["ROW_COUNT"],
-                        comment=table["COMMENT"],
-                        clustering_key=table["CLUSTERING_KEY"],
-                    )
+            tables[table["TABLE_SCHEMA"]].append(
+                SnowflakeTable(
+                    name=table["TABLE_NAME"],
+                    created=table["CREATED"],
+                    last_altered=table["LAST_ALTERED"],
+                    size_in_bytes=table["BYTES"],
+                    rows_count=table["ROW_COUNT"],
+                    comment=table["COMMENT"],
+                    clustering_key=table["CLUSTERING_KEY"],
                 )
+            )
         return tables
 
     def get_tables_for_schema(
@@ -313,24 +285,17 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
         )
 
         for table in cur:
-            table_identifier = self.get_dataset_identifier(
-                table["TABLE_NAME"], schema_name, db_name
-            )
-            self.report.report_entity_scanned(table_identifier)
-            if not self.config.table_pattern.allowed(table_identifier):
-                self.report.report_dropped(table_identifier)
-            else:
-                tables.append(
-                    SnowflakeTable(
-                        name=table["TABLE_NAME"],
-                        created=table["CREATED"],
-                        last_altered=table["LAST_ALTERED"],
-                        size_in_bytes=table["BYTES"],
-                        rows_count=table["ROW_COUNT"],
-                        comment=table["COMMENT"],
-                        clustering_key=table["CLUSTERING_KEY"],
-                    )
+            tables.append(
+                SnowflakeTable(
+                    name=table["TABLE_NAME"],
+                    created=table["CREATED"],
+                    last_altered=table["LAST_ALTERED"],
+                    size_in_bytes=table["BYTES"],
+                    rows_count=table["ROW_COUNT"],
+                    comment=table["COMMENT"],
+                    clustering_key=table["CLUSTERING_KEY"],
                 )
+            )
         return tables
 
     @lru_cache(maxsize=1)
@@ -350,27 +315,18 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
         for table in cur:
             if table["schema_name"] not in views:
                 views[table["schema_name"]] = []
-            view_name = self.get_dataset_identifier(
-                table["name"], table["schema_name"], db_name
-            )
-
-            self.report.report_entity_scanned(view_name, "view")
-
-            if not self.config.view_pattern.allowed(view_name):
-                self.report.report_dropped(view_name)
-            else:
-                views[table["schema_name"]].append(
-                    SnowflakeView(
-                        name=table["name"],
-                        created=table["created_on"],
-                        # last_altered=table["last_altered"],
-                        comment=table["comment"],
-                        view_definition=table["text"],
-                        last_altered=table["created_on"],
-                        materialized=table.get("is_materialized", "false").lower()
-                        == "true",
-                    )
+            views[table["schema_name"]].append(
+                SnowflakeView(
+                    name=table["name"],
+                    created=table["created_on"],
+                    # last_altered=table["last_altered"],
+                    comment=table["comment"],
+                    view_definition=table["text"],
+                    last_altered=table["created_on"],
+                    materialized=table.get("is_materialized", "false").lower()
+                    == "true",
                 )
+            )
         return views
 
     def get_views_for_schema(
@@ -380,23 +336,16 @@ class SnowflakeDataDictionary(SnowflakeQueryMixin, SnowflakeCommonMixin):
 
         cur = self.query(SnowflakeQuery.show_views_for_schema(schema_name, db_name))
         for table in cur:
-            view_name = self.get_dataset_identifier(table["name"], schema_name, db_name)
-
-            self.report.report_entity_scanned(view_name, "view")
-
-            if not self.config.view_pattern.allowed(view_name):
-                self.report.report_dropped(view_name)
-            else:
-                views.append(
-                    SnowflakeView(
-                        name=table["name"],
-                        created=table["created_on"],
-                        # last_altered=table["last_altered"],
-                        comment=table["comment"],
-                        view_definition=table["text"],
-                        last_altered=table["created_on"],
-                    )
+            views.append(
+                SnowflakeView(
+                    name=table["name"],
+                    created=table["created_on"],
+                    # last_altered=table["last_altered"],
+                    comment=table["comment"],
+                    view_definition=table["text"],
+                    last_altered=table["created_on"],
                 )
+            )
         return views
 
     @lru_cache(maxsize=1)

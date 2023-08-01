@@ -9,6 +9,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Union
 import pandas as pd
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -238,7 +239,7 @@ class SnowflakeV2Source(
             )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(self.config, self.report)
+        self.data_dictionary = SnowflakeDataDictionary()
 
         self.lineage_extractor: Union[
             SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
@@ -503,9 +504,16 @@ class SnowflakeV2Source(
             return
 
         self.data_dictionary.set_connection(self.connection)
-        databases = self.get_databases()
+        databases: List[SnowflakeDatabase] = []
 
-        if databases is None or len(databases) == 0:
+        for database in self.get_databases() or []:
+            self.report.report_entity_scanned(database.name, "database")
+            if not self.config.database_pattern.allowed(database.name):
+                self.report.report_dropped(f"{database.name}.*")
+            else:
+                databases.append(database)
+
+        if len(databases) == 0:
             return
 
         for snowflake_db in databases:
@@ -696,11 +704,22 @@ class SnowflakeV2Source(
         if self.config.profiling.enabled and self.db_tables:
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
-    def fetch_schemas_for_database(self, snowflake_db, db_name):
+    def fetch_schemas_for_database(
+        self, snowflake_db: SnowflakeDatabase, db_name: str
+    ) -> None:
+        schemas: List[SnowflakeSchema] = []
         try:
-            snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
-                db_name
-            )
+            for schema in self.data_dictionary.get_schemas_for_database(db_name):
+                self.report.report_entity_scanned(schema.name, "schema")
+                if not is_schema_allowed(
+                    self.config.schema_pattern,
+                    schema.name,
+                    db_name,
+                    self.config.match_fully_qualified_names,
+                ):
+                    self.report.report_dropped(f"{db_name}.{schema.name}.*")
+            else:
+                schemas.append(schema)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."
@@ -716,11 +735,13 @@ class SnowflakeV2Source(
                     db_name,
                 )
 
-        if not snowflake_db.schemas:
+        if not schemas:
             self.report_warning(
                 "No schemas found in database. If schemas exist, please grant USAGE permissions on them.",
                 db_name,
             )
+        else:
+            snowflake_db.schemas = schemas
 
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
@@ -766,9 +787,20 @@ class SnowflakeV2Source(
                 f"{db_name}.{schema_name}",
             )
 
-    def fetch_views_for_schema(self, snowflake_schema, db_name, schema_name):
+    def fetch_views_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeView]:
         try:
-            views = self.get_views_for_schema(schema_name, db_name)
+            views: List[SnowflakeView] = []
+            for view in self.get_views_for_schema(schema_name, db_name):
+                view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
+
+                self.report.report_entity_scanned(view_name, "view")
+
+                if not self.config.view_pattern.allowed(view_name):
+                    self.report.report_dropped(view_name)
+                else:
+                    views.append(view)
             snowflake_schema.views = [view.name for view in views]
             return views
         except Exception as e:
@@ -786,10 +818,22 @@ class SnowflakeV2Source(
                     "Failed to get views for schema",
                     f"{db_name}.{schema_name}",
                 )
+                return []
 
-    def fetch_tables_for_schema(self, snowflake_schema, db_name, schema_name):
+    def fetch_tables_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeTable]:
         try:
-            tables = self.get_tables_for_schema(schema_name, db_name)
+            tables: List[SnowflakeTable] = []
+            for table in self.get_tables_for_schema(schema_name, db_name):
+                table_identifier = self.get_dataset_identifier(
+                    table.name, schema_name, db_name
+                )
+                self.report.report_entity_scanned(table_identifier)
+                if not self.config.table_pattern.allowed(table_identifier):
+                    self.report.report_dropped(table_identifier)
+                else:
+                    tables.append(table)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
@@ -806,6 +850,7 @@ class SnowflakeV2Source(
                     "Failed to get tables for schema",
                     f"{db_name}.{schema_name}",
                 )
+                return []
 
     def _process_table(
         self,
