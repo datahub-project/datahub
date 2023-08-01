@@ -1,27 +1,38 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-const ExpandingStatContainer = styled.span<{ disabled: boolean; expanded: boolean; width: string }>`
-    overflow: ${(props) => (props.expanded ? 'visible' : 'hidden')};
-    white-space: nowrap;
-    width: ${(props) => props.width};
-    transition: width 250ms ease;
-`;
-
-const HorizontalExpander = ({
-    disabled = false,
-    render,
-}: {
+type Props = {
     disabled?: boolean;
     render: (isExpanded: boolean) => ReactNode;
-}) => {
+};
+
+const TRANSITION_TIMING = 250;
+
+const ExpandingStatContainer = styled.span<{ disabled: boolean; overflow: 'visible' | 'hidden'; width: string }>`
+    overflow: ${(props) => props.overflow};
+    white-space: nowrap;
+    width: ${(props) => props.width};
+    transition: width ${TRANSITION_TIMING}ms ease;
+`;
+
+const HorizontalExpander = ({ disabled = false, render }: Props) => {
     const contentRef = useRef<HTMLSpanElement>(null);
     const [width, setWidth] = useState<string>('inherit');
     const [isExpanded, setIsExpanded] = useState(false);
+    const [overflow, setOverflow] = useState<'visible' | 'hidden'>('hidden');
 
     useEffect(() => {
-        if (!contentRef.current) return;
+        if (!contentRef.current) return () => {};
+
         setWidth(`${contentRef.current.offsetWidth}px`);
+
+        const timer = window.setTimeout(() => {
+            setOverflow(isExpanded ? 'visible' : 'hidden');
+        }, TRANSITION_TIMING);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
     }, [isExpanded]);
 
     const onMouseEnter = () => {
@@ -35,7 +46,7 @@ const HorizontalExpander = ({
     return (
         <ExpandingStatContainer
             disabled={disabled}
-            expanded={isExpanded}
+            overflow={overflow}
             width={width}
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
