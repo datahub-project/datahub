@@ -132,6 +132,8 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
         - platform_instance: instance2 # this is a list, as db1 can be shared with multiple snowflake accounts using X
           database_name: db1_from_X
   ```
+
+- If share X is shared with more snowflake accounts and database is created from share X in those, additional entries need to be added in `consumers` list for share X, one per snowflake account.
 ### Caveats
 
 - Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.

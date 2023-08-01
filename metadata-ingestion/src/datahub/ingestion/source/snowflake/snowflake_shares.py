@@ -67,7 +67,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                     )
 
                 else:
-                    shared_databases[share_details.database].shares += share_name
+                    shared_databases[share_details.database].shares.append(share_name)
 
             else:
                 for consumer in share_details.consumers:
