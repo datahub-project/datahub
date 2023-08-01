@@ -11,6 +11,9 @@ export type ChannelSelection = typeof ChannelSelections[keyof typeof ChannelSele
 export type State = {
     edited: boolean;
     isPersonal: boolean;
+    settings: {
+        sinkTypes?: NotificationSinkType[];
+    };
     notificationTypes: {
         checkedKeys: Array<Key>;
         expandedKeys: Array<Key>;
@@ -38,6 +41,7 @@ export type InitializeActionPayload = {
     subscription?: DataHubSubscription;
     subscriptionChannel?: string;
     settingsChannel?: string;
+    settingsSinkTypes?: NotificationSinkType[];
 };
 
 export const ActionTypes = {

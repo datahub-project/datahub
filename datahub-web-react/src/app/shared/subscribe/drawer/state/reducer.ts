@@ -6,6 +6,7 @@ import { Action, ActionTypes, ChannelSelections, State } from './types';
 export const createInitialState = (): State => ({
     edited: false,
     isPersonal: true,
+    settings: {},
     notificationTypes: {
         checkedKeys: [],
         expandedKeys: [],
@@ -25,7 +26,14 @@ export const createInitialState = (): State => ({
 export const reducer = (state: State, action: Action): State => {
     switch (action.type) {
         case ActionTypes.INITIALIZE: {
-            const { isPersonal, slackSinkEnabled, subscription, subscriptionChannel, settingsChannel } = action.payload;
+            const {
+                isPersonal,
+                slackSinkEnabled,
+                subscription,
+                subscriptionChannel,
+                settingsChannel,
+                settingsSinkTypes,
+            } = action.payload;
 
             const entityChangeTypes = subscription?.entityChangeTypes ?? [];
             const notificationSinkTypes = subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [];
@@ -41,6 +49,9 @@ export const reducer = (state: State, action: Action): State => {
                 ...state,
                 isPersonal,
                 edited: !subscription,
+                settings: {
+                    sinkTypes: settingsSinkTypes,
+                },
                 notificationTypes: {
                     checkedKeys: entityChangeTypes,
                     expandedKeys: [],
