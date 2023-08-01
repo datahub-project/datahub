@@ -110,8 +110,8 @@ export default function NotificationRecipientSection() {
     }, [form, slack.subscription.channel]);
 
     useEffect(() => {
-        if (isSubscriptionChannelSelected) channelInputRef.current?.focus();
-    }, [isSubscriptionChannelSelected]);
+        if (slack.enabled && isSubscriptionChannelSelected) channelInputRef.current?.focus();
+    }, [isSubscriptionChannelSelected, slack.enabled]);
 
     const onChangeSlackSwitch = (checked: boolean) => {
         actions.setSlackEnabled(checked);
