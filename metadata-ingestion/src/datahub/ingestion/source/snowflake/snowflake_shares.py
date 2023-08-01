@@ -1,11 +1,13 @@
 import logging
-from typing import Callable, Iterable, List
+from dataclasses import dataclass
+from typing import Callable, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import (
-    SnowflakeDatabaseDataHubId,
+    DatabaseId,
+    SnowflakeShareConfig,
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -21,6 +23,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@dataclass
+class SharedDatabase:
+    """
+    Represents shared database from current platform instance
+    This is either created from an inbound share or included in an outbound share.
+    """
+
+    name: str
+    created_from_share: bool
+
+    # This will have exactly entry if created_from_share = True
+    shares: List[str]
+
+
 class SnowflakeSharesHandler(SnowflakeCommonMixin):
     def __init__(
         self,
@@ -33,24 +49,61 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
 
-    def get_workunits(
+    def _get_shared_databases(
+        self, shares: Dict[str, SnowflakeShareConfig], platform_instance: Optional[str]
+    ) -> Dict[str, SharedDatabase]:
+        # this is ensured in config validators
+        assert platform_instance is not None
+
+        shared_databases: Dict[str, SharedDatabase] = {}
+
+        for share_name, share_details in shares.items():
+            if share_details.platform_instance == platform_instance:
+                if share_details.database not in shared_databases:
+                    shared_databases[share_details.database] = SharedDatabase(
+                        name=share_details.database,
+                        created_from_share=False,
+                        shares=[share_name],
+                    )
+
+                else:
+                    shared_databases[share_details.database].shares += share_name
+
+            else:
+                for consumer in share_details.consumers:
+                    if consumer.platform_instance == platform_instance:
+                        shared_databases[consumer.database] = SharedDatabase(
+                            name=share_details.database,
+                            created_from_share=True,
+                            shares=[share_name],
+                        )
+                        break
+                else:
+                    self.report_warning(
+                        f"Skipping Share, as it does not include current platform instance {platform_instance}",
+                        share_name,
+                    )
+
+        return shared_databases
+
+    def get_shares_workunits(
         self, databases: List[SnowflakeDatabase]
     ) -> Iterable[MetadataWorkUnit]:
+        shared_databases = self._get_shared_databases(
+            self.config.shares or {}, self.config.platform_instance
+        )
+
+        # None of the databases are shared
+        if not shared_databases:
+            return
+
         logger.debug("Checking databases for inbound or outbound shares.")
         for db in databases:
-            inbound, outbounds = self.get_sharing_details(db)
-
-            if not (inbound or outbounds):
-                logger.debug(f"database {db.name} is not a shared.")
+            if db.name not in shared_databases:
+                logger.debug(f"database {db.name} is not shared.")
                 continue
 
-            sibling_dbs: List[SnowflakeDatabaseDataHubId]
-            if inbound:
-                sibling_dbs = [inbound]
-                logger.debug(f"database {db.name} is created from inbound share.")
-            else:  # outbounds
-                sibling_dbs = outbounds
-                logger.debug(f"database {db.name} is shared as outbound share.")
+            sibling_dbs = self.get_sibling_databases(shared_databases[db.name])
 
             for schema in db.schemas:
                 for table_name in schema.tables + schema.views:
@@ -60,64 +113,70 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
                     # 3. emit siblings only for the objects listed above.
                     # This will work only if the configured role has accountadmin role access OR is owner of share.
                     # Otherwise ghost nodes may be shown in "Composed Of" section for tables/views in original database which are not granted to share.
-                    yield from self.get_siblings(
+                    yield from self.gen_siblings(
                         db.name,
                         schema.name,
                         table_name,
-                        True if outbounds else False,
+                        not shared_databases[db.name].created_from_share,
                         sibling_dbs,
                     )
 
-                    if inbound:
+                    if shared_databases[db.name].created_from_share:
+                        assert len(sibling_dbs) == 1
                         # SnowflakeLineageExtractor is unaware of database->schema->table hierarchy
                         # hence this lineage code is not written in SnowflakeLineageExtractor
                         # also this is not governed by configs include_table_lineage and include_view_lineage
                         yield self.get_upstream_lineage_with_primary_sibling(
-                            db.name, schema.name, table_name, inbound
+                            db.name, schema.name, table_name, sibling_dbs[0]
                         )
 
-        self.report_missing_databases(databases)
+        self.report_missing_databases(databases, shared_databases)
 
-    def get_sharing_details(self, db):
-        inbound = (
-            self.config.inbound_shares_map.get(db.name)
-            if self.config.inbound_shares_map
-            and db.name in self.config.inbound_shares_map
-            else None
-        )
-        outbounds = (
-            self.config.outbound_shares_map.get(db.name)
-            if self.config.outbound_shares_map
-            and db.name in self.config.outbound_shares_map
-            else None
-        )
+    def get_sibling_databases(self, db: SharedDatabase) -> List[DatabaseId]:
+        assert self.config.shares is not None
+        sibling_dbs: List[DatabaseId] = []
+        if db.created_from_share:
+            share_details = self.config.shares[db.shares[0]]
+            logger.debug(
+                f"database {db.name} is created from inbound share {db.shares[0]}."
+            )
+            sibling_dbs = [
+                DatabaseId(share_details.database, share_details.platform_instance)
+            ]
 
-        return inbound, outbounds
+        else:  # not created from share, but is in fact included in share
+            logger.debug(
+                f"database {db.name} is included as outbound share(s) {db.shares}."
+            )
+            sibling_dbs = [
+                consumer
+                for share_name in db.shares
+                for consumer in self.config.shares[share_name].consumers
+            ]
 
-    def report_missing_databases(self, databases):
+        return sibling_dbs
+
+    def report_missing_databases(
+        self,
+        databases: List[SnowflakeDatabase],
+        shared_databases: Dict[str, SharedDatabase],
+    ) -> None:
         db_names = [db.name for db in databases]
-        missing_dbs = []
-        if self.config.inbound_shares_map:
-            missing_dbs.extend(
-                [db for db in self.config.inbound_shares_map if db not in db_names]
-            )
-        if self.config.outbound_shares_map:
-            missing_dbs.extend(
-                [db for db in self.config.outbound_shares_map if db not in db_names]
-            )
+        missing_dbs = [db for db in shared_databases.keys() if db not in db_names]
+
         if missing_dbs:
             self.report_warning(
                 "snowflake-shares",
                 f"Databases {missing_dbs} were not ingested. Siblings/Lineage will not be set for these.",
             )
 
-    def get_siblings(
+    def gen_siblings(
         self,
         database_name: str,
         schema_name: str,
         table_name: str,
         primary: bool,
-        sibling_databases: List[SnowflakeDatabaseDataHubId],
+        sibling_databases: List[DatabaseId],
     ) -> Iterable[MetadataWorkUnit]:
         if not sibling_databases:
             return
@@ -130,7 +189,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             make_dataset_urn_with_platform_instance(
                 self.platform,
                 self.get_dataset_identifier(
-                    table_name, schema_name, sibling_db.database_name
+                    table_name, schema_name, sibling_db.database
                 ),
                 sibling_db.platform_instance,
             )
@@ -138,7 +197,8 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         ]
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=urn, aspect=Siblings(primary=primary, siblings=sibling_urns)
+            entityUrn=urn,
+            aspect=Siblings(primary=primary, siblings=sorted(sibling_urns)),
         ).as_workunit()
 
     def get_upstream_lineage_with_primary_sibling(
@@ -146,7 +206,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         database_name: str,
         schema_name: str,
         table_name: str,
-        primary_sibling_db: SnowflakeDatabaseDataHubId,
+        primary_sibling_db: DatabaseId,
     ) -> MetadataWorkUnit:
         dataset_identifier = self.get_dataset_identifier(
             table_name, schema_name, database_name
@@ -156,7 +216,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         upstream_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             self.get_dataset_identifier(
-                table_name, schema_name, primary_sibling_db.database_name
+                table_name, schema_name, primary_sibling_db.database
             ),
             primary_sibling_db.platform_instance,
         )

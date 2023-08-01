@@ -540,10 +540,10 @@ class SnowflakeV2Source(
 
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
-        if self.config.inbound_shares_map or self.config.outbound_shares_map:
+        if self.config.shares:
             yield from SnowflakeSharesHandler(
                 self.config, self.report, self.gen_dataset_urn
-            ).get_workunits(databases)
+            ).get_shares_workunits(databases)
 
         discovered_tables: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)

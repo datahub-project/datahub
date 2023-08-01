@@ -5,7 +5,8 @@ import pytest
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.snowflake.snowflake_config import (
-    SnowflakeDatabaseDataHubId,
+    DatabaseId,
+    SnowflakeShareConfig,
     SnowflakeV2Config,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -105,101 +106,84 @@ def test_snowflake_shares_workunit_no_shares(
         config, report, lambda x: make_snowflake_urn(x)
     )
 
-    wus = list(shares_handler.get_workunits(snowflake_databases))
+    wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
     assert len(wus) == 0
 
 
 def test_same_database_inbound_and_outbound_invalid_config() -> None:
-    with pytest.raises(ValueError, match="Same database can not be present in both"):
-        SnowflakeV2Config(
-            account_id="abc12345",
-            platform_instance="instance1",
-            inbound_shares_map={
-                "db1": SnowflakeDatabaseDataHubId(
-                    database_name="original_db1", platform_instance="instance2"
-                )
-            },
-            outbound_shares_map={
-                "db1": [
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2_from_share", platform_instance="instance2"
-                    ),
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2", platform_instance="instance3"
-                    ),
-                ]
-            },
-        )
-
-
-def test_current_platform_instance_inbound_and_outbound_invalid() -> None:
     with pytest.raises(
-        ValueError, match="Current `platform_instance` can not be present as"
+        ValueError,
+        match="Same database can not be present as consumer in more than one share",
     ):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
-            inbound_shares_map={
-                "db1": SnowflakeDatabaseDataHubId(
-                    database_name="db2", platform_instance="instance1"
-                )
-            },
-            outbound_shares_map={
-                "db2": [
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2_from_share", platform_instance="instance2"
-                    ),
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2", platform_instance="instance3"
-                    ),
-                ]
+            shares={
+                "share1": SnowflakeShareConfig(
+                    database="db1",
+                    platform_instance="instance2",
+                    consumers=[
+                        DatabaseId(database="db1", platform_instance="instance1")
+                    ],
+                ),
+                "share2": SnowflakeShareConfig(
+                    database="db1",
+                    platform_instance="instance3",
+                    consumers=[
+                        DatabaseId(database="db1", platform_instance="instance1")
+                    ],
+                ),
             },
         )
 
     with pytest.raises(
-        ValueError, match="Current `platform_instance` can not be present as"
+        ValueError,
+        match="Database included in a share can not be present as consumer in any share",
     ):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
-            inbound_shares_map={
-                "db1": SnowflakeDatabaseDataHubId(
-                    database_name="db2", platform_instance="instance2"
-                )
-            },
-            outbound_shares_map={
-                "db2": [
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2_from_share", platform_instance="instance2"
-                    ),
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2", platform_instance="instance1"
-                    ),
-                ]
+            shares={
+                "share1": SnowflakeShareConfig(
+                    database="db1",
+                    platform_instance="instance2",
+                    consumers=[
+                        DatabaseId(database="db1", platform_instance="instance1")
+                    ],
+                ),
+                "share2": SnowflakeShareConfig(
+                    database="db1",
+                    platform_instance="instance1",
+                    consumers=[
+                        DatabaseId(database="db1", platform_instance="instance3")
+                    ],
+                ),
             },
         )
 
-
-def test_another_instance_database_inbound_and_outbound_invalid() -> None:
-    with pytest.raises(ValueError, match="A database can exist only once either in"):
+    with pytest.raises(
+        ValueError,
+        match="Database included in a share can not be present as consumer in any share",
+    ):
         SnowflakeV2Config(
             account_id="abc12345",
             platform_instance="instance1",
-            inbound_shares_map={
-                "db1": SnowflakeDatabaseDataHubId(
-                    database_name="db2", platform_instance="instance3"
-                )
-            },
-            outbound_shares_map={
-                "db2": [
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2_from_share", platform_instance="instance2"
-                    ),
-                    SnowflakeDatabaseDataHubId(
-                        database_name="db2", platform_instance="instance3"
-                    ),
-                ]
+            shares={
+                "share2": SnowflakeShareConfig(
+                    database="db1",
+                    platform_instance="instance1",
+                    consumers=[
+                        DatabaseId(database="db1", platform_instance="instance3")
+                    ],
+                ),
+                "share1": SnowflakeShareConfig(
+                    database="db1",
+                    platform_instance="instance2",
+                    consumers=[
+                        DatabaseId(database="db1", platform_instance="instance1")
+                    ],
+                ),
             },
         )
 
@@ -210,9 +194,11 @@ def test_snowflake_shares_workunit_inbound_share(
     config = SnowflakeV2Config(
         account_id="abc12345",
         platform_instance="instance1",
-        inbound_shares_map={
-            "db1": SnowflakeDatabaseDataHubId(
-                database_name="original_db1", platform_instance="instance2"
+        shares={
+            "share1": SnowflakeShareConfig(
+                database="db1",
+                platform_instance="instance2",
+                consumers=[DatabaseId(database="db1", platform_instance="instance1")],
             )
         },
     )
@@ -222,7 +208,7 @@ def test_snowflake_shares_workunit_inbound_share(
         config, report, lambda x: make_snowflake_urn(x, "instance1")
     )
 
-    wus = list(shares_handler.get_workunits(snowflake_databases))
+    wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
     # 2 schemas - 2 tables and 1 view in each schema making total 6 datasets
     # Hence 6 Sibling and 6 upstreamLineage aspects
@@ -239,7 +225,7 @@ def test_snowflake_shares_workunit_inbound_share(
             assert upstream_aspect is not None
             assert len(upstream_aspect.upstreams) == 1
             assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
-                "instance1.db1", "instance2.original_db1"
+                "instance1.db1", "instance2.db1"
             )
             upstream_lineage_aspect_entity_urns.add(wu.get_urn())
         else:
@@ -247,7 +233,7 @@ def test_snowflake_shares_workunit_inbound_share(
             assert siblings_aspect is not None
             assert len(siblings_aspect.siblings) == 1
             assert siblings_aspect.siblings == [
-                wu.get_urn().replace("instance1.db1", "instance2.original_db1")
+                wu.get_urn().replace("instance1.db1", "instance2.db1")
             ]
             sibling_aspect_entity_urns.add(wu.get_urn())
 
@@ -260,15 +246,17 @@ def test_snowflake_shares_workunit_outbound_share(
     config = SnowflakeV2Config(
         account_id="abc12345",
         platform_instance="instance1",
-        outbound_shares_map={
-            "db2": [
-                SnowflakeDatabaseDataHubId(
-                    database_name="db2_from_share", platform_instance="instance2"
-                ),
-                SnowflakeDatabaseDataHubId(
-                    database_name="db2", platform_instance="instance3"
-                ),
-            ]
+        shares={
+            "share2": SnowflakeShareConfig(
+                database="db2",
+                platform_instance="instance1",
+                consumers=[
+                    DatabaseId(
+                        database="db2_from_share", platform_instance="instance2"
+                    ),
+                    DatabaseId(database="db2", platform_instance="instance3"),
+                ],
+            )
         },
     )
 
@@ -277,7 +265,7 @@ def test_snowflake_shares_workunit_outbound_share(
         config, report, lambda x: make_snowflake_urn(x, "instance1")
     )
 
-    wus = list(shares_handler.get_workunits(snowflake_databases))
+    wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
     # 2 schemas - 2 tables and 1 view in each schema making total 6 datasets
     # Hence 6 Sibling aspects
@@ -303,20 +291,22 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
     config = SnowflakeV2Config(
         account_id="abc12345",
         platform_instance="instance1",
-        inbound_shares_map={
-            "db1": SnowflakeDatabaseDataHubId(
-                database_name="original_db1", platform_instance="instance2"
-            )
-        },
-        outbound_shares_map={
-            "db2": [
-                SnowflakeDatabaseDataHubId(
-                    database_name="db2_from_share", platform_instance="instance2"
-                ),
-                SnowflakeDatabaseDataHubId(
-                    database_name="db2", platform_instance="instance3"
-                ),
-            ]
+        shares={
+            "share1": SnowflakeShareConfig(
+                database="db1",
+                platform_instance="instance2",
+                consumers=[DatabaseId(database="db1", platform_instance="instance1")],
+            ),
+            "share2": SnowflakeShareConfig(
+                database="db2",
+                platform_instance="instance1",
+                consumers=[
+                    DatabaseId(
+                        database="db2_from_share", platform_instance="instance2"
+                    ),
+                    DatabaseId(database="db2", platform_instance="instance3"),
+                ],
+            ),
         },
     )
 
@@ -325,7 +315,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
         config, report, lambda x: make_snowflake_urn(x, "instance1")
     )
 
-    wus = list(shares_handler.get_workunits(snowflake_databases))
+    wus = list(shares_handler.get_shares_workunits(snowflake_databases))
 
     # 6 Sibling and 6 upstreamLineage aspects for db1 tables
     # 6 Sibling aspects for db2 tables
@@ -340,7 +330,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
             assert upstream_aspect is not None
             assert len(upstream_aspect.upstreams) == 1
             assert upstream_aspect.upstreams[0].dataset == wu.get_urn().replace(
-                "instance1.db1", "instance2.original_db1"
+                "instance1.db1", "instance2.db1"
             )
         else:
             siblings_aspect = wu.get_aspect_of_type(Siblings)
@@ -348,7 +338,7 @@ def test_snowflake_shares_workunit_inbound_and_outbound_share(
             if "db1" in wu.get_urn():
                 assert len(siblings_aspect.siblings) == 1
                 assert siblings_aspect.siblings == [
-                    wu.get_urn().replace("instance1.db1", "instance2.original_db1")
+                    wu.get_urn().replace("instance1.db1", "instance2.db1")
                 ]
             else:
                 assert len(siblings_aspect.siblings) == 2

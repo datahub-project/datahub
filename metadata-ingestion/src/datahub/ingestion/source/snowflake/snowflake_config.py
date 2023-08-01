@@ -1,11 +1,11 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Sequence, cast
+from typing import Dict, List, Optional, Set, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -44,9 +44,24 @@ class TagOption(str, Enum):
 
 
 @dataclass(frozen=True)
-class SnowflakeDatabaseDataHubId:
-    platform_instance: str
-    database_name: str
+class DatabaseId:
+    database: str = Field(
+        description="Database created from share in consumer account."
+    )
+    platform_instance: str = Field(
+        description="Platform instance of consumer snowflake account."
+    )
+
+
+class SnowflakeShareConfig(ConfigModel):
+    database: str = Field(description="Database from which share is created.")
+    platform_instance: str = Field(
+        description="Platform instance for snowflake account in which share is created."
+    )
+
+    consumers: Set[DatabaseId] = Field(
+        description="List of databases created in consumer accounts."
+    )
 
 
 class SnowflakeV2Config(
@@ -127,18 +142,11 @@ class SnowflakeV2Config(
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
-    inbound_shares_map: Optional[Dict[str, SnowflakeDatabaseDataHubId]] = Field(
+    shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
         default=None,
-        description="Required if the current account has any database created from inbound snowflake share."
-        " If specified, connector creates lineage and siblings relationship between current account's database tables and original database tables from which snowflake share was created."
-        " Map of database name -> (platform instance of snowflake account containing original database, original database name).",
-    )
-
-    outbound_shares_map: Optional[Dict[str, List[SnowflakeDatabaseDataHubId]]] = Field(
-        default=None,
-        description="Required if the current account has created any outbound snowflake shares and there is at least one consumer account in which database is created from such share."
-        " If specified, connector creates siblings relationship between current account's database tables and all database tables created in consumer accounts from the share including current account's database."
-        " Map of database name D -> list of (platform instance of snowflake consumer account who've created database from share, name of database created from share) for all shares created from database name D.",
+        description="Required if current account owns or consumes snowflake share."
+        " If specified, connector creates lineage and siblings relationship between current account's database tables and consumer/producer account's database tables."
+        " Map of share name -> details of share.",
     )
 
     @validator("include_column_lineage")
@@ -214,68 +222,40 @@ class SnowflakeV2Config(
     def parse_view_ddl(self) -> bool:
         return self.include_view_column_lineage
 
-    @root_validator(pre=False)
-    def validator_inbound_outbound_shares_map(cls, values: Dict) -> Dict:
-        inbound_shares_map: Dict[str, SnowflakeDatabaseDataHubId] = (
-            values.get("inbound_shares_map") or {}
-        )
-        outbound_shares_map: Dict[str, List[SnowflakeDatabaseDataHubId]] = (
-            values.get("outbound_shares_map") or {}
-        )
-
-        # Check: same database from current instance as inbound and outbound
-        common_keys = [key for key in inbound_shares_map if key in outbound_shares_map]
-
-        assert (
-            len(common_keys) == 0
-        ), "Same database can not be present in both `inbound_shares_map` and `outbound_shares_map`."
-
+    @validator("shares")
+    def validate_shares(
+        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
+    ) -> Optional[Dict[str, SnowflakeShareConfig]]:
         current_platform_instance = values.get("platform_instance")
 
-        # Check: current platform_instance present as inbound and outbound
-        if current_platform_instance and any(
-            [
-                db.platform_instance == current_platform_instance
-                for db in inbound_shares_map.values()
-            ]
-        ):
-            raise ValueError(
-                "Current `platform_instance` can not be present as any database in `inbound_shares_map`."
-                "Self-sharing not supported in Snowflake. Please check your configuration."
-            )
-
-        if current_platform_instance and any(
-            [
-                db.platform_instance == current_platform_instance
-                for dbs in outbound_shares_map.values()
-                for db in dbs
-            ]
-        ):
-            raise ValueError(
-                "Current `platform_instance` can not be present as any database in `outbound_shares_map`."
-                "Self-sharing is not supported in Snowflake. Please check your configuration."
-            )
-
         # Check: platform_instance should be present
-        if (
-            inbound_shares_map or outbound_shares_map
-        ) and not current_platform_instance:
-            logger.warn(
+        if shares:
+            assert current_platform_instance is not None, (
                 "Did you forget to set `platform_instance` for current ingestion ?"
                 "It is advisable to use `platform_instance` when ingesting from multiple snowflake accounts."
             )
 
-        # Check: same database from some platform instance as inbound and outbound
-        other_platform_instance_databases: Sequence[SnowflakeDatabaseDataHubId] = [
-            db
-            for db in set(
-                inbound_shares_map.values()
-            )  # using set as multiple inbound shares may be present from same original database
-        ] + [db for dbs in outbound_shares_map.values() for db in dbs]
+            databases_included_in_share: List[DatabaseId] = []
+            databases_created_from_share: List[DatabaseId] = []
 
-        for other_instance_db in other_platform_instance_databases:
-            assert (
-                other_platform_instance_databases.count(other_instance_db) == 1
-            ), "A database can exist only once either in `inbound_shares_map` or in `outbound_shares_map`."
+            for _, share_details in shares.items():
+                shared_db = DatabaseId(
+                    share_details.database, share_details.platform_instance
+                )
+                assert all(
+                    consumer.platform_instance != share_details.platform_instance
+                    for consumer in share_details.consumers
+                ), "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
 
-        return values
+                databases_included_in_share.append(shared_db)
+                databases_created_from_share.extend(share_details.consumers)
+
+            for db_from_share in databases_created_from_share:
+                assert (
+                    db_from_share not in databases_included_in_share
+                ), "Database included in a share can not be present as consumer in any share."
+                assert (
+                    databases_created_from_share.count(db_from_share) == 1
+                ), "Same database can not be present as consumer in more than one share."
+
+        return shares
