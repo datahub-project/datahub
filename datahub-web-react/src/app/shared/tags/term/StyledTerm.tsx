@@ -8,12 +8,10 @@ import TermContent from './TermContent';
 
 const TermLink = styled(Link)`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const TermWrapper = styled.span`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 interface Props {

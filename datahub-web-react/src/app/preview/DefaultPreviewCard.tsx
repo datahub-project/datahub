@@ -37,9 +37,20 @@ import { EntityHealth } from '../entity/shared/containers/profile/header/EntityH
 
 const PreviewContainer = styled.div`
     display: flex;
-    width: 100%;
+    flex-direction: column;
+    flex: 1;
+`;
+
+const FirstRow = styled.div`
+    display: flex;
+    flex: 1;
     justify-content: space-between;
     align-items: center;
+`;
+
+const SecondRow = styled.div`
+    display: flex;
+    flex: 1;
 `;
 
 const LeftColumn = styled.div<{ expandWidth: boolean }>`
@@ -263,129 +274,135 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn expandWidth={!shouldShowRightColumn}>
-                <TitleContainer>
-                    <PlatformContentView
-                        platformName={platform}
-                        platformLogoUrl={logoUrl}
-                        platformNames={platforms}
-                        platformLogoUrls={logoUrls}
-                        entityLogoComponent={logoComponent}
-                        instanceId={platformInstanceId}
-                        typeIcon={typeIcon}
-                        entityType={type}
-                        parentContainers={parentContainers?.containers}
-                        parentNodes={parentNodes?.nodes}
-                        parentContainersRef={contentRef}
-                        areContainersTruncated={isContentTruncated}
-                    />
-                    <EntityTitleContainer>
-                        <Link to={url}>
-                            {previewType === PreviewType.HOVER_CARD ? (
-                                <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {name || ' '}
-                                </CardEntityTitle>
-                            ) : (
-                                <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {name || ' '}
-                                </EntityTitle>
+            <FirstRow>
+                <LeftColumn expandWidth={!shouldShowRightColumn}>
+                    <TitleContainer>
+                        <PlatformContentView
+                            platformName={platform}
+                            platformLogoUrl={logoUrl}
+                            platformNames={platforms}
+                            platformLogoUrls={logoUrls}
+                            entityLogoComponent={logoComponent}
+                            instanceId={platformInstanceId}
+                            typeIcon={typeIcon}
+                            entityType={type}
+                            parentContainers={parentContainers?.containers}
+                            parentNodes={parentNodes?.nodes}
+                            parentContainersRef={contentRef}
+                            areContainersTruncated={isContentTruncated}
+                        />
+                        <EntityTitleContainer>
+                            <Link to={url}>
+                                {previewType === PreviewType.HOVER_CARD ? (
+                                    <CardEntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                        {name || ' '}
+                                    </CardEntityTitle>
+                                ) : (
+                                    <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
+                                        {name || ' '}
+                                    </EntityTitle>
+                                )}
+                            </Link>
+                            {deprecation?.deprecated && (
+                                <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                             )}
-                        </Link>
-                        {deprecation?.deprecated && (
-                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
-                        )}
-                        {health && health.length && <EntityHealth baseUrl={url} health={health} />}
-                        {externalUrl && (
-                            <ExternalUrlButton
-                                externalUrl={externalUrl}
-                                platformName={platform}
-                                entityUrn={urn}
-                                entityType={type}
-                            />
-                        )}
-                    </EntityTitleContainer>
+                            {health && health.length && <EntityHealth baseUrl={url} health={health} />}
+                            {externalUrl && (
+                                <ExternalUrlButton
+                                    externalUrl={externalUrl}
+                                    platformName={platform}
+                                    entityUrn={urn}
+                                    entityType={type}
+                                />
+                            )}
+                        </EntityTitleContainer>
 
-                    {degree !== undefined && degree !== null && (
-                        <Tooltip
-                            title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
-                                entityData?.name || 'the source entity'
-                            }`}
-                        >
-                            <PlatformText>{getNumberWithOrdinal(degree)}</PlatformText>
-                        </Tooltip>
+                        {degree !== undefined && degree !== null && (
+                            <Tooltip
+                                title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
+                                    entityData?.name || 'the source entity'
+                                }`}
+                            >
+                                <PlatformText>{getNumberWithOrdinal(degree)}</PlatformText>
+                            </Tooltip>
+                        )}
+                        {!!degree && entityCount && <PlatformDivider />}
+                        <EntityCount entityCount={entityCount} displayAssetsText={displayAssetCount} />
+                    </TitleContainer>
+                    {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
+                    {description && description.length > 0 && (
+                        <DescriptionContainer>
+                            <NoMarkdownViewer
+                                limit={descriptionExpanded ? undefined : 250}
+                                shouldWrap={previewType === PreviewType.HOVER_CARD}
+                                readMore={
+                                    previewType === PreviewType.HOVER_CARD ? (
+                                        <Typography.Link
+                                            onClickCapture={(e) => {
+                                                onPreventMouseDown(e);
+                                                setDescriptionExpanded(!descriptionExpanded);
+                                            }}
+                                        >
+                                            {descriptionExpanded ? 'Show Less' : 'Show More'}
+                                        </Typography.Link>
+                                    ) : undefined
+                                }
+                            >
+                                {description}
+                            </NoMarkdownViewer>
+                        </DescriptionContainer>
                     )}
-                    {!!degree && entityCount && <PlatformDivider />}
-                    <EntityCount entityCount={entityCount} displayAssetsText={displayAssetCount} />
-                </TitleContainer>
-                {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
-                {description && description.length > 0 && (
-                    <DescriptionContainer>
-                        <NoMarkdownViewer
-                            limit={descriptionExpanded ? undefined : 250}
-                            shouldWrap={previewType === PreviewType.HOVER_CARD}
-                            readMore={
-                                previewType === PreviewType.HOVER_CARD ? (
-                                    <Typography.Link
-                                        onClickCapture={(e) => {
-                                            onPreventMouseDown(e);
-                                            setDescriptionExpanded(!descriptionExpanded);
-                                        }}
-                                    >
-                                        {descriptionExpanded ? 'Show Less' : 'Show More'}
-                                    </Typography.Link>
-                                ) : undefined
-                            }
-                        >
-                            {description}
-                        </NoMarkdownViewer>
-                    </DescriptionContainer>
-                )}
-                {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
-                    <TagContainer>
-                        {/* if there's a domain and dataProduct, show dataProduct */}
-                        {dataProduct && <DataProductLink dataProduct={dataProduct} />}
-                        {!dataProduct && domain && <TagTermGroup domain={domain} maxShow={3} />}
-                        {(dataProduct || domain) && hasGlossaryTerms && <TagSeparator />}
-                        {hasGlossaryTerms && <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />}
-                        {((hasGlossaryTerms && hasTags) || ((dataProduct || domain) && hasTags)) && <TagSeparator />}
-                        {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
-                    </TagContainer>
-                )}
-                {subHeader}
-                {insightViews.length > 0 && (
-                    <InsightContainer>
-                        {insightViews.map((insightView, index) => (
-                            <span>
-                                {insightView}
-                                {index < insightViews.length - 1 && <PlatformDivider />}
-                            </span>
-                        ))}
-                    </InsightContainer>
-                )}
-            </LeftColumn>
-            {shouldShowRightColumn && (
-                <RightColumn>
-                    {topUsers && topUsers?.length > 0 && (
-                        <>
+                    {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
+                        <TagContainer>
+                            {/* if there's a domain and dataProduct, show dataProduct */}
+                            {dataProduct && <DataProductLink dataProduct={dataProduct} />}
+                            {!dataProduct && domain && <TagTermGroup domain={domain} maxShow={3} />}
+                            {(dataProduct || domain) && hasGlossaryTerms && <TagSeparator />}
+                            {hasGlossaryTerms && <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />}
+                            {((hasGlossaryTerms && hasTags) || ((dataProduct || domain) && hasTags)) && (
+                                <TagSeparator />
+                            )}
+                            {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
+                        </TagContainer>
+                    )}
+                    {insightViews.length > 0 && (
+                        <InsightContainer>
+                            {insightViews.map((insightView, index) => (
+                                <span>
+                                    {insightView}
+                                    {index < insightViews.length - 1 && <PlatformDivider />}
+                                </span>
+                            ))}
+                        </InsightContainer>
+                    )}
+                </LeftColumn>
+                {shouldShowRightColumn && (
+                    <RightColumn>
+                        {topUsers && topUsers?.length > 0 && (
+                            <>
+                                <UserListContainer>
+                                    <UserListTitle strong>Top Users</UserListTitle>
+                                    <div>
+                                        <ExpandedActorGroup actors={topUsers} max={2} />
+                                    </div>
+                                </UserListContainer>
+                            </>
+                        )}
+                        {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && (
+                            <UserListDivider type="vertical" />
+                        )}
+                        {owners && owners?.length > 0 && (
                             <UserListContainer>
-                                <UserListTitle strong>Top Users</UserListTitle>
+                                <UserListTitle strong>Owners</UserListTitle>
                                 <div>
-                                    <ExpandedActorGroup actors={topUsers} max={2} />
+                                    <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
                                 </div>
                             </UserListContainer>
-                        </>
-                    )}
-                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                    {owners && owners?.length > 0 && (
-                        <UserListContainer>
-                            <UserListTitle strong>Owners</UserListTitle>
-                            <div>
-                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
-                            </div>
-                        </UserListContainer>
-                    )}
-                </RightColumn>
-            )}
+                        )}
+                    </RightColumn>
+                )}
+            </FirstRow>
+            <SecondRow>{subHeader}</SecondRow>
         </PreviewContainer>
     );
 }

@@ -11,7 +11,6 @@ import { TagProfileDrawer } from '../TagProfileDrawer';
 
 const TagLink = styled.span`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };

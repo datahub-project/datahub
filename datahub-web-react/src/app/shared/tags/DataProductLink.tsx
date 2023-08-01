@@ -10,12 +10,10 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const DomainWrapper = styled.span`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const StyledTag = styled(Tag)<{ fontSize?: number }>`
