@@ -92,7 +92,7 @@ export default function NotificationRecipientSection() {
     const actions = useDrawerActions();
 
     const drawerState = useDrawerState();
-    const { slack } = drawerState;
+    const { settings, slack } = drawerState;
 
     const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
         slack.channelSelection === ChannelSelections.SETTINGS,
@@ -157,9 +157,9 @@ export default function NotificationRecipientSection() {
                             onChange={onChangeSlackRadioGroup}
                         >
                             <Space direction="vertical">
-                                {slack.settings.channel && (
+                                {settings.slack.channel && (
                                     <Radio value={ChannelSelections.SETTINGS}>
-                                        Use default: {slack.settings.channel}
+                                        Use default: {settings.slack.channel}
                                     </Radio>
                                 )}
                                 <Radio value={ChannelSelections.SUBSCRIPTION}>
@@ -184,7 +184,7 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {isSubscriptionChannelSelected && slack.settings.channel && (
+                    {isSubscriptionChannelSelected && settings.slack.channel && (
                         <StyledCheckbox
                             disabled={!slack.enabled || !slackSinkEnabled}
                             checked={slack.subscription.saveAsDefault}

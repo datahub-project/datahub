@@ -7,5 +7,5 @@ export function shouldTurnOnSlackInSettings(state: State) {
 }
 
 export function shouldShowUpdateSlackSettingsWarning(state: State) {
-    return shouldTurnOnSlackInSettings(state) && !!state.slack.settings.channel;
+    return shouldTurnOnSlackInSettings(state) && !!state.settings.slack.channel;
 }

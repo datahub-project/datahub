@@ -13,6 +13,9 @@ export type State = {
     isPersonal: boolean;
     settings: {
         sinkTypes?: NotificationSinkType[];
+        slack: {
+            channel?: string;
+        };
     };
     notificationTypes: {
         checkedKeys: Array<Key>;
@@ -23,9 +26,6 @@ export type State = {
     slack: {
         enabled: boolean;
         channelSelection: ChannelSelection;
-        settings: {
-            channel?: string;
-        };
         subscription: {
             channel?: string;
             saveAsDefault: boolean;
