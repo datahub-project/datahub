@@ -70,7 +70,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
@@ -128,7 +128,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
@@ -186,7 +186,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -244,7 +244,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -302,7 +302,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -362,7 +362,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -384,7 +384,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -406,7 +406,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
