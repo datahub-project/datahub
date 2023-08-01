@@ -19,7 +19,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collections;
 import java.util.HashSet;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -30,7 +29,7 @@ import static org.testng.Assert.*;
 
 public class ListIngestionSourceResolverTest {
 
-  private static final ListIngestionSourcesInput TEST_INPUT = new ListIngestionSourcesInput(0, 20, null);
+  private static final ListIngestionSourcesInput TEST_INPUT = new ListIngestionSourcesInput(0, 20, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -44,7 +43,8 @@ public class ListIngestionSourceResolverTest {
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
         Mockito.eq(""),
-        Mockito.eq(Collections.emptyMap()),
+        Mockito.any(),
+        Mockito.any(),
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.any(Authentication.class),

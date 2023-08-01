@@ -254,11 +254,13 @@ class JsonSchemaTranslator:
                 isPartOfKey=field_path.is_key_schema,
             )
         elif datahub_field_type in [EnumTypeClass]:
+            # Convert enums to string representation
+            schema_enums = list(map(json.dumps, schema["enum"]))
             yield SchemaField(
                 fieldPath=field_path.expand_type("enum", schema).as_string(),
                 type=type_override or SchemaFieldDataTypeClass(type=EnumTypeClass()),
                 nativeDataType="Enum",
-                description=f"one of {','.join(schema['enum'])}",
+                description=f"One of: {', '.join(schema_enums)}",
                 nullable=nullable,
                 jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
                     schema, required=required
