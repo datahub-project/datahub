@@ -427,7 +427,7 @@
     }
   },
   {
-    "urn": "urn:li:dataPlatform:presto_on_hive",
+    "urn": "urn:li:dataPlatform:presto-on-hive",
     "aspect": {
       "datasetNameDelimiter": ".",
       "name": "presto-on-hive",

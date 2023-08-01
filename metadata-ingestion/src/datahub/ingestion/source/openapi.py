@@ -18,7 +18,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
@@ -212,9 +211,6 @@ class APISource(Source, ABC):
     ) -> ApiWorkUnit:
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return ApiWorkUnit(id=dataset_name, mce=mce)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:  # noqa: C901
         config = self.config

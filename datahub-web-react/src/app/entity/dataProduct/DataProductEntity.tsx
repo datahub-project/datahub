@@ -132,7 +132,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
-                entityCount={data?.properties?.numAssets || undefined}
+                entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
             />
         );
@@ -149,7 +149,7 @@ export class DataProductEntity implements Entity<DataProduct> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
-                entityCount={data?.properties?.numAssets || undefined}
+                entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
             />
         );
@@ -162,7 +162,7 @@ export class DataProductEntity implements Entity<DataProduct> {
     getOverridePropertiesFromEntity = (data: DataProduct) => {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
-        const entityCount = data?.properties?.numAssets || undefined;
+        const entityCount = data?.entities?.total || undefined;
         return {
             name,
             externalUrl,
