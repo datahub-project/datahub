@@ -42,8 +42,6 @@ import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.client.core.CountRequest;
 
-import static com.linkedin.metadata.search.utils.SearchUtils.EMPTY_SCROLL_RESULT;
-
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.models.registry.template.util.TemplateUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
@@ -167,14 +165,6 @@ public class ESSearchDAO {
           .extractScrollResult(searchResponse,
               filters, searchResponse.getScrollId(), keepAlive, size, supportsPointInTime());
     } catch (Exception e) {
-      if (e instanceof ElasticsearchStatusException) {
-        final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
-        if (statusException.status().getStatus() == 400) {
-          // Malformed query -- Could indicate bad search syntax. Return empty response.
-          log.warn("Received 400 from Elasticsearch. Returning empty search response", e);
-          return EMPTY_SCROLL_RESULT;
-        }
-      }
       log.error("Search Scroll query failed", e);
       throw new ESQueryException("Search Scroll query failed:", e);
     }
@@ -192,16 +182,8 @@ public class ESSearchDAO {
           .extractScrollResult(searchResponse,
                         filters, searchResponse.getScrollId(), keepAlive, size, supportsPointInTime());
     } catch (Exception e) {
-      if (e instanceof ElasticsearchStatusException) {
-        final ElasticsearchStatusException statusException = (ElasticsearchStatusException) e;
-        if (statusException.status().getStatus() == 400) {
-          // Malformed query -- Could indicate bad search syntax. Return empty response.
-          log.warn("Received 400 from Elasticsearch. Returning empty search response", e);
-          return EMPTY_SCROLL_RESULT;
-        }
-      }
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
+      log.error("Scroll query failed", e);
+      throw new ESQueryException("Scroll query failed:", e);
     }
   }
 
