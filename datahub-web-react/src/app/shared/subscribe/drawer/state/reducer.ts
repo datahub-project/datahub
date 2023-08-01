@@ -56,7 +56,7 @@ export const reducer = (state: State, action: Action): State => {
                     },
                     subscription: {
                         channel: subscriptionChannel,
-                        saveAsDefault: !settingsChannel,
+                        saveAsDefault: !settingsChannel && !subscription,
                     },
                 },
             };

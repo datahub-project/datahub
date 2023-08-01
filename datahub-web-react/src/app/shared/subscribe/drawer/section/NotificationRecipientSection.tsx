@@ -168,7 +168,7 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {isSubscriptionChannelSelected && slack.settings.channel && (
+                    {isSubscriptionChannelSelected && (
                         <StyledCheckbox
                             disabled={!slack.enabled || !slackSinkEnabled}
                             checked={slack.subscription.saveAsDefault}
