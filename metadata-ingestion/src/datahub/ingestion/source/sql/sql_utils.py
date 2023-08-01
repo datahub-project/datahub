@@ -21,6 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 ARRAY_TOKEN = "[type=array]"
 UNION_TOKEN = "[type=union]"
@@ -233,7 +234,7 @@ def gen_lineage(
 
 # downgrade a schema field
 def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
-    field.fieldPath = DatasetUrn._get_simple_field_path_from_v2_field_path(field.fieldPath)
+    field.fieldPath = DatasetUrn.get_simple_field_path_from_v2_field_path(field.fieldPath)
     return field
 
 

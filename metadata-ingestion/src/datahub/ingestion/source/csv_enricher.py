@@ -439,7 +439,7 @@ class CSVEnricherSource(Source):
         field_match = False
         for field_info in current_editable_schema_metadata.editableSchemaFieldInfo:
             if (
-                DatasetUrn._get_simple_field_path_from_v2_field_path(
+                DatasetUrn.get_simple_field_path_from_v2_field_path(
                     field_info.fieldPath
                 )
                 == field_path
