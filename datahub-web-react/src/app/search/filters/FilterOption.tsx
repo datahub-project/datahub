@@ -7,11 +7,18 @@ import { EntityType, GlossaryNode, GlossaryTerm, Tag } from '../../../types.gene
 import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { PLATFORM_FILTER_NAME, TAGS_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../utils/constants';
+import {
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    MAX_COUNT_VAL,
+    PLATFORM_FILTER_NAME,
+    TAGS_FILTER_NAME,
+    TYPE_NAMES_FILTER_NAME,
+} from '../utils/constants';
 import { IconSpacer, Label } from './ActiveFilter';
 import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected } from './utils';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import ParentNodes from './ParentNodes';
+import { formatNumber } from '../../shared/formatNumber';
 
 const FilterOptionWrapper = styled.div<{ centerAlign?: boolean; addPadding?: boolean }>`
     display: flex;
@@ -119,6 +126,8 @@ export default function FilterOption({
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
     const isGlossaryTerm = entity?.type === EntityType.GlossaryTerm;
     const parentNodes: GlossaryNode[] = isGlossaryTerm ? (entity as GlossaryTerm).parentNodes?.nodes || [] : [];
+    // only entity type filters return 10,000 max aggs
+    const countText = count === MAX_COUNT_VAL && field === ENTITY_SUB_TYPE_FILTER_NAME ? '10k+' : formatNumber(count);
 
     function updateFilterValues() {
         if (isFilterOptionSelected(selectedFilterOptions, value)) {
@@ -156,7 +165,7 @@ export default function FilterOption({
                             <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
                                 {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
                             </Label>
-                            <CountText>{count}</CountText>
+                            <CountText>{countText}</CountText>
                             {nestedOptions && nestedOptions.length > 0 && (
                                 <ArrowButton
                                     icon={<CaretUpOutlined />}
