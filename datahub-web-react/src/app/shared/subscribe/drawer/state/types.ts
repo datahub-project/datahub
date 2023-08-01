@@ -11,6 +11,12 @@ export type ChannelSelection = typeof ChannelSelections[keyof typeof ChannelSele
 export type State = {
     edited: boolean;
     isPersonal: boolean;
+    settings: {
+        sinkTypes?: NotificationSinkType[];
+        slack: {
+            channel?: string;
+        };
+    };
     notificationTypes: {
         checkedKeys: Array<Key>;
         expandedKeys: Array<Key>;
@@ -20,9 +26,6 @@ export type State = {
     slack: {
         enabled: boolean;
         channelSelection: ChannelSelection;
-        settings: {
-            channel?: string;
-        };
         subscription: {
             channel?: string;
             saveAsDefault: boolean;
@@ -38,6 +41,7 @@ export type InitializeActionPayload = {
     subscription?: DataHubSubscription;
     subscriptionChannel?: string;
     settingsChannel?: string;
+    settingsSinkTypes?: NotificationSinkType[];
 };
 
 export const ActionTypes = {

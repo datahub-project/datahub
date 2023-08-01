@@ -17,11 +17,13 @@ const getInitializedState = ({
     subscription,
     settingsChannel,
     subscriptionChannel,
+    settingsSinkTypes,
 }: {
     slackSinkEnabled: boolean;
     subscription?: Partial<DataHubSubscription>;
     settingsChannel?: string;
     subscriptionChannel?: string;
+    settingsSinkTypes?: NotificationSinkType[];
 }) => {
     const state = createInitialState();
     const action = {
@@ -33,6 +35,7 @@ const getInitializedState = ({
             subscription: subscription as DataHubSubscription,
             subscriptionChannel,
             settingsChannel,
+            settingsSinkTypes,
         },
     };
 
@@ -47,6 +50,7 @@ describe('reducer', () => {
                 subscription: undefined,
                 settingsChannel: undefined,
                 subscriptionChannel: undefined,
+                settingsSinkTypes: [],
             });
 
             expect(newState).toEqual({
@@ -56,14 +60,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [],
+                    slack: {
+                        channel: undefined,
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [],
                 slack: {
                     enabled: false,
                     channelSelection: ChannelSelections.SUBSCRIPTION,
-                    settings: {
-                        channel: undefined,
-                    },
                     subscription: {
                         channel: undefined,
                         saveAsDefault: true,
@@ -80,6 +87,7 @@ describe('reducer', () => {
                 subscription: undefined,
                 settingsChannel: undefined,
                 subscriptionChannel: undefined,
+                settingsSinkTypes: [],
             });
 
             expect(newState).toEqual({
@@ -89,14 +97,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [],
+                    slack: {
+                        channel: undefined,
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [],
                 slack: {
                     enabled: false,
                     channelSelection: ChannelSelections.SUBSCRIPTION,
-                    settings: {
-                        channel: undefined,
-                    },
                     subscription: {
                         channel: undefined,
                         saveAsDefault: true,
@@ -113,6 +124,7 @@ describe('reducer', () => {
                 subscription: undefined,
                 settingsChannel: 'abc',
                 subscriptionChannel: undefined,
+                settingsSinkTypes: [NotificationSinkType.Slack],
             });
 
             expect(newState).toEqual({
@@ -122,14 +134,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [NotificationSinkType.Slack],
+                    slack: {
+                        channel: 'abc',
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [],
                 slack: {
                     enabled: false,
                     channelSelection: ChannelSelections.SETTINGS,
-                    settings: {
-                        channel: 'abc',
-                    },
                     subscription: {
                         channel: undefined,
                         saveAsDefault: false,
@@ -144,6 +159,7 @@ describe('reducer', () => {
                 subscription: slackSubscription,
                 settingsChannel: 'abc',
                 subscriptionChannel: 'xyz',
+                settingsSinkTypes: [NotificationSinkType.Slack],
             });
 
             expect(newState).toEqual({
@@ -153,14 +169,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [NotificationSinkType.Slack],
+                    slack: {
+                        channel: 'abc',
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
                     channelSelection: ChannelSelections.SUBSCRIPTION,
-                    settings: {
-                        channel: 'abc',
-                    },
                     subscription: {
                         channel: 'xyz',
                         saveAsDefault: false,
@@ -177,6 +196,7 @@ describe('reducer', () => {
                 subscription: slackSubscription,
                 settingsChannel: 'abc',
                 subscriptionChannel: undefined,
+                settingsSinkTypes: [],
             });
 
             const action = {
@@ -193,14 +213,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [],
+                    slack: {
+                        channel: 'abc',
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
                     channelSelection: ChannelSelections.SETTINGS,
-                    settings: {
-                        channel: 'abc',
-                    },
                     subscription: {
                         channel: undefined,
                         saveAsDefault: false,
@@ -217,6 +240,7 @@ describe('reducer', () => {
                 settingsChannel: 'abc',
                 subscriptionChannel: 'xyz',
                 subscription: slackSubscription,
+                settingsSinkTypes: [NotificationSinkType.Slack],
             });
 
             const action = {
@@ -233,14 +257,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [NotificationSinkType.Slack],
+                    slack: {
+                        channel: 'abc',
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
                     channelSelection: ChannelSelections.SETTINGS,
-                    settings: {
-                        channel: 'abc',
-                    },
                     subscription: {
                         channel: undefined,
                         saveAsDefault: false,
@@ -260,6 +287,7 @@ describe('reducer', () => {
                 settingsChannel: 'abc',
                 subscriptionChannel: 'xyz',
                 subscription: slackSubscription,
+                settingsSinkTypes: [NotificationSinkType.Slack],
             });
             const newState = reducer(state, action);
 
@@ -270,14 +298,17 @@ describe('reducer', () => {
                     checkedKeys: [],
                     expandedKeys: [],
                 },
+                settings: {
+                    sinkTypes: [NotificationSinkType.Slack],
+                    slack: {
+                        channel: 'abc',
+                    },
+                },
                 subscribeToUpstream: false,
                 notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
                     enabled: true,
                     channelSelection: ChannelSelections.SUBSCRIPTION,
-                    settings: {
-                        channel: 'abc',
-                    },
                     subscription: {
                         channel: 'xyz',
                         saveAsDefault: false,
