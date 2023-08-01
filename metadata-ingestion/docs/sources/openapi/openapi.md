@@ -6,9 +6,40 @@ The plugin read the swagger file where the endopints are defined and searches fo
 a `GET` call: those are the ones supposed to give back the datasets.
 
 For every selected endpoint defined in the `paths` section,
-the tool searches whether the medatada are already defined in there.
-As example, if in your swagger file there is the `/api/users/` defined as follows:
+the tool searches whether the schema or metadata are already defined in there.
+As example, if in your swagger file there is the `/api/pets/` defined as follows:
 
+```yaml
+components:
+  schemas:
+    Pet:
+      type: "object"
+      properties:
+        id:
+          type: "string"
+          format: "uuid"
+          minLength: 36
+          maxLength: 36
+        name:
+          type: "string"
+          minLength: 10
+          maxLength: 2048
+          
+paths:
+  /api/pets/:
+    get:
+      tags: [ "Pets" ]
+      operationID: GetPets
+      description: Retrieve pets data
+      responses:
+        200:
+          description: Return the list of pets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pet"
+```
+or if there is no schema defined, but example presents
 ```yaml
 paths:
   /api/users/:
@@ -27,7 +58,7 @@ paths:
 
 then this plugin has all the information needed to create the dataset in DataHub.
 
-In case there is no example defined, the plugin will try to get the metadata directly from the endpoint.
+In case there is no schemas or example defined, the plugin will try to get the metadata directly from the endpoint.
 So, if in your swagger file you have
 
 ```yaml
