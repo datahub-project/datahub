@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
+import { Alert, Checkbox, Form, Input, InputRef, Radio, RadioChangeEvent, Space, Switch, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import { useForm } from 'antd/lib/form/Form';
@@ -10,6 +10,9 @@ import { isSinkEnabled } from '../../../../settings/utils';
 import { useDrawerState } from '../state/context';
 import useDrawerActions from '../state/actions';
 import { ChannelSelections } from '../state/types';
+import { shouldShowUpdateSlackSettingsWarning } from '../state/selectors';
+
+const LEFT_PADDING = 36;
 
 const NotificationRecipientContainer = styled.div`
     margin-top: 32px;
@@ -24,20 +27,24 @@ const NotificationRecipientTitle = styled(Typography.Text)`
 `;
 
 const NotificationSwitchContainer = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 15fr;
-    column-gap: 8px;
-    row-gap: 8px;
     margin-top: 16px;
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 `;
 
 const StyledSwitch = styled(Switch)`
-    grid-column: 1;
+    margin-right: 8px;
 `;
 
 const StyledRadioGroup = styled(Radio.Group)`
-    grid-column: 2;
+    padding-left: ${LEFT_PADDING}px;
+    margin-top: 8px;
+`;
+
+const SwitchWrapper = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 const NotificationTypeText = styled(Typography.Text)`
@@ -45,12 +52,12 @@ const NotificationTypeText = styled(Typography.Text)`
     font-size: 14px;
     line-height: 20px;
     font-weight: 700;
-    grid-column: 2;
 `;
 
 const DisabledText = styled(Typography.Text)`
     font-weight: 500;
-    grid-column: 2;
+    padding-left: ${LEFT_PADDING}px;
+    margin-top: 8px;
 `;
 
 const StyledFormItem = styled(Form.Item)`
@@ -58,14 +65,13 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 const StyledInput = styled(Input)`
-    grid-column: 2;
     width: 200px;
     border-color: ${ANTD_GRAY[8]};
 `;
 
 const StyledCheckbox = styled(Checkbox)`
-    grid-column: 2;
-    margin-left: 24px;
+    margin-left: ${LEFT_PADDING + 24}px;
+    margin-top: 8px;
     border: 0.3px solid #ffffff;
 `;
 
@@ -77,11 +83,16 @@ const SaveAsDefaultText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
 `;
 
+const StyledAlert = styled(Alert)`
+    margin: 8px 0 0 ${LEFT_PADDING}px;
+`;
+
 export default function NotificationRecipientSection() {
     const [form] = useForm();
     const actions = useDrawerActions();
 
-    const { isPersonal, slack } = useDrawerState();
+    const drawerState = useDrawerState();
+    const { isPersonal, settings, slack } = drawerState;
 
     const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
         slack.channelSelection === ChannelSelections.SETTINGS,
@@ -123,13 +134,23 @@ export default function NotificationRecipientSection() {
             <NotificationRecipientContainer>
                 <NotificationRecipientTitle>Send notifications via</NotificationRecipientTitle>
                 <NotificationSwitchContainer>
-                    <StyledSwitch
-                        disabled={!slackSinkEnabled}
-                        size="small"
-                        checked={slack.enabled}
-                        onChange={onChangeSlackSwitch}
-                    />
-                    <NotificationTypeText>Slack Notifications</NotificationTypeText>
+                    <SwitchWrapper>
+                        <StyledSwitch
+                            disabled={!slackSinkEnabled}
+                            size="small"
+                            checked={slack.enabled}
+                            onChange={onChangeSlackSwitch}
+                        />
+                        <NotificationTypeText>Slack Notifications</NotificationTypeText>
+                    </SwitchWrapper>
+                    {shouldShowUpdateSlackSettingsWarning(drawerState) && (
+                        <StyledAlert
+                            type="warning"
+                            message="Your Slack notifications are currently disabled. Subscribing to this entity will
+                        automatically re-enable them."
+                            showIcon
+                        />
+                    )}
                     {slackSinkEnabled ? (
                         <StyledRadioGroup
                             disabled={!slack.enabled || !slackSinkEnabled}
@@ -137,9 +158,9 @@ export default function NotificationRecipientSection() {
                             onChange={onChangeSlackRadioGroup}
                         >
                             <Space direction="vertical">
-                                {slack.settings.channel && (
+                                {settings.slack.channel && (
                                     <Radio value={ChannelSelections.SETTINGS}>
-                                        Use default: {slack.settings.channel}
+                                        Use default: {settings.slack.channel}
                                     </Radio>
                                 )}
                                 <Radio value={ChannelSelections.SUBSCRIPTION}>
@@ -164,7 +185,7 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {isSubscriptionChannelSelected && slack.settings.channel && (
+                    {isSubscriptionChannelSelected && settings.slack.channel && (
                         <StyledCheckbox
                             disabled={!slack.enabled || !slackSinkEnabled}
                             checked={slack.subscription.saveAsDefault}

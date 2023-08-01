@@ -20,6 +20,7 @@ import useDrawerActions from './state/actions';
 import useSinkSettings from './useSinkSettings';
 import useUpsertSubscription from './useUpsertSubscription';
 import useDelayedKey from './useDelayedKey';
+import { shouldTurnOnSlackInSettings } from './state/selectors';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -70,12 +71,13 @@ const SubscriptionDrawerContent = ({
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
+    const drawerState = useDrawerState();
     const {
         slack: {
             enabled: slackEnabled,
             subscription: { channel, saveAsDefault },
         },
-    } = useDrawerState();
+    } = drawerState;
     const actions = useDrawerActions();
 
     // Skipping until we want to enable upstreams
@@ -106,7 +108,7 @@ const SubscriptionDrawerContent = ({
 
     const showBottomDrawerSection = isPersonal || groupUrn;
 
-    const { settingsChannel, updateSinkSettings } = useSinkSettings({
+    const { settingsChannel, sinkTypes, updateSinkSettings } = useSinkSettings({
         isPersonal,
         groupUrn,
     });
@@ -119,13 +121,20 @@ const SubscriptionDrawerContent = ({
             subscription,
             subscriptionChannel: getSubscriptionChannel(isPersonal, subscription),
             settingsChannel,
+            settingsSinkTypes: sinkTypes,
         });
-    }, [actions, entityType, isPersonal, settingsChannel, slackSinkEnabled, subscription]);
+    }, [actions, entityType, isPersonal, settingsChannel, slackSinkEnabled, subscription, sinkTypes]);
 
     const onUpdate = () => {
         upsertSubscription();
-        if (channel && saveAsDefault)
+        if (channel && saveAsDefault) {
             updateSinkSettings({ text: channel, sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [] });
+        } else if (shouldTurnOnSlackInSettings(drawerState)) {
+            updateSinkSettings({
+                text: settingsChannel as string,
+                sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [],
+            });
+        }
         onClose();
     };
 
