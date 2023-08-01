@@ -718,8 +718,8 @@ class SnowflakeV2Source(
                     self.config.match_fully_qualified_names,
                 ):
                     self.report.report_dropped(f"{db_name}.{schema.name}.*")
-            else:
-                schemas.append(schema)
+                else:
+                    schemas.append(schema)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."
