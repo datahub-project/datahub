@@ -66,7 +66,6 @@ export class JoinEntity implements Entity<Join> {
                 {
                     name: 'Join',
                     component: JoinTab,
-                    properties: urn,
                 },
                 {
                     name: 'Documentation',

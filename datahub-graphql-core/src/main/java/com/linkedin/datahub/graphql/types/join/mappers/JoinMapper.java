@@ -55,7 +55,7 @@ public class JoinMapper implements ModelMapper<EntityResponse, Join> {
     mappingHelper.mapToResult(JOIN_PROPERTIES_ASPECT_NAME, this::mapProperties);
     mappingHelper.mapToResult(EDITABLE_JOIN_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
     mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (join, dataMap) ->
-        join.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+        join.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
     mappingHelper.mapToResult(OWNERSHIP_ASPECT_NAME, (join, dataMap) ->
         join.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
     mappingHelper.mapToResult(STATUS_ASPECT_NAME, (join, dataMap) ->

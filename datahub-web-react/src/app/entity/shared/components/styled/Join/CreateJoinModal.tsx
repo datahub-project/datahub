@@ -1,14 +1,16 @@
-import React, { useContext, useState } from 'react';
-import { Button, Form, FormInstance, Input, message, Modal, Select, Table } from 'antd';
+import React, { useState } from 'react';
+import { Button, Form, Input, message, Modal, Table } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import { PlusOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateJoinModal.less';
-import { Dataset, EntityType, Join, OwnershipType } from '../../../../../../types.generated';
-import { GetSearchResultsDocument } from '../../../../../../graphql/search.generated';
+import { Join, OwnershipType } from '../../../../../../types.generated';
 import { useCreateJoinMutation, useUpdateJoinMutation } from '../../../../../../graphql/join.generated';
 import { useUserContext } from '../../../../../context/useUserContext';
+import { EditableRow } from './EditableRow';
+import { EditableCell } from './EditableCell';
+import { checkDuplicateJoin, getDatasetName, JoinDataType, validateJoin } from './JoinUtils';
 
 type Props = {
     table1?: any;
@@ -20,96 +22,6 @@ type Props = {
     onCancel: () => void;
     editJoin?: Join;
     editFlag?: boolean;
-};
-const EditableContext = React.createContext<FormInstance<any> | null>(null);
-
-interface JoinRecord {
-    key: string;
-    field1Name: string;
-    field2Name: string;
-}
-interface JoinDataType {
-    key: React.Key;
-    field1Name: string;
-    field2Name: string;
-}
-interface EditableRowProps {
-    index: number;
-}
-const EditableRow: React.FC<EditableRowProps> = ({ ...propsAt }) => {
-    const [form] = Form.useForm();
-    return (
-        <Form form={form} component={false}>
-            <EditableContext.Provider value={form}>
-                <tr {...propsAt} />
-            </EditableContext.Provider>
-        </Form>
-    );
-};
-interface EditableCellProps {
-    editable: boolean;
-    children: React.ReactNode;
-    dataIndex: keyof JoinRecord;
-    record: JoinRecord;
-    tableRecord?: Dataset;
-    value?: any;
-    handleSave: (record: JoinRecord) => void;
-}
-const EditableCell = ({
-    editable,
-    children,
-    dataIndex,
-    record,
-    tableRecord,
-    value,
-    handleSave,
-    ...restProps
-}: EditableCellProps) => {
-    const form = useContext(EditableContext)!;
-    const save = async () => {
-        try {
-            const values = await form.validateFields();
-            handleSave({ ...record, ...values });
-        } catch (errInfo) {
-            console.log('Save failed:', errInfo);
-        }
-    };
-
-    let childNode = children;
-    if (editable) {
-        childNode = (
-            <Form.Item
-                style={{ margin: 0 }}
-                name={dataIndex}
-                rules={[
-                    {
-                        required: true,
-                        message: `Field is required.`,
-                    },
-                ]}
-            >
-                <Select
-                    size="large"
-                    className="join-select-selector"
-                    options={tableRecord?.schemaMetadata?.fields.map((result) => ({
-                        value: result.fieldPath,
-                        label: result.fieldPath,
-                    }))}
-                    value={value}
-                    disabled={tableRecord?.schemaMetadata?.fields?.length === 0}
-                    onChange={save}
-                    placeholder="Select a field"
-                />
-            </Form.Item>
-        );
-        if (record[dataIndex] !== '') {
-            form.setFieldsValue({ [dataIndex]: record[dataIndex] });
-        }
-    } else {
-        childNode = <div className="editable-cell-value-wrap">{children}</div>;
-    }
-
-    return <td {...restProps}>{childNode}</td>;
 };
 
 type EditableTableProps = Parameters<typeof Table>[0];
@@ -126,9 +38,9 @@ export const CreateJoinModal = ({
     editJoin,
     editFlag,
 }: Props) => {
-    const client = useApolloClient();
     const [form] = Form.useForm();
     const { user } = useUserContext();
+    const client = useApolloClient();
     const table1Dataset = editJoin?.properties?.datasetA || table1?.dataset;
     const table1DatasetSchema = editJoin?.properties?.datasetA || table1Schema;
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
@@ -169,55 +81,11 @@ export const CreateJoinModal = ({
             closable: true,
         });
     };
-    const checkDuplicateJoin = async (name): Promise<boolean> => {
-        const { data } = await client.query({
-            query: GetSearchResultsDocument,
-            variables: {
-                input: {
-                    type: EntityType.Join,
-                    query: '',
-                    orFilters: [
-                        {
-                            and: [
-                                {
-                                    field: 'name',
-                                    values: [name],
-                                },
-                            ],
-                        },
-                    ],
-                    start: 0,
-                    count: 1000,
-                },
-            },
-        });
-        return data && data.search && data.search.total > 0;
-    };
-    const validateTableData = (fieldMappingData: JoinDataType) => {
-        if (fieldMappingData.field1Name !== '' && fieldMappingData.field2Name !== '') {
-            return true;
-        }
-        return false;
-    };
-    const validateJoin = async (nameField: string, tableSchema: JoinDataType[]) => {
-        const errors: string[] = [];
-        const bDuplicateName = await checkDuplicateJoin(nameField?.trim()).then((result) => result);
-        if (nameField === '') {
-            errors.push('Join name is required.');
-        }
-        if (bDuplicateName && !editFlag) {
-            errors.push('This join name already exists. A unique name for each join is required.');
-        }
-        const faultyRows = tableSchema.filter((item) => validateTableData(item) !== true);
-        if (faultyRows.length > 0) {
-            errors.push('Fields should be selected');
-        }
-        return errors;
-    };
     const onSubmit = async () => {
-        const errors = validateJoin(joinName, tableData);
+        const errors = validateJoin(joinName, tableData, editFlag, client);
         if ((await errors).length > 0) {
             const errorHtml = (await errors).join(`<br />`);
+            // eslint-disable-next-line react/no-danger
             message.error({ content: <p dangerouslySetInnerHTML={{ __html: errorHtml }} /> });
             return;
         }
@@ -279,14 +147,7 @@ export const CreateJoinModal = ({
         setModalVisible(false);
         window.location.reload();
     };
-    function getDatasetName(datainput: any): string {
-        return (
-            datainput?.editableProperties?.name ||
-            datainput?.properties?.name ||
-            datainput?.name ||
-            datainput?.urn.split(',').at(1)
-        );
-    }
+
     const table1NameBusiness = getDatasetName(table1Dataset);
     const table1NameTech = table1Dataset?.name || table1Dataset?.urn.split(',').at(1) || '';
     const table2NameBusiness = getDatasetName(table2Dataset);
@@ -430,8 +291,11 @@ export const CreateJoinModal = ({
                                 message: `Join name is required.`,
                             },
                             {
-                                validator: (_, value) =>
-                                    checkDuplicateJoin(value?.trim()).then((result) => {
+                                validator: (_, value) => {
+                                    console.log(value);
+
+                                    return checkDuplicateJoin(client, value?.trim()).then((result) => {
+                                        console.log(result);
                                         return result === true
                                             ? Promise.reject(
                                                   new Error(
@@ -439,7 +303,8 @@ export const CreateJoinModal = ({
                                                   ),
                                               )
                                             : Promise.resolve();
-                                    }),
+                                    });
+                                },
                             },
                         ]}
                     >
