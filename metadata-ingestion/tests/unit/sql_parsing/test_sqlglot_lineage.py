@@ -287,6 +287,34 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
+def test_snowflake_case_statement():
+    assert_sql_result(
+        """
+SELECT
+    CASE
+        WHEN o."totalprice" > 1000 THEN 'high'
+        WHEN o."totalprice" > 100 THEN 'medium'
+        ELSE 'low'
+    END as total_price_category,
+    -- Also add a case where the column is in the THEN clause.
+    CASE
+        WHEN o."is_payment_successful" THEN o."totalprice"
+        ELSE 0
+    END as total_price_success
+FROM snowflake_sample_data.tpch_sf1.orders o
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER",
+                "totalprice": "FLOAT",
+                "is_payment_successful": "BOOLEAN",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_case_statement.json",
+    )
+
+
 @pytest.mark.skip(reason="We don't handle the unnest lineage correctly")
 def test_bigquery_unnest_columns():
     assert_sql_result(
@@ -418,6 +446,51 @@ FROM `bq-proj.dataset.table_2023*`
             },
         },
         expected_file=RESOURCE_DIR / "test_bigquery_from_sharded_table_wildcard.json",
+    )
+
+
+def test_bigquery_star_with_replace():
+    assert_sql_result(
+        """
+CREATE VIEW `my-project.my-dataset.test_table` AS
+SELECT
+  * REPLACE(
+    LOWER(something) AS something)
+FROM
+  `my-project2.my-dataset2.test_physical_table`;
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project2.my-dataset2.test_physical_table,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+                "something": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_star_with_replace.json",
+    )
+
+
+def test_bigquery_view_from_union():
+    assert_sql_result(
+        """
+CREATE VIEW my_view as
+select * from my_project_2.my_dataset_2.sometable
+union
+select * from my_project_2.my_dataset_2.sometable2 as a
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project_2.my_dataset_2.sometable2,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_view_from_union.json",
     )
 
 

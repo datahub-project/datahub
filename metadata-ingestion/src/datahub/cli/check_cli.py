@@ -15,8 +15,6 @@ from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.telemetry import telemetry
-from datahub.testing.compare_metadata_json import diff_metadata_json, load_json_file
-from datahub.testing.mcp_diff import MCPDiff
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +61,8 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
                         "type": "file",
                         "config": {"filename": out_file.name},
                     },
-                }
+                },
+                no_default_report=True,
             )
 
             pipeline.run()
@@ -101,8 +100,12 @@ def metadata_diff(
 ) -> None:
     """Compare two metadata (MCE or MCP) JSON files.
 
+    To use this command, you must install the acryl-datahub[testing-utils] extra.
+
     Comparison is more sophisticated for files composed solely of MCPs.
     """
+    from datahub.testing.compare_metadata_json import diff_metadata_json, load_json_file
+    from datahub.testing.mcp_diff import MCPDiff
 
     actual = load_json_file(actual_file)
     expected = load_json_file(expected_file)

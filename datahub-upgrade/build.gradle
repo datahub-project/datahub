@@ -15,6 +15,7 @@ dependencies {
   compile project(':metadata-io')
   compile project(':metadata-service:factories')
   compile project(':metadata-service:restli-client')
+  compile project(':metadata-service:configuration')
   implementation externalDependency.charle
 
   compile externalDependency.javaxInject

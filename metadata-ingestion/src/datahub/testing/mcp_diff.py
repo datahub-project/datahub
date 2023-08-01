@@ -1,6 +1,7 @@
+import dataclasses
+import json
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Sequence, Set, Tuple, Union
 
 import deepdiff.serialization
@@ -27,13 +28,13 @@ ReportType = Literal[
 ]
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class AspectForDiff:
     urn: str
     change_type: str
     aspect_name: str
-    aspect: Dict[str, Any] = field(hash=False)
-    delta_info: "DeltaInfo" = field(hash=False)
+    aspect: Dict[str, Any] = dataclasses.field(hash=False)
+    delta_info: "DeltaInfo" = dataclasses.field(hash=False, repr=False)
 
     @classmethod
     def create_from_mcp(cls, idx: int, obj: Dict[str, Any]) -> "AspectForDiff":
@@ -46,8 +47,17 @@ class AspectForDiff:
             delta_info=DeltaInfo(idx=idx, original=obj),
         )
 
+    def __repr__(self):
+        d = {
+            field.name: getattr(self, field.name)
+            for field in dataclasses.fields(self)
+            if field.repr
+        }
+        d["aspect"] = "<aspect>"
+        return "\n" + "\t" * 2 + str(json.dumps(d))
 
-@dataclass
+
+@dataclasses.dataclass
 class DeltaInfo:
     """Information about an MCP used to construct a diff delta.
 
@@ -59,6 +69,10 @@ class DeltaInfo:
 
 
 class DeltaInfoOperator(BaseOperator):
+    """Warning: Doesn't seem to be working right now.
+    Ignored via an ignore path as an extra layer of defense.
+    """
+
     def __init__(self):
         super().__init__(types=[DeltaInfo])
 
@@ -67,6 +81,10 @@ class DeltaInfoOperator(BaseOperator):
 
 
 AspectsByUrn = Dict[str, Dict[str, List[AspectForDiff]]]
+
+
+class CannotCompareMCPs(Exception):
+    pass
 
 
 def get_aspects_by_urn(obj: object) -> AspectsByUrn:
@@ -81,7 +99,7 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
     for i, entry in enumerate(obj):
         assert isinstance(entry, dict), entry
         if "proposedSnapshot" in entry:
-            raise AssertionError("Found MCEs in output")
+            raise CannotCompareMCPs("Found MCEs")
         elif "entityUrn" in entry and "aspectName" in entry and "aspect" in entry:
             urn = entry["entityUrn"]
             aspect_name = entry["aspectName"]
@@ -93,7 +111,7 @@ def get_aspects_by_urn(obj: object) -> AspectsByUrn:
     return d
 
 
-@dataclass
+@dataclasses.dataclass
 class MCPAspectDiff:
     aspects_added: Dict[int, AspectForDiff]
     aspects_removed: Dict[int, AspectForDiff]
@@ -126,7 +144,7 @@ class MCPAspectDiff:
         )
 
 
-@dataclass
+@dataclasses.dataclass
 class MCPDiff:
     aspect_changes: Dict[str, Dict[str, MCPAspectDiff]]  # urn -> aspect -> diff
     urns_added: Set[str]
@@ -169,7 +187,7 @@ class MCPDiff:
     def convert_path(path: str) -> str:
         # Attempt to use paths intended for the root golden... sorry for the regex
         return re.sub(
-            r"root\\?\[([0-9]+|\\d\+)\\?]\\?\['aspect'\\?](\\?\['(json|value)'\\?])?",
+            r"^root\\?\[([0-9]+|\\d\+)\\?]\\?\['aspect'\\?](\\?\['(json|value)'\\?])?",
             r"root\[\\d+].aspect",
             path,
         )
