@@ -33,7 +33,7 @@ const Hero = ({}) => {
               complexity of your data ecosystem.
             </p>
             <p className="hero__subtitle">
-Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" style="vertical-align: text-top;" width="25"/> <a href="https://acryldata.io" target="blank" rel="noopener noreferrer">Acryl Data</a> and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> LinkedIn.
+Built with ❤️ by <img src="https://datahubproject.io/img/acryl-logo-light-mark.png" style={{'vertical-align': 'text-top;'}} width="25"/> <a href="https://acryldata.io" target="blank" rel="noopener noreferrer">Acryl Data</a> and <img src="https://datahubproject.io/img/LI-In-Bug.png" width="25"/> LinkedIn.
             </p>
             <Link className="button button--primary button--md" to={useBaseUrl("docs/")}>
               Get Started →
