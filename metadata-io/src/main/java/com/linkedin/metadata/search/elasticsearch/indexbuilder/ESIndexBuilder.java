@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.google.common.collect.ImmutableMap;
 
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.version.GitVersion;
 import java.io.IOException;
 import java.time.Duration;
@@ -20,11 +22,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.util.Pair;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.config.RequestConfig;
@@ -48,6 +50,8 @@ import org.elasticsearch.client.indices.GetMappingsRequest;
 import org.elasticsearch.client.indices.PutMappingRequest;
 import org.elasticsearch.client.tasks.TaskSubmissionResponse;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.reindex.ReindexRequest;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -220,6 +224,28 @@ public class ESIndexBuilder {
     }
   }
 
+  public String reindexInPlaceAsync(String indexAlias, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options, ReindexConfig config)
+      throws Exception {
+    GetAliasesResponse aliasesResponse = _searchClient.indices().getAlias(
+        new GetAliasesRequest(indexAlias), RequestOptions.DEFAULT);
+    if (aliasesResponse.getAliases().isEmpty()) {
+      throw new IllegalArgumentException(String.format("Input to reindexInPlaceAsync should be an alias. %s is not", indexAlias));
+    }
+
+    // Point alias at new index
+    String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
+    createIndex(nextIndexName, config);
+    renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName, false);
+
+    return submitReindex(aliasesResponse.getAliases().keySet().toArray(new String[0]),
+        nextIndexName, options.getBatchSize(),
+        TimeValue.timeValueSeconds(options.getTimeoutSeconds()), filterQuery);
+  }
+
+  private static String getNextIndexName(String base, long startTime) {
+    return base + "_" + startTime;
+  }
+
   private void reindex(ReindexConfig indexState) throws Throwable {
     final long startTime = System.currentTimeMillis();
 
@@ -228,7 +254,7 @@ public class ESIndexBuilder {
     final long finalCheckIntervalMilli = 60000;
     final long timeoutAt = startTime + (1000 * 60 * 60 * maxReindexHours);
 
-    String tempIndexName = indexState.name() + "_" + startTime;
+    String tempIndexName = getNextIndexName(indexState.name(), startTime);
 
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(indexState.name());
@@ -309,14 +335,18 @@ public class ESIndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
-    renameReindexedIndices(_searchClient, indexState.name(), indexState.indexPattern(), tempIndexName);
+    renameReindexedIndices(_searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
     log.info("Finished setting up {}", indexState.name());
   }
 
-  public static void renameReindexedIndices(RestHighLevelClient searchClient, String originalName, String pattern, String newName)
+  public static void renameReindexedIndices(RestHighLevelClient searchClient, String originalName, @Nullable String pattern, String newName, boolean deleteOld)
       throws IOException {
+    GetAliasesRequest getAliasesRequest = new GetAliasesRequest(originalName);
+    if (pattern != null) {
+      getAliasesRequest.indices(pattern);
+    }
     GetAliasesResponse aliasesResponse = searchClient.indices().getAlias(
-        new GetAliasesRequest(originalName).indices(pattern), RequestOptions.DEFAULT);
+        getAliasesRequest, RequestOptions.DEFAULT);
 
     // If not aliased, delete the original index
     final Collection<String> aliasedIndexDelete;
@@ -329,26 +359,38 @@ public class ESIndexBuilder {
     }
 
     // Add alias for the new index
-    AliasActions removeAction = AliasActions.removeIndex()
-        .indices(aliasedIndexDelete.toArray(new String[0]));
+    AliasActions removeAction = deleteOld ? AliasActions.removeIndex() : AliasActions.remove().alias(originalName);
+    removeAction.indices(aliasedIndexDelete.toArray(new String[0]));
     AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
     searchClient.indices()
         .updateAliases(new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),
             RequestOptions.DEFAULT);
   }
 
-  private String submitReindex(String sourceIndex, String destinationIndex) throws IOException {
+  private String submitReindex(String[] sourceIndices, String destinationIndex,
+      int batchSize, @Nullable TimeValue timeout,
+      @Nullable QueryBuilder sourceFilterQuery) throws IOException {
     ReindexRequest reindexRequest = new ReindexRequest()
-            .setSourceIndices(sourceIndex)
-            .setDestIndex(destinationIndex)
-            .setMaxRetries(numRetries)
-            .setAbortOnVersionConflict(false)
-            .setSourceBatchSize(2500);
+        .setSourceIndices(sourceIndices)
+        .setDestIndex(destinationIndex)
+        .setMaxRetries(numRetries)
+        .setAbortOnVersionConflict(false)
+        .setSourceBatchSize(batchSize);
+    if (timeout != null) {
+      reindexRequest.setTimeout(timeout);
+    }
+    if (sourceFilterQuery != null) {
+      reindexRequest.setSourceQuery(sourceFilterQuery);
+    }
 
-    RequestOptions requestOptions = ESUtils.buildReindexTaskRequestOptions(gitVersion.getVersion(), sourceIndex,
-            destinationIndex);
+    RequestOptions requestOptions = ESUtils.buildReindexTaskRequestOptions(gitVersion.getVersion(), sourceIndices[0],
+        destinationIndex);
     TaskSubmissionResponse reindexTask = _searchClient.submitReindexTask(reindexRequest, requestOptions);
     return reindexTask.getTask();
+  }
+
+  private String submitReindex(String sourceIndex, String destinationIndex) throws IOException {
+    return submitReindex(new String[]{sourceIndex}, destinationIndex, 2500, null, null);
   }
 
   private Pair<Long, Long> getDocumentCounts(String sourceIndex, String destinationIndex) throws Throwable {

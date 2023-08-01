@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
@@ -7,7 +8,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.EbeanTestUtils;
-import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
@@ -34,7 +34,7 @@ import static org.testng.Assert.assertTrue;
  * A class that knows how to configure {@link EntityServiceTest} to run integration tests against a relational database.
  *
  * This class also contains all the test methods where realities of an underlying storage leak into the
- * {@link EntityService} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
+ * {@link EntityServiceImpl} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
  * great to address captured differences.
  */
 public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, EbeanRetentionService> {
@@ -51,10 +51,10 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true,
+    _entityServiceImpl = new EntityServiceImpl(_aspectDao, _mockProducer, _testEntityRegistry, true,
         _mockUpdateIndicesService, preProcessHooks);
-    _retentionService = new EbeanRetentionService(_entityService, server, 1000);
-    _entityService.setRetentionService(_retentionService);
+    _retentionService = new EbeanRetentionService(_entityServiceImpl, server, 1000);
+    _entityServiceImpl.setRetentionService(_retentionService);
   }
 
   /**
@@ -86,18 +86,18 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
     // Ingest CorpUserInfo Aspect #1
     CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("email@test.com");
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
     CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("email2@test.com");
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    _entityServiceImpl.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
     CorpUserInfo writeAspect3 = AspectGenerationUtils.createCorpUserInfo("email3@test.com");
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    _entityServiceImpl.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects
-    ListResult<RecordTemplate> batch1 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
+    ListResult<RecordTemplate> batch1 = _entityServiceImpl.listLatestAspects(entityUrn1.getEntityType(), aspectName, 0, 2);
 
     assertEquals(batch1.getNextStart(), 2);
     assertEquals(batch1.getPageSize(), 2);
@@ -107,7 +107,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, batch1.getValues().get(0)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, batch1.getValues().get(1)));
 
-    ListResult<RecordTemplate> batch2 = _entityService.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
+    ListResult<RecordTemplate> batch2 = _entityServiceImpl.listLatestAspects(entityUrn1.getEntityType(), aspectName, 2, 2);
     assertEquals(batch2.getValues().size(), 1);
     assertTrue(DataTemplateUtil.areEqual(writeAspect3, batch2.getValues().get(0)));
   }
@@ -131,18 +131,18 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
     // Ingest CorpUserInfo Aspect #1
     RecordTemplate writeAspect1 = AspectGenerationUtils.createCorpUserKey(entityUrn1);
-    _entityService.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
+    _entityServiceImpl.ingestAspect(entityUrn1, aspectName, writeAspect1, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #2
     RecordTemplate writeAspect2 = AspectGenerationUtils.createCorpUserKey(entityUrn2);
-    _entityService.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
+    _entityServiceImpl.ingestAspect(entityUrn2, aspectName, writeAspect2, TEST_AUDIT_STAMP, metadata1);
 
     // Ingest CorpUserInfo Aspect #3
     RecordTemplate writeAspect3 = AspectGenerationUtils.createCorpUserKey(entityUrn3);
-    _entityService.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
+    _entityServiceImpl.ingestAspect(entityUrn3, aspectName, writeAspect3, TEST_AUDIT_STAMP, metadata1);
 
     // List aspects urns
-    ListUrnsResult batch1 = _entityService.listUrns(entityUrn1.getEntityType(), 0, 2);
+    ListUrnsResult batch1 = _entityServiceImpl.listUrns(entityUrn1.getEntityType(), 0, 2);
 
     assertEquals(batch1.getStart().intValue(), 0);
     assertEquals(batch1.getCount().intValue(), 2);
@@ -151,7 +151,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     assertEquals(entityUrn1.toString(), batch1.getEntities().get(0).toString());
     assertEquals(entityUrn2.toString(), batch1.getEntities().get(1).toString());
 
-    ListUrnsResult batch2 = _entityService.listUrns(entityUrn1.getEntityType(), 2, 2);
+    ListUrnsResult batch2 = _entityServiceImpl.listUrns(entityUrn1.getEntityType(), 2, 2);
 
     assertEquals(batch2.getStart().intValue(), 2);
     assertEquals(batch2.getCount().intValue(), 1);

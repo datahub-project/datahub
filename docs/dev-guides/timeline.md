@@ -18,8 +18,8 @@ For the visually inclined, here is a conceptual diagram that illustrates how to 
 
 ## Change Event
 Each modification is modeled as a 
-[ChangeEvent](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/data/ChangeEvent.java)
-which are grouped under [ChangeTransactions](../../metadata-io/src/main/java/com/linkedin/metadata/timeline/data/ChangeTransaction.java) 
+[ChangeEvent](../../metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeEvent.java)
+which are grouped under [ChangeTransactions](../../metadata-service/services/src/main/java/com/linkedin/metadata/timeline/data/ChangeTransaction.java) 
 based on timestamp. A `ChangeEvent` consists of:
 
 - `changeType`: An operational type for the change, either `ADD`, `MODIFY`, or `REMOVE`

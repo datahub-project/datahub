@@ -228,6 +228,14 @@ public class Constants {
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // ExternalRoleMetadata
+  public static final String ROLE_ENTITY_NAME = "role";
+  public static final String ACCESS_DATASET_ASPECT_NAME = "access";
+  public static final String ROLE_KEY = "roleKey";
+  public static final String ROLE_PROPERTIES_ASPECT_NAME = "roleProperties";
+  public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
+
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
 
   // Assertion
@@ -345,6 +353,9 @@ public class Constants {
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
+
+  // DAO
+  public static final long LATEST_VERSION = 0;
 
   private Constants() {
   }
