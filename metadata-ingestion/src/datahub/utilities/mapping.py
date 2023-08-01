@@ -252,11 +252,11 @@ class OperationProcessor:
 
     def get_match(self, match_clause: Any, raw_props_value: Any) -> Optional[Match]:
         # function to check if a match clause is satisfied to a value.
-        if type(raw_props_value) not in Constants.OPERAND_DATATYPE_SUPPORTED or type(
-            raw_props_value
-        ) != type(match_clause):
+        if not any(
+            isinstance(raw_props_value, t) for t in Constants.OPERAND_DATATYPE_SUPPORTED
+        ) or not isinstance(raw_props_value, type(match_clause)):
             return None
-        elif type(raw_props_value) == str:
+        elif isinstance(raw_props_value, str):
             return re.match(match_clause, raw_props_value)
         else:
             return re.match(str(match_clause), str(raw_props_value))
