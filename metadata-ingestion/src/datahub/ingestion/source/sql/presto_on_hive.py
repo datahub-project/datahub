@@ -134,6 +134,11 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="By default, the connector overwrites properties every time. Set this to True to enable merging of properties with what exists on the server.",
     )
 
+    simplify_nested_field_paths: bool = Field(
+        default=False,
+        description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
+    )
+
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
@@ -527,6 +532,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 None,
                 None,
                 schema_fields,
+                self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -756,6 +762,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 self.platform,
                 dataset.columns,
                 canonical_schema=schema_fields,
+                simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
