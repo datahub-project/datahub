@@ -90,6 +90,7 @@ class BigQueryV2Report(ProfilingSqlReport):
     usage_state_size: Optional[str] = None
     ingestion_stage: Optional[str] = None
     ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
+    exclude_empty_projects: Optional[bool] = None
 
     _timer: Optional[PerfTimer] = field(
         default=None, init=False, repr=False, compare=False

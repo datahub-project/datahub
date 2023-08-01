@@ -565,6 +565,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
         logger.info("Getting projects")
+        projects = self.get_projects(conn)
+        return self.filter_projects(conn, projects)
+
+    def get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
         if self.config.project_ids or self.config.project_id:
             project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
             return [
@@ -573,6 +577,32 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ]
         else:
             return list(self._get_project_list(conn))
+
+    def filter_projects(
+        self, conn: bigquery.Client, projects: List[BigqueryProject]
+    ) -> List[BigqueryProject]:
+        filtered_projects = []
+        for project in projects:
+            project.datasets = self.get_datasets_for_project_id(
+                conn=conn, project_id=project.id
+            )
+            if len(project.datasets) == 0:
+                more_info = (
+                    "Either there are no datasets in this project or missing bigquery.datasets.get permission. "
+                    "You can assign predefined roles/bigquery.metadataViewer role to your service account."
+                )
+                if self.config.exclude_empty_projects:
+                    self.report.report_dropped(project.id)
+                    warning_message = f"Excluded project '{project.id}' since no datasets found. {more_info}"
+                else:
+                    filtered_projects.append(project)
+                    warning_message = (
+                        f"No datasets found in project '{project.id}'. {more_info}"
+                    )
+                logger.warning(warning_message)
+            else:
+                filtered_projects.append(project)
+        return filtered_projects
 
     def _get_project_list(self, conn: bigquery.Client) -> Iterable[BigqueryProject]:
         try:
@@ -605,27 +635,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id = bigquery_project.id
 
         yield from self.gen_project_id_containers(project_id)
-
-        try:
-            bigquery_project.datasets = (
-                BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
-            )
-        except Exception as e:
-            error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
-            if self.config.profiling.enabled:
-                error_message = f"Unable to get datasets for project {project_id}, skipping. Does your service account has bigquery.datasets.get permission? The error was: {e}"
-            logger.error(error_message)
-            self.report.report_failure(
-                "metadata-extraction",
-                f"{project_id} - {error_message}",
-            )
-            return None
-
-        if len(bigquery_project.datasets) == 0:
-            logger.warning(
-                f"No dataset found in {project_id}. Either there are no datasets in this project or missing bigquery.datasets.get permission. You can assign predefined roles/bigquery.metadataViewer role to your service account."
-            )
-            return
 
         self.report.num_project_datasets_to_scan[project_id] = len(
             bigquery_project.datasets
@@ -666,6 +675,25 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 project_id=project_id,
                 tables=db_tables,
             )
+
+    def get_datasets_for_project_id(
+        self, conn: bigquery.Client, project_id: str
+    ) -> List[BigqueryDataset]:
+        try:
+            return BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
+        except Exception as e:
+            error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
+            if self.config.profiling.enabled:
+                error_message = (
+                    f"Unable to get datasets for project {project_id}, skipping. "
+                    f"Does your service account has bigquery.datasets.get permission? The error was: {e}"
+                )
+            logger.error(error_message)
+            self.report.report_failure(
+                "metadata-extraction",
+                f"{project_id} - {error_message}",
+            )
+            return []
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")

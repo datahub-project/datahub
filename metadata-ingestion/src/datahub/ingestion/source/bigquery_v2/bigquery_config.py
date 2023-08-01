@@ -223,6 +223,11 @@ class BigQueryV2Config(
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
 
+    exclude_empty_projects: bool = Field(
+        default=False,
+        description="Option to exclude empty projects from being ingested.",
+    )
+
     def __init__(self, **data: Any):
         super().__init__(**data)
 

@@ -20,6 +20,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQueryDataDictionary,
+    BigqueryDataset,
     BigqueryProject,
     BigqueryView,
 )
@@ -797,3 +798,47 @@ def test_get_table_name(full_table_name: str, datahub_full_table_name: str) -> N
             BigqueryTableIdentifier.from_string_name(full_table_name).get_table_name()
             == datahub_full_table_name
         )
+
+
+def test_default_config_for_excluding_projects_and_datasets():
+    config = BigQueryV2Config.parse_obj({})
+    assert config.exclude_empty_projects is False
+    config = BigQueryV2Config.parse_obj({"exclude_empty_projects": True})
+    assert config.exclude_empty_projects
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery.BigqueryV2Source.get_datasets_for_project_id"
+)
+@patch("datahub.ingestion.source.bigquery_v2.bigquery.BigqueryV2Source.get_projects")
+@patch("google.cloud.bigquery.client.Client")
+def test_excluding_empty_projects_from_ingestion(
+    client_mock, get_projects_mock, get_datasets_for_project_id_mock
+):
+    project_id_with_datasets = "project-id-with-datasets"
+    project_id_without_datasets = "project-id-without-datasets"
+    get_projects_mock.return_value = [
+        BigqueryProject(project_id_with_datasets, project_id_with_datasets),
+        BigqueryProject(project_id_without_datasets, project_id_without_datasets),
+    ]
+
+    def get_datasets_for_project_id_side_effect(*args, **kwargs):
+        return (
+            []
+            if kwargs["project_id"] == project_id_without_datasets
+            else [BigqueryDataset("some-dataset")]
+        )
+
+    get_datasets_for_project_id_mock.side_effect = (
+        get_datasets_for_project_id_side_effect
+    )
+
+    config = BigQueryV2Config.parse_obj({})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-1"))
+    filtered_projects = source._get_projects(client_mock)
+    assert len(list(filtered_projects)) == 2
+
+    config = BigQueryV2Config.parse_obj({"exclude_empty_projects": True})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test-2"))
+    filtered_projects = source._get_projects(client_mock)
+    assert len(list(filtered_projects)) == 1
