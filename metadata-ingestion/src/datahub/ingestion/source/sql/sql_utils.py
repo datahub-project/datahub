@@ -234,7 +234,9 @@ def gen_lineage(
 
 # downgrade a schema field
 def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
-    field.fieldPath = DatasetUrn.get_simple_field_path_from_v2_field_path(field.fieldPath)
+    field.fieldPath = DatasetUrn.get_simple_field_path_from_v2_field_path(
+        field.fieldPath
+    )
     return field
 
 
