@@ -59,7 +59,7 @@ const StyledFormItem = styled(Form.Item)`
 
 const StyledInput = styled(Input)`
     grid-column: 2;
-    max-width: 300px;
+    width: 200px;
     border-color: ${ANTD_GRAY[8]};
 `;
 
@@ -81,7 +81,7 @@ export default function NotificationRecipientSection() {
     const [form] = useForm();
     const actions = useDrawerActions();
 
-    const { slack } = useDrawerState();
+    const { isPersonal, slack } = useDrawerState();
 
     const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
         slack.channelSelection === ChannelSelections.SETTINGS,
@@ -92,6 +92,7 @@ export default function NotificationRecipientSection() {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : 'Alternate Slack Channel ID';
 
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
@@ -146,7 +147,7 @@ export default function NotificationRecipientSection() {
                                         <StyledFormItem name="slackFormValue">
                                             <StyledInput
                                                 ref={channelInputRef}
-                                                placeholder="ABC12345678"
+                                                placeholder={slackInputPlaceholder}
                                                 disabled={
                                                     !slack.enabled || !slackSinkEnabled || isSettingsChannelSelected
                                                 }
