@@ -152,6 +152,11 @@ export default function NotificationRecipientSection() {
                                                 }
                                                 value={slack.subscription.channel}
                                                 onChange={onChangeChannelInput}
+                                                status={
+                                                    isSubscriptionChannelSelected && !slack.subscription.channel
+                                                        ? 'error'
+                                                        : undefined
+                                                }
                                             />
                                         </StyledFormItem>
                                     </Form>
