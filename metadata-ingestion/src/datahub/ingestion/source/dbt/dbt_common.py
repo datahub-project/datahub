@@ -107,6 +107,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.sqlglot_lineage import (
     SchemaInfo,
@@ -1308,13 +1309,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_schema_metadata(
         self, report: DBTSourceReport, node: DBTNode, platform: str
     ) -> SchemaMetadata:
-        action_processor = OperationProcessor(
-            self.config.column_meta_mapping,
-            self.config.tag_prefix,
-            "SOURCE_CONTROL",
-            self.config.strip_user_ids_from_email,
-        )
-
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
             description = None
@@ -1330,50 +1324,32 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             elif column.description:
                 description = column.description
 
-            meta_aspects: Dict[str, Any] = {}
-            if self.config.enable_meta_mapping and column.meta:
-                meta_aspects = action_processor.process(column.meta)
-
-            if meta_aspects.get(Constants.ADD_OWNER_OPERATION):
-                logger.warning("The add_owner operation is not supported for columns.")
-
-            meta_tags: Optional[GlobalTagsClass] = meta_aspects.get(
-                Constants.ADD_TAG_OPERATION
-            )
-            globalTags = None
-            if meta_tags or column.tags:
-                # Merge tags from meta mapping and column tags.
-                globalTags = GlobalTagsClass(
-                    tags=(meta_tags.tags if meta_tags else [])
-                    + [
-                        TagAssociationClass(mce_builder.make_tag_urn(tag))
-                        for tag in column.tags
-                    ]
-                )
-
-            glossaryTerms = None
-            if meta_aspects.get(Constants.ADD_TERM_OPERATION):
-                glossaryTerms = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-
             field_name = column.name
             if self.config.convert_column_urns_to_lowercase:
                 field_name = field_name.lower()
 
-            field = SchemaField(
-                fieldPath=field_name,
-                nativeDataType=column.data_type,
-                type=column.datahub_data_type
-                or get_column_type(
-                    report, node.dbt_name, column.data_type, node.dbt_adapter
-                ),
-                description=description,
-                nullable=False,  # TODO: actually autodetect this
-                recursive=False,
-                globalTags=globalTags,
-                glossaryTerms=glossaryTerms,
-            )
+            meta_mapping_args = {}
+            if self.config.enable_meta_mapping:
+                action_processor = OperationProcessor(
+                    self.config.column_meta_mapping,
+                    self.config.tag_prefix,
+                    "SOURCE_CONTROL",
+                    self.config.strip_user_ids_from_email,
+                )
+                meta_mapping_args = {
+                    "meta_mapping_processor": action_processor,
+                    "meta_props": column.meta,
+                }
 
-            canonical_schema.append(field)
+            schema_fields = get_schema_fields_for_hive_column(
+                hive_column_name=field_name,
+                hive_column_type=column.data_type,
+                description=description,
+                default_nullable=True,
+                **meta_mapping_args,
+            )
+            assert schema_fields
+            canonical_schema.extend(schema_fields)
 
         last_modified = None
         if node.max_loaded_at is not None:
