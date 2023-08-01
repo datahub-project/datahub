@@ -161,6 +161,19 @@ reporting:
       report_recipe: false
 ```
 
+#### Deploying and scheduling ingestion to the UI
+
+The `deploy` subcommand of the `ingest` command tree allows users to upload their recipes and schedule them in the server.
+
+```shell
+datahub ingest deploy -n <user friendly name for ingestion> -c recipe.yaml
+```
+
+By default, no schedule is done unless explicitly configured with the `--schedule` parameter. Timezones are inferred from the system time, can be overriden with `--time-zone` flag.
+```shell
+datahub ingest deploy -n test --schedule "0 * * * *" --time-zone "Europe/London" -c recipe.yaml
+```
+
 ## Transformations
 
 If you'd like to modify data before it reaches the ingestion sinks – for instance, adding additional owners or tags – you can use a transformer to write your own module and integrate it with DataHub. Transformers require extending the recipe with a new section to describe the transformers that you want to run.
