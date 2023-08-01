@@ -1226,10 +1226,14 @@ class SnowflakeV2Source(
         return foreign_keys
 
     def classify_snowflake_table(
-        self, table: SnowflakeTable, dataset_name: str, schema_metadata: SchemaMetadata
+        self,
+        table: Union[SnowflakeTable, SnowflakeView],
+        dataset_name: str,
+        schema_metadata: SchemaMetadata,
     ) -> None:
         if (
-            self.config.classification.enabled
+            isinstance(table, SnowflakeTable)
+            and self.config.classification.enabled
             and self.classification_handler.is_classification_enabled_for_table(
                 dataset_name
             )
