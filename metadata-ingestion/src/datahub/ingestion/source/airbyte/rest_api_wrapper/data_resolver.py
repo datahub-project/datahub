@@ -13,9 +13,8 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.airbyte.config import Constant
 from datahub.ingestion.source.airbyte.rest_api_wrapper.data_classes import (
     Connection,
-    Destination,
+    Connector,
     Job,
-    Source,
     Workspace,
 )
 
@@ -43,7 +42,7 @@ class DataResolverBase(ABC):
 
     @property
     @abstractmethod
-    def BASE_URL(self) -> str:
+    def api_url(self) -> str:
         pass
 
     @property
@@ -68,11 +67,11 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def _get_source(self, source_id: str) -> Source:
+    def _get_source_connector(self, source_id: str) -> Connector:
         pass
 
     @abstractmethod
-    def _get_destination(self, destination_id: str) -> Destination:
+    def _get_destination_connector(self, destination_id: str) -> Connector:
         pass
 
     @abstractmethod
@@ -82,7 +81,7 @@ class DataResolverBase(ABC):
     def _get_workspaces_endpoint(self) -> str:
         workspaces_endpoint: str = self.API_ENDPOINTS[Constant.WORKSPACE_LIST]
         # Replace place holders
-        return workspaces_endpoint.format(BASE_URL=self.BASE_URL)
+        return workspaces_endpoint.format(API_URL=self.api_url)
 
     def _get_workspaces_from_response(self, response: List[Dict]) -> List[Workspace]:
         workspaces: List[Workspace] = [
@@ -99,7 +98,7 @@ class DataResolverBase(ABC):
         connections_endpoint: str = self.API_ENDPOINTS[Constant.CONNECTION_LIST]
         # Replace place holders
         return connections_endpoint.format(
-            BASE_URL=self.BASE_URL, WORKSPACE_ID=workspace_id
+            API_URL=self.api_url, WORKSPACE_ID=workspace_id
         )
 
     def _get_connections_from_response(self, response: List[Dict]) -> List[Connection]:
@@ -107,8 +106,8 @@ class DataResolverBase(ABC):
             Connection(
                 connection_id=response_dict[Constant.CONNECTIONID],
                 name=response_dict[Constant.NAME],
-                source=self._get_source(response_dict[Constant.SOURCEID]),
-                destination=self._get_destination(
+                source=self._get_source_connector(response_dict[Constant.SOURCEID]),
+                destination=self._get_destination_connector(
                     response_dict[Constant.DESTINATIONID]
                 ),
                 status=response_dict[Constant.STATUS],
@@ -124,13 +123,13 @@ class DataResolverBase(ABC):
     def _get_source_endpoint(self, source_id: str) -> str:
         source_endpoint: str = self.API_ENDPOINTS[Constant.SOURCE_GET]
         # Replace place holders
-        return source_endpoint.format(BASE_URL=self.BASE_URL, SOURCE_ID=source_id)
+        return source_endpoint.format(API_URL=self.api_url, SOURCE_ID=source_id)
 
-    def _get_source_from_response(self, response: Dict) -> Source:
-        return Source(
-            source_id=response[Constant.SOURCEID],
+    def _get_source_connector_from_response(self, response: Dict) -> Connector:
+        return Connector(
+            connector_id=response[Constant.SOURCEID],
             name=response[Constant.NAME],
-            source_type=response[Constant.SOURCETYPE]
+            type=response[Constant.SOURCETYPE]
             if Constant.SOURCETYPE in response
             else response[Constant.SOURCENAME],
         )
@@ -139,14 +138,14 @@ class DataResolverBase(ABC):
         destination_endpoint: str = self.API_ENDPOINTS[Constant.DESTINATION_GET]
         # Replace place holders
         return destination_endpoint.format(
-            BASE_URL=self.BASE_URL, DESTINATION_ID=destination_id
+            API_URL=self.api_url, DESTINATION_ID=destination_id
         )
 
-    def _get_destination_from_response(self, response: Dict) -> Destination:
-        return Destination(
-            destination_id=response[Constant.DESTINATIONID],
+    def _get_destination_connector_from_response(self, response: Dict) -> Connector:
+        return Connector(
+            connector_id=response[Constant.DESTINATIONID],
             name=response[Constant.NAME],
-            destination_type=response[Constant.DESTINATIONTYPE]
+            type=response[Constant.DESTINATIONTYPE]
             if Constant.DESTINATIONTYPE in response
             else response[Constant.DESTINATIONNAME],
         )
@@ -154,14 +153,14 @@ class DataResolverBase(ABC):
     def _get_jobs_endpoint(self, connection_id: str) -> str:
         jobs_endpoint: str = self.API_ENDPOINTS[Constant.JOBS_LIST]
         # Replace place holders
-        return jobs_endpoint.format(BASE_URL=self.BASE_URL, CONNECTION_ID=connection_id)
+        return jobs_endpoint.format(API_URL=self.api_url, CONNECTION_ID=connection_id)
 
     def _get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
         jobs: List[Job] = [
             Job(
-                job_id=job[Constant.JOBID]
+                job_id=str(job[Constant.JOBID])
                 if Constant.JOBID in job
-                else job[Constant.ID],
+                else str(job[Constant.ID]),
                 status=job[Constant.STATUS],
                 job_type=job[Constant.JOBTYPE]
                 if Constant.JOBTYPE in job
@@ -186,21 +185,23 @@ class DataResolverBase(ABC):
 
 
 class CloudAPIResolver(DataResolverBase):
-    BASE_URL = "https://api.airbyte.com/v1"
+    api_url = None
     # Cloud api endpoints
     API_ENDPOINTS = {
-        Constant.WORKSPACE_LIST: "{BASE_URL}/workspaces",
-        Constant.CONNECTION_LIST: "{BASE_URL}/connections?workspaceIds={WORKSPACE_ID}",
-        Constant.SOURCE_GET: "{BASE_URL}/sources/{SOURCE_ID}",
-        Constant.DESTINATION_GET: "{BASE_URL}/destinations/{DESTINATION_ID}",
-        Constant.JOBS_LIST: "{BASE_URL}/jobs?connectionId={CONNECTION_ID}",
+        Constant.WORKSPACE_LIST: "{API_URL}/v1/workspaces",
+        Constant.CONNECTION_LIST: "{API_URL}/v1/connections?workspaceIds={WORKSPACE_ID}",
+        Constant.SOURCE_GET: "{API_URL}/v1/sources/{SOURCE_ID}",
+        Constant.DESTINATION_GET: "{API_URL}/v1/destinations/{DESTINATION_ID}",
+        Constant.JOBS_LIST: "{API_URL}/v1/jobs?connectionId={CONNECTION_ID}",
     }
 
     def __init__(
         self,
+        api_url,
         api_key,
     ):
         super().__init__()
+        self.api_url = api_url
         self.api_key = api_key
 
     def _get_authorization_header(self) -> Dict:
@@ -212,7 +213,7 @@ class CloudAPIResolver(DataResolverBase):
         return authorization_header
 
     def test_connection(self):
-        logger.debug(f"Testing connection to api = {self.BASE_URL}")
+        logger.debug(f"Testing connection to api = {self.api_url}")
         # testing api connection by fetching workspaces
         response = self._request_session.get(
             self._get_workspaces_endpoint(),
@@ -252,9 +253,9 @@ class CloudAPIResolver(DataResolverBase):
         connections = response.json().get(Constant.DATA)
         return self._get_connections_from_response(connections) if connections else []
 
-    def _get_source(self, source_id: str) -> Source:
+    def _get_source_connector(self, source_id: str) -> Connector:
         """
-        Get the source details from Airbyte Cloud
+        Get the source connector details from Airbyte Cloud
         """
         source_endpoint: str = self._get_source_endpoint(source_id)
         logger.debug(f"Request to URL={source_endpoint}")
@@ -263,11 +264,11 @@ class CloudAPIResolver(DataResolverBase):
             headers=self._get_authorization_header(),
         )
         response.raise_for_status()
-        return self._get_source_from_response(response.json())
+        return self._get_source_connector_from_response(response.json())
 
-    def _get_destination(self, destination_id: str) -> Destination:
+    def _get_destination_connector(self, destination_id: str) -> Connector:
         """
-        Get the destination details from Airbyte Cloud
+        Get the destination connector details from Airbyte Cloud
         """
         destination_endpoint: str = self._get_destination_endpoint(destination_id)
         logger.debug(f"Request to URL={destination_endpoint}")
@@ -276,7 +277,7 @@ class CloudAPIResolver(DataResolverBase):
             headers=self._get_authorization_header(),
         )
         response.raise_for_status()
-        return self._get_destination_from_response(response.json())
+        return self._get_destination_connector_from_response(response.json())
 
     def _get_jobs(self, connection_id: str) -> List[Job]:
         """
@@ -307,22 +308,24 @@ class CloudAPIResolver(DataResolverBase):
 
 
 class OssAPIResolver(DataResolverBase):
-    BASE_URL = "http://localhost:8000/api/v1"
+    api_url = None
     # Oss api endpoints
     API_ENDPOINTS = {
-        Constant.WORKSPACE_LIST: "{BASE_URL}/workspaces/list",
-        Constant.CONNECTION_LIST: "{BASE_URL}/connections/list",
-        Constant.SOURCE_GET: "{BASE_URL}/sources/get",
-        Constant.DESTINATION_GET: "{BASE_URL}/destinations/get",
-        Constant.JOBS_LIST: "{BASE_URL}/jobs/list",
+        Constant.WORKSPACE_LIST: "{API_URL}/v1/workspaces/list",
+        Constant.CONNECTION_LIST: "{API_URL}/v1/connections/list",
+        Constant.SOURCE_GET: "{API_URL}/v1/sources/get",
+        Constant.DESTINATION_GET: "{API_URL}/v1/destinations/get",
+        Constant.JOBS_LIST: "{API_URL}/v1/jobs/list",
     }
 
     def __init__(
         self,
+        api_url,
         username,
         password,
     ):
         super().__init__()
+        self.api_url = api_url
         self.username = username
         self.password = password
 
@@ -331,14 +334,16 @@ class OssAPIResolver(DataResolverBase):
             "accept": "application/json",
             Constant.AUTHORIZATION: "Basic {}".format(
                 base64.b64encode(
-                    f"{self.username}:{self.password}".encode(Constant.ASCII)
+                    f"{self.username}:{self.password.get_secret_value()}".encode(
+                        Constant.ASCII
+                    )
                 ).decode(Constant.ASCII)
             ),
         }
         return authorization_header
 
     def test_connection(self):
-        logger.debug(f"Testing connection to api = {self.BASE_URL}")
+        logger.debug(f"Testing connection to api = {self.api_url}")
         # testing api connection by fetching workspaces
         response = self._request_session.post(
             self._get_workspaces_endpoint(),
@@ -379,9 +384,9 @@ class OssAPIResolver(DataResolverBase):
             response.json()[Constant.CONNECTIONS]
         )
 
-    def _get_source(self, source_id: str) -> Source:
+    def _get_source_connector(self, source_id: str) -> Connector:
         """
-        Get the source details from Airbyte OSS
+        Get the source connector details from Airbyte OSS
         """
         source_endpoint: str = self._get_source_endpoint(source_id)
         logger.debug(f"Request to URL={source_endpoint}")
@@ -391,11 +396,11 @@ class OssAPIResolver(DataResolverBase):
             json={Constant.SOURCEID: source_id},
         )
         response.raise_for_status()
-        return self._get_source_from_response(response.json())
+        return self._get_source_connector_from_response(response.json())
 
-    def _get_destination(self, destination_id: str) -> Destination:
+    def _get_destination_connector(self, destination_id: str) -> Connector:
         """
-        Get the destination details from Airbyte OSS
+        Get the destination connector details from Airbyte OSS
         """
         destination_endpoint: str = self._get_destination_endpoint(destination_id)
         logger.debug(f"Request to URL={destination_endpoint}")
@@ -405,7 +410,7 @@ class OssAPIResolver(DataResolverBase):
             json={Constant.DESTINATIONID: destination_id},
         )
         response.raise_for_status()
-        return self._get_destination_from_response(response.json())
+        return self._get_destination_connector_from_response(response.json())
 
     def _get_jobs(self, connection_id: str) -> List[Job]:
         """
@@ -427,6 +432,7 @@ class OssAPIResolver(DataResolverBase):
             last_attempt = job[Constant.ATTEMPTS][-1]
             job.update(job[Constant.JOB])
             job[Constant.ENDEDAT] = last_attempt[Constant.ENDEDAT]
+            job[Constant.BYTESSYNCED] = last_attempt[Constant.BYTESSYNCED]
             job[Constant.RECORDSSYNCED] = last_attempt[Constant.RECORDSSYNCED]
             del job[Constant.ATTEMPTS]
             del job[Constant.JOB]

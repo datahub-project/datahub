@@ -20,10 +20,14 @@ class AirbyteAPI:
     def __init__(self, config: AirbyteSourceConfig) -> None:
         self.__config: AirbyteSourceConfig = config
         self.__api_resolver: DataResolverBase = (
-            CloudAPIResolver(api_key=self.__config.api_key)
+            CloudAPIResolver(
+                api_url=self.__config.api_url, api_key=self.__config.api_key
+            )
             if self.__config.cloud_deploy
             else OssAPIResolver(
-                username=self.__config.username, password=self.__config.password
+                api_url=self.__config.api_url,
+                username=self.__config.username,
+                password=self.__config.password,
             )
         )
         self.__api_resolver.test_connection()

@@ -1,11 +1,15 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
-from typing import List, Optional
+from enum import Enum
+from typing import Dict, List, Optional
+from urllib import parse
 
 import pydantic
 from pydantic import Field
+from pydantic.class_validators import root_validator
 
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -22,6 +26,7 @@ class Constant:
     keys used in airbyte plugin
     """
 
+    ORCHESTRATOR = "airbyte"
     WORKSPACE_LIST = "WORKSPACE_LIST"
     CONNECTION_LIST = "CONNECTION_LIST"
     SOURCE_GET = "SOURCE_GET"
@@ -65,13 +70,50 @@ class Constant:
     ATTEMPTS = "attempts"
     DATA = "data"
 
+    # Config constants
+    API_URL = "api_url"
+    CLOUD_DEPLOY = "cloud_deploy"
+    API_KEY = "api_key"
+    USERNAME = "username"
+    PASSWORD = "password"
+    DEFAULT_CLOUD_DEPLOY = False
+    DEFAULT_API_URL = "http://localhost:8000/api"
+    CONNECTOR_PLATFORM_DETAILS = "connector_platform_details"
+
+    # Airbyte data classes attribute constants
+    NAMESPACE_DEFINITION = "namespace_definition"
+    NAMESPACE_FORMAT = "namespace_format"
+    JOB_TYPE = "job_type"
+    LAST_UPDATED_AT = "last_updated_at"
+    BYTES_SYNCED = "bytes_synced"
+    ROWS_SYNCED = "rows_synced"
+
+    # Job status constants
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class DataPlatformPair:
+    airbyte_data_platform_name: str
+    datahub_data_platform_name: str
+
+
+class SupportedDataPlatform(Enum):
+    POSTGRES_SQL = DataPlatformPair(
+        airbyte_data_platform_name="postgres", datahub_data_platform_name="postgres"
+    )
+
 
 @dataclass
 class AirbyteSourceReport(StaleEntityRemovalSourceReport):
     workspaces_scanned: int = 0
     connections_scanned: int = 0
+    jobs_scanned: int = 0
     filtered_workspaces: List[str] = dataclass_field(default_factory=list)
     filtered_connections: List[str] = dataclass_field(default_factory=list)
+    filtered_jobs: List[str] = dataclass_field(default_factory=list)
 
     def report_workspaces_scanned(self, count: int = 1) -> None:
         self.workspaces_scanned += count
@@ -79,17 +121,39 @@ class AirbyteSourceReport(StaleEntityRemovalSourceReport):
     def report_connections_scanned(self, count: int = 1) -> None:
         self.connections_scanned += count
 
+    def report_jobs_scanned(self, count: int = 1) -> None:
+        self.jobs_scanned += count
+
     def report_workspaces_dropped(self, model: str) -> None:
         self.filtered_workspaces.append(model)
 
     def report_connections_dropped(self, view: str) -> None:
         self.filtered_connections.append(view)
 
+    def report_jobs_dropped(self, view: str) -> None:
+        self.filtered_jobs.append(view)
+
+
+class PlatformDetail(ConfigModel):
+    platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+    env: str = pydantic.Field(
+        default=DEFAULT_ENV,
+        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+    )
+
 
 class AirbyteSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     cloud_deploy: bool = pydantic.Field(
-        default=False,
-        description="Whether to fetch metadata from Airbyte Cloud or Airbyte OSS. For Airbyte Cloud provide api_key and for Airbyte OSS provide username/password",
+        default=Constant.DEFAULT_CLOUD_DEPLOY,
+        description="Enabled to fetch metadata from Airbyte Cloud."
+        "If it is enabled then provide api_key in the recipe."
+        "Username & password is required for Airbyte OSS only.",
+    )
+    api_url: str = Field(
+        default=Constant.DEFAULT_API_URL, description="Airbyte API hosted URL."
     )
     api_key: Optional[str] = Field(default=None, description="Airbyte Cloud API key.")
     username: Optional[str] = Field(default=None, description="Airbyte username.")
@@ -100,3 +164,73 @@ class AirbyteSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Airbyte Stateful Ingestion Config."
     )
+    # Airbyte source/destination connector platform details mapping
+    connector_platform_details: Dict[str, PlatformDetail] = pydantic.Field(
+        default={},
+        description="A mapping of Airbyte source/destination connector to its platform details."
+        "For example Airbyte 'Postgres' connector, platform_instance: postgres_production_instance, env: PROD",
+    )
+
+    @root_validator(pre=True)
+    def validate_api_url(cls, values: Dict) -> Dict:
+        api_url = (
+            values.get(Constant.API_URL)
+            if Constant.API_URL in values
+            else Constant.DEFAULT_API_URL
+        )
+        url_parsed = parse.urlparse(api_url)
+        if url_parsed.scheme not in ("http", "https") or not url_parsed.netloc:
+            raise ValueError("Please provide valid API hosted URL.")
+        cloud_deploy = (
+            values.get(Constant.CLOUD_DEPLOY)
+            if Constant.CLOUD_DEPLOY in values
+            else Constant.DEFAULT_CLOUD_DEPLOY
+        )
+        if cloud_deploy and url_parsed.netloc != "api.airbyte.com":
+            raise ValueError(
+                "To fetch metadata from Airbyte Cloud, user must set api_url as 'https://api.airbyte.com' in the recipe."
+            )
+        elif not cloud_deploy and (not url_parsed.port or url_parsed.path != "/api"):
+            raise ValueError(
+                "To fetch metadata from Airbyte OSS, user must set api_url as 'http://<host>:<port>/api' in the recipe."
+            )
+        return values
+
+    @root_validator(pre=True)
+    def validate_auth_configs(cls, values: Dict) -> Dict:
+        cloud_deploy = (
+            values.get(Constant.CLOUD_DEPLOY)
+            if Constant.CLOUD_DEPLOY in values
+            else Constant.DEFAULT_CLOUD_DEPLOY
+        )
+        if cloud_deploy and values.get(Constant.API_KEY) is None:
+            raise ValueError(
+                "To fetch metadata from Airbyte Cloud, user must provide api_key in the recipe."
+            )
+        elif not cloud_deploy and (
+            values.get(Constant.USERNAME) is None
+            or values.get(Constant.PASSWORD) is None
+        ):
+            raise ValueError(
+                "To fetch metadata from Airbyte OSS, user must provide username and password in the recipe."
+            )
+        return values
+
+    @root_validator(pre=True)
+    def validate_connector_platform_details(cls, values: Dict) -> Dict:
+        airbyte_data_platforms: List[str] = [
+            data_platform.value.airbyte_data_platform_name
+            for data_platform in SupportedDataPlatform
+        ]
+        connector_platform_details = (
+            values.get(Constant.CONNECTOR_PLATFORM_DETAILS)
+            if Constant.CONNECTOR_PLATFORM_DETAILS in values
+            else {}
+        )
+        for type in connector_platform_details.keys():
+            if type not in airbyte_data_platforms:
+                raise ValueError(
+                    f"Airbyte source/destination connector type: {type} is not supported to mapped with Datahub dataset entity. "
+                    "Or enter valid key of connector in the recipe."
+                )
+        return values

@@ -16,8 +16,8 @@ class Workspace:
 class Connection:
     connection_id: str
     name: str
-    source: "Source"
-    destination: "Destination"
+    source: "Connector"
+    destination: "Connector"
     status: str
     namespace_definition: str
     namespace_format: str
@@ -26,17 +26,10 @@ class Connection:
 
 
 @dataclass
-class Source:
-    source_id: str
+class Connector:
+    connector_id: str
     name: str
-    source_type: str
-
-
-@dataclass
-class Destination:
-    destination_id: str
-    name: str
-    destination_type: str
+    type: str
 
 
 @dataclass
