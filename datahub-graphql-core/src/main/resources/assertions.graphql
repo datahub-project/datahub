@@ -10,6 +10,11 @@ extend type Mutation {
   createFreshnessAssertion(input: CreateFreshnessAssertionInput!): Assertion!
 
   """
+  Create an new Volume Assertion
+  """
+  createVolumeAssertion(input: CreateVolumeAssertionInput!): Assertion!
+
+  """
   Update an existing Dataset Assertion
   """
   updateDatasetAssertion(urn: String!, input: UpdateDatasetAssertionInput!): Assertion!
@@ -298,6 +303,11 @@ extend type AssertionInfo {
   freshnessAssertion: FreshnessAssertionInfo
 
   """
+  Information about an Volume Assertion
+  """
+  volumeAssertion: VolumeAssertionInfo
+
+  """
   The source or origin of the Assertion definition.
   """
   source: AssertionSource
@@ -465,4 +475,450 @@ type AssertionSource {
   The source type
   """
   type: AssertionSourceType!
+}
+
+"""
+An enum to represent a type of change in an assertion value, metric, or measurement.
+"""
+enum AssertionValueChangeType {
+  """
+  A change that is defined in absolute terms.
+  """
+  ABSOLUTE
+
+  """
+  A change that is defined in relative terms using percentage change
+  from the original value.
+  """
+  PERCENTAGE
+}
+
+"""
+A type of volume (row count) assertion
+"""
+enum VolumeAssertionType {
+  """
+  A volume assertion that is evaluated against the total row count of a dataset.
+  """
+  ROW_COUNT_TOTAL
+
+  """
+  A volume assertion that is evaluated against an incremental row count of a dataset,
+  or a row count change.
+  """
+  ROW_COUNT_CHANGE
+
+  """
+  A volume assertion that checks the latest "segment" in a table based on an incrementing
+  column to check whether it's row count falls into a particular range.
+  This can be used to monitor the row count of an incrementing date-partition column segment.
+  """
+  INCREMENTING_SEGMENT_ROW_COUNT_TOTAL
+
+  """
+  A volume assertion that compares the row counts in neighboring "segments" or "partitions"
+  of an incrementing column. This can be used to track changes between subsequent date partition
+  in a table, for example.
+  """
+  INCREMENTING_SEGMENT_ROW_COUNT_CHANGE
+}
+
+"""
+Attributes defining an ROW_COUNT_TOTAL volume assertion.
+"""
+type RowCountTotal {
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Attributes defining an ROW_COUNT_CHANGE volume assertion.
+"""
+type RowCountChange {
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_TOTAL volume assertion.
+"""
+type IncrementingSegmentRowCountTotal {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpec!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion.
+"""
+type IncrementingSegmentRowCountChange {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpec!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply to the row count value
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Core attributes required to identify an incrementing segment in a table. This type is mainly useful
+for tables that constantly increase with new rows being added on a particular cadence (e.g. fact or event tables).
+
+An incrementing segment represents a logical chunk of data which is INSERTED
+into a dataset on a regular interval, along with the presence of a constantly-incrementing column
+value such as an event time, date partition, or last modified column.
+
+An incrementing segment is principally identified by 2 key attributes combined:
+
+1. A field or column that represents the incrementing value. New rows that are inserted will be identified using this column.
+   Note that the value of this column may not by itself represent the "bucket" or the "segment" in which the row falls.
+
+2. [Optional] An transformer function that may be applied to the selected column value in order
+   to obtain the final "segment identifier" or "bucket identifier". Rows that have the same value after applying the transformation
+   will be grouped into the same segment, using which the final value (e.g. row count) will be determined.
+"""
+type IncrementingSegmentSpec {
+  """
+  The field to use to generate segments. It must be constantly incrementing as new rows are inserted.
+  """
+  field: SchemaFieldSpec!
+
+  """
+  Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
+  If not provided, then no operator will be applied to the field. (identity function)
+  """
+  transformer: IncrementingSegmentFieldTransformer
+}
+
+"""
+The definition of the transformer function that should be applied to a given field / column value in a dataset
+in order to determine the segment or bucket that it belongs to, which in turn is used to evaluate
+volume assertions.
+"""
+type IncrementingSegmentFieldTransformer {
+  """
+  The 'standard' operator type. Note that not all source systems will support all operators.
+  """
+  type: IncrementingSegmentFieldTransformerType!
+
+  """
+  The 'native' transformer type, useful as a back door if a custom transformer is required.
+  This field is required if the type is NATIVE.
+  """
+  nativeType: String
+}
+
+"""
+The 'standard' transformer type. Note that not all source systems will support all operators.
+"""
+enum IncrementingSegmentFieldTransformerType {
+  """
+  Rounds a timestamp (in seconds) down to the start of the month.
+  """
+  TIMESTAMP_MS_TO_MINUTE
+
+  """
+  Rounds a timestamp (in milliseconds) down to the nearest hour.
+  """
+  TIMESTAMP_MS_TO_HOUR
+
+  """
+  Rounds a timestamp (in milliseconds) down to the start of the day.
+  """
+  TIMESTAMP_MS_TO_DATE
+
+  """
+  Rounds a timestamp (in milliseconds) down to the start of the month
+  """
+  TIMESTAMP_MS_TO_MONTH
+
+  """
+  Rounds a timestamp (in milliseconds) down to the start of the year
+  """
+  TIMESTAMP_MS_TO_YEAR
+
+  """
+  Rounds a numeric value down to the nearest integer.
+  """
+  FLOOR
+
+  """
+  Rounds a numeric value up to the nearest integer.
+  """
+  CEILING
+
+  """
+  A backdoor to provide a native operator type specific to a given source system like
+  Snowflake, Redshift, BQ, etc.
+  """
+  NATIVE
+}
+
+"""
+A definition of a Volume (row count) assertion.
+"""
+type VolumeAssertionInfo {
+  """
+  The entity targeted by this Volume check.
+  """
+  entityUrn: String!
+
+  """
+  The type of the freshness assertion being monitored.
+  """
+  type: VolumeAssertionType!
+
+  """
+  Produce FAILURE Assertion Result if the row count of the asset does not meet specific requirements.
+  Required if type is 'ROW_COUNT_TOTAL'.
+  """
+  rowCountTotal: RowCountTotal
+
+  """
+  Produce FAILURE Assertion Result if the row count delta of the asset does not meet specific requirements.
+  Required if type is 'ROW_COUNT_CHANGE'.
+  """
+  rowCountChange: RowCountChange
+
+  """
+  Produce FAILURE Assertion Result if the latest incrementing segment row count total of the asset
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'.
+  """
+  incrementingSegmentRowCountTotal: IncrementingSegmentRowCountTotal
+
+  """
+  Produce FAILURE Assertion Result if the incrementing segment row count delta of the asset
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'.
+  """
+  incrementingSegmentRowCountChange: IncrementingSegmentRowCountChange
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilter
+}
+
+"""
+Input for creating a new Volume Assertion.
+"""
+input CreateVolumeAssertionInput {
+  """
+  The entity targeted by this Volume check.
+  """
+  entityUrn: String!
+
+  """
+  The type of the volume assertion being monitored.
+  """
+  type: VolumeAssertionType!
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count does not meet
+  specific requirements. Required if type is 'ROW_COUNT_TOTAL'
+  """
+  rowCountTotal: RowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's row count delta does not meet
+  specific requirements. Required if type is 'ROW_COUNT_CHANGE'
+  """
+  rowCountChange: RowCountChangeInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's latest incrementing segment row count total
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
+  """
+  incrementingSegmentRowCountTotal: IncrementingSegmentRowCountTotalInput
+
+  """
+  Parameters for a FAILURE Assertion Result if the asset's incrementing segment row count delta
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
+  """
+  incrementingSegmentRowCountChange: IncrementingSegmentRowCountChangeInput
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilterInput
+}
+
+"""
+Input for a ROW_COUNT_TOTAL volume assertion.
+"""
+input RowCountTotalInput {
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for a ROW_COUNT_CHANGE volume assertion.
+"""
+input RowCountChangeInput {
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for an INCREMENTING_SEGMENT_ROW_COUNT_TOTAL volume assertion.
+"""
+input IncrementingSegmentRowCountTotalInput {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpecInput!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion.
+"""
+input IncrementingSegmentRowCountChangeInput {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpecInput!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply to the row count value
+  Note that only numeric operators are valid inputs.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParametersInput!
+}
+
+"""
+Input for the specification of the incrementing segment.
+"""
+input IncrementingSegmentSpecInput {
+  """
+  The field to use to generate segments. It must be constantly incrementing as new rows are inserted.
+  """
+  field: SchemaFieldSpecInput!
+
+  """
+  Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
+  If not provided, then no operator will be applied to the field. (identity function)
+  """
+  transformer: IncrementingSegmentFieldTransformerInput
+}
+
+"""
+Input for the transformer function to obtain the final segment or bucket identifier.
+"""
+input IncrementingSegmentFieldTransformerInput {
+  """
+  The 'standard' transformer type. Note that not all source systems will support all operators.
+  """
+  type: IncrementingSegmentFieldTransformerType!
+
+  """
+  The 'native' transformer type, useful as a back door if a custom transformer is required.
+  This field is required if the type is NATIVE.
+  """
+  nativeType: String
 }
