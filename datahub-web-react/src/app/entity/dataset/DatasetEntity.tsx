@@ -2,6 +2,7 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { useIsShowAccessManagementEnabled } from '../../useAppConfig';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
@@ -68,6 +69,8 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     isSearchEnabled = () => true;
+
+    isAccessManagementEnabled = useIsShowAccessManagementEnabled;
 
     isBrowseEnabled = () => true;
 
@@ -179,6 +182,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Access Management',
                     component: AccessManagement,
+                    display: {
+                        visible: (_, _1) => this.isAccessManagementEnabled(),
+                        enabled: (_, _2) => true,
+                    },
                 },
             ]}
             sidebarSections={[

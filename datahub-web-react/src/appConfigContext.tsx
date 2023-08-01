@@ -45,6 +45,7 @@ export const DEFAULT_APP_CONFIG = {
         showSearchFiltersV2: true,
         showBrowseV2: true,
         showAcrylInfo: false,
+        showAccessManagement: false,
     },
 };
 

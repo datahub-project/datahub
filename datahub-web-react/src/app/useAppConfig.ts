@@ -12,3 +12,8 @@ export function useIsShowAcrylInfoEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.showAcrylInfo;
 }
+
+export function useIsShowAccessManagementEnabled(): boolean {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showAccessManagement;
+}
