@@ -262,7 +262,8 @@ def get_schema_fields_for_hive_column(
     hive_column_name: str,
     hive_column_type: str,
     meta_mapping_processor: Optional[OperationProcessor] = None,
-    meta_props: Optional[dict] = None,
+    meta_props: Optional[Dict] = None,
+    custom_tags: Optional[List] = None,
     description: Optional[str] = None,
     default_nullable: bool = False,
     is_part_of_key: bool = False,
@@ -271,12 +272,21 @@ def get_schema_fields_for_hive_column(
         avro_schema_json = get_avro_schema_for_hive_column(
             hive_column_name=hive_column_name, hive_column_type=hive_column_type
         )
+        if meta_props:
+            avro_schema_json.update(meta_props)
+
+        schema_tag_args = {}
+        if custom_tags:
+            schema_tag_args["schema_tags_field"] = "custom_tags"
+            # tag_prefix is required if passing schema_tags_field
+            schema_tag_args["tag_prefix"] = ""
+            avro_schema_json[schema_tag_args["schema_tags_field"]] = custom_tags
         schema_fields = avro_schema_to_mce_fields(
             avro_schema=json.dumps(avro_schema_json),
             default_nullable=default_nullable,
             swallow_exceptions=False,
             meta_mapping_processor=meta_mapping_processor,
-            meta_props=meta_props,
+            **schema_tag_args,
         )
     except Exception as e:
         logger.warning(

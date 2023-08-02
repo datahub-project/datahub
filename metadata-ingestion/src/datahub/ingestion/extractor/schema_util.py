@@ -104,7 +104,6 @@ class AvroToMceSchemaConverter:
         is_key_schema: bool,
         default_nullable: bool = False,
         meta_mapping_processor: Optional[OperationProcessor] = None,
-        meta_props: Optional[dict] = None,
         schema_tags_field: Optional[str] = None,
         tag_prefix: Optional[str] = None,
     ) -> None:
@@ -123,7 +122,6 @@ class AvroToMceSchemaConverter:
             self._prefix_name_stack.append("[key=True]")
         # Meta mapping
         self._meta_mapping_processor = meta_mapping_processor
-        self._meta_props = meta_props
         self._schema_tags_field = schema_tags_field
         self._tag_prefix = tag_prefix
         # Map of avro schema type to the conversion handler
@@ -266,7 +264,6 @@ class AvroToMceSchemaConverter:
             description: Optional[str] = None,
             default_value: Optional[str] = None,
             meta_mapping_processor: Optional[OperationProcessor] = None,
-            meta_props: Optional[dict] = None,
             schema_tags_field: Optional[str] = None,
             tag_prefix: Optional[str] = None,
         ):
@@ -276,7 +273,6 @@ class AvroToMceSchemaConverter:
             self._description = description
             self._default_value = default_value
             self._meta_mapping_processor = meta_mapping_processor
-            self._meta_props = meta_props
             self._schema_tags_field = schema_tags_field
             self._tag_prefix = tag_prefix
 
@@ -338,7 +334,6 @@ class AvroToMceSchemaConverter:
                 merged_props = {}
                 merged_props.update(self._schema.other_props)
                 merged_props.update(schema.other_props)
-                merged_props.update(self._meta_props if self._meta_props else {})
 
                 # Parse meta_mapping
                 meta_aspects: Dict[str, Any] = {}
@@ -468,7 +463,6 @@ class AvroToMceSchemaConverter:
             description,
             last_field_schema.default,
             self._meta_mapping_processor,
-            self._meta_props,
             self._schema_tags_field,
             self._tag_prefix,
         ) as f_emit:
@@ -499,7 +493,6 @@ class AvroToMceSchemaConverter:
             actual_schema,
             self,
             meta_mapping_processor=self._meta_mapping_processor,
-            meta_props=self._meta_props,
             schema_tags_field=self._schema_tags_field,
             tag_prefix=self._tag_prefix,
         ) as fe_schema:
@@ -536,7 +529,6 @@ class AvroToMceSchemaConverter:
             schema,
             self,
             meta_mapping_processor=self._meta_mapping_processor,
-            meta_props=self._meta_props,
             schema_tags_field=self._schema_tags_field,
             tag_prefix=self._tag_prefix,
         ) as non_nested_emitter:
@@ -560,7 +552,6 @@ class AvroToMceSchemaConverter:
         is_key_schema: bool,
         default_nullable: bool = False,
         meta_mapping_processor: Optional[OperationProcessor] = None,
-        meta_props: Optional[dict] = None,
         schema_tags_field: Optional[str] = None,
         tag_prefix: Optional[str] = None,
     ) -> Generator[SchemaField, None, None]:
@@ -574,7 +565,6 @@ class AvroToMceSchemaConverter:
             is_key_schema,
             default_nullable,
             meta_mapping_processor,
-            meta_props,
             schema_tags_field,
             tag_prefix,
         )
@@ -594,7 +584,6 @@ def avro_schema_to_mce_fields(
     is_key_schema: bool = False,
     default_nullable: bool = False,
     meta_mapping_processor: Optional[OperationProcessor] = None,
-    meta_props: Optional[dict] = None,
     schema_tags_field: Optional[str] = None,
     tag_prefix: Optional[str] = None,
     swallow_exceptions: bool = True,
@@ -618,7 +607,6 @@ def avro_schema_to_mce_fields(
                 is_key_schema,
                 default_nullable,
                 meta_mapping_processor,
-                meta_props,
                 schema_tags_field,
                 tag_prefix,
             )
