@@ -72,6 +72,7 @@ def load_config_file(
     squirrel_original_config: bool = False,
     squirrel_field: str = "__orig_config",
     allow_stdin: bool = False,
+    resolve_env_vars: bool = True,
 ) -> dict:
     config_mech: ConfigurationMechanism
     if allow_stdin and config_file == "-":
@@ -104,7 +105,10 @@ def load_config_file(
 
     config_fp = io.StringIO(raw_config_file)
     raw_config = config_mech.load_config(config_fp)
-    config = resolve_env_variables(raw_config)
+    if resolve_env_vars:
+        config = resolve_env_variables(raw_config)
+    else:
+        config = raw_config
     if squirrel_original_config:
         config[squirrel_field] = raw_config
     return config

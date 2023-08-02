@@ -17,9 +17,16 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+ARRAY_TOKEN = "[type=array]"
+UNION_TOKEN = "[type=union]"
+KEY_SCHEMA_PREFIX = "[key=True]."
+VERSION_PREFIX = "[version=2.0]."
 
 
 def gen_schema_key(
@@ -223,3 +230,27 @@ def gen_lineage(
 
         for wu in lineage_workunits:
             yield wu
+
+
+# downgrade a schema field
+def downgrade_schema_field_from_v2(field: SchemaField) -> SchemaField:
+    field.fieldPath = DatasetUrn.get_simple_field_path_from_v2_field_path(
+        field.fieldPath
+    )
+    return field
+
+
+# downgrade a list of schema fields
+def downgrade_schema_from_v2(
+    canonical_schema: List[SchemaField],
+) -> List[SchemaField]:
+    return [downgrade_schema_field_from_v2(field) for field in canonical_schema]
+
+
+# v2 is only required in case UNION or ARRAY types are present- all other types can be represented in v1 paths
+def schema_requires_v2(canonical_schema: List[SchemaField]) -> bool:
+    for field in canonical_schema:
+        field_name = field.fieldPath
+        if ARRAY_TOKEN in field_name or UNION_TOKEN in field_name:
+            return True
+    return False

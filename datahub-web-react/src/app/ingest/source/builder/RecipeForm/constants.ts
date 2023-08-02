@@ -83,7 +83,7 @@ import {
     PROJECT_NAME,
 } from './lookml';
 import { PRESTO, PRESTO_HOST_PORT, PRESTO_DATABASE, PRESTO_USERNAME, PRESTO_PASSWORD } from './presto';
-import { BIGQUERY_BETA, DBT_CLOUD, MYSQL, POWER_BI, UNITY_CATALOG } from '../constants';
+import { BIGQUERY_BETA, DBT_CLOUD, MYSQL, POWER_BI, UNITY_CATALOG, VERTICA } from '../constants';
 import { BIGQUERY_BETA_PROJECT_ID, DATASET_ALLOW, DATASET_DENY, PROJECT_ALLOW, PROJECT_DENY } from './bigqueryBeta';
 import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from './mysql';
 import { MSSQL, MSSQL_DATABASE, MSSQL_HOST_PORT, MSSQL_PASSWORD, MSSQL_USERNAME } from './mssql';
@@ -129,6 +129,17 @@ import {
     WORKSPACE_ID_ALLOW,
     WORKSPACE_ID_DENY,
 } from './powerbi';
+
+import {
+    VERTICA_HOST_PORT,
+    VERTICA_DATABASE,
+    VERTICA_USERNAME,
+    VERTICA_PASSWORD,
+    INCLUDE_PROJECTIONS,
+    INCLUDE_MLMODELS,
+    INCLUDE_VIEW_LINEAGE,
+    INCLUDE_PROJECTIONS_LINEAGE,
+} from './vertica';
 
 export enum RecipeSections {
     Connection = 0,
@@ -427,6 +438,20 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific PowerBI Workspaces from ingestion.',
+    },
+    [VERTICA]: {
+        fields: [VERTICA_HOST_PORT, VERTICA_DATABASE, VERTICA_USERNAME, VERTICA_PASSWORD],
+        filterFields: [SCHEMA_ALLOW, SCHEMA_DENY, TABLE_ALLOW, TABLE_DENY, VIEW_ALLOW, VIEW_DENY],
+        advancedFields: [
+            INCLUDE_TABLES,
+            INCLUDE_VIEWS,
+            INCLUDE_PROJECTIONS,
+            INCLUDE_MLMODELS,
+            INCLUDE_VIEW_LINEAGE,
+            INCLUDE_PROJECTIONS_LINEAGE,
+            TABLE_PROFILING_ENABLED,
+        ],
+        filterSectionTooltip: 'Include or exclude specific Schemas, Tables, Views and Projections from ingestion.',
     },
 };
 
