@@ -81,8 +81,17 @@ public enum DataHubUsageEventType {
   DELETE_TEST_EVENT("DeleteTestEvent"),
   CREATE_ASSERTION_MONITOR_EVENT("CreateAssertionMonitorEvent"),
   START_ASSERTION_MONITOR_EVENT("StartAssertionMonitorEvent"),
-  STOP_ASSERTION_MONITOR_EVENT("StopAssertionMonitorEvent");
-
+  STOP_ASSERTION_MONITOR_EVENT("StopAssertionMonitorEvent"),
+  SLACK_INTEGRATION_SUCCESS_EVENT("SlackIntegrationSuccessEvent"),
+  SLACK_INTEGRATION_ERROR_EVENT("SlackIntegrationErrorEvent"),
+  SUBSCRIPTION_CREATE_SUCCESS_EVENT("SubscriptionCreateSuccessEvent"),
+  SUBSCRIPTION_CREATE_ERROR_EVENT("SubscriptionCreateErrorEvent"),
+  SUBSCRIPTION_UPDATE_SUCCESS_EVENT("SubscriptionUpdateSuccessEvent"),
+  SUBSCRIPTION_UPDATE_ERROR_EVENT("SubscriptionUpdateErrorEvent"),
+  SUBSCRIPTION_DELETE_SUCCESS_EVENT("SubscriptionDeleteSuccessEvent"),
+  SUBSCRIPTION_DELETE_ERROR_EVENT("SubscriptionDeleteErrorEvent"),
+  NOTIFICATION_SETTINGS_SUCCESS_EVENT("NotificationSettingsSuccessEvent"),
+  NOTIFICATION_SETTINGS_ERROR_EVENT("NotificationSettingsErrorEvent");
 
   private final String type;
 

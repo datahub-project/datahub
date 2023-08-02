@@ -9,7 +9,7 @@ import {
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
-import { SubscriberType } from '../settings/personal/notifications/constants';
+import { ActorType } from '../settings/personal/notifications/constants';
 
 /**
  * Valid event types.
@@ -677,7 +677,7 @@ export interface SubscriptionCreateSuccessEvent extends BaseEvent {
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface SubscriptionCreateErrorEvent extends BaseEvent {
@@ -685,7 +685,7 @@ export interface SubscriptionCreateErrorEvent extends BaseEvent {
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface SubscriptionUpdateSuccessEvent extends BaseEvent {
@@ -697,7 +697,7 @@ export interface SubscriptionUpdateSuccessEvent extends BaseEvent {
     sinkTypes: Array<NotificationSinkType>;
     sinkTypesAdded: Array<NotificationSinkType>;
     sinkTypesRemoved: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface SubscriptionUpdateErrorEvent extends BaseEvent {
@@ -705,7 +705,7 @@ export interface SubscriptionUpdateErrorEvent extends BaseEvent {
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface SubscriptionDeleteSuccessEvent extends BaseEvent {
@@ -713,7 +713,7 @@ export interface SubscriptionDeleteSuccessEvent extends BaseEvent {
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface SubscriptionDeleteErrorEvent extends BaseEvent {
@@ -721,7 +721,7 @@ export interface SubscriptionDeleteErrorEvent extends BaseEvent {
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface NotificationSettingsSuccessEvent extends BaseEvent {
@@ -729,7 +729,7 @@ export interface NotificationSettingsSuccessEvent extends BaseEvent {
     sinkTypes: Array<NotificationSinkType>;
     sinkTypesAdded: Array<NotificationSinkType>;
     sinkTypesRemoved: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 export interface NotificationSettingsErrorEvent extends BaseEvent {
@@ -737,7 +737,7 @@ export interface NotificationSettingsErrorEvent extends BaseEvent {
     sinkTypes: Array<NotificationSinkType>;
     sinkTypesAdded: Array<NotificationSinkType>;
     sinkTypesRemoved: Array<NotificationSinkType>;
-    subscriberType: SubscriberType;
+    actorType: ActorType;
 }
 
 /**

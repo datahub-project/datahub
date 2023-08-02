@@ -22,7 +22,7 @@ import {
 } from '../../../../graphql/subscriptions.generated';
 import analytics from '../../../analytics/analytics';
 import { EventType } from '../../../analytics';
-import { SubscriberTypes } from '../../../settings/personal/notifications/constants';
+import { ActorTypes } from '../../../settings/personal/notifications/constants';
 
 const REFETCH_DELAY = 3000;
 
@@ -252,7 +252,7 @@ export const deleteSubscriptionFunction = ({
                 type: EventType.SubscriptionDeleteSuccessEvent,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
-                subscriberType: isPersonal ? SubscriberTypes.PERSONAL : SubscriberTypes.GROUP,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
             notification.success({
@@ -268,7 +268,7 @@ export const deleteSubscriptionFunction = ({
                 type: EventType.SubscriptionDeleteErrorEvent,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
-                subscriberType: isPersonal ? SubscriberTypes.PERSONAL : SubscriberTypes.GROUP,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
             message.destroy();
@@ -321,7 +321,7 @@ export const createSubscriptionFunction = ({
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings?.sinkTypes,
-                subscriberType: isPersonal ? SubscriberTypes.PERSONAL : SubscriberTypes.GROUP,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
             notification.success({
                 message: 'Success',
@@ -338,7 +338,7 @@ export const createSubscriptionFunction = ({
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings.sinkTypes,
-                subscriberType: isPersonal ? SubscriberTypes.PERSONAL : SubscriberTypes.GROUP,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
             message.destroy();
             if (e instanceof Error) {
@@ -401,7 +401,7 @@ export const updateSubscriptionFunction = ({
                     sinkTypes: notificationSettings.sinkTypes,
                     sinkTypesAdded,
                     sinkTypesRemoved,
-                    subscriberType: isPersonal ? SubscriberTypes.PERSONAL : SubscriberTypes.GROUP,
+                    actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });
                 notification.success({
                     message: `Success`,
@@ -418,7 +418,7 @@ export const updateSubscriptionFunction = ({
                     entityType,
                     entityChangeTypes,
                     sinkTypes: notificationSettings.sinkTypes,
-                    subscriberType: isPersonal ? SubscriberTypes.PERSONAL : SubscriberTypes.GROUP,
+                    actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });
                 message.destroy();
                 if (e instanceof Error) {

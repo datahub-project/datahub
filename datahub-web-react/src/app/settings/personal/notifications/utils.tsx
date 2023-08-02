@@ -43,7 +43,7 @@ export const updateUserNotificationSettingsFunction = ({
                 sinkTypes,
                 sinkTypesAdded,
                 sinkTypesRemoved,
-                subscriberType: 'personal',
+                actorType: 'personal',
             });
             setTimeout(() => {
                 refetchUserNotificationSettings();
@@ -55,7 +55,7 @@ export const updateUserNotificationSettingsFunction = ({
                 sinkTypes,
                 sinkTypesAdded,
                 sinkTypesRemoved,
-                subscriberType: 'personal',
+                actorType: 'personal',
             });
             message.destroy();
             if (e instanceof Error) {
@@ -101,7 +101,7 @@ export const updateGroupNotificationSettingsFunction = ({
                 sinkTypes,
                 sinkTypesAdded,
                 sinkTypesRemoved,
-                subscriberType: 'group',
+                actorType: 'group',
             });
             setTimeout(() => {
                 refetchGroupNotificationSettings();
@@ -113,7 +113,7 @@ export const updateGroupNotificationSettingsFunction = ({
                 sinkTypes,
                 sinkTypesAdded,
                 sinkTypesRemoved,
-                subscriberType: 'group',
+                actorType: 'group',
             });
             message.destroy();
             if (e instanceof Error) {
