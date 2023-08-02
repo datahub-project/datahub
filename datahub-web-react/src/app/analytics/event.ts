@@ -1,7 +1,15 @@
-import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import {
+    DataHubViewType,
+    EntityChangeType,
+    EntityType,
+    NotificationSinkType,
+    RecommendationRenderType,
+    ScenarioType,
+} from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
+import { SubscriberType } from '../settings/personal/notifications/constants';
 
 /**
  * Valid event types.
@@ -84,6 +92,15 @@ export enum EventType {
     CreateAssertionMonitorEvent,
     StartAssertionMonitorEvent,
     StopAssertionMonitorEvent,
+    SlackIntegrationSuccessEvent,
+    SlackIntegrationErrorEvent,
+    SubscriptionCreateSuccessEvent,
+    SubscriptionCreateErrorEvent,
+    SubscriptionUpdateSuccessEvent,
+    SubscriptionUpdateErrorEvent,
+    SubscriptionDeleteSuccessEvent,
+    SubscriptionDeleteErrorEvent,
+    NotificationSettingsEvent,
 }
 
 /**
@@ -644,6 +661,76 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface SlackIntegrationSuccessEvent extends BaseEvent {
+    type: EventType.SlackIntegrationSuccessEvent;
+    configType: string;
+}
+
+export interface SlackIntegrationErrorEvent extends BaseEvent {
+    type: EventType.SlackIntegrationErrorEvent;
+    configType: string;
+}
+
+export interface SubscriptionCreateSuccessEvent extends BaseEvent {
+    type: EventType.SubscriptionCreateSuccessEvent;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface SubscriptionCreateErrorEvent extends BaseEvent {
+    type: EventType.SubscriptionCreateErrorEvent;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface SubscriptionUpdateSuccessEvent extends BaseEvent {
+    type: EventType.SubscriptionUpdateSuccessEvent;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    entityChangeTypesAdded: Array<EntityChangeType>;
+    entityChangeTypesRemoved: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    sinkTypesAdded: Array<NotificationSinkType>;
+    sinkTypesRemoved: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface SubscriptionUpdateErrorEvent extends BaseEvent {
+    type: EventType.SubscriptionUpdateErrorEvent;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface SubscriptionDeleteSuccessEvent extends BaseEvent {
+    type: EventType.SubscriptionDeleteSuccessEvent;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface SubscriptionDeleteErrorEvent extends BaseEvent {
+    type: EventType.SubscriptionDeleteErrorEvent;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface NotificationSettingsEvent extends BaseEvent {
+    type: EventType.NotificationSettingsEvent;
+    sinkTypes: Array<NotificationSinkType>;
+    sinkTypesAdded: Array<NotificationSinkType>;
+    sinkTypesRemoved: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -723,4 +810,13 @@ export type Event =
     | EmbedLookupNotFoundEvent
     | CreateAssertionMonitorEvent
     | StartAssertionMonitorEvent
-    | StopAssertionMonitorEvent;
+    | StopAssertionMonitorEvent
+    | SlackIntegrationSuccessEvent
+    | SlackIntegrationErrorEvent
+    | SubscriptionCreateSuccessEvent
+    | SubscriptionCreateErrorEvent
+    | SubscriptionUpdateSuccessEvent
+    | SubscriptionUpdateErrorEvent
+    | SubscriptionDeleteSuccessEvent
+    | SubscriptionDeleteErrorEvent
+    | NotificationSettingsEvent;

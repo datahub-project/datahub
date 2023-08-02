@@ -1,16 +1,19 @@
 import { useDeleteSubscriptionMutation } from '../../../graphql/subscriptions.generated';
+import { DataHubSubscription } from '../../../types.generated';
 import { deleteSubscriptionFunction } from './drawer/utils';
 
 type Props = {
-    subscriptionUrn?: string;
+    subscription?: DataHubSubscription;
+    isPersonal: boolean;
     onRefetch?: () => void;
 };
 
-const useDeleteSubscription = ({ subscriptionUrn, onRefetch }: Props) => {
+const useDeleteSubscription = ({ subscription, isPersonal, onRefetch }: Props) => {
     const [deleteSubscription] = useDeleteSubscriptionMutation();
 
     return () => {
-        if (subscriptionUrn) deleteSubscriptionFunction({ subscriptionUrn, deleteSubscription, onRefetch });
+        if (subscription?.subscriptionUrn)
+            deleteSubscriptionFunction({ subscription, isPersonal, deleteSubscription, onRefetch });
     };
 };
 

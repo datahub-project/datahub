@@ -23,6 +23,8 @@ import {
     SLACK_PLATFORM_URN,
 } from './constants';
 import { SlackInstructions } from './SlackInstructions';
+import analytics from '../../../analytics/analytics';
+import { EventType } from '../../../analytics';
 
 const Page = styled.div`
     width: 100%;
@@ -109,6 +111,7 @@ export const SlackIntegration = () => {
             },
         })
             .then(() => {
+                analytics.event({ type: EventType.SlackIntegrationSuccessEvent, configType: selectTypeValue });
                 message.success({ content: 'Updated Slack Settings!', duration: 2 });
                 refetch?.();
                 // If we are doing app-token path, redirect.
@@ -117,6 +120,7 @@ export const SlackIntegration = () => {
                 }
             })
             .catch((e: unknown) => {
+                analytics.event({ type: EventType.SlackIntegrationErrorEvent, configType: selectTypeValue });
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
@@ -139,6 +143,7 @@ export const SlackIntegration = () => {
         })
             .then(() => updateSlackConnection())
             .catch((e: unknown) => {
+                analytics.event({ type: EventType.SlackIntegrationErrorEvent, configType: selectTypeValue });
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
