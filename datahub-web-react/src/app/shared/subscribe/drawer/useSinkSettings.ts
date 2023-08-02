@@ -33,9 +33,14 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
 
+    const baseSinkTypes = isPersonal
+        ? userNotificationSettings?.getUserNotificationSettings?.sinkTypes
+        : groupNotificationSettings?.getGroupNotificationSettings?.sinkTypes;
+
     const onUpdateUserNotificationSettings = ({ text, sinkTypes }: UpdateSettingsInput) => {
         updateUserNotificationSettingsFunction({
             newUserHandle: text,
+            baseSinkTypes,
             sinkTypes,
             updateUserNotificationSettings,
             refetchUserNotificationSettings,
@@ -46,6 +51,7 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         updateGroupNotificationSettingsFunction({
             groupUrn: groupUrn || '',
             newGroupChannel: text,
+            baseSinkTypes,
             sinkTypes,
             updateGroupNotificationSettings,
             refetchGroupNotificationSettings,
@@ -55,11 +61,8 @@ const useSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     const updateSinkSettings = isPersonal ? onUpdateUserNotificationSettings : onUpdateGroupNotificationSettings;
 
     const settingsChannel = getSettingsChannel(isPersonal, userNotificationSettings, groupNotificationSettings);
-    const sinkTypes = isPersonal
-        ? userNotificationSettings?.getUserNotificationSettings?.sinkTypes
-        : groupNotificationSettings?.getGroupNotificationSettings?.sinkTypes;
 
-    return { settingsChannel, updateSinkSettings, sinkTypes } as const;
+    return { settingsChannel, updateSinkSettings, sinkTypes: baseSinkTypes } as const;
 };
 
 export default useSinkSettings;

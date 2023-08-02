@@ -46,7 +46,8 @@ export default function SubscribeButtons() {
     };
 
     const deleteSubscription = useDeleteSubscription({
-        subscriptionUrn: subscription?.subscriptionUrn,
+        subscription,
+        isPersonal,
         onRefetch: refetch,
     });
 

@@ -100,6 +100,7 @@ const SubscriptionDrawerContent = ({
 
     const upsertSubscription = useUpsertSubscription({
         entityUrn,
+        entityType,
         isSubscribed,
         groupUrn,
         subscription,

@@ -2,19 +2,25 @@ import {
     useCreateSubscriptionMutation,
     useUpdateSubscriptionMutation,
 } from '../../../../graphql/subscriptions.generated';
-import { DataHubSubscription, NotificationSettingsInput, SubscriptionType } from '../../../../types.generated';
+import {
+    DataHubSubscription,
+    EntityType,
+    NotificationSettingsInput,
+    SubscriptionType,
+} from '../../../../types.generated';
 import { useDrawerState } from './state/context';
 import { createSubscriptionFunction, getEntityChangeTypesFromCheckedKeys, updateSubscriptionFunction } from './utils';
 
 type Props = {
     entityUrn: string;
+    entityType: EntityType;
     isSubscribed: boolean;
     groupUrn?: string;
     subscription?: DataHubSubscription;
     onRefetch?: () => void;
 };
 
-const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription, onRefetch }: Props) => {
+const useUpsertSubscription = ({ entityUrn, entityType, isSubscribed, groupUrn, subscription, onRefetch }: Props) => {
     const {
         isPersonal,
         notificationTypes: { checkedKeys },
@@ -34,7 +40,7 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
         ? [SubscriptionType.EntityChange, SubscriptionType.UpstreamEntityChange]
         : [SubscriptionType.EntityChange];
 
-    const notificationSettings: NotificationSettingsInput | undefined = {
+    const notificationSettings: NotificationSettingsInput = {
         sinkTypes: notificationSinkTypes,
         slackSettings: {
             userHandle: !saveAsDefault && isPersonal && channel ? channel : undefined,
@@ -45,6 +51,8 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
     const onCreateSubscription = () => {
         createSubscriptionFunction({
             createSubscription,
+            isPersonal,
+            entityType,
             groupUrn: groupUrn || undefined,
             entityUrn,
             subscriptionTypes,
@@ -57,6 +65,8 @@ const useUpsertSubscription = ({ entityUrn, isSubscribed, groupUrn, subscription
     const onUpdateSubscription = () => {
         updateSubscriptionFunction({
             updateSubscription,
+            isPersonal,
+            entityType,
             subscription,
             subscriptionTypes,
             entityChangeTypes,

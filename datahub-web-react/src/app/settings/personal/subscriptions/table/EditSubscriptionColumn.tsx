@@ -31,7 +31,8 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
 
     const deleteSubscription = useDeleteSubscription({
-        subscriptionUrn: subscription.subscriptionUrn,
+        subscription,
+        isPersonal,
         onRefetch: refetchListSubscriptions,
     });
 

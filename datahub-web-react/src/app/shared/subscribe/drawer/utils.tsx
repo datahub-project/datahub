@@ -1,4 +1,5 @@
 import React, { Key } from 'react';
+import difference from 'lodash/difference';
 import { Tooltip, Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
 import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
@@ -19,6 +20,9 @@ import {
     useDeleteSubscriptionMutation,
     useUpdateSubscriptionMutation,
 } from '../../../../graphql/subscriptions.generated';
+import analytics from '../../../analytics/analytics';
+import { EventType } from '../../../analytics';
+import { ActorTypes } from '../../../settings/personal/notifications/constants';
 
 const REFETCH_DELAY = 3000;
 
@@ -228,20 +232,29 @@ export const getTreeDataForEntity = (entityType: string): DataNode[] => {
 };
 
 export const deleteSubscriptionFunction = ({
-    subscriptionUrn,
+    subscription,
+    isPersonal,
     deleteSubscription,
     onRefetch,
 }: {
-    subscriptionUrn: string;
+    subscription: DataHubSubscription;
+    isPersonal: boolean;
     deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
     onRefetch?: () => void;
 }) => {
     deleteSubscription({
         variables: {
-            input: { subscriptionUrn },
+            input: { subscriptionUrn: subscription.subscriptionUrn },
         },
     })
         .then(() => {
+            analytics.event({
+                type: EventType.SubscriptionDeleteSuccessEvent,
+                entityType: subscription.entity.type,
+                entityChangeTypes: subscription.entityChangeTypes,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+                sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
+            });
             notification.success({
                 message: `Success`,
                 description: 'You have unsubscribed from this entity.',
@@ -251,6 +264,13 @@ export const deleteSubscriptionFunction = ({
             if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
+            analytics.event({
+                type: EventType.SubscriptionDeleteErrorEvent,
+                entityType: subscription.entity.type,
+                entityChangeTypes: subscription.entityChangeTypes,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+                sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
+            });
             message.destroy();
             if (e instanceof Error) {
                 message.error({
@@ -263,6 +283,8 @@ export const deleteSubscriptionFunction = ({
 
 export const createSubscriptionFunction = ({
     createSubscription,
+    isPersonal,
+    entityType,
     groupUrn,
     entityUrn,
     subscriptionTypes,
@@ -271,11 +293,13 @@ export const createSubscriptionFunction = ({
     onRefetch,
 }: {
     createSubscription: ReturnType<typeof useCreateSubscriptionMutation>[0];
+    isPersonal: boolean;
+    entityType: EntityType;
     groupUrn: string | undefined;
     entityUrn: string;
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
-    notificationSettings: NotificationSettingsInput | undefined;
+    notificationSettings: NotificationSettingsInput;
     onRefetch?: () => void;
 }) => {
     createSubscription({
@@ -292,6 +316,13 @@ export const createSubscriptionFunction = ({
         },
     })
         .then(() => {
+            analytics.event({
+                type: EventType.SubscriptionCreateSuccessEvent,
+                entityType,
+                entityChangeTypes,
+                sinkTypes: notificationSettings?.sinkTypes,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+            });
             notification.success({
                 message: 'Success',
                 description: 'You are now following changes on this entity.',
@@ -302,6 +333,13 @@ export const createSubscriptionFunction = ({
             if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
         .catch((e: unknown) => {
+            analytics.event({
+                type: EventType.SubscriptionCreateErrorEvent,
+                entityType,
+                entityChangeTypes,
+                sinkTypes: notificationSettings.sinkTypes,
+                actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+            });
             message.destroy();
             if (e instanceof Error) {
                 message.error({ content: `Failed to create subscription`, duration: 3 });
@@ -311,6 +349,8 @@ export const createSubscriptionFunction = ({
 
 export const updateSubscriptionFunction = ({
     updateSubscription,
+    isPersonal,
+    entityType,
     subscription,
     subscriptionTypes,
     entityChangeTypes,
@@ -318,12 +358,26 @@ export const updateSubscriptionFunction = ({
     onRefetch,
 }: {
     updateSubscription: ReturnType<typeof useUpdateSubscriptionMutation>[0];
+    isPersonal: boolean;
+    entityType: EntityType;
     subscription: DataHubSubscription | undefined;
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
-    notificationSettings: NotificationSettingsInput | undefined;
+    notificationSettings: NotificationSettingsInput;
     onRefetch?: () => void;
 }) => {
+    const entityChangeTypesAdded = difference(entityChangeTypes, subscription?.entityChangeTypes ?? []);
+    const entityChangeTypesRemoved = difference(subscription?.entityChangeTypes ?? [], entityChangeTypes);
+
+    const sinkTypesAdded = difference(
+        notificationSettings.sinkTypes,
+        subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [],
+    );
+    const sinkTypesRemoved = difference(
+        subscription?.notificationConfig?.notificationSettings?.sinkTypes ?? [],
+        notificationSettings.sinkTypes,
+    );
+
     if (subscription && subscription.subscriptionUrn) {
         updateSubscription({
             variables: {
@@ -338,6 +392,17 @@ export const updateSubscriptionFunction = ({
             },
         })
             .then(() => {
+                analytics.event({
+                    type: EventType.SubscriptionUpdateSuccessEvent,
+                    entityType,
+                    entityChangeTypes,
+                    entityChangeTypesAdded,
+                    entityChangeTypesRemoved,
+                    sinkTypes: notificationSettings.sinkTypes,
+                    sinkTypesAdded,
+                    sinkTypesRemoved,
+                    actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+                });
                 notification.success({
                     message: `Success`,
                     description: 'You have updated your subscription to this entity.',
@@ -348,6 +413,13 @@ export const updateSubscriptionFunction = ({
                 if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
             })
             .catch((e: unknown) => {
+                analytics.event({
+                    type: EventType.SubscriptionUpdateErrorEvent,
+                    entityType,
+                    entityChangeTypes,
+                    sinkTypes: notificationSettings.sinkTypes,
+                    actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
+                });
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
