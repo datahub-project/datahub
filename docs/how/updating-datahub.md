@@ -8,10 +8,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Potential Downtime
 
-- BrowsePathsV2 upgrade will now be handled by the `system-update` job in non-blocking mode. This process generates data needed for the new search
-  and browse feature. This process must complete before enabling the new search and browse UI and while upgrading entities will be missing from the UI.
-  If not using the new search and browse UI, there will be no impact and the update will complete in the background.
-
 ### Deprecations
 
 ### Other notable Changes
@@ -32,6 +28,10 @@ individually enable / disable desired field metrics.
 - #8472: Ingestion runs created with Pipeline.create will show up in the DataHub ingestion tab as CLI-based runs. To revert to the previous behavior of not showing these runs in DataHub, pass `no_default_report=True`.
 
 ### Potential Downtime
+
+- BrowsePathsV2 upgrade will now be handled by the `system-update` job in non-blocking mode. This process generates data needed for the new search
+  and browse feature. This process must complete before enabling the new search and browse UI and while upgrading entities will be missing from the UI.
+  If not using the new search and browse UI, there will be no impact and the update will complete in the background.
 
 ### Deprecations
 
