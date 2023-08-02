@@ -872,8 +872,8 @@ class SnowflakeV2Source(
             self.gen_schema_metadata(table, schema_name, db_name)
 
     def fetch_sample_data_for_classification(
-        self, table, schema_name, db_name, dataset_name
-    ):
+        self, table: SnowflakeTable, schema_name: str, db_name: str, dataset_name: str
+    ) -> None:
         if (
             table.columns
             and self.config.classification.enabled
@@ -1225,7 +1225,12 @@ class SnowflakeV2Source(
             )
         return foreign_keys
 
-    def classify_snowflake_table(self, table, dataset_name, schema_metadata):
+    def classify_snowflake_table(
+        self,
+        table: Union[SnowflakeTable, SnowflakeView],
+        dataset_name: str,
+        schema_metadata: SchemaMetadata,
+    ) -> None:
         if (
             isinstance(table, SnowflakeTable)
             and self.config.classification.enabled
@@ -1255,6 +1260,9 @@ class SnowflakeV2Source(
                     "Failed to classify table columns",
                     dataset_name,
                 )
+            finally:
+                # Cleaning up sample_data fetched for classification
+                table.sample_data = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -1470,7 +1478,7 @@ class SnowflakeV2Source(
             df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
             time_taken = timer.elapsed_seconds()
             logger.debug(
-                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name}; took {time_taken:.3f} seconds"
+                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name};{df.shape[0]} rows; took {time_taken:.3f} seconds"
             )
 
         return df
