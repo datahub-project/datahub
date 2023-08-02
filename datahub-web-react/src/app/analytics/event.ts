@@ -100,7 +100,8 @@ export enum EventType {
     SubscriptionUpdateErrorEvent,
     SubscriptionDeleteSuccessEvent,
     SubscriptionDeleteErrorEvent,
-    NotificationSettingsEvent,
+    NotificationSettingsSuccessEvent,
+    NotificationSettingsErrorEvent,
 }
 
 /**
@@ -723,8 +724,16 @@ export interface SubscriptionDeleteErrorEvent extends BaseEvent {
     subscriberType: SubscriberType;
 }
 
-export interface NotificationSettingsEvent extends BaseEvent {
-    type: EventType.NotificationSettingsEvent;
+export interface NotificationSettingsSuccessEvent extends BaseEvent {
+    type: EventType.NotificationSettingsSuccessEvent;
+    sinkTypes: Array<NotificationSinkType>;
+    sinkTypesAdded: Array<NotificationSinkType>;
+    sinkTypesRemoved: Array<NotificationSinkType>;
+    subscriberType: SubscriberType;
+}
+
+export interface NotificationSettingsErrorEvent extends BaseEvent {
+    type: EventType.NotificationSettingsErrorEvent;
     sinkTypes: Array<NotificationSinkType>;
     sinkTypesAdded: Array<NotificationSinkType>;
     sinkTypesRemoved: Array<NotificationSinkType>;
@@ -819,4 +828,5 @@ export type Event =
     | SubscriptionUpdateErrorEvent
     | SubscriptionDeleteSuccessEvent
     | SubscriptionDeleteErrorEvent
-    | NotificationSettingsEvent;
+    | NotificationSettingsSuccessEvent
+    | NotificationSettingsErrorEvent;

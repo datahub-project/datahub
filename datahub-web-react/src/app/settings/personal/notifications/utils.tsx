@@ -39,7 +39,7 @@ export const updateUserNotificationSettingsFunction = ({
     })
         .then(() => {
             analytics.event({
-                type: EventType.NotificationSettingsEvent,
+                type: EventType.NotificationSettingsSuccessEvent,
                 sinkTypes,
                 sinkTypesAdded,
                 sinkTypesRemoved,
@@ -50,6 +50,13 @@ export const updateUserNotificationSettingsFunction = ({
             }, 3000);
         })
         .catch((e: unknown) => {
+            analytics.event({
+                type: EventType.NotificationSettingsErrorEvent,
+                sinkTypes,
+                sinkTypesAdded,
+                sinkTypesRemoved,
+                subscriberType: 'personal',
+            });
             message.destroy();
             if (e instanceof Error) {
                 message.error({ content: `Failed to update settings: \n ${e.message || ''}`, duration: 3 });
@@ -90,7 +97,7 @@ export const updateGroupNotificationSettingsFunction = ({
     })
         .then(() => {
             analytics.event({
-                type: EventType.NotificationSettingsEvent,
+                type: EventType.NotificationSettingsSuccessEvent,
                 sinkTypes,
                 sinkTypesAdded,
                 sinkTypesRemoved,
@@ -101,6 +108,13 @@ export const updateGroupNotificationSettingsFunction = ({
             }, 3000);
         })
         .catch((e: unknown) => {
+            analytics.event({
+                type: EventType.NotificationSettingsErrorEvent,
+                sinkTypes,
+                sinkTypesAdded,
+                sinkTypesRemoved,
+                subscriberType: 'group',
+            });
             message.destroy();
             if (e instanceof Error) {
                 message.error({ content: `Failed to update settings: \n ${e.message || ''}`, duration: 3 });
