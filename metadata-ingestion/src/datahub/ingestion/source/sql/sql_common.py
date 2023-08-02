@@ -41,11 +41,13 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    downgrade_schema_from_v2,
     gen_database_container,
     gen_database_key,
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
+    schema_requires_v2,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -287,7 +289,15 @@ def get_schema_metadata(
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: Optional[List[SchemaField]] = None,
+    simplify_nested_field_paths: bool = False,
 ) -> SchemaMetadata:
+    if (
+        simplify_nested_field_paths
+        and canonical_schema is not None
+        and not schema_requires_v2(canonical_schema)
+    ):
+        canonical_schema = downgrade_schema_from_v2(canonical_schema)
+
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),

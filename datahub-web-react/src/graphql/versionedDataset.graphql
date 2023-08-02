@@ -10,6 +10,7 @@ query getVersionedDataset($urn: String!, $versionStamp: String) {
                 nativeDataType
                 recursive
                 isPartOfKey
+                isPartitioningKey
             }
             lastObserved
         }
