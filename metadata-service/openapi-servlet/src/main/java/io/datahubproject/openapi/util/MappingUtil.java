@@ -46,7 +46,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -88,19 +87,9 @@ public class MappingUtil {
   private static final Map<Class<? extends OneOfGenericAspectValue>, String> ASPECT_NAME_MAP =
       new HashMap<>();
   private static final Map<String, Class<? extends RecordTemplate>> PEGASUS_TYPE_MAP = new HashMap<>();
-  private static final Pattern CLASS_NAME_PATTERN =
-      Pattern.compile("(\"com\\.linkedin\\.)([a-z]+?\\.)+?(?<className>[A-Z]\\w+?)(\":\\{)(?<content>.*?)(}})");
-  private static final Pattern GLOBAL_TAGS_PATTERN =
-      Pattern.compile("\"globalTags\":\\{");
-  private static final Pattern GLOSSARY_TERMS_PATTERN =
-      Pattern.compile("\"glossaryTerms\":\\{");
 
   private static final String DISCRIMINATOR = "__type";
-  private static final Pattern CLASS_TYPE_NAME_PATTERN =
-      Pattern.compile("(\\s+?\"__type\"\\s+?:\\s+?\")(?<classTypeName>\\w*?)(\"[,]?\\s+?)(?<content>[\\S\\s]*?)(\\s+})");
   private static final String PEGASUS_PACKAGE = "com.linkedin";
-  private static final String GLOBAL_TAGS = "GlobalTags";
-  private static final String GLOSSARY_TERMS = "GlossaryTerms";
   private static final ReflectionCache REFLECT_AVRO = ReflectionCache.builder()
           .basePackage("com.linkedin.pegasus2avro").build();
   private static final ReflectionCache REFLECT_OPENAPI = ReflectionCache.builder()

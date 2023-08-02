@@ -60,7 +60,6 @@ public class OpenApiEntities {
                     .filter(e -> "core".equals(e.getCategory()))
                     .collect(Collectors.toMap(Entity::getName, Function.identity()));
         } catch (IOException e) {
-            e.printStackTrace();
             throw new IllegalArgumentException(
                     String.format("Error while reading entity yaml file in path %s: %s", entityRegistryYaml, e.getMessage()));
         }
