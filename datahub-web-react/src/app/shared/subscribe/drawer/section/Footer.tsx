@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { Button } from 'antd';
 import { useDrawerState } from '../state/context';
+import { ChannelSelections } from '../state/types';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -22,7 +23,9 @@ interface Props {
 
 export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }: Props) {
     const { edited, slack } = useDrawerState();
-    const canSubmit = edited && (isSubscribed || slack.enabled);
+    const hasSlackChannel = slack.channelSelection === ChannelSelections.SUBSCRIPTION && slack.subscription.channel;
+    const isSlackFormValid = !slack.enabled || hasSlackChannel;
+    const canSubmit = edited && isSlackFormValid;
 
     return (
         <FooterContainer>

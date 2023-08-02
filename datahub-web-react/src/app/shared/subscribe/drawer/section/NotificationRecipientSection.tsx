@@ -187,6 +187,11 @@ export default function NotificationRecipientSection() {
                                                 }
                                                 value={slack.subscription.channel}
                                                 onChange={onChangeChannelInput}
+                                                status={
+                                                    isSubscriptionChannelSelected && !slack.subscription.channel
+                                                        ? 'error'
+                                                        : undefined
+                                                }
                                             />
                                         </StyledFormItem>
                                     </Form>
@@ -198,7 +203,7 @@ export default function NotificationRecipientSection() {
                             Reach out to your admin to enable your Slack integration to turn on Slack notifications.
                         </DisabledText>
                     )}
-                    {isSubscriptionChannelSelected && settings.slack.channel && (
+                    {isSubscriptionChannelSelected && (
                         <StyledCheckbox
                             disabled={!slack.enabled || !slackSinkEnabled}
                             checked={slack.subscription.saveAsDefault}
