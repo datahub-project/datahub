@@ -206,7 +206,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres1.postgres.public.member,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,test-postgres-jdbc-member,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,kafka1.test-postgres-jdbc-member,PROD)"
             ]
         }
     },

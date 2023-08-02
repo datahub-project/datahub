@@ -7,6 +7,8 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
+import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
+import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
@@ -24,8 +26,8 @@ import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
-import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -132,6 +134,15 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
       queriesTabConfig.setQueriesTabResultSize(_visualConfiguration.getQueriesTab().getQueriesTabResultSize());
       visualConfig.setQueriesTab(queriesTabConfig);
+    }
+    if (_visualConfiguration != null && _visualConfiguration.getEntityProfile() != null) {
+      EntityProfilesConfig entityProfilesConfig = new EntityProfilesConfig();
+      if (_visualConfiguration.getEntityProfile().getDomainDefaultTab() != null) {
+        EntityProfileConfig profileConfig = new EntityProfileConfig();
+        profileConfig.setDefaultTab(_visualConfiguration.getEntityProfile().getDomainDefaultTab());
+        entityProfilesConfig.setDomain(profileConfig);
+      }
+      visualConfig.setEntityProfiles(entityProfilesConfig);
     }
     appConfig.setVisualConfig(visualConfig);
 

@@ -359,21 +359,36 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
-        if (
-            self.config.profile_table_row_count_estimate_only
-            and self.dataset.engine.dialect.name.lower() == "postgresql"
-        ):
-            schema_name = self.dataset_name.split(".")[1]
-            table_name = self.dataset_name.split(".")[2]
-            logger.debug(
-                f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
-            )
+        if self.config.profile_table_row_count_estimate_only:
+            dialect_name = self.dataset.engine.dialect.name.lower()
+            if dialect_name == "postgresql":
+                schema_name = self.dataset_name.split(".")[1]
+                table_name = self.dataset_name.split(".")[2]
+                logger.debug(
+                    f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+                )
+                get_estimate_script = sa.text(
+                    f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
+                )
+            elif dialect_name == "mysql":
+                schema_name = self.dataset_name.split(".")[0]
+                table_name = self.dataset_name.split(".")[1]
+                logger.debug(
+                    f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+                )
+                get_estimate_script = sa.text(
+                    f"SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'"
+                )
+            else:
+                logger.debug(
+                    f"Dialect {dialect_name} not supported for feature "
+                    f"profile_table_row_count_estimate_only. Proceeding with full row count."
+                )
+                dataset_profile.rowCount = self.dataset.get_row_count()
+                return
+
             dataset_profile.rowCount = int(
-                self.dataset.engine.execute(
-                    sa.text(
-                        f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
-                    )
-                ).scalar()
+                self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
             dataset_profile.rowCount = self.dataset.get_row_count()
@@ -579,16 +594,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         columns_profiling_queue: List[_SingleColumnSpec] = []
-        for column in all_columns:
-            column_profile = DatasetFieldProfileClass(fieldPath=column)
-            profile.fieldProfiles.append(column_profile)
+        if columns_to_profile:
+            for column in all_columns:
+                column_profile = DatasetFieldProfileClass(fieldPath=column)
+                profile.fieldProfiles.append(column_profile)
 
-            if column in columns_to_profile:
-                column_spec = _SingleColumnSpec(column, column_profile)
-                columns_profiling_queue.append(column_spec)
+                if column in columns_to_profile:
+                    column_spec = _SingleColumnSpec(column, column_profile)
+                    columns_profiling_queue.append(column_spec)
 
-                self._get_column_type(column_spec, column)
-                self._get_column_cardinality(column_spec, column)
+                    self._get_column_type(column_spec, column)
+                    self._get_column_cardinality(column_spec, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()

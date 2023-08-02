@@ -113,9 +113,11 @@ describe('siblings', () => {
     cy.clickOptionWithTestId('compress-lineage-toggle');
 
     // check the subtypes
-    cy.get('text:contains(View)').should('have.length', 2);
-    cy.get('text:contains(Table)').should('have.length', 0);
-    cy.get('text:contains(Seed)').should('have.length', 1);
+    cy.get('[data-testid="Seed"]').should('have.length', 1);
+    // center counts twice since we secretely render two center nodes, plus the downstream bigquery
+    cy.get('[data-testid="View"]').should('have.length', 3);
+    cy.get('[data-testid="Table"]').should('have.length', 0);
+
 
     // check the names
     cy.get('text:contains(raw_orders)').should('have.length', 1);

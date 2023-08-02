@@ -2,7 +2,7 @@ import json
 import logging
 import pathlib
 import sys
-from typing import cast
+from typing import Any, Dict, cast
 from unittest import mock
 
 import pytest
@@ -27,6 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import MetadataChangeProposalClass, UpstreamClass
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
@@ -188,6 +189,13 @@ def side_effect_workbook_data(*arg, **kwargs):
     ], mock_pagination
 
 
+def side_effect_datasource_get_by_id(id, *arg, **kwargs):
+    datasources, _ = side_effect_datasource_data()
+    for ds in datasources:
+        if ds._id == id:
+            return ds
+
+
 def tableau_ingest_common(
     pytestconfig,
     tmp_path,
@@ -198,6 +206,7 @@ def tableau_ingest_common(
     pipeline_config=config_source_default,
     sign_out_side_effect=lambda: None,
     pipeline_name="tableau-test-pipeline",
+    datasources_side_effect=side_effect_datasource_data,
 ):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -215,7 +224,10 @@ def tableau_ingest_common(
             mock_client.projects = mock.Mock()
             mock_client.projects.get.side_effect = side_effect_project_data
             mock_client.datasources = mock.Mock()
-            mock_client.datasources.get.side_effect = side_effect_datasource_data
+            mock_client.datasources.get.side_effect = datasources_side_effect
+            mock_client.datasources.get_by_id.side_effect = (
+                side_effect_datasource_get_by_id
+            )
             mock_client.workbooks = mock.Mock()
             mock_client.workbooks.get.side_effect = side_effect_workbook_data
             mock_client.views.get.side_effect = side_effect_usage_stat
@@ -243,12 +255,13 @@ def tableau_ingest_common(
             pipeline.run()
             pipeline.raise_from_status()
 
-            mce_helpers.check_golden_file(
-                pytestconfig,
-                output_path=f"{tmp_path}/{output_file_name}",
-                golden_path=test_resources_dir / golden_file_name,
-                ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
-            )
+            if golden_file_name:
+                mce_helpers.check_golden_file(
+                    pytestconfig,
+                    output_path=f"{tmp_path}/{output_file_name}",
+                    golden_path=test_resources_dir / golden_file_name,
+                    ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+                )
             return pipeline
 
 
@@ -274,6 +287,39 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
         output_file_name,
         mock_datahub_graph,
         pipeline_name="test_tableau_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_mces_cll.json"
+    golden_file_name: str = "tableau_cll_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "extract_lineage_from_unsupported_custom_sql_queries": True,
+        "extract_column_level_lineage": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_cll_ingest",
+        pipeline_config=new_pipeline_config,
     )
 
 
@@ -603,7 +649,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
     )
 
-    assert len(difference_dataset_urns) == 33
+    assert len(difference_dataset_urns) == 34
     deleted_dataset_urns = [
         "urn:li:dataset:(urn:li:dataPlatform:tableau,dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tableau,d00f4ba6-707e-4684-20af-69eb47587cc2,PROD)",
@@ -638,6 +684,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:marketo-marketo,marketo.campaignstable,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:external,sample - superstore%2C %28new%29.xls.people,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:webdata-direct:servicenowitsm-servicenowitsm,ven01911.sc_cat_item,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
     ]
     assert sorted(deleted_dataset_urns) == sorted(difference_dataset_urns)
 
@@ -743,27 +790,70 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
     config.lineage_overrides = TableauLineageOverrides(
         database_override_map={"production database": "prod"}
     )
-    source = TableauSource(config=config, ctx=context)
-    lineage = source._create_lineage_from_unsupported_csql(
-        csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
-        csql={
-            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-            "isUnsupportedCustomSql": "true",
-            "database": {"name": "production database", "connectionType": "bigquery"},
-        },
-    )
 
-    mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+    with mock.patch(
+        "datahub.ingestion.source.tableau.sqlglot_lineage"
+    ) as sqlglot_lineage:
 
-    assert mcp.aspect == UpstreamLineage(
-        upstreams=[
-            UpstreamClass(
-                dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,prod.invent_dw.userdetail,PROD)",
-                type=DatasetLineageType.TRANSFORMED,
-            )
-        ]
-    )
-    assert (
-        mcp.entityUrn
-        == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
+        sqlglot_lineage.return_value = SqlParsingResult(  # type:ignore
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
+            ],
+            out_tables=[],
+            column_lineage=None,
+        )
+
+        source = TableauSource(config=config, ctx=context)
+
+        lineage = source._create_lineage_from_unsupported_csql(
+            csql_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)",
+            csql={
+                "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
+                "isUnsupportedCustomSql": "true",
+                "database": {
+                    "name": "my-bigquery-project",
+                    "connectionType": "bigquery",
+                },
+            },
+        )
+
+        mcp = cast(MetadataChangeProposalClass, next(iter(lineage)).metadata)
+
+        assert mcp.aspect == UpstreamLineage(
+            upstreams=[
+                UpstreamClass(
+                    dataset="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)",
+                    type=DatasetLineageType.TRANSFORMED,
+                )
+            ],
+            fineGrainedLineages=[],
+        )
+        assert (
+            mcp.entityUrn
+            == "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
+        )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_mces.json"
+    golden_file_name: str = "tableau_mces_golden.json"
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [
+            read_response(pytestconfig, "workbooksConnection_all.json"),
+            read_response(pytestconfig, "sheetsConnection_all.json"),
+            read_response(pytestconfig, "dashboardsConnection_all.json"),
+            read_response(pytestconfig, "embeddedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "publishedDatasourcesConnection_all.json"),
+            read_response(pytestconfig, "customSQLTablesConnection_all.json"),
+            read_response(pytestconfig, "databaseTablesConnection_all.json"),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
+        datasources_side_effect=ValueError("project_id must be defined."),
     )

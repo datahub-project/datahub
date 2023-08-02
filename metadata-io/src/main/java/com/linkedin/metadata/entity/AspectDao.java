@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.PagedList;
 
 import javax.annotation.Nonnull;
@@ -21,13 +22,15 @@ import java.util.function.Supplier;
  * Requirements for any implementation:
  *    1. Being able to map its internal storage representation to {@link EntityAspect};
  *    2. Honor the internal versioning semantics. The latest version of any aspect is set to 0 for efficient retrieval.
- *       In most cases only the latest state of an aspect will be fetched. See {@link EntityService} for more details.
+ *       In most cases only the latest state of an aspect will be fetched. See {@link EntityServiceImpl} for more details.
  *
- * TODO: This interface exposes {@link #runInTransactionWithRetry(Supplier, int)} because {@link EntityService} concerns
+ * TODO: This interface exposes {@link #runInTransactionWithRetry(Supplier, int)} because {@link EntityServiceImpl} concerns
  * itself with batching multiple commands into a single transaction. It exposes storage concerns somewhat and it'd be
  * worth looking into ways to move this responsibility inside {@link AspectDao} implementations.
  */
 public interface AspectDao {
+    String ASPECT_WRITE_COUNT_METRIC_NAME = "aspectWriteCount";
+    String ASPECT_WRITE_BYTES_METRIC_NAME = "aspectWriteBytes";
 
     @Nullable
     EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version);
@@ -116,4 +119,11 @@ public interface AspectDao {
 
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
+
+    default void incrementWriteMetrics(String aspectName, long count, long bytes) {
+        MetricUtils.counter(this.getClass(),
+                String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName))).inc(count);
+        MetricUtils.counter(this.getClass(),
+                String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName))).inc(bytes);
+    }
 }
