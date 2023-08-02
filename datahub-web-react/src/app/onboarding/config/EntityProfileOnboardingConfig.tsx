@@ -14,6 +14,7 @@ export const ENTITY_PROFILE_OWNERS_ID = 'entity-profile-owners';
 export const ENTITY_PROFILE_TAGS_ID = 'entity-profile-tags';
 export const ENTITY_PROFILE_GLOSSARY_TERMS_ID = 'entity-profile-glossary-terms';
 export const ENTITY_PROFILE_DOMAINS_ID = 'entity-profile-domains';
+export const ENTITY_PROFILE_SUBSCRIPTION_ID = 'entity-profile-subscriptions';
 
 export const EntityProfileOnboardingConfig: OnboardingStep[] = [
     {
@@ -182,6 +183,17 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
+            </Typography.Paragraph>
+        ),
+    },
+    {
+        id: ENTITY_PROFILE_SUBSCRIPTION_ID,
+        selector: `#${ENTITY_PROFILE_SUBSCRIPTION_ID}`,
+        title: 'Keep Up With Your Fast-Moving Data',
+        content: (
+            <Typography.Paragraph>
+                You can now subscribe yourself or your group to data entities to stay up-to-date with important changes
+                such as failed assertions, schema changes, documentation updates, and more.
             </Typography.Paragraph>
         ),
     },

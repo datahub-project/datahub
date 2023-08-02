@@ -9,6 +9,7 @@ import useSubscription from './useSubscription';
 import useDeleteSubscription from './useDeleteSubscription';
 import useSubscriptionSummary from './useSubscriptionSummary';
 import useGroupRelationships from './useGroupRelationships';
+import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../onboarding/config/EntityProfileOnboardingConfig';
 
 const StyledStarFilled = styled(StarFilled)`
     color: ${(props) => props.theme.styles['primary-color']};
@@ -72,53 +73,55 @@ export default function SubscribeButtons() {
 
     return (
         <>
-            <SubscribeDropdown
-                menu={{
-                    items: [
-                        ...(isUserSubscribed
-                            ? [
-                                  {
-                                      key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
-                                      label: 'Unsubscribe Me',
-                                  },
-                              ]
-                            : []),
-                        {
-                            key: DROPDOWN_KEYS.SUBSCRIBE_ME,
-                            label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
-                        },
-                        ...(hasGroupRelationships
-                            ? [
-                                  {
-                                      key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
-                                      label: 'Manage Group Subscriptions',
-                                  },
-                              ]
-                            : []),
-                    ],
-                    onClick: onClickMenuItem,
-                }}
-                buttonsRender={([leftButton, rightButton]) => [
-                    <Tooltip
-                        title={
-                            <SubscriptionStarTooltip
-                                isUserSubscribed={isUserSubscribed}
-                                numUserSubscriptions={numUserSubscriptions}
-                                numGroupSubscriptions={numGroupSubscriptions}
-                                groupNames={groupNames}
-                            />
-                        }
-                        placement="left"
-                        color="#262626"
-                    >
-                        {leftButton}
-                    </Tooltip>,
-                    rightButton,
-                ]}
-                onClick={onClickStar}
-            >
-                {isUserSubscribed ? <StyledStarFilled /> : <StarOutlined />}
-            </SubscribeDropdown>
+            <span id={ENTITY_PROFILE_SUBSCRIPTION_ID}>
+                <SubscribeDropdown
+                    menu={{
+                        items: [
+                            ...(isUserSubscribed
+                                ? [
+                                      {
+                                          key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
+                                          label: 'Unsubscribe Me',
+                                      },
+                                  ]
+                                : []),
+                            {
+                                key: DROPDOWN_KEYS.SUBSCRIBE_ME,
+                                label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
+                            },
+                            ...(hasGroupRelationships
+                                ? [
+                                      {
+                                          key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
+                                          label: 'Manage Group Subscriptions',
+                                      },
+                                  ]
+                                : []),
+                        ],
+                        onClick: onClickMenuItem,
+                    }}
+                    buttonsRender={([leftButton, rightButton]) => [
+                        <Tooltip
+                            title={
+                                <SubscriptionStarTooltip
+                                    isUserSubscribed={isUserSubscribed}
+                                    numUserSubscriptions={numUserSubscriptions}
+                                    numGroupSubscriptions={numGroupSubscriptions}
+                                    groupNames={groupNames}
+                                />
+                            }
+                            placement="left"
+                            color="#262626"
+                        >
+                            {leftButton}
+                        </Tooltip>,
+                        rightButton,
+                    ]}
+                    onClick={onClickStar}
+                >
+                    {isUserSubscribed ? <StyledStarFilled /> : <StarOutlined />}
+                </SubscribeDropdown>
+            </span>
             <SubscriptionDrawer
                 isOpen={isDrawerOpen}
                 onClose={onCloseDrawer}
