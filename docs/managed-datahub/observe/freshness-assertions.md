@@ -335,9 +335,9 @@ mutation createAssertionMonitor {
 
 This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Audit Log). 
 
-Now, your assertion should begin to be monitored by Acryl DataHub, with evaluation occurrig every 8 hours. 
+After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone. 
 
-You can also delete Assertions + their monitors using GraphQL: `deleteAssertion` and `deleteMonitor`, respectively.
+You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
 ### Tips
 
