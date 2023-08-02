@@ -439,7 +439,7 @@ jobs:
             datahub-ingestion:
               - 'docker/datahub-ingestion/**'
       - name: Build and push Base Image
-        if: steps.filter.outputs.datahub-ingestion-base == 'true'
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
@@ -452,10 +452,10 @@ jobs:
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
       - name: Build schemas
-        if: steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true'
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true' }}
         run: ./gradlew :metadata-events:mxe-schemas:build
       - name: Build and push Slim Image
-        if: steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true'
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
@@ -470,7 +470,7 @@ jobs:
           file: ./docker/datahub-ingestion-slim/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
       - name: Build and push Full Image
-        if: steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true'
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
