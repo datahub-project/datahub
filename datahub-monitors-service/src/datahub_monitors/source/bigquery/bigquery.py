@@ -8,6 +8,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
     _make_gcp_logging_client,
 )
 
+from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
 from datahub_monitors.connection.bigquery.bigquery_connection import BigQueryConnection
 from datahub_monitors.exceptions import (
     InvalidParametersException,
@@ -219,6 +220,7 @@ class BigQuerySource(Source):
         ):
             date_column = parameters["path"]
             column_type = parameters["native_type"]
+            filter_sql = FilterBuilder(parameters.get("filter")).get_sql()
 
             if column_type.upper() not in SUPPORTED_LAST_MODIFIED_COLUMN_TYPES:
                 raise InvalidParametersException(
@@ -239,6 +241,7 @@ class BigQuerySource(Source):
                 FROM {operation_params.project}.{operation_params.dataset}.{operation_params.table}
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
+                {f"AND {filter_sql}" if filter_sql else ''}
                 ORDER BY {date_column} DESC
             ;"""
 

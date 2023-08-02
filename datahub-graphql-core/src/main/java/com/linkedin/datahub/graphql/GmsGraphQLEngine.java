@@ -109,6 +109,7 @@ import com.linkedin.datahub.graphql.resolvers.chart.ChartStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.config.AppConfigResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ContainerEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.container.ParentContainersResolver;
+import com.linkedin.datahub.graphql.resolvers.connection.ConnectionForEntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
@@ -867,6 +868,7 @@ public class GmsGraphQLEngine {
             .dataFetcher("listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
             .dataFetcher("listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))
             .dataFetcher("browseV2", new BrowseV2Resolver(this.entityClient, this.viewService))
+            .dataFetcher("connectionForEntityExists",  new ConnectionForEntityExistsResolver(this.entityClient))
         );
     }
 

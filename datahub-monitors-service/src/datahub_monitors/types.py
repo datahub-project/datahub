@@ -435,7 +435,7 @@ class AssertionEvaluationResultError:
     """The error associated with an assertion evaluation result."""
 
     def __init__(
-        self, type: AssertionResultErrorType, properties: Optional[Dict[str, Any]]
+        self, type: AssertionResultErrorType, properties: Optional[Dict[str, str]]
     ):
         self.type = type
         self.properties = properties

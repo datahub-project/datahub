@@ -7,15 +7,13 @@ type Props = {
     onChange: (newTimezone: string) => void;
 };
 
-export const TimezoneSelect = ({ value, onChange }: Props) => {
+export const TimezoneSelect = ({ value, onChange, ...props }: Props) => {
     const timezones = moment.tz.names();
     return (
-        <>
-            <Select showSearch value={value} onChange={onChange}>
-                {timezones.map((timezone) => (
-                    <Select.Option value={timezone}>{timezone}</Select.Option>
-                ))}
-            </Select>
-        </>
+        <Select showSearch value={value} onChange={onChange} {...props}>
+            {timezones.map((timezone) => (
+                <Select.Option value={timezone}>{timezone}</Select.Option>
+            ))}
+        </Select>
     );
 };

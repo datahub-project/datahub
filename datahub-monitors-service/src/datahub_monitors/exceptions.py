@@ -14,7 +14,7 @@ class InvalidParametersException(AssertionResultException):
 
     def __init__(self, message: str, parameters: dict):
         super().__init__(message)
-        self.parameters = parameters
+        self.parameters = str(parameters)
 
 
 class InvalidSourceTypeException(AssertionResultException):
@@ -26,7 +26,7 @@ class InvalidSourceTypeException(AssertionResultException):
         source_type: Union[DatasetFreshnessSourceType, EntityEventType],
     ):
         super().__init__(message)
-        self.source_type = source_type
+        self.source_type = str(source_type)
 
 
 class SourceConnectionErrorException(AssertionResultException):

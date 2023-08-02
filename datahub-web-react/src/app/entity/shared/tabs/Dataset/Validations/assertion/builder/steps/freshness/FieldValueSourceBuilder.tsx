@@ -1,9 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Select } from 'antd';
+import { Form, Select } from 'antd';
 import { FreshnessFieldSpec } from '../../../../../../../../../../types.generated';
 
-const Form = styled.div`
+const StyledFormItem = styled(Form.Item)`
     display: flex;
     flex-direction: column;
     padding-bottom: 12px;
@@ -28,12 +28,12 @@ export const FieldValueSourceBuilder = ({ fields, value, onChange }: Props) => {
     };
 
     return (
-        <Form>
+        <StyledFormItem name="column" rules={[{ required: true, message: 'Please select a column' }]}>
             <ColumnSelect placeholder="Select a column..." value={value?.path} onChange={updateFreshnessFieldSpec}>
                 {fields.map((field) => (
                     <Select.Option value={field.path}>{field.path}</Select.Option>
                 ))}
             </ColumnSelect>
-        </Form>
+        </StyledFormItem>
     );
 };
