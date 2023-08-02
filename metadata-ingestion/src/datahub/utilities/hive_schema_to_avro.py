@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import NullTypeClass, SchemaFieldDataTypeClass
+from datahub.utilities.mapping import OperationProcessor
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -260,6 +261,8 @@ def get_avro_schema_for_hive_column(
 def get_schema_fields_for_hive_column(
     hive_column_name: str,
     hive_column_type: str,
+    meta_mapping_processor: Optional[OperationProcessor] = None,
+    meta_props: Optional[dict] = None,
     description: Optional[str] = None,
     default_nullable: bool = False,
     is_part_of_key: bool = False,
@@ -272,6 +275,8 @@ def get_schema_fields_for_hive_column(
             avro_schema=json.dumps(avro_schema_json),
             default_nullable=default_nullable,
             swallow_exceptions=False,
+            meta_mapping_processor=meta_mapping_processor,
+            meta_props=meta_props,
         )
     except Exception as e:
         logger.warning(
