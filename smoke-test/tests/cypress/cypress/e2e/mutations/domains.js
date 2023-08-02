@@ -23,7 +23,7 @@ describe("add remove domain", () => {
         cy.waitTextVisible("Add assets")
         cy.clickOptionWithText("Add assets")     
         cy.get(".ant-modal-content").within(() => {
-            cy.get('[data-testid="search-input"]').type("cypress_project.jaffle_shop.customer")
+            cy.get('[data-testid="search-input"]').click().invoke("val", "cypress_project.jaffle_shop.").type("customer")
             cy.contains("BigQuery")
             cy.get(".ant-checkbox-input").first().click()
             cy.get("#continueButton").click()
