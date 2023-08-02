@@ -800,9 +800,7 @@ class S3Source(StatefulIngestionSourceBase):
                     # The exception that appears in stacktrace cannot actually be caught without a lot more work
                     # https://github.com/boto/boto3/issues/1195
                     if "NoSuchBucket" in repr(e):
-                        logger.warning(
-                            f"Got NoSuchBucket exception for {bucket_name}", e
-                        )
+                        logger.debug(f"Got NoSuchBucket exception for {bucket_name}", e)
                         self.get_report().report_warning(
                             "Missing bucket", f"No bucket found {bucket_name}"
                         )
