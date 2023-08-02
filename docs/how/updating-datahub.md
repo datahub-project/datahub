@@ -16,7 +16,7 @@ certain column-level metrics. Instead, set `profile_table_level_only` to `false`
 individually enable / disable desired field metrics.
 - #8451: The `bigquery-beta` and `snowflake-beta` source aliases have been dropped. Use `bigquery` and `snowflake` as the source type instead.
 - #8472: Ingestion runs created with Pipeline.create will show up in the DataHub ingestion tab as CLI-based runs. To revert to the previous behavior of not showing these runs in DataHub, pass `no_default_report=True`.
-
+- #8513: `snowflake` connector will use user's `email` attribute as is in urn. To revert to previous behavior disable `email_as_user_identifier` in recipe. 
 ### Potential Downtime
 
 ### Deprecations

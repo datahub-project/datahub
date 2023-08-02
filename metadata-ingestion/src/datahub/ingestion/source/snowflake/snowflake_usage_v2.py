@@ -219,7 +219,7 @@ class SnowflakeUsageExtractor(
                 if self.config.include_top_n_queries
                 else None,
                 userCounts=self._map_user_counts(
-                    json.loads(row["USER_COUNTS"]), self.config.email_as_user_identifier
+                    json.loads(row["USER_COUNTS"]),
                 ),
                 fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
             )
@@ -250,7 +250,8 @@ class SnowflakeUsageExtractor(
         )
 
     def _map_user_counts(
-        self, user_counts: Dict, email_as_user_identifier: bool
+        self,
+        user_counts: Dict,
     ) -> List[DatasetUserUsageCounts]:
         filtered_user_counts = []
         for user_count in user_counts:
@@ -268,7 +269,7 @@ class SnowflakeUsageExtractor(
                         self.get_user_identifier(
                             user_count["user_name"],
                             user_email,
-                            email_as_user_identifier,
+                            self.config.email_as_user_identifier,
                         )
                     ),
                     count=user_count["total"],
