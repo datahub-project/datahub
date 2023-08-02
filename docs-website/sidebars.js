@@ -418,6 +418,11 @@ module.exports = {
           className: "saasOnly",
         },
         "docs/act-on-metadata/impact-analysis",
+        {
+          "Observability": [
+            "docs/observe/freshness-assertions",
+          ],
+        },
       ],
     },
     {
