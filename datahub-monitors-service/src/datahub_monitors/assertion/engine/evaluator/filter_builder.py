@@ -45,7 +45,7 @@ class FilterBuilder:
     def _clean_filter_string(self) -> str:
         # Remove "where" keyword if included in filter
         cleaned_str, num_prefix_subs = re.subn(
-            pattern="^\s*(WHERE)*\s*",
+            pattern="^\s*(WHERE)+\s+",
             string=self._raw_filter_string,
             repl="",
             flags=re.IGNORECASE,
@@ -53,15 +53,18 @@ class FilterBuilder:
 
         # Remove any trailing semicolons included in filter
         cleaned_str, num_suffix_subs = re.subn(
-            pattern=";*\s*$", string=cleaned_str, repl=""
+            pattern=";+\s*$", string=cleaned_str, repl=""
         )
+
+        # Remove any leading or trailing whitespace
+        result = cleaned_str.strip()
 
         if num_prefix_subs + num_suffix_subs > 0:
             logger.info(
-                f"Formatted SQL filter. Replaced {self._raw_filter_string} with {cleaned_str}"
+                f"Formatted SQL filter. Replaced {self._raw_filter_string} with {result}"
             )
 
-        return cleaned_str
+        return result
 
     def get_sql(self) -> str:
         return self._cleaned_filter_string
