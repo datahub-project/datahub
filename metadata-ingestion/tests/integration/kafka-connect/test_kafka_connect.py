@@ -302,6 +302,40 @@ def loaded_kafka_connect(kafka_connect_runner):
     )
     assert ret.returncode == 0
 
+    # Creating S3 Sink source
+    r = requests.post(
+        KAFKA_CONNECT_ENDPOINT,
+        headers={"Content-Type": "application/json"},
+        data=r"""{
+                        "name": "confluent_s3_sink_connector",
+                        "config": {
+                            "aws.access.key.id": "x",
+                            "aws.secret.access.key": "x",
+                            "tasks.max": "1",
+                            "max.interval": 5000,
+                            "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+                            "s3.region": "ap-southeast-2",
+                            "s3.bucket.name": "test-bucket",
+                            "s3.compression.type": "gzip",
+                            "store.url": "${env:S3_ENDPOINT_URL}",
+                            "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+                            "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+                            "flush.size": 100,
+                            "partitioner.class": "io.confluent.connect.storage.partitioner.HourlyPartitioner",
+                            "locale": "en_AU",
+                            "timezone": "UTC",
+                            "timestamp.extractor": "Record",
+                            "topics": "my-topic",
+                            "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+                            "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+                            "key.converter.schemas.enable": false,
+                            "value.converter.schemas.enable": false
+                        }
+                    }""",
+    )
+    r.raise_for_status()
+    assert r.status_code == 201
+
     # Give time for connectors to process the table data
     kafka_connect_runner.wait_until_responsive(
         timeout=30,
@@ -342,6 +376,24 @@ def test_kafka_connect_mongosourceconnect_ingest(
         pytestconfig,
         output_path=tmp_path / "kafka_connect_mces.json",
         golden_path=test_resources_dir / "kafka_connect_mongo_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration_batch_1
+def test_kafka_connect_s3sink_ingest(
+    loaded_kafka_connect, pytestconfig, tmp_path, test_resources_dir
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (test_resources_dir / "kafka_connect_s3sink_to_file.yml").resolve()
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "kafka_connect_mces.json",
+        golden_path=test_resources_dir / "kafka_connect_s3sink_mces_golden.json",
         ignore_paths=[],
     )
 
