@@ -109,10 +109,11 @@ export const SinkSettingsSection = ({
     }, [sinkTypes]);
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to. ${sinkName} ${
+    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to at ${sinkName} ${
         isPersonal ? 'member' : 'channel'
     } ID: `;
     const sinkDisabledDescription = `In order to enable, ask your DataHub admin to setup the ${sinkName} integration.`;
+    const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel ID';
     const saveButtonOnClick = () => {
         if (inputValue) {
             updateSinkSetting({ text: inputValue, sinkTypes: allowEditing ? [NotificationSinkType.Slack] : [] });
@@ -152,7 +153,7 @@ export const SinkSettingsSection = ({
                                     <Form form={form}>
                                         <StyledFormItem name="slackFormValue">
                                             <StyledInput
-                                                placeholder="ABC12345678"
+                                                placeholder={slackInputPlaceholder}
                                                 value={inputValue}
                                                 onChange={(e) => setInputValue(e.target.value)}
                                                 disabled={!allowEditing}

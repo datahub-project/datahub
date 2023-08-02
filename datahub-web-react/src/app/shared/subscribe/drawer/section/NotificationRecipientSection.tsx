@@ -47,7 +47,7 @@ const SwitchWrapper = styled.div`
     align-items: center;
 `;
 
-const NotificationTypeText = styled(Typography.Text)`
+const SinkTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
     line-height: 20px;
@@ -65,7 +65,8 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 const StyledInput = styled(Input)`
-    max-width: 300px;
+    font-size: 14px;
+    width: 200px;
     border-color: ${ANTD_GRAY[8]};
 `;
 
@@ -80,7 +81,15 @@ const SaveAsDefaultText = styled(Typography.Text)`
     font-size: 14px;
     line-height: 22px;
     font-weight: 400;
-    color: ${ANTD_GRAY[8]};
+`;
+
+const UseDefaultText = styled(Typography.Text)`
+    font-size: 14px;
+`;
+
+const SettingsSlackChannel = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 700;
 `;
 
 const StyledAlert = styled(Alert)`
@@ -92,7 +101,7 @@ export default function NotificationRecipientSection() {
     const actions = useDrawerActions();
 
     const drawerState = useDrawerState();
-    const { settings, slack } = drawerState;
+    const { isPersonal, settings, slack } = drawerState;
 
     const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
         slack.channelSelection === ChannelSelections.SETTINGS,
@@ -103,14 +112,15 @@ export default function NotificationRecipientSection() {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const slackInputPlaceholder = isPersonal ? 'Alternate Slack Member ID' : 'Alternate Slack Channel ID';
 
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
     }, [form, slack.subscription.channel]);
 
     useEffect(() => {
-        if (isSubscriptionChannelSelected) channelInputRef.current?.focus();
-    }, [isSubscriptionChannelSelected]);
+        if (slack.enabled && isSubscriptionChannelSelected) channelInputRef.current?.focus();
+    }, [isSubscriptionChannelSelected, slack.enabled]);
 
     const onChangeSlackSwitch = (checked: boolean) => {
         actions.setSlackEnabled(checked);
@@ -140,7 +150,7 @@ export default function NotificationRecipientSection() {
                             checked={slack.enabled}
                             onChange={onChangeSlackSwitch}
                         />
-                        <NotificationTypeText>Slack Notifications</NotificationTypeText>
+                        <SinkTypeText>Slack Notifications</SinkTypeText>
                     </SwitchWrapper>
                     {shouldShowUpdateSlackSettingsWarning(drawerState) && (
                         <StyledAlert
@@ -159,15 +169,19 @@ export default function NotificationRecipientSection() {
                             <Space direction="vertical">
                                 {settings.slack.channel && (
                                     <Radio value={ChannelSelections.SETTINGS}>
-                                        Use default: {settings.slack.channel}
+                                        <UseDefaultText>
+                                            Use default:{' '}
+                                            <SettingsSlackChannel>{settings.slack.channel}</SettingsSlackChannel>
+                                        </UseDefaultText>
                                     </Radio>
                                 )}
                                 <Radio value={ChannelSelections.SUBSCRIPTION}>
                                     <Form form={form}>
                                         <StyledFormItem name="slackFormValue">
                                             <StyledInput
+                                                size="small"
                                                 ref={channelInputRef}
-                                                placeholder="ABC12345678"
+                                                placeholder={slackInputPlaceholder}
                                                 disabled={
                                                     !slack.enabled || !slackSinkEnabled || isSettingsChannelSelected
                                                 }
