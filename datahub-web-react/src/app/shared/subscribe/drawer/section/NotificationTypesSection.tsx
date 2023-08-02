@@ -5,8 +5,8 @@ import { DataNode } from 'antd/es/tree';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { getTreeDataForEntity } from '../utils';
-import { useDrawerState } from '../state/context';
 import useDrawerActions from '../state/actions';
+import { selectCheckedKeys, selectExpandedKeys, selectHasEnabledSink, useDrawerSelector } from '../state/selectors';
 
 const NotificationTypesContainer = styled.div`
     margin-top: 32px;
@@ -31,9 +31,9 @@ const TreeContainer = styled.div`
 `;
 
 export default function NotificationTypesSection() {
-    const {
-        notificationTypes: { checkedKeys, expandedKeys },
-    } = useDrawerState();
+    const checkedKeys = useDrawerSelector(selectCheckedKeys);
+    const expandedKeys = useDrawerSelector(selectExpandedKeys);
+    const hasEnabledSink = useDrawerSelector(selectHasEnabledSink);
     const actions = useDrawerActions();
     const { entityType } = useEntityData();
 
@@ -54,6 +54,7 @@ export default function NotificationTypesSection() {
             </NotifyActorTitleContainer>
             <TreeContainer>
                 <Tree
+                    disabled={!hasEnabledSink}
                     checkable
                     onExpand={onExpand}
                     expandedKeys={expandedKeys}
