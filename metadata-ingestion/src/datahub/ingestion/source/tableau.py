@@ -353,6 +353,11 @@ class TableauConfig(
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
+    lineage_platform_instance: str = Field(
+        default="uk",
+        description="Platform instance for mapping upstream lineage URNs.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -1526,7 +1531,7 @@ class TableauSource(StatefulIngestionSourceBase):
             )
             return None
 
-        query = datasource.get(c.QUERY)
+        query = clean_query(datasource.get(c.QUERY))
         if query is None:
             logger.debug(
                 f"raw sql query is not available for datasource {datasource_urn}"
