@@ -1192,13 +1192,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_schema_metadata(
         self, report: DBTSourceReport, node: DBTNode, platform: str
     ) -> SchemaMetadata:
-        action_processor = OperationProcessor(
-            self.config.column_meta_mapping,
-            self.config.tag_prefix,
-            "SOURCE_CONTROL",
-            self.config.strip_user_ids_from_email,
-        )
-
         canonical_schema: List[SchemaField] = []
         for column in node.columns:
             description = None
@@ -1218,13 +1211,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if self.config.convert_column_urns_to_lowercase:
                 field_name = field_name.lower()
 
+            meta_mapping_args = {}
+            if self.config.enable_meta_mapping:
+                action_processor = OperationProcessor(
+                    self.config.column_meta_mapping,
+                    self.config.tag_prefix,
+                    "SOURCE_CONTROL",
+                    self.config.strip_user_ids_from_email,
+                )
+                meta_mapping_args = {
+                    "meta_mapping_processor": action_processor,
+                    "meta_props": column.meta,
+                }
+
             schema_fields = get_schema_fields_for_hive_column(
                 hive_column_name=field_name,
                 hive_column_type=column.data_type,
                 description=description,
                 default_nullable=True,
-                meta_mapping_processor=action_processor,
-                meta_props=column.meta,
+                custom_tags=column.tags,
+                **meta_mapping_args,
             )
             assert schema_fields
             canonical_schema.extend(schema_fields)
