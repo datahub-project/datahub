@@ -121,8 +121,8 @@ class SnowflakeV2Config(
     )
 
     email_as_user_identifier: bool = Field(
-        default=False,
-        description="When enabled user email id will be used in user urn generation for stat",
+        default=True,
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
     )
 
     @validator("include_column_lineage")
