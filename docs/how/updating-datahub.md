@@ -6,6 +6,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other notable Changes
+
+## 0.10.5
+
+### Breaking Changes
+
 - #8201: Python SDK: In the DataFlow class, the `cluster` argument is deprecated in favor of `env`.
 - #8263: Okta source config option `okta_profile_to_username_attr` default changed from `login` to `email`.
   This determines which Okta profile attribute is used for the corresponding DataHub user
