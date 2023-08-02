@@ -47,7 +47,7 @@ const SwitchWrapper = styled.div`
     align-items: center;
 `;
 
-const NotificationTypeText = styled(Typography.Text)`
+const SinkTypeText = styled(Typography.Text)`
     font-family: 'Manrope', sans-serif;
     font-size: 14px;
     line-height: 20px;
@@ -65,6 +65,7 @@ const StyledFormItem = styled(Form.Item)`
 `;
 
 const StyledInput = styled(Input)`
+    font-size: 14px;
     width: 200px;
     border-color: ${ANTD_GRAY[8]};
 `;
@@ -80,7 +81,15 @@ const SaveAsDefaultText = styled(Typography.Text)`
     font-size: 14px;
     line-height: 22px;
     font-weight: 400;
-    color: ${ANTD_GRAY[8]};
+`;
+
+const UseDefaultText = styled(Typography.Text)`
+    font-size: 14px;
+`;
+
+const SettingsSlackChannel = styled(Typography.Text)`
+    font-size: 14px;
+    font-weight: 700;
 `;
 
 const StyledAlert = styled(Alert)`
@@ -141,7 +150,7 @@ export default function NotificationRecipientSection() {
                             checked={slack.enabled}
                             onChange={onChangeSlackSwitch}
                         />
-                        <NotificationTypeText>Slack Notifications</NotificationTypeText>
+                        <SinkTypeText>Slack Notifications</SinkTypeText>
                     </SwitchWrapper>
                     {shouldShowUpdateSlackSettingsWarning(drawerState) && (
                         <StyledAlert
@@ -160,13 +169,17 @@ export default function NotificationRecipientSection() {
                             <Space direction="vertical">
                                 {settings.slack.channel && (
                                     <Radio value={ChannelSelections.SETTINGS}>
-                                        Use default: {settings.slack.channel}
+                                        <UseDefaultText>
+                                            Use default:{' '}
+                                            <SettingsSlackChannel>{settings.slack.channel}</SettingsSlackChannel>
+                                        </UseDefaultText>
                                     </Radio>
                                 )}
                                 <Radio value={ChannelSelections.SUBSCRIPTION}>
                                     <Form form={form}>
                                         <StyledFormItem name="slackFormValue">
                                             <StyledInput
+                                                size="small"
                                                 ref={channelInputRef}
                                                 placeholder={slackInputPlaceholder}
                                                 disabled={

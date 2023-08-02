@@ -109,7 +109,7 @@ export const SinkSettingsSection = ({
     }, [sinkTypes]);
 
     const actorDescription = isPersonal ? 'you are' : `${groupName || 'the group'} is`;
-    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to. ${sinkName} ${
+    const sinkEnabledDescription = `Receive ${sinkName} notifications for entities ${actorDescription} subscribed to at ${sinkName} ${
         isPersonal ? 'member' : 'channel'
     } ID: `;
     const sinkDisabledDescription = `In order to enable, ask your DataHub admin to setup the ${sinkName} integration.`;
