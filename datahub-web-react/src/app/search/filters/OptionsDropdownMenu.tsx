@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../SearchBar';
+import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -73,6 +74,8 @@ export default function OptionsDropdownMenu({
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
+    useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
+
     return (
         <DropdownMenu alignRight={alignRight} data-testid="filter-dropdown">
             <ScrollableContent>
@@ -101,7 +104,7 @@ export default function OptionsDropdownMenu({
                     </LoadingWrapper>
                 )}
             </ScrollableContent>
-            <StyledButton type="text" onClick={updateFilters} data-testid="update-filters">
+            <StyledButton id="updateFiltersButton" type="text" onClick={updateFilters} data-testid="update-filters">
                 Update
             </StyledButton>
         </DropdownMenu>
