@@ -12,7 +12,6 @@ describe("run managed ingestion", () => {
         cy.goToIngestionPage();
         cy.clickOptionWithText("Create new source");
         cy.clickOptionWithText("Other");
-
         cy.waitTextVisible("source-type");
         readyToTypeEditor().type('{ctrl}a').clear()
         readyToTypeEditor().type("source:");
@@ -23,16 +22,14 @@ describe("run managed ingestion", () => {
         readyToTypeEditor().type("config: {}");
         cy.clickOptionWithText("Next")
         cy.clickOptionWithText("Next")
-
         cy.enterTextInTestId('source-name-input', testName)
         cy.clickOptionWithText("Advanced")
         cy.enterTextInTestId('cli-version-input', cli_version)
         cy.clickOptionWithText("Save & Run")
         cy.waitTextVisible(testName)
-
         cy.contains(testName).parent().within(() => {
-            cy.contains("Succeeded", {timeout: 40000})
-            cy.clickOptionWithTestId("delete-button");
+          cy.contains("Succeeded", {timeout: 40000})
+          cy.clickOptionWithTestId("delete-button");
         })
         cy.clickOptionWithText("Yes")
         cy.ensureTextNotPresent(testName)
