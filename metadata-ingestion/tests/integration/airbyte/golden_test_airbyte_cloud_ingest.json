@@ -1,0 +1,191 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "test_workspace"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478278,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478279,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478280,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD),9c55843b-d33b-4e1c-964a-ced336eb194a)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "'inactive'",
+                "namespace_definition": "'destination'",
+                "namespace_format": "'${SOURCE_NAMESPACE}'",
+                "prefix": "'cloud_'"
+            },
+            "name": "postgres_to_postgres",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478282,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD),9c55843b-d33b-4e1c-964a-ced336eb194a)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478284,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478285,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478286,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD),9c55843b-d33b-4e1c-964a-ced336eb194a)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478287,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD),9c55843b-d33b-4e1c-964a-ced336eb194a)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478288,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478289,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,5a8212cd-cc3f-4c35-a435-b35db7e00128,PROD),9c55843b-d33b-4e1c-964a-ced336eb194a)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951478290,
+        "runId": "airbyte-test"
+    }
+}
+]

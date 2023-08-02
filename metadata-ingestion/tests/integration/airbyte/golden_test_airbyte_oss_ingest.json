@@ -1,0 +1,791 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "airbyte_workspace"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414157,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414157,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414158,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "status": "'active'",
+                "namespace_definition": "'destination'",
+                "namespace_format": "'${SOURCE_NAMESPACE}'",
+                "prefix": "'oss_'"
+            },
+            "name": "oss_connection",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414159,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ],
+            "inputDatajobs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414160,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414160,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414161,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414162,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414163,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:68dc76d3732252ef2e20a74b72311391",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_type": "sync",
+                "last_updated_at": "1690892150",
+                "bytes_synced": "0",
+                "rows_synced": "0"
+            },
+            "name": "12",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1690890462000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414163,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:68dc76d3732252ef2e20a74b72311391",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414164,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:68dc76d3732252ef2e20a74b72311391",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414165,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:68dc76d3732252ef2e20a74b72311391",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414166,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414166,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414167,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:68dc76d3732252ef2e20a74b72311391",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690890462000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414168,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:68dc76d3732252ef2e20a74b72311391",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690892150000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414169,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0ec50db40ab0f9adf05f315c9f3d1cb7",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_type": "sync",
+                "last_updated_at": "1690804132",
+                "bytes_synced": "0",
+                "rows_synced": "0"
+            },
+            "name": "11",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1690804062000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414170,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0ec50db40ab0f9adf05f315c9f3d1cb7",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414171,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0ec50db40ab0f9adf05f315c9f3d1cb7",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414171,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0ec50db40ab0f9adf05f315c9f3d1cb7",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414172,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414173,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414173,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0ec50db40ab0f9adf05f315c9f3d1cb7",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690804062000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414174,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:0ec50db40ab0f9adf05f315c9f3d1cb7",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690804132000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResultType": "airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414175,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a1c8fdb6639107f77c36f1800f7280b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_type": "sync",
+                "last_updated_at": "1690795894",
+                "bytes_synced": "0",
+                "rows_synced": "0"
+            },
+            "name": "10",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1690795813000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414176,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a1c8fdb6639107f77c36f1800f7280b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414176,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a1c8fdb6639107f77c36f1800f7280b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414177,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a1c8fdb6639107f77c36f1800f7280b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414178,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414178,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414179,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a1c8fdb6639107f77c36f1800f7280b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690795813000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414180,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:a1c8fdb6639107f77c36f1800f7280b9",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690795894000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414181,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:eca36781b18082fdfa41b99436e2ee3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_type": "sync",
+                "last_updated_at": "1690785097",
+                "bytes_synced": "132",
+                "rows_synced": "4"
+            },
+            "name": "9",
+            "type": "BATCH_SCHEDULED",
+            "created": {
+                "time": 1690785044000,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414182,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:eca36781b18082fdfa41b99436e2ee3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414183,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:eca36781b18082fdfa41b99436e2ee3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414184,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:eca36781b18082fdfa41b99436e2ee3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+        "json": {
+            "outputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414184,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414185,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,Postgres,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414186,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:eca36781b18082fdfa41b99436e2ee3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690785044000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414186,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:eca36781b18082fdfa41b99436e2ee3b",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1690785097000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "airbyte"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414187,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414188,
+        "runId": "airbyte-test"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,2de688a6-94ee-463a-949b-5a8e808641c0,PROD),337a8bf3-230f-4928-bb4d-ed510d7a211b)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1690951414188,
+        "runId": "airbyte-test"
+    }
+}
+]

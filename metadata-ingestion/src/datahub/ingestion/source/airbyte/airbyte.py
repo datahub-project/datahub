@@ -102,12 +102,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
             return None
 
         # Get platform details for connector
+        connector_platform_detail: PlatformDetail = PlatformDetail()
         if connector_type in self.config.connector_platform_details.keys():
-            connector_platform_detail: PlatformDetail = (
-                self.config.connector_platform_details[connector_type]
-            )
-        else:
-            connector_platform_detail = PlatformDetail()
+            connector_platform_detail = self.config.connector_platform_details[
+                connector_type
+            ]
 
         return DatasetUrn.create_from_ids(
             platform_id=supported_data_platform[connector_type],
