@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 import { Dropdown, MenuProps, Tooltip } from 'antd';
 import { StarFilled, StarOutlined } from '@ant-design/icons';
 import SubscriptionDrawer from './drawer/SubscriptionDrawer';
-import { useEntityData } from '../../entity/shared/EntityContext';
+import { useEntityData, useMutationUrn } from '../../entity/shared/EntityContext';
 import SubscriptionStarTooltip from './drawer/section/SubscriptionStarTooltip';
 import useSubscription from './useSubscription';
 import useDeleteSubscription from './useDeleteSubscription';
@@ -24,16 +24,21 @@ const DROPDOWN_KEYS = {
 } as const;
 
 export default function SubscribeButtons() {
-    const { urn: entityUrn, entityData, entityType } = useEntityData();
+    const { entityData, entityType } = useEntityData();
+    const primaryEntityUrn = useMutationUrn();
     const entityName = entityData?.name || '';
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [isPersonal, setIsPersonal] = useState(true);
     const [groupUrn, setGroupUrn] = useState<string>();
 
     const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
-    const { subscription, isSubscribed, refetchSubscription } = useSubscription({ isPersonal, entityUrn, groupUrn });
+    const { subscription, isSubscribed, refetchSubscription } = useSubscription({
+        isPersonal,
+        entityUrn: primaryEntityUrn,
+        groupUrn,
+    });
     const { isUserSubscribed, numUserSubscriptions, numGroupSubscriptions, groupNames, refetchSubscriptionSummary } =
-        useSubscriptionSummary({ entityUrn });
+        useSubscriptionSummary({ entityUrn: primaryEntityUrn });
 
     const refetch = () => {
         refetchSubscription();
@@ -128,7 +133,7 @@ export default function SubscribeButtons() {
                 isPersonal={isPersonal}
                 groupUrn={groupUrn}
                 setGroupUrn={setGroupUrn}
-                entityUrn={entityUrn}
+                entityUrn={primaryEntityUrn}
                 entityName={entityName}
                 entityType={entityType}
                 isSubscribed={isSubscribed}
