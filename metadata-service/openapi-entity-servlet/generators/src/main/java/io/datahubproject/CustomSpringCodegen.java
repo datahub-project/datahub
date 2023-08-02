@@ -1,6 +1,5 @@
 package io.datahubproject;
 
-import io.swagger.codegen.v3.CodegenModel;
 import io.swagger.codegen.v3.generators.java.SpringCodegen;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,7 +22,7 @@ public class CustomSpringCodegen extends SpringCodegen {
     @Override
     public Map<String, Object> postProcessOperations(Map<String, Object> objs) {
         Map<String, Object> result = super.postProcessOperations(objs);
-        List<Map<String, String>> imports = (List)objs.get("imports");
+        List<Map<String, String>> imports = (List) objs.get("imports");
 
         for (Map<String, String> importMap : imports) {
             for (String type : importMap.values()) {

@@ -12,7 +12,7 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
     @Autowired
     private ElasticSearchService _searchService;
 
-    public static String DATAHUB_USAGE_INDEX = "datahub_usage_event";
+    final public static String DATAHUB_USAGE_INDEX = "datahub_usage_event";
 
     @Override
     public ResponseEntity<String> raw(String body) {
