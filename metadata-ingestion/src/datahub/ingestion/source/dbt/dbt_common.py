@@ -1346,6 +1346,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 hive_column_type=column.data_type,
                 description=description,
                 default_nullable=True,
+                custom_tags=column.tags,
                 **meta_mapping_args,
             )
             assert schema_fields

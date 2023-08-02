@@ -262,7 +262,7 @@ def get_schema_fields_for_hive_column(
     hive_column_name: str,
     hive_column_type: str,
     meta_mapping_processor: Optional[OperationProcessor] = None,
-    meta_props: Optional[dict] = None,
+    meta_props: Optional[Dict] = None,
     custom_tags: Optional[List] = None,
     description: Optional[str] = None,
     default_nullable: bool = False,
