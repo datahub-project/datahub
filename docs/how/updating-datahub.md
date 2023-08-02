@@ -8,7 +8,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Potential Downtime
 
-- BrowsePathsV2 Upgrade will now be handled by the `system-update` job in non-blocking mode. This process generates data needed for the new search
+- BrowsePathsV2 upgrade will now be handled by the `system-update` job in non-blocking mode. This process generates data needed for the new search
   and browse feature. This process must complete before enabling the new search and browse UI and while upgrading entities will be missing from the UI.
   If not using the new search and browse UI, there will be no impact and the update will complete in the background.
 
