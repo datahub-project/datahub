@@ -95,6 +95,7 @@ export function DetailsColumn({ assertion, monitor, lastEvaluationTimeMs, lastEv
             )) || (
                 <FreshnessAssertionDescription
                     assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
+                    monitorSchedule={monitor?.info?.assertionMonitor?.assertions[0]?.schedule}
                 />
             )}
             {isInferred && (

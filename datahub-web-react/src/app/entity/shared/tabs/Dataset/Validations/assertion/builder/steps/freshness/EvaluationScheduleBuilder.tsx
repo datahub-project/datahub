@@ -48,7 +48,7 @@ const CronSuccessCheck = styled(CheckCircleOutlined)`
 `;
 
 const StyledTimezoneSelect = styled(TimezoneSelect)`
-    margin-top: 12px;
+    width: 150px;
 `;
 
 const Row = styled.div`

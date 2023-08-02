@@ -48,19 +48,19 @@ export const AcrylAssertionDetailsHeader = ({
      * Last evaluated timestamp
      */
     const lastEvaluatedAt = lastEvaluatedAtMillis && new Date(lastEvaluatedAtMillis);
-    const lastEvaluatedTimeLocal =
-        lastEvaluatedAt &&
-        `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`;
-    const lastEvaluatedTimeGMT = lastEvaluatedAt && lastEvaluatedAt.toUTCString();
+    const lastEvaluatedTimeLocal = lastEvaluatedAt
+        ? `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`
+        : null;
+    const lastEvaluatedTimeGMT = lastEvaluatedAt ? lastEvaluatedAt.toUTCString() : null;
 
     /**
      * Next evaluated timestamp
      */
     const nextEvaluatedAt = nextEvaluatedAtMillis && new Date(nextEvaluatedAtMillis);
-    const nextEvaluatedTimeLocal =
-        nextEvaluatedAt &&
-        `Next evaluation at ${nextEvaluatedAt.toLocaleDateString()} at ${nextEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`;
-    const nextEvaluatedTimeGMT = nextEvaluatedAt && nextEvaluatedAt.toUTCString();
+    const nextEvaluatedTimeLocal = nextEvaluatedAt
+        ? `Next evaluation at ${nextEvaluatedAt.toLocaleDateString()} at ${nextEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`
+        : null;
+    const nextEvaluatedTimeGMT = nextEvaluatedAt ? nextEvaluatedAt.toUTCString() : null;
 
     /**
      * Cron String - This will not be present for external assertions.
