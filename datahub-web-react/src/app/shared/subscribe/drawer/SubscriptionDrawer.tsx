@@ -23,7 +23,7 @@ import useDelayedKey from './useDelayedKey';
 import {
     selectIsSlackEnabled,
     selectShouldTurnOnSlackInSettings,
-    selectSlackChannel,
+    selectSubscriptionSlackChannel,
     selectSlackSaveAsDefault,
     useDrawerSelector,
 } from './state/selectors';
@@ -77,7 +77,7 @@ const SubscriptionDrawerContent = ({
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
-    const channel = useDrawerSelector(selectSlackChannel);
+    const channel = useDrawerSelector(selectSubscriptionSlackChannel);
     const saveAsDefault = useDrawerSelector(selectSlackSaveAsDefault);
     const slackEnabled = useDrawerSelector(selectIsSlackEnabled);
     const shouldTurnOnSlackInSettings = useDrawerSelector(selectShouldTurnOnSlackInSettings);

@@ -1,35 +1,55 @@
 import { useMemo } from 'react';
 import { NotificationSinkType } from '../../../../../types.generated';
 import { useDrawerState } from './context';
-import { State } from './types';
+import { ChannelSelections, State } from './types';
 
 export function useDrawerSelector<T>(selector: (state: State) => T) {
     const state = useDrawerState();
     return useMemo(() => selector(state), [selector, state]);
 }
 
-function selectSlack(state: State) {
+export function selectIsEdited(state: State) {
+    return state.edited;
+}
+
+export function selectSlack(state: State) {
     return state.slack;
 }
 
-function selectSlackSubscription(state: State) {
+export function selectSlackSubscription(state: State) {
     return selectSlack(state).subscription;
 }
 
-function selectSettings(state: State) {
+export function selectSettings(state: State) {
     return state.settings;
 }
 
-function selectNotificationSinkTypes(state: State) {
+export function selectNotificationSinkTypes(state: State) {
     return state.notificationSinkTypes;
 }
 
-function selectNotificationTypes(state: State) {
+export function selectNotificationTypes(state: State) {
     return state.notificationTypes;
 }
 
-export function selectSlackChannel(state: State) {
+export function selectIsPersonal(state: State) {
+    return state.isPersonal;
+}
+
+export function selectSubscriptionSlackChannel(state: State) {
     return selectSlackSubscription(state).channel;
+}
+
+export function selectSettingsSlackChannel(state: State) {
+    return selectSettings(state).slack.channel;
+}
+
+export function selectChannelSelection(state: State) {
+    return selectSlack(state).channelSelection;
+}
+
+export function selectHasSlackChannel(state: State) {
+    return selectChannelSelection(state) === ChannelSelections.SUBSCRIPTION && !!selectSubscriptionSlackChannel(state);
 }
 
 export function selectSlackSaveAsDefault(state: State) {
@@ -63,4 +83,8 @@ export function selectShouldShowUpdateSlackSettingsWarning(state: State) {
 
 export function selectHasEnabledSink(state: State) {
     return selectNotificationSinkTypes(state).length > 0;
+}
+
+export function selectHasNotificationType(state: State) {
+    return selectNotificationTypes(state).checkedKeys.length > 0;
 }

@@ -1,8 +1,13 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Button } from 'antd';
-import { useDrawerState } from '../state/context';
-import { ChannelSelections } from '../state/types';
+import {
+    selectHasNotificationType,
+    selectHasSlackChannel,
+    selectIsEdited,
+    selectIsSlackEnabled,
+    useDrawerSelector,
+} from '../state/selectors';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -22,10 +27,13 @@ interface Props {
 }
 
 export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }: Props) {
-    const { edited, slack } = useDrawerState();
-    const hasSlackChannel = slack.channelSelection === ChannelSelections.SUBSCRIPTION && slack.subscription.channel;
-    const isSlackFormValid = !slack.enabled || hasSlackChannel;
+    const isSlackEnabled = useDrawerSelector(selectIsSlackEnabled);
+    const edited = useDrawerSelector(selectIsEdited);
+    const hasSlackChannel = useDrawerSelector(selectHasSlackChannel);
+    const hasNotificationType = useDrawerSelector(selectHasNotificationType);
+    const isSlackFormValid = !isSlackEnabled || hasSlackChannel;
     const canSubmit = edited && isSlackFormValid;
+    const subscribeText = hasNotificationType ? 'Subscribe & Notify' : 'Subscribe';
 
     return (
         <FooterContainer>
@@ -33,7 +41,7 @@ export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }
                 {isSubscribed ? 'Unsubscribe' : 'Cancel'}
             </FooterButton>
             <FooterButton type="primary" onClick={onUpdate} disabled={!canSubmit}>
-                {isSubscribed ? 'Update' : 'Subscribe'}
+                {isSubscribed ? 'Update' : subscribeText}
             </FooterButton>
         </FooterContainer>
     );
