@@ -574,20 +574,24 @@ class SnowflakeV2Source(
             if (
                 self.config.store_last_usage_extraction_timestamp
                 and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                    cur_start_time_millis=datetime_to_ts_millis(
+                        self.config.parsed_start_time
+                    )
                 )
             ):
                 # Skip this run
                 self.report.report_warning(
                     "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
+                    f"Skip this run as there was a run later than the current start time: {self.config.parsed_start_time}",
                 )
                 return
 
             if self.config.store_last_usage_extraction_timestamp:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
+                    start_time_millis=datetime_to_ts_millis(
+                        self.config.parsed_start_time
+                    ),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
 
@@ -1415,14 +1419,14 @@ class SnowflakeV2Source(
         self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
         self.report.upstream_lineage_in_report = self.config.upstream_lineage_in_report
         if not self.report.ignore_start_time_lineage:
-            self.report.lineage_start_time = self.config.start_time
+            self.report.lineage_start_time = self.config.parsed_start_time
         self.report.lineage_end_time = self.config.end_time
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
         self.report.include_column_lineage = self.config.include_column_lineage
         if self.report.include_usage_stats or self.config.include_operational_stats:
-            self.report.window_start_time = self.config.start_time
+            self.report.window_start_time = self.config.parsed_start_time
             self.report.window_end_time = self.config.end_time
 
     def inspect_session_metadata(self) -> None:

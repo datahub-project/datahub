@@ -48,16 +48,20 @@ def parse_user_datetime(input: str) -> datetime:
 
     # Finally, try parsing as an absolute time.
     with contextlib.suppress(dateutil.parser.ParserError):
-        dt = dateutil.parser.parse(input)
-        if dt.tzinfo is None:
-            # Assume that the user meant to specify a time in UTC.
-            dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            # Convert to UTC.
-            dt = dt.astimezone(timezone.utc)
-        return dt
+        return _parse_absolute_time(input)
 
     raise ValueError(f"Could not parse {input} as a datetime or relative time.")
+
+
+def _parse_absolute_time(input: str) -> datetime:
+    dt = dateutil.parser.parse(input)
+    if dt.tzinfo is None:
+        # Assume that the user meant to specify a time in UTC.
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        # Convert to UTC.
+        dt = dt.astimezone(timezone.utc)
+    return dt
 
 
 def _parse_relative_timespan(input: str) -> timedelta:

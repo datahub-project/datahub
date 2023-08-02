@@ -386,7 +386,7 @@ class SnowflakeLineageExtractor(
         self, discovered_tables: List[str]
     ) -> None:
         query: str = SnowflakeQuery.copy_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            start_time_millis=int(self.config.parsed_start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
@@ -429,7 +429,7 @@ class SnowflakeLineageExtractor(
 
     def _fetch_upstream_lineages_for_tables(self):
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            start_time_millis=int(self.config.parsed_start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),

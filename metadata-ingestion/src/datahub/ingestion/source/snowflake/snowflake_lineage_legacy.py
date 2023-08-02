@@ -355,7 +355,7 @@ class SnowflakeLineageExtractor(
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
     def _populate_external_lineage_from_access_history(self):
         query: str = SnowflakeQuery.external_table_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            start_time_millis=int(self.config.parsed_start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
@@ -397,7 +397,7 @@ class SnowflakeLineageExtractor(
 
     def _populate_lineage(self) -> None:
         query: str = SnowflakeQuery.table_to_table_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            start_time_millis=int(self.config.parsed_start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),
@@ -507,7 +507,7 @@ class SnowflakeLineageExtractor(
         # See https://docs.snowflake.com/en/sql-reference/account-usage/access_history.html#usage-notes for current limitations on capturing the lineage for views.
         # Eg: For viewA->viewB->ViewC->TableD, snowflake does not yet log intermediate view logs, resulting in only the viewA->TableD edge.
         view_lineage_query: str = SnowflakeQuery.view_lineage_history(
-            start_time_millis=int(self.config.start_time.timestamp() * 1000)
+            start_time_millis=int(self.config.parsed_start_time.timestamp() * 1000)
             if not self.config.ignore_start_time_lineage
             else 0,
             end_time_millis=int(self.config.end_time.timestamp() * 1000),

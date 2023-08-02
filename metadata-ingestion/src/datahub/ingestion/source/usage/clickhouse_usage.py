@@ -127,7 +127,9 @@ class ClickHouseUsageSource(Source):
     def _make_usage_query(self) -> str:
         return clickhouse_usage_sql_comment.format(
             query_log_table=self.config.query_log_table,
-            start_time=self.config.start_time.strftime(clickhouse_datetime_format),
+            start_time=self.config.parsed_start_time.strftime(
+                clickhouse_datetime_format
+            ),
             end_time=self.config.end_time.strftime(clickhouse_datetime_format),
         )
 
