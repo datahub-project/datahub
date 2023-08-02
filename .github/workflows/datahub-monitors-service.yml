@@ -9,10 +9,9 @@ on:
   pull_request:
     branches:
       - acryl-main
-    paths:
-      - "datahub-monitors-service/**"
-      - "docker/datahub-monitors-service/**"
-      - ".github/workflows/datahub-monitors-service.yml"
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   release:
     types: [published]
 
