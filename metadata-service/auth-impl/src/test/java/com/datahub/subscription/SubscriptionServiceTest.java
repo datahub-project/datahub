@@ -5,12 +5,14 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
+import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
@@ -45,8 +47,10 @@ public class SubscriptionServiceTest {
   private static final Urn SUBSCRIPTION_URN_1 = UrnUtils.getUrn(SUBSCRIPTION_URN_1_STRING);
   private static final NotificationSinkTypeArray NOTIFICATION_SINK_TYPES =
       new NotificationSinkTypeArray(NotificationSinkType.SLACK);
+  private static final NotificationSettings NOTIFICATION_SETTINGS =
+      new NotificationSettings().setSinkTypes(NOTIFICATION_SINK_TYPES);
   private static final SubscriptionNotificationConfig NOTIFICATION_CONFIG =
-      new SubscriptionNotificationConfig().setSinkTypes(NOTIFICATION_SINK_TYPES);
+      new SubscriptionNotificationConfig().setNotificationSettings(NOTIFICATION_SETTINGS);
 
   private static final SubscriptionTypeArray SUBSCRIPTION_TYPES_1 =
       new SubscriptionTypeArray(SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE);
@@ -63,7 +67,7 @@ public class SubscriptionServiceTest {
   private static final SubscriptionTypeArray SUBSCRIPTION_TYPES_2 =
       new SubscriptionTypeArray(SubscriptionType.ENTITY_CHANGE);
   private static final EntityChangeTypeArray ENTITY_CHANGE_TYPES_2 =
-      new EntityChangeTypeArray(EntityChangeType.GLOSSARY_TERM_CHANGE, EntityChangeType.TAG_CHANGE);
+      new EntityChangeTypeArray(EntityChangeType.GLOSSARY_TERM_ADDED, EntityChangeType.TAG_ADDED);
   private static final SubscriptionInfo SUBSCRIPTION_INFO_2 = new SubscriptionInfo().setActorUrn(USER_URN)
       .setActorType(CORP_USER_ENTITY_NAME)
       .setTypes(SUBSCRIPTION_TYPES_2)
@@ -182,10 +186,10 @@ public class SubscriptionServiceTest {
   }
 
   @Test
-  public void testListSubscriptionsMissingActor() throws Exception {
+  public void testgetSubscriptionSearchResultMissingActor() throws Exception {
     when(_entityClient.exists(eq(USER_URN), eq(SYSTEM_AUTHENTICATION))).thenReturn(false);
 
-    assertThrows(() -> _subscriptionService.listSubscriptions(USER_URN, 0, 10, SYSTEM_AUTHENTICATION));
+    assertThrows(() -> _subscriptionService.getSubscriptionsSearchResult(USER_URN, 0, 10, SYSTEM_AUTHENTICATION));
   }
 
   @Test
@@ -200,8 +204,10 @@ public class SubscriptionServiceTest {
         eq(SYSTEM_AUTHENTICATION)))
         .thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
+    final SearchResult searchResult = new SearchResult();
+    searchResult.setEntities(new SearchEntityArray());
     final Map<Urn, SubscriptionInfo> subscriptions =
-        _subscriptionService.listSubscriptions(USER_URN, 0, 10, SYSTEM_AUTHENTICATION);
+        _subscriptionService.listSubscriptions(searchResult, SYSTEM_AUTHENTICATION);
     assertTrue(subscriptions.isEmpty());
   }
 
@@ -227,8 +233,9 @@ public class SubscriptionServiceTest {
             SUBSCRIPTION_URN_1, ENTITY_RESPONSE_1,
             SUBSCRIPTION_URN_2, ENTITY_RESPONSE_2));
 
+    final SearchResult searchResult = _subscriptionService.getSubscriptionsSearchResult(USER_URN, 0, 10, SYSTEM_AUTHENTICATION);
     final Map<Urn, SubscriptionInfo> subscriptions =
-        _subscriptionService.listSubscriptions(USER_URN, 0, 10, SYSTEM_AUTHENTICATION);
+        _subscriptionService.listSubscriptions(searchResult, SYSTEM_AUTHENTICATION);
     final Map<Urn, SubscriptionInfo> expectedSubscriptions = ImmutableMap.of(
         SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1,
         SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2);
