@@ -3,9 +3,13 @@ package com.linkedin.datahub.graphql.resolvers.subscription;
 import com.datahub.authentication.Authentication;
 import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Comparator;
 import java.util.List;
@@ -46,7 +50,7 @@ public class ListSubscriptionsResolverTest {
 
   @Test
   public void testListSubscriptionsExceptionThrown() {
-    when(_subscriptionService.listSubscriptions(eq(USER_URN), anyInt(), anyInt(), eq(_authentication))).thenThrow(
+    when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication))).thenThrow(
         new RuntimeException("Failed to list subscriptions"));
 
     assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
@@ -54,7 +58,15 @@ public class ListSubscriptionsResolverTest {
 
   @Test
   public void testListSubscriptions() throws Exception {
-    when(_subscriptionService.listSubscriptions(eq(USER_URN), anyInt(), anyInt(), eq(_authentication))).thenReturn(
+    SearchResult searchResult = new  SearchResult()
+        .setNumEntities(2)
+        .setEntities(
+            new SearchEntityArray(
+                ImmutableSet.of(new SearchEntity().setEntity(SUBSCRIPTION_URN_1), new SearchEntity().setEntity(SUBSCRIPTION_URN_2))
+            )
+        );
+    when(_subscriptionService.getSubscriptionsSearchResult(eq(USER_URN), anyInt(), anyInt(), eq(_authentication))).thenReturn(searchResult);
+    when(_subscriptionService.listSubscriptions(any(SearchResult.class), eq(_authentication))).thenReturn(
         ImmutableMap.of(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1, SUBSCRIPTION_URN_2, SUBSCRIPTION_INFO_2));
 
     final List<DataHubSubscription> subscriptions =

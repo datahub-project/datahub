@@ -28,7 +28,11 @@ import {
     useDrawerSelector,
 } from './state/selectors';
 
-const SubscribeDrawer = styled(Drawer)``;
+const SubscribeDrawer = styled(Drawer)`
+    .ant-drawer-body {
+        padding: 16px 24px;
+    }
+`;
 
 const SubscriptionTitleContainer = styled.div`
     display: flex;
@@ -47,6 +51,15 @@ const SubscriptionTitle = styled(Typography.Text)`
 const StyledAlert = styled(Alert)`
     margin-top: 16px;
 `;
+        
+const CancelButtonWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
+`;
+
+const StyledButton = styled(Button)`
+    padding: 0 4px;
+`;
 
 interface Props {
     isOpen: boolean;
@@ -61,6 +74,7 @@ interface Props {
     canManageSubscription?: boolean | null;
     subscription?: DataHubSubscription;
     onRefetch?: () => void;
+    onUpsertSubscription?: () => void;
     onDeleteSubscription: () => void;
 }
 
@@ -77,6 +91,7 @@ const SubscriptionDrawerContent = ({
     canManageSubscription,
     subscription,
     onRefetch,
+    onUpsertSubscription,
     onDeleteSubscription,
 }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -113,6 +128,7 @@ const SubscriptionDrawerContent = ({
         isSubscribed,
         groupUrn,
         subscription,
+        onCreateSuccess: () => onUpsertSubscription?.(),
         onRefetch,
     });
 
@@ -168,11 +184,13 @@ const SubscriptionDrawerContent = ({
             onClose={onClose}
             closable={false}
         >
+            <CancelButtonWrapper>
+                <StyledButton type="link" onClick={onClose}>
+                    <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
+                </StyledButton>
+            </CancelButtonWrapper>
             <SubscriptionTitleContainer>
                 <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
-                <Button type="link" onClick={onClose}>
-                    <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
-                </Button>
             </SubscriptionTitleContainer>
             {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
             {canManageSubscription === false && (

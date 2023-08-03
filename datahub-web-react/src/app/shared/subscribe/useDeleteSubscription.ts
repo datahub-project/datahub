@@ -5,15 +5,22 @@ import { deleteSubscriptionFunction } from './drawer/utils';
 type Props = {
     subscription?: DataHubSubscription;
     isPersonal: boolean;
+    onDeleteSuccess?: () => void;
     onRefetch?: () => void;
 };
 
-const useDeleteSubscription = ({ subscription, isPersonal, onRefetch }: Props) => {
+const useDeleteSubscription = ({ subscription, isPersonal, onDeleteSuccess, onRefetch }: Props) => {
     const [deleteSubscription] = useDeleteSubscriptionMutation();
 
     return () => {
         if (subscription?.subscriptionUrn)
-            deleteSubscriptionFunction({ subscription, isPersonal, deleteSubscription, onRefetch });
+            deleteSubscriptionFunction({
+                subscription,
+                isPersonal,
+                deleteSubscription,
+                onSuccess: onDeleteSuccess,
+                onRefetch,
+            });
     };
 };
 

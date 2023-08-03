@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useGetEntitySubscriptionSummaryQuery } from '../../../graphql/subscriptions.generated';
 import { CorpGroup } from '../../../types.generated';
 import { getGroupName } from '../../settings/personal/utils';
@@ -7,6 +8,7 @@ type Props = {
 };
 
 const useSubscriptionSummary = ({ entityUrn }: Props) => {
+    const [isUserSubscribed, setIsUserSubscribed] = useState(false);
     const { data: entitySubscriptionSummaryData, refetch: refetchSubscriptionSummary } =
         useGetEntitySubscriptionSummaryQuery({
             variables: {
@@ -16,7 +18,10 @@ const useSubscriptionSummary = ({ entityUrn }: Props) => {
             },
         });
 
-    const isUserSubscribed = entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed || false;
+    useEffect(() => {
+        setIsUserSubscribed(entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed || false);
+    }, [entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed]);
+
     const numUserSubscriptions = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.numUserSubscriptions || 0;
     // Maxes out at 100 by default.
     const numGroupSubscriptions =
@@ -31,6 +36,7 @@ const useSubscriptionSummary = ({ entityUrn }: Props) => {
         numUserSubscriptions,
         numGroupSubscriptions,
         groupNames,
+        setIsUserSubscribed,
         refetchSubscriptionSummary,
     };
 };

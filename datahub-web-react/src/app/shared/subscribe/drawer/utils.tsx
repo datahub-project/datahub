@@ -178,8 +178,8 @@ const glossaryTermChangeNode: DataNode = {
             key: EntityChangeType.GlossaryTermProposed,
             title: (
                 <NotificationTypeText>
-                    A new glossary term is proposed
-                    <Tooltip title="Someone has proposed adding a glossary term, but it has not beed added">
+                    Glossary term poposal changes
+                    <Tooltip title="Someone has proposed or rejected a new glossary term on this entity">
                         <TooltipIcon />
                     </Tooltip>
                 </NotificationTypeText>
@@ -204,8 +204,8 @@ const tagChangeNode: DataNode = {
             key: EntityChangeType.TagProposed,
             title: (
                 <NotificationTypeText>
-                    A new tag is proposed
-                    <Tooltip title="Someone has proposed adding a tag, but it has not beed added">
+                    Tag proposal changes
+                    <Tooltip title="Someone has proposed or rejected a new tag on this entity">
                         <TooltipIcon />
                     </Tooltip>
                 </NotificationTypeText>
@@ -235,11 +235,13 @@ export const deleteSubscriptionFunction = ({
     subscription,
     isPersonal,
     deleteSubscription,
+    onSuccess,
     onRefetch,
 }: {
     subscription: DataHubSubscription;
     isPersonal: boolean;
     deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
+    onSuccess?: () => void;
     onRefetch?: () => void;
 }) => {
     deleteSubscription({
@@ -248,16 +250,22 @@ export const deleteSubscriptionFunction = ({
         },
     })
         .then(() => {
+            onSuccess?.();
             analytics.event({
                 type: EventType.SubscriptionDeleteSuccessEvent,
+                subscriptionUrn: subscription.subscriptionUrn,
+                entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
+            const description = isPersonal
+                ? 'You have unsubscribed from this entity.'
+                : 'You have unsubscribed your group from this entity.';
             notification.success({
                 message: `Success`,
-                description: 'You have unsubscribed from this entity.',
+                description,
                 placement: 'bottomLeft',
                 duration: 3,
             });
@@ -266,6 +274,8 @@ export const deleteSubscriptionFunction = ({
         .catch((e: unknown) => {
             analytics.event({
                 type: EventType.SubscriptionDeleteErrorEvent,
+                subscriptionUrn: subscription.subscriptionUrn,
+                entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
@@ -290,6 +300,7 @@ export const createSubscriptionFunction = ({
     subscriptionTypes,
     entityChangeTypes,
     notificationSettings,
+    onSuccess,
     onRefetch,
 }: {
     createSubscription: ReturnType<typeof useCreateSubscriptionMutation>[0];
@@ -300,6 +311,7 @@ export const createSubscriptionFunction = ({
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
     notificationSettings: NotificationSettingsInput;
+    onSuccess?: () => void;
     onRefetch?: () => void;
 }) => {
     createSubscription({
@@ -315,17 +327,23 @@ export const createSubscriptionFunction = ({
             },
         },
     })
-        .then(() => {
+        .then((result) => {
+            onSuccess?.();
             analytics.event({
                 type: EventType.SubscriptionCreateSuccessEvent,
+                subscriptionUrn: result.data?.createSubscription.subscriptionUrn ?? '',
+                entityUrn,
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings?.sinkTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
+            const description = isPersonal
+                ? 'You are now following changes on this entity.'
+                : 'Your group is now following changes on this entity.';
             notification.success({
                 message: 'Success',
-                description: 'You are now following changes on this entity.',
+                description,
                 placement: 'bottomLeft',
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
@@ -335,6 +353,7 @@ export const createSubscriptionFunction = ({
         .catch((e: unknown) => {
             analytics.event({
                 type: EventType.SubscriptionCreateErrorEvent,
+                entityUrn,
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings.sinkTypes,
@@ -394,6 +413,8 @@ export const updateSubscriptionFunction = ({
             .then(() => {
                 analytics.event({
                     type: EventType.SubscriptionUpdateSuccessEvent,
+                    subscriptionUrn: subscription.subscriptionUrn,
+                    entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes,
                     entityChangeTypesAdded,
@@ -403,9 +424,12 @@ export const updateSubscriptionFunction = ({
                     sinkTypesRemoved,
                     actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });
+                const description = isPersonal
+                    ? 'You have updated your subscription to this entity.'
+                    : 'You have updated the subscription to this entity for your group.';
                 notification.success({
                     message: `Success`,
-                    description: 'You have updated your subscription to this entity.',
+                    description,
                     placement: 'bottomLeft',
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
@@ -415,6 +439,8 @@ export const updateSubscriptionFunction = ({
             .catch((e: unknown) => {
                 analytics.event({
                     type: EventType.SubscriptionUpdateErrorEvent,
+                    subscriptionUrn: subscription.subscriptionUrn,
+                    entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes,
                     sinkTypes: notificationSettings.sinkTypes,

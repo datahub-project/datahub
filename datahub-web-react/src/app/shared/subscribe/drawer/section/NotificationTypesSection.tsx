@@ -28,6 +28,16 @@ const TreeContainer = styled.div`
     .ant-tree-checkbox .ant-tree-checkbox-inner {
         border-color: ${ANTD_GRAY[7]};
     }
+    .ant-tree-node-content-wrapper {
+        background: none;
+        cursor: auto;
+        &:hover {
+            background: none;
+        }
+    }
+    .ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+        background-color: transparent;
+    }
 `;
 
 export default function NotificationTypesSection() {
