@@ -104,9 +104,9 @@ describe('reducer', () => {
                     },
                 },
                 subscribeToUpstream: false,
-                notificationSinkTypes: [],
+                notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
-                    enabled: false,
+                    enabled: true,
                     channelSelection: ChannelSelections.SUBSCRIPTION,
                     subscription: {
                         channel: undefined,
@@ -141,9 +141,9 @@ describe('reducer', () => {
                     },
                 },
                 subscribeToUpstream: false,
-                notificationSinkTypes: [],
+                notificationSinkTypes: [NotificationSinkType.Slack],
                 slack: {
-                    enabled: false,
+                    enabled: true,
                     channelSelection: ChannelSelections.SETTINGS,
                     subscription: {
                         channel: undefined,
