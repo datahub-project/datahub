@@ -255,9 +255,12 @@ export const deleteSubscriptionFunction = ({
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
+            const description = isPersonal
+                ? 'You have unsubscribed from this entity.'
+                : 'You have unsubscribed your group from this entity.';
             notification.success({
                 message: `Success`,
-                description: 'You have unsubscribed from this entity.',
+                description,
                 placement: 'bottomLeft',
                 duration: 3,
             });
