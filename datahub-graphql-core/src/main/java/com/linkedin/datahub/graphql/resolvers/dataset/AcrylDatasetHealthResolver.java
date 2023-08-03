@@ -194,7 +194,7 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
         return new Health(
             HealthStatusType.INCIDENTS,
             HealthStatus.FAIL,
-            String.format("%s active incidents", activeIncidentCount),
+            String.format("%s active incident%s", activeIncidentCount, activeIncidentCount > 1 ? "s" : ""),
             ImmutableList.of("ACTIVE_INCIDENTS")
         );
       }

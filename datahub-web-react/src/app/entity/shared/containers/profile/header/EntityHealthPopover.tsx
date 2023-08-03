@@ -7,7 +7,7 @@ import {
     HealthSummaryIconType,
 } from '../../../../../shared/health/healthUtils';
 import { EntityHealthStatus } from './EntityHealthStatus';
-import { Health } from '../../../../../../types.generated';
+import { Health, HealthStatus, HealthStatusType } from '../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../constants';
 
 const Header = styled.span`
@@ -46,8 +46,6 @@ const StyledDivider = styled(Divider)`
     }
 `;
 
-const popoverStyle = { backgroundColor: '#262626' };
-
 type Props = {
     health: Health[];
     baseUrl: string;
@@ -65,14 +63,16 @@ export const EntityHealthPopover = ({ health, baseUrl, children }: Props) => {
                         <Icon>{icon}</Icon> <Title>{message}</Title>
                     </Header>
                     <StyledDivider />
-                    {health.map((h) => (
-                        <StatusContainer>
-                            <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
-                        </StatusContainer>
-                    ))}
+                    {health
+                        .filter((h) => !(h.type === HealthStatusType.Incidents && h.status === HealthStatus.Pass))
+                        .map((h) => (
+                            <StatusContainer>
+                                <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
+                            </StatusContainer>
+                        ))}
                 </>
             }
-            overlayStyle={popoverStyle}
+            color="#262626"
             placement="right"
             zIndex={10000000}
         >
