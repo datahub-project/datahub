@@ -260,9 +260,12 @@ export const deleteSubscriptionFunction = ({
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
+            const description = isPersonal
+                ? 'You have unsubscribed from this entity.'
+                : 'You have unsubscribed your group from this entity.';
             notification.success({
                 message: `Success`,
-                description: 'You have unsubscribed from this entity.',
+                description,
                 placement: 'bottomLeft',
                 duration: 3,
             });
@@ -335,9 +338,12 @@ export const createSubscriptionFunction = ({
                 sinkTypes: notificationSettings?.sinkTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
+            const description = isPersonal
+                ? 'You are now following changes on this entity.'
+                : 'Your group is now following changes on this entity.';
             notification.success({
                 message: 'Success',
-                description: 'You are now following changes on this entity.',
+                description,
                 placement: 'bottomLeft',
                 duration: 3,
                 icon: <CheckCircleFilled style={{ color: '#078781' }} />,
@@ -418,9 +424,12 @@ export const updateSubscriptionFunction = ({
                     sinkTypesRemoved,
                     actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 });
+                const description = isPersonal
+                    ? 'You have updated your subscription to this entity.'
+                    : 'You have updated the subscription to this entity for your group.';
                 notification.success({
                     message: `Success`,
-                    description: 'You have updated your subscription to this entity.',
+                    description,
                     placement: 'bottomLeft',
                     duration: 3,
                     icon: <CheckCircleFilled style={{ color: '#078781' }} />,
