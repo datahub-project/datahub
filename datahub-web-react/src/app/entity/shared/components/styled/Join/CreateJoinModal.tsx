@@ -291,11 +291,8 @@ export const CreateJoinModal = ({
                                 message: `Join name is required.`,
                             },
                             {
-                                validator: (_, value) => {
-                                    console.log(value);
-
-                                    return checkDuplicateJoin(client, value?.trim()).then((result) => {
-                                        console.log(result);
+                                validator: (_, value) =>
+                                    checkDuplicateJoin(client, value?.trim()).then((result) => {
                                         return result === true
                                             ? Promise.reject(
                                                   new Error(
@@ -303,8 +300,7 @@ export const CreateJoinModal = ({
                                                   ),
                                               )
                                             : Promise.resolve();
-                                    });
-                                },
+                                    }),
                             },
                         ]}
                     >
