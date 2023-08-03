@@ -327,6 +327,11 @@ class TableauConfig(
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
+    lineage_platform_instance: str = Field(
+        default="uk",
+        description="Platform prefix for mapping upstream lineage URNs.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -1369,9 +1374,14 @@ class TableauSource(StatefulIngestionSourceBase):
             and tableau_constant.CONNECTION_TYPE in database
         ):
             upstream_tables = []
-            query = csql.get(tableau_constant.QUERY)
-            parser = LineageRunner(query)
+            # Clean query as for some reason some queries are read in with duplicated </> characters
+            query = clean_query(csql.get(tableau_constant.QUERY))
 
+            # suppress sqlfluff logging because it is very spammy and lags the Airflow UI
+            logging.getLogger('sqlfluff.parser').setLevel(logging.WARNING)
+            logging.getLogger('sqlfluff.linter').setLevel(logging.WARNING)
+
+            parser = LineageRunner(query)
             try:
                 for table in parser.source_tables:
                     split_table = str(table).split(".")
@@ -1386,6 +1396,7 @@ class TableauSource(StatefulIngestionSourceBase):
                             full_name=split_table[1],
                             platform_instance_map=self.config.platform_instance_map,
                             lineage_overrides=self.config.lineage_overrides,
+                            lineage_platform_instance=self.config.lineage_platform_instance
                         )
                         upstream_tables.append(
                             UpstreamClass(
