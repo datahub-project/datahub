@@ -107,7 +107,6 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
           event.getAspect().getContentType(),
           ActionRequestStatus.class);
 
-      // only support rejected for now?
       if (!isEligibleForProcessingActionRequestStatus(status)) return;
 
       log.debug(String.format("Found eligible proposal change event to notify. urn: %s", event.getEntityUrn().toString()));
