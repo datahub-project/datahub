@@ -1,28 +1,28 @@
 const tryToSignUp = () => {
     let number = Math.floor(Math.random() * 100000);
     let name = `Example Name ${number}`;
-    cy.enterTextInTestId("email", `example${number}@example.com`)
-    cy.enterTextInTestId("name", name)
-    cy.enterTextInTestId("password", "Example password")
-    cy.enterTextInTestId("confirmPassword", "Example password")
+    cy.enterTextInTestId("email", `example${number}@example.com`);
+    cy.enterTextInTestId("name", name);
+    cy.enterTextInTestId("password", "Example password");
+    cy.enterTextInTestId("confirmPassword", "Example password");
 
-    cy.mouseover("#title").click()
-    cy.waitTextVisible("Other").click()
+    cy.mouseover("#title").click();
+    cy.waitTextVisible("Other").click();
 
-    cy.get("[type=submit]").click()
+    cy.get("[type=submit]").click();
     return name;
 };
 
 describe("add_user", () => {
     it("go to user link and invite a user", () => {
-        cy.login()
+        cy.login();
 
         cy.visit("/settings/identities/users");
         cy.waitTextVisible("Invite Users");
 
-        cy.clickOptionWithText("Invite Users")
+        cy.clickOptionWithText("Invite Users");
 
-        cy.waitTextVisible(/signup\?invite_token=\w+/).then(($elem) => {
+        cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
             const inviteLink = $elem.text();
             cy.log(inviteLink);
             cy.visit("/settings/identities/users");
@@ -35,8 +35,8 @@ describe("add_user", () => {
         }).then(() => {
             cy.logout();
             cy.visit("/signup?invite_token=bad_token");
-            tryToSignUp()
-            cy.waitTextVisible("Failed to log in! An unexpected error occurred.")
+            tryToSignUp();
+            cy.waitTextVisible("Failed to log in! An unexpected error occurred.");
         });
     });
 });

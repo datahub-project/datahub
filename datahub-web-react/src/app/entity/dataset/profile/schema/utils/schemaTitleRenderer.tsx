@@ -7,6 +7,7 @@ import { ExtendedSchemaFields } from './types';
 import TypeLabel from '../../../../shared/tabs/Dataset/Schema/components/TypeLabel';
 import { ForeignKeyConstraint, SchemaMetadata } from '../../../../../../types.generated';
 import PrimaryKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PrimaryKeyLabel';
+import PartitioningKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/PartitioningKeyLabel';
 import NullableLabel from '../../../../shared/tabs/Dataset/Schema/components/NullableLabel';
 import ForeignKeyLabel from '../../../../shared/tabs/Dataset/Schema/components/ForeignKeyLabel';
 
@@ -62,6 +63,7 @@ export default function useSchemaTitleRenderer(
                     </FieldPathText>
                     <TypeLabel type={record.type} nativeDataType={record.nativeDataType} />
                     {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {schemaMetadata?.foreignKeys
                         ?.filter(

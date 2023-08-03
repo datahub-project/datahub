@@ -132,7 +132,9 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
 
     # DataPlatform aspect should be present when platform_instance is configured
     data_platform_aspects = [
-        asp for asp in proposed_snap.aspects if type(asp) == DataPlatformInstanceClass
+        asp
+        for asp in proposed_snap.aspects
+        if isinstance(asp, DataPlatformInstanceClass)
     ]
     assert len(data_platform_aspects) == 1
     assert data_platform_aspects[0].instance == make_dataplatform_instance_urn(
@@ -141,7 +143,7 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
 
     # The default browse path should include the platform_instance value
     browse_path_aspects = [
-        asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
+        asp for asp in proposed_snap.aspects if isinstance(asp, BrowsePathsClass)
     ]
     assert len(browse_path_aspects) == 1
     assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_path_aspects[0].paths
@@ -177,13 +179,15 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
 
     # DataPlatform aspect should not be present when platform_instance is not configured
     data_platform_aspects = [
-        asp for asp in proposed_snap.aspects if type(asp) == DataPlatformInstanceClass
+        asp
+        for asp in proposed_snap.aspects
+        if isinstance(asp, DataPlatformInstanceClass)
     ]
     assert len(data_platform_aspects) == 0
 
     # The default browse path should include the platform_instance value
     browse_path_aspects = [
-        asp for asp in proposed_snap.aspects if type(asp) == BrowsePathsClass
+        asp for asp in proposed_snap.aspects if isinstance(asp, BrowsePathsClass)
     ]
     assert len(browse_path_aspects) == 1
     assert f"/prod/{PLATFORM}" in browse_path_aspects[0].paths

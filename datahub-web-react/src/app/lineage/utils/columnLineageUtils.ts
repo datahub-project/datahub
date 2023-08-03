@@ -138,7 +138,10 @@ export function filterColumns(
     node: { x: number; y: number; data: Omit<NodeData, 'children'> },
     setColumnsByUrn: (value: React.SetStateAction<Record<string, SchemaField[]>>) => void,
 ) {
-    const filteredFields = node.data.schemaMetadata?.fields.filter((field) => field.fieldPath.includes(filterText));
+    const formattedFilterText = filterText.toLocaleLowerCase();
+    const filteredFields = node.data.schemaMetadata?.fields.filter((field) =>
+        field.fieldPath.toLocaleLowerCase().includes(formattedFilterText),
+    );
     if (filteredFields) {
         setColumnsByUrn((colsByUrn) => ({
             ...colsByUrn,

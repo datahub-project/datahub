@@ -328,7 +328,7 @@ class SchemaResolver(Closeable):
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
@@ -336,7 +336,7 @@ class SchemaResolver(Closeable):
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "."
-            not in DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath)
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     # TODO add a method to load all from graphql

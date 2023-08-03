@@ -14,7 +14,13 @@ NUM_OPS = 10
 FROZEN_TIME = "2022-06-07 17:00:00"
 
 
-def default_query_results(query):  # noqa: C901
+def default_query_results(  # noqa: C901
+    query,
+    num_tables=NUM_TABLES,
+    num_views=NUM_VIEWS,
+    num_cols=NUM_COLS,
+    num_ops=NUM_OPS,
+):
     if query == SnowflakeQuery.current_account():
         return [{"CURRENT_ACCOUNT()": "ABC12345"}]
     if query == SnowflakeQuery.current_region():
@@ -79,7 +85,7 @@ def default_query_results(query):  # noqa: C901
                 "COMMENT": "Comment for Table",
                 "CLUSTERING_KEY": None,
             }
-            for tbl_idx in range(1, NUM_TABLES + 1)
+            for tbl_idx in range(1, num_tables + 1)
         ]
     elif query == SnowflakeQuery.show_views_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
@@ -90,7 +96,7 @@ def default_query_results(query):  # noqa: C901
                 "comment": "Comment for View",
                 "text": None,
             }
-            for view_idx in range(1, NUM_VIEWS + 1)
+            for view_idx in range(1, num_views + 1)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
         raise Exception("Information schema query returned too much data")
@@ -99,13 +105,13 @@ def default_query_results(query):  # noqa: C901
             SnowflakeQuery.columns_for_table(
                 "TABLE_{}".format(tbl_idx), "TEST_SCHEMA", "TEST_DB"
             )
-            for tbl_idx in range(1, NUM_TABLES + 1)
+            for tbl_idx in range(1, num_tables + 1)
         ],
         *[
             SnowflakeQuery.columns_for_table(
                 "VIEW_{}".format(view_idx), "TEST_SCHEMA", "TEST_DB"
             )
-            for view_idx in range(1, NUM_VIEWS + 1)
+            for view_idx in range(1, num_views + 1)
         ],
     ]:
         return [
@@ -122,7 +128,7 @@ def default_query_results(query):  # noqa: C901
                 "NUMERIC_PRECISION": None if col_idx > 1 else 38,
                 "NUMERIC_SCALE": None if col_idx > 1 else 0,
             }
-            for col_idx in range(1, NUM_COLS + 1)
+            for col_idx in range(1, num_cols + 1)
         ]
     elif query in (
         SnowflakeQuery.use_database("TEST_DB"),
@@ -158,7 +164,7 @@ def default_query_results(query):  # noqa: C901
                         {
                             "columns": [
                                 {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -167,7 +173,7 @@ def default_query_results(query):  # noqa: C901
                         {
                             "columns": [
                                 {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -176,7 +182,7 @@ def default_query_results(query):  # noqa: C901
                         {
                             "columns": [
                                 {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -189,7 +195,7 @@ def default_query_results(query):  # noqa: C901
                         {
                             "columns": [
                                 {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -198,7 +204,7 @@ def default_query_results(query):  # noqa: C901
                         {
                             "columns": [
                                 {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -207,7 +213,7 @@ def default_query_results(query):  # noqa: C901
                         {
                             "columns": [
                                 {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -231,7 +237,7 @@ def default_query_results(query):  # noqa: C901
                                         }
                                     ],
                                 }
-                                for col_idx in range(1, NUM_COLS + 1)
+                                for col_idx in range(1, num_cols + 1)
                             ],
                             "objectDomain": "Table",
                             "objectId": 0,
@@ -246,7 +252,7 @@ def default_query_results(query):  # noqa: C901
                 "EMAIL": "abc@xyz.com",
                 "ROLE_NAME": "ACCOUNTADMIN",
             }
-            for op_idx in range(1, NUM_OPS + 1)
+            for op_idx in range(1, num_ops + 1)
         ]
     elif (
         query
@@ -276,7 +282,7 @@ def default_query_results(query):  # noqa: C901
                 "UPSTREAM_TABLE_COLUMNS": json.dumps(
                     [
                         {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                        for col_idx in range(1, NUM_COLS + 1)
+                        for col_idx in range(1, num_cols + 1)
                     ]
                 ),
                 "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
@@ -293,11 +299,11 @@ def default_query_results(query):  # noqa: C901
                                 }
                             ],
                         }
-                        for col_idx in range(1, NUM_COLS + 1)
+                        for col_idx in range(1, num_cols + 1)
                     ]
                 ),
             }
-            for op_idx in range(1, NUM_OPS + 1)
+            for op_idx in range(1, num_ops + 1)
         ] + [
             {
                 "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
@@ -371,7 +377,7 @@ def default_query_results(query):  # noqa: C901
                                 ]
                             ],
                         }
-                        for col_idx in range(1, NUM_COLS + 1)
+                        for col_idx in range(1, num_cols + 1)
                     ]
                     + (  # This additional upstream is only for TABLE_1
                         [
@@ -393,7 +399,7 @@ def default_query_results(query):  # noqa: C901
                     )
                 ),
             }
-            for op_idx in range(1, NUM_OPS + 1)
+            for op_idx in range(1, num_ops + 1)
         ]
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
@@ -426,7 +432,7 @@ def default_query_results(query):  # noqa: C901
                     )
                 ),
             }
-            for op_idx in range(1, NUM_OPS + 1)
+            for op_idx in range(1, num_ops + 1)
         ]
     elif query == snowflake_query.SnowflakeQuery.external_table_lineage_history(
         1654499820000,
@@ -479,7 +485,7 @@ def default_query_results(query):  # noqa: C901
                 "VIEW_COLUMNS": json.dumps(
                     [
                         {"columnId": 0, "columnName": "COL_{}".format(col_idx)}
-                        for col_idx in range(1, NUM_COLS + 1)
+                        for col_idx in range(1, num_cols + 1)
                     ]
                 ),
                 "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
@@ -497,7 +503,7 @@ def default_query_results(query):  # noqa: C901
                                 }
                             ],
                         }
-                        for col_idx in range(1, NUM_COLS + 1)
+                        for col_idx in range(1, num_cols + 1)
                     ]
                 ),
             }

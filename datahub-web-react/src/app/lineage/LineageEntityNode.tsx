@@ -132,6 +132,10 @@ export default function LineageEntityNode({
         areColumnsCollapsed,
     );
 
+    const entityName =
+        capitalizeFirstLetterOnly(node.data.subtype) ||
+        (node.data.type && entityRegistry.getEntityName(node.data.type));
+
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
             {unexploredHiddenChildren && (isHovered || isSelected) ? (
@@ -335,9 +339,8 @@ export default function LineageEntityNode({
                             {' '}
                             |{' '}
                         </tspan>
-                        <tspan dx=".25em" dy="-2px">
-                            {capitalizeFirstLetterOnly(node.data.subtype) ||
-                                (node.data.type && entityRegistry.getEntityName(node.data.type))}
+                        <tspan dx=".25em" dy="-2px" data-testid={entityName}>
+                            {entityName}
                         </tspan>
                     </UnselectableText>
                     {expandTitles ? (

@@ -96,6 +96,14 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
   private CachedHealth computeHealthStatusForDataset(final String datasetUrn, final QueryContext context) {
     final List<Health> healthStatuses = new ArrayList<>();
 
+    // Incidents are saas-only.
+    if (_config.getIncidentsEnabled()) {
+      final Health incidentsHealth = computeIncidentsHealthForDataset(datasetUrn, context);
+      if (incidentsHealth != null) {
+        healthStatuses.add(incidentsHealth);
+      }
+    }
+
     if (_config.getAssertionsEnabled()) {
       final Health assertionsHealth = computeAssertionHealthForDataset(datasetUrn, context);
       if (assertionsHealth != null) {
@@ -112,14 +120,6 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
     //     healthStatuses.add(testsHealth);
     //   }
     // }
-
-    // Incidents are saas-only.
-    if (_config.getIncidentsEnabled()) {
-      final Health incidentsHealth = computeIncidentsHealthForDataset(datasetUrn, context);
-      if (incidentsHealth != null) {
-        healthStatuses.add(incidentsHealth);
-      }
-    }
 
     return new CachedHealth(healthStatuses);
   }
@@ -157,12 +157,12 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
       health.setType(HealthStatusType.ASSERTIONS);
       if (failingAssertionUrns.size() > 0) {
         health.setStatus(HealthStatus.FAIL);
-        health.setMessage(String.format("Dataset is failing %s/%s assertions.", failingAssertionUrns.size(),
+        health.setMessage(String.format("%s of %s assertions are failing", failingAssertionUrns.size(),
             totalAssertionCount));
         health.setCauses(failingAssertionUrns);
       } else {
         health.setStatus(HealthStatus.PASS);
-        health.setMessage("Dataset is passing all assertions.");
+        health.setMessage("All assertions are passing");
       }
       return health;
     }
@@ -194,7 +194,7 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
         return new Health(
             HealthStatusType.INCIDENTS,
             HealthStatus.FAIL,
-            String.format("This asset has %s active Incidents.", activeIncidentCount),
+            String.format("%s active incident%s", activeIncidentCount, activeIncidentCount > 1 ? "s" : ""),
             ImmutableList.of("ACTIVE_INCIDENTS")
         );
       }

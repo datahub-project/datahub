@@ -258,6 +258,7 @@ fragment searchResultFields on Entity {
     urn
     type
     ... on Dataset {
+        exists
         name
         origin
         uri
@@ -303,12 +304,19 @@ fragment searchResultFields on Entity {
         deprecation {
             ...deprecationFields
         }
+        health {
+            type
+            status
+            message
+            causes
+        }
         siblings {
             isPrimary
             siblings {
                 urn
                 type
                 ... on Dataset {
+                    exists
                     platform {
                         ...platformFields
                     }
