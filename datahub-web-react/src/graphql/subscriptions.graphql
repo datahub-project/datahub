@@ -1,6 +1,11 @@
 query getSubscription($input: GetSubscriptionInput!) {
     getSubscription(input: $input) {
-        ...subscriptionFields
+        privileges {
+            canManageEntity
+        }
+        subscription {
+            ...subscriptionFields
+        }
     }
 }
 

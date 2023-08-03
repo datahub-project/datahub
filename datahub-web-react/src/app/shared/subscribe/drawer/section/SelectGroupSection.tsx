@@ -7,7 +7,6 @@ import useGroupRelationships from '../../useGroupRelationships';
 
 const SelectGroupContainer = styled.div`
     margin-top: 32px;
-    margin-left: 8px;
     display: flex;
     flex-direction: column;
     gap: 8px;

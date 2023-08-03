@@ -7,7 +7,11 @@ type Props = {
 };
 const useSubscription = ({ isPersonal, entityUrn, groupUrn }: Props) => {
     const skip = !isPersonal && !groupUrn;
-    const { data: getSubscriptionData, refetch: refetchSubscription } = useGetSubscriptionQuery({
+    const {
+        data: getSubscriptionData,
+        loading,
+        refetch: refetchSubscription,
+    } = useGetSubscriptionQuery({
         skip,
         variables: {
             input: {
@@ -17,10 +21,11 @@ const useSubscription = ({ isPersonal, entityUrn, groupUrn }: Props) => {
         },
     });
 
-    const subscription = (!skip && getSubscriptionData?.getSubscription) || undefined;
+    const subscription = (!skip && getSubscriptionData?.getSubscription.subscription) || undefined;
     const isSubscribed = !!subscription;
+    const canManageSubscription = loading ? null : getSubscriptionData?.getSubscription.privileges?.canManageEntity;
 
-    return { subscription, isSubscribed, refetchSubscription };
+    return { subscription, isSubscribed, refetchSubscription, canManageSubscription };
 };
 
 export default useSubscription;

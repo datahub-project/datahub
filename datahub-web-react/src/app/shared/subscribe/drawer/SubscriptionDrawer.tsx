@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
-import { Button, Drawer, Typography } from 'antd';
+import { Alert, Button, Drawer, Typography } from 'antd';
 import { CloseCircleOutlined } from '@ant-design/icons';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import NotificationTypesSection from './section/NotificationTypesSection';
@@ -44,6 +44,10 @@ const SubscriptionTitle = styled(Typography.Text)`
     font-weight: 400;
 `;
 
+const StyledAlert = styled(Alert)`
+    margin-top: 16px;
+`;
+
 interface Props {
     isOpen: boolean;
     onClose: () => void;
@@ -54,6 +58,7 @@ interface Props {
     entityName: string;
     entityType: EntityType;
     isSubscribed: boolean;
+    canManageSubscription?: boolean | null;
     subscription?: DataHubSubscription;
     onRefetch?: () => void;
     onDeleteSubscription: () => void;
@@ -69,6 +74,7 @@ const SubscriptionDrawerContent = ({
     entityName,
     entityType,
     isSubscribed,
+    canManageSubscription,
     subscription,
     onRefetch,
     onDeleteSubscription,
@@ -110,7 +116,7 @@ const SubscriptionDrawerContent = ({
         onRefetch,
     });
 
-    const showBottomDrawerSection = isPersonal || groupUrn;
+    const showBottomDrawerSection = isPersonal || (groupUrn && canManageSubscription);
 
     const { settingsChannel, sinkTypes, updateSinkSettings } = useSinkSettings({
         isPersonal,
@@ -151,7 +157,12 @@ const SubscriptionDrawerContent = ({
         <SubscribeDrawer
             width={512}
             footer={
-                <Footer isSubscribed={isSubscribed} onCancelOrUnsubscribe={onCancelOrUnsubscribe} onUpdate={onUpdate} />
+                <Footer
+                    canManageSubscription={canManageSubscription}
+                    isSubscribed={isSubscribed}
+                    onCancelOrUnsubscribe={onCancelOrUnsubscribe}
+                    onUpdate={onUpdate}
+                />
             }
             open={isOpen}
             onClose={onClose}
@@ -164,6 +175,13 @@ const SubscriptionDrawerContent = ({
                 </Button>
             </SubscriptionTitleContainer>
             {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
+            {canManageSubscription === false && (
+                <StyledAlert
+                    type="warning"
+                    message="Your do not have permissions to manage this group's subscriptions. Please contact your DataHub Administrator."
+                    showIcon
+                />
+            )}
             {showBottomDrawerSection && (
                 <>
                     <NotificationTypesSection />

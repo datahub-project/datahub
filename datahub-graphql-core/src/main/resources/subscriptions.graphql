@@ -2,7 +2,7 @@ extend type Query {
     """
     Get a subscription for an entity pair.
     """
-    getSubscription(input: GetSubscriptionInput!): DataHubSubscription
+    getSubscription(input: GetSubscriptionInput!): GetSubscriptionResult!
 
     """
     List an actor's subscriptions.
@@ -77,6 +77,18 @@ input GetEntitySubscriptionSummaryInput {
     The number of top groups to display in the summary. Defaults to 5.
     """
     numTopGroups: Int
+}
+
+type GetSubscriptionResult {
+    """
+    The subscription you're looking to get
+    """
+    subscription: DataHubSubscription
+
+    """
+    The privileges for this user for this subscription. Determines whether we can manage/view this subscription.
+    """
+    privileges: EntityPrivileges
 }
 
 type ListSubscriptionsResult {
