@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Select, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { CorpGroup, EntityRelationship } from '../../../../../types.generated';
@@ -40,9 +40,13 @@ export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
         };
     };
 
-    const options = relationships
-        ?.filter((relationship) => !!relationship)
-        .map((relationship) => convertGroupRelationshipToOption(relationship as EntityRelationship));
+    const options = useMemo(
+        () =>
+            relationships
+                ?.filter((relationship) => !!relationship)
+                .map((relationship) => convertGroupRelationshipToOption(relationship as EntityRelationship)),
+        [relationships],
+    );
 
     useEffect(() => {
         if (!groupUrn && options && options.length === 1) {
