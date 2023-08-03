@@ -56,6 +56,7 @@ interface Props {
     isSubscribed: boolean;
     subscription?: DataHubSubscription;
     onRefetch?: () => void;
+    onUpsertSubscription?: () => void;
     onDeleteSubscription: () => void;
 }
 
@@ -71,6 +72,7 @@ const SubscriptionDrawerContent = ({
     isSubscribed,
     subscription,
     onRefetch,
+    onUpsertSubscription,
     onDeleteSubscription,
 }: Props) => {
     const { data: globalSettings } = useGetGlobalSettingsQuery();
@@ -107,6 +109,7 @@ const SubscriptionDrawerContent = ({
         isSubscribed,
         groupUrn,
         subscription,
+        onCreateSuccess: () => onUpsertSubscription?.(),
         onRefetch,
     });
 
