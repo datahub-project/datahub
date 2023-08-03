@@ -124,3 +124,5 @@ export const FilterModes = {
 } as const;
 
 export type FilterMode = typeof FilterModes[keyof typeof FilterModes];
+
+export const MAX_COUNT_VAL = 10000;

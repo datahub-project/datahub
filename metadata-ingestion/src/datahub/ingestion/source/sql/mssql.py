@@ -58,6 +58,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=None,
         description="database (catalog). If set to Null, all databases will be considered for ingestion.",
     )
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Enable to convert the SQL Server assets urns to lowercase",
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
@@ -255,10 +259,20 @@ class SQLServerSource(SQLAlchemySource):
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
     ) -> str:
         regular = f"{schema}.{entity}"
+
+        qualified_table_name = regular
+
         if self.config.database:
             if self.config.database_alias:
-                return f"{self.config.database_alias}.{regular}"
-            return f"{self.config.database}.{regular}"
+                qualified_table_name = f"{self.config.database_alias}.{regular}"
+            else:
+                qualified_table_name = f"{self.config.database}.{regular}"
+
         if self.current_database:
-            return f"{self.current_database}.{regular}"
-        return regular
+            qualified_table_name = f"{self.current_database}.{regular}"
+
+        return (
+            qualified_table_name.lower()
+            if self.config.convert_urns_to_lowercase
+            else qualified_table_name
+        )

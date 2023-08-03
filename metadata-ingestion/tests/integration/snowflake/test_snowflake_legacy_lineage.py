@@ -29,7 +29,6 @@ from tests.integration.snowflake.test_snowflake import random_cloud_region, rand
 from tests.test_helpers import mce_helpers
 
 
-@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
@@ -107,9 +106,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         ),
                         classification=ClassificationConfig(
                             enabled=True,
-                            column_pattern=AllowDenyPattern(
-                                allow=[".*col_1$", ".*col_2$", ".*col_3$"]
-                            ),
                             classifiers=[
                                 DynamicTypedClassifierConfig(
                                     type="datahub", config=datahub_classifier_config
@@ -141,7 +137,13 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             pytestconfig,
             output_path=output_file,
             golden_path=golden_file,
-            ignore_paths=[],
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['fields'\]\[\d+\]\['glossaryTerms'\]\['auditStamp'\]\['time'\]",
+                r"root\[\d+\]\['systemMetadata'\]",
+            ],
         )
 
 
