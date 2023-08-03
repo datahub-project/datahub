@@ -345,7 +345,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         config_report = {
             **config_report,
-            "profiling_enabled": config.profiling.enabled,
+            "profiling_enabled": config.is_profiling_enabled(),
             "platform": platform,
         }
 
@@ -354,7 +354,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             config_report,
         )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
@@ -494,7 +494,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.profiling.enabled:
+        if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
@@ -502,7 +502,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.profiling.enabled:
+            if sql_config.is_profiling_enabled():
                 profiler = self.get_profiler_instance(inspector)
                 try:
                     self.add_profile_metadata(inspector)

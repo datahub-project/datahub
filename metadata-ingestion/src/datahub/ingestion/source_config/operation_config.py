@@ -25,7 +25,7 @@ class OperationConfig(ConfigModel):
     )
 
     @pydantic.root_validator(pre=True)
-    def lower_freq_configs_are_set(cls, values: Dict[str, Any]) -> Any:
+    def lower_freq_configs_are_set(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         lower_freq_profile_enabled = values.get("lower_freq_profile_enabled")
         profile_day_of_week = values.get("profile_day_of_week")
         profile_date_of_month = values.get("profile_date_of_month")
@@ -37,9 +37,10 @@ class OperationConfig(ConfigModel):
             raise ConfigurationError(
                 "Lower freq profiling setting is enabled but no day of week or date of month is specified. Profiling will be done.",
             )
+        return values
 
     @pydantic.validator("profile_day_of_week")
-    def validate_profile_day_of_week(cls, v) -> Optional[int]:
+    def validate_profile_day_of_week(cls, v: Optional[int]) -> Optional[int]:
         profile_day_of_week = v
         if profile_day_of_week is None:
             return None
@@ -50,7 +51,7 @@ class OperationConfig(ConfigModel):
         return profile_day_of_week
 
     @pydantic.validator("profile_date_of_month")
-    def validate_profile_date_of_month(cls, v) -> Optional[int]:
+    def validate_profile_date_of_month(cls, v: Optional[int]) -> Optional[int]:
         profile_date_of_month = v
         if profile_date_of_month is None:
             return None

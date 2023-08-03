@@ -208,9 +208,6 @@ class ElasticProfiling(ConfigModel):
         description="Experimental feature. To specify operation configs.",
     )
 
-    def is_profiling_enabled(self) -> bool:
-        return self.enabled and is_profiling_enabled(self.operation_config)
-
 
 class CollapseUrns(ConfigModel):
     urns_suffix_regex: List[str] = Field(
@@ -306,6 +303,11 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     collapse_urns: CollapseUrns = Field(
         default_factory=CollapseUrns,
     )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
@@ -522,7 +524,7 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.profiling.is_profiling_enabled():
+        if self.source_config.is_profiling_enabled():
             if self.cat_response is None:
                 self.cat_response = self.client.cat.indices(
                     params={
