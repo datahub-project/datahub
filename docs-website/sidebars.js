@@ -418,6 +418,9 @@ module.exports = {
           className: "saasOnly",
         },
         "docs/act-on-metadata/impact-analysis",
+        {
+          Observability: ["docs/managed-datahub/observe/freshness-assertions"],
+        },
       ],
     },
     {
