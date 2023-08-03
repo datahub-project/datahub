@@ -207,7 +207,7 @@ class ElasticProfiling(ConfigModel):
         default_factory=OperationConfig, description="To specify operation configs."
     )
 
-    def is_profiling_enabld(self) -> bool:
+    def is_profiling_enabled(self) -> bool:
         return self.enabled and is_profiling_enabled(self.operation_config)
 
 
@@ -521,7 +521,7 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.profiling.is_profiling_enabld():
+        if self.source_config.profiling.is_profiling_enabled():
             if self.cat_response is None:
                 self.cat_response = self.client.cat.indices(
                     params={

@@ -1,8 +1,7 @@
 import datetime
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
-import click
 import pydantic
 from pydantic.fields import Field
 
@@ -24,6 +23,20 @@ class OperationConfig(ConfigModel):
         default=None,
         description="Number between 1 to 31 for date of month (both inclusive). If not specified, defaults to Nothing and this field does not take affect.",
     )
+
+    @pydantic.root_validator(pre=True)
+    def lower_freq_configs_are_set(cls, values: Dict[str, Any]) -> Any:
+        lower_freq_profile_enabled = values.get("lower_freq_profile_enabled")
+        profile_day_of_week = values.get("profile_day_of_week")
+        profile_date_of_month = values.get("profile_date_of_month")
+        if (
+            lower_freq_profile_enabled
+            and profile_day_of_week is None
+            and profile_date_of_month is None
+        ):
+            raise ConfigurationError(
+                "Lower freq profiling setting is enabled but no day of week or date of month is specified. Profiling will be done.",
+            )
 
     @pydantic.validator("profile_day_of_week")
     def validate_profile_day_of_week(cls, v) -> Optional[int]:
@@ -51,32 +64,22 @@ class OperationConfig(ConfigModel):
 def is_profiling_enabled(operation_config: OperationConfig) -> bool:
     if operation_config.lower_freq_profile_enabled is False:
         return True
-    if (
-        operation_config.profile_day_of_week is None
-        and operation_config.profile_date_of_month is None
-    ):
-        click.secho(
-            "Lower freq profiling setting is enabled but no day of week or date of month is specified. Profiling will be done.",
-            fg="yellow",
-        )
     logger.info("Lower freq profiling setting is enabled.")
     today = datetime.date.today()
     if (
         operation_config.profile_day_of_week is not None
         and operation_config.profile_date_of_month != today.weekday()
     ):
-        click.secho(
+        logger.info(
             "Profiling won't be done because weekday does not match config profile_date_of_month.",
-            fg="yellow",
         )
         return False
     if (
         operation_config.profile_date_of_month is not None
         and operation_config.profile_date_of_month != today.day
     ):
-        click.secho(
+        logger.info(
             "Profiling won't be done because date of month does not match config profile_date_of_month.",
-            fg="yellow",
         )
         return False
     return True
