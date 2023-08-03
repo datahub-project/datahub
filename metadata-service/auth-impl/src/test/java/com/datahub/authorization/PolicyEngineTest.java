@@ -45,6 +45,7 @@ public class PolicyEngineTest {
 
   private static final String AUTHORIZED_PRINCIPAL = "urn:li:corpuser:datahub";
   private static final String UNAUTHORIZED_PRINCIPAL = "urn:li:corpuser:unauthorized";
+  private static final String UNAUTHORIZED_GROUPLESS_PRINCIPAL = "urn:li:corpuser:unauthorized_groupless";
 
   private static final String AUTHORIZED_GROUP = "urn:li:corpGroup:authorizedGroup";
 
@@ -61,6 +62,7 @@ public class PolicyEngineTest {
 
   private Urn authorizedUserUrn;
   private Urn unauthorizedUserUrn;
+  private Urn unauthorizedGrouplessUserUrn;
   private Urn resourceUrn;
 
   @BeforeMethod
@@ -84,6 +86,14 @@ public class PolicyEngineTest {
         Collections.singletonMap(unauthorizedUserUrn, unauthorizedEntityResponse);
     when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(unauthorizedUserUrn)), any(),
         any())).thenReturn(unauthorizedEntityResponseMap);
+
+    EntityResponse unauthorizedGrouplessEntityResponse = createUnauthorizedGrouplessEntityResponse();
+    unauthorizedGrouplessUserUrn = Urn.createFromString(UNAUTHORIZED_GROUPLESS_PRINCIPAL);
+    unauthorizedGrouplessEntityResponse.setUrn(unauthorizedGrouplessUserUrn);
+    Map<Urn, EntityResponse> unauthorizedGrouplessEntityResponseMap =
+        Collections.singletonMap(unauthorizedGrouplessUserUrn, unauthorizedGrouplessEntityResponse);
+    when(_entityClient.batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(unauthorizedGrouplessUserUrn)), any(),
+        any())).thenReturn(unauthorizedGrouplessEntityResponseMap);
 
     EntityResponse entityResponse = new EntityResponse();
     EnvelopedAspectMap envelopedAspectMap = new EnvelopedAspectMap();
@@ -438,11 +448,17 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertTrue(result1.isGranted());
 
-    // Assert unauthorized user cannot edit entity tags.
+    // Assert unauthorized user can edit entity tags.
     PolicyEngine.PolicyEvaluationResult result2 =
         _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec));
     assertTrue(result2.isGranted());
+
+    // Assert unauthorized groupless user can edit entity tags.
+    PolicyEngine.PolicyEvaluationResult result3 =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_GROUPLESS_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertTrue(result3.isGranted());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
@@ -477,11 +493,17 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertTrue(result1.isGranted());
 
-    // Assert unauthorized user cannot edit entity tags.
+    // Assert unauthorized user can edit entity tags.
     PolicyEngine.PolicyEvaluationResult result2 =
         _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec));
     assertTrue(result2.isGranted());
+
+    // Assert unauthorized groupless user can edit entity tags.
+    PolicyEngine.PolicyEvaluationResult result3 =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_GROUPLESS_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertFalse(result3.isGranted());
 
     // Verify we are only calling for group during these requests.
     verify(_entityClient, times(1)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
@@ -527,6 +549,18 @@ public class PolicyEngineTest {
             Optional.of(resourceSpec));
     assertTrue(result1.isGranted());
 
+    // Assert unauthorized user cannot edit entity tags
+    PolicyEngine.PolicyEvaluationResult result2 =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertFalse(result2.isGranted());
+
+     // Assert unauthorized groupless user cannot edit entity tags
+    PolicyEngine.PolicyEvaluationResult result3 =
+        _policyEngine.evaluatePolicy(dataHubPolicyInfo, UNAUTHORIZED_GROUPLESS_PRINCIPAL, "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertFalse(result3.isGranted());
+
     // Ensure no calls for group membership.
     verify(_entityClient, times(0)).batchGetV2(eq(CORP_USER_ENTITY_NAME), eq(Collections.singleton(authorizedUserUrn)),
         eq(null), any());
@@ -564,7 +598,7 @@ public class PolicyEngineTest {
 
     ResolvedResourceSpec resourceSpec =
             buildResourceResolvers("dataset", RESOURCE_URN, ImmutableSet.of(AUTHORIZED_PRINCIPAL), Collections.emptySet());
-    
+
     PolicyEngine.PolicyEvaluationResult result1 =
             _policyEngine.evaluatePolicy(dataHubPolicyInfo, AUTHORIZED_PRINCIPAL, "EDIT_ENTITY_TAGS",
                     Optional.of(resourceSpec));
@@ -1196,6 +1230,34 @@ public class PolicyEngineTest {
     final GroupMembership groupsAspect = new GroupMembership();
     final UrnArray groups = new UrnArray();
     groups.add(Urn.createFromString("urn:li:corpGroup:unauthorizedGroup"));
+    groupsAspect.setGroups(groups);
+    aspectMap.put(GROUP_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(groupsAspect.data())));
+
+    final RoleMembership rolesAspect = new RoleMembership();
+    final UrnArray roles = new UrnArray();
+    roles.add(Urn.createFromString("urn:li:dataHubRole:reader"));
+    rolesAspect.setRoles(roles);
+    aspectMap.put(ROLE_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(rolesAspect.data())));
+
+    entityResponse.setAspects(aspectMap);
+    return entityResponse;
+  }
+
+    private EntityResponse createUnauthorizedGrouplessEntityResponse() throws URISyntaxException {
+    final EntityResponse entityResponse = new EntityResponse();
+    final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+
+    final CorpUserInfo userInfo = new CorpUserInfo();
+    userInfo.setActive(true);
+    userInfo.setFullName("Unauthorized Groupless User");
+    userInfo.setFirstName("Unauthorized Groupless");
+    userInfo.setLastName("User");
+    userInfo.setEmail("Unauth Groupless");
+    userInfo.setTitle("Engineer");
+    aspectMap.put(CORP_USER_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(userInfo.data())));
+
+    final GroupMembership groupsAspect = new GroupMembership();
+    final UrnArray groups = new UrnArray();
     groupsAspect.setGroups(groups);
     aspectMap.put(GROUP_MEMBERSHIP_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(groupsAspect.data())));
 

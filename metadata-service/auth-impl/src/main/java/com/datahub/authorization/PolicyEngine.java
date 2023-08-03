@@ -295,7 +295,7 @@ public class PolicyEngine {
     // If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
       final Set<Urn> groups = resolveGroups(actor, context);
-      return actorFilter.isAllGroups() || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
+      return actorFilter.isAllGroups() && ! groups.isEmpty()|| (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
           .stream()
           .anyMatch(groups::contains));
     }
