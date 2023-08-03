@@ -14,6 +14,7 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.subscription.SubscriptionInfo;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +25,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.AcrylConstants.*;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -53,17 +53,17 @@ public abstract class NotificationRecipientBuilder {
    * Builds a list of recipients based on subscriber information.
    */
   public List<NotificationRecipient> buildSubscriberRecipients(@Nonnull Map<Urn, SubscriptionInfo> subscriptions) {
-    final Set<Urn> userUrns = new HashSet<>();
-    final Set<Urn> groupUrns = new HashSet<>();
+    final Map<Urn, SubscriptionInfo> userToSubscriptionMap = new HashMap<>();
+    final Map<Urn, SubscriptionInfo> groupToSubscriptionMap = new HashMap<>();
     for (Map.Entry<Urn, SubscriptionInfo> entry : subscriptions.entrySet()) {
       final SubscriptionInfo subscriptionInfo = entry.getValue();
       final com.linkedin.common.urn.Urn actorUrn = subscriptionInfo.getActorUrn();
       switch (subscriptionInfo.getActorType()) {
         case CORP_USER_ENTITY_NAME:
-          userUrns.add(actorUrn);
+          userToSubscriptionMap.put(actorUrn, subscriptionInfo);
           break;
         case CORP_GROUP_ENTITY_NAME:
-          groupUrns.add(actorUrn);
+          groupToSubscriptionMap.put(actorUrn, subscriptionInfo);
           break;
         default:
           log.warn("Unsupported actor type: " + subscriptionInfo.getActorType());
@@ -71,13 +71,13 @@ public abstract class NotificationRecipientBuilder {
       }
     }
 
-    final List<NotificationSettings> userNotificationSettings =
-        getNotificationSettings(CORP_USER_ENTITY_NAME, userUrns, NotificationSettings::hasSlackSettings);
-    final List<NotificationRecipient> userRecipients = buildUserNotificationRecipients(userNotificationSettings);
-    final List<NotificationSettings> groupNotificationSettings =
-        getNotificationSettings(CORP_GROUP_ENTITY_NAME, groupUrns, NotificationSettings::hasSlackSettings);
-    final List<NotificationRecipient> groupRecipients =
-        buildGroupNotificationRecipients(groupNotificationSettings);
+    final Set<Urn> userUrns = new HashSet<>(userToSubscriptionMap.keySet());
+    final Set<Urn> groupUrns = new HashSet<>(groupToSubscriptionMap.keySet());
+
+    final Map<Urn, NotificationSettings> userToNotificationSettings = getNotificationSettings(CORP_USER_ENTITY_NAME, userUrns);
+    final Map<Urn, NotificationSettings> groupToNotificationSettings = getNotificationSettings(CORP_GROUP_ENTITY_NAME, groupUrns);
+    final List<NotificationRecipient> userRecipients = buildUserSubscriberRecipients(userToSubscriptionMap, userToNotificationSettings);
+    final List<NotificationRecipient> groupRecipients = buildGroupSubscriberRecipients(groupToSubscriptionMap, groupToNotificationSettings);
 
     final List<NotificationRecipient> notificationRecipients =
         new ArrayList<>(userRecipients.size() + groupRecipients.size());
@@ -87,8 +87,7 @@ public abstract class NotificationRecipientBuilder {
     return notificationRecipients;
   }
 
-  public List<NotificationSettings> getNotificationSettings(@Nonnull final String entityName,
-      @Nonnull final Set<Urn> actorUrns, Predicate<? super NotificationSettings> predicate) {
+  public Map<Urn, NotificationSettings> getNotificationSettings(@Nonnull final String entityName, @Nonnull final Set<Urn> actorUrns) {
     Map<Urn, EntityResponse> notificationSettingsMap;
     String aspectName = entityName.equals(CORP_USER_ENTITY_NAME) ? CORP_USER_SETTINGS_ASPECT_NAME : CORP_GROUP_SETTINGS_ASPECT_NAME;
     try {
@@ -98,16 +97,14 @@ public abstract class NotificationRecipientBuilder {
           _authentication));
     } catch (Exception e) {
       log.error("Failed to fetch notification settings for actors {}", actorUrns, e);
-      return Collections.emptyList();
+      return Collections.emptyMap();
     }
 
     return notificationSettingsMap
-        .values()
+        .entrySet()
         .stream()
-        .filter(entityResponse -> entityResponse.getAspects().containsKey(aspectName))
-        .map(entityResponse -> mapToNotificationSettings(aspectName, entityResponse))
-        .filter(predicate)
-        .collect(Collectors.toList());
+        .filter(entry -> entry.getValue().getAspects().containsKey(aspectName))
+        .collect(Collectors.toMap(entry -> entry.getKey(), entry -> mapToNotificationSettings(aspectName, entry.getValue())));
   }
 
   private NotificationSettings mapToNotificationSettings(@Nonnull final String aspectName, @Nonnull final EntityResponse entityResponse) {
@@ -135,9 +132,11 @@ public abstract class NotificationRecipientBuilder {
     return new NotificationSettings();
   }
 
-  protected abstract List<NotificationRecipient> buildUserNotificationRecipients(
-      @Nonnull final List<NotificationSettings> userNotificationSettings);
+  protected abstract List<NotificationRecipient> buildUserSubscriberRecipients(
+      @Nonnull final Map<Urn, SubscriptionInfo> userToSubscriptionMap,
+      @Nonnull final Map<Urn, NotificationSettings> userToNotificationSettings);
 
-  protected abstract List<NotificationRecipient> buildGroupNotificationRecipients(
-      @Nonnull final List<NotificationSettings> groupNotificationSettings);
+  protected abstract List<NotificationRecipient> buildGroupSubscriberRecipients(
+      @Nonnull final Map<Urn, SubscriptionInfo> groupToSubscriptionMap,
+      @Nonnull final Map<Urn, NotificationSettings> groupToNotificationSettings);
 }

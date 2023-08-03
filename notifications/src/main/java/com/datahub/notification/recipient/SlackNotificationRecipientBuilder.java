@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationScenarioType;
 import com.datahub.notification.provider.SettingsProvider;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRecipientType;
@@ -12,14 +13,17 @@ import com.linkedin.event.notification.settings.NotificationSettings;
 import com.linkedin.event.notification.settings.SlackNotificationSettings;
 import com.linkedin.settings.NotificationSetting;
 import com.linkedin.settings.global.GlobalSettingsInfo;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.linkedin.subscription.SubscriptionInfo;
 import lombok.extern.slf4j.Slf4j;
 
 
@@ -64,37 +68,104 @@ public class SlackNotificationRecipientBuilder extends NotificationRecipientBuil
     }
   }
 
-  // TODO: make sure we can use the override slack channel/DM on the subscription itself
-  @Override
-  protected List<NotificationRecipient> buildUserNotificationRecipients(
-      @Nonnull final List<NotificationSettings> userNotificationSettings) {
-    return userNotificationSettings.stream()
-        .filter(settings -> settings.getSinkTypes().contains(NotificationSinkType.SLACK))
-        .map(NotificationSettings::getSlackSettings)
-        .filter(Objects::nonNull)
-        .filter(SlackNotificationSettings::hasUserHandle)
-        .map(slackNotificationSettings -> new NotificationRecipient()
-            .setId(Objects.requireNonNull(slackNotificationSettings.getUserHandle()))
-            .setType(NotificationRecipientType.CUSTOM)
-            .setCustomType(SLACK_DM_CUSTOM_TYPE))
-        .collect(Collectors.toList());
+  private boolean isSlackEnabledForActor(@Nonnull final Map<Urn, NotificationSettings> actorToNotificationSettings, @Nonnull final Urn urn) {
+    return actorToNotificationSettings.containsKey(urn) && actorToNotificationSettings.get(urn).getSinkTypes().contains(NotificationSinkType.SLACK);
   }
 
+  @Nullable
+  private String getUserRecipientIdFromSubscription(Map.Entry<Urn, SubscriptionInfo> urnToSubscriptionInfo) {
+    if (
+        urnToSubscriptionInfo.getValue().hasNotificationConfig()
+          && urnToSubscriptionInfo.getValue().getNotificationConfig().hasNotificationSettings()
+          && urnToSubscriptionInfo.getValue().getNotificationConfig().getNotificationSettings().hasSlackSettings()
+    ) {
+      SlackNotificationSettings slackSettings = urnToSubscriptionInfo.getValue().getNotificationConfig().getNotificationSettings().getSlackSettings();
+      return slackSettings.getUserHandle() != null ? slackSettings.getUserHandle() : null;
+    }
+    return null;
+  }
+
+  /*
+   * For each user that has a Subscription, try to create a NotificationRecipient object and return this list of NotificationRecipients.
+   * If a user has a member ID set on the subscription, use that, otherwise default to what's in their settings
+   */
   @Override
-  protected List<NotificationRecipient> buildGroupNotificationRecipients(
-      @Nonnull final List<NotificationSettings> groupNotificationSettings) {
-    return groupNotificationSettings.stream()
-        .filter(settings -> settings.getSinkTypes().contains(NotificationSinkType.SLACK))
-        .map(NotificationSettings::getSlackSettings)
-        .filter(Objects::nonNull)
-        .filter(SlackNotificationSettings::hasChannels)
-        .flatMap(slackNotificationSettings -> Objects.requireNonNull(slackNotificationSettings.getChannels())
-            .stream()
-            .map(channel -> new NotificationRecipient()
+  protected List<NotificationRecipient> buildUserSubscriberRecipients(
+      @Nonnull final Map<Urn, SubscriptionInfo> userToSubscriptionMap,
+      @Nonnull final Map<Urn, NotificationSettings> userToNotificationSettings
+      ) {
+    List<NotificationRecipient> notificationRecipients = new ArrayList<>();
+    userToSubscriptionMap.entrySet().forEach(entry -> {
+      // first, ensure slack is enabled for the user
+      if (isSlackEnabledForActor(userToNotificationSettings, entry.getKey())) {
+        NotificationRecipient notificationRecipient = new NotificationRecipient().setType(NotificationRecipientType.CUSTOM).setCustomType(SLACK_DM_CUSTOM_TYPE);
+        String recipientIdFromSubscription = getUserRecipientIdFromSubscription(entry);
+        if (recipientIdFromSubscription != null) {
+          notificationRecipient.setId(recipientIdFromSubscription);
+        } else {
+          NotificationSettings notificationSettings = userToNotificationSettings.get(entry.getKey());
+          if (!notificationSettings.hasSlackSettings()) {
+            log.warn(String.format("Unable to create NotificationRecipient for user %s as they do not have Slack Setting configured", entry.getKey()));
+            return;
+          }
+          notificationRecipient.setId(Objects.requireNonNull(notificationSettings.getSlackSettings().getUserHandle()));
+        }
+        notificationRecipients.add(notificationRecipient);
+      }
+    });
+    return notificationRecipients;
+  }
+
+  @Nullable
+  private List<String> getGroupRecipientIdsFromSubscription(Map.Entry<Urn, SubscriptionInfo> urnToSubscriptionInfo) {
+    if (
+        urnToSubscriptionInfo.getValue().hasNotificationConfig()
+          && urnToSubscriptionInfo.getValue().getNotificationConfig().hasNotificationSettings()
+          && urnToSubscriptionInfo.getValue().getNotificationConfig().getNotificationSettings().hasSlackSettings()
+    ) {
+      SlackNotificationSettings slackSettings = urnToSubscriptionInfo.getValue().getNotificationConfig().getNotificationSettings().getSlackSettings();
+      return slackSettings.getChannels() != null ? slackSettings.getChannels() : null;
+    }
+    return null;
+  }
+
+  /*
+   * For each group that has a Subscription, try to create a NotificationRecipient object and return this list of NotificationRecipients.
+   * If a group has channels set on the subscription, use that, otherwise default to what's in their settings
+   */
+  @Override
+  protected List<NotificationRecipient> buildGroupSubscriberRecipients(
+      @Nonnull final Map<Urn, SubscriptionInfo> groupToSubscriptionMap,
+      @Nonnull final Map<Urn, NotificationSettings> groupToNotificationSettings
+      ) {
+    List<NotificationRecipient> notificationRecipients = new ArrayList<>();
+    groupToSubscriptionMap.entrySet().forEach(entry -> {
+      // first, ensure slack is enabled for the group
+      if (isSlackEnabledForActor(groupToNotificationSettings, entry.getKey())) {
+        List<String> recipientIdsFromSubscription = getGroupRecipientIdsFromSubscription(entry);
+        if (recipientIdsFromSubscription != null && recipientIdsFromSubscription.size() > 0) {
+          recipientIdsFromSubscription.forEach(id -> {
+            notificationRecipients.add(new NotificationRecipient()
+              .setId(id)
+              .setType(NotificationRecipientType.CUSTOM)
+              .setCustomType(SLACK_CHANNEL_CUSTOM_TYPE));
+          });
+        } else {
+          NotificationSettings notificationSettings = groupToNotificationSettings.get(entry.getKey());
+          if (!notificationSettings.hasSlackSettings() || !notificationSettings.getSlackSettings().hasChannels()) {
+            log.warn(String.format("Unable to create NotificationRecipient for user %s as they do not have Slack Setting configured", entry.getKey()));
+            return;
+          }
+          notificationSettings.getSlackSettings().getChannels().forEach(channel -> {
+            notificationRecipients.add(new NotificationRecipient()
                 .setId(channel)
                 .setType(NotificationRecipientType.CUSTOM)
-                .setCustomType(SLACK_CHANNEL_CUSTOM_TYPE)))
-        .collect(Collectors.toList());
+                .setCustomType(SLACK_CHANNEL_CUSTOM_TYPE));
+          });
+        }
+      }
+    });
+    return notificationRecipients;
   }
 
   private boolean isSlackEnabled(@Nullable final GlobalSettingsInfo globalSettingsInfo) {
