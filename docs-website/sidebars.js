@@ -419,7 +419,9 @@ module.exports = {
         },
         "docs/act-on-metadata/impact-analysis",
         {
-          Observability: ["docs/managed-datahub/observe/freshness-assertions.md"],
+          Observability: [
+            "docs/managed-datahub/observe/freshness-assertions",
+          ],
         },
       ],
     },
