@@ -96,6 +96,14 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
   private CachedHealth computeHealthStatusForDataset(final String datasetUrn, final QueryContext context) {
     final List<Health> healthStatuses = new ArrayList<>();
 
+    // Incidents are saas-only.
+    if (_config.getIncidentsEnabled()) {
+      final Health incidentsHealth = computeIncidentsHealthForDataset(datasetUrn, context);
+      if (incidentsHealth != null) {
+        healthStatuses.add(incidentsHealth);
+      }
+    }
+
     if (_config.getAssertionsEnabled()) {
       final Health assertionsHealth = computeAssertionHealthForDataset(datasetUrn, context);
       if (assertionsHealth != null) {
@@ -112,14 +120,6 @@ public class AcrylDatasetHealthResolver implements DataFetcher<CompletableFuture
     //     healthStatuses.add(testsHealth);
     //   }
     // }
-
-    // Incidents are saas-only.
-    if (_config.getIncidentsEnabled()) {
-      final Health incidentsHealth = computeIncidentsHealthForDataset(datasetUrn, context);
-      if (incidentsHealth != null) {
-        healthStatuses.add(incidentsHealth);
-      }
-    }
 
     return new CachedHealth(healthStatuses);
   }
