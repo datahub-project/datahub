@@ -218,7 +218,7 @@ pyhive_common = {
     # - 0.6.12 adds support for Spark Thrift Server
     # - 0.6.13 adds a small fix for Databricks
     # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
-    "acryl-pyhive[hive_pure_sasl]==0.6.14rc1",
+    "acryl-pyhive[hive_pure_sasl]==0.6.14",
     # As per https://github.com/datahub-project/datahub/issues/8405
     # and https://github.com/dropbox/PyHive/issues/417, new versions
     # of thrift break PyHive's hive+http transport.
