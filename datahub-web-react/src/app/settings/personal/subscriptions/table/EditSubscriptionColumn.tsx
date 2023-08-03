@@ -53,6 +53,7 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
                 entityName={entityName}
                 entityType={entityType}
                 isSubscribed
+                canManageSubscription
                 subscription={subscription}
                 onRefetch={refetchListSubscriptions}
                 onDeleteSubscription={deleteSubscription}

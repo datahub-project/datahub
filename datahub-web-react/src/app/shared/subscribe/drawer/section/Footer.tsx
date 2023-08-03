@@ -22,19 +22,20 @@ const FooterContainer = styled.div`
 const FooterButton = styled(Button)``;
 
 interface Props {
+    canManageSubscription?: boolean | null;
     isSubscribed: boolean;
     onCancelOrUnsubscribe: () => void;
     onUpdate: () => void;
 }
 
-export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }: Props) {
+export default function Footer({ isSubscribed, canManageSubscription, onCancelOrUnsubscribe, onUpdate }: Props) {
     const isSlackEnabled = useDrawerSelector(selectIsSlackEnabled);
     const edited = useDrawerSelector(selectIsEdited);
     const hasSlackChannel = useDrawerSelector(selectHasSlackChannel);
     const hasNotificationType = useDrawerSelector(selectHasNotificationType);
     const isSettingsChannelSelection = useDrawerSelector(selectIsSettingsChannelSelection);
     const isSlackFormValid = !isSlackEnabled || hasSlackChannel || isSettingsChannelSelection;
-    const canSubmit = edited && isSlackFormValid;
+    const canSubmit = edited && isSlackFormValid && canManageSubscription;
     const subscribeText = hasNotificationType ? 'Subscribe & Notify' : 'Subscribe';
 
     return (

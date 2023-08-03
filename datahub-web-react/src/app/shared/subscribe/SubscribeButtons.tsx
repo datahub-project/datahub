@@ -32,7 +32,7 @@ export default function SubscribeButtons() {
     const [groupUrn, setGroupUrn] = useState<string>();
 
     const { hasGroupRelationships } = useGroupRelationships({ count: 1 });
-    const { subscription, isSubscribed, refetchSubscription } = useSubscription({
+    const { subscription, isSubscribed, canManageSubscription, refetchSubscription } = useSubscription({
         isPersonal,
         entityUrn: primaryEntityUrn,
         groupUrn,
@@ -149,6 +149,7 @@ export default function SubscribeButtons() {
                 entityType={entityType}
                 isSubscribed={isSubscribed}
                 subscription={subscription}
+                canManageSubscription={canManageSubscription}
                 onRefetch={refetch}
                 onDeleteSubscription={deleteSubscription}
                 onUpsertSubscription={handleUpsertSubscription}
