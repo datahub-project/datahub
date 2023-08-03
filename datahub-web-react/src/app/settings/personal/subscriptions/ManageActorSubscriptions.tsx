@@ -1,3 +1,4 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Pagination, Table, Typography } from 'antd';
@@ -86,11 +87,15 @@ type Props = {
 export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
     const [page, setPage] = useState(1);
     const start = (page - 1) * PAGE_SIZE;
-    const { data: listSubscriptionData, refetch: refetchListSubscriptions } = useListSubscriptionsQuery({
+    const {
+        data: listSubscriptionData,
+        loading,
+        refetch: refetchListSubscriptions,
+    } = useListSubscriptionsQuery({
         variables: { input: { start, count: PAGE_SIZE, groupUrn: groupUrn || undefined } },
     });
     const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
-    const numSubscriptions = listSubscriptionData?.listSubscriptions?.subscriptions?.length || 0;
+    const numSubscriptions = listSubscriptionData?.listSubscriptions?.total || 0;
     const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
     const subscriptionTableColumns = [
         {
@@ -145,17 +150,22 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
                     columns={subscriptionTableColumns}
                     dataSource={subscriptions}
                     rowKey="urn"
-                    locale={{
-                        emptyText: (
-                            <EmptyContainer>
-                                <EmptySimpleSvg />
-                                <EmptySubscriptionsText>
-                                    You are not currently subscribed to any entities. Get started by subscribing to
-                                    entities most relevant to you.
-                                </EmptySubscriptionsText>
-                            </EmptyContainer>
-                        ),
-                    }}
+                    loading={loading ? { indicator: <LoadingOutlined /> } : false}
+                    locale={
+                        !loading
+                            ? {
+                                  emptyText: (
+                                      <EmptyContainer>
+                                          <EmptySimpleSvg />
+                                          <EmptySubscriptionsText>
+                                              You are not currently subscribed to any entities. Get started by
+                                              subscribing to entities most relevant to you.
+                                          </EmptySubscriptionsText>
+                                      </EmptyContainer>
+                                  ),
+                              }
+                            : undefined
+                    }
                     pagination={false}
                 />
                 {numSubscriptions >= PAGE_SIZE && (

@@ -178,8 +178,8 @@ const glossaryTermChangeNode: DataNode = {
             key: EntityChangeType.GlossaryTermProposed,
             title: (
                 <NotificationTypeText>
-                    A new glossary term is proposed
-                    <Tooltip title="Someone has proposed adding a glossary term, but it has not beed added">
+                    Glossary term poposal changes
+                    <Tooltip title="Someone has proposed or rejected a new glossary term on this entity">
                         <TooltipIcon />
                     </Tooltip>
                 </NotificationTypeText>
@@ -204,8 +204,8 @@ const tagChangeNode: DataNode = {
             key: EntityChangeType.TagProposed,
             title: (
                 <NotificationTypeText>
-                    A new tag is proposed
-                    <Tooltip title="Someone has proposed adding a tag, but it has not beed added">
+                    Tag proposal changes
+                    <Tooltip title="Someone has proposed or rejected a new tag on this entity">
                         <TooltipIcon />
                     </Tooltip>
                 </NotificationTypeText>
@@ -253,6 +253,8 @@ export const deleteSubscriptionFunction = ({
             onSuccess?.();
             analytics.event({
                 type: EventType.SubscriptionDeleteSuccessEvent,
+                subscriptionUrn: subscription.subscriptionUrn,
+                entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
@@ -269,6 +271,8 @@ export const deleteSubscriptionFunction = ({
         .catch((e: unknown) => {
             analytics.event({
                 type: EventType.SubscriptionDeleteErrorEvent,
+                subscriptionUrn: subscription.subscriptionUrn,
+                entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
@@ -320,10 +324,12 @@ export const createSubscriptionFunction = ({
             },
         },
     })
-        .then(() => {
+        .then((result) => {
             onSuccess?.();
             analytics.event({
                 type: EventType.SubscriptionCreateSuccessEvent,
+                subscriptionUrn: result.data?.createSubscription.subscriptionUrn ?? '',
+                entityUrn,
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings?.sinkTypes,
@@ -341,6 +347,7 @@ export const createSubscriptionFunction = ({
         .catch((e: unknown) => {
             analytics.event({
                 type: EventType.SubscriptionCreateErrorEvent,
+                entityUrn,
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings.sinkTypes,
@@ -400,6 +407,8 @@ export const updateSubscriptionFunction = ({
             .then(() => {
                 analytics.event({
                     type: EventType.SubscriptionUpdateSuccessEvent,
+                    subscriptionUrn: subscription.subscriptionUrn,
+                    entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes,
                     entityChangeTypesAdded,
@@ -421,6 +430,8 @@ export const updateSubscriptionFunction = ({
             .catch((e: unknown) => {
                 analytics.event({
                     type: EventType.SubscriptionUpdateErrorEvent,
+                    subscriptionUrn: subscription.subscriptionUrn,
+                    entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes,
                     sinkTypes: notificationSettings.sinkTypes,

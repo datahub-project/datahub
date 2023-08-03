@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsResult;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.subscription.SubscriptionInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -43,8 +44,8 @@ public class ListSubscriptionsResolver implements DataFetcher<CompletableFuture<
         }
 
         final Urn actorUrn = UrnUtils.getUrn(actorUrnString);
-        final Map<Urn, SubscriptionInfo> subscriptions =
-            _subscriptionService.listSubscriptions(actorUrn, start, count, authentication);
+        final SearchResult searchResult = _subscriptionService.getSubscriptionsSearchResult(actorUrn, start, count, authentication);
+        final Map<Urn, SubscriptionInfo> subscriptions = _subscriptionService.listSubscriptions(searchResult, authentication);
 
         final List<DataHubSubscription> dataHubSubscriptions = subscriptions
             .entrySet().stream()
@@ -52,6 +53,7 @@ public class ListSubscriptionsResolver implements DataFetcher<CompletableFuture<
             .collect(Collectors.toList());
         final ListSubscriptionsResult result = new ListSubscriptionsResult();
         result.setSubscriptions(dataHubSubscriptions);
+        result.setTotal(searchResult.getNumEntities());
 
         return result;
       } catch (Exception e) {

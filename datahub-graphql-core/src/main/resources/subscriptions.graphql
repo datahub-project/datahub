@@ -84,6 +84,11 @@ type ListSubscriptionsResult {
     The list of subscriptions.
     """
     subscriptions: [DataHubSubscription!]!
+
+    """
+    The total number of subscriptions given the input
+    """
+    total: Int!
 }
 
 input CreateSubscriptionInput {

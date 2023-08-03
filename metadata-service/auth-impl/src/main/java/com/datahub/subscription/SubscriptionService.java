@@ -253,7 +253,7 @@ public class SubscriptionService {
   }
 
   @Nonnull
-  public Map<Urn, SubscriptionInfo> listSubscriptions(
+  public SearchResult getSubscriptionsSearchResult(
       @Nonnull final Urn actorUrn,
       final int start,
       final int count,
@@ -262,9 +262,8 @@ public class SubscriptionService {
       if (!_entityClient.exists(actorUrn, authentication)) {
         throw new RuntimeException(String.format("Actor %s does not exist", actorUrn));
       }
-
       final Filter filter = buildListSubscriptionsFilter(actorUrn);
-      final SearchResult searchResult = _entityClient.filter(
+      return _entityClient.filter(
           SUBSCRIPTION_ENTITY_NAME,
           filter,
           null,
@@ -273,6 +272,16 @@ public class SubscriptionService {
           authentication
       );
 
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to search for subscriptions", e);
+    }
+  }
+
+  @Nonnull
+  public Map<Urn, SubscriptionInfo> listSubscriptions(
+      @Nonnull final SearchResult searchResult,
+      @Nonnull final Authentication authentication) {
+    try {
       final Set<Urn> subscriptionUrns = searchResult.getEntities()
           .stream()
           .map(SearchEntity::getEntity)
