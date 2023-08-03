@@ -61,7 +61,7 @@ export const ValidationsTab = () => {
                 </>
             ),
             path: TabPaths.ASSERTIONS,
-            disabled: totalAssertions === 0,
+            disabled: false,
             content: <Assertions />,
         },
         {

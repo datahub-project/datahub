@@ -12,6 +12,7 @@ import { DEFAULT_ASSERTION_EVALUATION_SCHEDULE } from '../../constants';
 import { adjustCronText } from '../../utils';
 import { useEntityData } from '../../../../../../../EntityContext';
 import { getPlatformName } from '../../../../../../../utils';
+import { TruncatedTextWithTooltip } from '../../../../../../../../../shared/TruncatedTextWithTooltip';
 
 const TitleSection = styled.div`
     display: flex;
@@ -153,7 +154,7 @@ export const EvaluationScheduleBuilder = ({ value, onChange, showTimezone = true
                         {cronAsText.text && (
                             <>
                                 <CronSuccessCheck />
-                                {actionText} {cronAsText.text}
+                                <TruncatedTextWithTooltip text={`${actionText} ${cronAsText.text}`} maxLength={100} />
                             </>
                         )}
                     </CronText>

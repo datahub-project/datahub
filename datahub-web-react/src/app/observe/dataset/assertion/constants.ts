@@ -1,6 +1,6 @@
 import { AssertionType } from '../../../../types.generated';
 
-export const FAILING_ASSERTION_TYPE_FILTER_FIELD = 'failAssertionType';
+export const FAILING_ASSERTION_TYPE_FILTER_FIELD = 'failingAssertionType';
 export const HAS_FAILING_ASSERTIONS_FILTER_FIELD = 'hasFailingAssertions';
 
 export const ASSERTION_TYPE_OPTIONS = [
