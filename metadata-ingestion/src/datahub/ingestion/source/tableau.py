@@ -327,9 +327,9 @@ class TableauConfig(
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
-    region_prefix: str = Field(
+    lineage_platform_instance: str = Field(
         default="uk",
-        description="AWS region prefix for mapping Athena table URNs.",
+        description="Platform prefix for mapping upstream lineage URNs.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -1396,7 +1396,7 @@ class TableauSource(StatefulIngestionSourceBase):
                             full_name=split_table[1],
                             platform_instance_map=self.config.platform_instance_map,
                             lineage_overrides=self.config.lineage_overrides,
-                            region_prefix=self.config.region_prefix
+                            lineage_platform_instance=self.config.lineage_platform_instance
                         )
                         upstream_tables.append(
                             UpstreamClass(
