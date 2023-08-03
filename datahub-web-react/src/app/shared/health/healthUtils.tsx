@@ -32,8 +32,12 @@ export enum HealthSummaryIconType {
 export const isUnhealthy = (healths: Health[]) => {
     const assertionHealth = healths.find((health) => health.type === HealthStatusType.Assertions);
     const isFailingAssertions = assertionHealth?.status === HealthStatus.Fail;
-    // Currently, being unhealthy is defined as having failing assertions.
-    return isFailingAssertions;
+
+    // Acryl-main Only!
+    const incidentHealth = healths.find((health) => health.type === HealthStatusType.Incidents);
+    const hasActiveIncidents = incidentHealth?.status === HealthStatus.Fail;
+    // Currently, being unhealthy is defined as having failing assertions OR incidents (acryl-main).
+    return isFailingAssertions || hasActiveIncidents;
 };
 
 export const getHealthSummaryIcon = (healths: Health[], type: HealthSummaryIconType = HealthSummaryIconType.FILLED) => {
@@ -140,6 +144,9 @@ export const getHealthRedirectPath = (type: HealthStatusType) => {
         case HealthStatusType.Assertions: {
             return 'Validation/Assertions';
         }
+        case HealthStatusType.Incidents: {
+            return 'Incidents';
+        }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
     }
@@ -149,6 +156,9 @@ export const getHealthTypeName = (type: HealthStatusType) => {
     switch (type) {
         case HealthStatusType.Assertions: {
             return 'Assertions';
+        }
+        case HealthStatusType.Incidents: {
+            return 'Incidents';
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
