@@ -674,6 +674,8 @@ export interface SlackIntegrationErrorEvent extends BaseEvent {
 
 export interface SubscriptionCreateSuccessEvent extends BaseEvent {
     type: EventType.SubscriptionCreateSuccessEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
@@ -682,6 +684,7 @@ export interface SubscriptionCreateSuccessEvent extends BaseEvent {
 
 export interface SubscriptionCreateErrorEvent extends BaseEvent {
     type: EventType.SubscriptionCreateErrorEvent;
+    entityUrn: string;
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
@@ -690,6 +693,8 @@ export interface SubscriptionCreateErrorEvent extends BaseEvent {
 
 export interface SubscriptionUpdateSuccessEvent extends BaseEvent {
     type: EventType.SubscriptionUpdateSuccessEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     entityChangeTypesAdded: Array<EntityChangeType>;
@@ -702,6 +707,8 @@ export interface SubscriptionUpdateSuccessEvent extends BaseEvent {
 
 export interface SubscriptionUpdateErrorEvent extends BaseEvent {
     type: EventType.SubscriptionUpdateErrorEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
@@ -710,6 +717,8 @@ export interface SubscriptionUpdateErrorEvent extends BaseEvent {
 
 export interface SubscriptionDeleteSuccessEvent extends BaseEvent {
     type: EventType.SubscriptionDeleteSuccessEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;
@@ -718,6 +727,8 @@ export interface SubscriptionDeleteSuccessEvent extends BaseEvent {
 
 export interface SubscriptionDeleteErrorEvent extends BaseEvent {
     type: EventType.SubscriptionDeleteErrorEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
     entityType: EntityType;
     entityChangeTypes: Array<EntityChangeType>;
     sinkTypes: Array<NotificationSinkType>;

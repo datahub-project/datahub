@@ -250,6 +250,8 @@ export const deleteSubscriptionFunction = ({
         .then(() => {
             analytics.event({
                 type: EventType.SubscriptionDeleteSuccessEvent,
+                subscriptionUrn: subscription.subscriptionUrn,
+                entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
@@ -266,6 +268,8 @@ export const deleteSubscriptionFunction = ({
         .catch((e: unknown) => {
             analytics.event({
                 type: EventType.SubscriptionDeleteErrorEvent,
+                subscriptionUrn: subscription.subscriptionUrn,
+                entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
                 entityChangeTypes: subscription.entityChangeTypes,
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
@@ -315,9 +319,11 @@ export const createSubscriptionFunction = ({
             },
         },
     })
-        .then(() => {
+        .then((result) => {
             analytics.event({
                 type: EventType.SubscriptionCreateSuccessEvent,
+                subscriptionUrn: result.data?.createSubscription.subscriptionUrn ?? '',
+                entityUrn,
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings?.sinkTypes,
@@ -335,6 +341,7 @@ export const createSubscriptionFunction = ({
         .catch((e: unknown) => {
             analytics.event({
                 type: EventType.SubscriptionCreateErrorEvent,
+                entityUrn,
                 entityType,
                 entityChangeTypes,
                 sinkTypes: notificationSettings.sinkTypes,
@@ -394,6 +401,8 @@ export const updateSubscriptionFunction = ({
             .then(() => {
                 analytics.event({
                     type: EventType.SubscriptionUpdateSuccessEvent,
+                    subscriptionUrn: subscription.subscriptionUrn,
+                    entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes,
                     entityChangeTypesAdded,
@@ -415,6 +424,8 @@ export const updateSubscriptionFunction = ({
             .catch((e: unknown) => {
                 analytics.event({
                     type: EventType.SubscriptionUpdateErrorEvent,
+                    subscriptionUrn: subscription.subscriptionUrn,
+                    entityUrn: subscription.entity.urn,
                     entityType,
                     entityChangeTypes,
                     sinkTypes: notificationSettings.sinkTypes,
