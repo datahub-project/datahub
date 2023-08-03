@@ -2,9 +2,11 @@ package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.common.GraphClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
@@ -46,6 +48,14 @@ public class ProposalNotificationGeneratorFactory {
   @Qualifier("systemAuthentication")
   private Authentication _systemAuthentication;
 
+  @Autowired
+  @Qualifier("slackNotificationRecipientBuilder")
+  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+
+  @Autowired
+  @Qualifier("configurationProvider")
+  private ConfigurationProvider _configProvider;
+
   @Bean(name = "proposalNotificationGenerator")
   @Scope("singleton")
   @Nonnull
@@ -55,7 +65,9 @@ public class ProposalNotificationGeneratorFactory {
         _entityClient,
         _graphClient,
         _settingsProvider,
-        _systemAuthentication
+        _systemAuthentication,
+        _slackNotificationRecipientBuilder,
+        _configProvider.getFeatureFlags()
     );
   }
 }

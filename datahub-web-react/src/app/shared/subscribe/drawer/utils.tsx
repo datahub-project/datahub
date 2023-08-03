@@ -178,8 +178,8 @@ const glossaryTermChangeNode: DataNode = {
             key: EntityChangeType.GlossaryTermProposed,
             title: (
                 <NotificationTypeText>
-                    A new glossary term is proposed
-                    <Tooltip title="Someone has proposed adding a glossary term, but it has not beed added">
+                    Glossary term poposal changes
+                    <Tooltip title="Someone has proposed or rejected a new glossary term on this entity">
                         <TooltipIcon />
                     </Tooltip>
                 </NotificationTypeText>
@@ -204,8 +204,8 @@ const tagChangeNode: DataNode = {
             key: EntityChangeType.TagProposed,
             title: (
                 <NotificationTypeText>
-                    A new tag is proposed
-                    <Tooltip title="Someone has proposed adding a tag, but it has not beed added">
+                    Tag proposal changes
+                    <Tooltip title="Someone has proposed or rejected a new tag on this entity">
                         <TooltipIcon />
                     </Tooltip>
                 </NotificationTypeText>
