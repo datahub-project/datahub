@@ -178,7 +178,7 @@ const SubscriptionDrawerContent = ({
             {canManageSubscription === false && (
                 <StyledAlert
                     type="warning"
-                    message="Your do not have permissions to manage this group's subscriptions. Please contact your DataHub Administrator."
+                    message="You do not have permissions to manage this group's subscriptions. Please contact your DataHub Administrator."
                     showIcon
                 />
             )}
