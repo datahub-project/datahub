@@ -28,7 +28,11 @@ import {
     useDrawerSelector,
 } from './state/selectors';
 
-const SubscribeDrawer = styled(Drawer)``;
+const SubscribeDrawer = styled(Drawer)`
+    .ant-drawer-body {
+        padding: 16px 24px;
+    }
+`;
 
 const SubscriptionTitleContainer = styled.div`
     display: flex;
@@ -42,6 +46,15 @@ const SubscriptionTitle = styled(Typography.Text)`
     font-size: 24px;
     line-height: 32px;
     font-weight: 400;
+`;
+
+const CancelButtonWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
+`;
+
+const StyledButton = styled(Button)`
+    padding: 0 4px;
 `;
 
 interface Props {
@@ -157,11 +170,13 @@ const SubscriptionDrawerContent = ({
             onClose={onClose}
             closable={false}
         >
+            <CancelButtonWrapper>
+                <StyledButton type="link" onClick={onClose}>
+                    <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
+                </StyledButton>
+            </CancelButtonWrapper>
             <SubscriptionTitleContainer>
                 <SubscriptionTitle>Subscribe to {entityName}</SubscriptionTitle>
-                <Button type="link" onClick={onClose}>
-                    <CloseCircleOutlined style={{ color: ANTD_GRAY[10] }} />
-                </Button>
             </SubscriptionTitleContainer>
             {!isPersonal && <SelectGroupSection groupUrn={groupUrn} setGroupUrn={setGroupUrn} />}
             {showBottomDrawerSection && (
