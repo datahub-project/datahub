@@ -393,9 +393,9 @@ class LDAPSource(StatefulIngestionSourceBase):
         else:
             display_name = full_name
         if attrs.get(self.config.user_attrs_map["departmentId"]):
-            department_id = (
+            department_id = int((
                 attrs[self.config.user_attrs_map["departmentId"]][0]
-            ).decode()
+            ).decode())
         else:
             department_id = None
         if attrs.get(self.config.user_attrs_map["departmentName"]):
