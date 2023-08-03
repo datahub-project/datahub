@@ -195,6 +195,7 @@ const searchResultWithSiblings = [
     {
         entity: {
             urn: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
+            exists: true,
             type: 'DATASET',
             name: 'cypress_project.jaffle_shop.raw_orders',
             origin: 'PROD',
@@ -328,6 +329,7 @@ const searchResultWithSiblings = [
                 siblings: [
                     {
                         urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
+                        exists: true,
                         type: 'DATASET',
                         platform: {
                             urn: 'urn:li:dataPlatform:dbt',
@@ -376,6 +378,7 @@ const searchResultWithSiblings = [
     {
         entity: {
             urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
+            exists: true,
             type: 'DATASET',
             name: 'cypress_project.jaffle_shop.raw_orders',
             origin: 'PROD',
@@ -513,6 +516,169 @@ const searchResultWithSiblings = [
     },
 ];
 
+const searchResultWithGhostSiblings = [
+    {
+        entity: {
+            urn: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
+            exists: true,
+            type: 'DATASET',
+            name: 'cypress_project.jaffle_shop.raw_orders',
+            origin: 'PROD',
+            uri: null,
+            platform: {
+                urn: 'urn:li:dataPlatform:bigquery',
+                type: 'DATA_PLATFORM',
+                name: 'bigquery',
+                properties: {
+                    type: 'RELATIONAL_DB',
+                    displayName: 'BigQuery',
+                    datasetNameDelimiter: '.',
+                    logoUrl: '/assets/platforms/bigquerylogo.png',
+                    __typename: 'DataPlatformProperties',
+                },
+                displayName: null,
+                info: null,
+                __typename: 'DataPlatform',
+            },
+            dataPlatformInstance: null,
+            editableProperties: null,
+            platformNativeType: null,
+            properties: {
+                name: 'raw_orders',
+                description: null,
+                qualifiedName: null,
+                customProperties: [],
+                __typename: 'DatasetProperties',
+            },
+            ownership: null,
+            globalTags: null,
+            glossaryTerms: null,
+            subTypes: {
+                typeNames: ['table'],
+                __typename: 'SubTypes',
+            },
+            domain: null,
+            container: {
+                urn: 'urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb',
+                platform: {
+                    urn: 'urn:li:dataPlatform:bigquery',
+                    type: 'DATA_PLATFORM',
+                    name: 'bigquery',
+                    properties: {
+                        type: 'RELATIONAL_DB',
+                        displayName: 'BigQuery',
+                        datasetNameDelimiter: '.',
+                        logoUrl: '/assets/platforms/bigquerylogo.png',
+                        __typename: 'DataPlatformProperties',
+                    },
+                    displayName: null,
+                    info: null,
+                    __typename: 'DataPlatform',
+                },
+                properties: {
+                    name: 'jaffle_shop',
+                    __typename: 'ContainerProperties',
+                },
+                subTypes: {
+                    typeNames: ['Dataset'],
+                    __typename: 'SubTypes',
+                },
+                deprecation: null,
+                __typename: 'Container',
+            },
+            parentContainers: {
+                count: 2,
+                containers: [
+                    {
+                        urn: 'urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb',
+                        platform: {
+                            urn: 'urn:li:dataPlatform:bigquery',
+                            type: 'DATA_PLATFORM',
+                            name: 'bigquery',
+                            properties: {
+                                type: 'RELATIONAL_DB',
+                                displayName: 'BigQuery',
+                                datasetNameDelimiter: '.',
+                                logoUrl: '/assets/platforms/bigquerylogo.png',
+                                __typename: 'DataPlatformProperties',
+                            },
+                            displayName: null,
+                            info: null,
+                            __typename: 'DataPlatform',
+                        },
+                        properties: {
+                            name: 'jaffle_shop',
+                            __typename: 'ContainerProperties',
+                        },
+                        subTypes: {
+                            typeNames: ['Dataset'],
+                            __typename: 'SubTypes',
+                        },
+                        deprecation: null,
+                        __typename: 'Container',
+                    },
+                    {
+                        urn: 'urn:li:container:b5e95fce839e7d78151ed7e0a7420d84',
+                        platform: {
+                            urn: 'urn:li:dataPlatform:bigquery',
+                            type: 'DATA_PLATFORM',
+                            name: 'bigquery',
+                            properties: {
+                                type: 'RELATIONAL_DB',
+                                displayName: 'BigQuery',
+                                datasetNameDelimiter: '.',
+                                logoUrl: '/assets/platforms/bigquerylogo.png',
+                                __typename: 'DataPlatformProperties',
+                            },
+                            displayName: null,
+                            info: null,
+                            __typename: 'DataPlatform',
+                        },
+                        properties: {
+                            name: 'cypress_project',
+                            __typename: 'ContainerProperties',
+                        },
+                        subTypes: {
+                            typeNames: ['Project'],
+                            __typename: 'SubTypes',
+                        },
+                        deprecation: null,
+                        __typename: 'Container',
+                    },
+                ],
+                __typename: 'ParentContainersResult',
+            },
+            deprecation: null,
+            siblings: {
+                isPrimary: false,
+                siblings: [
+                    {
+                        urn: 'urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_orders,PROD)',
+                        exists: false,
+                        type: 'DATASET',
+                    },
+                ],
+                __typename: 'SiblingProperties',
+            },
+            __typename: 'Dataset',
+        },
+        matchedFields: [
+            {
+                name: 'name',
+                value: 'raw_orders',
+                __typename: 'MatchedField',
+            },
+            {
+                name: 'id',
+                value: 'cypress_project.jaffle_shop.raw_orders',
+                __typename: 'MatchedField',
+            },
+        ],
+        insights: [],
+        __typename: 'SearchResult',
+    },
+];
+
 describe('siblingUtils', () => {
     describe('combineEntityDataWithSiblings', () => {
         it('combines my metadata with my siblings as primary', () => {
@@ -564,6 +730,18 @@ describe('siblingUtils', () => {
             expect(result?.[0]?.matchedEntities?.[1]?.urn).toEqual(
                 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
             );
+
+            expect(result?.[0]?.matchedEntities).toHaveLength(2);
+        });
+
+        it('will not combine an entity with a ghost node', () => {
+            const result = combineSiblingsInSearchResults(searchResultWithGhostSiblings as any);
+
+            expect(result).toHaveLength(1);
+            expect(result?.[0]?.matchedEntities?.[0]?.urn).toEqual(
+                'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
+            );
+            expect(result?.[0]?.matchedEntities).toHaveLength(1);
         });
     });
 

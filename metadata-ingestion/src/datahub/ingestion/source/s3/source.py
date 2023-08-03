@@ -178,9 +178,9 @@ def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
     try:
         # Stripping = from the folder names as it most probably partition name part like year=2021
         if "=" in folder1 and "=" in folder2:
-            if folder1.split("=", 1)[0] == folder2.split("=", 1)[0]:
-                folder1 = folder1.split("=", 1)[1]
-                folder2 = folder2.split("=", 1)[1]
+            if folder1.rsplit("=", 1)[0] == folder2.rsplit("=", 1)[0]:
+                folder1 = folder1.rsplit("=", 1)[-1]
+                folder2 = folder2.rsplit("=", 1)[-1]
 
         num_folder1 = int(folder1)
         num_folder2 = int(folder2)
@@ -773,27 +773,39 @@ class S3Source(StatefulIngestionSourceBase):
             for folder in self.resolve_templated_folders(
                 bucket_name, get_bucket_relative_path(include[:table_index])
             ):
-                for f in list_folders(
-                    bucket_name, f"{folder}", self.source_config.aws_config
-                ):
-                    logger.info(f"Processing folder: {f}")
-                    protocol = ContainerWUCreator.get_protocol(path_spec.include)
-                    dir_to_process = self.get_dir_to_process(
-                        bucket_name=bucket_name,
-                        folder=f + "/",
-                        path_spec=path_spec,
-                        protocol=protocol,
-                    )
-                    logger.info(f"Getting files from folder: {dir_to_process}")
-                    dir_to_process = dir_to_process.rstrip("\\")
-                    for obj in (
-                        bucket.objects.filter(Prefix=f"{dir_to_process}")
-                        .page_size(PAGE_SIZE)
-                        .limit(sample_size)
+                try:
+                    for f in list_folders(
+                        bucket_name, f"{folder}", self.source_config.aws_config
                     ):
-                        s3_path = self.create_s3_path(obj.bucket_name, obj.key)
-                        logger.debug(f"Sampling file: {s3_path}")
-                        yield s3_path, obj.last_modified, obj.size,
+                        logger.info(f"Processing folder: {f}")
+                        protocol = ContainerWUCreator.get_protocol(path_spec.include)
+                        dir_to_process = self.get_dir_to_process(
+                            bucket_name=bucket_name,
+                            folder=f + "/",
+                            path_spec=path_spec,
+                            protocol=protocol,
+                        )
+                        logger.info(f"Getting files from folder: {dir_to_process}")
+                        dir_to_process = dir_to_process.rstrip("\\")
+                        for obj in (
+                            bucket.objects.filter(Prefix=f"{dir_to_process}")
+                            .page_size(PAGE_SIZE)
+                            .limit(sample_size)
+                        ):
+                            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+                            logger.debug(f"Sampling file: {s3_path}")
+                            yield s3_path, obj.last_modified, obj.size,
+                except Exception as e:
+                    # This odd check if being done because boto does not have a proper exception to catch
+                    # The exception that appears in stacktrace cannot actually be caught without a lot more work
+                    # https://github.com/boto/boto3/issues/1195
+                    if "NoSuchBucket" in repr(e):
+                        logger.debug(f"Got NoSuchBucket exception for {bucket_name}", e)
+                        self.get_report().report_warning(
+                            "Missing bucket", f"No bucket found {bucket_name}"
+                        )
+                    else:
+                        raise e
         else:
             logger.debug(
                 "No template in the pathspec can't do sampling, fallbacking to do full scan"
