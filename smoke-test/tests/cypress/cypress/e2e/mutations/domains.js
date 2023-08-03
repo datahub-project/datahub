@@ -29,6 +29,8 @@ describe("add remove domain", () => {
             cy.get("#continueButton").click()
         })
         cy.waitTextVisible("Added assets to Domain!")
+        //Temp solution for created domain to appear as search filter
+        cy.waitTextVisible("customers").wait(5000); 
     })
 
     it("search filter by domain", () => {
@@ -37,7 +39,6 @@ describe("add remove domain", () => {
         cy.waitTextVisible("Showing")
         cy.waitTextVisible("results")
         cy.get('[data-testid="filter-dropdown-Domain"]').click({ force: true });
-        cy.get('[data-testid="search-input"][placeholder="Domain"]').type(test_domain);
         cy.get(`[data-testid="filter-option-${test_domain}"]`).click({ force: true });
         cy.get('[data-testid="update-filters"]').click({ force: true });
         cy.waitTextVisible("customers")
