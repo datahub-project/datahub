@@ -185,8 +185,6 @@ export const RelationshipsTab = () => {
                     titleText="Select Table 2"
                     continueText="Submit"
                     onContinue={async (selectedDataSet) => {
-                        console.log('selectedDataSet');
-                        console.log(selectedDataSet);
                         await getTable2LazySchema({
                             variables: {
                                 urn: selectedDataSet[0] || '',

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Button, Form, Input, message, Modal, Table } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import { PlusOutlined } from '@ant-design/icons';
-import { useApolloClient } from '@apollo/client';
 import arrow from '../../../../../../images/Arrow.svg';
 import './CreateJoinModal.less';
 import { Join, OwnershipType } from '../../../../../../types.generated';
@@ -11,6 +10,7 @@ import { useUserContext } from '../../../../../context/useUserContext';
 import { EditableRow } from './EditableRow';
 import { EditableCell } from './EditableCell';
 import { checkDuplicateJoin, getDatasetName, JoinDataType, validateJoin } from './JoinUtils';
+import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
 
 type Props = {
     table1?: any;
@@ -40,7 +40,6 @@ export const CreateJoinModal = ({
 }: Props) => {
     const [form] = Form.useForm();
     const { user } = useUserContext();
-    const client = useApolloClient();
     const table1Dataset = editJoin?.properties?.datasetA || table1?.dataset;
     const table1DatasetSchema = editJoin?.properties?.datasetA || table1Schema;
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
@@ -63,6 +62,10 @@ export const CreateJoinModal = ({
     const [count, setCount] = useState(editJoin?.properties?.joinFieldMapping?.fieldMappings?.length || 2);
     const [createMutation] = useCreateJoinMutation();
     const [updateMutation] = useUpdateJoinMutation();
+    const { refetch: getSearchResultsJoins } = useGetSearchResultsQuery({
+        skip: true,
+    });
+
     const handleDelete = (record) => {
         const newData = tableData.filter((item) => item.key !== record.key);
         setTableData(newData);
@@ -82,7 +85,7 @@ export const CreateJoinModal = ({
         });
     };
     const onSubmit = async () => {
-        const errors = validateJoin(joinName, tableData, editFlag, client);
+        const errors = validateJoin(joinName, tableData, editFlag, getSearchResultsJoins);
         if ((await errors).length > 0) {
             const errorHtml = (await errors).join(`<br />`);
             // eslint-disable-next-line react/no-danger
@@ -292,7 +295,7 @@ export const CreateJoinModal = ({
                             },
                             {
                                 validator: (_, value) =>
-                                    checkDuplicateJoin(client, value?.trim()).then((result) => {
+                                    checkDuplicateJoin(getSearchResultsJoins, value?.trim()).then((result) => {
                                         return result === true
                                             ? Promise.reject(
                                                   new Error(

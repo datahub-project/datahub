@@ -1,6 +1,5 @@
 import React from 'react';
 import { FormInstance } from 'antd';
-import { GetSearchResultsDocument } from '../../../../../../graphql/search.generated';
 import { EntityType } from '../../../../../../types.generated';
 
 export const EditableContext = React.createContext<FormInstance<any> | null>(null);
@@ -9,29 +8,28 @@ export interface JoinDataType {
     field1Name: string;
     field2Name: string;
 }
-export const checkDuplicateJoin = async (client, name): Promise<boolean> => {
-    const { data } = await client.query({
-        query: GetSearchResultsDocument,
-        variables: {
-            input: {
-                type: EntityType.Join,
-                query: '',
-                orFilters: [
-                    {
-                        and: [
-                            {
-                                field: 'name',
-                                values: [name],
-                            },
-                        ],
-                    },
-                ],
-                start: 0,
-                count: 1000,
-            },
+
+export const checkDuplicateJoin = async (getSearchResultsJoins, name): Promise<boolean> => {
+    const { data: searchResults } = await getSearchResultsJoins({
+        input: {
+            type: EntityType.Join,
+            query: '',
+            orFilters: [
+                {
+                    and: [
+                        {
+                            field: 'name',
+                            values: [name],
+                        },
+                    ],
+                },
+            ],
+            start: 0,
+            count: 1000,
         },
     });
-    return data && data.search && data.search.total > 0;
+    const recordExists = searchResults && searchResults.search && searchResults.search.total > 0;
+    return recordExists || false;
 };
 const validateTableData = (fieldMappingData: JoinDataType) => {
     if (fieldMappingData.field1Name !== '' && fieldMappingData.field2Name !== '') {
@@ -39,9 +37,9 @@ const validateTableData = (fieldMappingData: JoinDataType) => {
     }
     return false;
 };
-export const validateJoin = async (nameField: string, tableSchema: JoinDataType[], editFlag, client) => {
+export const validateJoin = async (nameField: string, tableSchema: JoinDataType[], editFlag, getSearchResultsJoins) => {
     const errors: string[] = [];
-    const bDuplicateName = await checkDuplicateJoin(client, nameField?.trim()).then((result) => result);
+    const bDuplicateName = await checkDuplicateJoin(getSearchResultsJoins, nameField?.trim()).then((result) => result);
     if (nameField === '') {
         errors.push('Join name is required.');
     }
