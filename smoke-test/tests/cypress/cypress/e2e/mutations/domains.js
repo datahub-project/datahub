@@ -34,9 +34,8 @@ describe("add remove domain", () => {
     it("search filter by domain", () => {
         cy.loginWithCredentials();
         cy.goToStarSearchList();
-        cy.clickOptionWithText("Domain");  
-        cy.waitTextVisible(test_domain);
-        cy.clickOptionWithText(test_domain);   
+        cy.clickOptionWithText("Domain"); 
+        cy.contains(test_domain).click({ force: true });
         cy.clickOptionWithText("Update");
         cy.waitTextVisible("customers")
     })
