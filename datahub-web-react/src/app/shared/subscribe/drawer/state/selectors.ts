@@ -48,8 +48,16 @@ export function selectChannelSelection(state: State) {
     return selectSlack(state).channelSelection;
 }
 
+export function selectIsSubscriptionChannelSelection(state: State) {
+    return selectChannelSelection(state) === ChannelSelections.SUBSCRIPTION;
+}
+
+export function selectIsSettingsChannelSelection(state: State) {
+    return selectChannelSelection(state) === ChannelSelections.SETTINGS;
+}
+
 export function selectHasSlackChannel(state: State) {
-    return selectChannelSelection(state) === ChannelSelections.SUBSCRIPTION && !!selectSubscriptionSlackChannel(state);
+    return selectIsSubscriptionChannelSelection(state) && !!selectSubscriptionSlackChannel(state);
 }
 
 export function selectSlackSaveAsDefault(state: State) {
@@ -77,8 +85,8 @@ export function selectShouldTurnOnSlackInSettings(state: State) {
 
 export function selectShouldShowUpdateSlackSettingsWarning(state: State) {
     const shouldTurnOnSlackInSettings = selectShouldTurnOnSlackInSettings(state);
-    const settings = selectSettings(state);
-    return shouldTurnOnSlackInSettings && !!settings.slack.channel;
+    const settingsSlackChannel = selectSettingsSlackChannel(state);
+    return shouldTurnOnSlackInSettings && !!settingsSlackChannel;
 }
 
 export function selectHasEnabledSink(state: State) {

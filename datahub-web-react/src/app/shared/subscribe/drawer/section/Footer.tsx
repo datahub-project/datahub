@@ -5,6 +5,7 @@ import {
     selectHasNotificationType,
     selectHasSlackChannel,
     selectIsEdited,
+    selectIsSettingsChannelSelection,
     selectIsSlackEnabled,
     useDrawerSelector,
 } from '../state/selectors';
@@ -31,7 +32,8 @@ export default function Footer({ isSubscribed, onCancelOrUnsubscribe, onUpdate }
     const edited = useDrawerSelector(selectIsEdited);
     const hasSlackChannel = useDrawerSelector(selectHasSlackChannel);
     const hasNotificationType = useDrawerSelector(selectHasNotificationType);
-    const isSlackFormValid = !isSlackEnabled || hasSlackChannel;
+    const isSettingsChannelSelection = useDrawerSelector(selectIsSettingsChannelSelection);
+    const isSlackFormValid = !isSlackEnabled || hasSlackChannel || isSettingsChannelSelection;
     const canSubmit = edited && isSlackFormValid;
     const subscribeText = hasNotificationType ? 'Subscribe & Notify' : 'Subscribe';
 
