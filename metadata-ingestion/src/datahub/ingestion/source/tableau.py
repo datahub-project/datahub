@@ -356,9 +356,9 @@ class TableauConfig(
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
-    region_prefix: str = Field(
+    lineage_platform_instance: str = Field(
         default="uk",
-        description="AWS region prefix for mapping Athena table URNs.",
+        description="Platform prefix for mapping upstream lineage URNs.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
