@@ -7,10 +7,15 @@ import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { useGetGlobalSettingsQuery } from '../../../../../graphql/settings.generated';
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../../settings/platform/types';
 import { isSinkEnabled } from '../../../../settings/utils';
-import { useDrawerState } from '../state/context';
 import useDrawerActions from '../state/actions';
 import { ChannelSelections } from '../state/types';
-import { shouldShowUpdateSlackSettingsWarning } from '../state/selectors';
+import {
+    selectShouldShowUpdateSlackSettingsWarning,
+    useDrawerSelector,
+    selectIsPersonal,
+    selectSettingsSlackChannel,
+    selectSlack,
+} from '../state/selectors';
 
 const LEFT_PADDING = 36;
 
@@ -100,8 +105,10 @@ export default function NotificationRecipientSection() {
     const [form] = useForm();
     const actions = useDrawerActions();
 
-    const drawerState = useDrawerState();
-    const { isPersonal, settings, slack } = drawerState;
+    const slack = useDrawerSelector(selectSlack);
+    const isPersonal = useDrawerSelector(selectIsPersonal);
+    const settingsSlackChannel = useDrawerSelector(selectSettingsSlackChannel);
+    const shouldShowUpdateSlackSettingsWarning = useDrawerSelector(selectShouldShowUpdateSlackSettingsWarning);
 
     const [isSettingsChannelSelected, isSubscriptionChannelSelected] = [
         slack.channelSelection === ChannelSelections.SETTINGS,
@@ -152,7 +159,7 @@ export default function NotificationRecipientSection() {
                         />
                         <SinkTypeText>Slack Notifications</SinkTypeText>
                     </SwitchWrapper>
-                    {shouldShowUpdateSlackSettingsWarning(drawerState) && (
+                    {shouldShowUpdateSlackSettingsWarning && (
                         <StyledAlert
                             type="warning"
                             message="Your Slack notifications are currently disabled. Subscribing to this entity will
@@ -167,11 +174,11 @@ export default function NotificationRecipientSection() {
                             onChange={onChangeSlackRadioGroup}
                         >
                             <Space direction="vertical">
-                                {settings.slack.channel && (
+                                {settingsSlackChannel && (
                                     <Radio value={ChannelSelections.SETTINGS}>
                                         <UseDefaultText>
                                             Use default:{' '}
-                                            <SettingsSlackChannel>{settings.slack.channel}</SettingsSlackChannel>
+                                            <SettingsSlackChannel>{settingsSlackChannel}</SettingsSlackChannel>
                                         </UseDefaultText>
                                     </Radio>
                                 )}

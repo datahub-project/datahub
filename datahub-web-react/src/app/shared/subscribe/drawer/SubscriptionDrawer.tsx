@@ -15,12 +15,18 @@ import { useGetLineageCountsQuery } from '../../../../graphql/lineage.generated'
 import { NOTIFICATION_SINKS, SLACK_SINK } from '../../../settings/platform/types';
 import { isSinkEnabled } from '../../../settings/utils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../../../settings/personal/notifications/constants';
-import SubscriptionDrawerProvider, { useDrawerState } from './state/context';
+import SubscriptionDrawerProvider from './state/context';
 import useDrawerActions from './state/actions';
 import useSinkSettings from './useSinkSettings';
 import useUpsertSubscription from './useUpsertSubscription';
 import useDelayedKey from './useDelayedKey';
-import { shouldTurnOnSlackInSettings } from './state/selectors';
+import {
+    selectIsSlackEnabled,
+    selectShouldTurnOnSlackInSettings,
+    selectSubscriptionSlackChannel,
+    selectSlackSaveAsDefault,
+    useDrawerSelector,
+} from './state/selectors';
 
 const SubscribeDrawer = styled(Drawer)``;
 
@@ -71,13 +77,10 @@ const SubscriptionDrawerContent = ({
     const enabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings?.globalSettings));
     const slackSinkEnabled = enabledSinks.some((sink) => sink.id === SLACK_SINK.id);
 
-    const drawerState = useDrawerState();
-    const {
-        slack: {
-            enabled: slackEnabled,
-            subscription: { channel, saveAsDefault },
-        },
-    } = drawerState;
+    const channel = useDrawerSelector(selectSubscriptionSlackChannel);
+    const saveAsDefault = useDrawerSelector(selectSlackSaveAsDefault);
+    const slackEnabled = useDrawerSelector(selectIsSlackEnabled);
+    const shouldTurnOnSlackInSettings = useDrawerSelector(selectShouldTurnOnSlackInSettings);
     const actions = useDrawerActions();
 
     // Skipping until we want to enable upstreams
@@ -130,7 +133,7 @@ const SubscriptionDrawerContent = ({
         upsertSubscription();
         if (channel && saveAsDefault) {
             updateSinkSettings({ text: channel, sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [] });
-        } else if (shouldTurnOnSlackInSettings(drawerState)) {
+        } else if (shouldTurnOnSlackInSettings) {
             updateSinkSettings({
                 text: settingsChannel as string,
                 sinkTypes: slackEnabled ? [NotificationSinkType.Slack] : [],
