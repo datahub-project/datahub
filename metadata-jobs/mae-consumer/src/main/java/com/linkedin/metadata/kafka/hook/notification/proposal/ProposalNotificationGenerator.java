@@ -63,7 +63,14 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
       @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
       @Nonnull final FeatureFlags featureFlags
       ) {
-    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication, ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
+    super(
+        eventProducer,
+        entityClient,
+        graphClient,
+        settingsProvider,
+        systemAuthentication,
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder)
+    );
     this.entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
     _featureFlags = featureFlags;
   }
@@ -91,7 +98,9 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
           event.getAspect().getContentType(),
           ActionRequestInfo.class);
 
-      if (!isEligibleForProcessingActionRequestInfo(info)) return;
+      if (!isEligibleForProcessingActionRequestInfo(info)) {
+        return;
+      }
 
       log.debug(String.format("Found eligible new proposal event to notify. urn: %s", event.getEntityUrn().toString()));
 
@@ -100,14 +109,18 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
 
       final ActionRequestInfo info = getActionRequestInfo(event.getEntityUrn());
 
-      if (info == null || !isEligibleForProcessingActionRequestInfo(info)) return;
+      if (info == null || !isEligibleForProcessingActionRequestInfo(info)) {
+        return;
+      }
 
       final ActionRequestStatus status = GenericRecordUtils.deserializeAspect(
           event.getAspect().getValue(),
           event.getAspect().getContentType(),
           ActionRequestStatus.class);
 
-      if (!isEligibleForProcessingActionRequestStatus(status)) return;
+      if (!isEligibleForProcessingActionRequestStatus(status)) {
+        return;
+      }
 
       log.debug(String.format("Found eligible proposal change event to notify. urn: %s", event.getEntityUrn().toString()));
 
@@ -258,7 +271,7 @@ public class ProposalNotificationGenerator extends BaseMclNotificationGenerator 
   }
 
   private EntityChangeType getEntityChangeType(@Nonnull final ActionRequestInfo info) {
-    switch(info.getType()) {
+    switch (info.getType()) {
       case (AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL):
         return EntityChangeType.TAG_PROPOSED;
       case (AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL):
