@@ -235,11 +235,13 @@ export const deleteSubscriptionFunction = ({
     subscription,
     isPersonal,
     deleteSubscription,
+    onSuccess,
     onRefetch,
 }: {
     subscription: DataHubSubscription;
     isPersonal: boolean;
     deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
+    onSuccess?: () => void;
     onRefetch?: () => void;
 }) => {
     deleteSubscription({
@@ -248,6 +250,7 @@ export const deleteSubscriptionFunction = ({
         },
     })
         .then(() => {
+            onSuccess?.();
             analytics.event({
                 type: EventType.SubscriptionDeleteSuccessEvent,
                 entityType: subscription.entity.type,
@@ -290,6 +293,7 @@ export const createSubscriptionFunction = ({
     subscriptionTypes,
     entityChangeTypes,
     notificationSettings,
+    onSuccess,
     onRefetch,
 }: {
     createSubscription: ReturnType<typeof useCreateSubscriptionMutation>[0];
@@ -300,6 +304,7 @@ export const createSubscriptionFunction = ({
     subscriptionTypes: Array<SubscriptionType>;
     entityChangeTypes: Array<EntityChangeType>;
     notificationSettings: NotificationSettingsInput;
+    onSuccess?: () => void;
     onRefetch?: () => void;
 }) => {
     createSubscription({
@@ -316,6 +321,7 @@ export const createSubscriptionFunction = ({
         },
     })
         .then(() => {
+            onSuccess?.();
             analytics.event({
                 type: EventType.SubscriptionCreateSuccessEvent,
                 entityType,

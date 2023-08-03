@@ -37,8 +37,17 @@ export default function SubscribeButtons() {
         entityUrn: primaryEntityUrn,
         groupUrn,
     });
-    const { isUserSubscribed, numUserSubscriptions, numGroupSubscriptions, groupNames, refetchSubscriptionSummary } =
-        useSubscriptionSummary({ entityUrn: primaryEntityUrn });
+
+    const {
+        isUserSubscribed,
+        numUserSubscriptions,
+        numGroupSubscriptions,
+        groupNames,
+        setIsUserSubscribed,
+        refetchSubscriptionSummary,
+    } = useSubscriptionSummary({ entityUrn: primaryEntityUrn });
+
+    const handleUpsertSubscription = () => setIsUserSubscribed(true);
 
     const refetch = () => {
         refetchSubscription();
@@ -48,6 +57,7 @@ export default function SubscribeButtons() {
     const deleteSubscription = useDeleteSubscription({
         subscription,
         isPersonal,
+        onDeleteSuccess: () => setIsUserSubscribed(false),
         onRefetch: refetch,
     });
 
@@ -141,6 +151,7 @@ export default function SubscribeButtons() {
                 subscription={subscription}
                 onRefetch={refetch}
                 onDeleteSubscription={deleteSubscription}
+                onUpsertSubscription={handleUpsertSubscription}
             />
         </>
     );
