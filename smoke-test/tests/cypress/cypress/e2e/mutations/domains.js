@@ -33,11 +33,11 @@ describe("add remove domain", () => {
 
     it("search filter by domain", () => {
         cy.loginWithCredentials();
-        cy.goToStarSearchList()
-        cy.get("[data-testid=filter-dropdown-Domain").click({ force: true });
-        cy.waitTextVisible(test_domain)
-        cy.get(`[data-testid="filter-option-${test_domain}"]`).click({ force: true });
-        cy.get("[data-testid=update-filters]").click({ force: true });
+        cy.goToStarSearchList();
+        cy.clickOptionWithText("Domain");  
+        cy.waitTextVisible(test_domain);
+        cy.clickOptionWithText(test_domain);   
+        cy.clickOptionWithText("Update");
         cy.waitTextVisible("customers")
     })
 
