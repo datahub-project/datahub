@@ -190,13 +190,7 @@ class RedshiftUsageExtractor:
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
 
-        if self.redundant_run_skip_handler:
-            (
-                self.usage_start_time,
-                self.usage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
+        self.update_time_window()
 
     def _should_ingest_usage(self):
         if (
@@ -450,3 +444,12 @@ class RedshiftUsageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def update_time_window(self):
+        if self.redundant_run_skip_handler:
+            (
+                self.usage_start_time,
+                self.usage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )

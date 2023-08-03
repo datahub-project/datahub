@@ -110,13 +110,7 @@ class SnowflakeLineageExtractor(
 
         self.lineage_end_time = self.config.end_time
 
-        if self.redundant_run_skip_handler:
-            (
-                self.lineage_start_time,
-                self.lineage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
+        self.update_time_window()
 
     def get_workunits(
         self,
@@ -659,3 +653,12 @@ class SnowflakeLineageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def update_time_window(self):
+        if self.redundant_run_skip_handler:
+            (
+                self.lineage_start_time,
+                self.lineage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )

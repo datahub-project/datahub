@@ -127,13 +127,7 @@ class SnowflakeUsageExtractor(
         self.usage_start_time = self.config.start_time
         self.usage_end_time = self.config.end_time
 
-        if self.redundant_run_skip_handler:
-            (
-                self.usage_start_time,
-                self.usage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
+        self.update_time_window()
 
     def get_usage_workunits(
         self, discovered_datasets: List[str]
@@ -397,7 +391,6 @@ class SnowflakeUsageExtractor(
     def _get_operation_aspect_work_unit(
         self, event: SnowflakeJoinedAccessEvent, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-
         if event.query_start_time and event.query_type:
             start_time = event.query_start_time
             query_type = event.query_type
@@ -556,3 +549,12 @@ class SnowflakeUsageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
+
+    def update_time_window(self):
+        if self.redundant_run_skip_handler:
+            (
+                self.usage_start_time,
+                self.usage_end_time,
+            ) = self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )

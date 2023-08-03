@@ -1,19 +1,63 @@
 from dataclasses import dataclass, field
-from typing import Dict, MutableSet, Optional
+from datetime import datetime
+from typing import Dict, List, MutableSet, Optional
 
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionReport,
+)
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
-from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
-from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
+from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
+
+
+@dataclass
+class SnowflakeUsageReport(BaseTimeWindowReport):
+    min_access_history_time: Optional[datetime] = None
+    max_access_history_time: Optional[datetime] = None
+    access_history_range_query_secs: float = -1
+    access_history_query_secs: float = -1
+
+    rows_processed: int = 0
+    rows_missing_query_text: int = 0
+    rows_zero_base_objects_accessed: int = 0
+    rows_zero_direct_objects_accessed: int = 0
+    rows_missing_email: int = 0
+    rows_parsing_error: int = 0
+
+
+@dataclass
+class SnowflakeReport(ProfilingSqlReport):
+    num_table_to_table_edges_scanned: int = 0
+    num_table_to_view_edges_scanned: int = 0
+    num_view_to_table_edges_scanned: int = 0
+    num_external_table_edges_scanned: int = 0
+    ignore_start_time_lineage: Optional[bool] = None
+    upstream_lineage_in_report: Optional[bool] = None
+    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
+
+    cleaned_account_id: str = ""
+    run_ingestion: bool = False
+
+    # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
+    saas_version: Optional[str] = None
+    default_warehouse: Optional[str] = None
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
+    role: str = ""
+
+    profile_if_updated_since: Optional[datetime] = None
+    profile_candidates: Dict[str, List[str]] = field(default_factory=dict)
 
 
 @dataclass
 class SnowflakeV2Report(
     SnowflakeReport,
     SnowflakeUsageReport,
-    ProfilingSqlReport,
+    StatefulIngestionReport,
     ClassificationReportMixin,
     IngestionStageReport,
 ):
