@@ -49,6 +49,8 @@ class Constant:
     SOURCENAME = "sourceName"
     DESTINATIONTYPE = "destinationType"
     DESTINATIONNAME = "destinationName"
+    CONNECTIONCONFIGURATION = "connectionConfiguration"
+    CONFIGURATION = "configuration"
     JOB = "job"
     JOBS = "jobs"
     JOBID = "jobId"
@@ -70,7 +72,7 @@ class Constant:
     ATTEMPTS = "attempts"
     DATA = "data"
 
-    # Config constants
+    # Source Config constants
     API_URL = "api_url"
     CLOUD_DEPLOY = "cloud_deploy"
     API_KEY = "api_key"
@@ -78,7 +80,6 @@ class Constant:
     PASSWORD = "password"
     DEFAULT_CLOUD_DEPLOY = False
     DEFAULT_API_URL = "http://localhost:8000/api"
-    CONNECTOR_PLATFORM_DETAILS = "connector_platform_details"
 
     # Airbyte data classes attribute constants
     NAMESPACE_DEFINITION = "namespace_definition"
@@ -164,11 +165,11 @@ class AirbyteSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Airbyte Stateful Ingestion Config."
     )
-    # Airbyte source/destination connector platform details mapping
-    connector_platform_details: Dict[str, PlatformDetail] = pydantic.Field(
+    # Airbyte source/destination connector's server to platform instance mapping
+    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
         default={},
-        description="A mapping of Airbyte source/destination connector to its platform details."
-        "For example Airbyte 'Postgres' connector, platform_instance: postgres_production_instance, env: PROD",
+        description="A mapping of Airbyte source/destination connectors server i.e host or url to Data platform instance."
+        "Ex: Airbyte Postgres connector will have host as server.",
     )
 
     @root_validator(pre=True)
@@ -214,23 +215,4 @@ class AirbyteSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             raise ValueError(
                 "To fetch metadata from Airbyte OSS, user must provide username and password in the recipe."
             )
-        return values
-
-    @root_validator(pre=True)
-    def validate_connector_platform_details(cls, values: Dict) -> Dict:
-        airbyte_data_platforms: List[str] = [
-            data_platform.value.airbyte_data_platform_name
-            for data_platform in SupportedDataPlatform
-        ]
-        connector_platform_details = (
-            values.get(Constant.CONNECTOR_PLATFORM_DETAILS)
-            if Constant.CONNECTOR_PLATFORM_DETAILS in values
-            else {}
-        )
-        for type in connector_platform_details.keys():
-            if type not in airbyte_data_platforms:
-                raise ValueError(
-                    f"Airbyte source/destination connector type: {type} is not supported to mapped with Datahub dataset entity. "
-                    "Or enter valid key of connector in the recipe."
-                )
         return values

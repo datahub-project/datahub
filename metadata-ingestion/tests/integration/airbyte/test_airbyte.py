@@ -644,7 +644,7 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
 
 @pytest.mark.integration
-def test_connector_platform_details(pytestconfig, tmp_path, requests_mock):
+def test_server_to_platform_instance(pytestconfig, tmp_path, requests_mock):
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
@@ -652,11 +652,14 @@ def test_connector_platform_details(pytestconfig, tmp_path, requests_mock):
     register_mock_oss_api(request_mock=requests_mock)
 
     new_config: dict = {**default_oss_config()}
-    new_config["connector_platform_details"] = {
-        "postgres": {"env": "DEV", "platform_instance": "on-prem"}
+    new_config["server_to_platform_instance"] = {
+        "mahmud.db.elephantsql.com": {
+            "platform_instance": "cloud_postgres_instance",
+            "env": "DEV",
+        }
     }
 
-    output_path: str = f"{tmp_path}/airbyte_connector_platform_details_mces.json"
+    output_path: str = f"{tmp_path}/airbyte_server_to_platform_instance_mces.json"
 
     pipeline = Pipeline.create(
         {
@@ -665,7 +668,6 @@ def test_connector_platform_details(pytestconfig, tmp_path, requests_mock):
                 "type": "airbyte",
                 "config": {
                     **new_config,
-                    "platform_instance": "airbyte_oss_platform",
                 },
             },
             "sink": {
@@ -679,7 +681,7 @@ def test_connector_platform_details(pytestconfig, tmp_path, requests_mock):
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_connector_platform_details.json"
+    golden_file = "golden_test_server_to_platform_instance.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -829,40 +831,4 @@ def test_oss_auth_config_not_provided_error(pytestconfig, tmp_path, requests_moc
         assert (
             "To fetch metadata from Airbyte OSS, user must provide username and password in the recipe."
             in str(e)
-        )
-
-
-@pytest.mark.integration
-def test_wrong_connector_platform_details_error(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
-    """
-    Verify if wrong connector platform details are provided then value error should get raised
-    """
-    register_mock_cloud_api(request_mock=requests_mock)
-
-    new_config: dict = {**default_cloud_config()}
-    new_config["connector_platform_details"] = {"wrong_connector": {"env": "DEV"}}
-
-    try:
-        Pipeline.create(
-            {
-                "run_id": "airbyte-test",
-                "source": {
-                    "type": "airbyte",
-                    "config": {
-                        **new_config,
-                    },
-                },
-                "sink": {
-                    "type": "file",
-                    "config": {
-                        "filename": f"{tmp_path}/airbyte_mces.json",
-                    },
-                },
-            }
-        )
-    except Exception as e:
-        assert (
-            "Airbyte source/destination connector type: wrong_connector is not supported to mapped with Datahub dataset entity. "
-            "Or enter valid key of connector in the recipe." in str(e)
         )

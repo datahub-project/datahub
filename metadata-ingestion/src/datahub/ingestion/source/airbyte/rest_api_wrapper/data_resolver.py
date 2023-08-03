@@ -23,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 class DataResolverBase(ABC):
+
+    CONNECTOR_SERVER_KEY_MAPPING = {
+        "postgres": "host",
+    }
+
     def __init__(
         self,
     ):
@@ -120,18 +125,32 @@ class DataResolverBase(ABC):
         ]
         return connections
 
+    def _get_server_from_configuration(
+        self, configuration: Dict, connector_type: str
+    ) -> str:
+        return configuration[self.CONNECTOR_SERVER_KEY_MAPPING[connector_type]]
+
     def _get_source_endpoint(self, source_id: str) -> str:
         source_endpoint: str = self.API_ENDPOINTS[Constant.SOURCE_GET]
         # Replace place holders
         return source_endpoint.format(API_URL=self.api_url, SOURCE_ID=source_id)
 
     def _get_source_connector_from_response(self, response: Dict) -> Connector:
+        connector_type = (
+            response[Constant.SOURCETYPE]
+            if Constant.SOURCETYPE in response
+            else response[Constant.SOURCENAME]
+        ).lower()
+        configuration = (
+            response[Constant.CONNECTIONCONFIGURATION]
+            if Constant.CONNECTIONCONFIGURATION in response
+            else response[Constant.CONFIGURATION]
+        )
         return Connector(
             connector_id=response[Constant.SOURCEID],
             name=response[Constant.NAME],
-            type=response[Constant.SOURCETYPE]
-            if Constant.SOURCETYPE in response
-            else response[Constant.SOURCENAME],
+            type=connector_type,
+            server=self._get_server_from_configuration(configuration, connector_type),
         )
 
     def _get_destination_endpoint(self, destination_id: str) -> str:
@@ -142,12 +161,21 @@ class DataResolverBase(ABC):
         )
 
     def _get_destination_connector_from_response(self, response: Dict) -> Connector:
+        connector_type = (
+            response[Constant.DESTINATIONTYPE]
+            if Constant.DESTINATIONTYPE in response
+            else response[Constant.DESTINATIONNAME]
+        ).lower()
+        configuration = (
+            response[Constant.CONNECTIONCONFIGURATION]
+            if Constant.CONNECTIONCONFIGURATION in response
+            else response[Constant.CONFIGURATION]
+        )
         return Connector(
             connector_id=response[Constant.DESTINATIONID],
             name=response[Constant.NAME],
-            type=response[Constant.DESTINATIONTYPE]
-            if Constant.DESTINATIONTYPE in response
-            else response[Constant.DESTINATIONNAME],
+            type=connector_type,
+            server=self._get_server_from_configuration(configuration, connector_type),
         )
 
     def _get_jobs_endpoint(self, connection_id: str) -> str:

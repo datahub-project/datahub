@@ -92,24 +92,21 @@ class AirbyteSource(StatefulIngestionSourceBase):
             item.value.airbyte_data_platform_name: item.value.datahub_data_platform_name
             for item in SupportedDataPlatform
         }
-        # Airbyte Cloud connector type first letter is capital and OSS connector type all letters are lower.
-        # Hence need to convert to lower before comparing in supported connectors.
-        connector_type = connector.type.lower()
-        if connector_type not in supported_data_platform:
+        if connector.type not in supported_data_platform:
             logger.debug(
-                f"Airbyte source/destination type: {connector_type} is not supported to mapped with Datahub dataset entity."
+                f"Airbyte source/destination type: {connector.type} is not supported to mapped with Datahub dataset entity."
             )
             return None
 
         # Get platform details for connector
         connector_platform_detail: PlatformDetail = PlatformDetail()
-        if connector_type in self.config.connector_platform_details.keys():
-            connector_platform_detail = self.config.connector_platform_details[
-                connector_type
+        if connector.server in self.config.server_to_platform_instance.keys():
+            connector_platform_detail = self.config.server_to_platform_instance[
+                connector.server
             ]
 
         return DatasetUrn.create_from_ids(
-            platform_id=supported_data_platform[connector_type],
+            platform_id=supported_data_platform[connector.type],
             table_name=connector.name,
             env=connector_platform_detail.env,
             platform_instance=connector_platform_detail.platform_instance,

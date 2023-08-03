@@ -30,6 +30,7 @@ class Connector:
     connector_id: str
     name: str
     type: str
+    server: str
 
 
 @dataclass
