@@ -204,7 +204,7 @@ class ElasticProfiling(ConfigModel):
         description="Whether to enable profiling for the elastic search source.",
     )
     operation_config: OperationConfig = Field(
-        default_factory=OperationConfig, description="To specify operation configs."
+        default_factory=OperationConfig, description="Experimental feature. To specify operation configs."
     )
 
     def is_profiling_enabled(self) -> bool:
