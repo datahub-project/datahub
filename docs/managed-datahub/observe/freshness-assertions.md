@@ -195,7 +195,7 @@ the check. Each Data Platform supports different options including Audit Log, In
 8. Click **Next**
 9. Configure actions that should be taken when the Freshness Assertion passes or fails
 
-<p align="center">
+<p align="left">
   <img width="55%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
 </p>
 
@@ -213,7 +213,7 @@ To view the time of the next Freshness Assertion evaluation, simply click **Fres
 new Assertion:
 
 <p align="center">
-  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
 </p>
 
 Once your assertion has run, you will begin to see Success or Failure status for the Table
