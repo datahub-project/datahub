@@ -111,22 +111,20 @@ Change Source types vary by the platform, but generally fall into these categori
   - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases 
     and Tables stored inside the Data Warehouse. It is usually efficient to check, but lacks detailed information about the _type_
     of change that was last made to a specific table (e.g. the operation itself - INSERT, UPDATE, DELETE, number of impacted rows, etc)
-    
-  - **Column Value Query**: Acryl can also determine whether a Table has changed by issuing a query against a specific column of the table.
-    There are two categories of columns that are supported as indicators of Table changes:
+      
+  - **Last Modified Column**: A Date or Timestamp column that represents the last time that a specific _row_ was touched or updated. 
+    Adding a Last Modified Column to each warehouse Table is a pattern is often used for existing use cases around change management. 
+    If this change source is used, a query will be issued to the Table to search for rows that have been modified within a specific 
+    window of time (based on the Change Window)
 
-    - **Last Modified Column**: A Date or Timestamp column that represents the last time that a specific _row_ was touched or updated.
-      Adding a Last Modified Column to each warehouse Table is a pattern is often used for existing use cases around change management. 
-      If this change source is used, a query will be issued to the Table to search for rows that have been modified within a specific 
-      window of time (based on the Change Window)
+  - **High Watermark Column**: A column that contains a constantly-incrementing value - a date, a time, or another always-increasing number. 
+    If this change source is used, a query will be issued to the Table to look for rows with a new "high watermark", e.g. a value that 
+    is higher than the previously observed value, in order to determine whether the Table has been changed within a given period of time. 
+    Note that this approach is only supported if the Change Window does not use a fixed interval.
 
-    - **High Watermark Column**: A column that contains a constantly-incrementing value - a date, a time, or another always-increasing number. 
-      If this change source is used, a query will be issued to the Table to look for rows with a new "high watermark", e.g. a value that 
-      is higher than the previously observed value, in order to determine whether the Table has been changed within a given period of time. 
-      Note that this approach is only supported if the Change Window does not use a fixed interval. 
-
-    Using Column Value Queries to determine whether a Table has changed useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
-    Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
+  Using the final 2 approaches - column value queries - to determine whether a Table has changed useful because it can be customized to determine whether 
+  specific types of important changes have been made to a given Table.
+  Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
 
 Freshness Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
@@ -148,14 +146,14 @@ Once these are in place, you're ready to create your Freshness Assertions!
 1. Navigate to the Table that to monitor for freshness
 2. Click the **Validations** tab
 
-<p align="left">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="left">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-choose-type.png"/>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-choose-type.png"/>
 </p>
 
 4. Choose **Freshness**
@@ -168,22 +166,22 @@ or _In the past X hours_ to configure a fixed interval that is used when checkin
 
 _Check whether the table has changed between subsequent evaluations of the check_
 
-<p align="left">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-since-last.png"/>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-since-last.png"/>
 </p>
 
 _Check whether the table has changed in a specific window of time_
 
-<p align="left">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-fixed-interval.png"/>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-fixed-interval.png"/>
 </p>
 
 
 7. (Optional) Click **Advanced** to customize the evaluation **source**. This is the mechanism that will be used to evaluate
 the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, and High Watermark Column.
    
-<p align="left">
-  <img width="35%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
+<p align="center">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
 </p>
 
 - **Audit Log**: Check the Data Platform operational audit log to determine whether the table changed within the evaluation period.
@@ -197,8 +195,8 @@ the check. Each Data Platform supports different options including Audit Log, In
 8. Click **Next**
 9. Configure actions that should be taken when the Freshness Assertion passes or fails
 
-<p align="left">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
+<p align="center">
+  <img width="55%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub `Freshness` Incident for the Table whenever the Freshness Assertion is failing. This
@@ -214,14 +212,14 @@ And that's it! DataHub will now begin to monitor your Freshness Assertion for th
 To view the time of the next Freshness Assertion evaluation, simply click **Freshness** and then click on your 
 new Assertion:
 
-<p align="left">
-  <img width="30%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
+<p align="center">
+  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
 </p>
 
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="left">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/failing-assertions-section.png"/>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/failing-assertions-section.png"/>
 </p>
 
 
@@ -235,13 +233,13 @@ In order to temporarily stop the evaluation of a Freshness Assertion:
 4. Click **Stop**
 
 <p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/manage-assertion-menu.png"/>
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/manage-assertion-menu.png"/>
 </p>
 
 To resume the Freshness Assertion, simply click **Turn On**. 
 
-<p align="left">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/stopped-assertion.png"/>
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/stopped-assertion.png"/>
 </p>
 
 
@@ -254,7 +252,7 @@ requiring any manual setup.
 If Acryl DataHub is able to detect a pattern in the change frequency of a Snowflake, Redshift, or BigQuery Table, you'll find
 a recommended Smart Assertion under the `Validations` tab on the Table profile page:
 
-<p align="left">
+<p align="center">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
 </p>
 
