@@ -94,5 +94,5 @@ export function selectHasEnabledSink(state: State) {
 }
 
 export function selectHasNotificationType(state: State) {
-    return selectNotificationTypes(state).checkedKeys.length > 0;
+    return selectCheckedKeys(state).length > 0;
 }
