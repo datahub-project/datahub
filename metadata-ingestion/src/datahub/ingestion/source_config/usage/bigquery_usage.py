@@ -59,6 +59,15 @@ class BigQueryCredential(ConfigModel):
             return fp.name
 
 
+class BigQueryToken(ConfigModel):
+    project_id: str = pydantic.Field(description="Project id to set the credentials")
+    token: str = pydantic.Field(description="Cloud SDK Auth Access Token")
+
+    @pydantic.root_validator()
+    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        return values
+
+        
 class BigQueryUsageConfig(BigQueryBaseConfig, EnvConfigMixin, BaseUsageConfig):
     projects: Optional[List[str]] = pydantic.Field(
         default=None,
@@ -125,7 +134,7 @@ class BigQueryUsageConfig(BigQueryBaseConfig, EnvConfigMixin, BaseUsageConfig):
 
     def __init__(self, **data: Any):
         super().__init__(**data)
-        if self.credential:
+        if self.credential_type == "service_account":
             self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
                 f"Creating temporary credential file at {self._credentials_path}"

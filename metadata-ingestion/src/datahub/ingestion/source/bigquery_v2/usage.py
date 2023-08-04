@@ -964,7 +964,7 @@ class BigQueryUsageExtractor:
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
             logging_client = _make_gcp_logging_client(
-                project_id, self.config.extra_client_options
+                self.config, project_id
             )
             entries = self._get_bigquery_log_entries_via_gcp_logging(
                 logging_client, limit=limit

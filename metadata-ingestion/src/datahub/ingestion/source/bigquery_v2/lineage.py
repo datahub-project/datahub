@@ -10,6 +10,7 @@ import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from google.oauth2.credentials import Credentials
 from ratelimiter import RateLimiter
 
 from datahub.emitter import mce_builder
@@ -386,7 +387,7 @@ timestamp < "{end_time}"
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
             logger.info("Populating lineage info via exported GCP audit logs")
-            logging_client = _make_gcp_logging_client(project_id)
+            logging_client = _make_gcp_logging_client(self.config, project_id)
             entries = self._get_bigquery_log_entries(logging_client)
             parse_fn = self._parse_bigquery_log_entries
 
@@ -815,10 +816,16 @@ timestamp < "{end_time}"
             return upstream_lineage
 
         return None
-
+    
+    def bigquery_client(self, project_id: str) -> BigQueryClient:
+        if self.config.credential_type == "cloudsdk_auth_access_token":
+            credentials = Credentials(self.config.gcp_token.token)
+            return BigQueryClient(project=project_id, credentials=credentials)
+        return BigQueryClient(project=project_id)
+    
     def test_capability(self, project_id: str) -> None:
         if self.config.use_exported_bigquery_audit_metadata:
-            bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
+            bigquery_client: BigQueryClient = self.bigquery_client(project_id)
             entries = self._get_exported_bigquery_audit_metadata(
                 bigquery_client=bigquery_client, limit=1
             )
@@ -828,7 +835,7 @@ timestamp < "{end_time}"
                 )
         else:
             gcp_logging_client: GCPLoggingClient = _make_gcp_logging_client(
-                project_id, self.config.extra_client_options
+                self.config, project_id
             )
             for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")

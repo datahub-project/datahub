@@ -16,7 +16,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.bigquery import BigQueryBaseConfig
-from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential
+from datahub.ingestion.source_config.usage.bigquery_usage import BigQueryCredential, BigQueryToken
 
 logger = logging.getLogger(__name__)
 
@@ -173,9 +173,19 @@ class BigQueryV2Config(
         default=1000,
         description="The number of log item will be queried per page for lineage collection",
     )
+    
     credential: Optional[BigQueryCredential] = Field(
         description="BigQuery credential informations"
     )
+
+    gcp_token: Optional[BigQueryToken] = Field(
+        description="GCP CLOUDSDK AUTH ACCESS TOKEN to access bigquery"
+    )
+    
+    credential_type: str = pydantic.Field(
+        default="service_account", description="Credential type (service_account or cloudsdk_auth_access_token)"
+    )
+
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
     extra_client_options: Dict[str, Any] = Field(
         default={},
@@ -226,7 +236,7 @@ class BigQueryV2Config(
     def __init__(self, **data: Any):
         super().__init__(**data)
 
-        if self.credential:
+        if self.credential_type == "service_account":
             self._credentials_path = self.credential.create_credential_temp_file()
             logger.debug(
                 f"Creating temporary credential file at {self._credentials_path}"

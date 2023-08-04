@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from google.oauth2.credentials import Credentials
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 
@@ -13,19 +14,29 @@ BQ_EXTERNAL_DATASET_URL_TEMPLATE = "https://console.cloud.google.com/bigquery?pr
 
 
 def _make_gcp_logging_client(
-    project_id: Optional[str] = None, extra_client_options: Dict[str, Any] = {}
+    config: BigQueryV2Config, project_id: Optional[str] = None
 ) -> GCPLoggingClient:
     # See https://github.com/googleapis/google-cloud-python/issues/2674 for
     # why we disable gRPC here.
-    client_options = extra_client_options.copy()
+    client_options = config.extra_client_options.copy()
     client_options["_use_grpc"] = False
     if project_id is not None:
+        if config.credential_type == "cloudsdk_auth_access_token":
+            credentials = Credentials(config.gcp_token.token)
+            return GCPLoggingClient(credentials=credentials, project=config.project_on_behalf or config.gcp_token.project_id,)
         return GCPLoggingClient(**client_options, project=project_id)
     else:
+        if config.use_cloudsdk_auth_access_token:
+            credentials = Credentials(config.cloudsdk_auth_access_token)
+            return GCPLoggingClient(credentials=credentials)
         return GCPLoggingClient(**client_options)
 
 
 def get_bigquery_client(config: BigQueryV2Config) -> bigquery.Client:
+    if config.credential_type == "cloudsdk_auth_access_token":
+        credentials = Credentials(config.gcp_token.token)
+        return bigquery.Client(config.project_on_behalf or config.gcp_token.project_id, credentials=credentials)
+    
     client_options = config.extra_client_options
     return bigquery.Client(config.project_on_behalf, **client_options)
 
