@@ -31,7 +31,7 @@ type Props = {
     setShowSelectMode?: (showSelectMode: boolean) => any;
     setShowSelectViewMode?: (showSelectViewMode: boolean) => any;
     showSelectViewMode?: boolean;
-    applyView?: boolean,
+    applyView?: boolean;
 };
 
 // currently only contains Download As Csv but will be extended to contain other actions as well
