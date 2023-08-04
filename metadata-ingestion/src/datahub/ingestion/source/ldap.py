@@ -382,6 +382,9 @@ class LDAPSource(StatefulIngestionSourceBase):
         last_name = attrs[self.config.user_attrs_map["lastName"]][0].decode()
         groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
+        # We check two things:
+        # - attribute exists
+        # - attribute is not empty list
         if attrs.get(self.config.user_attrs_map["email"]):
             email = (attrs[self.config.user_attrs_map["email"]][0]).decode()
         else:
@@ -393,9 +396,9 @@ class LDAPSource(StatefulIngestionSourceBase):
         else:
             display_name = full_name
         if attrs.get(self.config.user_attrs_map["departmentId"]):
-            department_id = int((
-                attrs[self.config.user_attrs_map["departmentId"]][0]
-            ).decode())
+            department_id = int(
+                (attrs[self.config.user_attrs_map["departmentId"]][0]).decode()
+            )
         else:
             department_id = None
         if attrs.get(self.config.user_attrs_map["departmentName"]):
