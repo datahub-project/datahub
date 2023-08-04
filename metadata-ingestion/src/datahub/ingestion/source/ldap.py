@@ -289,7 +289,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                 else:
                     self.report.report_dropped(dn)
 
-            if serverctrls:
+            if self.lc:
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
                     self.report.report_failure(
