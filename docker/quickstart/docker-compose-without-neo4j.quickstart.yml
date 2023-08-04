@@ -19,7 +19,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 5
-      start_period: 30s
+      start_period: 60s
       test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
       timeout: 5s
     hostname: broker
@@ -206,7 +206,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 5
-      start_period: 2s
+      start_period: 20s
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
       timeout: 5s
     hostname: mysql
@@ -244,7 +244,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 3
-      start_period: 30s
+      start_period: 60s
       test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
       timeout: 5s
     hostname: schema-registry
@@ -259,7 +259,7 @@ services:
     healthcheck:
       interval: 5s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       test: echo srvr | nc zookeeper $${DATAHUB_MAPPED_ZK_PORT:-2181}
       timeout: 5s
     hostname: zookeeper
