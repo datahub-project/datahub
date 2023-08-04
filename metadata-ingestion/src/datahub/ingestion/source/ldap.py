@@ -4,12 +4,11 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
 from ldap.controls import SimplePagedResultsControl
-from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
-from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -139,8 +138,8 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=True,
         description="[deprecated] Use pagination_enabled ",
     )
-    _deprecate_manager_pagination_enabled = pydantic_field_deprecated(
-        "manager_pagination_enabled"
+    _deprecate_manager_pagination_enabled = pydantic_renamed_field(
+        "manager_pagination_enabled", "pagination_enabled"
     )
     pagination_enabled: bool = Field(
         default=True,
@@ -150,27 +149,6 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
-
-    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
-    @root_validator(pre=True)
-    def pagination_backward_compatibility(cls, values: Dict) -> Dict:
-        manager_pagination_enabled = values.get("manager_pagination_enabled")
-        pagination_enabled = values.get("pagination_enabled")
-        if pagination_enabled is None and manager_pagination_enabled:
-            logger.warning(
-                "pagination_enabled is not set but manager_pagination_enabled is set. manager_pagination_enabled is "
-                "deprecated, please use pagination_enabled instead."
-            )
-            logger.info(
-                "Initializing pagination_enabled from manager_pagination_enabled"
-            )
-            values["pagination_enabled"] = manager_pagination_enabled
-        elif manager_pagination_enabled and pagination_enabled:
-            raise ValueError(
-                "manager_pagination_enabled is deprecated. Please use pagination_enabled only."
-            )
-
-        return values
 
 
 @dataclasses.dataclass
