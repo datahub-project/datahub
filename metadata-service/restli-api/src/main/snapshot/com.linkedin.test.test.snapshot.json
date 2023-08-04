@@ -200,11 +200,34 @@
           "fieldType" : "DATETIME"
         }
       }
+    }, {
+      "name" : "status",
+      "type" : {
+        "type" : "record",
+        "name" : "TestStatus",
+        "doc" : "The status of a Metadata Test",
+        "fields" : [ {
+          "name" : "mode",
+          "type" : {
+            "type" : "enum",
+            "name" : "TestMode",
+            "symbols" : [ "ACTIVE", "INACTIVE" ],
+            "symbolDocs" : {
+              "ACTIVE" : "The test is running on a schedule in the default running mode.",
+              "INACTIVE" : "The test is paused, disabled, not running."
+            }
+          },
+          "doc" : "The evaluation mode of the Metadata Test.",
+          "Searchable" : { }
+        } ]
+      },
+      "doc" : "The current status of the Metadata Test, e.g. whether it is actively running.",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "testInfo"
     }
-  }, "com.linkedin.test.TestResult", "com.linkedin.test.TestResultType", "com.linkedin.test.TestResults" ],
+  }, "com.linkedin.test.TestMode", "com.linkedin.test.TestResult", "com.linkedin.test.TestResultType", "com.linkedin.test.TestResults", "com.linkedin.test.TestStatus" ],
   "schema" : {
     "name" : "test",
     "namespace" : "com.linkedin.test",
