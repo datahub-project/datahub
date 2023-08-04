@@ -69,6 +69,7 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
+docs-website/versioned_docs/
 tmp*
 temp/**
 
@@ -122,4 +123,3 @@ metadata-service/servlet/bin/
 metadata-service/war/bin/
 metadata-utils/bin/
 test-models/bin/
-
