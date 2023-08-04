@@ -17,6 +17,7 @@ import {
     ParentNodesResult,
     EntityPath,
     DataProduct,
+    Health,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -32,6 +33,7 @@ import { PreviewType } from '../entity/Entity';
 import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
+import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -189,6 +191,7 @@ interface Props {
     parentNodes?: ParentNodesResult | null;
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
+    health?: Health[];
 }
 
 export default function DefaultPreviewCard({
@@ -229,6 +232,7 @@ export default function DefaultPreviewCard({
     logoUrls,
     previewType,
     paths,
+    health,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -288,8 +292,9 @@ export default function DefaultPreviewCard({
                             )}
                         </Link>
                         {deprecation?.deprecated && (
-                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} preview />
+                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
+                        {health && health.length > 0 && <EntityHealth baseUrl={url} health={health} />}
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}

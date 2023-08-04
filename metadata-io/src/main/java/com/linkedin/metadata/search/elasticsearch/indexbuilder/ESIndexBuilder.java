@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.google.common.collect.ImmutableMap;
 
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -21,7 +22,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.util.Pair;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;

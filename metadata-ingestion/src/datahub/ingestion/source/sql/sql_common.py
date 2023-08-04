@@ -41,11 +41,13 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    downgrade_schema_from_v2,
     gen_database_container,
     gen_database_key,
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
+    schema_requires_v2,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -287,7 +289,15 @@ def get_schema_metadata(
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: Optional[List[SchemaField]] = None,
+    simplify_nested_field_paths: bool = False,
 ) -> SchemaMetadata:
+    if (
+        simplify_nested_field_paths
+        and canonical_schema is not None
+        and not schema_requires_v2(canonical_schema)
+    ):
+        canonical_schema = downgrade_schema_from_v2(canonical_schema)
+
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),
@@ -309,6 +319,15 @@ config_options_to_report = [
 ]
 
 
+@dataclass
+class ProfileMetadata:
+    """
+    A class to hold information about the table for profile enrichment
+    """
+
+    dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
@@ -317,6 +336,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
+        self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -484,6 +504,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             profile_requests: List["GEProfilerRequest"] = []
             if sql_config.profiling.enabled:
                 profiler = self.get_profiler_instance(inspector)
+                try:
+                    self.add_profile_metadata(inspector)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to get enrichment data for profiler", exc_info=True
+                    )
+                    self.report.report_warning(
+                        "profile_metadata",
+                        f"Failed to get enrichment data for profile {e}",
+                    )
 
             db_name = self.get_db_name(inspector)
             yield from self.gen_database_containers(
@@ -1098,6 +1128,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 ),
             )
 
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        """
+        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
+        This is meant to change self.profile_metadata_info in the sub-class.
+        """
+        pass
+
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
@@ -1113,6 +1150,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if profile is None:
                 continue
             dataset_name = request.pretty_name
+            if (
+                dataset_name in self.profile_metadata_info.dataset_name_to_storage_bytes
+                and profile.sizeInBytes is None
+            ):
+                profile.sizeInBytes = (
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        dataset_name
+                    ]
+                )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,

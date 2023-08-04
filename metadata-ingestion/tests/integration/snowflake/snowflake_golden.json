@@ -5779,7 +5779,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5801,7 +5801,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5823,7 +5823,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5845,7 +5845,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5867,7 +5867,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5889,7 +5889,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5911,7 +5911,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5933,7 +5933,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5955,7 +5955,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
@@ -5977,7 +5977,7 @@
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
-            "actor": "urn:li:corpuser:abc",
+            "actor": "urn:li:corpuser:abc@xyz.com",
             "operationType": "CREATE",
             "lastUpdatedTimestamp": 1654144861367
         }
