@@ -46,8 +46,6 @@ const StyledDivider = styled(Divider)`
     }
 `;
 
-const popoverStyle = { backgroundColor: '#262626' };
-
 type Props = {
     health: Health[];
     baseUrl: string;
@@ -72,7 +70,7 @@ export const EntityHealthPopover = ({ health, baseUrl, children }: Props) => {
                     ))}
                 </>
             }
-            overlayStyle={popoverStyle}
+            color="#262626"
             placement="right"
             zIndex={10000000}
         >
