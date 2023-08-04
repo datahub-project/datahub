@@ -82,7 +82,7 @@ If you're looking to build & modify datahub please take a look at our [Developme
 
 <p align="center">
   <a href="https://demo.datahubproject.io/">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/entity.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/entity.png"/>
   </a>
 </p>
 

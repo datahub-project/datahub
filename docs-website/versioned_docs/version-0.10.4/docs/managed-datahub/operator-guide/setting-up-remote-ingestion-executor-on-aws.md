@@ -24,13 +24,13 @@ Acryl DataHub comes packaged with an Acryl-managed ingestion executor, which is 
 For example, if an ingestion source is not publicly accessible via the internet, e.g. hosted privately within a specific AWS account, then the Acryl executor will be unable to extract metadata from it.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/image-(12).png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/image-(12).png"/>
 </p>
 
 To accommodate these cases, Acryl supports configuring a remote ingestion executor which can be deployed inside of your AWS account. This setup allows you to continue leveraging the Acryl DataHub console to create, schedule, and run metadata ingestion, all while retaining network and credential isolation.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/image-(6).png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/image-(6).png"/>
 </p>
 
 ## Deploying a Remote Ingestion Executor
@@ -54,11 +54,11 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
                   Note that the only external secret provider that is currently supported is AWS Secrets Manager.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/Screen-Shot-2023-01-19-at-5.12.47-PM.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/Screen-Shot-2023-01-19-at-5.12.47-PM.png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/Screen-Shot-2023-01-19-at-5.12.56-PM.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/Screen-Shot-2023-01-19-at-5.12.56-PM.png"/>
 </p>
 
 3.  **Test the Executor:** To test your remote executor:
@@ -67,7 +67,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
     2. When working with "secret" fields (passwords, keys, etc), you can refer to any "self-managed" secrets by name: `${SECRET_NAME}:`
 
     <p align="center">
-        <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
+        <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
     </p>
 
     3. In the 'Finish Up' step, click '**Advanced'**.
@@ -77,7 +77,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
     Now, simple click '**Execute**' to test out the remote executor. If your remote executor is configured properly, you should promptly see the ingestion task state change to 'Running'.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/Screen-Shot-2022-03-07-at-10.23.31-AM.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/Screen-Shot-2022-03-07-at-10.23.31-AM.png"/>
 </p>
 
 ## Updating a Remote Ingestion Executor
@@ -94,7 +94,7 @@ In order to update the executor, ie. to deploy a new container version, you'll n
 6. Upload a copy of the Acryl Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/Ingestion/templates/python.ecs.template.yaml)
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
 </p>
 
 7. Click **Next**

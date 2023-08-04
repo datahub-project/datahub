@@ -65,11 +65,11 @@ In Acryl DataHub deployments, you _must_ use a sink of type `datahub-rest`, whic
 The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/home-(1).png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/home-(1).png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/saas/settings.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/settings.png"/>
 </p>
 
 To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your Acryl instance's domain suffixed by the path `/gms`, as shown below.

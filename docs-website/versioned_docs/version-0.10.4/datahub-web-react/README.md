@@ -132,7 +132,7 @@ for functional configurability should reside.
     to render a view associated with a particular entity type (user, dataset, etc.).
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/entity-registry.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/entity-registry.png"/>
 </p>
 
 **graphql** - The React App talks to the `dathub-frontend` server using GraphQL. This module is where the _queries_ issued

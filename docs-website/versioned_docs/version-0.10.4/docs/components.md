@@ -10,7 +10,7 @@ custom_edit_url: "https://github.com/datahub-project/datahub/blob/master/docs/co
 The DataHub platform consists of the components shown in the following diagram.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/datahub-components.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/datahub-components.png"/>
 </p>
 
 ## Metadata Store

@@ -12,7 +12,7 @@ We introduced a few important concepts to the Metadata Service to make authentic
 In following sections, we'll take a closer look at each individually.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/metadata-service-auth.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-service-auth.png"/>
 </p>
 *High level overview of Metadata Service Authentication*
 

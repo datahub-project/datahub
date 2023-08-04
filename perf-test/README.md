@@ -59,7 +59,7 @@ This will set up the web interface in http://localhost:8089 (unless the port is 
 you should see the following
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/docs/imgs/locust-example.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/locust-example.png"/>
 </p>
 
 Input the number of users you would like to spawn and the spawn rate. Point the host to the deployed DataHub GMS (

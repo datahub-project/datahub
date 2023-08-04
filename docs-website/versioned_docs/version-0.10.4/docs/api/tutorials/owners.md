@@ -114,7 +114,7 @@ log.info(f"Upserted user {user.urn}")
 You can see the user `The bar` has been created and the user `Datahub` has been updated under `Settings > Access > Users & Groups`
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/user-upserted.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/user-upserted.png"/>
 </p>
 
 ## Upsert Group
@@ -202,7 +202,7 @@ log.info(f"Upserted group {group.urn}")
 You can see the group `Foo Group` has been created under `Settings > Access > Users & Groups`
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/group-upserted.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/group-upserted.png"/>
 </p>
 
 ## Read Owners
@@ -439,7 +439,7 @@ else:
 You can now see `bfoo` has been added as an owner to the `fct_users_created` dataset.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/owner-added.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/owner-added.png"/>
 </p>
 
 ## Remove Owners
@@ -532,5 +532,5 @@ print(result)
 You can now see `John Doe` has been removed as an owner from the `fct_users_created` dataset.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/owner-removed.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/owner-removed.png"/>
 </p>

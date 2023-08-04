@@ -47,7 +47,7 @@ class LookerAPIConfig(ConfigModel):
 generates the following documentation:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/metadata-ingestion/generated_config_docs.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-ingestion/generated_config_docs.png"/>
 </p>
 
 :::note

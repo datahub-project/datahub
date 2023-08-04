@@ -116,7 +116,7 @@ rest_emitter.emit(event)
 You can now see `realestate_db.sales` dataset has been created.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-created.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-created.png"/>
 </p>
 
 ## Delete Dataset
@@ -207,5 +207,5 @@ log.info(f"Deleted dataset {dataset_urn}")
 The dataset `fct_users_deleted` has now been deleted, so if you search for a hive dataset named `fct_users_delete`, you will no longer be able to see it.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-deleted.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-deleted.png"/>
 </p>

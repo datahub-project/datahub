@@ -42,7 +42,7 @@ In this example, we will add some custom properties `cluster_name` and `retentio
 After you have ingested sample data, the dataset `fct_users_deleted` should have a custom properties section with `encoding` set to `utf-8`.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-properties-before.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-properties-before.png"/>
 </p>
 
 ```shell
@@ -191,7 +191,7 @@ log.info(f"Added cluster_name, retention_time properties to dataset {dataset_urn
 You can now see the two new properties are added to `fct_users_deleted` and the previous property `encoding` is unchanged.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-properties-added.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-properties-added.png"/>
 </p>
 
 We can also verify this operation by programmatically checking the `datasetProperties` aspect after running this code using the `datahub` cli.
@@ -347,7 +347,7 @@ log.info(
 You can now see the `cluster_name` property is added to `fct_users_deleted` and the `retention_time` property is removed.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-properties-added-removed.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-properties-added-removed.png"/>
 </p>
 
 We can also verify this operation programmatically by checking the `datasetProperties` aspect using the `datahub` cli.
@@ -506,7 +506,7 @@ log.info(
 You can now see the `cluster_name` and `retention_time` properties are added to `fct_users_deleted` but the previous `encoding` property is no longer present.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-properties-replaced.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-properties-replaced.png"/>
 </p>
 
 We can also verify this operation programmatically by checking the `datasetProperties` aspect using the `datahub` cli.

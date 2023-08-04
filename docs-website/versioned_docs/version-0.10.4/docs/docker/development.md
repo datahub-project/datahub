@@ -103,7 +103,7 @@ Environment variables control the debugging ports for GMS and the frontend.
 The screenshot shows an example configuration for IntelliJ using the default GMS debugging port of 5001.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/development/intellij-remote-debug.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/development/intellij-remote-debug.png"/>
 </p>
 
 ## Tips for People New To Docker

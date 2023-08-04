@@ -12,6 +12,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export const Logo = (props) => {
 return (
+
 <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
 <img
 alt="DataHub Logo"
@@ -94,7 +95,7 @@ Please follow the [DataHub Quickstart Guide](/docs/quickstart) to get a copy of 
 If you're looking to build & modify datahub please take a look at our [Development Guide](/docs/developers).
 
 <p align="center">
-  <img width="70%" href="https://demo.datahubproject.io/" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/entity.png"/>
+  <img width="70%" href="https://demo.datahubproject.io/" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/entity.png"/>
 </p>
 
 ## Source Code and Repositories

@@ -15,13 +15,13 @@ To view & manage UI-based metadata ingestion, you must have the `Manage Metadata
 privileges assigned to your account. These can be granted by a [Platform Policy](authorization/policies.md).
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/ingestion-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/ingestion-privileges.png"/>
 </p>
 
 Once you have these privileges, you can begin to manage ingestion by navigating to the 'Ingestion' tab in DataHub.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/ingestion-tab.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/ingestion-tab.png"/>
 </p>
 
 On this page, you'll see a list of active **Ingestion Sources**. An Ingestion Sources is a unique source of metadata ingested
@@ -35,7 +35,7 @@ your first **Ingestion Source**.
 Before ingesting any metadata, you need to create a new Ingestion Source. Start by clicking **+ Create new source**.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/create-new-ingestion-source-button.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/create-new-ingestion-source-button.png"/>
 </p>
 
 #### Step 1: Select a Platform Template
@@ -45,7 +45,7 @@ a variety of natively supported integrations, from Snowflake to Postgres to Kafk
 Select `Custom` to construct an ingestion recipe from scratch.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/select-platform-template.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/select-platform-template.png"/>
 </p>
 
 Next, you'll configure an ingestion **Recipe**, which defines _how_ and _what_ to extract from the source system.
@@ -72,7 +72,7 @@ used by DataHub to extract metadata from a 3rd party system. It most often consi
 A sample of a full recipe configured to ingest metadata from MySQL can be found in the image below.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/example-mysql-recipe.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/example-mysql-recipe.png"/>
 </p>
 
 Detailed configuration examples & documentation for each source type can be found on the [DataHub Docs](https://datahubproject.io/docs/metadata-ingestion/) website.
@@ -86,7 +86,7 @@ that are encrypted and stored within DataHub's storage layer.
 To create a secret, first navigate to the 'Secrets' tab. Then click `+ Create new secret`.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/create-secret.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/create-secret.png"/>
 </p>
 
 _Creating a Secret to store the username for a MySQL database_
@@ -130,7 +130,7 @@ Next, you can optionally configure a schedule on which to execute your new Inges
 Schedules are defined using CRON format.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/schedule-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/schedule-ingestion.png"/>
 </p>
 
 _An Ingestion Source that is executed at 9:15am every day, Los Angeles time_
@@ -145,7 +145,7 @@ you can always come back and change this.
 Finally, give your Ingestion Source a name.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/name-ingestion-source.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/name-ingestion-source.png"/>
 </p>
 
 Once you're happy with your configurations, click 'Done' to save your changes.
@@ -159,7 +159,7 @@ To do so, simply click 'Advanced', then change the 'CLI Version' text box to con
 of the DataHub CLI you'd like to use.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/custom-ingestion-cli-version.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/custom-ingestion-cli-version.png"/>
 </p>
 
 _Pinning the CLI version to version `0.8.23.2`_
@@ -173,13 +173,13 @@ you should see the 'Last Status' column of the ingestion source change from `N/A
 means that the request to execute ingestion has been successfully picked up by the DataHub ingestion executor.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/running-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/running-ingestion.png"/>
 </p>
 
 If ingestion has executed successfully, you should see it's state shown in green as `Succeeded`.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/successful-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/successful-ingestion.png"/>
 </p>
 
 ### Cancelling an Ingestion Run
@@ -188,7 +188,7 @@ If your ingestion run is hanging, there may a bug in the ingestion source, or an
 you can cancel ingestion by clicking **Cancel** on the problematic run.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/cancelled-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/cancelled-ingestion.png"/>
 </p>
 
 Once cancelled, you can view the output of the ingestion run by clicking **Details**.
@@ -196,7 +196,7 @@ Once cancelled, you can view the output of the ingestion run by clicking **Detai
 ### Debugging a Failed Ingestion Run
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/failed-ingestion.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/failed-ingestion.png"/>
 </p>
 
 A variety of things can cause an ingestion run to fail. Common reasons for failure include:
@@ -211,14 +211,14 @@ A variety of things can cause an ingestion run to fail. Common reasons for failu
 4. **Authentication**: If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
 in your Recipe Configuration. To so this, set the 'token' field of the sink configuration to contain a Personal Access Token:
    <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/ingestion-with-token.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/ingestion-with-token.png"/>
 </p>
 
 The output of each run is captured and available to view in the UI for easier debugging. To view output logs, click **DETAILS**
 on the corresponding ingestion run.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/ingestion-logs.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/ingestion-logs.png"/>
 </p>
 
 ## FAQ
@@ -230,7 +230,7 @@ to reach DataHub's backend using the default configurations. Try changing your i
 DNS name for the `datahub-gms` pod:
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/quickstart-ingestion-config.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/quickstart-ingestion-config.png"/>
 </p>
 
 ### I see 'N/A' when I try to run ingestion. What do I do?

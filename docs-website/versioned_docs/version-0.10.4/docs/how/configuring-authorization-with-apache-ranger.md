@@ -85,7 +85,7 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
    **DATAHUB** plugin and **ranger_datahub** service is shown in below screenshot: <br/>
 
      <p align="center">
-       <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apache-ranger/datahub-plugin.png"/>
+       <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apache-ranger/datahub-plugin.png"/>
      </p>
 
 4. Create a new policy under service **ranger_datahub** - this will be used to control DataHub authorization.
@@ -101,7 +101,7 @@ Now, you should have the DataHub plugin registered with Apache Ranger. Next, we'
    DataHub platform access policy screenshot: <br/>
 
       <p align="center">
-        <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apache-ranger/datahub-platform-access-policy.png"/>
+        <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apache-ranger/datahub-platform-access-policy.png"/>
       </p>
 
 Once we've created our first policy, we can set up DataHub to start authorizing requests using Ranger policies.
@@ -205,7 +205,7 @@ For kubernetes example command, please replace the &lt;ranger-pod-name&gt; and &
     **ranger_datahub** service is shown in below screenshot: <br/>
 
     <p align="center">
-      <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apache-ranger/datahub-plugin.png"/>
+      <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apache-ranger/datahub-plugin.png"/>
     </p>
 
 2.  Delete **datahub** plugin: Execute below curl command to delete **datahub** plugin

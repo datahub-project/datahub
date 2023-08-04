@@ -204,7 +204,7 @@ the VPC of the kubernetes cluster. Once the database is provisioned, you should 
 a note of the endpoint marked by the red box.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/aws/aws-rds.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/aws/aws-rds.png"/>
 </p>
 
 First, add the DB password to kubernetes by running the following.
@@ -239,7 +239,7 @@ cluster or has VPC peering set up between the VPC of the kubernetes cluster. Onc
 be able to see the following page. Take a note of the endpoint marked by the red box.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/aws/aws-elasticsearch.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/aws/aws-elasticsearch.png"/>
 </p>
 
 Update the elasticsearch settings under global in the values.yaml as follows.
@@ -341,7 +341,7 @@ the kubernetes cluster. Once the domain is provisioned, click on the “View cli
 Summary” section. You should see a page like below. Take a note of the endpoints marked by the red boxes.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/aws/aws-msk.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/aws/aws-msk.png"/>
 </p>
 
 Update the kafka settings under global in the values.yaml as follows.

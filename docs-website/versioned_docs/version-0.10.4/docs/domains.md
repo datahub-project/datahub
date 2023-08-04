@@ -28,20 +28,20 @@ You can create this privileges by creating a new [Metadata Policy](./authorizati
 To create a Domain, first navigate to the **Domains** tab in the top-right menu of DataHub.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/domains-tab.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/domains-tab.png"/>
 </p>
 
 Once you're on the Domains page, you'll see a list of all the Domains that have been created on DataHub. Additionally, you can
 view the number of entities inside each Domain.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/list-domains.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/list-domains.png"/>
 </p>
 
 To create a new Domain, click '+ New Domain'.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/create-domain.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/create-domain.png"/>
 </p>
 
 Inside the form, you can choose a name for your Domain. Most often, this will align with your business units or groups, for example
@@ -54,7 +54,7 @@ for the Domain. This option is useful if you intend to refer to Domains by a com
 key to be human-readable. Proceed with caution: once you select a custom id, it cannot be easily changed.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/set-domain-id.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/set-domain-id.png"/>
 </p>
 
 By default, you don't need to worry about this. DataHub will auto-generate a unique Domain id for you.
@@ -71,7 +71,7 @@ To assign an asset to a Domain, simply navigate to the asset's profile page. At 
 see a 'Domain' section. Click 'Set Domain', and then search for the Domain you'd like to add to. When you're done, click 'Add'.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/set-domain.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/set-domain.png"/>
 </p>
 
 To remove an asset from a Domain, click the 'x' icon on the Domain tag.
@@ -156,27 +156,27 @@ source:
 Once you've created a Domain, you can use the search bar to find it.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/search-domain.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/search-domain.png"/>
 </p>
 
 Clicking on the search result will take you to the Domain's profile, where you
 can edit its description, add / remove owners, and view the assets inside the Domain.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/domain-entities.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/domain-entities.png"/>
 </p>
 
 Once you've added assets to a Domain, you can filter search results to limit to those Assets
 within a particular Domain using the left-side search filters.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/search-by-domain.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/search-by-domain.png"/>
 </p>
 
 On the homepage, you'll also find a list of the most popular Domains in your organization.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/browse-domains.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/browse-domains.png"/>
 </p>
 
 ## Additional Resources

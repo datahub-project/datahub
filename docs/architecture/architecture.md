@@ -11,7 +11,7 @@ disparate tools & systems.
 The figures below describe the high-level architecture of DataHub.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/datahub-architecture.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/datahub-architecture.png"/>
 </p>
 ![Acryl DataHub System Architecture ](../managed-datahub/imgs/saas/DataHub-Architecture.png)
 

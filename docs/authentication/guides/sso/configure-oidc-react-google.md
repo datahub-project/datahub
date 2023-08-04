@@ -33,7 +33,7 @@ c. Fill out the details in the App Information & Domain sections. Make sure the 
 at your organization.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/google-setup-1.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/sso/google-setup-1.png"/>
 </p>
 
 Once you've completed this, **Save & Continue**.
@@ -74,7 +74,7 @@ f. You will now receive a pair of values, a client id and a client secret. Bookm
 At this point, you should be looking at a screen like the following:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/sso/google-setup-2.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/sso/google-setup-2.png"/>
 </p>
 
 Success!

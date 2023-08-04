@@ -24,7 +24,7 @@ see_users
 Here is an example permission set after configuration.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs//looker_datahub_permission_set.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs//looker_datahub_permission_set.png"/>
 </p>
 
 #### Get an API key

@@ -31,7 +31,7 @@ For a deeper look at how to think about DataHub within and across your Databrick
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=SCP0PR3t7dc">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/metadata-ingestion/databricks/data_and_ai_summit_2022.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-ingestion/databricks/data_and_ai_summit_2022.png"/>
   </a>
 </p>
 

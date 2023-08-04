@@ -3,7 +3,7 @@
 A relationship is a named associate between exactly two [entities](entity.md), a source and a destination.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/metadata-modeling.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-modeling.png"/>
 </p>
 
 From the above graph, a `Group` entity can be linked to a `User` entity via a `HasMember` relationship.

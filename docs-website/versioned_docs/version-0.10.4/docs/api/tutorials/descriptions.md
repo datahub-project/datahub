@@ -429,7 +429,7 @@ else:
 You can now see the description is added to `fct_users_deleted`.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/dataset-description-added.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/dataset-description-added.png"/>
 </p>
 
 ## Add Description on Column
@@ -609,5 +609,5 @@ need_write = False
 You can now see column description is added to `user_name` column of `fct_users_deleted`.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/apis/tutorials/column-description-added.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/column-description-added.png"/>
 </p>

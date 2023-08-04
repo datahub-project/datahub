@@ -45,11 +45,11 @@ Stateful ingestion can be used to automatically soft-delete the tables and views
 but absent in the current run (they are either deleted or no longer desired).
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/stale_metadata_deletion.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/stale_metadata_deletion.png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/stale_metadata_deletion.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/stale_metadata_deletion.png"/>
 </p>
 
 #### Supported sources

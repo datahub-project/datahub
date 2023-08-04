@@ -28,7 +28,7 @@ Conceptually, metadata is modeled using the following abstractions
 Here is an example graph consisting of 3 types of entity (CorpUser, Chart, Dashboard), 2 types of relationship (OwnedBy, Contains), and 3 types of metadata aspect (Ownership, ChartInfo, and DashboardInfo).
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/metadata-model-chart.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-model-chart.png"/>
 </p>
 
 ## The Core Entities
@@ -73,18 +73,18 @@ to the YAML configuration, instead of creating new Snapshot / Aspect files.
 To explore the current DataHub metadata model, you can inspect this high-level picture that shows the different entities and edges between them showing the relationships between them.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/datahub-metadata-model.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/datahub-metadata-model.png"/>
 </p>
 
 To navigate the aspect model for specific entities and explore relationships using the `foreign-key` concept, you can view them in our demo environment or navigate the auto-generated docs in the **Metadata Modeling/Entities** section on the left.
 
 For example, here are helpful links to the most popular entities in DataHub's metadata model:
 
-- [Dataset](docs/generated/metamodel/entities/dataset.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Documentation?is_lineage_mode=false)
-- [Dashboard](docs/generated/metamodel/entities/dashboard.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Documentation?is_lineage_mode=false)
-- [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Corpuser,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Corpuser,PROD)/Documentation?is_lineage_mode=false)
-- [Pipeline (a.k.a DataFlow)](docs/generated/metamodel/entities/dataFlow.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,DataFlow,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,DataFlow,PROD)/Documentation?is_lineage_mode=false)
-- [Feature Table (a.k.a. MLFeatureTable)](docs/generated/metamodel/entities/mlFeatureTable.md): [Profile](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Schema?is_lineage_mode=false) [Documentation](https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Documentation?is_lineage_mode=false)
+- [Dataset](docs/generated/metamodel/entities/dataset.md): [Profile](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Schema?is_lineage_mode=false>) [Documentation](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dataset,PROD)/Documentation?is_lineage_mode=false>)
+- [Dashboard](docs/generated/metamodel/entities/dashboard.md): [Profile](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Schema?is_lineage_mode=false>) [Documentation](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Dashboard,PROD)/Documentation?is_lineage_mode=false>)
+- [User (a.k.a CorpUser)](docs/generated/metamodel/entities/corpuser.md): [Profile](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Corpuser,PROD)/Schema?is_lineage_mode=false>) [Documentation](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,Corpuser,PROD)/Documentation?is_lineage_mode=false>)
+- [Pipeline (a.k.a DataFlow)](docs/generated/metamodel/entities/dataFlow.md): [Profile](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,DataFlow,PROD)/Schema?is_lineage_mode=false>) [Documentation](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,DataFlow,PROD)/Documentation?is_lineage_mode=false>)
+- [Feature Table (a.k.a. MLFeatureTable)](docs/generated/metamodel/entities/mlFeatureTable.md): [Profile](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Schema?is_lineage_mode=false>) [Documentation](<https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:datahub,MlFeatureTable,PROD)/Documentation?is_lineage_mode=false>)
 - For the full list of entities in the metadata model, browse them [here](https://demo.datahubproject.io/browse/dataset/prod/datahub/entities) or use the **Metadata Modeling/Entities** section on the left.
 
 ### Generating documentation for the Metadata Model

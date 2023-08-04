@@ -8,7 +8,7 @@ DataHub supports an extremely flexible ingestion architecture that can support p
 The figure below describes all the options possible for connecting your favorite system to DataHub.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/ingestion-architecture.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/ingestion-architecture.png"/>
 </p>
 
 ## Metadata Change Proposal: The Center Piece

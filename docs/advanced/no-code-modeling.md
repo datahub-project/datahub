@@ -164,13 +164,13 @@ along with simplifying the number of raw data models that need defined, includin
 From an architectural PoV, we will move from a before that looks something like this:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/no-code-before.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/no-code-before.png"/>
 </p>
 
 to an after that looks like this
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/acryldata/static-assets-test/master/imgs/no-code-after.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/no-code-after.png"/>
 </p>
 
 That is, a move away from patterns of strong-typing-everywhere to a more generic + flexible world.
