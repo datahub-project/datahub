@@ -10,6 +10,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
+import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.gms.factory.timeline.EntityChangeEventGeneratorRegistryFactory;
 import com.linkedin.metadata.event.EventProducer;
@@ -28,7 +29,8 @@ import org.springframework.context.annotation.Scope;
 
 @Configuration
 @Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, GraphClientFactory.class,
-    SettingsProviderFactory.class, EntityRegistryFactory.class, EntityChangeEventGeneratorRegistryFactory.class})
+    SettingsProviderFactory.class, EntityRegistryFactory.class, EntityChangeEventGeneratorRegistryFactory.class,
+    SlackNotificationRecipientBuilderFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityChangeNotificationGeneratorFactory {
   @Autowired

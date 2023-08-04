@@ -5,7 +5,6 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
@@ -130,7 +129,13 @@ public class SubscriptionServiceTest {
     final Map.Entry<Urn, SubscriptionInfo> subscription =
         _subscriptionService.createSubscription(USER_URN, ENTITY_URN_1, SUBSCRIPTION_TYPES_1, ENTITY_CHANGE_TYPES_1,
             NOTIFICATION_CONFIG, SYSTEM_AUTHENTICATION);
-    assertEquals(subscription, Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
+    assertEquals(subscription.getKey(), SUBSCRIPTION_URN_1);
+    assertEquals(subscription.getValue().getActorType(), SUBSCRIPTION_INFO_1.getActorType());
+    assertEquals(subscription.getValue().getActorUrn(), SUBSCRIPTION_INFO_1.getActorUrn());
+    assertEquals(subscription.getValue().getEntityChangeTypes(), SUBSCRIPTION_INFO_1.getEntityChangeTypes());
+    assertEquals(subscription.getValue().getEntityUrn(), SUBSCRIPTION_INFO_1.getEntityUrn());
+    assertEquals(subscription.getValue().getNotificationConfig(), SUBSCRIPTION_INFO_1.getNotificationConfig());
+    assertEquals(subscription.getValue().getTypes(), SUBSCRIPTION_INFO_1.getTypes());
   }
 
   @Test
