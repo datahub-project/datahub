@@ -1,27 +1,27 @@
-This connector ingests S3 datasets into DataHub. It allows mapping a group of s3 files to a dataset in DataHub. 
-To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for examples.
+This connector ingests S3 datasets into DataHub. It allows mapping an individual file or a folder of files to a dataset in DataHub. 
+To specify the group of files that form a dataset, use `path_specs` configuration in ingestion recipe. Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for more details.
 
 ### Concept Mapping
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept                  | DataHub Concept                                                                            | Notes               |
-| ------------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
-| `"s3"`                          | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/) |                     |
-| s3 object / Group of s3 objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                     |
-| s3 bucket                       | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
-| s3 folder                       | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
+| Source Concept                           | DataHub Concept                                                                            | Notes               |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
+| `"s3"`                                   | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataPlatform/) |                     |
+| s3 object / Folder containing s3 objects | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            |                     |
+| s3 bucket                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `S3 bucket` |
+| s3 folder                                | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)        | Subtype `Folder`    |
 
 This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). 
-
+[a]
 ### Supported file types
 Supported file types are as follows:
 
-- CSV
-- TSV
-- JSON
-- Parquet
-- Apache Avro
+- CSV (*.csv)
+- TSV (*.tsv)
+- JSON (*.json)
+- Parquet (*.parquet)
+- Apache Avro (*.avro)
 
 Schemas for Parquet and Avro files are extracted as provided.
 
