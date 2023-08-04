@@ -339,7 +339,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     m_cn,
                     ldap.SCOPE_BASE,
                     manager_filter,
-                    serverctrls=[self.lc],
+                    serverctrls=[self.lc] if self.lc else [],
                 )
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
