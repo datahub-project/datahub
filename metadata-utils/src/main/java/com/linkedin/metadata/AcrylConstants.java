@@ -31,6 +31,7 @@ public class AcrylConstants {
   public static final String FAILING_TESTS_FIELD = "failingTests";
   public static final String TESTS_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
   public static final String TESTS_LAST_UPDATED_TIME_INDEX_FIELD_NAME = "lastUpdatedTime";
+  public static final String BATCH_TEST_RUN_EVENT_ASPECT_NAME = "batchTestRunEvent";
 
   // For system monitors
   public static final String FRESHNESS_SYSTEM_MONITOR_ID = "__system_freshness";

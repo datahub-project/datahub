@@ -33,6 +33,7 @@ import com.linkedin.test.TestResults;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -125,6 +126,18 @@ public class TestEngine {
    */
   public void invalidateCache() {
     _refreshExecutorService.execute(_testRefreshRunnable);
+  }
+
+  /**
+   * Synchronously refresh the Metadata Tests cache.
+   */
+  public void loadTests() {
+    _testRefreshRunnable.run();
+  }
+
+  @Nonnull
+  public List<TestDefinition> getTestDefinitions() {
+    return _testPerEntityTypeCache.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
   }
 
   @Nonnull
