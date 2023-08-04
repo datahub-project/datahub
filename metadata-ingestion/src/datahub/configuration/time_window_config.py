@@ -7,10 +7,7 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.datetimes import (
-    _parse_absolute_time,
-    _parse_relative_timespan,
-)
+from datahub.configuration.datetimes import parse_absolute_time, parse_relative_timespan
 from datahub.metadata.schema_classes import CalendarIntervalClass
 
 
@@ -64,7 +61,7 @@ class BaseTimeWindowConfig(ConfigModel):
         elif isinstance(v, str):
             # This is where start_time str is resolved to datetime
             try:
-                delta = _parse_relative_timespan(v)
+                delta = parse_relative_timespan(v)
                 assert delta < timedelta(
                     0
                 ), "Relative start time should start with minus sign (-) e.g. '-2 days'."
@@ -73,7 +70,7 @@ class BaseTimeWindowConfig(ConfigModel):
                 ), "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
                 return values["end_time"] + delta
             except humanfriendly.InvalidTimespan:
-                return _parse_absolute_time(v)
+                return parse_absolute_time(v)
 
         return v
 
