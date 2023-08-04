@@ -410,7 +410,6 @@ module.exports = {
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
-        "docs/architecture/stemming_and_synonyms",
         "docs/lineage/lineage-feature-guide",
         {
           type: "doc",
