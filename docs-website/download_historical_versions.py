@@ -25,10 +25,8 @@ def fetch_tar_urls(repo_url, folder_path):
 
 
 def main():
-    repo_url = "https://api.github.com/repos/acryldata/static-assets-test"  # Replace with the repository URL
-    folder_path = (
-        "versioned_docs"  # Replace with the folder path containing the .tar.gz files
-    )
+    repo_url = "https://api.github.com/repos/datahub-project/static-assets"
+    folder_path = "versioned_docs"
 
     destination_dir = "versioned_docs"
     if not os.path.exists(destination_dir):
@@ -46,7 +44,6 @@ def main():
             with tarfile.open(destination_path, "r:gz") as tar:
                 tar.extractall()
             os.remove(destination_path)
-            # Add code to extract the .tar.gz file if needed
         except requests.exceptions.RequestException as e:
             print(f"Error while downloading {filename}: {e}")
             continue
