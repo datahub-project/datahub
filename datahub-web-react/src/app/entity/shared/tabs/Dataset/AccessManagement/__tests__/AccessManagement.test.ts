@@ -30,7 +30,7 @@ describe('handleExternalRoles', () => {
             },
         };
 
-        const GetMeQuery: GetMeQuery = {
+        const GetMeQueryUser: GetMeQuery = {
             me: {
                 corpUser: {
                     urn: 'urn:li:corpuser:datahub',
@@ -85,7 +85,7 @@ describe('handleExternalRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQuery);
+        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQueryUser);
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
@@ -105,7 +105,7 @@ describe('handleExternalRoles', () => {
             },
         };
 
-        const GetMeQuery: GetMeQuery = {
+        const GetMeQueryUser: GetMeQuery = {
             me: {
                 corpUser: {
                     urn: 'urn:li:corpuser:datahub',
@@ -160,7 +160,7 @@ describe('handleExternalRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQuery);
+        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQueryUser);
         expect(externalRole).toMatchObject([]);
     });
     it('should properly map the externalroles and loggedin user and access true', () => {
@@ -196,7 +196,7 @@ describe('handleExternalRoles', () => {
             },
         };
 
-        const GetMeQuery: GetMeQuery = {
+        const GetMeQueryUser: GetMeQuery = {
             me: {
                 corpUser: {
                     urn: 'urn:li:corpuser:datahub',
@@ -251,7 +251,7 @@ describe('handleExternalRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQuery);
+        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQueryUser);
 
         expect(externalRole).toMatchObject([
             {
