@@ -132,7 +132,7 @@ export const EmbeddedListSearch = ({
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
-    applyView,
+    applyView = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -178,7 +178,7 @@ export const EmbeddedListSearch = ({
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
-        viewUrn: selectedViewUrn,
+        viewUrn: applyView ? selectedViewUrn : undefined,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };

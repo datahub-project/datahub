@@ -40,7 +40,7 @@ const MatchingViewsLabel = () => {
         );
     }
 
-    return <Typography.Text>No view applied.</Typography.Text>;
+    return null;
 };
 
 export default MatchingViewsLabel;
