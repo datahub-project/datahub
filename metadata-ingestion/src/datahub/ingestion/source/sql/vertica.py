@@ -139,7 +139,7 @@ class VerticaSource(SQLAlchemySource):
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.profiling.enabled:
+        if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
@@ -147,7 +147,7 @@ class VerticaSource(SQLAlchemySource):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.profiling.enabled:
+            if sql_config.is_profiling_enabled():
                 profiler = self.get_profiler_instance(inspector)
 
             db_name = self.get_db_name(inspector)

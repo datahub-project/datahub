@@ -175,7 +175,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         wait_on_warehouse = None
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
@@ -200,7 +200,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.table_refs | self.view_refs
             )
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             assert wait_on_warehouse
             timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
             wait_on_warehouse.result(timeout)

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 import pydantic
 import pytest
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.elastic_search import (
     CollapseUrns,
     ElasticsearchSourceConfig,
@@ -15,6 +16,20 @@ from datahub.ingestion.source.elastic_search import (
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
+
+
+def test_elasticsearch_throws_error_wrong_operation_config():
+    with pytest.raises(ConfigurationError):
+        ElasticsearchSourceConfig.parse_obj(
+            {
+                "profiling": {
+                    "enabled": True,
+                    "operation_config": {
+                        "lower_freq_profile_enabled": True,
+                    },
+                }
+            }
+        )
 
 
 def assert_field_paths_are_unique(fields: List[SchemaField]) -> None:
