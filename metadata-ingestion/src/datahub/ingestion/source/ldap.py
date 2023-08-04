@@ -17,7 +17,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
-from datahub.ingestion.api.workunit import MetadataWorkUnit, logger
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -361,14 +361,23 @@ class LDAPSource(StatefulIngestionSourceBase):
         groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
         email = get_attr_or_none(attrs, self.config.user_attrs_map["email"], ldap_user)
-        display_name = get_attr_or_none(attrs, self.config.user_attrs_map["displayName"], full_name)
+        display_name = get_attr_or_none(
+            attrs, self.config.user_attrs_map["displayName"], full_name
+        )
         title = get_attr_or_none(attrs, self.config.user_attrs_map["title"])
-        department_id = get_attr_or_none(attrs, self.config.user_attrs_map["departmentId"])
-        department_name = get_attr_or_none(attrs, self.config.user_attrs_map["departmentName"])
-        country_code = get_attr_or_none(attrs, self.config.user_attrs_map["countryCode"])
-
-        if department_id:
-            department_id = int(department_id)
+        department_id_str = get_attr_or_none(
+            attrs, self.config.user_attrs_map["departmentId"]
+        )
+        department_name = get_attr_or_none(
+            attrs, self.config.user_attrs_map["departmentName"]
+        )
+        country_code = get_attr_or_none(
+            attrs, self.config.user_attrs_map["countryCode"]
+        )
+        if department_id_str:
+            department_id = int(department_id_str)
+        else:
+            department_id = None
 
         custom_props_map = {}
         if self.config.custom_props_list:
@@ -410,9 +419,15 @@ class LDAPSource(StatefulIngestionSourceBase):
             admins = parse_users(attrs, self.config.group_attrs_map["admins"])
             members = parse_users(attrs, self.config.group_attrs_map["members"])
 
-            email = get_attr_or_none(attrs, self.config.group_attrs_map["email"], full_name)
-            description = get_attr_or_none(attrs, self.config.group_attrs_map["description"])
-            displayName = get_attr_or_none(attrs, self.config.group_attrs_map["displayName"])
+            email = get_attr_or_none(
+                attrs, self.config.group_attrs_map["email"], full_name
+            )
+            description = get_attr_or_none(
+                attrs, self.config.group_attrs_map["description"]
+            )
+            displayName = get_attr_or_none(
+                attrs, self.config.group_attrs_map["displayName"]
+            )
 
             group_snapshot = CorpGroupSnapshotClass(
                 urn=f"urn:li:corpGroup:{full_name}",
@@ -471,6 +486,7 @@ def parse_ldap_dn(input_clean: bytes) -> str:
         return input_clean.decode()
 
 
-def get_attr_or_none(attrs: Dict[str, Any], key: str, default=None) -> str:
+def get_attr_or_none(
+    attrs: Dict[str, Any], key: str, default: Optional[str] = None
+) -> str:
     return attrs[key][0].decode() if attrs.get(key) else default
-
