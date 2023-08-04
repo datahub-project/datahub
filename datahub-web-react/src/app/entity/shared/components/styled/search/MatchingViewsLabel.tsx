@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Typography } from 'antd';
-import { useListMyViewsQuery } from '../../../../../../graphql/view.generated';
+import { useListGlobalViewsQuery, useListMyViewsQuery } from '../../../../../../graphql/view.generated';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../../../../view/utils';
 import { useUserContext } from '../../../../../context/useUserContext';
 
@@ -8,7 +8,10 @@ const MatchingViewsLabel = () => {
     const userContext = useUserContext();
     const selectedViewUrn = userContext?.localState?.selectedViewUrn;
 
-    const { data } = useListMyViewsQuery({
+    /**
+     * Fetch all private views using listMyViews
+     */
+    const { data: privateViewsData } = useListMyViewsQuery({
         variables: {
             start: 0,
             count: DEFAULT_LIST_VIEWS_PAGE_SIZE,
@@ -16,9 +19,16 @@ const MatchingViewsLabel = () => {
         fetchPolicy: 'cache-first',
     });
 
-    const selectedView = selectedViewUrn
-        ? data?.listMyViews?.views.find((view) => view.urn === selectedViewUrn)
-        : undefined;
+    /**
+     * Fetch all global/public views using listGlobalViews
+     */
+    const { data: publicViewsData } = useListGlobalViewsQuery({
+        variables: {
+            start: 0,
+            count: DEFAULT_LIST_VIEWS_PAGE_SIZE,
+        },
+        fetchPolicy: 'cache-first',
+    });
 
     const onClear = () => {
         userContext.updateLocalState({
@@ -26,6 +36,17 @@ const MatchingViewsLabel = () => {
             selectedViewUrn: undefined,
         });
     };
+
+    const privateViews = privateViewsData?.listMyViews?.views || [];
+    const publicViews = publicViewsData?.listGlobalViews?.views || [];
+
+    /**
+     * Check if selectedViewUrn exists in either the private or public views and if so use it
+     */
+    const selectedView = selectedViewUrn
+        ? privateViews?.find((view) => view.urn === selectedViewUrn) ||
+          publicViews?.find((view) => view.urn === selectedViewUrn)
+        : undefined;
 
     if (selectedView) {
         return (
