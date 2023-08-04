@@ -1,3 +1,4 @@
+import os
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -34,6 +35,11 @@ class ClassificationConfig(ConfigModel):
 
     sample_size: int = Field(
         default=100, description="Number of sample values used for classification."
+    )
+
+    max_workers: int = Field(
+        default=(os.cpu_count() or 4),
+        description="Number of worker threads to use for classification. Set to 1 to disable.",
     )
 
     table_pattern: AllowDenyPattern = Field(
