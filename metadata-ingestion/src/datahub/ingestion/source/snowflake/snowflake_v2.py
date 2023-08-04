@@ -300,7 +300,6 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-
         if config.is_profiling_enabled():
             # For profiling
             self.profiler = SnowflakeProfiler(
