@@ -264,14 +264,17 @@ class S3Source(StatefulIngestionSourceBase):
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
         }
-        config_report = {**config_report, "profiling_enabled": config.profiling.enabled}
+        config_report = {
+            **config_report,
+            "profiling_enabled": config.is_profiling_enabled(),
+        }
 
         telemetry.telemetry_instance.ping(
             "data_lake_config",
             config_report,
         )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             telemetry.telemetry_instance.ping(
                 "data_lake_profiling_config",
                 {
@@ -659,7 +662,7 @@ class S3Source(StatefulIngestionSourceBase):
             table_data.table_path, dataset_urn
         )
 
-        if self.source_config.profiling.enabled:
+        if self.source_config.is_profiling_enabled():
             yield from self.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
@@ -884,7 +887,7 @@ class S3Source(StatefulIngestionSourceBase):
                 for guid, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
-            if not self.source_config.profiling.enabled:
+            if not self.source_config.is_profiling_enabled():
                 return
 
             total_time_taken = timer.elapsed_seconds()
