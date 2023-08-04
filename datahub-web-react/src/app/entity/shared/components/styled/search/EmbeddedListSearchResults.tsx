@@ -103,8 +103,6 @@ export const EmbeddedListSearchResults = ({
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
 
-    console.log(applyView);
-
     return (
         <>
             <SearchBody>
