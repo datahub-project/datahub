@@ -151,7 +151,9 @@ export const SearchResultList = ({
                             )}
                             {entityRegistry.renderSearchResult(item.entity.type, item)}
                         </ListItem>
-                        {item.matchedEntities && item.matchedEntities.length > 0 && (
+                        {/* an entity is always going to be inserted in the sibling group, so if the sibling group is just one do not 
+                        render. */}
+                        {item.matchedEntities && item.matchedEntities.length > 1 && (
                             <SiblingResultContainer className="test-search-result-sibling-section">
                                 <CompactEntityNameList
                                     linkUrlParams={{ [SEPARATE_SIBLINGS_URL_PARAM]: true }}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Steps } from 'antd';
+import { Form, Steps } from 'antd';
 import { AssertionMonitorBuilderState, StepProps, AssertionBuilderStep } from './types';
 import { AssertionBuilderStepTitles, AssertionsBuilderStepComponent } from './conf';
 import { DEFAULT_BUILDER_STATE } from './constants';
@@ -48,6 +48,7 @@ export const AssertionMonitorBuilder = ({
     onSubmit,
     onCancel,
 }: Props) => {
+    const [form] = Form.useForm();
     const [stepStack, setStepStack] = useState<AssertionBuilderStep[]>([AssertionBuilderStep.SELECT_TYPE]);
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(
         initialState || { ...DEFAULT_BUILDER_STATE, entityUrn, entityType, platformUrn },
@@ -73,8 +74,28 @@ export const AssertionMonitorBuilder = ({
      */
     const StepComponent: React.FC<StepProps> = AssertionsBuilderStepComponent[currentStep];
 
-    const goTo = (step: AssertionBuilderStep) => {
+    const validateForm = async () => {
+        try {
+            await form.validateFields();
+            return true;
+        } catch (e) {
+            console.warn('Validate Failed:', e);
+            return false;
+        }
+    };
+
+    const goTo = async (step: AssertionBuilderStep, shouldValidate = true) => {
+        if (shouldValidate) {
+            const isValid = await validateForm();
+            if (!isValid) return;
+        }
         setStepStack([...stepStack, step]);
+    };
+
+    const handleSubmit = async () => {
+        const isValid = await validateForm();
+        if (!isValid) return;
+        await createAssertionMonitor();
     };
 
     const prev = () => {
@@ -95,14 +116,16 @@ export const AssertionMonitorBuilder = ({
                         ))}
                     </Steps>
                 </StepsContainer>
-                <StepComponent
-                    state={builderState}
-                    updateState={setBuilderState}
-                    goTo={goTo}
-                    prev={stepStack.length > 1 ? prev : undefined}
-                    submit={createAssertionMonitor}
-                    cancel={cancel}
-                />
+                <Form form={form} initialValues={initialState}>
+                    <StepComponent
+                        state={builderState}
+                        updateState={setBuilderState}
+                        goTo={goTo}
+                        prev={stepStack.length > 1 ? prev : undefined}
+                        submit={handleSubmit}
+                        cancel={cancel}
+                    />
+                </Form>
             </MainContent>
         </Container>
     );

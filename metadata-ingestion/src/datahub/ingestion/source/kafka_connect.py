@@ -879,6 +879,80 @@ class BigQuerySinkConnector:
         return
 
 
+@dataclass
+class ConfluentS3SinkConnector:
+    connector_manifest: ConnectorManifest
+
+    def __init__(
+        self, connector_manifest: ConnectorManifest, report: KafkaConnectSourceReport
+    ) -> None:
+        self.connector_manifest = connector_manifest
+        self.report = report
+        self._extract_lineages()
+
+    @dataclass
+    class S3SinkParser:
+        target_platform: str
+        bucket: str
+        topics_dir: str
+        topics: Iterable[str]
+
+    def _get_parser(self, connector_manifest: ConnectorManifest) -> S3SinkParser:
+        # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#s3
+        bucket = connector_manifest.config.get("s3.bucket.name")
+        if not bucket:
+            raise ValueError(
+                "Could not find 's3.bucket.name' in connector configuration"
+            )
+
+        # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#storage
+        topics_dir = connector_manifest.config.get("topics.dir", "topics")
+
+        return self.S3SinkParser(
+            target_platform="s3",
+            bucket=bucket,
+            topics_dir=topics_dir,
+            topics=connector_manifest.topic_names,
+        )
+
+    def _extract_lineages(self):
+        self.connector_manifest.flow_property_bag = self.connector_manifest.config
+
+        # remove keys, secrets from properties
+        secret_properties = [
+            "aws.access.key.id",
+            "aws.secret.access.key",
+            "s3.sse.customer.key",
+            "s3.proxy.password",
+        ]
+        for k in secret_properties:
+            if k in self.connector_manifest.flow_property_bag:
+                del self.connector_manifest.flow_property_bag[k]
+
+        try:
+            parser = self._get_parser(self.connector_manifest)
+
+            lineages: List[KafkaConnectLineage] = list()
+            for topic in parser.topics:
+                target_dataset = f"{parser.bucket}/{parser.topics_dir}/{topic}"
+
+                lineages.append(
+                    KafkaConnectLineage(
+                        source_dataset=topic,
+                        source_platform="kafka",
+                        target_dataset=target_dataset,
+                        target_platform=parser.target_platform,
+                    )
+                )
+            self.connector_manifest.lineages = lineages
+        except Exception as e:
+            self.report.report_warning(
+                self.connector_manifest.name, f"Error resolving lineage: {e}"
+            )
+
+        return
+
+
 def transform_connector_config(
     connector_config: Dict, provided_configs: List[ProvidedConfig]
 ) -> None:
@@ -1024,6 +1098,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
                 ):
                     connector_manifest = BigQuerySinkConnector(
+                        connector_manifest=connector_manifest, report=self.report
+                    ).connector_manifest
+                elif connector_manifest.config.get("connector.class").__eq__(
+                    "io.confluent.connect.s3.S3SinkConnector"
+                ):
+                    connector_manifest = ConfluentS3SinkConnector(
                         connector_manifest=connector_manifest, report=self.report
                     ).connector_manifest
                 else:

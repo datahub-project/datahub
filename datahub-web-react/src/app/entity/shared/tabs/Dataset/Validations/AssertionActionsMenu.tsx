@@ -23,6 +23,7 @@ const StyledDeleteOutlined = styled(DeleteOutlined)`
 
 type Props = {
     monitor?: Monitor;
+    connectionForEntityExists: boolean;
     onManageAssertion: () => void;
     onDeleteAssertion: () => void;
     onStopMonitor?: () => void;
@@ -31,6 +32,7 @@ type Props = {
 
 export const AssertionActionsMenu = ({
     monitor,
+    connectionForEntityExists,
     onManageAssertion,
     onDeleteAssertion,
     onStopMonitor,
@@ -40,12 +42,12 @@ export const AssertionActionsMenu = ({
         <Menu>
             {(monitor &&
                 (isMonitorActive(monitor) ? (
-                    <Menu.Item key="0" onClick={onStopMonitor}>
+                    <Menu.Item key="0" onClick={onStopMonitor} disabled={!connectionForEntityExists}>
                         <StyledStopOutlined />
                         Stop
                     </Menu.Item>
                 ) : (
-                    <Menu.Item key="0" onClick={onStartMonitor}>
+                    <Menu.Item key="0" onClick={onStartMonitor} disabled={!connectionForEntityExists}>
                         <StyledPlaySquareOutlined />
                         Start
                     </Menu.Item>

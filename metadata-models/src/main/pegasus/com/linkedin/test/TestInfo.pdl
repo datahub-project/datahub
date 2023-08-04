@@ -83,4 +83,9 @@ record TestInfo {
       }
     }
     lastUpdated: optional AuditStamp
+
+    /**
+     * The current status of the Metadata Test, e.g. whether it is actively running.
+     */
+    status: optional TestStatus
 }

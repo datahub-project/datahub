@@ -107,7 +107,7 @@ class Source:
         self, entity_urn: str, window: List[int]
     ) -> SourceOperationParams:
         urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1].lower()
+        dataset_name = urn_obj.get_entity_id()[1]
         dataset_name_parts = dataset_name.split(".")
 
         if len(dataset_name_parts) > 3:

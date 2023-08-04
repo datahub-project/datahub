@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sagemaker.type_defs import (
         DescribeFeatureGroupResponseTypeDef,
-        FeatureDefinitionOutputTypeDef,
+        FeatureDefinitionTypeDef,
         FeatureGroupSummaryTypeDef,
     )
 
@@ -147,7 +147,7 @@ class FeatureGroupProcessor:
     def get_feature_wu(
         self,
         feature_group_details: "DescribeFeatureGroupResponseTypeDef",
-        feature: "FeatureDefinitionOutputTypeDef",
+        feature: "FeatureDefinitionTypeDef",
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature workunit for a SageMaker feature.

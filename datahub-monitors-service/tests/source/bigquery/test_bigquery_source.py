@@ -40,6 +40,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 FROM test_db.public.test_table
                 WHERE timestamp >= (TIMESTAMP_MILLIS(CAST({TEST_START} AS INT64)))
                 AND timestamp <= (TIMESTAMP_MILLIS(CAST({TEST_END} AS INT64)))
+                AND foo = 'bar'
                 ORDER BY timestamp DESC
             ;"""
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
@@ -135,6 +136,7 @@ class TestBigQuerySource:
                 "type": "TIMESTAMP",
                 "native_type": "TIMESTAMP",
                 "kind": FreshnessFieldKind.LAST_MODIFIED,
+                "filter": {"type": DatasetFilterType.SQL, "sql": "WHERE foo = 'bar';"},
             },
         )
         execute_query_mock.assert_called_once_with(TEST_FIELD_UPDATE_QUERY)

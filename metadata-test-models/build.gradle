@@ -1,0 +1,83 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow'
+    id 'maven-publish'
+}
+
+dependencies {
+    compile project(':metadata-models')
+    compile project(':metadata-utils')
+
+    implementation externalDependency.jacksonCore
+    implementation externalDependency.jacksonDataFormatYaml
+    implementation externalDependency.snakeYaml
+    implementation externalDependency.opentelemetryAnnotations
+
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+}
+
+ext {
+    awsStagingRepoUrl = project.version.endsWith('-SNAPSHOT') ? 's3://data-lake-usw2-data-eng-staging/jars/snapshots'
+        : 's3://data-lake-usw2-data-eng-staging/jars/releases'
+    awsProdRepoUrl = project.version.endsWith('-SNAPSHOT') ? 's3://data-lake-usw1-data-eng-prod/jars/snapshots'
+        : 's3://data-lake-usw1-data-eng-prod/jars/releases'
+    gcpStagingRepoUrl = project.version.endsWith('-SNAPSHOT') ? 'gcs://data-lake-usw2-data-eng-staging/jars/snapshots'
+        : 'gcs://data-lake-usw2-data-eng-staging/jars/releases'
+    gcpProdRepoUrl = project.version.endsWith('-SNAPSHOT') ? 'gcs://data-lake-usw1-data-eng-prod/jars/snapshots'
+        : 'gcs://data-lake-usw1-data-eng-prod/jars/releases'
+}
+
+publishing {
+    repositories {
+        maven {
+            name = 'gcpStaging'
+            url = gcpStagingRepoUrl
+        }
+        maven {
+            name = 'gcpProd'
+            url = gcpProdRepoUrl
+        }
+        publications {
+            shadow(MavenPublication) { publication ->
+                project.shadow.component(publication)
+                pom {
+                    name = 'Metadata Test Models'
+                    group = 'io.acryl'
+                    artifactId = 'metadata-test-models'
+                    description = 'Metadata Test Models'
+                    url = 'https://acryl.io'
+                    artifacts = [shadowJar]
+
+                }
+            }
+        }
+//            maven {
+//                name = 'awsStaging'
+//                url = awsStagingRepoUrl
+//                authentication {
+//                    awsIm(AwsImAuthentication)
+//                }
+//            }
+    }
+
+    shadowJar {
+        zip64 = true
+        archiveClassifier = ''
+        // preventing java multi-release JAR leakage
+        // https://github.com/johnrengelman/shadow/issues/729
+        exclude('module-info.class', 'META-INF/versions/**',
+            '**/LICENSE', '**/LICENSE.txt', '**/NOTICE', '**/NOTICE.txt')
+        mergeServiceFiles()
+        // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
+        // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
+        relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+        relocate 'org.antlr', 'datahub.shaded.org.antlr'
+        relocate 'antlr', 'datahub.shaded.antlr'
+        relocate 'com.google.common', 'datahub.shaded.com.google.common'
+        relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+        relocate 'org.reflections', 'datahub.shaded.org.reflections'
+        relocate 'org.slf4j', 'datahub.shaded.slf4j'
+    }
+}
+

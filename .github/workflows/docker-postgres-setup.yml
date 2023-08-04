@@ -48,7 +48,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

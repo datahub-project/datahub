@@ -256,7 +256,7 @@ def test_shared_connection() -> None:
         iterator = cache2.sql_query_iterator(
             f"SELECT y, sum(x) FROM {cache2.tablename} GROUP BY y ORDER BY y"
         )
-        assert type(iterator) == sqlite3.Cursor
+        assert isinstance(iterator, sqlite3.Cursor)
         assert [tuple(r) for r in iterator] == [("a", 15), ("b", 11)]
 
         # Test joining between the two tables.

@@ -51,7 +51,7 @@ def pretty_id(id: Optional[str]) -> str:
     if id.startswith("urn:li:dataset"):
         dataset_key = dataset_urn_to_key(id)
         if dataset_key:
-            return f"{colored('dataset','cyan')}:{colored(dataset_key.platform,'white')}:{colored(dataset_key.name,'white')}"
+            return f"{colored('dataset','cyan')}:{colored(dataset_key.platform[len('urn:li:dataPlatform:'):],'white')}:{colored(dataset_key.name,'white')}"
     # failed to prettify, return original
     return id
 

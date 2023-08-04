@@ -43,6 +43,10 @@ const StyledSelect = styled(Select)`
     max-width: 340px;
 `;
 
+const SelectOptionContent = styled.div<{ disabled: boolean }>`
+    opacity: ${(props) => (props.disabled ? 0.5 : 1)};
+`;
+
 const PlatformDescription = styled.div`
     margin-left: 8px;
 `;
@@ -155,10 +159,12 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
                     const isDisabled = !option.allowedScheduleTypes.includes(scheduleType);
                     return (
                         <Select.Option value={option.name} key={option.name} disabled={isDisabled}>
-                            <Typography.Text>{option.name}</Typography.Text>
-                            <SourceOptionSelectDescription type="secondary">
-                                {option.description}
-                            </SourceOptionSelectDescription>
+                            <SelectOptionContent disabled={isDisabled}>
+                                <Typography.Text>{option.name}</Typography.Text>
+                                <SourceOptionSelectDescription type="secondary">
+                                    {option.description}
+                                </SourceOptionSelectDescription>
+                            </SelectOptionContent>
                         </Select.Option>
                     );
                 })}

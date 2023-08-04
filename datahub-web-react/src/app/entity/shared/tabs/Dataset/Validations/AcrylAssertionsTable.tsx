@@ -4,6 +4,8 @@ import { Empty } from 'antd';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { Assertion, AssertionRunStatus, MonitorMode } from '../../../../../../types.generated';
+import { useConnectionForEntityExistsQuery } from '../../../../../../graphql/connection.generated';
+import { useEntityData } from '../../../EntityContext';
 import { AcrylAssertionDetails } from './AcrylAssertionDetails';
 import { getNextScheduleEvaluationTimeMs } from './acrylUtils';
 import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
@@ -50,6 +52,13 @@ export const AcrylAssertionsTable = ({
     onStartMonitor,
     onStopMonitor,
 }: Props) => {
+    const { urn } = useEntityData();
+    const { data: connectionExistsData } = useConnectionForEntityExistsQuery({
+        variables: { urn },
+        fetchPolicy: 'cache-first',
+        skip: !urn,
+    });
+
     const assertionsTableData = assertions.map((assertion) => ({
         urn: assertion.urn,
         type: assertion.info?.type,
@@ -96,6 +105,7 @@ export const AcrylAssertionsTable = ({
                     <ActionsColumn
                         platform={record.platform}
                         monitor={record.monitor}
+                        connectionForEntityExists={connectionExistsData?.connectionForEntityExists || false}
                         lastEvaluationUrl={record.lastEvaluationUrl}
                         onManageAssertion={() => onManageAssertion(record.urn)}
                         onDeleteAssertion={() => onDeleteAssertion(record.urn)}

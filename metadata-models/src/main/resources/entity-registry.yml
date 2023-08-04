@@ -427,6 +427,7 @@ entities:
     aspects:
       - testInfo
       - status
+      - batchTestRunEvent
   - name: dataHubUpgrade
     category: internal
     keyAspect: dataHubUpgradeKey

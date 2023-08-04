@@ -11,6 +11,7 @@ import {
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
+    monitorSchedule?: CronSchedule;
 };
 
 const createCronText = (cronSchedule: CronSchedule) => {
@@ -18,15 +19,16 @@ const createCronText = (cronSchedule: CronSchedule) => {
     return `${cronstrue.toString(cron).toLocaleLowerCase()} (${timezone})`;
 };
 
-const createFixedIntervalText = (fixedIntervalSchedule: FixedIntervalSchedule) => {
+const createFixedIntervalText = (fixedIntervalSchedule: FixedIntervalSchedule, monitorSchedule?: CronSchedule) => {
     const { multiple, unit } = fixedIntervalSchedule;
-    return `every ${multiple} ${unit.toLocaleLowerCase()}s`;
+    const cronText = monitorSchedule ? `, as of ${createCronText(monitorSchedule)}` : '';
+    return `in the past ${multiple} ${unit.toLocaleLowerCase()}s${cronText}`;
 };
 
 /**
  * A human-readable description of an Freshness Assertion.
  */
-export const FreshnessAssertionDescription = ({ assertionInfo }: Props) => {
+export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }: Props) => {
     const scheduleType = assertionInfo.schedule?.type;
     const freshnessType = assertionInfo.type;
 
@@ -38,7 +40,7 @@ export const FreshnessAssertionDescription = ({ assertionInfo }: Props) => {
                     : 'Data Task is run successfully '}
                 {scheduleType === FreshnessAssertionScheduleType.Cron
                     ? createCronText(assertionInfo.schedule?.cron as any)
-                    : createFixedIntervalText(assertionInfo.schedule?.fixedInterval as any)}
+                    : createFixedIntervalText(assertionInfo.schedule?.fixedInterval as any, monitorSchedule)}
             </Typography.Text>
         </div>
     );

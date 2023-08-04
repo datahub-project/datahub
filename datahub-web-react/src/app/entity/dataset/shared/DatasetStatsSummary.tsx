@@ -85,6 +85,7 @@ export const DatasetStatsSummary = ({
                 {queryCountLast30Days ? <>queries last month</> : <>monthly queries</>}
                 {!!queryCountPercentileLast30Days && (
                     <Typography.Text type="secondary">
+                        {' '}
                         -{' '}
                         <PercentileLabel
                             percentile={queryCountPercentileLast30Days}
@@ -100,6 +101,7 @@ export const DatasetStatsSummary = ({
                 <b>{formatNumberWithoutAbbreviation(uniqueUserCountLast30Days)}</b> unique users
                 {!!uniqueUserPercentileLast30Days && (
                     <Typography.Text type="secondary">
+                        {' '}
                         -{' '}
                         <PercentileLabel
                             percentile={uniqueUserPercentileLast30Days}

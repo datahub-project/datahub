@@ -449,9 +449,6 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 AssertionResultType.ERROR,
                 error=AssertionEvaluationResultError(
                     type=AssertionResultErrorType.UNKNOWN_ERROR,
-                    properties={
-                        "assertion_urn": assertion.urn,
-                        "parameters": parameters,
-                    },
+                    properties={"assertion_urn": assertion.urn},
                 ),
             )

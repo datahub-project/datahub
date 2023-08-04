@@ -73,6 +73,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
                 FROM test_db.public.test_table
                 WHERE timestamp >= (TIMESTAMP 'epoch' + {TEST_START / 1000} * INTERVAL '1 second')
                 AND timestamp <= (TIMESTAMP 'epoch' + {TEST_END / 1000} * INTERVAL '1 second')
+                AND foo = 'bar'
                 ORDER BY timestamp DESC
                 ;
             """
@@ -179,6 +180,7 @@ class TestRedshiftSource:
                 "type": "TIMESTAMP",
                 "native_type": "TIMESTAMP",
                 "kind": FreshnessFieldKind.LAST_MODIFIED,
+                "filter": {"type": DatasetFilterType.SQL, "sql": "WHERE foo = 'bar';"},
             },
         )
         execute_query_mock.assert_called_once_with(TEST_FIELD_UPDATE_QUERY)

@@ -6,6 +6,7 @@ import { CronSchedule } from '../../../../../../types.generated';
 import { getLocaleTimezone } from '../../../../../shared/time/timeUtils';
 import { ANTD_GRAY } from '../../../constants';
 import { getCronAsText } from './acrylUtils';
+import { TruncatedTextWithTooltip } from '../../../../../shared/TruncatedTextWithTooltip';
 
 const TimeLabel = styled.div`
     max-width: 280px;
@@ -20,6 +21,10 @@ const Schedule = styled.span`
     display: flex;
     align-items: center;
     justify-content: left;
+`;
+
+const StyledTruncatedText = styled(TruncatedTextWithTooltip)`
+    color: ${ANTD_GRAY[7]};
 `;
 
 const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
@@ -48,19 +53,19 @@ export const AcrylAssertionDetailsHeader = ({
      * Last evaluated timestamp
      */
     const lastEvaluatedAt = lastEvaluatedAtMillis && new Date(lastEvaluatedAtMillis);
-    const lastEvaluatedTimeLocal =
-        lastEvaluatedAt &&
-        `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`;
-    const lastEvaluatedTimeGMT = lastEvaluatedAt && lastEvaluatedAt.toUTCString();
+    const lastEvaluatedTimeLocal = lastEvaluatedAt
+        ? `Last evaluated on ${lastEvaluatedAt.toLocaleDateString()} at ${lastEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`
+        : null;
+    const lastEvaluatedTimeGMT = lastEvaluatedAt ? lastEvaluatedAt.toUTCString() : null;
 
     /**
      * Next evaluated timestamp
      */
     const nextEvaluatedAt = nextEvaluatedAtMillis && new Date(nextEvaluatedAtMillis);
-    const nextEvaluatedTimeLocal =
-        nextEvaluatedAt &&
-        `Next evaluation at ${nextEvaluatedAt.toLocaleDateString()} at ${nextEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`;
-    const nextEvaluatedTimeGMT = nextEvaluatedAt && nextEvaluatedAt.toUTCString();
+    const nextEvaluatedTimeLocal = nextEvaluatedAt
+        ? `Next evaluation at ${nextEvaluatedAt.toLocaleDateString()} at ${nextEvaluatedAt.toLocaleTimeString()} (${localeTimezone})`
+        : null;
+    const nextEvaluatedTimeGMT = nextEvaluatedAt ? nextEvaluatedAt.toUTCString() : null;
 
     /**
      * Cron String - This will not be present for external assertions.
@@ -76,13 +81,11 @@ export const AcrylAssertionDetailsHeader = ({
             {(!isStopped && (
                 <Schedule>
                     {scheduleText && (
-                        <Tooltip title={timezone}>
-                            <TimeLabel>
-                                <StyledClockCircleOutlined />
-                                Runs {scheduleText}
-                                {lastEvaluatedTimeLocal && <Divider type="vertical" />}
-                            </TimeLabel>
-                        </Tooltip>
+                        <TimeLabel>
+                            <StyledClockCircleOutlined />
+                            <StyledTruncatedText text={`Runs ${scheduleText} (${timezone})`} maxLength={80} />
+                            {lastEvaluatedTimeLocal && <Divider type="vertical" />}
+                        </TimeLabel>
                     )}
                     <Tooltip placement="topLeft" title={lastEvaluatedTimeGMT}>
                         <TimeLabel>
