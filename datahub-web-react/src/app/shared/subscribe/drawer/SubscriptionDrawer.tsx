@@ -51,7 +51,7 @@ const SubscriptionTitle = styled(Typography.Text)`
 const StyledAlert = styled(Alert)`
     margin-top: 16px;
 `;
-        
+
 const CancelButtonWrapper = styled.div`
     display: flex;
     justify-content: flex-end;

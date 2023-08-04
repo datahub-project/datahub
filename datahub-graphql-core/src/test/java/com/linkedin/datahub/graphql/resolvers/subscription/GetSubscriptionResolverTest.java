@@ -5,6 +5,7 @@ import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.GetSubscriptionInput;
+import com.linkedin.datahub.graphql.generated.GetSubscriptionResult;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Map;
 import org.testng.annotations.BeforeMethod;
@@ -54,8 +55,9 @@ public class GetSubscriptionResolverTest {
     when(_subscriptionService.getSubscription(eq(ENTITY_URN_1), eq(USER_URN), eq(_authentication))).thenReturn(
         Map.entry(SUBSCRIPTION_URN_1, SUBSCRIPTION_INFO_1));
 
-    final DataHubSubscription subscription = _resolver.get(_dataFetchingEnvironment).join();
+    final GetSubscriptionResult result = _resolver.get(_dataFetchingEnvironment).join();
+    assertTrue(result.getPrivileges().getCanManageEntity());
     final DataHubSubscriptionMatcher matcher1 = new DataHubSubscriptionMatcher(MAPPED_SUBSCRIPTION_1);
-    assertTrue(matcher1.matches(subscription));
+    assertTrue(matcher1.matches(result.getSubscription()));
   }
 }
