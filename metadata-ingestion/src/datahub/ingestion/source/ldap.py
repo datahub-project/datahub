@@ -360,41 +360,15 @@ class LDAPSource(StatefulIngestionSourceBase):
         last_name = attrs[self.config.user_attrs_map["lastName"]][0].decode()
         groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
-        # We check two things:
-        # - attribute exists
-        # - attribute is not empty list
-        if attrs.get(self.config.user_attrs_map["email"]):
-            email = (attrs[self.config.user_attrs_map["email"]][0]).decode()
-        else:
-            email = ldap_user
-        if attrs.get(self.config.user_attrs_map["displayName"]):
-            display_name = (
-                attrs[self.config.user_attrs_map["displayName"]][0]
-            ).decode()
-        else:
-            display_name = full_name
-        if attrs.get(self.config.user_attrs_map["departmentId"]):
-            department_id = int(
-                (attrs[self.config.user_attrs_map["departmentId"]][0]).decode()
-            )
-        else:
-            department_id = None
-        if attrs.get(self.config.user_attrs_map["departmentName"]):
-            department_name = (
-                attrs[self.config.user_attrs_map["departmentName"]][0]
-            ).decode()
-        else:
-            department_name = None
-        if attrs.get(self.config.user_attrs_map["countryCode"]):
-            country_code = (
-                attrs[self.config.user_attrs_map["countryCode"]][0]
-            ).decode()
-        else:
-            country_code = None
-        if attrs.get(self.config.user_attrs_map["title"]):
-            title = (attrs[self.config.user_attrs_map["title"]][0]).decode()
-        else:
-            title = None
+        email = get_attr_or_none(attrs, self.config.user_attrs_map["email"], ldap_user)
+        display_name = get_attr_or_none(attrs, self.config.user_attrs_map["displayName"], full_name)
+        title = get_attr_or_none(attrs, self.config.user_attrs_map["title"])
+        department_id = get_attr_or_none(attrs, self.config.user_attrs_map["departmentId"])
+        department_name = get_attr_or_none(attrs, self.config.user_attrs_map["departmentName"])
+        country_code = get_attr_or_none(attrs, self.config.user_attrs_map["countryCode"])
+
+        if department_id:
+            department_id = int(department_id)
 
         custom_props_map = {}
         if self.config.custom_props_list:
@@ -436,22 +410,9 @@ class LDAPSource(StatefulIngestionSourceBase):
             admins = parse_users(attrs, self.config.group_attrs_map["admins"])
             members = parse_users(attrs, self.config.group_attrs_map["members"])
 
-            if attrs.get(self.config.group_attrs_map["email"]):
-                email = attrs[self.config.group_attrs_map["email"]][0].decode()
-            else:
-                email = full_name
-            if attrs.get(self.config.group_attrs_map["description"]):
-                description = attrs[self.config.group_attrs_map["description"]][
-                    0
-                ].decode()
-            else:
-                description = None
-            if attrs.get(self.config.group_attrs_map["displayName"]):
-                displayName = attrs[self.config.group_attrs_map["displayName"]][
-                    0
-                ].decode()
-            else:
-                displayName = None
+            email = get_attr_or_none(attrs, self.config.group_attrs_map["email"], full_name)
+            description = get_attr_or_none(attrs, self.config.group_attrs_map["description"])
+            displayName = get_attr_or_none(attrs, self.config.group_attrs_map["displayName"])
 
             group_snapshot = CorpGroupSnapshotClass(
                 urn=f"urn:li:corpGroup:{full_name}",
@@ -508,3 +469,8 @@ def parse_ldap_dn(input_clean: bytes) -> str:
         return ldap.dn.str2dn(input_clean, flags=ldap.DN_FORMAT_LDAPV3)[0][0][1]
     else:
         return input_clean.decode()
+
+
+def get_attr_or_none(attrs: Dict[str, Any], key: str, default=None) -> str:
+    return attrs[key][0].decode() if attrs.get(key) else default
+
