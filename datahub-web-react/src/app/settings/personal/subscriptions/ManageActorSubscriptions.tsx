@@ -11,6 +11,8 @@ import { EditSubscriptionColumn } from './table/EditSubscriptionColumn';
 import { SubscribedSinceColumn } from './table/SubscribedSinceColumn';
 import { scrollToTop } from '../../../shared/searchUtils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../notifications/constants';
+import ChannelColumn from './table/ChannelColumn';
+import useSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
 
 const PAGE_SIZE = 10;
 
@@ -94,6 +96,7 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
     } = useListSubscriptionsQuery({
         variables: { input: { start, count: PAGE_SIZE, groupUrn: groupUrn || undefined } },
     });
+    const { settingsChannel } = useSinkSettings({ isPersonal, groupUrn });
     const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
     const numSubscriptions = listSubscriptionData?.listSubscriptions?.total || 0;
     const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
@@ -104,6 +107,14 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             key: 'entity',
             sorter: (a: any, b: any) => a?.entityName?.localeCompare(b?.entityName),
             render: (_, record: any) => <EntityColumn subscription={record} />,
+        },
+        {
+            title: <ColumnTitle>Channel</ColumnTitle>,
+            dataIndex: 'channels',
+            key: 'channels',
+            render: (_, record: any) => (
+                <ChannelColumn isPersonal={isPersonal} subscription={record} settingsChannel={settingsChannel} />
+            ),
         },
         ...(ENABLE_UPSTREAM_NOTIFICATIONS
             ? [
