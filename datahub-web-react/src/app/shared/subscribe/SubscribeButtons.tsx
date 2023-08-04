@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Dropdown, MenuProps, Tooltip } from 'antd';
-import { StarFilled, StarOutlined } from '@ant-design/icons';
+import { CaretDownFilled, StarFilled, StarOutlined } from '@ant-design/icons';
 import SubscriptionDrawer from './drawer/SubscriptionDrawer';
 import { useEntityData, useMutationUrn } from '../../entity/shared/EntityContext';
 import SubscriptionStarTooltip from './drawer/section/SubscriptionStarTooltip';
@@ -16,6 +16,19 @@ const StyledStarFilled = styled(StarFilled)`
 `;
 
 const SubscribeDropdown = styled(Dropdown.Button)``;
+
+const ArrowDown = styled(CaretDownFilled)`
+    svg {
+        height: 14px;
+        width: 14px;
+    }
+`;
+
+const ArrowDownWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
 const DROPDOWN_KEYS = {
     SUBSCRIBE_ME: 'SUBSCRIBE_ME',
@@ -116,6 +129,11 @@ export default function SubscribeButtons() {
                         ],
                         onClick: onClickMenuItem,
                     }}
+                    icon={
+                        <ArrowDownWrapper>
+                            <ArrowDown />
+                        </ArrowDownWrapper>
+                    }
                     buttonsRender={([leftButton, rightButton]) => [
                         <Tooltip
                             title={
