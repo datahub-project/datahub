@@ -410,7 +410,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 connection=connection, all_tables=all_tables, database=database
             )
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             self.report.report_ingestion_stage_start(PROFILING)
             profiler = RedshiftProfiler(
                 config=self.config,

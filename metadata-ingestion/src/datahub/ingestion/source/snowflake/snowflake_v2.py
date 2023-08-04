@@ -300,7 +300,8 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-        if self.config.profiling.enabled:
+
+        if config.is_profiling_enabled():
             # For profiling
             self.profiler = SnowflakeProfiler(
                 config, self.report, self.profiling_state_handler
@@ -714,7 +715,7 @@ class SnowflakeV2Source(
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
 
-        if self.config.profiling.enabled and self.db_tables:
+        if self.config.is_profiling_enabled() and self.db_tables:
             self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
