@@ -28,6 +28,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
@@ -240,6 +241,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
           1000,
           _systemAuthentication
       );
+      MetricUtils.counter(this.getClass(), NOTIFICATIONS_SEARCH_CALL_COUNT).inc();
     } catch (Exception e) {
       log.error("Failed to fetch subscriptions for filter {}", filter, e);
       return Collections.emptySet();
@@ -334,6 +336,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
           MAX_DOWNSTREAMS_HOP,
           _systemAuthentication.getActor().toUrnStr()
       );
+      MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
 
       return results.getRelationships().stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
     } catch (Exception e) {
@@ -353,6 +356,7 @@ public abstract class BaseMclNotificationGenerator implements MclNotificationGen
           MAX_DOWNSTREAMS_HOP,
           _systemAuthentication.getActor().toUrnStr()
       );
+      MetricUtils.counter(this.getClass(), NOTIFICATIONS_GRAPH_CALL_COUNT).inc();
 
       // Now fetch the ownership for each entity type in batch.
       final Map<String, Set<Urn>> downstreamEntityUrns = new HashMap<>();
