@@ -138,8 +138,6 @@ export const EmbeddedListSearch = ({
     // Adjust query based on props
     const finalQuery: string = addFixedQuery(query as string, fixedQuery as string, emptySearchQuery as string);
 
-    console.log("test");
-
     const baseFilters = {
         unionType,
         filters,
@@ -150,6 +148,7 @@ export const EmbeddedListSearch = ({
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
+    const [showSelectViewMode, setShowSelectViewMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
@@ -171,7 +170,7 @@ export const EmbeddedListSearch = ({
     });
 
     const userContext = useUserContext();
-    const selectedViewUrn = userContext.localState?.viewUrn;
+    const selectedViewUrn = userContext.localState?.selectedViewUrn;
 
     let searchInput: SearchAcrossEntitiesInput = {
         types: entityTypes || [],
@@ -281,11 +280,14 @@ export const EmbeddedListSearch = ({
                 isSelectMode={isSelectMode}
                 isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                 setIsSelectMode={setIsSelectMode}
+                setShowSelectViewMode={setShowSelectViewMode}
                 selectedEntities={selectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}
                 searchBarInputStyle={searchBarInputStyle}
+                applyView={applyView}
+                showSelectViewMode={showSelectViewMode}
             />
             <EmbeddedListSearchResults
                 unionType={unionType}
@@ -304,6 +306,7 @@ export const EmbeddedListSearch = ({
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
+                applyView={applyView}
             />
         </Container>
     );

@@ -8,6 +8,7 @@ import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-l
 import { EntityAndType } from '../../../types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
+import MatchingViewsLabel from './MatchingViewsLabel';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -75,6 +76,7 @@ interface Props {
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
     entityAction?: React.FC<EntityActionProps>;
+    applyView?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -94,11 +96,14 @@ export const EmbeddedListSearchResults = ({
     numResultsPerPage,
     setNumResultsPerPage,
     entityAction,
+    applyView,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    console.log(applyView);
 
     return (
         <>
@@ -159,7 +164,7 @@ export const EmbeddedListSearchResults = ({
                     onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                     pageSizeOptions={['10', '20', '50', '100']}
                 />
-                <span />
+                {applyView ? <MatchingViewsLabel /> : <span />}
             </PaginationInfoContainer>
         </>
     );

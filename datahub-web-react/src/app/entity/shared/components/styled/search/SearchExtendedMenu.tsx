@@ -29,6 +29,9 @@ type Props = {
     totalResults?: number;
     downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     setShowSelectMode?: (showSelectMode: boolean) => any;
+    setShowSelectViewMode?: (showSelectViewMode: boolean) => any;
+    showSelectViewMode?: boolean;
+    applyView?: boolean,
 };
 
 // currently only contains Download As Csv but will be extended to contain other actions as well
@@ -39,6 +42,9 @@ export default function SearchExtendedMenu({
     viewUrn,
     totalResults,
     setShowSelectMode,
+    setShowSelectViewMode,
+    showSelectViewMode,
+    applyView,
 }: Props) {
     const [isDownloadingCsv, setIsDownloadingCsv] = useState(false);
     const [showDownloadAsCsvModal, setShowDownloadAsCsvModal] = useState(false);
@@ -57,6 +63,14 @@ export default function SearchExtendedMenu({
                         <FormOutlined />
                         Edit...
                     </SelectButton>
+                </MenuItem>
+            )}
+            {applyView && setShowSelectViewMode && (
+                <MenuItem key="2">
+                    <Button type="text" onClick={() => setShowSelectViewMode(!showSelectViewMode)}>
+                        <FormOutlined />
+                        {showSelectViewMode ? 'Hide View' : 'Show View'}
+                    </Button>
                 </MenuItem>
             )}
         </Menu>
