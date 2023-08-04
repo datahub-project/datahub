@@ -16,7 +16,7 @@ const ContentContainer = styled.div`
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 8px;
+    gap: 16px;
 `;
 
 const PlatformTypeContainer = styled.div`
