@@ -258,6 +258,7 @@ pydruid==0.6.5
 Pygments==2.15.1
 pymongo==4.3.3
 PyMySQL==1.0.3
+mysql-connector-python==8.1.0
 pyOpenSSL==22.0.0
 pyparsing==3.0.9
 pyrsistent==0.19.3
