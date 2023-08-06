@@ -22,3 +22,5 @@ repos:
     rev: "v3.0.0-alpha.6" # Use the sha or tag you want to point at
     hooks:
       - id: prettier
+        args:
+          - --write
