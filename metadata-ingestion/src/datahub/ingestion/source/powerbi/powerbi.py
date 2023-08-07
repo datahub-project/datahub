@@ -28,7 +28,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -172,49 +171,39 @@ class Mapper:
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
-        upstreams: List[UpstreamClass] = []
-        upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table=table, 
+        upstream: List[UpstreamClass] = []
+
+        upstream_dpts: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
+            table=table,
             reporter=self.__reporter,
-            dataplatform_instance_resolver=self.__dataplatform_instance_resolver,
+            platform_instance_resolver=self.__dataplatform_instance_resolver,
             config=self.__config,
             parameters=parameters,
         )
 
         logger.debug(
-            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_dpts}"
         )
 
-        for upstream_table in upstream_tables:
+        for upstream_dpt in upstream_dpts:
             if (
-                upstream_table.data_platform_pair.powerbi_data_platform_name
+                upstream_dpt.data_platform_pair.powerbi_data_platform_name
                 not in self.__config.dataset_type_mapping.keys()
             ):
                 logger.debug(
-                    f"Skipping upstream table for {ds_urn}. The platform {upstream_table.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                    f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
                 )
                 continue
 
-            platform_detail: PlatformDetail = (
-                self.__dataplatform_instance_resolver.get_platform_instance(
-                    upstream_table
-                )
-            )
-            upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=upstream_table.data_platform_pair.datahub_data_platform_name,
-                platform_instance=platform_detail.platform_instance,
-                env=platform_detail.env,
-                name=self.lineage_urn_to_lowercase(upstream_table.full_name),
-            )
-
             upstream_table_class = UpstreamClass(
-                upstream_urn,
+                upstream_dpt.urn,
                 DatasetLineageTypeClass.TRANSFORMED,
             )
-            upstreams.append(upstream_table_class)
 
-        if len(upstreams) > 0:
-            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+            upstream.append(upstream_table_class)
+
+        if len(upstream) > 0:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstream)
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,

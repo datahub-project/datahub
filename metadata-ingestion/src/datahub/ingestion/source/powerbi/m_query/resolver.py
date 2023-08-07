@@ -6,10 +6,17 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 
 from lark import Tree
 
+import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.powerbi.config import (
     DataPlatformPair,
+    PlatformDetail,
+    PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBIPlatformDetail,
     SupportedDataPlatform,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
@@ -25,13 +32,56 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class DataPlatformTable:
-    name: str
-    full_name: str
-    datasource_server: str
     data_platform_pair: DataPlatformPair
+    urn: str
+
+
+def urn_to_lowercase(value: str, flag: bool) -> str:
+    if flag is True:
+        return value.lower()
+
+    return value
+
+
+def urn_creator(
+    config: PowerBiDashboardSourceConfig,
+    platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    data_platform_pair: DataPlatformPair,
+    server: str,
+    qualified_table_name: str,
+) -> str:
+
+    platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
+        PowerBIPlatformDetail(
+            data_platform_pair=data_platform_pair,
+            data_platform_server=server,
+        )
+    )
+
+    return builder.make_dataset_urn_with_platform_instance(
+        platform=data_platform_pair.datahub_data_platform_name,
+        platform_instance=platform_detail.platform_instance,
+        env=platform_detail.env,
+        name=urn_to_lowercase(
+            qualified_table_name, config.convert_lineage_urns_to_lowercase
+        ),
+    )
 
 
 class AbstractDataPlatformTableCreator(ABC):
+
+    config: PowerBiDashboardSourceConfig
+    platform_instance_resolver: AbstractDataPlatformInstanceResolver
+
+    def __init__(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ) -> None:
+        super().__init__()
+        self.config = config
+        self.platform_instance_resolver = platform_instance_resolver
+
     @abstractmethod
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -80,7 +130,11 @@ class AbstractDataAccessMQueryResolver(ABC):
         self.data_access_functions = SupportedResolver.get_function_names()
 
     @abstractmethod
-    def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
+    def resolve_to_data_platform_table_list(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ) -> List[DataPlatformTable]:
         pass
 
 
@@ -318,7 +372,11 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         return table_links
 
-    def resolve_to_data_platform_table_list(self) -> List[DataPlatformTable]:
+    def resolve_to_data_platform_table_list(
+        self,
+        config: PowerBiDashboardSourceConfig,
+        platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ) -> List[DataPlatformTable]:
         data_platform_tables: List[DataPlatformTable] = []
 
         output_variable: Optional[str] = tree_function.get_output_variable(
@@ -352,7 +410,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 continue
 
             table_full_name_creator: AbstractDataPlatformTableCreator = (
-                supported_resolver.get_table_full_name_creator()()
+                supported_resolver.get_table_full_name_creator()(
+                    config=config, platform_instance_resolver=platform_instance_resolver
+                )
             )
 
             data_platform_tables.extend(
@@ -393,18 +453,24 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             IdentifierAccessor, data_access_func_detail.identifier_accessor
         ).items["Item"]
 
-        full_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
         logger.debug(
-            f"Platform({self.get_platform_pair().datahub_data_platform_name}) full_table_name= {full_table_name}"
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) qualified_table_name= {qualified_table_name}"
+        )
+
+        urn = urn_creator(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
         )
 
         return [
             DataPlatformTable(
-                name=table_name,
-                full_name=full_table_name,
-                datasource_server=server,
                 data_platform_pair=self.get_platform_pair(),
+                urn=urn,
             )
         ]
 
@@ -452,12 +518,24 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
                 # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
                 schema_and_table.insert(0, "dbo")
 
+            qualified_table_name = (
+                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
+            )
+
+            server = arguments[0]
+
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=server,
+                qualified_table_name=qualified_table_name,
+            )
+
             dataplatform_tables.append(
                 DataPlatformTable(
-                    name=schema_and_table[1],
-                    full_name=f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}",
-                    datasource_server=arguments[0],
                     data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
                 )
             )
 
@@ -510,12 +588,20 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
         ).items["Name"]
 
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
+        urn = urn_creator(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
         return [
             DataPlatformTable(
-                name=table_name,
-                full_name=f"{db_name}.{schema_name}.{table_name}",
-                datasource_server=server,
                 data_platform_pair=self.get_platform_pair(),
+                urn=urn,
             )
         ]
 
@@ -547,14 +633,28 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         db_name: str = value_dict["Database"]
         schema_name: str = value_dict["Schema"]
         table_name: str = value_dict["Table"]
+
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
         server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        if server is None:
+            logger.info(
+                f"server information is not available for {qualified_table_name}. Skipping upstream table"
+            )
+            return []
+
+        urn = urn_creator(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
 
         return [
             DataPlatformTable(
-                name=table_name,
-                full_name=f"{db_name}.{schema_name}.{table_name}",
-                datasource_server=server if server else "",
                 data_platform_pair=self.get_platform_pair(),
+                urn=urn,
             )
         ]
 
@@ -589,20 +689,26 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             IdentifierAccessor, data_access_func_detail.identifier_accessor.next.next  # type: ignore
         ).items["Name"]
 
-        full_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
         logger.debug(
-            f"{self.get_platform_pair().datahub_data_platform_name} full-table-name {full_table_name}"
+            f"{self.get_platform_pair().datahub_data_platform_name} qualified_table_name {qualified_table_name}"
+        )
+
+        server: str = self.get_datasource_server(arguments, data_access_func_detail)
+
+        urn = urn_creator(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
         )
 
         return [
             DataPlatformTable(
-                name=table_name,
-                full_name=full_table_name,
-                datasource_server=self.get_datasource_server(
-                    arguments, data_access_func_detail
-                ),
                 data_platform_pair=self.get_platform_pair(),
+                urn=urn,
             )
         ]
 
@@ -654,12 +760,20 @@ class AmazonRedshiftDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
         ).items["Name"]
 
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
+        urn = urn_creator(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
         return [
             DataPlatformTable(
-                name=table_name,
-                full_name=f"{db_name}.{schema_name}.{table_name}",
-                datasource_server=server,
                 data_platform_pair=self.get_platform_pair(),
+                urn=urn,
             )
         ]
 
@@ -727,21 +841,27 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             0
         ]  # Remove any whitespaces and double quotes character
 
-        for table in native_sql_parser.get_tables(sql_query):
-            if len(table.split(".")) != 3:
+        server = tree_function.strip_char_from_list([data_access_tokens[2]])[0]
+
+        for qualified_table_name in native_sql_parser.get_tables(sql_query):
+            if len(qualified_table_name.split(".")) != 3:
                 logger.debug(
-                    f"Skipping table {table} as it is not as per full_table_name format"
+                    f"Skipping table {qualified_table_name} as it is not as per full_table_name format"
                 )
                 continue
 
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=server,
+                qualified_table_name=qualified_table_name,
+            )
+
             dataplatform_tables.append(
                 DataPlatformTable(
-                    name=table.split(".")[2],
-                    full_name=table,
-                    datasource_server=tree_function.strip_char_from_list(
-                        [data_access_tokens[2]]
-                    )[0],
                     data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
                 )
             )
 

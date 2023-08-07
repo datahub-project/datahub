@@ -121,6 +121,12 @@ class DataPlatformPair:
     powerbi_data_platform_name: str
 
 
+@dataclass
+class PowerBIPlatformDetail:
+    data_platform_pair: DataPlatformPair
+    data_platform_server: str
+
+
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = DataPlatformPair(
         powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
