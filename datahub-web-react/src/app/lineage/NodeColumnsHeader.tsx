@@ -1,4 +1,5 @@
 import React, { useContext, useState } from 'react';
+import { t } from 'i18next';
 import { Button, Input } from 'antd';
 import { Group } from '@vx/group';
 import styled from 'styled-components';
@@ -85,11 +86,11 @@ export default function NodeColumnsHeader({ node, filterText, setFilterText }: P
                 <HeaderWrapper>
                     {areColumnsCollapsed ? (
                         <ExpandCollapseText onClick={expandColumns}>
-                            Show&nbsp; <DownOutlined />
+                            {t ("Show")}&nbsp; <DownOutlined />
                         </ExpandCollapseText>
                     ) : (
                         <ExpandCollapseText onClick={collapseColumns}>
-                            Hide&nbsp; <UpOutlined />
+                            {t ("Hide")}&nbsp; <UpOutlined />
                         </ExpandCollapseText>
                     )}
                     {!areColumnsCollapsed && (

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { t } from 'i18next';
 import { useHistory } from 'react-router';
 import { Button, Drawer } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
@@ -160,7 +161,7 @@ export default function LineageExplorer({ urn, type }: Props) {
     return (
         <>
             {error && <ErrorSection />}
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
+            {loading && <LoadingMessage type="loading" content= {t ("Loading...")} />}
             {!!data && (
                 <div>
                     <LineageViz
@@ -206,7 +207,7 @@ export default function LineageExplorer({ urn, type }: Props) {
                     selectedEntity && (
                         <FooterButtonGroup>
                             <Button onClick={handleClose} type="text">
-                                Close
+                                {t ("Close")}
                             </Button>
                             <Button href={entityRegistry.getEntityUrl(selectedEntity.type, selectedEntity.urn)}>
                                 <InfoCircleOutlined /> {entityRegistry.getEntityName(selectedEntity.type)} Details

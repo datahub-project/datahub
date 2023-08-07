@@ -247,5 +247,11 @@
   "Focus on Entity": "Focus on Entity",
   "No Assets Found": "No Assets Found",
   "Search for": "Search for",
-  "entities to add...": "entities to add..."
+  "entities to add...": "entities to add...",
+  "Close": "Close",
+  "No time range selected": "No time range selected",
+  "Filter lineage edges by observed date": "Filter lineage edges by observed date",
+  "Show": "Show",
+  "Hide": "Hide",
+  "Find column...": "Find column..."
 }

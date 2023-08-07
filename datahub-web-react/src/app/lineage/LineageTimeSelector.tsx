@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { t } from 'i18next';
 import moment from 'moment';
 import styled from 'styled-components/macro';
 import { DatePicker, Tooltip } from 'antd';
@@ -36,7 +37,7 @@ type Props = {
 
 export default function LineageTimeSelector({ onChange, initialDates }: Props) {
     const [isOpen, setIsOpen] = useState(false);
-    const [headerText, setHeaderText] = useState('No time range selected');
+    const [headerText, setHeaderText] = useState(t ("No time range selected"));
     const [startDate, setStartDate] = useState<moment.Moment | null>(initialDates[0]);
     const [endDate, setEndDate] = useState<moment.Moment | null>(initialDates[1]);
 
@@ -46,7 +47,7 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
     }, [startDate, endDate]);
 
     return (
-        <Tooltip title="Filter lineage edges by observed date" placement="topLeft">
+        <Tooltip title= {t ("Filter lineage edges by observed date")} placement="topLeft">
             <RangePickerWrapper>
                 <ClickOutside onClickOutside={() => setIsOpen(false)}>
                     <Header onClick={() => setIsOpen(!isOpen)}>
@@ -64,7 +65,7 @@ export default function LineageTimeSelector({ onChange, initialDates }: Props) {
                         }}
                         format="ll"
                         ranges={{
-                            'Last 7 days': [moment().subtract(7, 'days'), moment()],
+                            'Last 7 days' : [moment().subtract(7, 'days'), moment()],
                             'Last 14 days': [moment().subtract(14, 'days'), moment()],
                             'Last 28 days': [moment().subtract(28, 'days'), moment()],
                             'All Time': [null, null],

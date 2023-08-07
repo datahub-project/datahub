@@ -247,5 +247,11 @@
   "Focus on Entity": "聚焦实体",
   "No Assets Found": "未找到数据资产",
   "Search for": "查找",
-  "entities to add...": "可添加的实体..."
+  "entities to add...": "可添加的实体...",
+  "Close":"关闭",
+  "No time range selected": "未选择时间范围",
+  "Filter lineage edges by observed date": "按观察日期筛选血缘关系",
+  "Show": "显示",
+  "Hide": "隐藏",
+  "Find column...":"查询字段..."
 }
