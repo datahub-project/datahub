@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Pagination, Table, Typography } from 'antd';
+import { ColumnsType } from 'antd/lib/table';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { useListSubscriptionsQuery } from '../../../../graphql/subscriptions.generated';
 import { ReactComponent as EmptySimpleSvg } from '../../../../images/empty-simple.svg';
@@ -13,6 +14,7 @@ import { scrollToTop } from '../../../shared/searchUtils';
 import { ENABLE_UPSTREAM_NOTIFICATIONS } from '../notifications/constants';
 import ChannelColumn from './table/ChannelColumn';
 import useSinkSettings from '../../../shared/subscribe/drawer/useSinkSettings';
+import { DataHubSubscription } from '../../../../types.generated';
 
 const PAGE_SIZE = 10;
 
@@ -37,9 +39,12 @@ const SubscriptionsTitle = styled(Typography.Text)`
 const SubscriptionsTable = styled(Table)`
     border: 1px solid ${ANTD_GRAY[4]};
     border-radius: 8px;
-    margin-top: 12px;
+    margin-top: 24px;
     margin-right: 24px;
     align-self: flex-end;
+    && tbody > tr:hover > td {
+        background: inherit;
+    }
 `;
 
 const ColumnTitle = styled(Typography.Text)`
@@ -100,20 +105,19 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
     const subscriptions = listSubscriptionData?.listSubscriptions?.subscriptions || [];
     const numSubscriptions = listSubscriptionData?.listSubscriptions?.total || 0;
     const pageTitle = isPersonal ? 'My Subscriptions' : 'Group Subscriptions';
-    const subscriptionTableColumns = [
+    const subscriptionTableColumns: ColumnsType<DataHubSubscription> = [
         {
             title: <ColumnTitle>Entity</ColumnTitle>,
             dataIndex: 'Entity',
             key: 'entity',
-            sorter: (a: any, b: any) => a?.entityName?.localeCompare(b?.entityName),
-            render: (_, record: any) => <EntityColumn subscription={record} />,
+            render: (_, subscription: DataHubSubscription) => <EntityColumn subscription={subscription} />,
         },
         {
             title: <ColumnTitle>Channel</ColumnTitle>,
             dataIndex: 'channels',
             key: 'channels',
-            render: (_, record: any) => (
-                <ChannelColumn isPersonal={isPersonal} subscription={record} settingsChannel={settingsChannel} />
+            render: (_, subscription: DataHubSubscription) => (
+                <ChannelColumn isPersonal={isPersonal} subscription={subscription} settingsChannel={settingsChannel} />
             ),
         },
         ...(ENABLE_UPSTREAM_NOTIFICATIONS
@@ -122,7 +126,7 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
                       title: <ColumnTitle>Subscribed to Upstreams</ColumnTitle>,
                       dataIndex: 'upstreams',
                       key: 'upstreams',
-                      render: (_, record: any) => <UpstreamsColumn subscription={record} />,
+                      render: (_, subscription: DataHubSubscription) => <UpstreamsColumn subscription={subscription} />,
                   },
               ]
             : []),
@@ -130,16 +134,15 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             title: <ColumnTitle>Subscribed Since</ColumnTitle>,
             dataIndex: 'since',
             key: 'since',
-            sorter: (a: any, b: any) => a?.createdOn?.time - b?.cratedOn?.time,
-            render: (_, record: any) => <SubscribedSinceColumn subscription={record} />,
+            render: (_, subscription: DataHubSubscription) => <SubscribedSinceColumn subscription={subscription} />,
         },
         {
-            title: <ColumnTitle>Edit Subscription</ColumnTitle>,
+            title: <ColumnTitle style={{ float: 'right', paddingRight: '8px' }}>Edit</ColumnTitle>,
             dataIndex: 'edit',
             key: 'edit',
-            render: (_, record: any) => (
+            render: (_, subscription: DataHubSubscription) => (
                 <EditSubscriptionColumn
-                    subscription={record}
+                    subscription={subscription}
                     refetchListSubscriptions={refetchListSubscriptions}
                     isPersonal={isPersonal}
                     groupUrn={groupUrn}
@@ -158,7 +161,7 @@ export const ManageActorSubscriptions = ({ isPersonal, groupUrn }: Props) => {
             <PageHeaderContainer>
                 <SubscriptionsTitle>{pageTitle}</SubscriptionsTitle>
                 <SubscriptionsTable
-                    columns={subscriptionTableColumns}
+                    columns={subscriptionTableColumns as ColumnsType<any>}
                     dataSource={subscriptions}
                     rowKey="urn"
                     loading={loading ? { indicator: <LoadingOutlined /> } : false}

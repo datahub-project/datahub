@@ -12,7 +12,17 @@ const EditSubscriptionColumnContainer = styled.div`
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    gap: 8px;
+    float: right;
+`;
+
+const EditButton = styled(Button)`
+    &&:hover {
+        background: none;
+    }
+`;
+
+const EditIcon = styled(EditOutlined)`
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 interface Props {
@@ -41,9 +51,9 @@ export function EditSubscriptionColumn({ subscription, refetchListSubscriptions,
 
     return (
         <EditSubscriptionColumnContainer>
-            <Button type="text" onClick={onClickEdit}>
-                <EditOutlined />
-            </Button>
+            <EditButton type="text" onClick={onClickEdit}>
+                <EditIcon />
+            </EditButton>
             <SubscriptionDrawer
                 isOpen={drawerIsOpen}
                 onClose={onClickClose}
