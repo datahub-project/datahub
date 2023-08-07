@@ -364,7 +364,7 @@ featureFlags:
   showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
   showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
   assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:false} # Enables the ability to create native assertions inside the UI.
-  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
+  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:false} # Enables the ability to subscribe to notifications
   datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
