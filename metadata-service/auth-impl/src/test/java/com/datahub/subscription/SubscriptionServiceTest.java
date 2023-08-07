@@ -17,8 +17,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.subscription.EntityChangeType;
-import com.linkedin.subscription.EntityChangeTypeArray;
+import com.linkedin.subscription.EntityChangeDetails;
+import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionType;
@@ -53,8 +53,10 @@ public class SubscriptionServiceTest {
 
   private static final SubscriptionTypeArray SUBSCRIPTION_TYPES_1 =
       new SubscriptionTypeArray(SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE);
-  private static final EntityChangeTypeArray ENTITY_CHANGE_TYPES_1 =
-      new EntityChangeTypeArray(EntityChangeType.DEPRECATED, EntityChangeType.ASSERTION_FAILED);
+  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_1 = new EntityChangeDetailsArray(
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.DEPRECATED),
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.ASSERTION_FAILED)
+  );
   private static final SubscriptionInfo SUBSCRIPTION_INFO_1 = new SubscriptionInfo().setActorUrn(USER_URN)
       .setActorType(CORP_USER_ENTITY_NAME)
       .setTypes(SUBSCRIPTION_TYPES_1)
@@ -65,8 +67,10 @@ public class SubscriptionServiceTest {
       SUBSCRIPTION_INFO_ASPECT_NAME, SUBSCRIPTION_INFO_1));
   private static final SubscriptionTypeArray SUBSCRIPTION_TYPES_2 =
       new SubscriptionTypeArray(SubscriptionType.ENTITY_CHANGE);
-  private static final EntityChangeTypeArray ENTITY_CHANGE_TYPES_2 =
-      new EntityChangeTypeArray(EntityChangeType.GLOSSARY_TERM_ADDED, EntityChangeType.TAG_ADDED);
+  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_2 = new EntityChangeDetailsArray(
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.GLOSSARY_TERM_ADDED),
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.TAG_ADDED)
+  );
   private static final SubscriptionInfo SUBSCRIPTION_INFO_2 = new SubscriptionInfo().setActorUrn(USER_URN)
       .setActorType(CORP_USER_ENTITY_NAME)
       .setTypes(SUBSCRIPTION_TYPES_2)
