@@ -441,6 +441,7 @@ public class SearchAcrossEntitiesResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.eq(null),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenThrow(new RemoteInvocationException());
 
@@ -493,6 +494,7 @@ public class SearchAcrossEntitiesResolverTest {
         Mockito.eq(start),
         Mockito.eq(limit),
         Mockito.eq(null),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenReturn(
         result
@@ -515,6 +517,7 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
+            Mockito.eq(null),
             Mockito.eq(null),
             Mockito.any(Authentication.class)
         );

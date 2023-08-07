@@ -75,6 +75,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             start,
             count,
             searchFlags,
+            null,
             ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(
