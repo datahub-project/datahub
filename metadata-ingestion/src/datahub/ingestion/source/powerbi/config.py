@@ -388,6 +388,15 @@ class PowerBiDashboardSourceConfig(
         description="The instance of the platform that all assets produced by this recipe belong to",
     )
 
+    # Enable advance sql construct
+    enable_advance_lineage_sql_construct: bool = pydantic.Field(
+        default=False,
+        description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
+        "along this flag , the native_query_parsing should be enabled. "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "as this option generates the upstream datasets URN in lowercase.",
+    )
+
     @validator("dataset_type_mapping")
     @classmethod
     def map_data_platform(cls, value):

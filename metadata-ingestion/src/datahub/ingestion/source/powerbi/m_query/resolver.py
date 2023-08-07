@@ -489,6 +489,41 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
 
+    def create_urn_with_old_native_function(
+        self, query: str, db_name: str, server: str
+    ) -> List[DataPlatformTable]:
+        dataplatform_tables: List[DataPlatformTable] = []
+
+        tables: List[str] = native_sql_parser.get_tables(query)
+
+        for table in tables:
+            schema_and_table: List[str] = table.split(".")
+            if len(schema_and_table) == 1:
+                # schema name is not present. Default schema name in MS-SQL is dbo
+                # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
+                schema_and_table.insert(0, "dbo")
+
+            qualified_table_name = (
+                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
+            )
+
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=server,
+                qualified_table_name=qualified_table_name,
+            )
+
+            dataplatform_tables.append(
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            )
+
+        return dataplatform_tables
+
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
@@ -508,35 +543,12 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
             logger.debug("Unsupported case is found. Second index is not the Query")
             return dataplatform_tables
 
-        db_name: str = arguments[1]
-
-        tables: List[str] = native_sql_parser.get_tables(arguments[3])
-        for table in tables:
-            schema_and_table: List[str] = table.split(".")
-            if len(schema_and_table) == 1:
-                # schema name is not present. Default schema name in MS-SQL is dbo
-                # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
-                schema_and_table.insert(0, "dbo")
-
-            qualified_table_name = (
-                f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
-            )
-
-            server = arguments[0]
-
-            urn = urn_creator(
-                config=self.config,
-                platform_instance_resolver=self.platform_instance_resolver,
-                data_platform_pair=self.get_platform_pair(),
-                server=server,
-                qualified_table_name=qualified_table_name,
-            )
-
-            dataplatform_tables.append(
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
+        if self.config.enable_advance_lineage_sql_construct is False:
+            # Use previous method to generate URN to keep backward compatibility
+            return self.create_urn_with_old_native_function(
+                query=arguments[3],
+                db_name=arguments[1],
+                server=arguments[0],
             )
 
         logger.debug("MS-SQL full-table-names %s", dataplatform_tables)
