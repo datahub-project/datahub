@@ -418,6 +418,10 @@ public class Constants {
   // DAO
   public static final long LATEST_VERSION = 0;
 
+  // Metrics
+  public static final String NOTIFICATIONS_GRAPH_CALL_COUNT = "notifications_graph_call_count";
+  public static final String NOTIFICATIONS_SEARCH_CALL_COUNT = "notifications_search_call_count";
+
   private Constants() {
   }
 }
