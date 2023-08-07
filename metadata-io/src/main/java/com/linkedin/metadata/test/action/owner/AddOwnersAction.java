@@ -4,11 +4,9 @@ import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.OwnerService;
-import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.test.action.ActionParameters;
-import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionType;
-import com.linkedin.metadata.test.exception.InvalidActionParamsException;
+import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import java.util.List;
 import java.util.Map;
@@ -23,10 +21,9 @@ import static com.linkedin.metadata.test.action.ActionUtils.*;
 
 @Slf4j
 @RequiredArgsConstructor
-public class AddOwnersAction implements Action {
+public class AddOwnersAction extends ValuesAction {
 
   private static final OwnershipType DEFAULT_OWNERSHIP_TYPE = OwnershipType.TECHNICAL_OWNER;
-  private static final String VALUES_PARAM = "values";
   private static final String OWNERSHIP_TYPE_PARAM = "ownerType";
 
   private final OwnerService ownerService;
@@ -34,13 +31,6 @@ public class AddOwnersAction implements Action {
   @Override
   public ActionType getActionType() {
     return ActionType.ADD_OWNERS;
-  }
-
-  @Override
-  public void validate(ActionParameters params) throws InvalidActionParamsException {
-    if (!params.getParams().containsKey(VALUES_PARAM)) {
-      throw new InvalidActionParamsException("Action parameters are missing the required 'values' parameter.");
-    }
   }
 
   @Override
@@ -66,9 +56,7 @@ public class AddOwnersAction implements Action {
       @Nonnull final List<Urn> urns,
       @Nonnull final OwnershipType ownershipType) {
     if (!urns.isEmpty()) {
-      this.ownerService.batchAddOwners(ownerUrns, urns.stream()
-          .map(urn -> new ResourceReference(urn, null, null))
-          .collect(Collectors.toList()),
+      this.ownerService.batchAddOwners(ownerUrns, getResourceReferences(urns),
           ownershipType, METADATA_TESTS_SOURCE);
     }
   }

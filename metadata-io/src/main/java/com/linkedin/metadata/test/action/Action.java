@@ -1,9 +1,11 @@
 package com.linkedin.metadata.test.action;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 /**
@@ -27,4 +29,10 @@ public interface Action {
    * Apply the actions to a given set of urns.
    */
   void apply(List<Urn> urns, ActionParameters params) throws InvalidOperandException;
+
+  default List<ResourceReference> getResourceReferences(List<Urn> urns) {
+    return urns.stream()
+            .map(urn -> new ResourceReference(urn, null, null))
+            .collect(Collectors.toList());
+  }
 }

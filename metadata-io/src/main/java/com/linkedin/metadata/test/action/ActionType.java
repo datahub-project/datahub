@@ -49,7 +49,11 @@ public enum ActionType {
   /**
    * Removes owners
    */
-  REMOVE_OWNERS;
+  REMOVE_OWNERS,
+  /**
+   * Deprecate item
+   */
+  DEPRECATION;
 
   private static final Map<String, ActionType> NAME_TO_ACTION_TYPE = Arrays.stream(
       ActionType.values())
