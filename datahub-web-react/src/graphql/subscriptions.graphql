@@ -97,7 +97,9 @@ fragment subscriptionFields on DataHubSubscription {
         }
     }
     subscriptionTypes
-    entityChangeTypes
+    entityChangeTypes {
+        entityChangeType
+    }
     createdOn {
         time
     }

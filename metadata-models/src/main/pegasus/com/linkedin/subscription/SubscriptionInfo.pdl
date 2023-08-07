@@ -59,12 +59,12 @@ record SubscriptionInfo {
      * Change types that trigger a notification for the subscription.
      */
     @Searchable = {
-        "/*" : {
+        "/*/entityChangeType" : {
             "fieldName": "entityChangeTypes",
             "fieldType": "KEYWORD"
         }
     }
-    entityChangeTypes: optional array[EntityChangeType]
+    entityChangeTypes: optional array[EntityChangeDetails]
 
    /**
     * Optional notification config.

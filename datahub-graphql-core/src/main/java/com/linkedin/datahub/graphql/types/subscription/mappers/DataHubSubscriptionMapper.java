@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.subscription.mappers;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityChangeDetails;
 import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
@@ -11,7 +12,10 @@ import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
+import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +50,9 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
     final Entity entity = UrnToEntityMapper.map(subscriptionInfo.getEntityUrn());
     result.setEntity(entity);
 
-    final List<EntityChangeType> entityChangeTypes =
-        subscriptionInfo.hasEntityChangeTypes() ? subscriptionInfo.getEntityChangeTypes()
-            .stream()
-            .map(type -> EntityChangeType.valueOf(type.toString()))
-            .collect(Collectors.toList()) : Collections.emptyList();
+    final List<EntityChangeDetails> entityChangeTypes =
+        subscriptionInfo.hasEntityChangeTypes() ? mapEntityChangeTypes(subscriptionInfo.getEntityChangeTypes())
+            : Collections.emptyList();
     result.setEntityChangeTypes(entityChangeTypes);
 
     if (subscriptionInfo.hasNotificationConfig()) {
@@ -70,6 +72,17 @@ public class DataHubSubscriptionMapper implements ModelMapper<Map.Entry<Urn, Sub
       final NotificationSettings notificationSettings =
           NotificationSettingsMapper.map(notificationConfig.getNotificationSettings());
       result.setNotificationSettings(notificationSettings);
+    }
+
+    return result;
+  }
+
+  private List<EntityChangeDetails> mapEntityChangeTypes(@Nonnull final EntityChangeDetailsArray changeDetails) {
+    final List<EntityChangeDetails> result = new ArrayList<>();
+    for (com.linkedin.subscription.EntityChangeDetails changeDetail : changeDetails) {
+      EntityChangeDetails entityChangeDetails = new EntityChangeDetails();
+      entityChangeDetails.setEntityChangeType(EntityChangeType.valueOf(changeDetail.getEntityChangeType().toString()));
+      result.add(entityChangeDetails);
     }
 
     return result;

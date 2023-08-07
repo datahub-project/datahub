@@ -256,7 +256,7 @@ export const deleteSubscriptionFunction = ({
                 subscriptionUrn: subscription.subscriptionUrn,
                 entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
-                entityChangeTypes: subscription.entityChangeTypes,
+                entityChangeTypes: subscription.entityChangeTypes.map((changeType) => changeType.entityChangeType),
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
@@ -277,7 +277,7 @@ export const deleteSubscriptionFunction = ({
                 subscriptionUrn: subscription.subscriptionUrn,
                 entityUrn: subscription.entity.urn,
                 entityType: subscription.entity.type,
-                entityChangeTypes: subscription.entityChangeTypes,
+                entityChangeTypes: subscription.entityChangeTypes.map((changeType) => changeType.entityChangeType),
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
                 sinkTypes: subscription.notificationConfig?.notificationSettings?.sinkTypes ?? [],
             });
@@ -320,7 +320,7 @@ export const createSubscriptionFunction = ({
                 groupUrn,
                 entityUrn,
                 subscriptionTypes,
-                entityChangeTypes,
+                entityChangeTypes: entityChangeTypes.map((entityChangeType) => ({ entityChangeType })),
                 notificationConfig: {
                     notificationSettings,
                 },
@@ -385,8 +385,14 @@ export const updateSubscriptionFunction = ({
     notificationSettings: NotificationSettingsInput;
     onRefetch?: () => void;
 }) => {
-    const entityChangeTypesAdded = difference(entityChangeTypes, subscription?.entityChangeTypes ?? []);
-    const entityChangeTypesRemoved = difference(subscription?.entityChangeTypes ?? [], entityChangeTypes);
+    const entityChangeTypesAdded = difference(
+        entityChangeTypes,
+        subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [],
+    );
+    const entityChangeTypesRemoved = difference(
+        subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [],
+        entityChangeTypes,
+    );
 
     const sinkTypesAdded = difference(
         notificationSettings.sinkTypes,
@@ -403,7 +409,7 @@ export const updateSubscriptionFunction = ({
                 input: {
                     subscriptionUrn: subscription?.subscriptionUrn,
                     subscriptionTypes,
-                    entityChangeTypes,
+                    entityChangeTypes: entityChangeTypes.map((entityChangeType) => ({ entityChangeType })),
                     notificationConfig: {
                         notificationSettings,
                     },

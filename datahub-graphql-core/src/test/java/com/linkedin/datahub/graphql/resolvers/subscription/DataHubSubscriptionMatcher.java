@@ -1,10 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.subscription;
 
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
+import com.linkedin.datahub.graphql.generated.EntityChangeDetails;
+import com.linkedin.datahub.graphql.generated.EntityChangeType;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.resolvers.settings.NotificationSettingsMatcher;
 import java.util.List;
+import java.util.stream.Collectors;
+
 import org.mockito.ArgumentMatcher;
 
 
@@ -22,7 +26,7 @@ public class DataHubSubscriptionMatcher implements ArgumentMatcher<DataHubSubscr
         && _expected.getSubscriptionUrn().equals(actual.getSubscriptionUrn())
         && _expected.getEntity().getUrn().equals(actual.getEntity().getUrn())
         && listMatches(_expected.getSubscriptionTypes(), actual.getSubscriptionTypes())
-        && listMatches(_expected.getEntityChangeTypes(), actual.getEntityChangeTypes())
+        && entityChangeTypesMatches(_expected.getEntityChangeTypes(), actual.getEntityChangeTypes())
         && notificationConfigMatches(_expected.getNotificationConfig(), actual.getNotificationConfig());
   }
 
@@ -43,6 +47,15 @@ public class DataHubSubscriptionMatcher implements ArgumentMatcher<DataHubSubscr
     final NotificationSettingsMatcher notificationSettingsMatcher =
         new NotificationSettingsMatcher(expectedNotificationSettings);
     return notificationSettingsMatcher.matches(actualNotificationSettings);
+  }
+
+  private boolean entityChangeTypesMatches(final List<EntityChangeDetails> expected,
+      final List<EntityChangeDetails> actual) {
+
+    List<EntityChangeType> expectedChangeTypes = expected.stream().map(EntityChangeDetails::getEntityChangeType).collect(Collectors.toList());
+    List<EntityChangeType> actualChangeTypes = actual.stream().map(EntityChangeDetails::getEntityChangeType).collect(Collectors.toList());
+
+    return listMatches(expectedChangeTypes, actualChangeTypes);
   }
 
   private boolean listMatches(final List<?> expected, final List<?> actual) {

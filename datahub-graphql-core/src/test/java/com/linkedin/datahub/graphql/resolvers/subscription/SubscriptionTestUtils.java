@@ -12,9 +12,11 @@ import com.linkedin.datahub.graphql.generated.NotificationSinkType;
 import com.linkedin.datahub.graphql.generated.SubscriptionNotificationConfig;
 import com.linkedin.datahub.graphql.generated.SubscriptionType;
 import com.linkedin.event.notification.NotificationSinkTypeArray;
-import com.linkedin.subscription.EntityChangeTypeArray;
+import com.linkedin.subscription.EntityChangeDetails;
+import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionTypeArray;
+
 import java.util.List;
 
 
@@ -48,11 +50,13 @@ public class SubscriptionTestUtils {
   public static final SubscriptionTypeArray SUBSCRIPTION_TYPES_1 =
       new SubscriptionTypeArray(com.linkedin.subscription.SubscriptionType.ENTITY_CHANGE,
           com.linkedin.subscription.SubscriptionType.UPSTREAM_ENTITY_CHANGE);
-  public static final List<EntityChangeType> ENTITY_CHANGE_GRAPHQL_TYPES_1 =
-      ImmutableList.of(EntityChangeType.DEPRECATED, EntityChangeType.ASSERTION_FAILED);
-  public static final EntityChangeTypeArray ENTITY_CHANGE_TYPES_1 =
-      new EntityChangeTypeArray(com.linkedin.subscription.EntityChangeType.DEPRECATED,
-          com.linkedin.subscription.EntityChangeType.ASSERTION_FAILED);
+  public static final List<com.linkedin.datahub.graphql.generated.EntityChangeDetailsInput> ENTITY_CHANGE_GRAPHQL_TYPES_1 =
+      ImmutableList.of(new com.linkedin.datahub.graphql.generated.EntityChangeDetailsInput(EntityChangeType.DEPRECATED),
+          new com.linkedin.datahub.graphql.generated.EntityChangeDetailsInput(EntityChangeType.ASSERTION_FAILED));
+  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_1 = new EntityChangeDetailsArray(
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.DEPRECATED),
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.ASSERTION_FAILED)
+    );
   public static final SubscriptionInfo SUBSCRIPTION_INFO_1 = new SubscriptionInfo().setActorUrn(USER_URN)
       .setTypes(SUBSCRIPTION_TYPES_1)
       .setEntityUrn(ENTITY_URN_1)
@@ -64,9 +68,10 @@ public class SubscriptionTestUtils {
   public static final Urn SUBSCRIPTION_URN_2 = UrnUtils.getUrn(SUBSCRIPTION_URN_2_STRING);
   public static final SubscriptionTypeArray SUBSCRIPTION_TYPES_2 =
       new SubscriptionTypeArray(com.linkedin.subscription.SubscriptionType.ENTITY_CHANGE);
-  public static final EntityChangeTypeArray ENTITY_CHANGE_TYPES_2 =
-      new EntityChangeTypeArray(com.linkedin.subscription.EntityChangeType.GLOSSARY_TERM_ADDED,
-          com.linkedin.subscription.EntityChangeType.TAG_ADDED);
+  public static final EntityChangeDetailsArray ENTITY_CHANGE_TYPES_2 = new EntityChangeDetailsArray(
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.GLOSSARY_TERM_ADDED),
+      new EntityChangeDetails().setEntityChangeType(com.linkedin.subscription.EntityChangeType.TAG_ADDED)
+  );
   public static final SubscriptionInfo SUBSCRIPTION_INFO_2 = new SubscriptionInfo().setActorUrn(USER_URN)
       .setTypes(SUBSCRIPTION_TYPES_2)
       .setEntityUrn(ENTITY_URN_2)
@@ -98,8 +103,12 @@ public class SubscriptionTestUtils {
     mappedSubscription1.setEntity(dataset);
     mappedSubscription1.setSubscriptionTypes(
         ImmutableList.of(SubscriptionType.ENTITY_CHANGE, SubscriptionType.UPSTREAM_ENTITY_CHANGE));
+    com.linkedin.datahub.graphql.generated.EntityChangeDetails changeDetails1 = new com.linkedin.datahub.graphql.generated.EntityChangeDetails();
+    changeDetails1.setEntityChangeType(EntityChangeType.DEPRECATED);
+    com.linkedin.datahub.graphql.generated.EntityChangeDetails changeDetails2 = new com.linkedin.datahub.graphql.generated.EntityChangeDetails();
+    changeDetails2.setEntityChangeType(EntityChangeType.ASSERTION_FAILED);
     mappedSubscription1.setEntityChangeTypes(
-        ImmutableList.of(EntityChangeType.DEPRECATED, EntityChangeType.ASSERTION_FAILED));
+        ImmutableList.of(changeDetails1, changeDetails2));
     mappedSubscription1.setNotificationConfig(getMappedNotificationConfig());
 
     return mappedSubscription1;
@@ -113,8 +122,12 @@ public class SubscriptionTestUtils {
     dataset.setUrn(ENTITY_URN_2_STRING);
     mappedSubscription2.setEntity(dataset);
     mappedSubscription2.setSubscriptionTypes(ImmutableList.of(SubscriptionType.ENTITY_CHANGE));
+    com.linkedin.datahub.graphql.generated.EntityChangeDetails changeDetails1 = new com.linkedin.datahub.graphql.generated.EntityChangeDetails();
+    changeDetails1.setEntityChangeType(EntityChangeType.GLOSSARY_TERM_ADDED);
+    com.linkedin.datahub.graphql.generated.EntityChangeDetails changeDetails2 = new com.linkedin.datahub.graphql.generated.EntityChangeDetails();
+    changeDetails2.setEntityChangeType(EntityChangeType.TAG_ADDED);
     mappedSubscription2.setEntityChangeTypes(
-        ImmutableList.of(EntityChangeType.GLOSSARY_TERM_ADDED, EntityChangeType.TAG_ADDED));
+        ImmutableList.of(changeDetails1, changeDetails2));
     mappedSubscription2.setNotificationConfig(getMappedNotificationConfig());
 
     return mappedSubscription2;

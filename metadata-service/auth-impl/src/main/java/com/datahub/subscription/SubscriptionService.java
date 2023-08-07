@@ -18,7 +18,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.subscription.EntityChangeTypeArray;
+import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
@@ -46,7 +46,7 @@ public class SubscriptionService {
 
   @Nonnull
   public Map.Entry<Urn, SubscriptionInfo> createSubscription(@Nonnull final Urn actorUrn, @Nonnull final Urn entityUrn,
-      @Nonnull final SubscriptionTypeArray subscriptionTypes, @Nonnull final EntityChangeTypeArray entityChangeTypes,
+      @Nonnull final SubscriptionTypeArray subscriptionTypes, @Nonnull final EntityChangeDetailsArray entityChangeTypes,
       @Nullable final SubscriptionNotificationConfig notificationConfig, @Nonnull final Authentication authentication) {
     try {
       if (!_entityClient.exists(actorUrn, authentication)) {
@@ -217,7 +217,7 @@ public class SubscriptionService {
   public Map.Entry<Urn, SubscriptionInfo> updateSubscription(@Nonnull final Urn actorUrn,
       @Nonnull final Urn subscriptionUrn,
       @Nonnull final SubscriptionInfo subscriptionInfo,
-      @Nullable final SubscriptionTypeArray subscriptionTypes, @Nullable final EntityChangeTypeArray entityChangeTypes,
+      @Nullable final SubscriptionTypeArray subscriptionTypes, @Nullable final EntityChangeDetailsArray entityChangeTypes,
       @Nullable final SubscriptionNotificationConfig notificationConfig, @Nonnull final Authentication authentication) {
     try {
       if (!_entityClient.exists(subscriptionUrn, authentication)) {

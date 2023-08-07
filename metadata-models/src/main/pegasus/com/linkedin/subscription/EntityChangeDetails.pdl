@@ -1,0 +1,12 @@
+namespace com.linkedin.subscription
+
+/**
+ * Details involving an EntityChangeType. Used by Subscriptions to determine which
+ * change types should trigger a notification.
+ */
+record EntityChangeDetails {
+    /**
+    * Change type that triggers a notification for the subscription.
+    */
+    entityChangeType: EntityChangeType
+}

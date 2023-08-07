@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateSubscriptionInput;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.types.subscription.mappers.DataHubSubscriptionMapper;
-import com.linkedin.subscription.EntityChangeTypeArray;
+import com.linkedin.subscription.EntityChangeDetailsArray;
 import com.linkedin.subscription.SubscriptionInfo;
 import com.linkedin.subscription.SubscriptionNotificationConfig;
 import com.linkedin.subscription.SubscriptionTypeArray;
@@ -36,7 +36,7 @@ public class CreateSubscriptionResolver implements DataFetcher<CompletableFuture
       try {
         final String entityUrnString = input.getEntityUrn();
         final SubscriptionTypeArray subscriptionTypes = mapSubscriptionTypes(input.getSubscriptionTypes());
-        final EntityChangeTypeArray entityChangeTypes = mapEntityChangeTypes(input.getEntityChangeTypes());
+        final EntityChangeDetailsArray entityChangeTypes = mapEntityChangeTypes(input.getEntityChangeTypes());
         final SubscriptionNotificationConfig notificationConfig = input.getNotificationConfig() == null
             ? null : mapSubscriptionNotificationConfig(input.getNotificationConfig());
         final String groupUrnString = input.getGroupUrn();

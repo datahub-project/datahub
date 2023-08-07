@@ -117,7 +117,7 @@ input CreateSubscriptionInput {
     """
     Change types that trigger a notification for the subscription.
     """
-    entityChangeTypes: [EntityChangeType!]!
+    entityChangeTypes: [EntityChangeDetailsInput!]!
 
     """
     Notification configuration.
@@ -144,12 +144,19 @@ input UpdateSubscriptionInput {
     """
     (Optional) Change types that trigger a notification for the subscription. Will replace existing change types.
     """
-    entityChangeTypes: [EntityChangeType]
+    entityChangeTypes: [EntityChangeDetailsInput]
 
     """
     (Optional) Notification configuration. Will replace existing notification configuration.
     """
     notificationConfig: SubscriptionNotificationConfigInput
+}
+
+input EntityChangeDetailsInput {
+    """
+    The change type that will trigger a notification for this subscription
+    """
+    entityChangeType: EntityChangeType!
 }
 
 input SubscriptionNotificationConfigInput {
@@ -191,7 +198,7 @@ type DataHubSubscription {
     """
     Change types that trigger a notification for the subscription.
     """
-    entityChangeTypes: [EntityChangeType!]!
+    entityChangeTypes: [EntityChangeDetails!]!
 
     """
     Created on Audit Stamp.
@@ -207,6 +214,13 @@ type DataHubSubscription {
     Notification configuration.
     """
     notificationConfig: SubscriptionNotificationConfig
+}
+
+type EntityChangeDetails {
+    """
+    The change type that will trigger a notification for this subscription
+    """
+    entityChangeType: EntityChangeType!
 }
 
 enum SubscriptionType {
