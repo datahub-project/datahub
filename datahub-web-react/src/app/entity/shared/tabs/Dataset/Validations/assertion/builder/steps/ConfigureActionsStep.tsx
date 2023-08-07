@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Checkbox, Typography } from 'antd';
+import { Button, Checkbox, Collapse, Input, Typography } from 'antd';
 import { StepProps } from '../types';
 import { AssertionActionType } from '../../../../../../../../../types.generated';
-import { toggleRaiseIncidentState, toggleResolveIncidentState } from './utils';
+import { toggleRaiseIncidentState, toggleResolveIncidentState, updateExecutorIdState } from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -62,6 +62,22 @@ export const ConfigureActionsStep = ({ state, updateState, prev, submit }: StepP
                     >
                         Auto-resolve active incident
                     </StyledCheckbox>
+                </Section>
+                <Section>
+                    <Collapse>
+                        <Collapse.Panel key="Advanced" header="Advanced">
+                            <Typography.Title level={5}>Executor Id (Optional)</Typography.Title>
+                            <Typography.Paragraph type="secondary">
+                                Configure monitoring using a remote executor by providing a custom executor id. You
+                                should only change this field if a remote executor has been configured.
+                            </Typography.Paragraph>
+                            <Input
+                                value={state.executorId || ''}
+                                onChange={(e) => updateState(updateExecutorIdState(state, e.target.value))}
+                                placeholder="default"
+                            />
+                        </Collapse.Panel>
+                    </Collapse>
                 </Section>
             </Form>
             <ControlsContainer>

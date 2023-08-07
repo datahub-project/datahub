@@ -112,7 +112,7 @@ public class MonitorServiceTest {
         Mockito.mock(Authentication.class));
 
     // Test method
-    Urn result = service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, Mockito.mock(Authentication.class));
+    Urn result = service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, null, Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "monitor");
@@ -142,7 +142,7 @@ public class MonitorServiceTest {
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
         IllegalArgumentException.class,
-        () -> service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, Mockito.mock(Authentication.class)));
+        () -> service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, null, Mockito.mock(Authentication.class)));
   }
 
   @Test
@@ -171,7 +171,7 @@ public class MonitorServiceTest {
     // Method should throw because the assertion does not exist.
     Assert.assertThrows(
         IllegalArgumentException.class,
-        () -> service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, Mockito.mock(Authentication.class)));
+        () -> service.createAssertionMonitor(entityUrn, assertionUrn, schedule, parameters, null, Mockito.mock(Authentication.class)));
   }
 
   @Test

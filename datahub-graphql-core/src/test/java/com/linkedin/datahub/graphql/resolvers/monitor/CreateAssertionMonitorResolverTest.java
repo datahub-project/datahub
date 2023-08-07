@@ -48,6 +48,7 @@ public class CreateAssertionMonitorResolverTest {
   private static final Urn TEST_ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:test");
   private static final Urn TEST_ENTITY_URN = UrnUtils.getUrn("urn:li:dataset:test");
   private static final Urn TEST_MONITOR_URN = UrnUtils.getUrn(String.format("urn:li:monitor:(%s,test)", TEST_ENTITY_URN));
+  private static final String TEST_EXECUTOR_ID = "testExecutorId";
 
   private static final CreateAssertionMonitorInput TEST_INPUT = new CreateAssertionMonitorInput(
       TEST_ENTITY_URN.toString(),
@@ -60,7 +61,8 @@ public class CreateAssertionMonitorResolverTest {
               null,
               new AuditLogSpecInput(ImmutableList.of("INSERT"), "testUser")
           )
-      )
+      ),
+      TEST_EXECUTOR_ID
   );
 
   private static final MonitorKey TEST_MONITOR_KEY = new MonitorKey()
@@ -71,6 +73,7 @@ public class CreateAssertionMonitorResolverTest {
   private static final MonitorInfo TEST_MONITOR_INFO = new MonitorInfo()
       .setType(MonitorType.ASSERTION)
       .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
+      .setExecutorId(TEST_EXECUTOR_ID)
       .setAssertionMonitor(
         new AssertionMonitor()
           .setAssertions(new AssertionEvaluationSpecArray(
@@ -115,6 +118,7 @@ public class CreateAssertionMonitorResolverTest {
         Mockito.eq(evaluationSpec.getAssertion()),
         Mockito.eq(evaluationSpec.getSchedule()),
         Mockito.eq(evaluationSpec.getParameters()),
+        Mockito.eq(TEST_EXECUTOR_ID),
         Mockito.any(Authentication.class));
   }
 
@@ -146,6 +150,7 @@ public class CreateAssertionMonitorResolverTest {
         Mockito.any(),
         Mockito.any(),
         Mockito.any(),
+        Mockito.any(),
         Mockito.any(Authentication.class));
 
     CreateAssertionMonitorResolver resolver = new CreateAssertionMonitorResolver(mockService);
@@ -162,6 +167,7 @@ public class CreateAssertionMonitorResolverTest {
   private MonitorService initMockService() throws Exception {
     MonitorService service = Mockito.mock(MonitorService.class);
     Mockito.when(service.createAssertionMonitor(
+        Mockito.any(),
         Mockito.any(),
         Mockito.any(),
         Mockito.any(),

@@ -165,6 +165,11 @@ type MonitorInfo {
     Information about the current status of a Monitor.
     """
     status: MonitorStatus!
+
+    """
+    Advanced: The executor ID of the remote monitor service, if any.
+    """
+    executorId: String
 }
 
 """
@@ -519,4 +524,9 @@ input CreateAssertionMonitorInput {
     Parameters required to evaluate the assertion
     """
     parameters: AssertionEvaluationParametersInput
+
+    """
+    Advanced: The executor ID of the remote monitor service, if any.
+    """
+    executorId: String
 }

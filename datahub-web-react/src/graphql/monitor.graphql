@@ -32,6 +32,7 @@ fragment monitorDetails on Monitor {
         status {
             mode
         }
+        executorId
     }
 }
 
