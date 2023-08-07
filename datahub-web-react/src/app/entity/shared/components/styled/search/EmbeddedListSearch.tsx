@@ -148,7 +148,6 @@ export const EmbeddedListSearch = ({
 
     const [showFilters, setShowFilters] = useState(defaultShowFilters || false);
     const [isSelectMode, setIsSelectMode] = useState(false);
-    const [showSelectViewMode, setShowSelectViewMode] = useState(false);
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
@@ -280,14 +279,11 @@ export const EmbeddedListSearch = ({
                 isSelectMode={isSelectMode}
                 isSelectAll={selectedEntities.length > 0 && isListSubset(searchResultUrns, selectedEntityUrns)}
                 setIsSelectMode={setIsSelectMode}
-                setShowSelectViewMode={setShowSelectViewMode}
                 selectedEntities={selectedEntities}
                 onChangeSelectAll={onChangeSelectAll}
                 refetch={() => refetch({ input: searchInput })}
                 searchBarStyle={searchBarStyle}
                 searchBarInputStyle={searchBarInputStyle}
-                applyView={applyView}
-                showSelectViewMode={showSelectViewMode}
             />
             <EmbeddedListSearchResults
                 unionType={unionType}

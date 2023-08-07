@@ -10,7 +10,6 @@ import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
-import { ViewSelect } from '../../../../view/select/ViewSelect';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -29,10 +28,6 @@ const SearchMenuContainer = styled.div`
     margin-left: 10px;
 `;
 
-const ViewSelectContainer = styled.span`
-    margin-left: 14px;
-`;
-
 type Props = {
     onSearch: (q: string) => void;
     onToggleFilters: () => void;
@@ -44,13 +39,10 @@ type Props = {
     isSelectAll: boolean;
     selectedEntities: EntityAndType[];
     setIsSelectMode: (showSelectMode: boolean) => any;
-    setShowSelectViewMode: (showSelectViewMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
     refetch?: () => void;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
-    applyView?: boolean;
-    showSelectViewMode?: boolean;
 };
 
 export default function EmbeddedListSearchHeader({
@@ -64,13 +56,10 @@ export default function EmbeddedListSearchHeader({
     isSelectAll,
     selectedEntities,
     setIsSelectMode,
-    setShowSelectViewMode,
     onChangeSelectAll,
     refetch,
     searchBarStyle,
     searchBarInputStyle,
-    applyView,
-    showSelectViewMode,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
@@ -105,20 +94,12 @@ export default function EmbeddedListSearchHeader({
                             entityRegistry={entityRegistry}
                             hideRecommendations
                         />
-                        {applyView && showSelectViewMode && (
-                            <ViewSelectContainer>
-                                <ViewSelect />
-                            </ViewSelectContainer>
-                        )}
                         <SearchMenuContainer>
                             <SearchExtendedMenu
                                 downloadSearchResults={downloadSearchResults}
                                 filters={filters}
                                 query={query}
                                 setShowSelectMode={setIsSelectMode}
-                                setShowSelectViewMode={setShowSelectViewMode}
-                                showSelectViewMode={showSelectViewMode}
-                                applyView={applyView}
                             />
                         </SearchMenuContainer>
                     </SearchAndDownloadContainer>
