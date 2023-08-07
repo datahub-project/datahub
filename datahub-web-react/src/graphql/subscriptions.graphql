@@ -23,7 +23,7 @@ query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
         isUserSubscribed
         userSubscriptionCount
         groupSubscriptionCount
-        topGroups {
+        exampleGroups {
             name
             info {
                 displayName

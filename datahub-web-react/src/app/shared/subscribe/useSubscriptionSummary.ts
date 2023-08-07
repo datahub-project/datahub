@@ -28,7 +28,7 @@ const useSubscriptionSummary = ({ entityUrn }: Props) => {
     const numGroupSubscriptions =
         entitySubscriptionSummaryData?.getEntitySubscriptionSummary.groupSubscriptionCount || 0;
     const groupNames: string[] =
-        (entitySubscriptionSummaryData?.getEntitySubscriptionSummary.topGroups
+        (entitySubscriptionSummaryData?.getEntitySubscriptionSummary.exampleGroups
             .map((group) => entityRegistry.getDisplayName(EntityType.CorpGroup, group))
             .filter((name) => !!name) as string[]) || [];
 

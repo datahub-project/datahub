@@ -74,9 +74,9 @@ input GetEntitySubscriptionSummaryInput {
     subscriptionCount: Int
 
     """
-    The number of top groups to display in the summary. Defaults to 5.
+    The number of example groups to display in the summary. Defaults to 5.
     """
-    numTopGroups: Int
+    numExampleGroups: Int
 }
 
 type GetSubscriptionResult {
@@ -335,7 +335,7 @@ type EntitySubscriptionSummary {
     groupSubscriptionCount: Int!
 
     """
-    The top groups that have subscriptions for the entity.
+    Some of the groups that have subscriptions for the entity. Default count is 5.
     """
-    topGroups: [CorpGroup!]!
+    exampleGroups: [CorpGroup!]!
 }

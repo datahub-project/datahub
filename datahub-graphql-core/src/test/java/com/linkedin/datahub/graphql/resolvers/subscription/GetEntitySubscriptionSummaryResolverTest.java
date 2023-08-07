@@ -68,6 +68,6 @@ public class GetEntitySubscriptionSummaryResolverTest {
     assertFalse(summary.getIsUserSubscribedViaGroup());
     assertEquals(summary.getUserSubscriptionCount(), 50);
     assertEquals(summary.getGroupSubscriptionCount(), 25);
-    assertEquals(summary.getTopGroups().size(), 0);
+    assertEquals(summary.getExampleGroups().size(), 0);
   }
 }

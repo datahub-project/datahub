@@ -519,8 +519,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 (env) -> ((DataHubSubscription) env.getSource()).getEntity()))
         )
         .type("EntitySubscriptionSummary",
-            typeWiring -> typeWiring.dataFetcher("topGroups", new EntityTypeBatchResolver(baseEngine.entityTypes,
-                (env) -> ((EntitySubscriptionSummary) env.getSource()).getTopGroups()
+            typeWiring -> typeWiring.dataFetcher("exampleGroups", new EntityTypeBatchResolver(baseEngine.entityTypes,
+                (env) -> ((EntitySubscriptionSummary) env.getSource()).getExampleGroups()
                     .stream()
                     .map(group -> (Entity) group)
                     .collect(

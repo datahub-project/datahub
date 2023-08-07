@@ -36,7 +36,7 @@ public class GetEntitySubscriptionSummaryResolver implements DataFetcher<Complet
     final String entityUrnString = input.getEntityUrn();
     final Integer numMaxSubscriptions =
         input.getSubscriptionCount() == null ? DEFAULT_SUBSCRIPTION_COUNT : input.getSubscriptionCount();
-    final Integer numTopGroups = input.getNumTopGroups() == null ? DEFAULT_GROUP_COUNT : input.getNumTopGroups();
+    final Integer numExampleGroups = input.getNumExampleGroups() == null ? DEFAULT_GROUP_COUNT : input.getNumExampleGroups();
     return CompletableFuture.supplyAsync(() -> {
       try {
         final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
@@ -56,16 +56,16 @@ public class GetEntitySubscriptionSummaryResolver implements DataFetcher<Complet
         summary.setGroupSubscriptionCount(
             _subscriptionService.getNumGroupSubscriptionsForEntity(entityUrn, numMaxSubscriptions, authentication));
 
-        final List<Urn> topGroupUrns =
-            _subscriptionService.getGroupSubscribersForEntity(entityUrn, numTopGroups, authentication);
-        final List<CorpGroup> topGroups = topGroupUrns.stream()
+        final List<Urn> exampleGroupUrns =
+            _subscriptionService.getGroupSubscribersForEntity(entityUrn, numExampleGroups, authentication);
+        final List<CorpGroup> exampleGroups = exampleGroupUrns.stream()
             .map(urn -> {
               final CorpGroup group = new CorpGroup();
               group.setUrn(urn.toString());
               group.setType(EntityType.CORP_GROUP);
               return group;
             }).collect(Collectors.toList());
-        summary.setTopGroups(topGroups);
+        summary.setExampleGroups(exampleGroups);
 
         return summary;
       } catch (Exception e) {

@@ -356,7 +356,7 @@ public class SubscriptionService {
   }
 
   @Nonnull
-  public List<Urn> getGroupSubscribersForEntity(@Nonnull final Urn entityUrn, @Nonnull final Integer numTopGroups,
+  public List<Urn> getGroupSubscribersForEntity(@Nonnull final Urn entityUrn, @Nonnull final Integer numExampleGroups,
       @Nonnull final Authentication authentication) {
     try {
       if (!_entityClient.exists(entityUrn, authentication)) {
@@ -369,7 +369,7 @@ public class SubscriptionService {
           filter,
           null,
           0,
-          numTopGroups,
+          numExampleGroups,
           authentication
       );
 
