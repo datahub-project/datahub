@@ -67,7 +67,11 @@ export function EntityColumn({ subscription }: Props) {
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
     const entityTypeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityUrn);
-    const { label: platformTypeDisplayName, icon: platformIcon } = getEntityNameAndLogo(entity, entityType, entityRegistry);
+    const { label: platformTypeDisplayName, icon: platformIcon } = getEntityNameAndLogo(
+        entity,
+        entityType,
+        entityRegistry,
+    );
 
     return (
         <EntityColumnContainer>
