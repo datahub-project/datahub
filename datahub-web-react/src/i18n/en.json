@@ -244,5 +244,8 @@
   "Dashboard entities have no downstream lineage": "Dashboard entities have no downstream lineage",
   "Edit Upstream": "Edit Upstream",
   "Edit Downstream": "Edit Downstream",
-  "Focus on Entity": "Focus on Entity"
+  "Focus on Entity": "Focus on Entity",
+  "No Assets Found": "No Assets Found",
+  "Search for": "Search for",
+  "entities to add...": "entities to add..."
 }

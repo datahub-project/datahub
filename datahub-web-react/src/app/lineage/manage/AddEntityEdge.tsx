@@ -1,6 +1,7 @@
 import { LoadingOutlined, SubnodeOutlined } from '@ant-design/icons';
 import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { useGetSearchResultsForMultipleLazyQuery } from '../../../graphql/search.generated';
@@ -47,9 +48,9 @@ const LoadingWrapper = styled.div`
 `;
 
 function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: EntityRegistry) {
-    let placeholderText = 'Search for ';
+    let placeholderText = t ("Search for");
     if (!validEntityTypes.length) {
-        placeholderText = `${placeholderText} entities to add...`;
+        placeholderText = `${placeholderText}``${t ("entities to add...")}`;
     } else if (validEntityTypes.length === 1) {
         placeholderText = `${placeholderText} ${entityRegistry.getCollectionName(validEntityTypes[0])}...`;
     } else {
@@ -130,7 +131,7 @@ export default function AddEntityEdge({
         <AddEdgeWrapper>
             <AddLabel>
                 <AddIcon />
-                Add {lineageDirection}
+                {t ("Add")} {lineageDirection}
             </AddLabel>
             <StyledAutoComplete
                 autoFocus
@@ -140,10 +141,10 @@ export default function AddEntityEdge({
                 onSearch={handleSearch}
                 onSelect={(urn: any) => selectEntity(urn)}
                 filterOption={false}
-                notFoundContent={(queryText.length > 3 && <Empty description="No Assets Found" />) || undefined}
+                notFoundContent={(queryText.length > 3 && <Empty description= {t ("No Assets Found")} />) || undefined}
             >
                 {!searchData && loading && (
-                    <AutoComplete.Option value="loading">
+                    <AutoComplete.Option value= {t ("loading...")}>
                         <LoadingWrapper>
                             <LoadingOutlined />
                         </LoadingWrapper>

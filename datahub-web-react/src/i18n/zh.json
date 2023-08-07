@@ -244,5 +244,8 @@
   "Dashboard entities have no downstream lineage": "仪表板实体没有下游血缘关系",
   "Edit Upstream": "编辑上游",
   "Edit Downstream": "编辑下游",
-  "Focus on Entity": "聚焦实体"
+  "Focus on Entity": "聚焦实体",
+  "No Assets Found": "未找到数据资产",
+  "Search for": "查找",
+  "entities to add...": "可添加的实体..."
 }
