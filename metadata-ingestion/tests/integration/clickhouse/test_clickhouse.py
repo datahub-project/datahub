@@ -67,5 +67,5 @@ def test_clickhouse_ingest_uri_form(
             pytestconfig,
             ignore_paths=ignore_paths,
             output_path=tmp_path / "clickhouse_mces_uri_form.json",
-            golden_path=test_resources_dir / "clickhouse_mces_golden_uri_form.json",
+            golden_path=test_resources_dir / "clickhouse_mces_golden.json",
         )

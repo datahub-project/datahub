@@ -7,12 +7,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Breaking Changes
 
 ### Potential Downtime
-- #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
-  container db (None) -> container schema and now we have platform_instance -> container database.
 
 ### Deprecations
 
 ### Other Notable Changes
+- #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
+  container db (None) -> container schema and now we have platform_instance -> container database.
 - #8300: Added `uri_opts` argument; now we can add any options for clickhouse client.
 
 ## 0.10.5
