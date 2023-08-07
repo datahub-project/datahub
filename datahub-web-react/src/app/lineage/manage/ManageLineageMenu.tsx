@@ -1,6 +1,7 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, Popover, Tooltip } from 'antd';
 import React, { useState } from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components';
 import FocusIcon from '../../../images/focus.svg';
 import { Direction, UpdatedLineages } from '../types';
@@ -42,7 +43,7 @@ function getDownstreamDisabledPopoverContent(canEditLineage: boolean, isDashboar
         return UNAUTHORIZED_TEXT;
     }
     if (isDashboard) {
-        return 'Dashboard entities have no downstream lineage';
+        return  t ("Dashboard entities have no downstream lineage");
     }
     return <PopoverContent centerEntity={centerEntity} direction="downstream" />;
 }
@@ -128,7 +129,7 @@ export default function ManageLineageMenu({
                                             >
                                                 <MenuItemContent>
                                                     <ArrowUpOutlined />
-                                                    &nbsp; Edit Upstream
+                                                    &nbsp; {t ("Edit Upstream")}
                                                 </MenuItemContent>
                                             </Popover>
                                         </StyledMenuItem>
@@ -151,7 +152,7 @@ export default function ManageLineageMenu({
                                             >
                                                 <MenuItemContent>
                                                     <ArrowDownOutlined />
-                                                    &nbsp; Edit Downstream
+                                                    &nbsp; {t ("Edit Downstream")}
                                                 </MenuItemContent>
                                             </Popover>
                                         </StyledMenuItem>
@@ -160,7 +161,7 @@ export default function ManageLineageMenu({
                                 {!isCenterNode && centerEntity && (
                                     <Menu.Item key="2" onClick={centerEntity}>
                                         <StyledImage src={FocusIcon} alt="focus on entity" />
-                                        &nbsp; Focus on Entity
+                                        &nbsp; {t ("Focus on Entity")}
                                     </Menu.Item>
                                 )}
                             </Menu>

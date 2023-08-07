@@ -237,5 +237,12 @@
   "The Platform policy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.": "Platform 策略类型允许您为用户分配顶级 DataHub 平台权限。这些权限包括管理用户和组、创建策略、查看分析仪表板等。",
   "The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.": "Metadata 策略类型允许你为用户分配元数据权限。这些权限包括操作与数据集、图表、仪表盘等相关的所有权、标记、文档等元数据的能力。",
   "An optional description for your new policy.": "新策略的描述(可选)",
-  "Your policy description": ""
+  "Your policy description": "描述您的策略",
+  "Loading...":"加载中...",
+  "Updated lineage!": "数据血缘已更新",
+  "Error updating lineage": "数据血缘更新错误",
+  "Dashboard entities have no downstream lineage": "仪表板实体没有下游血缘关系",
+  "Edit Upstream": "编辑上游",
+  "Edit Downstream": "编辑下游",
+  "Focus on Entity": "聚焦实体"
 }

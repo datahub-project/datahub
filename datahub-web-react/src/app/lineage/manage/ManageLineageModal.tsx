@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Button, message, Modal } from 'antd';
 import React, { useState } from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components/macro';
 import { useGetEntityLineageQuery } from '../../../graphql/lineage.generated';
 import { Direction, UpdatedLineages } from '../types';
@@ -77,15 +78,15 @@ export default function ManageLineageModal({
                 if (res.data?.updateLineage) {
                     closeModal();
                     if (showLoading) {
-                        message.loading('Loading...');
+                        message.loading(t ("Loading..."));
                     } else {
-                        message.success('Updated lineage!');
+                        message.success(t ("Updated lineage!"));
                     }
                     setTimeout(() => {
                         refetchEntity();
                         if (showLoading) {
                             message.destroy();
-                            message.success('Updated lineage!');
+                            message.success(t ("Updated lineage!"));
                         }
                     }, 2000);
 
@@ -108,7 +109,7 @@ export default function ManageLineageModal({
                 }
             })
             .catch(() => {
-                message.error('Error updating lineage');
+                message.error(t ("Error updating lineage"));
             });
     }
 
@@ -123,10 +124,10 @@ export default function ManageLineageModal({
             footer={
                 <ModalFooter>
                     <Button onClick={closeModal} type="text">
-                        Cancel
+                        {t ("Cancel")}
                     </Button>
                     <Button onClick={saveLineageChanges} disabled={isSaveDisabled}>
-                        Save Changes
+                        {t ("Save")}
                     </Button>
                 </ModalFooter>
             }

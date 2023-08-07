@@ -237,5 +237,12 @@
   "The Platform policy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.": "The Platformpolicy type allows you to assign top-level DataHub Platform privileges to users. These include managing users and groups, creating policies, viewing analytics dashboards and more.",
   "The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.": "The Metadata policy type allows you to assign metadata privileges to users. These include the ability to manipulate metadata like ownership, tags, documentation associated with Datasets,Charts,Dashboards, & more.",
   "An optional description for your new policy.": "An optional description for your new policy.",
-  "Your policy description": "Your policy description"
+  "Your policy description": "Your policy description",
+  "Loading...": "Loading...",
+  "Updated lineage!": "Updated lineage!",
+  "Error updating lineage": "Error updating lineage",
+  "Dashboard entities have no downstream lineage": "Dashboard entities have no downstream lineage",
+  "Edit Upstream": "Edit Upstream",
+  "Edit Downstream": "Edit Downstream",
+  "Focus on Entity": "Focus on Entity"
 }
