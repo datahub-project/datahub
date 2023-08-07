@@ -282,6 +282,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {t ("Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.")}
                 </Typography.Paragraph>
                 <Select
+                    data-testid="users"
                     value={usersSelectValue}
                     mode="multiple"
                     filterOption={false}
@@ -302,6 +303,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {t ("Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.")}
                 </Typography.Paragraph>
                 <Select
+                    data-testid="groups"
                     value={groupsSelectValue}
                     mode="multiple"
                     placeholder={t ("Search for groups...")}
