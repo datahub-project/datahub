@@ -60,6 +60,16 @@ public class UpdateSubscriptionResolverTest {
   }
 
   @Test
+  public void testUpdateSubscriptionUnauthorizedForOtherUser() {
+    final QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
+
+    assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
+  }
+
+  @Test
   public void testCreateSubscriptionUnauthorized() {
     final QueryContext mockContext = getMockDenyContext();
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);

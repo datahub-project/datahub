@@ -66,8 +66,8 @@ public class GetEntitySubscriptionSummaryResolverTest {
     final EntitySubscriptionSummary summary = _resolver.get(_dataFetchingEnvironment).join();
     assertTrue(summary.getIsUserSubscribed());
     assertFalse(summary.getIsUserSubscribedViaGroup());
-    assertEquals(summary.getNumUserSubscriptions(), 50);
-    assertEquals(summary.getNumGroupSubscriptions(), 25);
+    assertEquals(summary.getUserSubscriptionCount(), 50);
+    assertEquals(summary.getGroupSubscriptionCount(), 25);
     assertEquals(summary.getTopGroups().size(), 0);
   }
 }

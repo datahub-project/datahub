@@ -22,8 +22,8 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 @RequiredArgsConstructor
 public class GetEntitySubscriptionSummaryResolver implements DataFetcher<CompletableFuture<EntitySubscriptionSummary>> {
-  private static final int DEFAULT_NUM_MAX_SUBSCRIPTIONS = 100;
-  private static final int DEFAULT_NUM_GROUPS = 5;
+  private static final int DEFAULT_SUBSCRIPTION_COUNT = 100;
+  private static final int DEFAULT_GROUP_COUNT = 5;
   private final SubscriptionService _subscriptionService;
   private final GroupService _groupService;
 
@@ -35,8 +35,8 @@ public class GetEntitySubscriptionSummaryResolver implements DataFetcher<Complet
         bindArgument(environment.getArgument("input"), GetEntitySubscriptionSummaryInput.class);
     final String entityUrnString = input.getEntityUrn();
     final Integer numMaxSubscriptions =
-        input.getNumMaxSubscriptions() == null ? DEFAULT_NUM_MAX_SUBSCRIPTIONS : input.getNumMaxSubscriptions();
-    final Integer numTopGroups = input.getNumTopGroups() == null ? DEFAULT_NUM_GROUPS : input.getNumTopGroups();
+        input.getSubscriptionCount() == null ? DEFAULT_SUBSCRIPTION_COUNT : input.getSubscriptionCount();
+    final Integer numTopGroups = input.getNumTopGroups() == null ? DEFAULT_GROUP_COUNT : input.getNumTopGroups();
     return CompletableFuture.supplyAsync(() -> {
       try {
         final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
@@ -49,11 +49,11 @@ public class GetEntitySubscriptionSummaryResolver implements DataFetcher<Complet
         summary.setIsUserSubscribedViaGroup(
             _subscriptionService.isAnyGroupSubscribed(entityUrn, userGroupUrns, authentication));
 
-        summary.setNumUserSubscriptions(
+        summary.setUserSubscriptionCount(
             _subscriptionService.getNumUserSubscriptionsForEntity(entityUrn, numMaxSubscriptions, authentication));
 
         // Maxes out at 100 groups.
-        summary.setNumGroupSubscriptions(
+        summary.setGroupSubscriptionCount(
             _subscriptionService.getNumGroupSubscriptionsForEntity(entityUrn, numMaxSubscriptions, authentication));
 
         final List<Urn> topGroupUrns =

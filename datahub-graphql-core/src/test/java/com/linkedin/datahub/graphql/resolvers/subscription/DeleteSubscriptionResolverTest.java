@@ -50,6 +50,19 @@ public class DeleteSubscriptionResolverTest {
   }
 
   @Test
+  public void testDeleteSubscriptionUnauthorizedForOtherUser() {
+    final QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+    when(mockContext.getActorUrn()).thenReturn(USER_2_URN_STRING);
+    when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication))).thenReturn(
+        SUBSCRIPTION_INFO_1);
+
+    assertThrows(() -> _resolver.get(_dataFetchingEnvironment).join());
+  }
+
+
+  @Test
   public void testDeleteSubscription() throws Exception {
     when(_subscriptionService.getSubscriptionInfo(eq(SUBSCRIPTION_URN_1), eq(_authentication))).thenReturn(
         SUBSCRIPTION_INFO_1);

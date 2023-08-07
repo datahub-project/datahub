@@ -53,6 +53,14 @@ public class UpdateSubscriptionResolver implements DataFetcher<CompletableFuture
           throw new RuntimeException(
               String.format("Unauthorized to update subscription for group %s", actorUrn));
         }
+        if (actorUrn.getEntityType().equals(CORP_USER_ENTITY_NAME) && !actorUrn.toString().equals(context.getActorUrn())) {
+          throw new RuntimeException(
+              String.format(
+                  "Unauthorized to update personal subscription for actor user is not logged in as. User: %s, Subscription actor: %S",
+                  context.getActorUrn(),
+                  actorUrn
+              ));
+        }
 
         final Map.Entry<Urn, SubscriptionInfo> subscription = _subscriptionService.updateSubscription(
             actorUrn,

@@ -3,7 +3,7 @@ import { Col, Row } from 'antd';
 import styled from 'styled-components/macro';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
 import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { OriginType, EntityRelationshipsResult, Ownership, CorpGroup } from '../../../types.generated';
+import { OriginType, EntityRelationshipsResult, Ownership, EntityType } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
 import { decodeUrn } from '../shared/utils';
@@ -12,8 +12,8 @@ import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
 import { ErrorSection } from '../../shared/error/ErrorSection';
 import { ManageActorNotifications } from '../../settings/personal/notifications/ManageActorNotifications';
-import { getGroupName } from '../../settings/personal/utils';
 import { ManageActorSubscriptions } from '../../settings/personal/subscriptions/ManageActorSubscriptions';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 const messageStyle = { marginTop: '10%' };
 
@@ -50,6 +50,7 @@ const Content = styled.div`
  * Responsible for reading & writing groups.
  */
 export default function GroupProfile() {
+    const entityRegistry = useEntityRegistry();
     const { urn: encodedUrn } = useUserParams();
     const urn = encodedUrn && decodeUrn(encodedUrn);
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
@@ -57,7 +58,7 @@ export default function GroupProfile() {
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;
     const isExternalGroup: boolean = data?.corpGroup?.origin?.type === OriginType.External;
     const externalGroupType: string = data?.corpGroup?.origin?.externalType || 'outside DataHub';
-    const groupName = data?.corpGroup ? getGroupName(data?.corpGroup as CorpGroup) : undefined;
+    const groupName = data?.corpGroup ? entityRegistry.getDisplayName(EntityType.CorpGroup, data.corpGroup) : undefined;
 
     const getTabs = () => {
         return [

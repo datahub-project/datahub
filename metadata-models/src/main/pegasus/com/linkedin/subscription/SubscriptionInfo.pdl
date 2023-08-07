@@ -66,8 +66,6 @@ record SubscriptionInfo {
     }
     entityChangeTypes: optional array[EntityChangeType]
 
-
-
    /**
     * Optional notification config.
     */

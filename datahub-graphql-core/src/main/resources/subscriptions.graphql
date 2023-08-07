@@ -71,7 +71,7 @@ input GetEntitySubscriptionSummaryInput {
     The maximum number of subscriptions to return. This will be computed separately for users and groups.
     Defaults to 100.
     """
-    numMaxSubscriptions: Int
+    subscriptionCount: Int
 
     """
     The number of top groups to display in the summary. Defaults to 5.
@@ -313,12 +313,12 @@ type EntitySubscriptionSummary {
     """
     The number of user subscriptions for the entity.
     """
-    numUserSubscriptions: Int!
+    userSubscriptionCount: Int!
 
     """
     The number of group subscriptions for the entity.
     """
-    numGroupSubscriptions: Int!
+    groupSubscriptionCount: Int!
 
     """
     The top groups that have subscriptions for the entity.

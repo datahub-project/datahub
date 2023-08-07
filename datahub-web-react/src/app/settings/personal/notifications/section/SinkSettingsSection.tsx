@@ -114,16 +114,19 @@ export const SinkSettingsSection = ({
     } ID: `;
     const sinkDisabledDescription = `In order to enable, ask your DataHub admin to setup the ${sinkName} integration.`;
     const slackInputPlaceholder = isPersonal ? 'Slack Member ID' : 'Slack Channel ID';
+
     const saveButtonOnClick = () => {
         if (inputValue) {
             updateSinkSetting({ text: inputValue, sinkTypes: allowEditing ? [NotificationSinkType.Slack] : [] });
         }
         setIsEditing(false);
     };
+
     const cancelButtonOnClick = () => {
         setInputValue(sinkSettingValue);
         setIsEditing(false);
     };
+
     const onToggle = (enabled: boolean) => {
         setAllowEditing(enabled);
         updateSinkSetting({ text: sinkSettingValue || '', sinkTypes: enabled ? [NotificationSinkType.Slack] : [] });

@@ -194,7 +194,6 @@ entities:
       - corpUserSettings
       - origin
       - roleMembership
-      - notificationLog
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey

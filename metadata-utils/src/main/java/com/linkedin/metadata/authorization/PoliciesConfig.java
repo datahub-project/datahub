@@ -377,10 +377,12 @@ public class PoliciesConfig {
       "EDIT_GROUP_MEMBERS",
       "Edit Group Members",
       "The ability to add and remove members to a group.");
+
   public static final Privilege MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE = Privilege.of(
       "MANAGE_GROUP_NOTIFICATION_SETTINGS",
       "Manage Group Notification Settings",
       "The ability to manage notification settings for a group.");
+
   public static final Privilege MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE = Privilege.of(
       "MANAGE_GROUP_SUBSCRIPTIONS",
       "Manage Group Subscriptions",
@@ -628,6 +630,7 @@ public class PoliciesConfig {
           VIEW_ENTITY_PAGE_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_GROUP_MEMBERS_PRIVILEGE,
+          MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE,
           MANAGE_GROUP_SUBSCRIPTIONS_PRIVILEGE,
           EDIT_CONTACT_INFO_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,

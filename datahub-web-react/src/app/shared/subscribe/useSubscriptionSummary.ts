@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useGetEntitySubscriptionSummaryQuery } from '../../../graphql/subscriptions.generated';
-import { CorpGroup } from '../../../types.generated';
-import { getGroupName } from '../../settings/personal/utils';
+import { EntityType } from '../../../types.generated';
+import { useEntityRegistry } from '../../useEntityRegistry';
 
 type Props = {
     entityUrn: string;
 };
 
 const useSubscriptionSummary = ({ entityUrn }: Props) => {
+    const entityRegistry = useEntityRegistry();
     const [isUserSubscribed, setIsUserSubscribed] = useState(false);
     const { data: entitySubscriptionSummaryData, refetch: refetchSubscriptionSummary } =
         useGetEntitySubscriptionSummaryQuery({
@@ -22,13 +23,13 @@ const useSubscriptionSummary = ({ entityUrn }: Props) => {
         setIsUserSubscribed(entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed || false);
     }, [entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed]);
 
-    const numUserSubscriptions = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.numUserSubscriptions || 0;
+    const numUserSubscriptions = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.userSubscriptionCount || 0;
     // Maxes out at 100 by default.
     const numGroupSubscriptions =
-        entitySubscriptionSummaryData?.getEntitySubscriptionSummary.numGroupSubscriptions || 0;
+        entitySubscriptionSummaryData?.getEntitySubscriptionSummary.groupSubscriptionCount || 0;
     const groupNames: string[] =
         (entitySubscriptionSummaryData?.getEntitySubscriptionSummary.topGroups
-            .map((group) => getGroupName(group as CorpGroup))
+            .map((group) => entityRegistry.getDisplayName(EntityType.CorpGroup, group))
             .filter((name) => !!name) as string[]) || [];
 
     return {

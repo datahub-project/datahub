@@ -21,6 +21,7 @@ import java.util.List;
 public class SubscriptionTestUtils {
   public static final String USER_URN_STRING = "urn:li:corpuser:testUser";
   public static final Urn USER_URN = UrnUtils.getUrn(USER_URN_STRING);
+  public static final String USER_2_URN_STRING = "urn:li:corpuser:testUser2";
   public static final String ENTITY_URN_1_STRING = "urn:li:dataset:1";
   public static final Urn ENTITY_URN_1 = UrnUtils.getUrn(ENTITY_URN_1_STRING);
   public static final String ENTITY_URN_2_STRING = "urn:li:dataset:2";

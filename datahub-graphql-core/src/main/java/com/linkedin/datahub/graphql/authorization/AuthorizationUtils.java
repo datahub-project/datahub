@@ -106,6 +106,16 @@ public class AuthorizationUtils {
         groupUrnStr, orPrivilegeGroups);
   }
 
+  public static boolean canManageGroupNotificationSettings(@Nonnull String groupUrnStr, @Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(ALL_PRIVILEGES_GROUP,
+            new ConjunctivePrivilegeGroup(
+                ImmutableList.of(PoliciesConfig.MANAGE_GROUP_NOTIFICATION_SETTINGS_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(context.getAuthorizer(), context.getActorUrn(), CORP_GROUP_ENTITY_NAME,
+        groupUrnStr, orPrivilegeGroups);
+  }
+
   public static boolean canManageGroupSubscriptions(@Nonnull String groupUrnStr, @Nonnull QueryContext context) {
     final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
         ImmutableList.of(ALL_PRIVILEGES_GROUP,

@@ -21,8 +21,8 @@ query listSubscriptions($input: ListSubscriptionsInput!) {
 query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
     getEntitySubscriptionSummary(input: $input) {
         isUserSubscribed
-        numUserSubscriptions
-        numGroupSubscriptions
+        userSubscriptionCount
+        groupSubscriptionCount
         topGroups {
             name
             info {

@@ -5,7 +5,7 @@ import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { DataHubSubscription, EntityType } from '../../../../../types.generated';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../entity/Entity';
-import { getEntityLogo } from '../../utils';
+import { getEntityNameAndLogo } from '../../utils';
 
 const EntityColumnContainer = styled.div`
     margin-bottom: 16px;
@@ -67,7 +67,7 @@ export function EntityColumn({ subscription }: Props) {
     const entityName: string = entityRegistry.getDisplayName(entityType, entity);
     const entityTypeIcon = entityRegistry.getIcon(entityType, 14, IconStyleType.ACCENT);
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityUrn);
-    const { label: platformTypeDisplayName, icon: platformIcon } = getEntityLogo(entity, entityType, entityRegistry);
+    const { label: platformTypeDisplayName, icon: platformIcon } = getEntityNameAndLogo(entity, entityType, entityRegistry);
 
     return (
         <EntityColumnContainer>

@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { Select, Typography } from 'antd';
 import styled from 'styled-components/macro';
-import { CorpGroup, EntityRelationship } from '../../../../../types.generated';
-import { getGroupName } from '../../../../settings/personal/utils';
+import { CorpGroup, EntityRelationship, EntityType } from '../../../../../types.generated';
 import useGroupRelationships from '../../useGroupRelationships';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
 
 const SelectGroupContainer = styled.div`
     margin-top: 32px;
@@ -30,22 +30,19 @@ interface Props {
 
 export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
     const { relationships } = useGroupRelationships();
+    const entityRegistry = useEntityRegistry();
 
     const convertGroupRelationshipToOption = (relationship: EntityRelationship) => {
         const group: CorpGroup = relationship?.entity as CorpGroup;
         return {
-            label: getGroupName(group),
+            label: entityRegistry.getDisplayName(EntityType.CorpGroup, group),
             value: group?.urn,
         };
     };
 
-    const options = useMemo(
-        () =>
-            relationships
-                ?.filter((relationship) => !!relationship)
-                .map((relationship) => convertGroupRelationshipToOption(relationship as EntityRelationship)),
-        [relationships],
-    );
+    const options = relationships
+        ?.filter((relationship) => !!relationship)
+        .map((relationship) => convertGroupRelationshipToOption(relationship as EntityRelationship));
 
     useEffect(() => {
         if (!groupUrn && options && options.length === 1) {

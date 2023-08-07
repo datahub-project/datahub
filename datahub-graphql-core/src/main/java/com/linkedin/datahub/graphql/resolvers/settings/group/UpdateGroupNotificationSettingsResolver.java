@@ -37,7 +37,7 @@ public class UpdateGroupNotificationSettingsResolver implements DataFetcher<Comp
       final NotificationSettingsInput notificationSettingsInput = input.getNotificationSettings();
 
       try {
-        if (!canEditGroupMembers(groupUrnString, context)) {
+        if (!canManageGroupNotificationSettings(groupUrnString, context)) {
           throw new RuntimeException(
               String.format("Unauthorized to update notification settings for group %s", groupUrnString));
         }
