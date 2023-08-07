@@ -1,5 +1,6 @@
 import { Tabs, Typography } from 'antd';
 import React, { useState } from 'react';
+import { t } from 'i18next';
 import styled from 'styled-components';
 import { IngestionSourceList } from './source/IngestionSourceList';
 import { SecretsList } from './secret/SecretsList';
@@ -40,10 +41,8 @@ const Tab = styled(Tabs.TabPane)`
 const ListContainer = styled.div``;
 
 enum TabType {
-    Sources = 'Sources',
-    Secrets = 'Secrets',
-    SourcesZh='数据源',
-    SecretsZh='密匙',
+    Sources = t ("Sources"),
+    Secrets = t ("Secrets"),
 }
 
 export const ManageIngestionPage = () => {
@@ -60,14 +59,14 @@ export const ManageIngestionPage = () => {
         <PageContainer>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
-                <PageTitle level={3}>元数据集成管理</PageTitle>
+                <PageTitle level={3}>{t ("Manage Ingestion")}</PageTitle>
                 <Typography.Paragraph type="secondary">
-                    创建，调度以及执行元数据集成.
+                    {t ("Create, schedule, and run DataHub ingestion sources.")}
                 </Typography.Paragraph>
             </PageHeaderContainer>
             <StyledTabs activeKey={selectedTab} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
-                <Tab key={TabType.Sources} tab={TabType.SourcesZh} />
-                <Tab key={TabType.Secrets} tab={TabType.SecretsZh} />
+                <Tab key={TabType.Sources} tab={TabType.Sources} />
+                <Tab key={TabType.Secrets} tab={TabType.Secrets} />
             </StyledTabs>
             <ListContainer>{selectedTab === TabType.Sources ? <IngestionSourceList /> : <SecretsList />}</ListContainer>
         </PageContainer>

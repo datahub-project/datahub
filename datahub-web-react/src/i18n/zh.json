@@ -253,5 +253,9 @@
   "Filter lineage edges by observed date": "按观察日期筛选血缘关系",
   "Show": "显示",
   "Hide": "隐藏",
-  "Find column...":"查询字段..."
+  "Find column...":"查询字段...",
+  "Manage Ingestion": "摄取管理",
+  "Create, schedule, and run DataHub ingestion sources.":"创建、调度和运行 DataHub 摄取源。",
+  "Sources": "数据源",
+  "Secrets": "密钥"
 }

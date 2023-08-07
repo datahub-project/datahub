@@ -38,22 +38,22 @@
                 {
                     "label": "Project",
                     "path": "https://datahubproject.io",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 },
                 {
                     "label": "Docs",
                     "path": "https://datahubproject.io/docs",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 },
                 {
                     "label": "Releases",
                     "path": "https://datahubproject.io/docs/releases/",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 },
                 {
                     "label": "GitHub",
                     "path": "https://github.com/datahub-project/datahub",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 }
             ]
         }

@@ -253,5 +253,9 @@
   "Filter lineage edges by observed date": "Filter lineage edges by observed date",
   "Show": "Show",
   "Hide": "Hide",
-  "Find column...": "Find column..."
+  "Find column...": "Find column...",
+  "Manage Ingestion": "Manage Ingestion",
+  "Create, schedule, and run DataHub ingestion sources.": "Create, schedule, and run DataHub ingestion sources.",
+  "Sources": "Sources",
+  "Secrets": "Secrets"
 }
