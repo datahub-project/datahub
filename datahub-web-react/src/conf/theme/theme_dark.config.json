@@ -35,17 +35,17 @@
                 {
                     "label": "DataHub Project",
                     "path": "https://datahubproject.io",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 },
                 {
                     "label": "DataHub Docs",
                     "path": "https://datahubproject.io/docs",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 },
                 {
                     "label": "DataHub GitHub",
                     "path": "https://github.com/datahub-project/datahub",
-                    "shouldOpenInNewTab": true
+                    "shouldOpenInNewTab": false
                 }
             ]
         }
