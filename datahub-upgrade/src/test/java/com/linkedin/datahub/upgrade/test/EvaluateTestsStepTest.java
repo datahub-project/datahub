@@ -1,11 +1,13 @@
 package com.linkedin.datahub.upgrade.test;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeReport;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
@@ -39,8 +41,10 @@ public class EvaluateTestsStepTest {
     final TestEngine testEngine = mock(TestEngine.class);
     configureTestEngineMock(testEngine);
     configureEntitySearchServiceMock(entitySearchService);
+    EntityClient entityClient = Mockito.mock(EntityClient.class);
+    Authentication authentication = Mockito.mock(Authentication.class);
 
-    EvaluateTestsStep testStep = new EvaluateTestsStep(entitySearchService, testEngine);
+    EvaluateTestsStep testStep = new EvaluateTestsStep(entityClient, entitySearchService, testEngine, authentication);
     Function<UpgradeContext, UpgradeStepResult> fun = testStep.executable();
     final UpgradeContext upgradeContext = mock(UpgradeContext.class);
     UpgradeReport report = new DefaultUpgradeReport();
