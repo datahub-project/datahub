@@ -63,7 +63,7 @@ const MatchingViewsLabel = () => {
         );
     }
 
-    return null;
+    return <div />;
 };
 
 export default MatchingViewsLabel;
