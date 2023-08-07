@@ -61,6 +61,9 @@ public class MonitorMapper {
     if (backendMonitorInfo.hasAssertionMonitor()) {
       monitorInfo.setAssertionMonitor(mapAssertionMonitor(backendMonitorInfo.getAssertionMonitor()));
     }
+    if (backendMonitorInfo.hasExecutorId()) {
+      monitorInfo.setExecutorId(backendMonitorInfo.getExecutorId());
+    }
     monitorInfo.setStatus(mapMonitorStatus(backendMonitorInfo.getStatus()));
     return monitorInfo;
   }

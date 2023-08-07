@@ -22,7 +22,7 @@ export interface AssertionMonitorBuilderState {
     entityUrn?: string | null;
 
     /**
-     * The type of the entity associated with the monnitor
+     * The type of the entity associated with the monitor
      */
     entityType?: EntityType | null;
 
@@ -206,6 +206,11 @@ export interface AssertionMonitorBuilderState {
             } | null;
         } | null;
     } | null;
+
+    /**
+     * Advanced: The executor ID of the remote monitor service, if any.
+     */
+    executorId?: string | null;
 }
 
 /**

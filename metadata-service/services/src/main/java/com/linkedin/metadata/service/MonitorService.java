@@ -96,6 +96,7 @@ public class MonitorService extends BaseService {
       @Nonnull final Urn assertionUrn,
       @Nonnull final CronSchedule schedule,
       @Nonnull final AssertionEvaluationParameters parameters,
+      @Nullable final String executorId,
       @Nonnull final Authentication authentication) throws Exception {
     Objects.requireNonNull(entityUrn, "entityUrn must not be null");
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
@@ -116,6 +117,10 @@ public class MonitorService extends BaseService {
 
     // New monitors will default to 'Active' mode.
     monitorInfo.setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE));
+
+    if (executorId != null) {
+      monitorInfo.setExecutorId(executorId);
+    }
 
     final AssertionMonitor assertionMonitor = new AssertionMonitor();
     assertionMonitor.setAssertions(new AssertionEvaluationSpecArray(

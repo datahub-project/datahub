@@ -65,6 +65,7 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
               assertionUrn,
               createCronSchedule(input.getSchedule()),
               createAssertionEvaluationParameters(input.getParameters()),
+              input.getExecutorId(),
               context.getAuthentication()
           );
 

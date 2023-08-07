@@ -46,3 +46,10 @@ export const toggleResolveIncidentState = (state: AssertionMonitorBuilderState, 
         },
     };
 };
+
+export const updateExecutorIdState = (state: AssertionMonitorBuilderState, newValue: string) => {
+    return {
+        ...state,
+        executorId: newValue,
+    };
+};

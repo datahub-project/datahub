@@ -270,6 +270,7 @@ export const builderStateToCreateAssertionMonitorVariables = (
             assertionUrn,
             schedule: builderState.schedule,
             parameters: builderState.parameters,
+            executorId: builderState.executorId,
         },
     };
 };
