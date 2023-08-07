@@ -60,7 +60,7 @@ def get_base() -> Any:
                     "client_certificate_path": {
                         "type": "string",
                         "descritption": "Path to client's CA certificate for HTTPS communications",
-                    }
+                    },
                     "max_threads": {
                         "type": "number",
                         "description": "Experimental: Max parallelism for REST API calls",
