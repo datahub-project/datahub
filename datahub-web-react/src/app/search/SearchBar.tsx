@@ -349,7 +349,6 @@ export const SearchBar = ({
             >
                 <StyledSearchBar
                     bordered={false}
-                    // todo - darken this color
                     placeholder={placeholderText}
                     onPressEnter={() => {
                         handleSearch(

@@ -11,7 +11,6 @@ import { ANTD_GRAY } from '../entity/shared/constants';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
-// import { ViewSelect } from '../entity/view/select/ViewSelect';
 import DemoButton from '../entity/shared/components/styled/DemoButton';
 
 const { Header } = Layout;
@@ -48,10 +47,6 @@ const NavGroup = styled.div`
     justify-content: flex-end;
     min-width: 200px;
 `;
-
-// const ViewSelectContainer = styled.span`
-//     margin-right: 14px;
-// `;
 
 type Props = {
     initialQuery: string;
@@ -114,11 +109,6 @@ export const SearchHeader = ({
                 />
             </LogoSearchContainer>
             <NavGroup>
-                {/* {viewsEnabled && (
-                    <ViewSelectContainer>
-                        <ViewSelect />
-                    </ViewSelectContainer>
-                )} */}
                 <HeaderLinks areLinksHidden={isSearchBarFocused} />
                 <ManageAccount urn={authenticatedUserUrn} pictureLink={authenticatedUserPictureLink || ''} />
                 {showAcrylInfo && <DemoButton />}
