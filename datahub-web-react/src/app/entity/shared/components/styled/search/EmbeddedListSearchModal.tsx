@@ -3,9 +3,9 @@ import { Button, Modal } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
+import { EntityActionProps } from './EntitySearchResults';
 
 const SearchContainer = styled.div`
     height: 500px;

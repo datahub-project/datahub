@@ -16,7 +16,6 @@ import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './typ
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
-import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -26,6 +25,7 @@ import {
     DownloadSearchResults,
 } from '../../../../../search/utils/types';
 import { useEntityContext } from '../../../EntityContext';
+import { EntityActionProps } from './EntitySearchResults';
 
 const Container = styled.div`
     display: flex;
