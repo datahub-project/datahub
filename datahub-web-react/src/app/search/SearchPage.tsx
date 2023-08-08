@@ -24,11 +24,13 @@ import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
 import useFilterMode from './filters/useFilterMode';
 import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
+import SearchContextProvider from './context/SearchContextProvider';
+import useSortCriterion from './sorting/useSortInput';
 
 /**
  * A search results page.
  */
-export const SearchPage = () => {
+const SearchPageContent = () => {
     const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -36,6 +38,7 @@ export const SearchPage = () => {
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
     const { filterMode, filterModeRef, setFilterMode } = useFilterMode(filters, unionType);
+    const sortInput = useSortCriterion();
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -56,6 +59,7 @@ export const SearchPage = () => {
                 filters: [],
                 orFilters,
                 viewUrn,
+                sortInput,
             },
         },
     });
@@ -225,3 +229,11 @@ export const SearchPage = () => {
         </>
     );
 };
+
+export function SearchPage() {
+    return (
+        <SearchContextProvider>
+            <SearchPageContent />
+        </SearchContextProvider>
+    );
+}

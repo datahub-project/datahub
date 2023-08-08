@@ -1207,9 +1207,9 @@ Input required in order to sort search results
 """
 input SearchSortInput {
   """
-  A list of criteria to sort on. Right now we only support a singular element to sort on and grab the first one.
+  A criterion to sort search results on
   """
-  sortCriteria: [SortCriterion!]!
+  sortCriterion: SortCriterion!
 }
 
 """
