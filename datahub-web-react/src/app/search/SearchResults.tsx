@@ -105,6 +105,12 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
     `}
 `;
 
+const MenuViewContainer = styled.div`
+    padding: 8px;
+    display: flex;
+    align-items: center;
+`;
+
 interface Props {
     unionType?: UnionType;
     query: string;
@@ -209,16 +215,19 @@ export const SearchResults = ({
                                     of <b>{totalResults}</b> results
                                 </Typography.Text>
                             </LeftControlsContainer>
-                            <SearchMenuContainer>
-                                <SearchExtendedMenu
-                                    downloadSearchResults={downloadSearchResults}
-                                    filters={generateOrFilters(unionType, selectedFilters)}
-                                    query={query}
-                                    viewUrn={viewUrn}
-                                    setShowSelectMode={setIsSelectMode}
-                                    totalResults={totalResults}
-                                />
-                            </SearchMenuContainer>
+                            <MenuViewContainer>
+                                <MatchingViewsLabel />
+                                <SearchMenuContainer>
+                                    <SearchExtendedMenu
+                                        downloadSearchResults={downloadSearchResults}
+                                        filters={generateOrFilters(unionType, selectedFilters)}
+                                        query={query}
+                                        viewUrn={viewUrn}
+                                        setShowSelectMode={setIsSelectMode}
+                                        totalResults={totalResults}
+                                    />
+                                </SearchMenuContainer>
+                            </MenuViewContainer>
                         </PaginationInfoContainer>
                         {isSelectMode && (
                             <StyledTabToolbar>
@@ -256,7 +265,6 @@ export const SearchResults = ({
                                             onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                                             pageSizeOptions={['10', '20', '50', '100']}
                                         />
-                                        <MatchingViewsLabel />
                                     </PaginationControlContainer>
                                     {authenticatedUserUrn && (
                                         <SearchResultsRecommendationsContainer>
