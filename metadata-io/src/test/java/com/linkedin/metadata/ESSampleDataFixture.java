@@ -15,8 +15,6 @@ import com.linkedin.metadata.entity.EntityAspectIdentifier;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -136,23 +134,6 @@ public class ESSampleDataFixture {
                 new CachingEntitySearchService(
                         cacheManager,
                         entitySearchService,
-                        batchSize,
-                        false
-                ),
-                new CachingAllEntitiesSearchAggregator(
-                        cacheManager,
-                        new AllEntitiesSearchAggregator(
-                                entityRegistry,
-                                entitySearchService,
-                                new CachingEntitySearchService(
-                                        cacheManager,
-                                        entitySearchService,
-                                        batchSize,
-                                        false
-                                ),
-                                ranker,
-                                entityDocCountCacheConfiguration
-                        ),
                         batchSize,
                         false
                 ),
