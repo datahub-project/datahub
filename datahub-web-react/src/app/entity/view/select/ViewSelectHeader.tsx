@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import styled from 'styled-components';
 import { NoMarginButton } from './styledComponents';
+import { ANTD_GRAY_V2 } from '../../shared/constants';
 
 const ButtonContainer = styled.div`
     display: flex;
@@ -10,7 +11,7 @@ const ButtonContainer = styled.div`
 const AllEntitiesButton = styled(NoMarginButton)`
     &&& {
         font-weight: normal;
-        border-bottom: 1px solid #dde0e4;
+        border-bottom: 1px solid ${ANTD_GRAY_V2[5]};
         width: 100%;
         text-align: left;
         border-bottom-left-radius: 0;
