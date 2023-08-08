@@ -12,7 +12,7 @@ source:
     
     # Optional -- Your Airbyte OSS username. Need to provide only if cloud_deploy is disabled
     username: "airbyte"
-    # Optional -- Your Airbyte OSS passowrd Need to provide only if cloud_deploy is disabled
+    # Optional -- Your Airbyte OSS passowrd. Need to provide only if cloud_deploy is disabled
     password: "password"
     
     # Optional -- This mapping is optional and only required to configure platform-instance for source/destination
