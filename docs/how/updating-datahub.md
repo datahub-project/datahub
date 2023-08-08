@@ -6,6 +6,16 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 0.10.5
+
+### Breaking Changes
+
 - #8201: Python SDK: In the DataFlow class, the `cluster` argument is deprecated in favor of `env`.
 - #8263: Okta source config option `okta_profile_to_username_attr` default changed from `login` to `email`.
   This determines which Okta profile attribute is used for the corresponding DataHub user
@@ -15,14 +25,26 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 certain column-level metrics. Instead, set `profile_table_level_only` to `false` and
 individually enable / disable desired field metrics.
 - #8451: The `bigquery-beta` and `snowflake-beta` source aliases have been dropped. Use `bigquery` and `snowflake` as the source type instead.
-
+- #8472: Ingestion runs created with Pipeline.create will show up in the DataHub ingestion tab as CLI-based runs. To revert to the previous behavior of not showing these runs in DataHub, pass `no_default_report=True`.
+- #8513: `snowflake` connector will use user's `email` attribute as is in urn. To revert to previous behavior disable `email_as_user_identifier` in recipe. 
 ### Potential Downtime
+
+- BrowsePathsV2 upgrade will now be handled by the `system-update` job in non-blocking mode. This process generates data needed for the new search
+  and browse feature. This process must complete before enabling the new search and browse UI and while upgrading entities will be missing from the UI.
+  If not using the new search and browse UI, there will be no impact and the update will complete in the background.
 
 ### Deprecations
 
 - #8198: In the Python SDK, the `PlatformKey` class has been renamed to `ContainerKey`.
 
-### Other notable Changes
+### Other Notable Changes
+
+0.10.5 introduces the new Unified Search & Browse experience and is disabled by default. You can control whether or not you want to see just the new search filtering experience, the new search and browse experience together, or keep the existing search and browse experiences by toggling the two environment variable feature flags `SHOW_SEARCH_FILTERS_V2` and `SHOW_BROWSE_V2` in your GMS container.
+
+**Upgrade Considerations:**
+
+- With the release of Browse V2, we have created a job to run in GMS that will backfill your existing data with new `browsePathsV2` aspects. This job loops over entity types that need a `browsePathsV2` aspect (Dataset, Dashboard, Chart, DataJob, DataFlow, MLModel, MLModelGroup, MLFeatureTable, and MLFeature) and generates one for them. For entities that may have Container parents (Datasets and Dashboards) we will try to fetch their parent containers in order to generate this new aspect. For those deployments with large amounts of data, consider whether running this upgrade job makes sense as it may be a heavy operation and take some time to complete. If you wish to skip this job, simply set the `BACKFILL_BROWSE_PATHS_V2` environment variable flag to `false` in your GMS container. Without this backfill job, though, you will need to rely on the newest CLI of ingestion to create these `browsePathsV2` aspects when running ingestion otherwise your browse sidebar will be out-of-sync.
+- Since the new browse experience replaces the old, consider whether having the `SHOW_BROWSE_V2` environment variable feature flag on is the right decision for your organization. If you’re creating custom browse paths with the `browsePaths` aspect, you can continue to do the same with the new experience, however you will have to generate `browsePathsV2` aspects instead which are documented [here](https://datahubproject.io/docs/browsev2/browse-paths-v2/).
 
 ## 0.10.4
 

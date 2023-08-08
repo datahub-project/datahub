@@ -33,9 +33,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -200,6 +203,10 @@ class ElasticProfiling(ConfigModel):
         default=False,
         description="Whether to enable profiling for the elastic search source.",
     )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
+    )
 
 
 class CollapseUrns(ConfigModel):
@@ -297,6 +304,11 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         default_factory=CollapseUrns,
     )
 
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
@@ -351,9 +363,6 @@ class ElasticsearchSource(Source):
     ) -> "ElasticsearchSource":
         config = ElasticsearchSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         indices = self.client.indices.get_alias()
@@ -515,7 +524,7 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.profiling.enabled:
+        if self.source_config.is_profiling_enabled():
             if self.cat_response is None:
                 self.cat_response = self.client.cat.indices(
                     params={
