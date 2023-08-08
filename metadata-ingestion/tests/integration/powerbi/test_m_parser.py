@@ -47,11 +47,18 @@ M_QUERIES = [
 ]
 
 
-def get_default_instances() -> Tuple[
+def get_default_instances(
+    override_config: dict = {},
+) -> Tuple[
     PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
 ]:
     config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
-        {"tenant_id": "fake", "client_id": "foo", "client_secret": "bar"}
+        {
+            "tenant_id": "fake",
+            "client_id": "foo",
+            "client_secret": "bar",
+            **override_config,
+        }
     )
 
     platform_instance_resolver: AbstractDataPlatformInstanceResolver = (
@@ -686,10 +693,18 @@ def test_sqlglot_parser():
     )
     reporter = PowerBiDashboardSourceReport()
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-
-    config.native_query_parsing = True
-    config.enable_advance_lineage_sql_construct = True
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "bu10758.ap-unknown-2.fakecomputing.com": {
+                    "platform_instance": "sales_deployment",
+                    "env": "PROD",
+                }
+            },
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
@@ -702,9 +717,9 @@ def test_sqlglot_parser():
     assert len(data_platform_tables) == 2
     assert (
         data_platform_tables[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit,PROD)"
     )
     assert (
         data_platform_tables[1].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )
