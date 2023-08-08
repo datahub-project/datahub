@@ -58,7 +58,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
             )

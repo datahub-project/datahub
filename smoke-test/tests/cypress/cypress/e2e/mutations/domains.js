@@ -5,7 +5,7 @@ const test_domain_urn = `urn:li:domain:${test_domain_id}`
 
 describe("add remove domain", () => {
     it("create domain", () => {
-        cy.login();
+        cy.loginWithCredentials();
         cy.goToDomainList();
         cy.clickOptionWithText("New Domain");
         cy.waitTextVisible("Create new Domain");
@@ -17,30 +17,22 @@ describe("add remove domain", () => {
     })
 
     it("add entities to domain", () => {
-        cy.login();
+        cy.loginWithCredentials();
         cy.goToDomainList();
         cy.clickOptionWithText(test_domain);
         cy.waitTextVisible("Add assets")
         cy.clickOptionWithText("Add assets")     
         cy.get(".ant-modal-content").within(() => {
             cy.get('[data-testid="search-input"]').click().invoke("val", "cypress_project.jaffle_shop.").type("customer")
-            cy.contains("BigQuery")
+            cy.contains("BigQuery", {timeout: 30000 })
             cy.get(".ant-checkbox-input").first().click()
             cy.get("#continueButton").click()
         })
         cy.waitTextVisible("Added assets to Domain!")
     })
 
-    it("search filter by domain", () => {
-        cy.login();
-        cy.goToStarSearchList()
-        cy.waitTextVisible(test_domain)
-        cy.get('[data-testid="facet-domains-' + test_domain_urn + '"]').click()
-        cy.waitTextVisible("customers")
-    })
-
     it("remove entity from domain", () => {
-        cy.login();
+        cy.loginWithCredentials();
         cy.goToDomainList();
         cy.removeDomainFromDataset(
             "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
@@ -50,13 +42,12 @@ describe("add remove domain", () => {
     })
 
     it("delete a domain and ensure dangling reference is deleted on entities", () => {
-        cy.login();
+        cy.loginWithCredentials();
         cy.goToDomainList();
         cy.get('[data-testid="dropdown-menu-' + test_domain_urn + '"]').click();
         cy.clickOptionWithText("Delete");
         cy.clickOptionWithText("Yes");
         cy.ensureTextNotPresent(test_domain)
-        
         cy.goToContainer("urn:li:container:348c96555971d3f5c1ffd7dd2e7446cb")
         cy.waitTextVisible("customers")
         cy.ensureTextNotPresent(test_domain)

@@ -41,11 +41,13 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    downgrade_schema_from_v2,
     gen_database_container,
     gen_database_key,
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
+    schema_requires_v2,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -287,7 +289,15 @@ def get_schema_metadata(
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: Optional[List[SchemaField]] = None,
+    simplify_nested_field_paths: bool = False,
 ) -> SchemaMetadata:
+    if (
+        simplify_nested_field_paths
+        and canonical_schema is not None
+        and not schema_requires_v2(canonical_schema)
+    ):
+        canonical_schema = downgrade_schema_from_v2(canonical_schema)
+
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),
@@ -335,7 +345,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         config_report = {
             **config_report,
-            "profiling_enabled": config.profiling.enabled,
+            "profiling_enabled": config.is_profiling_enabled(),
             "platform": platform,
         }
 
@@ -344,7 +354,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             config_report,
         )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
@@ -484,7 +494,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.profiling.enabled:
+        if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
@@ -492,7 +502,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.profiling.enabled:
+            if sql_config.is_profiling_enabled():
                 profiler = self.get_profiler_instance(inspector)
                 try:
                     self.add_profile_metadata(inspector)

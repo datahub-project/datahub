@@ -369,15 +369,15 @@ plugins: Dict[str, Set[str]] = {
         "great_expectations",
         "greenlet",
     },
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
+    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
+    # to remove that dependency.
+    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
-
     "unity-catalog": databricks | sqllineage_lib,
 }
 
@@ -416,6 +416,7 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
+    "types-tzlocal",
 }
 
 
