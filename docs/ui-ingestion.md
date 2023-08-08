@@ -28,6 +28,9 @@ your first **Ingestion Source**.
 
 ### Creating an Ingestion Source
 
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+
 Before ingesting any metadata, you need to create a new Ingestion Source. Start by clicking **+ Create new source**.
 
 ![](./imgs/create-new-ingestion-source-button.png)
@@ -151,6 +154,45 @@ _Pinning the CLI version to version `0.8.23.2`_
 
 Once you're happy with your changes, simply click 'Done' to save. 
 
+   </TabItem>
+   <TabItem value="cli" label="CLI" default>
+
+You can upload and even update recipes using the cli as mentioned in the [cli documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
+An example execution would look something like:
+
+```bash
+datahub ingest deploy --name "My Test Ingestion Source" --schedule "5 * * * *" --time-zone "UTC" -c recipe.yaml
+```
+
+This would create a new recipe with the name `My Test Ingestion Source`. Note that to update an existing recipe, it's `urn` id must be passed as a parameter.
+DataHub supports having multiple recipes with the same name so to distinguish them we use the urn for unique identification.
+
+   </TabItem>
+   <TabItem value="graphql" label="GraphQL" default>
+
+Create ingestion sources using [DataHub's GraphQL API](./api/graphql/overview.md) using the **createIngestionSource** mutation endpoint.
+```graphql
+mutation {
+   createIngestionSource(input: {
+      name: "My Test Ingestion Source",
+      type: "mysql",
+      description: "My ingestion source description",
+      schedule: {interval: "*/5 * * * *", timezone: "UTC"},
+      config: {
+         recipe: "{\"source\":{\"type\":\"mysql\",\"config\":{\"include_tables\":true,\"database\":null,\"password\":\"${MYSQL_PASSWORD}\",\"profiling\":{\"enabled\":false},\"host_port\":null,\"include_views\":true,\"username\":\"${MYSQL_USERNAME}\"}},\"pipeline_name\":\"urn:li:dataHubIngestionSource:f38bd060-4ea8-459c-8f24-a773286a2927\"}",
+         version: "0.8.18",
+         executorId: "mytestexecutor",
+      }
+   })
+}
+```
+
+To update sources, please use the `updateIngestionSource` endpoint. It is almost identical to the create endpoint, only requiring the urn of the source to be updated in addition to the same input as the create endpoint.
+
+**Note**: Recipe must be double quotes escaped
+
+   </TabItem>
+</Tabs>
 
 ### Running an Ingestion Source
 

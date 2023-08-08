@@ -415,7 +415,6 @@ module.exports = {
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
-        "docs/architecture/stemming_and_synonyms",
         "docs/lineage/lineage-feature-guide",
         {
           type: "doc",
@@ -423,6 +422,9 @@ module.exports = {
           className: "saasOnly",
         },
         "docs/act-on-metadata/impact-analysis",
+        {
+          Observability: ["docs/managed-datahub/observe/freshness-assertions"],
+        },
       ],
     },
     {
@@ -450,6 +452,7 @@ module.exports = {
             "docs/components",
             "docs/architecture/metadata-ingestion",
             "docs/architecture/metadata-serving",
+            "docs/architecture/docker-containers",
           ],
         },
         {
@@ -491,6 +494,7 @@ module.exports = {
             "docs/how/add-custom-ingestion-source",
             "docs/how/add-custom-data-platform",
             "docs/advanced/browse-paths-upgrade",
+            "docs/browseV2/browse-paths-v2",
           ],
         },
       ],
@@ -648,6 +652,7 @@ module.exports = {
     // "metadata-jobs/README",
     // "docs/how/add-user-data",
     // "docs/_feature-guide-template"
+    // - "metadata-service/services/README"
     // ],
   ],
 };

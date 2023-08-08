@@ -199,7 +199,7 @@ def test_make_usage_workunit():
 def test_query_formatting():
     test_email = "test_email@test.com"
     test_query = "select * from foo where id in (select id from bar);"
-    formatted_test_query: str = "SELECT *\n  FROM foo\n WHERE id in (\n        SELECT id\n          FROM bar\n       );"
+    formatted_test_query: str = "SELECT *\n  FROM foo\n WHERE id IN (\n        SELECT id\n          FROM bar\n       );"
     event_time = datetime(2020, 1, 1)
 
     floored_ts = get_time_bucket(event_time, BucketDuration.DAY)

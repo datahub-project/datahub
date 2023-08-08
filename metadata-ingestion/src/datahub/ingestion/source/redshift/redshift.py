@@ -408,7 +408,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 connection=connection, all_tables=all_tables, database=database
             )
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             profiler = RedshiftProfiler(
                 config=self.config,
                 report=self.report,
@@ -813,7 +813,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 else:
                     logger.debug(
-                        f"View {database}.{schema}.{table.name} is filtered by view_pattern"
+                        f"View {database}.{schema}.{view.name} is filtered by view_pattern"
                     )
                     self.report.view_filtered[f"{database}.{schema}"] = (
                         self.report.view_filtered.get(f"{database}.{schema}", 0) + 1
