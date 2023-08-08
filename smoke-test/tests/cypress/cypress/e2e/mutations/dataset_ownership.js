@@ -31,51 +31,9 @@ const addOwner = (owner, type, elementId) => {
 describe("add, remove ownership for dataset", () => {
     it("create test user and test group, add user to a group", () => {
         cy.loginWithCredentials();
-        cy.visit("/settings/identities/users");
-        cy.waitTextVisible("Invite Users");
-        cy.clickOptionWithText("Invite Users");
-         cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
-            const inviteLink = $elem.text();
-            cy.visit("/settings/identities/users");
-            cy.logout();
-            cy.visit(inviteLink);
-            cy.enterTextInTestId("email", email);
-            cy.enterTextInTestId("name", username);
-            cy.enterTextInTestId("password", password);
-            cy.enterTextInTestId("confirmPassword", password);
-            cy.mouseover("#title").click();
-            cy.waitTextVisible("Other").click();
-            cy.get("[type=submit]").click();
-            cy.waitTextVisible("Welcome to DataHub");
-            cy.hideOnboardingTour();
-            cy.waitTextVisible(username);
-            cy.logout();
-        })
-        cy.loginWithCredentials();
-        cy.visit("/settings/identities/groups")
-        cy.clickOptionWithText("Create group");
-        cy.waitTextVisible("Create new group");
-        cy.get("#name").type(group_name);
-        cy.get("#description").type("Test group description");
-        cy.contains("Advanced").click();
-        cy.waitTextVisible("Group Id");
-        cy.get("#groupId").type(test_id);
-        cy.get("#createGroupButton").click();
-        cy.waitTextVisible("Created group!");
-        cy.waitTextVisible(group_name);
-        cy.clickOptionWithText(group_name);
-        cy.contains(group_name).should("be.visible");
-        cy.get('[role="tab"]').contains("Members").click();
-        cy.waitTextVisible("No members in this group yet.");
-        cy.clickOptionWithText("Add Member");
-        cy.contains("Search for users...").click({ force: true });
-        cy.focused().type(username);
-        cy.contains(username).click();
-        cy.focused().blur();
-        cy.contains(username).should("have.length", 1);
-        cy.get('[role="dialog"] button').contains("Add").click({ force: true });
-        cy.waitTextVisible("Group members added!");
-        cy.contains(username, {timeout: 10000}).should("be.visible");
+        cy.createUser(username, password, email);
+        cy.createGroup(group_name, "Test group description", test_id);
+        cy.addGroupMember(group_name, `/group/urn:li:corpGroup:${test_id}/assets`, username);
     });
 
     it("open test dataset page, add and remove user ownership(test every type)", () => {
