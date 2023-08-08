@@ -9,9 +9,7 @@ from collections import OrderedDict
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import pydeequ
 from more_itertools import peekable
-from pydeequ.analyzers import AnalyzerContext
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
@@ -62,7 +60,6 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
-from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -181,9 +178,9 @@ def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
     try:
         # Stripping = from the folder names as it most probably partition name part like year=2021
         if "=" in folder1 and "=" in folder2:
-            if folder1.split("=", 1)[0] == folder2.split("=", 1)[0]:
-                folder1 = folder1.split("=", 1)[1]
-                folder2 = folder2.split("=", 1)[1]
+            if folder1.rsplit("=", 1)[0] == folder2.rsplit("=", 1)[0]:
+                folder1 = folder1.rsplit("=", 1)[-1]
+                folder2 = folder2.rsplit("=", 1)[-1]
 
         num_folder1 = int(folder1)
         num_folder2 = int(folder2)
@@ -267,14 +264,17 @@ class S3Source(StatefulIngestionSourceBase):
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
         }
-        config_report = {**config_report, "profiling_enabled": config.profiling.enabled}
+        config_report = {
+            **config_report,
+            "profiling_enabled": config.is_profiling_enabled(),
+        }
 
         telemetry.telemetry_instance.ping(
             "data_lake_config",
             config_report,
         )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             telemetry.telemetry_instance.ping(
                 "data_lake_profiling_config",
                 {
@@ -285,6 +285,10 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        # Deequ fails if Spark is not available which is not needed for non profiling use cases
+        import pydeequ
+
         conf = SparkConf()
 
         conf.set(
@@ -477,6 +481,12 @@ class S3Source(StatefulIngestionSourceBase):
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
     ) -> Iterable[MetadataWorkUnit]:
+        # Importing here to avoid Deequ dependency for non profiling use cases
+        # Deequ fails if Spark is not available which is not needed for non profiling use cases
+        from pydeequ.analyzers import AnalyzerContext
+
+        from datahub.ingestion.source.s3.profiling import _SingleTableProfiler
+
         # read in the whole table with Spark for profiling
         table = None
         try:
@@ -652,7 +662,7 @@ class S3Source(StatefulIngestionSourceBase):
             table_data.table_path, dataset_urn
         )
 
-        if self.source_config.profiling.enabled:
+        if self.source_config.is_profiling_enabled():
             yield from self.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
@@ -766,27 +776,39 @@ class S3Source(StatefulIngestionSourceBase):
             for folder in self.resolve_templated_folders(
                 bucket_name, get_bucket_relative_path(include[:table_index])
             ):
-                for f in list_folders(
-                    bucket_name, f"{folder}", self.source_config.aws_config
-                ):
-                    logger.info(f"Processing folder: {f}")
-                    protocol = ContainerWUCreator.get_protocol(path_spec.include)
-                    dir_to_process = self.get_dir_to_process(
-                        bucket_name=bucket_name,
-                        folder=f + "/",
-                        path_spec=path_spec,
-                        protocol=protocol,
-                    )
-                    logger.info(f"Getting files from folder: {dir_to_process}")
-                    dir_to_process = dir_to_process.rstrip("\\")
-                    for obj in (
-                        bucket.objects.filter(Prefix=f"{dir_to_process}")
-                        .page_size(PAGE_SIZE)
-                        .limit(sample_size)
+                try:
+                    for f in list_folders(
+                        bucket_name, f"{folder}", self.source_config.aws_config
                     ):
-                        s3_path = self.create_s3_path(obj.bucket_name, obj.key)
-                        logger.debug(f"Sampling file: {s3_path}")
-                        yield s3_path, obj.last_modified, obj.size,
+                        logger.info(f"Processing folder: {f}")
+                        protocol = ContainerWUCreator.get_protocol(path_spec.include)
+                        dir_to_process = self.get_dir_to_process(
+                            bucket_name=bucket_name,
+                            folder=f + "/",
+                            path_spec=path_spec,
+                            protocol=protocol,
+                        )
+                        logger.info(f"Getting files from folder: {dir_to_process}")
+                        dir_to_process = dir_to_process.rstrip("\\")
+                        for obj in (
+                            bucket.objects.filter(Prefix=f"{dir_to_process}")
+                            .page_size(PAGE_SIZE)
+                            .limit(sample_size)
+                        ):
+                            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+                            logger.debug(f"Sampling file: {s3_path}")
+                            yield s3_path, obj.last_modified, obj.size,
+                except Exception as e:
+                    # This odd check if being done because boto does not have a proper exception to catch
+                    # The exception that appears in stacktrace cannot actually be caught without a lot more work
+                    # https://github.com/boto/boto3/issues/1195
+                    if "NoSuchBucket" in repr(e):
+                        logger.debug(f"Got NoSuchBucket exception for {bucket_name}", e)
+                        self.get_report().report_warning(
+                            "Missing bucket", f"No bucket found {bucket_name}"
+                        )
+                    else:
+                        raise e
         else:
             logger.debug(
                 "No template in the pathspec can't do sampling, fallbacking to do full scan"
@@ -865,7 +887,7 @@ class S3Source(StatefulIngestionSourceBase):
                 for guid, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
-            if not self.source_config.profiling.enabled:
+            if not self.source_config.is_profiling_enabled():
                 return
 
             total_time_taken = timer.elapsed_seconds()

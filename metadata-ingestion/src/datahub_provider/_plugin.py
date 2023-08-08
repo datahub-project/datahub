@@ -107,7 +107,7 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
         ]
 
         for inlet in task_inlets:
-            if type(inlet) != str:
+            if isinstance(inlet, str):
                 inlets.append(inlet)
 
     return inlets
@@ -351,8 +351,6 @@ def _patch_policy(settings):
 
 
 def _patch_datahub_policy():
-    logger.info("Patching datahub policy")
-
     with contextlib.suppress(ImportError):
         import airflow_local_settings
 

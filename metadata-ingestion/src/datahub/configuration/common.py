@@ -2,7 +2,7 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar
+from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
 
 import pydantic
 from cached_property import cached_property
@@ -31,8 +31,10 @@ REDACT_SUFFIXES = {
 }
 
 
-def _should_redact_key(key: str) -> bool:
-    return key in REDACT_KEYS or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+def _should_redact_key(key: Union[str, int]) -> bool:
+    return isinstance(key, str) and (
+        key in REDACT_KEYS or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+    )
 
 
 def _redact_value(value: Any) -> Any:
