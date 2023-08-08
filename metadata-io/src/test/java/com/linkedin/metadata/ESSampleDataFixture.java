@@ -84,6 +84,11 @@ public class ESSampleDataFixture {
         return "sample_data";
     }
 
+    @Bean(name = "longTailFixtureName")
+    protected String longTailFixtureName() {
+        return "long_tail";
+    }
+
     @Bean(name = "sampleDataEntityIndexBuilders")
     protected EntityIndexBuilders entityIndexBuilders(
             @Qualifier("entityRegistry") EntityRegistry entityRegistry,
@@ -124,7 +129,28 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataPrefix") String prefix,
             @Qualifier("sampleDataFixtureName") String fixtureName
     ) throws IOException {
+        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, fixtureName);
+    }
 
+    @Bean(name = "longTailSampleDataSearchService")
+    @Nonnull
+    protected SearchService longTailSearchService(
+            @Qualifier("entityRegistry") EntityRegistry entityRegistry,
+            @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
+            @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
+            @Qualifier("sampleDataPrefix") String prefix,
+            @Qualifier("longTailFixtureName") String longTailFixtureName
+    ) throws IOException {
+        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, longTailFixtureName);
+    }
+
+    private SearchService searchServiceHelper(
+            EntityRegistry entityRegistry,
+            ElasticSearchService entitySearchService,
+            EntityIndexBuilders indexBuilders,
+            String prefix,
+            String fixtureName
+    ) throws IOException {
         int batchSize = 100;
         SearchRanker<Double> ranker = new SimpleRanker();
         CacheManager cacheManager = new ConcurrentMapCacheManager();
