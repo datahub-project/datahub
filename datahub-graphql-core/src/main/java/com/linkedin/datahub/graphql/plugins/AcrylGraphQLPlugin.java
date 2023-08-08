@@ -60,6 +60,7 @@ import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.test.BatchTestRunEventsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.EntityTestResultsResolver;
@@ -403,6 +404,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     );
     builder.type("Test", typeWiring -> typeWiring
         .dataFetcher("results", new TestResultsSummaryResolver(this.entitySearchService))
+        .dataFetcher("batchRunEvents", new BatchTestRunEventsResolver(this.entityClient))
+
     );
   }
   private void configureDatasetResolvers(final RuntimeWiring.Builder builder) {

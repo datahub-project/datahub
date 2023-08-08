@@ -41,6 +41,11 @@ type Test implements Entity {
     Unused for tests
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+    """
+    Batch run events for this test, e.g. when the batch implementation of the test last ran.
+    """
+    batchRunEvents(startTimeMillis: Long, endTimeMillis: Long, limit: Int): BatchTestRunEventsResult
 }
 
 """
@@ -311,6 +316,61 @@ type TestResultsSummary {
 
   """
   The number of assets failing the test
+  """
+  failingCount: Long!
+}
+
+"""
+Result returned when fetching batch run events for a Metadata Test
+"""
+type BatchTestRunEventsResult {
+  """
+  The run events themselves
+  """
+  batchRunEvents: [BatchTestRunEvent!]!
+}
+
+"""
+An event representing the current status of evaluating a batch metadata test (run offline)
+"""
+type BatchTestRunEvent implements TimeSeriesAspect {
+  """
+  The event timestamp field as epoch at UTC in milli seconds.
+  """
+  timestampMillis: Long!
+
+  """
+  The status of the Test run as per this timeseries event.
+  """
+  status: BatchTestRunStatus!
+
+  """
+  Results of test, present if the status is COMPLETE
+  """
+  result: BatchTestRunResult
+}
+
+"""
+The status of the batch test run
+"""
+enum BatchTestRunStatus {
+  """
+  The Test Run has completed
+  """
+  COMPLETE
+}
+
+"""
+The result of running a batch metadata test
+"""
+type BatchTestRunResult {
+  """
+  Number of assets that were passing the test.
+  """
+  passingCount: Long!
+
+  """
+  Number of assets that were failing the test.
   """
   failingCount: Long!
 }
