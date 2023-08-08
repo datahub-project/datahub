@@ -15,12 +15,11 @@ const CreateViewButton = styled(NoMarginButton)<{ bordered: boolean }>`
     &&& {
         text-align: left;
         font-weight: normal;
-        padding: 8px;
-        padding-right: 8px;
         border-top-left-radius: 0;
         border-top-right-radius: 0;
         margin-left: 8px;
         margin-right: 8px;
+        padding-left: 0px;
 
         ${(props) => props.bordered && `border-top: 1px solid ${ANTD_GRAY_V2[5]};`}
     }

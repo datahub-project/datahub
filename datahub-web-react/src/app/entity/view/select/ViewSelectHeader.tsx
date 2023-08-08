@@ -17,6 +17,7 @@ const AllEntitiesButton = styled(NoMarginButton)`
         border-bottom-right-radius: 0;
         margin-left: 8px;
         margin-right: 8px;
+        padding-left: 0px;
     }
 `;
 
