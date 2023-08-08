@@ -1,25 +1,30 @@
 import React, { useRef } from 'react';
 import styled from 'styled-components';
-import { Button, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { NoMarginButton } from './styledComponents';
 
 const ButtonContainer = styled.div`
     display: flex;
     justify-content: space-between;
 `;
 
-const NoMarginButton = styled(Button)`
-    && {
-        margin: 0px;
+const AllEntitiesButton = styled(NoMarginButton)`
+    &&& {
+        font-weight: normal;
+        border-bottom: 1px solid #dde0e4;
+        width: 100%;
+        text-align: left;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        margin-left: 8px;
+        margin-right: 8px;
     }
 `;
 
 type Props = {
-    onClickCreateView: () => void;
     onClickClear: () => void;
 };
 
-export const ViewSelectHeader = ({ onClickCreateView, onClickClear }: Props) => {
+export const ViewSelectHeader = ({ onClickClear }: Props) => {
     const clearButtonRef = useRef(null);
 
     const onHandleClickClear = () => {
@@ -29,18 +34,14 @@ export const ViewSelectHeader = ({ onClickCreateView, onClickClear }: Props) => 
 
     return (
         <ButtonContainer>
-            <NoMarginButton data-testid="view-select-create" type="text" onClick={onClickCreateView}>
-                <PlusOutlined />
-                <Typography.Text strong> Create View</Typography.Text>
-            </NoMarginButton>
-            <NoMarginButton
+            <AllEntitiesButton
                 data-testid="view-select-clear"
-                type="link"
+                type="text"
                 ref={clearButtonRef}
                 onClick={onHandleClickClear}
             >
-                Clear
-            </NoMarginButton>
+                All Entities
+            </AllEntitiesButton>
         </ButtonContainer>
     );
 };
