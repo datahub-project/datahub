@@ -72,11 +72,23 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
+    def _get_source_connector_from_response(self, response: Dict) -> Connector:
+        pass
+
+    @abstractmethod
     def _get_source_connector(self, source_id: str) -> Connector:
         pass
 
     @abstractmethod
+    def _get_destination_connector_from_response(self, response: Dict) -> Connector:
+        pass
+
+    @abstractmethod
     def _get_destination_connector(self, destination_id: str) -> Connector:
+        pass
+
+    @abstractmethod
+    def _get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
         pass
 
     @abstractmethod
@@ -135,24 +147,6 @@ class DataResolverBase(ABC):
         # Replace place holders
         return source_endpoint.format(API_URL=self.api_url, SOURCE_ID=source_id)
 
-    def _get_source_connector_from_response(self, response: Dict) -> Connector:
-        connector_type = (
-            response[Constant.SOURCETYPE]
-            if Constant.SOURCETYPE in response
-            else response[Constant.SOURCENAME]
-        ).lower()
-        configuration = (
-            response[Constant.CONNECTIONCONFIGURATION]
-            if Constant.CONNECTIONCONFIGURATION in response
-            else response[Constant.CONFIGURATION]
-        )
-        return Connector(
-            connector_id=response[Constant.SOURCEID],
-            name=response[Constant.NAME],
-            type=connector_type,
-            server=self._get_server_from_configuration(configuration, connector_type),
-        )
-
     def _get_destination_endpoint(self, destination_id: str) -> str:
         destination_endpoint: str = self.API_ENDPOINTS[Constant.DESTINATION_GET]
         # Replace place holders
@@ -160,60 +154,14 @@ class DataResolverBase(ABC):
             API_URL=self.api_url, DESTINATION_ID=destination_id
         )
 
-    def _get_destination_connector_from_response(self, response: Dict) -> Connector:
-        connector_type = (
-            response[Constant.DESTINATIONTYPE]
-            if Constant.DESTINATIONTYPE in response
-            else response[Constant.DESTINATIONNAME]
-        ).lower()
-        configuration = (
-            response[Constant.CONNECTIONCONFIGURATION]
-            if Constant.CONNECTIONCONFIGURATION in response
-            else response[Constant.CONFIGURATION]
-        )
-        return Connector(
-            connector_id=response[Constant.DESTINATIONID],
-            name=response[Constant.NAME],
-            type=connector_type,
-            server=self._get_server_from_configuration(configuration, connector_type),
-        )
-
     def _get_jobs_endpoint(self, connection_id: str) -> str:
         jobs_endpoint: str = self.API_ENDPOINTS[Constant.JOBS_LIST]
         # Replace place holders
         return jobs_endpoint.format(API_URL=self.api_url, CONNECTION_ID=connection_id)
 
-    def _get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
-        jobs: List[Job] = [
-            Job(
-                job_id=str(job[Constant.JOBID])
-                if Constant.JOBID in job
-                else str(job[Constant.ID]),
-                status=job[Constant.STATUS],
-                job_type=job[Constant.JOBTYPE]
-                if Constant.JOBTYPE in job
-                else job[Constant.CONFIGTYPE],
-                start_time=job[Constant.STARTTIME]
-                if Constant.STARTTIME in job
-                else job[Constant.CREATEDAT],
-                end_time=job[Constant.ENDTIME]
-                if Constant.ENDTIME in job
-                else job[Constant.ENDEDAT],
-                last_updated_at=job[Constant.LASTUPDATEDAT]
-                if Constant.LASTUPDATEDAT in job
-                else job[Constant.UPDATEDAT],
-                bytes_synced=job[Constant.BYTESSYNCED],
-                rows_synced=job[Constant.ROWSSYNCED]
-                if Constant.ROWSSYNCED in job
-                else job[Constant.RECORDSSYNCED],
-            )
-            for job in response
-        ]
-        return jobs
-
 
 class CloudAPIResolver(DataResolverBase):
-    api_url = None
+    api_url = ""
     # Cloud api endpoints
     API_ENDPOINTS = {
         Constant.WORKSPACE_LIST: "{API_URL}/v1/workspaces",
@@ -281,6 +229,16 @@ class CloudAPIResolver(DataResolverBase):
         connections = response.json().get(Constant.DATA)
         return self._get_connections_from_response(connections) if connections else []
 
+    def _get_source_connector_from_response(self, response: Dict) -> Connector:
+        connector_type = response[Constant.SOURCETYPE].lower()
+        configuration = response[Constant.CONFIGURATION]
+        return Connector(
+            connector_id=response[Constant.SOURCEID],
+            name=response[Constant.NAME],
+            type=connector_type,
+            server=self._get_server_from_configuration(configuration, connector_type),
+        )
+
     def _get_source_connector(self, source_id: str) -> Connector:
         """
         Get the source connector details from Airbyte Cloud
@@ -294,6 +252,16 @@ class CloudAPIResolver(DataResolverBase):
         response.raise_for_status()
         return self._get_source_connector_from_response(response.json())
 
+    def _get_destination_connector_from_response(self, response: Dict) -> Connector:
+        connector_type = response[Constant.DESTINATIONTYPE].lower()
+        configuration = response[Constant.CONFIGURATION]
+        return Connector(
+            connector_id=response[Constant.DESTINATIONID],
+            name=response[Constant.NAME],
+            type=connector_type,
+            server=self._get_server_from_configuration(configuration, connector_type),
+        )
+
     def _get_destination_connector(self, destination_id: str) -> Connector:
         """
         Get the destination connector details from Airbyte Cloud
@@ -306,6 +274,22 @@ class CloudAPIResolver(DataResolverBase):
         )
         response.raise_for_status()
         return self._get_destination_connector_from_response(response.json())
+
+    def _get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
+        jobs: List[Job] = [
+            Job(
+                job_id=str(job[Constant.JOBID]),
+                status=job[Constant.STATUS],
+                job_type=job[Constant.JOBTYPE],
+                start_time=job[Constant.STARTTIME],
+                end_time=job[Constant.ENDTIME],
+                last_updated_at=job[Constant.LASTUPDATEDAT],
+                bytes_synced=job[Constant.BYTESSYNCED],
+                rows_synced=job[Constant.ROWSSYNCED],
+            )
+            for job in response
+        ]
+        return jobs
 
     def _get_jobs(self, connection_id: str) -> List[Job]:
         """
@@ -336,7 +320,7 @@ class CloudAPIResolver(DataResolverBase):
 
 
 class OssAPIResolver(DataResolverBase):
-    api_url = None
+    api_url = ""
     # Oss api endpoints
     API_ENDPOINTS = {
         Constant.WORKSPACE_LIST: "{API_URL}/v1/workspaces/list",
@@ -412,6 +396,16 @@ class OssAPIResolver(DataResolverBase):
             response.json()[Constant.CONNECTIONS]
         )
 
+    def _get_source_connector_from_response(self, response: Dict) -> Connector:
+        connector_type = response[Constant.SOURCENAME].lower()
+        configuration = response[Constant.CONNECTIONCONFIGURATION]
+        return Connector(
+            connector_id=response[Constant.SOURCEID],
+            name=response[Constant.NAME],
+            type=connector_type,
+            server=self._get_server_from_configuration(configuration, connector_type),
+        )
+
     def _get_source_connector(self, source_id: str) -> Connector:
         """
         Get the source connector details from Airbyte OSS
@@ -426,6 +420,16 @@ class OssAPIResolver(DataResolverBase):
         response.raise_for_status()
         return self._get_source_connector_from_response(response.json())
 
+    def _get_destination_connector_from_response(self, response: Dict) -> Connector:
+        connector_type = response[Constant.DESTINATIONNAME].lower()
+        configuration = response[Constant.CONNECTIONCONFIGURATION]
+        return Connector(
+            connector_id=response[Constant.DESTINATIONID],
+            name=response[Constant.NAME],
+            type=connector_type,
+            server=self._get_server_from_configuration(configuration, connector_type),
+        )
+
     def _get_destination_connector(self, destination_id: str) -> Connector:
         """
         Get the destination connector details from Airbyte OSS
@@ -439,6 +443,22 @@ class OssAPIResolver(DataResolverBase):
         )
         response.raise_for_status()
         return self._get_destination_connector_from_response(response.json())
+
+    def _get_jobs_from_response(self, response: List[Dict]) -> List[Job]:
+        jobs: List[Job] = [
+            Job(
+                job_id=str(job[Constant.ID]),
+                status=job[Constant.STATUS],
+                job_type=job[Constant.CONFIGTYPE],
+                start_time=job[Constant.CREATEDAT],
+                end_time=job[Constant.ENDEDAT],
+                last_updated_at=job[Constant.UPDATEDAT],
+                bytes_synced=job[Constant.BYTESSYNCED],
+                rows_synced=job[Constant.RECORDSSYNCED],
+            )
+            for job in response
+        ]
+        return jobs
 
     def _get_jobs(self, connection_id: str) -> List[Job]:
         """

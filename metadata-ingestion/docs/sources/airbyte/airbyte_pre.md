@@ -13,4 +13,4 @@
 | `Destination`            | `Dataset`             |
 | `Connection Job History` | `DataProcessInstance` |
 
-Source and destination gets mapped with Dataset as an Input and Output of Connection.
+Source and destination are mapped to Dataset as an Input and Output of Connection.

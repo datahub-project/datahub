@@ -1,17 +1,9 @@
-import logging
-import sys
 from typing import Any
 
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
-
-
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def register_mock_oss_api(request_mock: Any, override_data: dict = {}) -> None:
@@ -527,7 +519,6 @@ def default_cloud_config():
 
 @pytest.mark.integration
 def test_airbyte_oss_ingest(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
@@ -566,7 +557,6 @@ def test_airbyte_oss_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_airbyte_cloud_ingest(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
@@ -605,7 +595,6 @@ def test_airbyte_cloud_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
@@ -645,7 +634,6 @@ def test_platform_instance_ingest(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_server_to_platform_instance(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
@@ -692,7 +680,6 @@ def test_server_to_platform_instance(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_wrong_cloud_api_url_error(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
     """
     Verify if wrong cloud api url provided in recipe then value error should get raised
     """
@@ -728,7 +715,6 @@ def test_wrong_cloud_api_url_error(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_wrong_oss_api_url_error(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
     """
     Verify if wrong oss api url provided in recipe then value error should get raised
     """
@@ -764,7 +750,6 @@ def test_wrong_oss_api_url_error(pytestconfig, tmp_path, requests_mock):
 
 @pytest.mark.integration
 def test_cloud_auth_config_not_provided_error(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
     """
     Verify if cloud deploy is true and cloud auth configuration not provided then value error should get raised
     """
@@ -800,7 +785,6 @@ def test_cloud_auth_config_not_provided_error(pytestconfig, tmp_path, requests_m
 
 @pytest.mark.integration
 def test_oss_auth_config_not_provided_error(pytestconfig, tmp_path, requests_mock):
-    enable_logging()
     """
     Verify if cloud deploy is false and oss auth configuration not provided then value error should get raised
     """

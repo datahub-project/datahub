@@ -91,7 +91,10 @@ def auto_status_aspect(
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
-        if wu.metadata.entityType in skip_entities:
+        if (
+            not isinstance(wu.metadata, MetadataChangeEventClass)
+            and wu.metadata.entityType in skip_entities
+        ):
             # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
             # Example like dataProcessInstance doesn't suppport status aspect.
             # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
