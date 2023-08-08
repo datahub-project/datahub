@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union, cast
 from lark import Tree
 
 import datahub.emitter.mce_builder as builder
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     DataPlatformPair,
     PlatformDetail,
@@ -26,6 +27,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     IdentifierAccessor,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.utilities.sqlglot_lineage import SqlParsingResult
 
 logger = logging.getLogger(__name__)
 
@@ -70,15 +72,18 @@ def urn_creator(
 
 class AbstractDataPlatformTableCreator(ABC):
 
+    ctx: PipelineContext
     config: PowerBiDashboardSourceConfig
     platform_instance_resolver: AbstractDataPlatformInstanceResolver
 
     def __init__(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ) -> None:
         super().__init__()
+        self.ctx = ctx
         self.config = config
         self.platform_instance_resolver = platform_instance_resolver
 
@@ -108,6 +113,49 @@ class AbstractDataPlatformTableCreator(ABC):
 
         return arguments[0], arguments[1]
 
+    def parse_custom_sql(
+        self, query: str, server: str, database: Optional[str], schema: Optional[str]
+    ) -> List[DataPlatformTable]:
+
+        dataplatform_tables: List[DataPlatformTable] = []
+
+        platform_detail: PlatformDetail = (
+            self.platform_instance_resolver.get_platform_instance(
+                PowerBIPlatformDetail(
+                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_server=server,
+                )
+            )
+        )
+
+        parsed_result: Optional[
+            "SqlParsingResult"
+        ] = native_sql_parser.parse_custom_sql(
+            ctx=self.ctx,
+            query=query,
+            platform=self.get_platform_pair().datahub_data_platform_name,
+            platform_instance=platform_detail.platform_instance,
+            env=platform_detail.env,
+            database=database,
+            schema=schema,
+        )
+
+        if parsed_result is None:
+            logger.debug("Failed to parse query")
+            return dataplatform_tables
+
+        for urn in parsed_result.in_tables:
+            dataplatform_tables.append(
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            )
+
+        logger.debug(f"Generated dataplatform_tables={dataplatform_tables}")
+
+        return dataplatform_tables
+
 
 class AbstractDataAccessMQueryResolver(ABC):
     table: Table
@@ -132,6 +180,7 @@ class AbstractDataAccessMQueryResolver(ABC):
     @abstractmethod
     def resolve_to_data_platform_table_list(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ) -> List[DataPlatformTable]:
@@ -374,6 +423,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
     def resolve_to_data_platform_table_list(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ) -> List[DataPlatformTable]:
@@ -411,7 +461,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
             table_full_name_creator: AbstractDataPlatformTableCreator = (
                 supported_resolver.get_table_full_name_creator()(
-                    config=config, platform_instance_resolver=platform_instance_resolver
+                    ctx=ctx,
+                    config=config,
+                    platform_instance_resolver=platform_instance_resolver,
                 )
             )
 
@@ -486,10 +538,13 @@ class PostgresDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
 
 
 class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
+    # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
+    DEFAULT_SCHEMA = "dbo"  # Default schema name in MS-SQL is dbo
+
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
 
-    def create_urn_with_old_native_function(
+    def create_urn_using_old_parser(
         self, query: str, db_name: str, server: str
     ) -> List[DataPlatformTable]:
         dataplatform_tables: List[DataPlatformTable] = []
@@ -499,9 +554,8 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
         for table in tables:
             schema_and_table: List[str] = table.split(".")
             if len(schema_and_table) == 1:
-                # schema name is not present. Default schema name in MS-SQL is dbo
-                # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
-                schema_and_table.insert(0, "dbo")
+                # schema name is not present. set default schema
+                schema_and_table.insert(0, MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA)
 
             qualified_table_name = (
                 f"{db_name}.{schema_and_table[0]}.{schema_and_table[1]}"
@@ -521,6 +575,8 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
                     urn=urn,
                 )
             )
+
+        logger.debug(f"Generated upstream tables = {dataplatform_tables}")
 
         return dataplatform_tables
 
@@ -544,16 +600,19 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
             return dataplatform_tables
 
         if self.config.enable_advance_lineage_sql_construct is False:
-            # Use previous method to generate URN to keep backward compatibility
-            return self.create_urn_with_old_native_function(
+            # Use previous parser to generate URN to keep backward compatibility
+            return self.create_urn_using_old_parser(
                 query=arguments[3],
                 db_name=arguments[1],
                 server=arguments[0],
             )
 
-        logger.debug("MS-SQL full-table-names %s", dataplatform_tables)
-
-        return dataplatform_tables
+        return self.parse_custom_sql(
+            query=arguments[3],
+            database=arguments[1],
+            server=arguments[0],
+            schema=MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA,
+        )
 
 
 class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
@@ -807,6 +866,39 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             in NativeQueryDataPlatformTableCreator.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM
         )
 
+    def create_urn_using_old_parser(
+        self, query: str, server: str
+    ) -> List[DataPlatformTable]:
+        dataplatform_tables: List[DataPlatformTable] = []
+
+        tables: List[str] = native_sql_parser.get_tables(query)
+
+        for qualified_table_name in tables:
+            if len(qualified_table_name.split(".")) != 3:
+                logger.debug(
+                    f"Skipping table {qualified_table_name} as it is not as per qualified_table_name format"
+                )
+                continue
+
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=server,
+                qualified_table_name=qualified_table_name,
+            )
+
+            dataplatform_tables.append(
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            )
+
+        logger.debug(f"Generated dataplatform_tables {dataplatform_tables}")
+
+        return dataplatform_tables
+
     def create_dataplatform_tables(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> List[DataPlatformTable]:
@@ -855,29 +947,19 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 
         server = tree_function.strip_char_from_list([data_access_tokens[2]])[0]
 
-        for qualified_table_name in native_sql_parser.get_tables(sql_query):
-            if len(qualified_table_name.split(".")) != 3:
-                logger.debug(
-                    f"Skipping table {qualified_table_name} as it is not as per full_table_name format"
-                )
-                continue
-
-            urn = urn_creator(
-                config=self.config,
-                platform_instance_resolver=self.platform_instance_resolver,
-                data_platform_pair=self.get_platform_pair(),
+        if self.config.enable_advance_lineage_sql_construct is False:
+            # Use previous parser to generate URN to keep backward compatibility
+            return self.create_urn_using_old_parser(
+                query=sql_query,
                 server=server,
-                qualified_table_name=qualified_table_name,
             )
 
-            dataplatform_tables.append(
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
-            )
-
-        return dataplatform_tables
+        return self.parse_custom_sql(
+            query=sql_query,
+            server=server,
+            database=None,  # database and schema is available inside custom sql as per PowerBI Behavior
+            schema=None,
+        )
 
 
 class FunctionName(Enum):

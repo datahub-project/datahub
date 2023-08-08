@@ -6,6 +6,7 @@ from typing import Dict, List
 import lark
 from lark import Lark, Tree
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -52,6 +53,7 @@ def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
     platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ctx: PipelineContext,
     config: PowerBiDashboardSourceConfig,
     parameters: Dict[str, str] = {},
 ) -> List[resolver.DataPlatformTable]:
@@ -92,7 +94,9 @@ def get_upstream_tables(
             reporter=reporter,
             parameters=parameters,
         ).resolve_to_data_platform_table_list(
-            config=config, platform_instance_resolver=platform_instance_resolver
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
         )
 
     except BaseException as e:

@@ -95,10 +95,12 @@ class Mapper:
 
     def __init__(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ):
+        self.__ctx = ctx
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
@@ -177,6 +179,7 @@ class Mapper:
             table=table,
             reporter=self.__reporter,
             platform_instance_resolver=self.__dataplatform_instance_resolver,
+            ctx=self.__ctx,
             config=self.__config,
             parameters=parameters,
         )
@@ -1102,7 +1105,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising
             # unwanted stacktrace on console
 
-        self.mapper = Mapper(config, self.reporter, self.dataplatform_instance_resolver)
+        self.mapper = Mapper(
+            ctx, config, self.reporter, self.dataplatform_instance_resolver
+        )
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(

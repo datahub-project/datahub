@@ -6,6 +6,7 @@ import pytest
 from lark import Tree
 
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -42,11 +43,12 @@ M_QUERIES = [
     'let\n    Source = AmazonRedshift.Database("redshift-url","dev"),\n    public = Source{[Name="public"]}[Data],\n    category1 = public{[Name="category"]}[Data]\nin\n    category1',
     'let\n Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true]) \n in Source',
     'let\n    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", [Catalog=null, Database=null]),\n    hive_metastore_Database = Source{[Name="hive_metastore",Kind="Database"]}[Data],\n    sandbox_revenue_Schema = hive_metastore_Database{[Name="sandbox_revenue",Kind="Schema"]}[Data],\n    public_consumer_price_index_Table = sandbox_revenue_Schema{[Name="public_consumer_price_index",Kind="Table"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(public_consumer_price_index_Table,{{"Country", "country"}, {"Metric", "metric"}}),\n #"Inserted Year" = Table.AddColumn(#"Renamed Columns", "ID", each Date.Year([date_id]) + Date.Month([date_id]), Text.Type),\n #"Added Custom" = Table.AddColumn(#"Inserted Year", "Custom", each Text.Combine({Number.ToText(Date.Year([date_id])), Number.ToText(Date.Month([date_id])), [country]})),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Custom",{"ID"}),\n    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Custom", "ID"}}),\n #"Filtered Rows" = Table.SelectRows(#"Renamed Columns1", each ([metric] = "Consumer Price Index") and (not Number.IsNaN([value])))\nin\n    #"Filtered Rows"',
+    "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source",
 ]
 
 
 def get_default_instances() -> Tuple[
-    PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
+    PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
 ]:
     config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
         {"tenant_id": "fake", "client_id": "foo", "client_secret": "bar"}
@@ -56,7 +58,7 @@ def get_default_instances() -> Tuple[
         create_dataplatform_instance_resolver(config)
     )
 
-    return config, platform_instance_resolver
+    return PipelineContext(run_id="fake"), config, platform_instance_resolver
 
 
 @pytest.mark.integration
@@ -163,11 +165,12 @@ def test_snowflake_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -192,11 +195,12 @@ def test_postgres_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -221,11 +225,12 @@ def test_databricks_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -250,11 +255,12 @@ def test_oracle_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -279,11 +285,12 @@ def test_mssql_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -314,7 +321,7 @@ def test_mssql_with_query():
         "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_enterprise_invoiced_revenue,PROD)",
     ]
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     for index, query in enumerate(mssql_queries):
         table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -329,6 +336,7 @@ def test_mssql_with_query():
         data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
             table,
             reporter,
+            ctx=ctx,
             config=config,
             platform_instance_resolver=platform_instance_resolver,
         )
@@ -353,7 +361,7 @@ def test_snowflake_native_query():
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)",
     ]
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     for index, query in enumerate(snowflake_queries):
         table: powerbi_data_classes.Table = powerbi_data_classes.Table(
@@ -368,6 +376,7 @@ def test_snowflake_native_query():
         data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
             table,
             reporter,
+            ctx=ctx,
             config=config,
             platform_instance_resolver=platform_instance_resolver,
         )
@@ -384,11 +393,12 @@ def test_google_bigquery_1():
     )
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -411,7 +421,7 @@ def test_google_bigquery_2():
     )
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
@@ -420,6 +430,7 @@ def test_google_bigquery_2():
             "Parameter - Source": "my-test-project",
             "My bq project": "gcp_billing",
         },
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -440,7 +451,7 @@ def test_for_each_expression_1():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
@@ -449,6 +460,7 @@ def test_for_each_expression_1():
             "Parameter - Source": "my-test-project",
             "My bq project": "gcp_billing",
         },
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -469,7 +481,7 @@ def test_for_each_expression_2():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
@@ -477,6 +489,7 @@ def test_for_each_expression_2():
         parameters={
             "dwh-prod": "originally-not-a-variable-ref-and-not-resolved",
         },
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -500,11 +513,12 @@ def test_native_query_disabled():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
     config.native_query_parsing = False
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -523,11 +537,12 @@ def test_multi_source_table():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -555,11 +570,12 @@ def test_table_combine():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -597,11 +613,12 @@ def test_expression_is_none():
 
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -617,11 +634,12 @@ def test_redshift_regular_case():
     )
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -641,13 +659,14 @@ def test_redshift_native_query():
     )
     reporter = PowerBiDashboardSourceReport()
 
-    config, platform_instance_resolver = get_default_instances()
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     config.native_query_parsing = True
 
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
+        ctx=ctx,
         config=config,
         platform_instance_resolver=platform_instance_resolver,
     )
@@ -656,4 +675,36 @@ def test_redshift_native_query():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.category,PROD)"
+    )
+
+
+def test_sqlglot_parser():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[24],
+        name="SALES_TARGET",
+        full_name="dev.public.sales",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.native_query_parsing = True
+    config.enable_advance_lineage_sql_construct = True
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert len(data_platform_tables) == 2
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit,PROD)"
+    )
+    assert (
+        data_platform_tables[1].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )

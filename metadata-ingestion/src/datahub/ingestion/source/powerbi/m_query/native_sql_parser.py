@@ -1,7 +1,14 @@
 import logging
-from typing import List
+from typing import List, Optional
 
 import sqlparse
+
+from datahub.ingestion.api.common import PipelineContext
+from datahub.utilities.sqlglot_lineage import (
+    SchemaResolver,
+    SqlParsingResult,
+    sqlglot_lineage,
+)
 
 SPECIAL_CHARACTERS = ["#(lf)", "(lf)"]
 
@@ -45,3 +52,48 @@ def get_tables(native_query: str) -> List[str]:
         from_index = from_index + 1
 
     return tables
+
+
+def parse_custom_sql(
+    ctx: PipelineContext,
+    query: str,
+    schema: Optional[str],
+    database: Optional[str],
+    platform: str,
+    env: str,
+    platform_instance: Optional[str],
+) -> Optional["SqlParsingResult"]:
+
+    logger.debug("Using sqlglot_lineage to parse custom sql")
+
+    sql_query = remove_special_characters(query)
+    logger.debug(f"Parsing sql={sql_query}")
+
+    parsed_result: Optional["SqlParsingResult"] = None
+    try:
+        schema_resolver = (
+            ctx.graph._make_schema_resolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+            )
+            if ctx.graph is not None
+            else SchemaResolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=None,
+            )
+        )
+
+        parsed_result = sqlglot_lineage(
+            sql_query,
+            schema_resolver=schema_resolver,
+            default_db=database,
+            default_schema=schema,
+        )
+    except Exception as e:
+        logger.debug(f"Fail to prase query {query}", exc_info=e)
+        logger.warning("Fail to parse custom SQL")
+
+    return parsed_result
