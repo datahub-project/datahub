@@ -14,7 +14,10 @@ from datahub_monitors.exceptions import (
     InvalidParametersException,
     SourceQueryFailedException,
 )
-from datahub_monitors.source.bigquery.time_utils import convert_millis_to_timestamp_type
+from datahub_monitors.source.bigquery.time_utils import (
+    convert_millis_to_timestamp_type,
+    convert_value_for_comparison,
+)
 from datahub_monitors.source.source import Source
 from datahub_monitors.source.types import SourceOperationParams
 from datahub_monitors.types import EntityEvent, EntityEventType
@@ -187,7 +190,7 @@ class BigQuerySource(Source):
         # Compares using UTC date.
         query = f"""
             SELECT last_modified_time
-            FROM `{operation_params.project}.{operation_params.dataset}.__TABLES__`
+            FROM {operation_params.project}.{operation_params.dataset}.__TABLES__
             WHERE table_id="{operation_params.table}"
                 AND last_modified_time >= {operation_params.start_time_millis}
                 AND last_modified_time <= {operation_params.end_time_millis}
@@ -260,12 +263,20 @@ class BigQuerySource(Source):
     def _get_high_watermark_field_value(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         previous_value: Optional[str],
     ) -> Optional[str]:
+        # if this is a date or timestamp we need to convert
+        if column_type in ["DATE", "DATETIME", "TIMESTAMP"] and previous_value:
+            previous_value = convert_value_for_comparison(previous_value, column_type)
+
         get_value_query = setup_high_watermark_field_value_query(
-            column_name, operation_params, filter_sql, previous_value
+            column_name,
+            f"{operation_params.database}.{operation_params.schema}.{operation_params.table}",
+            filter_sql,
+            previous_value,
         )
         rows = self._execute_query(get_value_query)
         current_field_value = None
@@ -278,12 +289,22 @@ class BigQuerySource(Source):
     def _get_high_watermark_row_count(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
     ) -> int:
+        # if this is a date or timestamp we need to convert
+        if column_type in ["DATE", "DATETIME", "TIMESTAMP"] and current_field_value:
+            current_field_value = convert_value_for_comparison(
+                current_field_value, column_type
+            )
+
         get_count_query = setup_high_watermark_row_count_query(
-            column_name, operation_params, filter_sql, current_field_value
+            column_name,
+            f"{operation_params.database}.{operation_params.schema}.{operation_params.table}",
+            filter_sql,
+            current_field_value,
         )
         rows = self._execute_query(get_count_query)
         current_row_count = 0

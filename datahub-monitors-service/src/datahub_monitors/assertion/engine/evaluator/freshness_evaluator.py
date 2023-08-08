@@ -113,6 +113,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
 
         return self._evaluate_assertion(
             source,
+            assertion,
             entity_urn,
             event_type,
             window,
@@ -122,13 +123,17 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
     def _evaluate_assertion(
         self,
         source: Source,
+        assertion: Assertion,
         entity_urn: str,
         event_type: EntityEventType,
         window: List[int],
         source_params: dict,
     ) -> AssertionEvaluationResult:
         maybe_events = source.get_entity_events(
-            entity_urn, event_type, window, source_params
+            entity_urn,
+            event_type,
+            window,
+            source_params,
         )
 
         # Now verify whether there are any events in the window

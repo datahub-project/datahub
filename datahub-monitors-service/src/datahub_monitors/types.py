@@ -242,6 +242,12 @@ class AssertionEntity(PermissiveBaseModel):
     # A list of sub-types for the entity, inside the platform
     sub_types: Optional[List[str]] = Field(alias="subTypes")
 
+    # The entity/dataset's shortname
+    table_name: Optional[str]
+
+    # The entity/dataset's fully qualified name
+    qualified_name: Optional[str] = Field(alias="qualifiedName")
+
 
 class PartitionKeyFieldSpec(PermissiveBaseModel):
     """Unique id for the partition key field"""
@@ -343,6 +349,19 @@ class Assertion(PermissiveBaseModel):
             platform_urn = graphql_entity["platform"]["urn"]
             entity_urn = graphql_entity["urn"]
 
+            table_name = (
+                graphql_entity["properties"]["name"]
+                if "properties" in graphql_entity
+                and "name" in graphql_entity["properties"]
+                else None
+            )
+            qualified_name = (
+                graphql_entity["properties"]["qualifiedName"]
+                if "properties" in graphql_entity
+                and "qualifiedName" in graphql_entity["properties"]
+                else None
+            )
+
             graphql_entity["urn"]
             sub_types = (
                 graphql_entity["subTypes"]["typeNames"]
@@ -357,6 +376,8 @@ class Assertion(PermissiveBaseModel):
                 "platformUrn": platform_urn,
                 "platformInstance": None,
                 "subTypes": sub_types,
+                "table_name": table_name,
+                "qualified_name": qualified_name,
             }
         if "connectionUrn" not in values:
             graphql_entity = values["relationships"]["relationships"][0]["entity"]

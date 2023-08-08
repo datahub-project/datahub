@@ -48,6 +48,7 @@ class Source:
     def _get_high_watermark_field_value(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         previous_value: Optional[str],
@@ -57,6 +58,7 @@ class Source:
     def _get_high_watermark_row_count(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
@@ -88,13 +90,17 @@ class Source:
                 )
 
             current_field_value = self._get_high_watermark_field_value(
-                column_name, operation_params, filter_sql, previous_value
+                column_name, column_type, operation_params, filter_sql, previous_value
             )
             if current_field_value is None:
                 return ("", 0)
 
             current_row_count = self._get_high_watermark_row_count(
-                column_name, operation_params, filter_sql, current_field_value
+                column_name,
+                column_type,
+                operation_params,
+                filter_sql,
+                current_field_value,
             )
             return (str(current_field_value), current_row_count)
 
@@ -104,22 +110,31 @@ class Source:
         )
 
     def _get_operation_params(
-        self, entity_urn: str, window: List[int]
+        self, entity_urn: str, window: List[int], parameters: dict
     ) -> SourceOperationParams:
-        urn_obj = Urn.create_from_string(entity_urn)
-        dataset_name = urn_obj.get_entity_id()[1]
-        dataset_name_parts = dataset_name.split(".")
+        database_parameters = parameters.get("database", {})
+        if "qualified_name" in database_parameters:
+            dataset_name_parts = database_parameters["qualified_name"].split(".")
+        else:
+            urn_obj = Urn.create_from_string(entity_urn)
+            dataset_name = urn_obj.get_entity_id()[1]
+            dataset_name_parts = dataset_name.split(".")
 
         if len(dataset_name_parts) > 3:
             # Handle platform instance.
             dataset_name_parts = dataset_name_parts[:3]
+
+        # we'll use table name if available since it will have the proper casing
+        # with some data sources (snowflake) we have a bug where table_name has proper case
+        # but the qualified name does not (currently all lower case) so we use table_name were we have it.
+        table_name = database_parameters.get("table_name", None)
 
         return SourceOperationParams(
             start_time_millis=window[0],
             end_time_millis=window[1],
             dataset_part_0=dataset_name_parts[0],
             dataset_part_1=dataset_name_parts[1],
-            dataset_part_2=dataset_name_parts[2],
+            dataset_part_2=table_name if table_name else dataset_name_parts[2],
         )
 
     def _build_field_update_results(
@@ -178,7 +193,7 @@ class Source:
         window: List[int],
         parameters: dict,
     ) -> List[EntityEvent]:
-        operation_params = self._get_operation_params(entity_urn, window)
+        operation_params = self._get_operation_params(entity_urn, window, parameters)
         return self._try_get_entity_events(event_type, operation_params, parameters)
 
     @retry(
@@ -211,7 +226,7 @@ class Source:
         parameters: dict,
         previous_value: Optional[str],
     ) -> Tuple[str, int]:
-        operation_params = self._get_operation_params(entity_urn, window)
+        operation_params = self._get_operation_params(entity_urn, window, parameters)
         return self._try_get_current_high_watermark_for_column(
             event_type, operation_params, parameters, previous_value
         )

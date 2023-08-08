@@ -11,6 +11,7 @@ from datahub_monitors.exceptions import (
 )
 from datahub_monitors.source.snowflake.time_utils import (
     convert_millis_to_timestamp_type,
+    convert_value_for_comparison,
 )
 from datahub_monitors.source.source import Source
 from datahub_monitors.source.types import SourceOperationParams
@@ -114,6 +115,12 @@ class SnowflakeSource(Source):
         operation_types_filter = self._get_operation_types_filter(parameters)
         user_name_filter = self._get_user_name_filter(parameters)
 
+        # NOTE - known potential bug here, we are doing a lowercase normalization in this query
+        # BUT Snowflake does allow creation of the same name, but different casing for db, schema, table
+        # eg. TEST_DB.PUBLIC.MY_TABLE is different from TEST_DB.PUBLIC.My_Table
+        # so this query could potentially be reporting back on multiple tables.  At least until we can get the
+        # fully qualified name here of all parts of the DB string.
+
         # Formulate query
         query = f"""
             WITH exploded_access_history AS (
@@ -148,7 +155,7 @@ class SnowflakeSource(Source):
                     AND query_history.query_type in ({operation_types_filter})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
-                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"\\'', '') in ('{operation_params.catalog}.{operation_params.schema}.{operation_params.table}')
+                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('{operation_params.catalog.lower()}.{operation_params.schema.lower()}.{operation_params.table.lower()}')
             ORDER BY query_history.start_time DESC
 ;"""
         logger.debug(query)
@@ -163,13 +170,20 @@ class SnowflakeSource(Source):
         # Ideally the connector would do this for us!
         # What if we only run this if... The audit log tells us something?
 
+        # NOTE - known bug here, catalog and schema are coming from the qualifiedName, which ingestion is not saving
+        # with the right casing, so there is a potential that this query will fail until that bug is fixed.
+        # so for now, let's leave the .upper() calls here so that most will work
+
+        # Use the properly cased table name
+        # use upper for schema name because we don't have the proper case
+        # use upper for catalog/database name because we don't have the proper case
         query = f"""
             SELECT table_name, table_type, (DATE_PART('EPOCH', last_altered) * 1000) as last_altered
             FROM {operation_params.catalog.upper()}.information_schema.tables
             WHERE last_altered >= to_timestamp_ltz({operation_params.start_time_millis}, 3)
             AND last_altered < to_timestamp_ltz({operation_params.end_time_millis}, 3)
-            AND table_name = '{operation_params.table.upper()}'
-            AND table_schema = '{operation_params.schema.upper()}' 
+            AND table_name = '{operation_params.table}'
+            AND table_schema = '{operation_params.schema.upper()}'
             AND table_catalog = '{operation_params.catalog.upper()}';"""
 
         logger.debug(query)
@@ -222,7 +236,7 @@ class SnowflakeSource(Source):
             # The goal is to basically extract the high watermark for the column identified here.
             query = f"""
                 SELECT {date_column} as last_altered_date
-                FROM {operation_params.catalog}.{operation_params.schema}.{operation_params.table}
+                FROM {operation_params.catalog}.{operation_params.schema}."{operation_params.table}"
                 WHERE {date_column} >= ({start_datetime})
                 AND {date_column} <= ({end_datetime})
                 {f"AND {filter_sql}" if filter_sql else ''}
@@ -246,12 +260,31 @@ class SnowflakeSource(Source):
     def _get_high_watermark_field_value(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         previous_value: Optional[str],
     ) -> Optional[str]:
+        # if this is a date or timestamp we need to convert
+        if (
+            column_type
+            in [
+                "DATE",
+                "DATETIME",
+                "TIMESTAMP",
+                "TIMESTAMP_TZ",
+                "TIMESTAMP_LTZ",
+                "TIMESTAMP_NTZ",
+            ]
+            and previous_value
+        ):
+            previous_value = convert_value_for_comparison(previous_value, column_type)
+
         get_value_query = setup_high_watermark_field_value_query(
-            column_name, operation_params, filter_sql, previous_value
+            column_name,
+            f'{operation_params.database}.{operation_params.schema}."{operation_params.table}"',
+            filter_sql,
+            previous_value,
         )
         resp = self._execute_fetchone_query(get_value_query)
         return resp[0] if resp else None
@@ -259,12 +292,33 @@ class SnowflakeSource(Source):
     def _get_high_watermark_row_count(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
     ) -> int:
+        # if this is a date or timestamp we need to convert
+        if (
+            column_type
+            in [
+                "DATE",
+                "DATETIME",
+                "TIMESTAMP",
+                "TIMESTAMP_TZ",
+                "TIMESTAMP_LTZ",
+                "TIMESTAMP_NTZ",
+            ]
+            and current_field_value
+        ):
+            current_field_value = convert_value_for_comparison(
+                current_field_value, column_type
+            )
+
         get_count_query = setup_high_watermark_row_count_query(
-            column_name, operation_params, filter_sql, current_field_value
+            column_name,
+            f'{operation_params.database}.{operation_params.schema}."{operation_params.table}"',
+            filter_sql,
+            current_field_value,
         )
         resp = self._execute_fetchone_query(get_count_query)
         return resp[0] if resp else 0

@@ -8,7 +8,10 @@ from datahub_monitors.exceptions import (
     InvalidParametersException,
     SourceQueryFailedException,
 )
-from datahub_monitors.source.redshift.time_utils import convert_millis_to_timestamp_type
+from datahub_monitors.source.redshift.time_utils import (
+    convert_millis_to_timestamp_type,
+    convert_value_for_comparison,
+)
 from datahub_monitors.source.source import Source
 from datahub_monitors.source.types import SourceOperationParams
 from datahub_monitors.types import EntityEvent, EntityEventType
@@ -202,7 +205,6 @@ class RedshiftSource(Source):
                 ORDER BY {date_column} DESC
                 ;
             """
-
             logger.debug(query)
 
             return self._build_field_update_results(
@@ -220,12 +222,30 @@ class RedshiftSource(Source):
     def _get_high_watermark_field_value(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         previous_value: Optional[str],
     ) -> Optional[str]:
+        # if this is a date or timestamp we need to convert
+        if (
+            column_type
+            in [
+                "DATE",
+                "TIMESTAMP",
+                "TIMESTAMP WITHOUT TIME ZONE",
+                "TIMESTAMPTZ",
+                "TIMESTAMP WITH TIME ZONE",
+            ]
+            and previous_value
+        ):
+            previous_value = convert_value_for_comparison(previous_value, column_type)
+
         get_value_query = setup_high_watermark_field_value_query(
-            column_name, operation_params, filter_sql, previous_value
+            column_name,
+            f"{operation_params.database}.{operation_params.schema}.{operation_params.table}",
+            filter_sql,
+            previous_value,
         )
         resp = self._execute_fetchone_query(get_value_query)
         return resp[0] if resp else None
@@ -233,12 +253,32 @@ class RedshiftSource(Source):
     def _get_high_watermark_row_count(
         self,
         column_name: str,
+        column_type: str,
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
     ) -> int:
+        # if this is a date or timestamp we need to convert
+        if (
+            column_type
+            in [
+                "DATE",
+                "TIMESTAMP",
+                "TIMESTAMP WITHOUT TIME ZONE",
+                "TIMESTAMPTZ",
+                "TIMESTAMP WITH TIME ZONE",
+            ]
+            and current_field_value
+        ):
+            current_field_value = convert_value_for_comparison(
+                current_field_value, column_type
+            )
+
         get_count_query = setup_high_watermark_row_count_query(
-            column_name, operation_params, filter_sql, current_field_value
+            column_name,
+            f"{operation_params.database}.{operation_params.schema}.{operation_params.table}",
+            filter_sql,
+            current_field_value,
         )
         resp = self._execute_fetchone_query(get_count_query)
         return resp[0] if resp else 0
