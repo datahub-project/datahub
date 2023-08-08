@@ -1033,9 +1033,7 @@ class SnowflakeV2Source(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
-        dataset_properties = self.get_dataset_properties(
-            table, schema_name, db_name, dataset_name
-        )
+        dataset_properties = self.get_dataset_properties(table, schema_name, db_name)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
@@ -1102,7 +1100,12 @@ class SnowflakeV2Source(
                 entityUrn=dataset_urn, aspect=view_properties_aspect
             ).as_workunit()
 
-    def get_dataset_properties(self, table, schema_name, db_name, dataset_name):
+    def get_dataset_properties(
+        self,
+        table: Union[SnowflakeTable, SnowflakeView],
+        schema_name: str,
+        db_name: str,
+    ) -> DatasetProperties:
         return DatasetProperties(
             name=table.name,
             created=TimeStamp(time=int(table.created.timestamp() * 1000))
@@ -1114,7 +1117,7 @@ class SnowflakeV2Source(
             if table.created is not None
             else None,
             description=table.comment,
-            qualifiedName=dataset_name,
+            qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
             externalUrl=self.get_external_url_for_table(
                 table.name,
