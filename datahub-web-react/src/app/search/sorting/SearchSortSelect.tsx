@@ -31,12 +31,14 @@ const StyledIcon = styled(Icon)`
 export default function SearchSortSelect() {
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
+    const options = Object.entries(SORT_OPTIONS).map((option) => ({ value: option[0], label: option[1].label }));
+
     return (
         <SelectWrapper>
             <StyledIcon component={SortIcon} />
             <Select
                 value={selectedSortOption}
-                options={Object.entries(SORT_OPTIONS).map((option) => ({ value: option[0], label: option[1].label }))}
+                options={options}
                 bordered={false}
                 onChange={(sortOption) => setSelectedSortOption(sortOption)}
                 dropdownStyle={{ minWidth: 'max-content' }}
