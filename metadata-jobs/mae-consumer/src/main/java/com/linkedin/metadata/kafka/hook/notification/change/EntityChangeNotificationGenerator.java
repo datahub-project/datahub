@@ -4,14 +4,20 @@ import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionResultType;
+import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
@@ -20,18 +26,20 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
+import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
+import com.linkedin.metadata.timeline.data.dataset.SchemaFieldModificationCategory;
 import com.linkedin.metadata.timeline.eventgenerator.Aspect;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.subscription.EntityChangeType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,6 +53,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Import;
 
+import static com.linkedin.metadata.Constants.ASSERTION_RESULT_KEY;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
 
@@ -76,7 +85,8 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
     EntityChangeEventGeneratorRegistry.class,
     EntityRegistryFactory.class,
     RestliEntityClientFactory.class,
-    SystemAuthenticationFactory.class
+    SystemAuthenticationFactory.class,
+    SlackNotificationRecipientBuilder.class
 })
 public class EntityChangeNotificationGenerator extends BaseMclNotificationGenerator {
 
@@ -90,10 +100,11 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       Constants.DEPRECATION_ASPECT_NAME,
       Constants.SCHEMA_METADATA_ASPECT_NAME,
       Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-      Constants.DOMAINS_ASPECT_NAME
+      Constants.DOMAINS_ASPECT_NAME,
+      Constants.ASSERTION_RUN_EVENT_ASPECT_NAME
   );
   /**
-   * The list of aspects that are supported for generating semantic change events.
+   * The list of entities that are supported for generating semantic change events.
    */
   private static final Set<String> SUPPORTED_ENTITY_NAMES = ImmutableSet.of(
       Constants.DATASET_ENTITY_NAME,
@@ -103,7 +114,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       Constants.DATA_FLOW_ENTITY_NAME,
       Constants.DATA_JOB_ENTITY_NAME,
       Constants.DOMAIN_ENTITY_NAME,
-      Constants.TAG_ENTITY_NAME
+      Constants.TAG_ENTITY_NAME,
+      Constants.ASSERTION_ENTITY_NAME
   );
   /**
    * The list of aspects that are supported for generating semantic change events.
@@ -113,9 +125,12 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       ChangeType.UPSERT
   );
 
+  private static final String MODIFICATION_CATEGORY = "modificationCategory";
+
   private final EntityNameProvider _entityNameProvider;
   private final EntityChangeEventGeneratorRegistry _entityChangeEventGeneratorRegistry;
   private final EntityRegistry _entityRegistry;
+  private final FeatureFlags _featureFlags;
 
   public EntityChangeNotificationGenerator(
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
@@ -123,11 +138,25 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
-      @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, new SettingsProvider(entityClient, systemAuthentication), systemAuthentication);
+      @Nonnull final SettingsProvider settingsProvider,
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final FeatureFlags featureFlags) {
+    super(eventProducer,
+        entityClient,
+        graphClient,
+        settingsProvider,
+        systemAuthentication,
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
     _entityNameProvider = new EntityNameProvider(entityClient, systemAuthentication);
     _entityChangeEventGeneratorRegistry = Objects.requireNonNull(entityChangeEventGeneratorRegistry);
     _entityRegistry = Objects.requireNonNull(entityRegistry);
+    _featureFlags = featureFlags;
+  }
+
+  @Override
+  public boolean isEligibleForSubscriberRecipients() {
+    return _featureFlags.isSubscriptionsEnabled();
   }
 
   @Override
@@ -194,6 +223,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
         trySendSchemaFieldTagChangeNotifications(logEvent, changeEvents);
         trySendSchemaFieldGlossaryTermChangeNotifications(logEvent, changeEvents);
         break;
+      case Constants.ASSERTION_RUN_EVENT_ASPECT_NAME:
+        trySendAssertionRunEventChangeNotification(logEvent, changeEvents);
+        break;
       default:
         log.warn(String.format("Found supported aspect that did not generate any notifications: %s", logEvent.getAspectName()));
         return;
@@ -210,6 +242,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Tag(s)",
@@ -229,6 +262,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Tag(s)",
@@ -250,6 +284,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Glossary Term(s)",
@@ -269,6 +304,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Glossary Term(s)",
@@ -281,8 +317,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
   }
 
   private void trySendOwnershipChangeNotifications(final MetadataChangeLog logEvent, final List<ChangeEvent> changeEvents) {
-
-    List<Urn> addedUrns = changeEvents.stream()
+    final List<Urn> addedUrns = changeEvents.stream()
         .filter(changeEvent -> ChangeCategory.OWNER.equals(changeEvent.getCategory()))
         .filter(changeEvent -> ChangeOperation.ADD.equals(changeEvent.getOperation()))
         .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
@@ -291,6 +326,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_OWNER_CHANGE,
+          EntityChangeType.OWNER_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "owner(s)",
@@ -308,9 +344,9 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
         .collect(Collectors.toList());
 
     if (removedUrns.size() > 0) {
-
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_OWNER_CHANGE,
+          EntityChangeType.OWNER_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "owner(s)",
@@ -332,6 +368,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DOMAIN_CHANGE,
+          null,
           logEvent.getCreated().getActor(),
           "added",
           "Domain",
@@ -351,6 +388,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DOMAIN_CHANGE,
+          null,
           logEvent.getCreated().getActor(),
           "removed",
           "Domain",
@@ -370,6 +408,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (deprecationChangeEventCount > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_DEPRECATION_CHANGE,
+          EntityChangeType.DEPRECATED,
           logEvent.getCreated().getActor(),
           "updated",
           "deprecation",
@@ -391,6 +430,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "schema field(s)",
@@ -410,10 +450,53 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "schema field(s)",
           removedUrns,
+          logEvent.getEntityUrn(),
+          "",
+          null
+      );
+    }
+
+    List<Urn> renamedUrns = changeEvents.stream()
+        .filter(changeEvent -> ChangeCategory.TECHNICAL_SCHEMA.equals(changeEvent.getCategory()))
+        .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
+        .filter(changeEvent -> SchemaFieldModificationCategory.RENAME.toString().equals(changeEvent.getParameters().get(MODIFICATION_CATEGORY)))
+        .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
+        .collect(Collectors.toList());
+
+    if (renamedUrns.size() > 0) {
+      sendEntityChangeNotification(
+          NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_MODIFIED,
+          logEvent.getCreated().getActor(),
+          "renamed",
+          "schema field(s)",
+          renamedUrns,
+          logEvent.getEntityUrn(),
+          "",
+          null
+      );
+    }
+
+    List<Urn> typeChangedUrns = changeEvents.stream()
+        .filter(changeEvent -> ChangeCategory.TECHNICAL_SCHEMA.equals(changeEvent.getCategory()))
+        .filter(changeEvent -> ChangeOperation.MODIFY.equals(changeEvent.getOperation()))
+        .filter(changeEvent -> SchemaFieldModificationCategory.TYPE_CHANGE.toString().equals(changeEvent.getParameters().get(MODIFICATION_CATEGORY)))
+        .map(changeEvent -> UrnUtils.getUrn(changeEvent.getModifier()))
+        .collect(Collectors.toList());
+
+    if (typeChangedUrns.size() > 0) {
+      sendEntityChangeNotification(
+          NotificationScenarioType.DATASET_SCHEMA_CHANGE,
+          EntityChangeType.OPERATION_COLUMN_MODIFIED,
+          logEvent.getCreated().getActor(),
+          "updated type for",
+          "schema field(s)",
+          typeChangedUrns,
           logEvent.getEntityUrn(),
           "",
           null
@@ -431,6 +514,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Tag(s)",
@@ -450,6 +534,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_TAG_CHANGE,
+          EntityChangeType.TAG_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Tag(s)",
@@ -471,6 +556,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (addedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_ADDED,
           logEvent.getCreated().getActor(),
           "added",
           "Glossary Term(s)",
@@ -490,6 +576,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     if (removedUrns.size() > 0) {
       sendEntityChangeNotification(
           NotificationScenarioType.ENTITY_GLOSSARY_TERM_CHANGE,
+          EntityChangeType.GLOSSARY_TERM_REMOVED,
           logEvent.getCreated().getActor(),
           "removed",
           "Glossary Term(s)",
@@ -503,6 +590,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
 
   private void sendEntityChangeNotification(
       final NotificationScenarioType notificationScenarioType,
+      final EntityChangeType entityChangeType,
       final Urn actorUrn,
       final String operation,
       final String modifierType,
@@ -512,7 +600,7 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
       @Nullable final String subResource
   ) {
     // 1. Determine who to send to.
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(notificationScenarioType, entityUrn));
+    final Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(notificationScenarioType, entityUrn, entityChangeType));
 
     if (recipients.isEmpty()) {
       return;
@@ -553,6 +641,82 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
     // 3. Send request.
     log.debug(String.format("Broadcasting entity change notification request for entity %s, notification type %s", entityUrn,
         notificationScenarioType));
+    sendNotificationRequest(notificationRequest);
+  }
+
+  private void trySendAssertionRunEventChangeNotification(final MetadataChangeLog logEvent, final List<ChangeEvent> changeEvents) {
+    List<ChangeEvent> completedAssertionEvents = changeEvents.stream()
+        .filter(changeEvent -> ChangeCategory.RUN.equals(changeEvent.getCategory()))
+        .filter(changeEvent -> ChangeOperation.COMPLETED.equals(changeEvent.getOperation()))
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY) != null)
+        .collect(Collectors.toList());
+
+    final AspectSpec aspectSpec = _entityRegistry
+        .getEntitySpec(logEvent.getEntityType())
+        .getAspectSpec(logEvent.getAspectName());
+
+    final RecordTemplate aspect = logEvent.getAspect() != null
+        ? GenericRecordUtils.deserializeAspect(
+        logEvent.getAspect().getValue(),
+        logEvent.getAspect().getContentType(),
+        aspectSpec)
+        : null;
+
+    final AssertionRunEvent runEvent = new AssertionRunEvent(aspect.data());
+
+    List<ChangeEvent> successfulAssertionEvents = completedAssertionEvents.stream()
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY).equals(AssertionResultType.SUCCESS.toString()))
+        .collect(Collectors.toList());
+
+    if (successfulAssertionEvents.size() > 0) {
+      sendAssertionChangeNotification(
+          EntityChangeType.ASSERTION_PASSED,
+          AssertionResultType.SUCCESS,
+          runEvent.getAsserteeUrn()
+      );
+    }
+
+    List<ChangeEvent> failedAssertionEvents = completedAssertionEvents.stream()
+        .filter(changeEvent -> changeEvent.getParameters().get(ASSERTION_RESULT_KEY).equals(AssertionResultType.FAILURE.toString()))
+        .collect(Collectors.toList());
+
+    if (failedAssertionEvents.size() > 0) {
+      sendAssertionChangeNotification(
+          EntityChangeType.ASSERTION_FAILED,
+          AssertionResultType.FAILURE,
+          runEvent.getAsserteeUrn()
+      );
+    }
+  }
+
+  private void sendAssertionChangeNotification(
+      final EntityChangeType entityChangeType,
+      final AssertionResultType result,
+      final Urn entityUrn
+  ) {
+    // 1. Determine who to send to.
+    final Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.ASSERTION_STATUS_CHANGE, entityUrn, entityChangeType));
+
+    if (recipients.isEmpty()) {
+      return;
+    }
+
+    // 2. Build request.
+    final String entityName = _entityNameProvider.getName(entityUrn);
+    final Map<String, String> templateParams = new HashMap<>();
+    templateParams.put("entityName", entityName);
+    templateParams.put("entityPath", generateEntityPath(entityUrn));
+    templateParams.put("result", result.toString());
+
+    final NotificationRequest notificationRequest = buildNotificationRequest(
+        NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE.name(),
+        templateParams,
+        recipients
+    );
+
+    // 3. Send request.
+    log.debug(String.format("Broadcasting entity change notification request for entity %s, notification type %s", entityUrn,
+        NotificationScenarioType.ASSERTION_STATUS_CHANGE));
     sendNotificationRequest(notificationRequest);
   }
 

@@ -43,7 +43,17 @@ public class NotificationGeneratorHook implements MetadataChangeLogHook {
     for (MclNotificationGenerator notificationGenerator : _notificationGenerators) {
       CompletableFuture.runAsync(() -> {
         try {
-          notificationGenerator.generate(event);
+          // Skip notification generation since this is an initial ingestion run to prevent slamming notifications on this run
+          if (NotificationUtils.isFromInitialIngestionRun(event)) {
+            log.info(
+                String.format(
+                    "Skipping NotificationGenerationHook since this is an initial ingestion run for this aspect. Run ID: %s",
+                    event.getSystemMetadata() != null ? event.getSystemMetadata().getRunId() : null
+                )
+            );
+          } else {
+            notificationGenerator.generate(event);
+          }
         } catch (Exception e) {
           log.error(String.format("Caught exception while invoking notification generator %s.",
               notificationGenerator.getClass().getCanonicalName()),

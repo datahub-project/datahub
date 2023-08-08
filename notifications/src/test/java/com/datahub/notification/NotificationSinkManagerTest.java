@@ -33,7 +33,7 @@ public class NotificationSinkManagerTest {
     // Test Handle
     NotificationRequest request = new NotificationRequest();
     request.setMessage(new NotificationMessage()
-      .setTemplate(NotificationTemplateType.CUSTOM.toString())
+      .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
       .setParameters(new StringMap(
           ImmutableMap.of(
               "title", "Test Title",
@@ -69,7 +69,7 @@ public class NotificationSinkManagerTest {
     // Test Handle
     NotificationRequest request = new NotificationRequest();
     request.setMessage(new NotificationMessage()
-        .setTemplate(NotificationTemplateType.CUSTOM.toString())
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.CUSTOM)
         .setParameters(new StringMap(
             ImmutableMap.of(
                 "title", "Test Title",
@@ -105,7 +105,7 @@ public class NotificationSinkManagerTest {
     // Test Handle
     NotificationRequest request = new NotificationRequest();
     request.setMessage(new NotificationMessage()
-        .setTemplate("InvalidTemplate")
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.INVALID_TEMPLATE)
         .setParameters(new StringMap(
             ImmutableMap.of(
                 "title", "Test Title",
@@ -138,7 +138,7 @@ public class NotificationSinkManagerTest {
     // Test Handle
     NotificationRequest request = new NotificationRequest();
     request.setMessage(new NotificationMessage()
-        .setTemplate("InvalidTemplate")
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.INVALID_TEMPLATE)
         .setParameters(new StringMap(
             ImmutableMap.of(
                 "title", "Test Title"
@@ -174,7 +174,8 @@ public class NotificationSinkManagerTest {
     // Test Handle
     NotificationRequest request = new NotificationRequest();
     request.setMessage(new NotificationMessage()
-        .setTemplate(NotificationTemplateType.CUSTOM.toString())
+        .setTemplate(com.linkedin.event.notification.template.NotificationTemplateType.valueOf(
+            NotificationTemplateType.CUSTOM.toString()))
         .setParameters(new StringMap(
             ImmutableMap.of(
                 "title", "Test Title",

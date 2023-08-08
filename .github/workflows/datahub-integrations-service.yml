@@ -9,10 +9,9 @@ on:
   pull_request:
     branches:
       - acryl-main
-    paths:
-      - "datahub-integrations-service/**"
-      - "docker/datahub-integrations-service/**"
-      - ".github/workflows/datahub-integrations-service.yml"
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
   release:
     types: [published]
 

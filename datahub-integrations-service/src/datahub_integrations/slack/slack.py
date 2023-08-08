@@ -225,6 +225,14 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         # TODO: How do we set icon_url here?
         ack("Acryl slash commands are coming soon!")
 
+    @app.shortcut("attach_to_asset")
+    def handle_shortcuts(ack, event, say):
+        ack()
+        say(
+            f'Hey <@{event["user"]}>! Acryl shortcut commands are coming soon!',
+            icon_url=ACRYL_SLACK_ICON_URL,
+        )
+
     return app
 
 
@@ -316,7 +324,6 @@ def make_slack_preview(urn: str) -> Optional[dict]:
                 {"type": "mrkdwn", "text": f"{platform_name} {subtype}"},
             ],
         },
-        {"type": "divider"},
     ]
 
     # Description section.
@@ -371,6 +378,7 @@ def make_slack_preview(urn: str) -> Optional[dict]:
         )
 
     if facts:
+        blocks.append({"type": "divider"})
         blocks.append(
             {
                 "type": "section",

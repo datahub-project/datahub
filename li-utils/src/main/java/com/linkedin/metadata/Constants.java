@@ -121,6 +121,7 @@ public class Constants {
   public static final String CORP_GROUP_INFO_ASPECT_NAME = "corpGroupInfo";
   public static final String CORP_GROUP_EDITABLE_INFO_ASPECT_NAME = "corpGroupEditableInfo";
   public static final String CORP_GROUP_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
+  public static final String CORP_GROUP_SETTINGS_ASPECT_NAME = "corpGroupSettings";
 
   // Dataset
   public static final String DATASET_KEY_ASPECT_NAME = "datasetKey";
@@ -416,6 +417,10 @@ public class Constants {
 
   // DAO
   public static final long LATEST_VERSION = 0;
+
+  // Metrics
+  public static final String NOTIFICATIONS_GRAPH_CALL_COUNT = "notifications_graph_call_count";
+  public static final String NOTIFICATIONS_SEARCH_CALL_COUNT = "notifications_search_call_count";
 
   private Constants() {
   }

@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.plugins;
 
+import com.datahub.authentication.group.GroupService;
 import com.datahub.authentication.proposal.ProposalService;
+import com.datahub.subscription.SubscriptionService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
@@ -13,8 +15,10 @@ import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
+import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
+import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.IncidentSource;
@@ -41,6 +45,7 @@ import com.linkedin.datahub.graphql.resolvers.incident.RaiseIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityRelationshipsResultResolver;
+import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
@@ -60,6 +65,16 @@ import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.role.BatchAssignRoleResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.GlobalSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.UpdateGlobalSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.group.GetGroupNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.group.UpdateGroupNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.GetUserNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserNotificationSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.CreateSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.DeleteSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.GetEntitySubscriptionSummaryResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.GetSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.ListSubscriptionsResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.UpdateSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.test.BatchTestRunEventsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
@@ -87,6 +102,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.usage.UsageClient;
 import graphql.schema.idl.RuntimeWiring;
@@ -105,6 +121,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   public static final String ACTIONS_SCHEMA_FILE = "actions.graphql";
   public static final String ANOMALY_SCHEMA_FILE = "anomaly.graphql";
   public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
+  public static final String NOTIFICATIONS_SCHEMA_FILE = "notifications.graphql";
+  public static final String SUBSCRIPTIONS_SCHEMA_FILE = "subscriptions.graphql";
 
   // OSS Types
   private GlossaryTermType glossaryTermType;
@@ -126,7 +144,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ProposalService proposalService;
   private AssertionService assertionService;
   private EntitySearchService entitySearchService;
-  private MonitorService monitorService; // Acryl-only
+  private MonitorService monitorService;
+  private SubscriptionService subscriptionService;
+  private GroupService groupService;
+  private SettingsService settingsService;
 
   // Clients
   private UsageClient usageClient;
@@ -154,6 +175,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.proposalService = args.getProposalService();
     this.integrationsService = args.getIntegrationsService();
     this.entitySearchService = args.getEntitySearchService();
+    this.subscriptionService = args.getSubscriptionService();
+    this.groupService = args.getGroupService();
+    this.settingsService = args.getSettingsService();
     this.testEngine = args.getTestEngine();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
@@ -186,7 +210,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         CONNECTIONS_SCHEMA_FILE,
         MONITORS_SCHEMA_FILE,
         ANOMALY_SCHEMA_FILE,
-        INTEGRATIONS_SCHEMA_FILE
+        INTEGRATIONS_SCHEMA_FILE,
+        NOTIFICATIONS_SCHEMA_FILE,
+        SUBSCRIPTIONS_SCHEMA_FILE
         );
   }
 
@@ -228,6 +254,15 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("deleteTest", new DeleteTestResolver(this.entityClient, this.testEngine))
         .dataFetcher("runTests", new RunTestsResolver(this.testEngine))
         .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(baseEngine.getRoleService()))
+        .dataFetcher("updateGroupNotificationSettings", new UpdateGroupNotificationSettingsResolver(this.settingsService))
+        .dataFetcher("updateUserNotificationSettings",
+            new UpdateUserNotificationSettingsResolver(this.settingsService))
+        .dataFetcher("updateGroupNotificationSettings",
+            new UpdateGroupNotificationSettingsResolver(this.settingsService))
+        .dataFetcher("createSubscription", new CreateSubscriptionResolver(this.subscriptionService))
+        .dataFetcher("updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))
+        .dataFetcher("deleteSubscription",
+            new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))
     );
   }
 
@@ -237,7 +272,14 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             new ListActionRequestsResolver(entityClient))
         .dataFetcher("listRejectedActionRequests",
             new ListRejectedActionRequestsResolver(entityClient, entityService))
-        .dataFetcher("validateTest", new ValidateTestResolver(testEngine)));
+        .dataFetcher("validateTest", new ValidateTestResolver(testEngine))
+        .dataFetcher("getUserNotificationSettings", new GetUserNotificationSettingsResolver(this.settingsService))
+        .dataFetcher("getGroupNotificationSettings", new GetGroupNotificationSettingsResolver(this.settingsService))
+        .dataFetcher("getSubscription", new GetSubscriptionResolver(this.subscriptionService))
+        .dataFetcher("listSubscriptions", new ListSubscriptionsResolver(this.subscriptionService))
+        .dataFetcher("getEntitySubscriptionSummary",
+            new GetEntitySubscriptionSummaryResolver(this.subscriptionService, this.groupService))
+    );
   }
 
   private void configureContainerResolvers(final RuntimeWiring.Builder builder) {
@@ -474,7 +516,18 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type("ActionRequest", typeWiring -> typeWiring.dataFetcher("entity",
         new EntityTypeResolver(new ArrayList<>(baseEngine.entityTypes),
             (env) -> ((ActionRequest) env.getSource()).getEntity()))
-    );
+        )
+        .type("DataHubSubscription",
+            typeWiring -> typeWiring.dataFetcher("entity", new EntityTypeResolver(baseEngine.entityTypes,
+                (env) -> ((DataHubSubscription) env.getSource()).getEntity()))
+        )
+        .type("EntitySubscriptionSummary",
+            typeWiring -> typeWiring.dataFetcher("exampleGroups", new EntityTypeBatchResolver(baseEngine.entityTypes,
+                (env) -> ((EntitySubscriptionSummary) env.getSource()).getExampleGroups()
+                    .stream()
+                    .map(group -> (Entity) group)
+                    .collect(
+                        Collectors.toList()))));
     builder.type("ChartStatsSummary", typeWiring -> typeWiring
         .dataFetcher("topUsersLast30Days", new LoadableTypeBatchResolver<>(baseEngine.getCorpUserType(),
             (env) -> {

@@ -48,6 +48,7 @@ ENTITY_PROFILE_ONBOARDING_IDS: List[str] = [
     "entity-profile-tags",
     "entity-profile-glossary-terms",
     "entity-profile-domains",
+    "entity-profile-subscriptions",
 ]
 
 INGESTION_ONBOARDING_IDS: List[str] = [

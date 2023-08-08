@@ -204,6 +204,7 @@ entities:
       - ownership
       - status
       - origin
+      - corpGroupSettings
   - name: domain
     doc: A data domain within an organization.
     keyAspect: domainKey
@@ -541,5 +542,10 @@ entities:
     keyAspect: linkPreviewKey
     aspects:
       - linkPreviewInfo
+  - name: subscription
+    category: core
+    keyAspect: subscriptionKey
+    aspects:
+      - subscriptionInfo
 events:
   - name: notificationRequest

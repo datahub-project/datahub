@@ -17,6 +17,7 @@ import {
     ENTITY_PROFILE_OWNERS_ID,
     ENTITY_PROFILE_PROPERTIES_ID,
     ENTITY_PROFILE_SCHEMA_ID,
+    ENTITY_PROFILE_SUBSCRIPTION_ID,
     ENTITY_PROFILE_TAGS_ID,
 } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 import { useGlossaryEntityData } from '../../GlossaryEntityContext';
@@ -171,6 +172,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
+                ENTITY_PROFILE_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
                 ENTITY_PROFILE_OWNERS_ID,
@@ -181,6 +183,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_ENTITIES_ID,
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -192,6 +195,7 @@ export function getOnboardingStepIdsForEntityType(entityType: EntityType): strin
                 ENTITY_PROFILE_DOCUMENTATION_ID,
                 ENTITY_PROFILE_LINEAGE_ID,
                 ENTITY_PROFILE_PROPERTIES_ID,
+                ENTITY_PROFILE_SUBSCRIPTION_ID,
                 ENTITY_PROFILE_OWNERS_ID,
                 ENTITY_PROFILE_TAGS_ID,
                 ENTITY_PROFILE_GLOSSARY_TERMS_ID,

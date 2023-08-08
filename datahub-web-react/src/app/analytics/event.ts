@@ -1,7 +1,15 @@
-import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
+import {
+    DataHubViewType,
+    EntityChangeType,
+    EntityType,
+    NotificationSinkType,
+    RecommendationRenderType,
+    ScenarioType,
+} from '../../types.generated';
 import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
 import { Direction } from '../lineage/types';
 import { FilterMode } from '../search/utils/constants';
+import { ActorType } from '../settings/personal/notifications/constants';
 
 /**
  * Valid event types.
@@ -84,6 +92,16 @@ export enum EventType {
     CreateAssertionMonitorEvent,
     StartAssertionMonitorEvent,
     StopAssertionMonitorEvent,
+    SlackIntegrationSuccessEvent,
+    SlackIntegrationErrorEvent,
+    SubscriptionCreateSuccessEvent,
+    SubscriptionCreateErrorEvent,
+    SubscriptionUpdateSuccessEvent,
+    SubscriptionUpdateErrorEvent,
+    SubscriptionDeleteSuccessEvent,
+    SubscriptionDeleteErrorEvent,
+    NotificationSettingsSuccessEvent,
+    NotificationSettingsErrorEvent,
 }
 
 /**
@@ -644,6 +662,95 @@ export interface EmbedLookupNotFoundEvent extends BaseEvent {
     reason: EmbedLookupNotFoundReason;
 }
 
+export interface SlackIntegrationSuccessEvent extends BaseEvent {
+    type: EventType.SlackIntegrationSuccessEvent;
+    configType: string;
+}
+
+export interface SlackIntegrationErrorEvent extends BaseEvent {
+    type: EventType.SlackIntegrationErrorEvent;
+    configType: string;
+}
+
+export interface SubscriptionCreateSuccessEvent extends BaseEvent {
+    type: EventType.SubscriptionCreateSuccessEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface SubscriptionCreateErrorEvent extends BaseEvent {
+    type: EventType.SubscriptionCreateErrorEvent;
+    entityUrn: string;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface SubscriptionUpdateSuccessEvent extends BaseEvent {
+    type: EventType.SubscriptionUpdateSuccessEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    entityChangeTypesAdded: Array<EntityChangeType>;
+    entityChangeTypesRemoved: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    sinkTypesAdded: Array<NotificationSinkType>;
+    sinkTypesRemoved: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface SubscriptionUpdateErrorEvent extends BaseEvent {
+    type: EventType.SubscriptionUpdateErrorEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface SubscriptionDeleteSuccessEvent extends BaseEvent {
+    type: EventType.SubscriptionDeleteSuccessEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface SubscriptionDeleteErrorEvent extends BaseEvent {
+    type: EventType.SubscriptionDeleteErrorEvent;
+    subscriptionUrn: string;
+    entityUrn: string;
+    entityType: EntityType;
+    entityChangeTypes: Array<EntityChangeType>;
+    sinkTypes: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface NotificationSettingsSuccessEvent extends BaseEvent {
+    type: EventType.NotificationSettingsSuccessEvent;
+    sinkTypes: Array<NotificationSinkType>;
+    sinkTypesAdded: Array<NotificationSinkType>;
+    sinkTypesRemoved: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
+export interface NotificationSettingsErrorEvent extends BaseEvent {
+    type: EventType.NotificationSettingsErrorEvent;
+    sinkTypes: Array<NotificationSinkType>;
+    sinkTypesAdded: Array<NotificationSinkType>;
+    sinkTypesRemoved: Array<NotificationSinkType>;
+    actorType: ActorType;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -723,4 +830,14 @@ export type Event =
     | EmbedLookupNotFoundEvent
     | CreateAssertionMonitorEvent
     | StartAssertionMonitorEvent
-    | StopAssertionMonitorEvent;
+    | StopAssertionMonitorEvent
+    | SlackIntegrationSuccessEvent
+    | SlackIntegrationErrorEvent
+    | SubscriptionCreateSuccessEvent
+    | SubscriptionCreateErrorEvent
+    | SubscriptionUpdateSuccessEvent
+    | SubscriptionUpdateErrorEvent
+    | SubscriptionDeleteSuccessEvent
+    | SubscriptionDeleteErrorEvent
+    | NotificationSettingsSuccessEvent
+    | NotificationSettingsErrorEvent;

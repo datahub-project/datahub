@@ -1,12 +1,13 @@
 package com.linkedin.gms.factory.graphql;
 
 import com.datahub.authentication.group.GroupService;
-import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.invite.InviteTokenService;
+import com.datahub.authentication.post.PostService;
+import com.datahub.authentication.proposal.ProposalService;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.authorization.role.RoleService;
-import com.datahub.authentication.post.PostService;
+import com.datahub.subscription.SubscriptionService;
 import com.linkedin.datahub.graphql.GmsGraphQLEngine;
 import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GraphQLEngine;
@@ -20,8 +21,8 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
+import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.test.TestEngineFactory;
@@ -40,10 +41,10 @@ import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.test.TestEngine;
+import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -203,6 +204,10 @@ public class GraphQLEngineFactory {
   @Qualifier("connectionService")
   private ConnectionService _connectionService;
 
+  @Autowired
+  @Qualifier("subscriptionService")
+  private SubscriptionService _subscriptionService;
+
   @Value("${platformAnalytics.enabled}") // TODO: Migrate to DATAHUB_ANALYTICS_ENABLED
   private Boolean isAnalyticsEnabled;
 
@@ -256,6 +261,7 @@ public class GraphQLEngineFactory {
     args.setMonitorService(_monitorService);
     args.setIntegrationsService(_integrationsService);
     args.setConnectionService(_connectionService);
+    args.setSubscriptionService(_subscriptionService);
 
     return new GmsGraphQLEngine(
         args

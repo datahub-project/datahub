@@ -1,0 +1,18 @@
+namespace com.linkedin.event.notification.template
+
+import com.linkedin.common.Owner
+
+/**
+ * A message to send via notification.
+ */
+record OwnershipParameters {
+    /**
+     * The owners that were added.
+     */
+    ownersAdded: optional array[Owner]
+
+    /**
+     * The owners that were removed.
+     */
+    ownersRemoved: optional array[Owner]
+}

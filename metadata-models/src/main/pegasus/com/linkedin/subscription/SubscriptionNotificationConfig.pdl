@@ -1,0 +1,11 @@
+namespace com.linkedin.subscription
+
+import com.linkedin.common.Urn
+import com.linkedin.event.notification.settings.NotificationSettings
+
+record SubscriptionNotificationConfig {
+    /**
+    * Notification settings for the subscription.
+    */
+    notificationSettings: optional NotificationSettings
+}

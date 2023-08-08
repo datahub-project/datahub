@@ -10,6 +10,7 @@ import {
     ToolOutlined,
     FilterOutlined,
     TeamOutlined,
+    StarOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
@@ -26,6 +27,9 @@ import { ManagePolicies } from '../permissions/policy/ManagePolicies';
 import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
 import { ManageOwnership } from '../entity/ownership/ManageOwnership';
+import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
+import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSubscriptions';
+import { useSubscriptionsEnabled } from './personal/notifications/utils';
 
 const PageContainer = styled.div`
     display: flex;
@@ -63,6 +67,8 @@ const ACRYL_PATHS = [
     { path: 'integrations', content: <PlatformIntegrations /> },
     { path: 'notifications', content: <PlatformNotifications /> },
     { path: 'sso', content: <PlatformSsoIntegrations /> },
+    { path: 'personal-notifications', content: <ManageActorNotifications isPersonal /> },
+    { path: 'personal-subscriptions', content: <ManageActorSubscriptions isPersonal /> },
 ];
 
 /**
@@ -86,6 +92,7 @@ const PATHS = [
 const DEFAULT_PATH = PATHS[0];
 
 export const SettingsPage = () => {
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
@@ -126,6 +133,27 @@ export const SettingsPage = () => {
                         history.replace(`${url}/${newPath.key}`);
                     }}
                 >
+                    <Menu.ItemGroup title="Personal">
+                        {showViews && (
+                            <Menu.Item key="views">
+                                <FilterOutlined />
+                                <ItemTitle>My Views</ItemTitle>
+                            </Menu.Item>
+                        )}
+                        {subscriptionsEnabled && (
+                            <>
+                                <Menu.Item key="personal-notifications">
+                                    <BellOutlined />
+                                    <ItemTitle>My Notifications</ItemTitle>
+                                </Menu.Item>
+                                <Menu.Item key="personal-subscriptions">
+                                    <StarOutlined />
+                                    <ItemTitle>My Subscriptions</ItemTitle>
+                                </Menu.Item>
+                            </>
+                        )}
+                    </Menu.ItemGroup>
+
                     <Menu.ItemGroup title="Developer">
                         <Menu.Item key="tokens">
                             <SafetyCertificateOutlined />
@@ -167,11 +195,6 @@ export const SettingsPage = () => {
                         )
                     }
                     <Menu.ItemGroup title="Manage">
-                        {showViews && (
-                            <Menu.Item key="views">
-                                <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
-                            </Menu.Item>
-                        )}
                         {showOwnershipTypes && (
                             <Menu.Item key="ownership">
                                 <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>

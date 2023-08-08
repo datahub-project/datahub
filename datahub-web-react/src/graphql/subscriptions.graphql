@@ -1,0 +1,118 @@
+query getSubscription($input: GetSubscriptionInput!) {
+    getSubscription(input: $input) {
+        privileges {
+            canManageEntity
+        }
+        subscription {
+            ...subscriptionFields
+        }
+    }
+}
+
+query listSubscriptions($input: ListSubscriptionsInput!) {
+    listSubscriptions(input: $input) {
+        total
+        subscriptions {
+            ...subscriptionFields
+        }
+    }
+}
+
+query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
+    getEntitySubscriptionSummary(input: $input) {
+        isUserSubscribed
+        userSubscriptionCount
+        groupSubscriptionCount
+        exampleGroups {
+            name
+            info {
+                displayName
+            }
+            properties {
+                displayName
+            }
+        }
+    }
+}
+
+mutation createSubscription($input: CreateSubscriptionInput!) {
+    createSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
+mutation updateSubscription($input: UpdateSubscriptionInput!) {
+    updateSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
+mutation deleteSubscription($input: DeleteSubscriptionInput!) {
+    deleteSubscription(input: $input)
+}
+
+fragment subscriptionFields on DataHubSubscription {
+    actorUrn
+    subscriptionUrn
+    entity {
+        urn
+        type
+        ... on Dataset {
+            name
+            properties {
+                name
+                description
+            }
+            editableProperties {
+                description
+            }
+            platform {
+                name
+                info {
+                    logoUrl
+                }
+                properties {
+                    logoUrl
+                }
+            }
+        }
+        ... on Dashboard {
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+        ... on Chart {
+            tool
+            properties {
+                description
+                name
+            }
+            editableProperties {
+                description
+            }
+        }
+    }
+    subscriptionTypes
+    entityChangeTypes {
+        entityChangeType
+    }
+    createdOn {
+        time
+    }
+    updatedOn {
+        time
+    }
+    notificationConfig {
+        notificationSettings {
+            sinkTypes
+            slackSettings {
+                userHandle
+                channels
+            }
+        }
+    }
+}

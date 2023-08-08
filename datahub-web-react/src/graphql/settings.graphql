@@ -1,3 +1,39 @@
+query getUserNotificationSettings {
+    getUserNotificationSettings {
+        sinkTypes
+        slackSettings {
+            userHandle
+        }
+    }
+}
+
+query getGroupNotificationSettings($input: GetGroupNotificationSettingsInput!) {
+    getGroupNotificationSettings(input: $input) {
+        sinkTypes
+        slackSettings {
+            channels
+        }
+    }
+}
+
+mutation updateUserNotificationSettings($input: UpdateUserNotificationSettingsInput!) {
+    updateUserNotificationSettings(input: $input) {
+        sinkTypes
+        slackSettings {
+            userHandle
+        }
+    }
+}
+
+mutation updateGroupNotificationSettings($input: UpdateGroupNotificationSettingsInput!) {
+    updateGroupNotificationSettings(input: $input) {
+        sinkTypes
+        slackSettings {
+            channels
+        }
+    }
+}
+
 query getGlobalSettings {
     globalSettings {
         integrationSettings {

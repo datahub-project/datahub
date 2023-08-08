@@ -2,12 +2,15 @@ package com.linkedin.metadata.kafka.config.notification;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.common.GraphClientFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RestliEntityClientFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.notifications.SettingsProviderFactory;
+import com.linkedin.gms.factory.notifications.recipient.SlackNotificationRecipientBuilderFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.gms.factory.timeline.EntityChangeEventGeneratorRegistryFactory;
 import com.linkedin.metadata.event.EventProducer;
@@ -26,7 +29,8 @@ import org.springframework.context.annotation.Scope;
 
 @Configuration
 @Import({SystemAuthenticationFactory.class, RestliEntityClientFactory.class, GraphClientFactory.class,
-    SettingsProviderFactory.class, EntityRegistryFactory.class, EntityChangeEventGeneratorRegistryFactory.class})
+    SettingsProviderFactory.class, EntityRegistryFactory.class, EntityChangeEventGeneratorRegistryFactory.class,
+    SlackNotificationRecipientBuilderFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class EntityChangeNotificationGeneratorFactory {
   @Autowired
@@ -57,6 +61,15 @@ public class EntityChangeNotificationGeneratorFactory {
   @Qualifier("systemAuthentication")
   private Authentication _systemAuthentication;
 
+  @Autowired
+  @Qualifier("slackNotificationRecipientBuilder")
+  private SlackNotificationRecipientBuilder _slackNotificationRecipientBuilder;
+
+  @Autowired
+  @Qualifier("configurationProvider")
+  private ConfigurationProvider _configProvider;
+
+
   @Bean(name = "entityChangeNotificationGenerator")
   @Scope("singleton")
   @Nonnull
@@ -67,7 +80,10 @@ public class EntityChangeNotificationGeneratorFactory {
         _eventProducer,
         _entityClient,
         _graphClient,
-        _systemAuthentication
+        _settingsProvider,
+        _systemAuthentication,
+        _slackNotificationRecipientBuilder,
+        _configProvider.getFeatureFlags()
     );
   }
 }

@@ -3,23 +3,29 @@ package com.linkedin.metadata.kafka.hook.notification.incident;
 import com.datahub.authentication.Authentication;
 import com.datahub.notification.NotificationTemplateType;
 import com.datahub.notification.provider.SettingsProvider;
+import com.datahub.notification.recipient.SlackNotificationRecipientBuilder;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.Owner;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.event.notification.NotificationRecipient;
 import com.linkedin.event.notification.NotificationRequest;
+import com.linkedin.event.notification.NotificationSinkType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
+import com.linkedin.incident.IncidentState;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.kafka.hook.notification.BaseMclNotificationGenerator;
-import com.linkedin.metadata.kafka.hook.notification.NotificationScenarioType;
+import com.datahub.notification.NotificationScenarioType;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.subscription.EntityChangeType;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -41,13 +47,29 @@ import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 @Slf4j
 public class IncidentNotificationGenerator extends BaseMclNotificationGenerator {
 
+  private final FeatureFlags _featureFlags;
+
   public IncidentNotificationGenerator(
       @Nonnull final EventProducer eventProducer,
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final SettingsProvider settingsProvider,
-      @Nonnull final Authentication systemAuthentication) {
-    super(eventProducer, entityClient, graphClient, settingsProvider, systemAuthentication);
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull final SlackNotificationRecipientBuilder slackNotificationRecipientBuilder,
+      @Nonnull final FeatureFlags featureFlags) {
+    super(
+        eventProducer,
+        entityClient,
+        graphClient,
+        settingsProvider,
+        systemAuthentication,
+        ImmutableMap.of(NotificationSinkType.SLACK, slackNotificationRecipientBuilder));
+    _featureFlags = featureFlags;
+  }
+
+  @Override
+  public boolean isEligibleForSubscriberRecipients() {
+    return _featureFlags.isSubscriptionsEnabled();
   }
 
   @Override
@@ -108,8 +130,10 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     log.debug(info.toString());
 
     final Urn entityUrn = info.getEntities().get(0);
+    EntityChangeType changeType = getEntityChangeType(info);
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn));
+    Set<NotificationRecipient> recipients =
+        new HashSet<>(buildRecipients(NotificationScenarioType.NEW_INCIDENT, entityUrn, changeType));
     if (recipients.isEmpty()) {
       log.warn("Skipping incident notification generation - no recipients");
       return;
@@ -161,8 +185,10 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
 
     // Notify a specific slack channel to alert the owners of the asset.
     final Urn entityUrn = newInfo.getEntities().get(0);
+    EntityChangeType changeType = getEntityChangeType(newInfo);
 
-    Set<NotificationRecipient> recipients = new HashSet<>(buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn));
+    Set<NotificationRecipient> recipients = new HashSet<>(
+        buildRecipients(NotificationScenarioType.INCIDENT_STATUS_CHANGE, entityUrn, changeType));
     if (recipients.isEmpty()) {
       log.info("Skipping incident generation - no recipients");
       return;
@@ -206,6 +232,10 @@ public class IncidentNotificationGenerator extends BaseMclNotificationGenerator 
     log.info(String.format("Broadcasting incident status change for entity %s...", entityUrn));
     sendNotificationRequest(notificationRequest);
 
+  }
+
+  private EntityChangeType getEntityChangeType(@Nonnull final IncidentInfo info) {
+    return info.getStatus().getState().equals(IncidentState.ACTIVE) ? EntityChangeType.INCIDENT_RAISED : EntityChangeType.INCIDENT_RESOLVED;
   }
 
   private boolean isNewIncident(final MetadataChangeLog event) {

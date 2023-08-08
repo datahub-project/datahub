@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.hook.notification;
+package com.datahub.notification;
 
 
 /**
@@ -25,4 +25,5 @@ public enum NotificationScenarioType {
   NEW_PROPOSAL,
   PROPOSAL_STATUS_CHANGE,
   INGESTION_RUN_CHANGE,
+  ASSERTION_STATUS_CHANGE,
 }

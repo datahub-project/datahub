@@ -1,0 +1,15 @@
+namespace com.linkedin.subscription
+
+/**
+  * Enum to define the different types of subscriptions.
+  */
+enum SubscriptionType {
+  /**
+   * Triggered via direct changes on an entity.
+   */
+  ENTITY_CHANGE
+  /**
+   * Triggered via upstream changes on an entity.
+   */
+  UPSTREAM_ENTITY_CHANGE
+}

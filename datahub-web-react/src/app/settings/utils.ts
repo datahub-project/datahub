@@ -1,4 +1,5 @@
-import { AccessTokenDuration, AccessTokenType } from '../../types.generated';
+import { AccessTokenDuration, AccessTokenType, GlobalSettings } from '../../types.generated';
+import { SLACK_SINK } from './platform/types';
 
 /** A type of DataHub Access Token. */
 export const ACCESS_TOKEN_TYPES = [{ text: 'Personal', type: AccessTokenType.Personal }];
@@ -38,5 +39,15 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
             return 'This token will never expire.';
         default:
             return AccessTokenDuration.OneMonth;
+    }
+};
+
+export const isSinkEnabled = (sinkId: string, settings?: GlobalSettings | null) => {
+    switch (sinkId) {
+        case SLACK_SINK.id: {
+            return settings?.integrationSettings?.slackSettings?.defaultChannelName || false;
+        }
+        default:
+            return false;
     }
 };

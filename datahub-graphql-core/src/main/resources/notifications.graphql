@@ -1,0 +1,104 @@
+extend type Query {
+    """
+    Get a user's Notification Settings. Returns null if the user does not have any Notification Settings.
+    """
+    getUserNotificationSettings: NotificationSettings
+
+    """
+    Get a group's Notification Settings. Returns null if the group does not have any Notification Settings.
+    """
+    getGroupNotificationSettings(input: GetGroupNotificationSettingsInput!): NotificationSettings
+}
+
+extend type Mutation {
+    """
+    Update a user's Notification Settings.
+    """
+    updateUserNotificationSettings(input: UpdateUserNotificationSettingsInput!): NotificationSettings!
+
+    """
+    Update a user's Notification Settings.
+    """
+    updateGroupNotificationSettings(input: UpdateGroupNotificationSettingsInput!): NotificationSettings!
+}
+
+input GetGroupNotificationSettingsInput {
+    """
+    The group's Urn.
+    """
+    groupUrn: String!
+}
+
+input UpdateUserNotificationSettingsInput {
+    """
+    The user's Notification Settings
+    """
+    notificationSettings: NotificationSettingsInput!
+}
+
+input UpdateGroupNotificationSettingsInput {
+    """
+    The group's Urn
+    """
+    groupUrn: String!
+
+    """
+    The group's Notification Settings
+    """
+    notificationSettings: NotificationSettingsInput!
+}
+
+input NotificationSettingsInput {
+    """
+    Sink types that notifications are sent to.
+    """
+    sinkTypes: [NotificationSinkType!]!
+
+    """
+    Slack Notification Settings
+    """
+    slackSettings: SlackNotificationSettingsInput!
+}
+
+type NotificationSettings {
+    """
+    Sink types that notifications are sent to.
+    """
+    sinkTypes: [NotificationSinkType!]!
+
+    """
+    Slack Notification Settings
+    """
+    slackSettings: SlackNotificationSettings!
+}
+
+input SlackNotificationSettingsInput {
+    """
+    The actor's handle. Only filled if the actor is a user.
+    """
+    userHandle: String
+
+    """
+    The actor's list of channels to notify. Only filled if the actor is a group.
+    """
+    channels: [String!]
+}
+
+type SlackNotificationSettings {
+    """
+    The actor's handle. Only filled if the actor is a user. Should be a Slack member UUID.
+    """
+    userHandle: String
+
+    """
+    The actor's list of channels to notify. Only filled if the actor is a group.
+    """
+    channels: [String!]
+}
+
+enum NotificationSinkType {
+    """
+    Slack
+    """
+    SLACK
+}
