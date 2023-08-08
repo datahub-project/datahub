@@ -493,7 +493,8 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
+            "vertica",
+            "airbyte"
             # airflow is added below
         ]
         if plugin
