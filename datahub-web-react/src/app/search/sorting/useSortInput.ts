@@ -1,5 +1,5 @@
+import { RECOMMENDED, SORT_OPTIONS } from '../context/constants';
 import { useSearchContext } from '../context/useSearchContext';
-import { RECOMMENDED, SORT_OPTIONS } from '../context/SearchContextProvider';
 
 export default function useSortInput() {
     const { selectedSortOption } = useSearchContext();

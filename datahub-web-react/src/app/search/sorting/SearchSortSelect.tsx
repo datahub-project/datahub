@@ -3,12 +3,13 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { ReactComponent as SortIcon } from '../../../images/sort.svg';
-import { SORT_OPTIONS } from '../context/SearchContextProvider';
 import { useSearchContext } from '../context/useSearchContext';
+import { SORT_OPTIONS } from '../context/constants';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;
+    margin-right: 8px;
 
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible

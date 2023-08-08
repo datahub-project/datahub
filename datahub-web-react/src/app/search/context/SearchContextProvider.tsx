@@ -1,23 +1,30 @@
-import React, { useState } from 'react';
+import * as QueryString from 'query-string';
+import { useHistory, useLocation } from 'react-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SearchContext } from './SearchContext';
-import { SortOrder } from '../../../types.generated';
-
-export const RECOMMENDED = 'recommended';
-const NAME_FIELD = 'name';
-
-const DEFAULT_SORT_OPTION = RECOMMENDED;
-
-export const SORT_OPTIONS = {
-    [RECOMMENDED]: { label: 'Recommended', field: RECOMMENDED, sortOrder: SortOrder.Descending },
-    [`${NAME_FIELD}_${SortOrder.Ascending}`]: { label: 'A to Z', field: NAME_FIELD, sortOrder: SortOrder.Ascending },
-    [`${NAME_FIELD}_${SortOrder.Descending}`]: { label: 'Z to A', field: NAME_FIELD, sortOrder: SortOrder.Descending },
-};
+import { updateUrlParam } from '../utils/utils';
+import { DEFAULT_SORT_OPTION } from './constants';
 
 export default function SearchContextProvider({ children }: { children: React.ReactNode }) {
     const [selectedSortOption, setSelectedSortOption] = useState(DEFAULT_SORT_OPTION);
+    const history = useHistory();
+    const location = useLocation();
+    const params = useMemo(() => QueryString.parse(location.search, { arrayFormat: 'comma' }), [location.search]);
+    const urlSortOption = params.sortOption;
+
+    useEffect(() => {
+        if (urlSortOption && urlSortOption !== selectedSortOption) {
+            setSelectedSortOption(urlSortOption as string);
+        }
+    }, [urlSortOption, selectedSortOption]);
+
+    function updateSelectedSortOption(selectedOption: string) {
+        updateUrlParam(history, 'sortOption', selectedOption);
+        setSelectedSortOption(selectedOption);
+    }
 
     return (
-        <SearchContext.Provider value={{ selectedSortOption, setSelectedSortOption }}>
+        <SearchContext.Provider value={{ selectedSortOption, setSelectedSortOption: updateSelectedSortOption }}>
             {children}
         </SearchContext.Provider>
     );

@@ -25,7 +25,7 @@ import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBr
 import useFilterMode from './filters/useFilterMode';
 import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
 import SearchContextProvider from './context/SearchContextProvider';
-import useSortCriterion from './sorting/useSortInput';
+import { useSearchContext } from './context/useSearchContext';
 
 /**
  * A search results page.
@@ -36,9 +36,9 @@ const SearchPageContent = () => {
     const showBrowseV2 = useIsBrowseV2();
     const searchVersion = useSearchVersion();
     const history = useHistory();
-    const { query, unionType, filters, orFilters, viewUrn, page, activeType } = useGetSearchQueryInputs();
+    const { query, unionType, filters, orFilters, viewUrn, page, activeType, sortInput } = useGetSearchQueryInputs();
     const { filterMode, filterModeRef, setFilterMode } = useFilterMode(filters, unionType);
-    const sortInput = useSortCriterion();
+    const { selectedSortOption } = useSearchContext();
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
@@ -97,7 +97,15 @@ const SearchPageContent = () => {
     };
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
-        navigateToSearchUrl({ type: activeType, query, page: 1, filters: newFilters, history, unionType });
+        navigateToSearchUrl({
+            type: activeType,
+            query,
+            selectedSortOption,
+            page: 1,
+            filters: newFilters,
+            history,
+            unionType,
+        });
     };
 
     const onClearFilters = () => {
@@ -106,12 +114,28 @@ const SearchPageContent = () => {
     };
 
     const onChangeUnionType = (newUnionType: UnionType) => {
-        navigateToSearchUrl({ type: activeType, query, page: 1, filters, history, unionType: newUnionType });
+        navigateToSearchUrl({
+            type: activeType,
+            query,
+            selectedSortOption,
+            page: 1,
+            filters,
+            history,
+            unionType: newUnionType,
+        });
     };
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
-        navigateToSearchUrl({ type: activeType, query, page: newPage, filters, history, unionType });
+        navigateToSearchUrl({
+            type: activeType,
+            query,
+            selectedSortOption,
+            page: newPage,
+            filters,
+            history,
+            unionType,
+        });
     };
 
     /**
