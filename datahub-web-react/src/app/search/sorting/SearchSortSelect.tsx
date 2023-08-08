@@ -31,7 +31,7 @@ const StyledIcon = styled(Icon)`
 export default function SearchSortSelect() {
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
-    const options = Object.entries(SORT_OPTIONS).map((option) => ({ value: option[0], label: option[1].label }));
+    const options = Object.entries(SORT_OPTIONS).map(([value, option]) => ({ value, label: option.label }));
 
     return (
         <SelectWrapper>

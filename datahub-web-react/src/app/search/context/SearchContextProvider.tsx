@@ -14,7 +14,7 @@ export default function SearchContextProvider({ children }: { children: React.Re
 
     useEffect(() => {
         if (urlSortOption && urlSortOption !== selectedSortOption && urlSortOption in SORT_OPTIONS) {
-            setSelectedSortOption(urlSortOption as string);
+            setSelectedSortOption(urlSortOption);
         }
     }, [urlSortOption, selectedSortOption]);
 
