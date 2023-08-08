@@ -38,3 +38,16 @@ def convert_millis_to_timestamp_type(millis: int, column_type: str) -> str:
         message=f"Unsupported column type {column_type} provided!",
         parameters={"column_type": column_type, "millis": millis},
     )
+
+
+def convert_value_for_comparison(column_value: str, column_type: str) -> str:
+    if column_type == "DATE":
+        return f"TO_DATE('{column_value}')"
+    elif column_type == "DATETIME":
+        return f"TO_DATETIME('{column_value}')"
+    elif "TIMESTAMP" in column_type:
+        return f"TO_TIMESTAMP('{column_value}')"
+    raise InvalidParametersException(
+        message=f"Unsupported column type {column_type} provided!",
+        parameters={"column_type": column_type, "column_value": column_value},
+    )

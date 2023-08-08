@@ -56,6 +56,10 @@ def test_fetch_assertions() -> None:
                                                         "entity": {
                                                             "urn": "urn:li:dataset:test",
                                                             "type": "DATASET",
+                                                            "properties": {
+                                                                "name": "test_table",
+                                                                "qualifiedName": "test_db.public.test_table",
+                                                            },
                                                             "platform": {
                                                                 "urn": "urn:li:dataPlatform:snowflake"
                                                             },

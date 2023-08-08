@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { message } from 'antd';
-import styled from 'styled-components';
+import styled from 'styled-components/macro';
 import analytics, { EventType, EntityActionType } from '../../../../../analytics';
 import { GenericEntityUpdate } from '../../../types';
 import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../EntityContext';
@@ -12,6 +12,7 @@ import { useProposeUpdateDescriptionMutation } from '../../../../../../graphql/p
 import { EntityType } from '../../../../../../types.generated';
 import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
 import { Editor } from './editor/Editor';
+import SourceDescription from './SourceDesription';
 
 const PROPOSAL_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Dataset];
 
@@ -20,8 +21,14 @@ export function getShouldShowProposeButton(entityType: EntityType) {
 }
 
 const EditorContainer = styled.div`
+    flex: 1;
+`;
+
+const EditorSourceWrapper = styled.div`
     overflow: auto;
-    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 `;
 
 type DescriptionEditorProps = {
@@ -176,9 +183,12 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 disableSave={!isDescriptionUpdated}
                 showPropose={shouldShowProposeButton}
             />
-            <EditorContainer>
-                <Editor content={updatedDescription} onChange={handleEditorChange} />
-            </EditorContainer>
+            <EditorSourceWrapper>
+                <EditorContainer>
+                    <Editor content={updatedDescription} onChange={handleEditorChange} />
+                </EditorContainer>
+                <SourceDescription />
+            </EditorSourceWrapper>
             {confirmCloseModalVisible && (
                 <DiscardDescriptionModal
                     cancelModalVisible={confirmCloseModalVisible}

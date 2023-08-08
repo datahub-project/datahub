@@ -7,10 +7,10 @@ record BatchTestRunResult {
   /**
    * Number of assets that were passing the test.
    */
-  passingCount: optional long
+  passingCount: long
 
   /**
    * Number of assets that were failing the test.
    */
-  failingCount: optional long
+  failingCount: long
 }

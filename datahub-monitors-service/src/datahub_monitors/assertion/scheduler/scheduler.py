@@ -132,6 +132,7 @@ class AssertionScheduler:
             month=month,
             day_of_week=day_of_week,
             timezone=timezone,  # specify the timezone here
+            misfire_grace_time=6 * 60 * 60,  # 6 hour misfire grace period
         )
         return job.id
 

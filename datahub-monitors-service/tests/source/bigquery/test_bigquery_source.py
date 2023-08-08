@@ -30,7 +30,7 @@ JAN_1_TIMESTAMP = 1672531200000
 
 TEST_INFORMATION_SCHEMA_UPDATE_QUERY = f"""
             SELECT last_modified_time
-            FROM `test_db.public.__TABLES__`
+            FROM test_db.public.__TABLES__
             WHERE table_id="test_table"
                 AND last_modified_time >= {TEST_START}
                 AND last_modified_time <= {TEST_END}
@@ -46,7 +46,7 @@ TEST_FIELD_UPDATE_QUERY = f"""
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
         SELECT timestamp
         FROM test_db.public.test_table
-        WHERE timestamp >= '{TEST_START}'
+        WHERE timestamp >= TIMESTAMP('{TEST_START}')
         AND foo = 'bar'
         ORDER by timestamp DESC
         LIMIT 1;
@@ -62,7 +62,7 @@ TEST_HIGHWATERMARK_VALUE_NO_PREV_QUERY = """
 TEST_HIGHWATERMARK_COUNT_QUERY = f"""
         SELECT COUNT(*)
         FROM test_db.public.test_table
-        WHERE timestamp = '{TEST_END}'
+        WHERE timestamp = TIMESTAMP('{TEST_END}')
         AND foo = 'bar'
     """
 
@@ -93,7 +93,10 @@ class TestBigQuerySource:
             TEST_ENTITY_URN,
             EntityEventType.AUDIT_LOG_OPERATION,
             [TEST_START, TEST_END],
-            {"operation_types": None, "user_name": None},
+            {
+                "operation_types": None,
+                "user_name": None,
+            },
         )
         extract_audit_logs_mock.assert_called_once_with(
             None,

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.codahale.metrics.MetricRegistry;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.ExpressionList;
@@ -509,8 +511,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         lastException = null;
         break;
       } catch (RollbackException | DuplicateKeyException exception) {
+        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
         lastException = exception;
       } catch (PersistenceException exception) {
+        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
         // TODO: replace this logic by catching SerializableConflictException above once the exception is available
         SpiServer pluginApi = _server.getPluginApi();
         DatabasePlatform databasePlatform = pluginApi.getDatabasePlatform();
@@ -540,6 +544,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     } while (++retryCount <= maxTransactionRetry);
 
     if (lastException != null) {
+      MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailedAfterRetries")).inc();
       throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", lastException);
     }
 

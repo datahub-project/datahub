@@ -21,6 +21,8 @@ from datahub_monitors.types import (
 TEST_ENTITY_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_table,PROD)"
 )
+TEST_QUALIFIED_NAME = "test_db.public.test_table"
+TEST_TABLE_NAME = "test_table"
 TEST_START = 1687643700064
 TEST_END = 1687644000064
 JAN_1_DATE = datetime.date(2023, 1, 1)
@@ -62,7 +64,7 @@ TEST_AUDIT_LOG_QUERY_NO_USER_NAME_FILTER = f"""
                     AND query_history.query_type in ({DEFAULT_OPERATION_TYPES_FILTER})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
-                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"\\'', '') in ('test_db.public.test_table')
+                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('test_db.public.test_table')
             ORDER BY query_history.start_time DESC
 ;"""
 TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
@@ -98,7 +100,7 @@ TEST_AUDIT_LOG_QUERY_WITH_USER_NAME_FILTER = f"""
                     AND query_history.query_type in ({DEFAULT_OPERATION_TYPES_FILTER})) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
-                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"\\'', '') in ('test_db.public.test_table')
+                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('test_db.public.test_table')
             ORDER BY query_history.start_time DESC
 ;"""
 TEST_AUDIT_LOG_QUERY_OPERATIONAL_TYPE_FILTER = f"""
@@ -134,7 +136,7 @@ TEST_AUDIT_LOG_QUERY_OPERATIONAL_TYPE_FILTER = f"""
                     AND query_history.query_type in ('INSERT','UPDATE')) query_history
                 ON exploded_access_history.query_id = query_history.query_id
             WHERE                
-                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"\\'', '') in ('test_db.public.test_table')
+                REGEXP_REPLACE(LOWER(exploded_access_history.updated_objects:objectName::STRING), '\\"|\\'', '') in ('test_db.public.test_table')
             ORDER BY query_history.start_time DESC
 ;"""
 TEST_INFORMATION_SCHEMA_UPDATE_QUERY = f"""
@@ -142,12 +144,12 @@ TEST_INFORMATION_SCHEMA_UPDATE_QUERY = f"""
             FROM TEST_DB.information_schema.tables
             WHERE last_altered >= to_timestamp_ltz({TEST_START}, 3)
             AND last_altered < to_timestamp_ltz({TEST_END}, 3)
-            AND table_name = 'TEST_TABLE'
-            AND table_schema = 'PUBLIC' 
+            AND table_name = 'test_table'
+            AND table_schema = 'PUBLIC'
             AND table_catalog = 'TEST_DB';"""
 TEST_FIELD_UPDATE_QUERY = f"""
                 SELECT timestamp as last_altered_date
-                FROM test_db.public.test_table
+                FROM test_db.public."test_table"
                 WHERE timestamp >= (TO_TIMESTAMP({TEST_START}, 3))
                 AND timestamp <= (TO_TIMESTAMP({TEST_END}, 3))
                 AND foo = 'bar'
@@ -156,15 +158,15 @@ TEST_FIELD_UPDATE_QUERY = f"""
             """
 TEST_HIGHWATERMARK_VALUE_QUERY = f"""
         SELECT timestamp
-        FROM test_db.public.test_table
-        WHERE timestamp >= '{TEST_START}'
+        FROM test_db.public."test_table"
+        WHERE timestamp >= TO_TIMESTAMP('{TEST_START}')
         AND foo = 'bar'
         ORDER by timestamp DESC
         LIMIT 1;
     """
 TEST_HIGHWATERMARK_VALUE_NO_PREV_QUERY = """
         SELECT timestamp
-        FROM test_db.public.test_table
+        FROM test_db.public."test_table"
         
         WHERE foo = 'bar'
         ORDER by timestamp DESC
@@ -172,8 +174,8 @@ TEST_HIGHWATERMARK_VALUE_NO_PREV_QUERY = """
     """
 TEST_HIGHWATERMARK_COUNT_QUERY = f"""
         SELECT COUNT(*)
-        FROM test_db.public.test_table
-        WHERE timestamp = '{TEST_END}'
+        FROM test_db.public."test_table"
+        WHERE timestamp = TO_TIMESTAMP('{TEST_END}')
         AND foo = 'bar'
     """
 
@@ -407,6 +409,10 @@ class TestSnowflakeSource:
                     "type": "STRING",
                     "native_type": "STRING",
                     "kind": FreshnessFieldKind.HIGH_WATERMARK,
+                    "database": {
+                        "qualified_name": TEST_QUALIFIED_NAME,
+                        "table_name": TEST_TABLE_NAME,
+                    },
                 },
                 None,
             )
@@ -417,7 +423,12 @@ class TestSnowflakeSource:
                 TEST_ENTITY_URN,
                 EntityEventType.FIELD_UPDATE,
                 [TEST_START, TEST_END],
-                {},
+                {
+                    "database": {
+                        "qualified_name": TEST_QUALIFIED_NAME,
+                        "table_name": TEST_TABLE_NAME,
+                    },
+                },
                 None,
             )
 
@@ -429,7 +440,12 @@ class TestSnowflakeSource:
                 TEST_ENTITY_URN,
                 EntityEventType.DATA_JOB_RUN_COMPLETED_SUCCESS,
                 [TEST_START, TEST_END],
-                {},
+                {
+                    "database": {
+                        "qualified_name": TEST_QUALIFIED_NAME,
+                        "table_name": TEST_TABLE_NAME,
+                    },
+                },
                 None,
             )
 
@@ -465,7 +481,7 @@ class TestSnowflakeSource:
 
     def test_get_operational_params(self) -> None:
         operational_params = self.snowflake_source._get_operation_params(
-            TEST_ENTITY_URN, [TEST_START, TEST_END]
+            TEST_ENTITY_URN, [TEST_START, TEST_END], {}
         )
         assert operational_params.start_time_millis == TEST_START
         assert operational_params.end_time_millis == TEST_END
@@ -476,13 +492,42 @@ class TestSnowflakeSource:
     def test_get_operational_params_platform_case(self) -> None:
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_table.extra,PROD)"
         operational_params = self.snowflake_source._get_operation_params(
-            urn, [TEST_START, TEST_END]
+            urn, [TEST_START, TEST_END], {}
         )
         assert operational_params.start_time_millis == TEST_START
         assert operational_params.end_time_millis == TEST_END
         assert operational_params.catalog == "test_db"
         assert operational_params.schema == "public"
         assert operational_params.table == "test_table"
+
+    def test_get_operational_params_qualified_name(self) -> None:
+        operational_params = self.snowflake_source._get_operation_params(
+            TEST_ENTITY_URN,
+            [TEST_START, TEST_END],
+            {"database": {"qualified_name": "test_db.public.camelCasedTableName"}},
+        )
+        assert operational_params.start_time_millis == TEST_START
+        assert operational_params.end_time_millis == TEST_END
+        assert operational_params.catalog == "test_db"
+        assert operational_params.schema == "public"
+        assert operational_params.table == "camelCasedTableName"
+
+    def test_get_operational_params_table_name(self) -> None:
+        operational_params = self.snowflake_source._get_operation_params(
+            TEST_ENTITY_URN,
+            [TEST_START, TEST_END],
+            {
+                "database": {
+                    "qualified_name": "test_db.public.camelCasedTableName",
+                    "table_name": "TitleCasedTableName",
+                }
+            },
+        )
+        assert operational_params.start_time_millis == TEST_START
+        assert operational_params.end_time_millis == TEST_END
+        assert operational_params.catalog == "test_db"
+        assert operational_params.schema == "public"
+        assert operational_params.table == "TitleCasedTableName"
 
     def test_build_audit_log_results(self) -> None:
         results = self.snowflake_source._build_audit_log_results(

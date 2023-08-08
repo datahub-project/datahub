@@ -18,6 +18,9 @@ import {
   LockTwoTone,
   SlackOutlined,
   HistoryOutlined,
+  InteractionOutlined,
+  GlobalOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 
 //quickLinkCards
@@ -200,6 +203,39 @@ const quickLinkContent = [
   },
 ];
 
+const gitLinkContent = [
+  {
+    title: "datahub",
+    icon: <ThunderboltTwoTone />,
+    to: "https://github.com/datahub-project/datahub",
+  },
+  {
+    title: "datahub-actions",
+    icon: <ApiTwoTone />,
+    to: "https://github.com/acryldata/datahub-actions",
+  },
+  {
+    title: "datahub-helm",
+    icon: <FileTextOutlined />,
+    to: "https://github.com/acryldata/datahub-helm",
+  },
+  {
+    title: "meta-world",
+    icon: <GlobalOutlined />,
+    to: "https://github.com/acryldata/meta-world",
+  },
+  {
+    title: "business-glossary-sync-action",
+    icon: <InteractionOutlined />,
+    to: "https://github.com/acryldata/business-glossary-sync-action",
+  },
+  {
+    title: "dbt-impact-action",
+    icon: <NodeExpandOutlined />,
+    to: "https://github.com/acryldata/dbt-impact-action",
+  },
+];
+
 function Docs() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
@@ -234,6 +270,14 @@ function Docs() {
             title="Feature Guides"
             content={featureGuideContent}
             seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }}
+          />
+          <GuideList
+            title="Github Repositories"
+            content={gitLinkContent}
+            seeMoreLink={{
+              label: "See all repositories",
+              to: "https://github.com/datahub-project/datahub#source-code-and-repositories",
+            }}
           />
         </div>
       </header>

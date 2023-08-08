@@ -89,7 +89,7 @@ export const AcrylAssertionDetailsHeader = ({
                     )}
                     <Tooltip placement="topLeft" title={lastEvaluatedTimeGMT}>
                         <TimeLabel>
-                            {lastEvaluatedTimeLocal} {nextEvaluatedAtMillis && <Divider type="vertical" />}
+                            {lastEvaluatedTimeLocal} {nextEvaluatedAtMillis ? <Divider type="vertical" /> : true}
                         </TimeLabel>
                     </Tooltip>
                     <Tooltip placement="topLeft" title={nextEvaluatedTimeGMT}>

@@ -75,6 +75,7 @@ import com.linkedin.datahub.graphql.resolvers.subscription.GetEntitySubscription
 import com.linkedin.datahub.graphql.resolvers.subscription.GetSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.ListSubscriptionsResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.UpdateSubscriptionResolver;
+import com.linkedin.datahub.graphql.resolvers.test.BatchTestRunEventsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.EntityTestResultsResolver;
@@ -445,6 +446,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     );
     builder.type("Test", typeWiring -> typeWiring
         .dataFetcher("results", new TestResultsSummaryResolver(this.entitySearchService))
+        .dataFetcher("batchRunEvents", new BatchTestRunEventsResolver(this.entityClient))
+
     );
   }
   private void configureDatasetResolvers(final RuntimeWiring.Builder builder) {

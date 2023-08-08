@@ -22,6 +22,14 @@ def get_filter_parameters(assertion: Assertion) -> Optional[Dict]:
     return None
 
 
+def get_database_parameters(assertion: Assertion) -> Dict:
+    entity = assertion.entity
+    return {
+        "table_name": entity.table_name,
+        "qualified_name": entity.qualified_name,
+    }
+
+
 def get_event_type_parameters_from_parameters(
     assertion: Assertion,
     parameters: AssertionEvaluationParameters,
@@ -37,20 +45,24 @@ def get_event_type_parameters_from_parameters(
         # We are parsing a dataset FRESHNESS assertion
         dataset_freshness_parameters = parameters.dataset_freshness_parameters
         source_type = dataset_freshness_parameters.source_type
+        database_params = get_database_parameters(assertion)
+        params = {"database": database_params}
+
         if source_type == DatasetFreshnessSourceType.FIELD_VALUE:
             entity_event_type = EntityEventType.FIELD_UPDATE
-            params = dataset_freshness_parameters.field.__dict__
+            if dataset_freshness_parameters.field:
+                params.update(dataset_freshness_parameters.field.__dict__)
             filter_params = get_filter_parameters(assertion)
             if filter_params:
                 params["filter"] = filter_params
-
             return (entity_event_type, params)
         elif source_type == DatasetFreshnessSourceType.INFORMATION_SCHEMA:
             entity_event_type = EntityEventType.INFORMATION_SCHEMA_UPDATE
-            return (entity_event_type, {})
+            return (entity_event_type, {"database": database_params})
         elif source_type == DatasetFreshnessSourceType.AUDIT_LOG:
             entity_event_type = EntityEventType.AUDIT_LOG_OPERATION
-            params = dataset_freshness_parameters.audit_log.__dict__
+            if dataset_freshness_parameters.audit_log:
+                params.update(dataset_freshness_parameters.audit_log.__dict__)
             return (entity_event_type, params)
         else:
             raise InvalidSourceTypeException(
