@@ -25,7 +25,6 @@ import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
-import MatchingViewsLabel from '../entity/shared/components/styled/search/MatchingViewsLabel';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -103,12 +102,6 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
         flex: 1;
         overflow: auto;
     `}
-`;
-
-const MenuViewContainer = styled.div`
-    padding: 8px;
-    display: flex;
-    align-items: center;
 `;
 
 interface Props {
@@ -215,19 +208,16 @@ export const SearchResults = ({
                                     of <b>{totalResults}</b> results
                                 </Typography.Text>
                             </LeftControlsContainer>
-                            <MenuViewContainer>
-                                <MatchingViewsLabel />
-                                <SearchMenuContainer>
-                                    <SearchExtendedMenu
-                                        downloadSearchResults={downloadSearchResults}
-                                        filters={generateOrFilters(unionType, selectedFilters)}
-                                        query={query}
-                                        viewUrn={viewUrn}
-                                        setShowSelectMode={setIsSelectMode}
-                                        totalResults={totalResults}
-                                    />
-                                </SearchMenuContainer>
-                            </MenuViewContainer>
+                            <SearchMenuContainer>
+                                <SearchExtendedMenu
+                                    downloadSearchResults={downloadSearchResults}
+                                    filters={generateOrFilters(unionType, selectedFilters)}
+                                    query={query}
+                                    viewUrn={viewUrn}
+                                    setShowSelectMode={setIsSelectMode}
+                                    totalResults={totalResults}
+                                />
+                            </SearchMenuContainer>
                         </PaginationInfoContainer>
                         {isSelectMode && (
                             <StyledTabToolbar>
