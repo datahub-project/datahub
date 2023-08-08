@@ -25,6 +25,7 @@ import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
+import MatchingViewsLabel from '../entity/shared/components/styled/search/MatchingViewsLabel';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -255,6 +256,7 @@ export const SearchResults = ({
                                             onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                                             pageSizeOptions={['10', '20', '50', '100']}
                                         />
+                                        <MatchingViewsLabel />
                                     </PaginationControlContainer>
                                     {authenticatedUserUrn && (
                                         <SearchResultsRecommendationsContainer>

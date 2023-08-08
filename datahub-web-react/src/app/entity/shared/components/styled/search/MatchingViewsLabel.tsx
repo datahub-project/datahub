@@ -50,20 +50,22 @@ const MatchingViewsLabel = () => {
           globalViews?.find((view) => view.urn === selectedViewUrn)
         : undefined;
 
-    if (selectedView) {
-        return (
-            <div>
-                Only showing entities in the
-                <Typography.Text strong> {selectedView?.name} </Typography.Text>
-                view.
-                <Button data-testid="view-select-clear" type="link" onClick={onClear}>
-                    Clear view
-                </Button>
-            </div>
-        );
-    }
-
-    return <div />;
+    return (
+        <>
+            {selectedView ? (
+                <div>
+                    Only showing entities in the
+                    <Typography.Text strong> {selectedView?.name} </Typography.Text>
+                    view.
+                    <Button data-testid="view-select-clear" type="link" onClick={onClear}>
+                        Clear view
+                    </Button>
+                </div>
+            ) : (
+                <div />
+            )}
+        </>
+    );
 };
 
 export default MatchingViewsLabel;
