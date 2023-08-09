@@ -161,7 +161,6 @@ public class SearchQueryBuilder {
   private static boolean isQuoted(String query) {
     return Stream.of("\"", "'").anyMatch(query::contains);
   }
-
   private Optional<QueryBuilder> getSimpleQuery(@Nullable QueryConfiguration customQueryConfig,
                                                 List<EntitySpec> entitySpecs,
                                                 String sanitizedQuery) {
@@ -171,10 +170,15 @@ public class SearchQueryBuilder {
     if (customQueryConfig != null) {
       executeSimpleQuery = customQueryConfig.isSimpleQuery();
     } else {
-      executeSimpleQuery = !isQuoted(sanitizedQuery) || !exactMatchConfiguration.isExclusive();
+      executeSimpleQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
     }
 
     if (executeSimpleQuery) {
+      /*
+       * NOTE: This logic applies the queryByDefault annotations for each entity to ALL entities
+       * If we ever have fields that are queryByDefault on some entities and not others, this section will need to be refactored
+       * to apply an index filter AND the analyzers added here.
+       */
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
       // Simple query string does not use per field analyzers
       // Group the fields by analyzer
@@ -189,7 +193,12 @@ public class SearchQueryBuilder {
         SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
         simpleBuilder.analyzer(analyzer);
         simpleBuilder.defaultOperator(Operator.AND);
-        fieldConfigs.forEach(cfg -> simpleBuilder.field(cfg.fieldName(), cfg.boost()));
+        Map<String, List<SearchFieldConfig>> fieldAnalyzers = fieldConfigs.stream().collect(Collectors.groupingBy(SearchFieldConfig::fieldName));
+        // De-duplicate fields across different indices
+        for (Map.Entry<String, List<SearchFieldConfig>> fieldAnalyzer : fieldAnalyzers.entrySet()) {
+          SearchFieldConfig cfg = fieldAnalyzer.getValue().get(0);
+          simpleBuilder.field(cfg.fieldName(), cfg.boost());
+        }
         simplePerField.should(simpleBuilder);
       });
 
