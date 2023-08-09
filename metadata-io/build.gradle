@@ -52,6 +52,9 @@ dependencies {
   testCompile externalDependency.h2
   testCompile externalDependency.mysqlConnector
   testCompile externalDependency.neo4jHarness
+  testCompile (externalDependency.neo4jApoc) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
