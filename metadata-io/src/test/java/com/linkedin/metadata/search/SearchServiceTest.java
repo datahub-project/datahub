@@ -20,8 +20,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -96,15 +94,6 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
     _searchService = new SearchService(
       new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
       cachingEntitySearchService,
-      new CachingAllEntitiesSearchAggregator(
-          _cacheManager,
-          new AllEntitiesSearchAggregator(
-              _entityRegistry,
-              _elasticSearchService,
-              cachingEntitySearchService,
-              new SimpleRanker(), entityDocCountCacheConfiguration),
-          100,
-          true),
       new SimpleRanker());
   }
 
@@ -136,7 +125,7 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
   public void testSearchService() throws Exception {
     SearchResult searchResult =
         _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null,
-                null, 0, 10, new SearchFlags().setFulltext(true));
+                null, 0, 10, new SearchFlags().setFulltext(true).setSkipCache(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null,
             null, 0, 10, new SearchFlags().setFulltext(true));

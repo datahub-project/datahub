@@ -189,7 +189,7 @@ services:
     env_file: zookeeper/env/docker.env
     healthcheck:
       test: echo srvr | nc zookeeper 2181
-      start_period: 2s
+      start_period: 45s
       interval: 5s
       retries: 5
       timeout: 5s
