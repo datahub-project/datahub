@@ -114,7 +114,7 @@ export const DefineRecipeStep = ({ state, updateState, goTo, prev, ingestionSour
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>配置 {sourceDisplayName} 脚本</SelectTemplateHeader>
+                <SelectTemplateHeader level={5}>Configure {sourceDisplayName} Recipe</SelectTemplateHeader>
                 {showLookerBanner && (
                     <Alert
                         type="warning"

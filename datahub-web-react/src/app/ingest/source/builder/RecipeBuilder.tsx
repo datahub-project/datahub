@@ -112,9 +112,9 @@ function RecipeBuilder(props: Props) {
                     </BorderedSection>
                     <ControlsContainer>
                         <Button disabled={isEditing} onClick={goToPrevious}>
-                            上一步
+                            Previous
                         </Button>
-                        <Button onClick={onClickNext}>下一步</Button>
+                        <Button onClick={onClickNext}>Next</Button>
                     </ControlsContainer>
                 </>
             )}
