@@ -31,32 +31,25 @@ const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
 };
 
 const ViewSelectContainer = styled.div`
-    display: flex;
-    align-items: center;
-
     &&& {
-        .ant-select-open {
-            .ant-select-selection-placeholder,
-            .ant-select-selection-item {
-                color: ${(props) => props.theme.styles['primary-color']};
-            }
-        }
-        .ant-select-selection-placeholder,
-        .ant-select-selection-item {
-            color: ${ANTD_GRAY_V2[10]};
-        }
-    }
+        display: flex;
+        align-items: center;
 
-    &&& {
         .ant-select {
             .ant-select-selection-search {
                 position: absolute;
             }
-            &.ant-select-open .ant-select-selection-item {
-                color: ${(props) => props.theme.styles['primary-color']};
+            &.ant-select-open {
+                .ant-select-selection-placeholder,
+                .ant-select-selection-item {
+                    color: ${(props) => props.theme.styles['primary-color']};
+                }
             }
-            &:not(.ant-select-open) .ant-select-selection-item {
-                color: ${ANTD_GRAY_V2[10]};
+            &:not(.ant-select-open) {
+                .ant-select-selection-placeholder,
+                .ant-select-selection-item {
+                    color: ${ANTD_GRAY_V2[10]};
+                }
             }
             .ant-select-selection-placeholder,
             .ant-select-selection-item {
