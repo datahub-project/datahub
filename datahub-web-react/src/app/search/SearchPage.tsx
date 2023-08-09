@@ -24,13 +24,12 @@ import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
 import useFilterMode from './filters/useFilterMode';
 import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
-import SearchContextProvider from './context/SearchContextProvider';
 import { useSelectedSortOption } from './context/SearchContext';
 
 /**
  * A search results page.
  */
-const SearchPageContent = () => {
+export const SearchPage = () => {
     const { trackClearAllFiltersEvent } = useSearchFilterAnalytics();
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
@@ -253,11 +252,3 @@ const SearchPageContent = () => {
         </>
     );
 };
-
-export function SearchPage() {
-    return (
-        <SearchContextProvider>
-            <SearchPageContent />
-        </SearchContextProvider>
-    );
-}
