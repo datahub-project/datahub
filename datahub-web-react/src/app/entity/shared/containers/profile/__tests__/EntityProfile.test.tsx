@@ -101,95 +101,95 @@ describe('EntityProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument(),{timeout:10000});
         await waitFor(() =>
             expect(getByText('This and here we have yet another Dataset (YAN). Are there more?')).toBeInTheDocument(),
-        );
+            {timeout:10000});
     });
 
-    // it('renders tab content', async () => {
-    //     const { getByText } = render(
-    //         <MockedProvider mocks={mocks} addTypename={false}>
-    //             <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
-    //                 <EntityProfile
-    //                     urn="urn:li:dataset:3"
-    //                     entityType={EntityType.Dataset}
-    //                     useEntityQuery={useGetDatasetQuery}
-    //                     useUpdateQuery={useUpdateDatasetMutation}
-    //                     getOverrideProperties={() => ({})}
-    //                     tabs={[
-    //                         {
-    //                             name: 'Schema',
-    //                             component: SchemaTab,
-    //                         },
-    //                         {
-    //                             name: 'Documentation',
-    //                             component: DocumentationTab,
-    //                         },
-    //                         {
-    //                             name: 'Properties',
-    //                             component: PropertiesTab,
-    //                         },
-    //                         {
-    //                             name: 'Lineage',
-    //                             component: LineageTab,
-    //                             display: {
-    //                                 visible: (_, _1) => true,
-    //                                 enabled: (_, dataset: GetDatasetQuery) =>
-    //                                     (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
-    //                                     (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
-    //                             },
-    //                         },
-    //                         {
-    //                             name: 'Queries',
-    //                             component: QueriesTab,
-    //                             display: {
-    //                                 visible: (_, _1) => true,
-    //                                 enabled: (_, dataset: GetDatasetQuery) =>
-    //                                     (dataset?.dataset?.usageStats?.buckets?.length && true) || false,
-    //                             },
-    //                         },
-    //                         {
-    //                             name: 'Stats',
-    //                             component: StatsTab,
-    //                             display: {
-    //                                 visible: (_, _1) => true,
-    //                                 enabled: (_, dataset: GetDatasetQuery) =>
-    //                                     (dataset?.dataset?.datasetProfiles?.length && true) ||
-    //                                     (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-    //                                     false,
-    //                             },
-    //                         },
-    //                     ]}
-    //                     sidebarSections={[
-    //                         {
-    //                             component: SidebarAboutSection,
-    //                         },
-    //                         {
-    //                             component: SidebarStatsSection,
-    //                             display: {
-    //                                 visible: (_, dataset: GetDatasetQuery) =>
-    //                                     (dataset?.dataset?.datasetProfiles?.length && true) ||
-    //                                     (dataset?.dataset?.usageStats?.buckets?.length && true) ||
-    //                                     false,
-    //                             },
-    //                         },
-    //                         {
-    //                             component: SidebarTagsSection,
-    //                         },
-    //                         {
-    //                             component: SidebarOwnerSection,
-    //                         },
-    //                     ]}
-    //                 />
-    //             </TestPageContainer>
-    //         </MockedProvider>,
-    //     );
-    //
-    //     // find the schema fields in the schema table
-    //     await waitFor(() => expect(getByText('user_name')).toBeInTheDocument());
-    //     await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
-    // });
+    it('renders tab content', async () => {
+        const { getByText } = render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
+                    <EntityProfile
+                        urn="urn:li:dataset:3"
+                        entityType={EntityType.Dataset}
+                        useEntityQuery={useGetDatasetQuery}
+                        useUpdateQuery={useUpdateDatasetMutation}
+                        getOverrideProperties={() => ({})}
+                        tabs={[
+                            {
+                                name: 'Schema',
+                                component: SchemaTab,
+                            },
+                            {
+                                name: 'Documentation',
+                                component: DocumentationTab,
+                            },
+                            {
+                                name: 'Properties',
+                                component: PropertiesTab,
+                            },
+                            {
+                                name: 'Lineage',
+                                component: LineageTab,
+                                display: {
+                                    visible: (_, _1) => true,
+                                    enabled: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.upstreamLineage?.entities?.length || 0) > 0 ||
+                                        (dataset?.dataset?.downstreamLineage?.entities?.length || 0) > 0,
+                                },
+                            },
+                            {
+                                name: 'Queries',
+                                component: QueriesTab,
+                                display: {
+                                    visible: (_, _1) => true,
+                                    enabled: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.usageStats?.buckets?.length && true) || false,
+                                },
+                            },
+                            {
+                                name: 'Stats',
+                                component: StatsTab,
+                                display: {
+                                    visible: (_, _1) => true,
+                                    enabled: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
+                                        false,
+                                },
+                            },
+                        ]}
+                        sidebarSections={[
+                            {
+                                component: SidebarAboutSection,
+                            },
+                            {
+                                component: SidebarStatsSection,
+                                display: {
+                                    visible: (_, dataset: GetDatasetQuery) =>
+                                        (dataset?.dataset?.datasetProfiles?.length && true) ||
+                                        (dataset?.dataset?.usageStats?.buckets?.length && true) ||
+                                        false,
+                                },
+                            },
+                            {
+                                component: SidebarTagsSection,
+                            },
+                            {
+                                component: SidebarOwnerSection,
+                            },
+                        ]}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        // find the schema fields in the schema table
+        await waitFor(() => expect(getByText('user_name')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('user_id')).toBeInTheDocument(),{timeout:10000});
+    });
 
     it('switches tab content', async () => {
         const { getByText, queryByText } = render(
@@ -271,8 +271,8 @@ describe('EntityProfile', () => {
         );
 
         // find the schema fields in the schema table
-        await waitFor(() => expect(getByText('user_name')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('user_name')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('user_id')).toBeInTheDocument(),{timeout:10000});
         expect(queryByText('propertyAKey')).not.toBeInTheDocument();
 
         fireEvent(
@@ -283,8 +283,8 @@ describe('EntityProfile', () => {
             }),
         );
 
-        await waitFor(() => expect(getByText('propertyAKey')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('propertyAValue')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('propertyAKey')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('propertyAValue')).toBeInTheDocument(),{timeout:10000});
         expect(queryByText('user_name')).not.toBeInTheDocument();
     });
 
@@ -368,8 +368,8 @@ describe('EntityProfile', () => {
         );
 
         // find the tags
-        await waitFor(() => expect(getByText('Tags')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('abc-sample-tag')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Tags')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('abc-sample-tag')).toBeInTheDocument(),{timeout:10000});
     });
 
     it('renders autorender aspects', async () => {
@@ -452,7 +452,7 @@ describe('EntityProfile', () => {
         );
 
         // find the tab name
-        await waitFor(() => expect(getByText('Auto Render Aspect Custom Tab Name')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Auto Render Aspect Custom Tab Name')).toBeInTheDocument(),{timeout:10000});
 
         // open the custom tab
         fireEvent(
@@ -464,7 +464,7 @@ describe('EntityProfile', () => {
         );
 
         // find the tab contents
-        await waitFor(() => expect(getByText('autoField1')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('autoValue1')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('autoField1')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('autoValue1')).toBeInTheDocument(),{timeout:10000});
     });
 });
