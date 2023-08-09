@@ -2,7 +2,7 @@ import { useAppConfig } from '../useAppConfig';
 
 const useSearchAndBrowseVersion = () => {
     const appConfig = useAppConfig();
-    const searchVersion = appConfig.config.featureFlags.showSearchFiltersV2 ? 'v2' : 'v1';
+    const searchVersion = appConfig.config.featureFlags.showSearchFiltersV2 ? 'v1' : 'v2';
     const browseVersion = appConfig.config.featureFlags.showBrowseV2 ? 'v2' : 'v1';
 
     return { searchVersion, browseVersion } as const;

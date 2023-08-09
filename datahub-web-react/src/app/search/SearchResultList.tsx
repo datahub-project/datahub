@@ -131,7 +131,7 @@ export const SearchResultList = ({
                     ),
                 }}
                 renderItem={(item, index) => (
-                    <ResultWrapper showUpdatedStyles={showSearchFiltersV2} id={`entityUrn-${item.entity.urn}`}>
+                    <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
                         <ListItem
                             isSelectMode={isSelectMode}
                             onClick={() => onClickResult(item, index)}

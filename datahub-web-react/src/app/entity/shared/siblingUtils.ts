@@ -3,6 +3,7 @@ import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Dataset, Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
+import { GenericEntityProperties } from './types';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -169,7 +170,7 @@ export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: { siblings?:
     return isPrimary;
 };
 
-const combineEntityWithSiblings = (entity: any) => {
+const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
     // eslint-disable-next-line @typescript-eslint/dot-notation
     const siblingAspect = entity.siblings;
     if ((siblingAspect?.siblings || []).length === 0) {

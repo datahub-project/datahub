@@ -34,6 +34,7 @@ import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import { getUniqueOwners } from './utils';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -260,13 +261,10 @@ export default function DefaultPreviewCard({
     };
 
     const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
-    const uniqueOwnerUrns = new Set();
-    const uniqueOwners = owners?.filter(
-        (owner) => !uniqueOwnerUrns.has(owner.owner.urn) && uniqueOwnerUrns.add(owner.owner.urn),
-    );
+    const uniqueOwners = getUniqueOwners(owners);
 
     return (
-        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown} id={`entityUrn-${urn}`}>
+        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
             <LeftColumn expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
