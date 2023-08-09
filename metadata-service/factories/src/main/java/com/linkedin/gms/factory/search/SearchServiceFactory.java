@@ -5,7 +5,6 @@ import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.ranker.SearchRanker;
@@ -35,10 +34,6 @@ public class SearchServiceFactory {
   private CachingEntitySearchService cachingEntitySearchService;
 
   @Autowired
-  @Qualifier("cachingAllEntitiesSearchAggregator")
-  private CachingAllEntitiesSearchAggregator cachingAllEntitiesSearchAggregator;
-
-  @Autowired
   @Qualifier("searchRanker")
   private SearchRanker searchRanker;
 
@@ -50,7 +45,6 @@ public class SearchServiceFactory {
         new EntityDocCountCache(entityRegistry, entitySearchService, configurationProvider.getCache()
             .getHomepage().getEntityCounts()),
         cachingEntitySearchService,
-        cachingAllEntitiesSearchAggregator,
         searchRanker);
   }
 }

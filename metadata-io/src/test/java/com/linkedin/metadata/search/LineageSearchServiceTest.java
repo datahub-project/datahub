@@ -33,8 +33,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -136,12 +134,6 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
         new SearchService(
             new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
             cachingEntitySearchService,
-            new CachingAllEntitiesSearchAggregator(
-                _cacheManager,
-                new AllEntitiesSearchAggregator(_entityRegistry, _elasticSearchService, cachingEntitySearchService,
-                    new SimpleRanker(), entityDocCountCacheConfiguration),
-                100,
-                true),
             new SimpleRanker()),
         _graphService, _cacheManager.getCache("test"), withCache, searchLineageCacheConfiguration));
   }
