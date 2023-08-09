@@ -541,7 +541,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base-Full) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full-tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
 
 
   datahub_ingestion_slim_build:
