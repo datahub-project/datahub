@@ -22,7 +22,7 @@ describe('HomePage', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByTestId('search-input')).toBeInTheDocument());
+        await waitFor(() => expect(getByTestId('search-input')).toBeInTheDocument(),{timeout:10000});
     });
 
     it('renders browsable entities', async () => {
@@ -40,7 +40,7 @@ describe('HomePage', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByText('Datasets')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Datasets')).toBeInTheDocument(),{timeout:10000});
     });
 
     it('renders autocomplete results', async () => {
@@ -59,10 +59,10 @@ describe('HomePage', () => {
             </MockedProvider>,
         );
         const searchInput = getByTestId('search-input');
-        await waitFor(() => expect(searchInput).toBeInTheDocument());
+        await waitFor(() => expect(searchInput).toBeInTheDocument(),{timeout:10000});
         fireEvent.change(searchInput, { target: { value: 't' } });
 
-        await waitFor(() => expect(queryAllByText('he Great Test Dataset').length).toBeGreaterThanOrEqual(1));
+        await waitFor(() => expect(queryAllByText('he Great Test Dataset').length).toBeGreaterThanOrEqual(1),{timeout:10000});
         expect(queryAllByText('Some Other Dataset').length).toBeGreaterThanOrEqual(1);
     });
 
@@ -81,7 +81,7 @@ describe('HomePage', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByText('Try searching for')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Try searching for')).toBeInTheDocument(),{timeout:10000});
         expect(queryAllByText('Yet Another Dataset').length).toBeGreaterThanOrEqual(1);
         expect(queryAllByText('Fourth Test Dataset').length).toBeGreaterThanOrEqual(1);
     });

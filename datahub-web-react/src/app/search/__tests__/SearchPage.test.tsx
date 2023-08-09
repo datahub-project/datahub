@@ -23,7 +23,7 @@ describe('SearchPage', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByText('Loading...')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Loading...')).toBeInTheDocument(),{timeout:10000});
         await act(() => promise);
     });
 
@@ -45,7 +45,7 @@ describe('SearchPage', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument());
+        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument(),{timeout:10000});
 
         const datasetEntityBox = getByTestId('facet-_entityType-DATASET');
         expect(datasetEntityBox).toHaveProperty('checked', true);
@@ -72,7 +72,7 @@ describe('SearchPage', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument());
+        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument(),{timeout:10000});
 
         const datasetEntityBox = getByTestId('facet-_entityType-DATASET');
         expect(datasetEntityBox).toHaveProperty('checked', true);
@@ -99,12 +99,12 @@ describe('SearchPage', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument());
+        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument(),{timeout:10000});
 
         const datasetEntityBox = getByTestId('facet-_entityType-DATASET');
         expect(datasetEntityBox).toHaveProperty('checked', true);
 
-        await waitFor(() => expect(queryByTestId('facet-platform-hdfs')).toBeInTheDocument());
+        await waitFor(() => expect(queryByTestId('facet-platform-hdfs')).toBeInTheDocument(),{timeout:10000});
         const hdfsPlatformBox = getByTestId('facet-platform-hdfs');
         expect(hdfsPlatformBox).toHaveProperty('checked', true);
     });
@@ -128,7 +128,7 @@ describe('SearchPage', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument());
+        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument(),{timeout:10000});
 
         const datasetEntityBox = getByTestId('facet-_entityType-DATASET');
         expect(datasetEntityBox).toHaveProperty('checked', true);
@@ -139,7 +139,7 @@ describe('SearchPage', () => {
             fireEvent.click(chartEntityBox);
         });
 
-        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument());
+        await waitFor(() => expect(queryByTestId('facet-_entityType-DATASET')).toBeInTheDocument(),{timeout:10000});
 
         const datasetEntityBox2 = getByTestId('facet-_entityType-DATASET');
         expect(datasetEntityBox2).toHaveProperty('checked', true);

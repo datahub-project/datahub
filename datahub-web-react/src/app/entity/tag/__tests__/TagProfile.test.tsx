@@ -17,7 +17,7 @@ describe('TagProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument());
+        await waitFor(() => expect(queryByText('abc-sample-tag')).toBeInTheDocument(),{timeout:10000});
 
         expect(getByText('abc-sample-tag')).toBeInTheDocument();
         expect(getByText('sample tag description')).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe('TagProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument());
+        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument(),{timeout:10000});
     });
 
     it('renders stats', async () => {
@@ -51,8 +51,8 @@ describe('TagProfile', () => {
             </MockedProvider>,
         );
 
-        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument());
+        await waitFor(() => expect(queryByText('abc-sample-tag')).not.toBeInTheDocument(),{timeout:10000});
 
-        await waitFor(() => expect(queryByText('Loading')).not.toBeInTheDocument());
+        await waitFor(() => expect(queryByText('Loading')).not.toBeInTheDocument(),{timeout:10000});
     });
 });

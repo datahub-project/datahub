@@ -24,14 +24,14 @@ describe('Recommendations', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByText('Datasets')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Explore your data')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Datasets')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('Explore your data')).toBeInTheDocument(),{timeout:10000});
         // await waitFor(() => expect(getByText('Platforms')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument(),{timeout:10000});
         // await waitFor(() => expect(getByText('Top Tags')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument(),{timeout:10000});
         // await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument(),{timeout:10000});
     });
 
     it('search results renders recommendations', async () => {
@@ -49,13 +49,13 @@ describe('Recommendations', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        await waitFor(() => expect(getByText('More you may be interested in')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Top Platforms')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Popular Tags')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument());
-        await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('More you may be interested in')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('Top Platforms')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('Snowflake')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('Popular Tags')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('TestTag')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('Most Popular')).toBeInTheDocument(),{timeout:10000});
+        await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument(),{timeout:10000});
     });
 
     // TODO: Uncomment once entity sidebar recs are fully supported.

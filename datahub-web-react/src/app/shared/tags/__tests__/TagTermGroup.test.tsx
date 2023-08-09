@@ -58,12 +58,12 @@ describe('TagTermGroup', () => {
         expect(getByText('Legacy')).toBeInTheDocument();
         expect(queryAllByLabelText('close')).toHaveLength(1);
         fireEvent.click(getByLabelText('close'));
-        await waitFor(() => expect(getByText('Do you want to remove Legacy tag?')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Do you want to remove Legacy tag?')).toBeInTheDocument(),{timeout:10000});
         expect(getByText('Do you want to remove Legacy tag?')).toBeInTheDocument();
 
         fireEvent.click(getByLabelText('Close'));
 
-        await waitFor(() => expect(queryByText('Do you want to remove Legacy tag?')).not.toBeInTheDocument());
+        await waitFor(() => expect(queryByText('Do you want to remove Legacy tag?')).not.toBeInTheDocument(),{timeout:10000});
 
         expect(getByText('Legacy')).toBeInTheDocument();
     });

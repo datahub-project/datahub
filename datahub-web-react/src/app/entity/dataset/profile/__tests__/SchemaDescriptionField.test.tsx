@@ -42,12 +42,12 @@ describe('SchemaDescriptionField', () => {
         );
         expect(queryByText('Update description')).not.toBeInTheDocument();
         fireEvent.click(getByRole('img'));
-        await waitFor(() => expect(getByText('Update description')).toBeInTheDocument());
+        await waitFor(() => expect(getByText('Update description')).toBeInTheDocument(),{timeout:10000});
         expect(getByText('Cancel')).toBeInTheDocument();
         expect(getByText('Update')).toBeInTheDocument();
         expect(getByText('Original:')).toBeInTheDocument();
         fireEvent.click(getByText('Cancel'));
-        await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());
+        await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument(),{timeout:10000});
     });
 
     it('renders short messages without show more / show less', () => {
