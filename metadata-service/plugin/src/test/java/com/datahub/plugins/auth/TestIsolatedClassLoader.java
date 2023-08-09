@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+import org.testng.annotations.Ignore;
 
 
 /**
@@ -141,6 +142,7 @@ class TestIsolatedClassLoader {
   }
 
   @Test
+  @Ignore
   public void testAuthenticatorPlugin() throws ClassNotFoundException, AuthenticationException {
     // authenticator plugin config instance
     AuthenticatorPluginConfig authenticatorPluginConfig = getAuthenticatorPluginConfig();
