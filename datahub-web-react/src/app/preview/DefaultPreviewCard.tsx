@@ -266,7 +266,7 @@ export default function DefaultPreviewCard({
     );
 
     return (
-        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
+        <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown} id={`entityUrn-${urn}`}>
             <LeftColumn expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
