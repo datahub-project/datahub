@@ -22,8 +22,9 @@ import { SidebarAboutSection } from '../sidebar/AboutSection/SidebarAboutSection
 import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
 
 describe('EntityProfile', () => {
-    jest.setTimeout(30000)
+
     it('renders dataset page', async () => {
+        jest.setTimeout(30000)
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
