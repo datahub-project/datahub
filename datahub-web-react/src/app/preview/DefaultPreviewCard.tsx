@@ -260,6 +260,10 @@ export default function DefaultPreviewCard({
     };
 
     const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+    const uniqueOwnerUrns = new Set();
+    const uniqueOwners = owners?.filter(
+        (owner) => !uniqueOwnerUrns.has(owner.owner.urn) && uniqueOwnerUrns.add(owner.owner.urn),
+    );
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
@@ -375,12 +379,14 @@ export default function DefaultPreviewCard({
                             </UserListContainer>
                         </>
                     )}
-                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                    {owners && owners?.length > 0 && (
+                    {(topUsers?.length || 0) > 0 && (uniqueOwners?.length || 0) > 0 && (
+                        <UserListDivider type="vertical" />
+                    )}
+                    {uniqueOwners && uniqueOwners?.length > 0 && (
                         <UserListContainer>
                             <UserListTitle strong>Owners</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
+                                <ExpandedActorGroup actors={uniqueOwners.map((owner) => owner.owner)} max={2} />
                             </div>
                         </UserListContainer>
                     )}
