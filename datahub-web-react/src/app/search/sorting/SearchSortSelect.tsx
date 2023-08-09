@@ -3,8 +3,8 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 import { ReactComponent as SortIcon } from '../../../images/sort.svg';
-import { useSearchContext } from '../context/useSearchContext';
-import { SORT_OPTIONS } from '../context/constants';
+import { DEFAULT_SORT_OPTION, SORT_OPTIONS } from '../context/constants';
+import { useSearchContext } from '../context/SearchContext';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
@@ -38,6 +38,7 @@ export default function SearchSortSelect() {
             <StyledIcon component={SortIcon} />
             <Select
                 value={selectedSortOption}
+                defaultValue={DEFAULT_SORT_OPTION}
                 options={options}
                 bordered={false}
                 onChange={(sortOption) => setSelectedSortOption(sortOption)}

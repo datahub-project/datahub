@@ -25,7 +25,7 @@ import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBr
 import useFilterMode from './filters/useFilterMode';
 import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
 import SearchContextProvider from './context/SearchContextProvider';
-import { useSearchContext } from './context/useSearchContext';
+import { useSelectedSortOption } from './context/SearchContext';
 
 /**
  * A search results page.
@@ -38,7 +38,7 @@ const SearchPageContent = () => {
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, activeType, sortInput } = useGetSearchQueryInputs();
     const { filterMode, filterModeRef, setFilterMode } = useFilterMode(filters, unionType);
-    const { selectedSortOption } = useSearchContext();
+    const selectedSortOption = useSelectedSortOption();
 
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
     const [isSelectMode, setIsSelectMode] = useState(false);
