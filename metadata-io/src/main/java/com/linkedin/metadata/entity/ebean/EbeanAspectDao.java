@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean;
 
+import com.codahale.metrics.MetricRegistry;
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.common.AuditStamp;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.DuplicateKeyException;
 import io.ebean.EbeanServer;
 import io.ebean.ExpressionList;
@@ -25,7 +27,11 @@ import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
+import io.ebean.annotation.Platform;
+import io.ebean.config.dbplatform.DatabasePlatform;
+import io.ebean.plugin.SpiServer;
 import java.net.URISyntaxException;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -39,6 +45,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.RollbackException;
+import javax.persistence.PersistenceException;
 import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
@@ -504,11 +511,40 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         lastException = null;
         break;
       } catch (RollbackException | DuplicateKeyException exception) {
+        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
         lastException = exception;
+      } catch (PersistenceException exception) {
+        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
+        // TODO: replace this logic by catching SerializableConflictException above once the exception is available
+        SpiServer pluginApi = _server.getPluginApi();
+        DatabasePlatform databasePlatform = pluginApi.getDatabasePlatform();
+
+        if (databasePlatform.isPlatform(Platform.POSTGRES)) {
+          Throwable cause = exception.getCause();
+          if (cause instanceof SQLException) {
+            SQLException sqlException = (SQLException) cause;
+            String sqlState = sqlException.getSQLState();
+            while (sqlState == null && sqlException.getCause() instanceof SQLException) {
+              sqlException = (SQLException) sqlException.getCause();
+              sqlState = sqlException.getSQLState();
+            }
+
+            // version 11.33.3 of io.ebean does not have a SerializableConflictException (will be available with version 11.44.1),
+            // therefore when using a PostgreSQL database we have to check the SQL state 40001 here to retry the transactions
+            // also in case of serialization errors ("could not serialize access due to concurrent update")
+            if (sqlState.equals("40001")) {
+              lastException = exception;
+              continue;
+            }
+          }
+        }
+
+        throw exception;
       }
     } while (++retryCount <= maxTransactionRetry);
 
     if (lastException != null) {
+      MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailedAfterRetries")).inc();
       throw new RetryLimitReached("Failed to add after " + maxTransactionRetry + " retries", lastException);
     }
 

@@ -7,7 +7,7 @@ import com.linkedin.gms.factory.kafka.schemaregistry.SchemaRegistryConfig;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.schema.registry.SchemaRegistryService;
+import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -21,7 +21,8 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Configuration
 @ComponentScan(basePackages = {
-    "com.linkedin.metadata.kafka"
+    "com.linkedin.metadata.kafka",
+    "com.linkedin.gms.factory.entity.update.indices"
 })
 public class MCLSpringTestConfiguration {
 

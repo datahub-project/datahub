@@ -254,9 +254,10 @@ class SQLAlchemyQueryCombiner:
             except Exception as e:
                 if not self.catch_exceptions:
                     raise e
-                logger.exception(
+                logger.warning(
                     f"Failed to execute query normally, using fallback: {str(query)}"
                 )
+                logger.debug("Failed to execute query normally", exc_info=e)
                 self.report.query_exceptions += 1
                 return _sa_execute_underlying_method(conn, query, *args, **kwargs)
             else:
@@ -400,7 +401,10 @@ class SQLAlchemyQueryCombiner:
             except Exception as e:
                 if not self.serial_execution_fallback_enabled:
                     raise e
-                logger.exception(f"Failed to execute queue using combiner: {str(e)}")
+                logger.warning(
+                    "Failed to execute queue using combiner, will fallback to execute one by one."
+                )
+                logger.debug("Failed to execute queue using combiner", exc_info=e)
                 self.report.query_exceptions += 1
                 self._execute_queue_fallback(main_greenlet)
 

@@ -1,10 +1,12 @@
 import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import styled from 'styled-components';
+import { Maybe } from 'graphql/jsutils/Maybe';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../../types.generated';
 import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
+import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
 import { CustomAvatar } from '../../shared/avatar';
 
 type Props = {
@@ -36,6 +38,10 @@ const SearchResultContent = styled.div`
     align-items: center;
 `;
 
+const OwnershipWrapper = styled.div`
+    margin-top: 12px;
+`;
+
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
@@ -46,12 +52,37 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Search for actors while building policy.
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const [groupSearch, { data: groupSearchData }] = useGetSearchResultsLazyQuery();
-
+    const { data: ownershipData } = useListOwnershipTypesQuery({
+        variables: {
+            input: {},
+        },
+    });
+    const ownershipTypes =
+        ownershipData?.listOwnershipTypes?.ownershipTypes.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
+        [];
+    const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
     // Toggle the "Owners" switch
     const onToggleAppliesToOwners = (value: boolean) => {
         setActors({
             ...actors,
             resourceOwners: value,
+            resourceOwnersTypes: value ? actors.resourceOwnersTypes : null,
+        });
+    };
+
+    const onSelectOwnershipTypeActor = (newType: string) => {
+        const newResourceOwnersTypes: Maybe<string[]> = [...(actors.resourceOwnersTypes || []), newType];
+        setActors({
+            ...actors,
+            resourceOwnersTypes: newResourceOwnersTypes,
+        });
+    };
+
+    const onDeselectOwnershipTypeActor = (type: string) => {
+        const newResourceOwnersTypes: Maybe<string[]> = actors.resourceOwnersTypes?.filter((u: string) => u !== type);
+        setActors({
+            ...actors,
+            resourceOwnersTypes: newResourceOwnersTypes?.length ? newResourceOwnersTypes : null,
         });
     };
 
@@ -175,6 +206,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     // Select dropdown values.
     const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
     const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
+    const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
 
     const tagRender = (props) => {
         // eslint-disable-next-line react/prop-types
@@ -215,6 +247,36 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                         selected privileges.
                     </Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
+                    {actors.resourceOwners && (
+                        <OwnershipWrapper>
+                            <Typography.Paragraph>
+                                List of types of ownership which will be used to match owners. If empty, the policies
+                                will applied to any type of ownership.
+                            </Typography.Paragraph>
+                            <Select
+                                value={ownershipTypesSelectValue}
+                                mode="multiple"
+                                placeholder="Ownership types"
+                                onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
+                                onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
+                                tagRender={(tagProps) => {
+                                    return (
+                                        <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
+                                            {ownershipTypesMap[tagProps.value.toString()]}
+                                        </Tag>
+                                    );
+                                }}
+                            >
+                                {ownershipTypes.map((resOwnershipType) => {
+                                    return (
+                                        <Select.Option value={resOwnershipType.urn}>
+                                            {resOwnershipType?.info?.name}
+                                        </Select.Option>
+                                    );
+                                })}
+                            </Select>
+                        </OwnershipWrapper>
+                    )}
                 </Form.Item>
             )}
             <Form.Item label={<Typography.Text strong>Users</Typography.Text>}>
@@ -223,6 +285,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     users.
                 </Typography.Paragraph>
                 <Select
+                    data-testid="users"
                     value={usersSelectValue}
                     mode="multiple"
                     filterOption={false}
@@ -244,6 +307,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     all groups.
                 </Typography.Paragraph>
                 <Select
+                    data-testid="groups"
                     value={groupsSelectValue}
                     mode="multiple"
                     placeholder="Search for groups..."

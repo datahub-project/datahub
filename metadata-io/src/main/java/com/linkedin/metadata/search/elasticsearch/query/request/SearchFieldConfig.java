@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
@@ -19,10 +20,12 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 @Builder
 @Getter
 @Accessors(fluent = true)
+@EqualsAndHashCode
 public class SearchFieldConfig {
     public static final float DEFAULT_BOOST = 1.0f;
 
     public static final Set<String> KEYWORD_FIELDS = Set.of("urn", "runId", "_index");
+    public static final Set<String> PATH_HIERARCHY_FIELDS = Set.of("browsePathV2");
 
     // These should not be used directly since there is a specific
     // order in which these rules need to be evaluated for exceptions to

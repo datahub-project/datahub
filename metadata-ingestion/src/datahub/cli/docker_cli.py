@@ -34,6 +34,7 @@ from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
 
 
 _QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
+_QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
 _QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
 
@@ -702,14 +704,28 @@ def quickstart(
             # As such, we'll only use the quiet flag if we're in an interactive environment.
             # If we're in quiet mode, then we'll show a spinner instead.
             quiet = not sys.stderr.isatty()
-            with click_spinner.spinner(disable=not quiet):
+            with PerfTimer() as timer, click_spinner.spinner(disable=not quiet):
                 subprocess.run(
                     [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
+
+            telemetry.telemetry_instance.ping(
+                "quickstart-image-pull",
+                {
+                    "status": "success",
+                    "duration": timer.elapsed_seconds(),
+                },
+            )
             click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
+        telemetry.telemetry_instance.ping(
+            "quickstart-image-pull",
+            {
+                "status": "failure",
+            },
+        )
         click.secho(
             "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
             "been built locally",
@@ -736,11 +752,17 @@ def quickstart(
         if up_attempts == 0 or (status and status.needs_up()):
             if up_attempts > 0:
                 click.echo()
-            subprocess.run(
-                base_command + ["up", "-d", "--remove-orphans"],
-                env=_docker_subprocess_env(),
-            )
             up_attempts += 1
+
+            logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
+            try:
+                subprocess.run(
+                    base_command + ["up", "-d", "--remove-orphans"],
+                    env=_docker_subprocess_env(),
+                    timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
+                )
+            except subprocess.TimeoutExpired:
+                logger.debug("docker compose up timed out, will retry")
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()
@@ -963,7 +985,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     if token is not None:
         recipe["sink"]["config"]["token"] = token
 
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, no_default_report=True)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

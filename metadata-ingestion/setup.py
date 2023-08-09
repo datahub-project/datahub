@@ -28,6 +28,7 @@ base_requirements = {
     # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
     "pydantic>=1.5.1,!=1.10.3,<2",
     "mixpanel>=4.9.0",
+    "sentry-sdk",
 }
 
 framework_common = {
@@ -56,7 +57,8 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    "jsonschema",
+    # jsonschema drops python 3.7 support in v4.18.0
+    "jsonschema<=4.17.3",
     "ruamel.yaml",
 }
 
@@ -124,12 +126,17 @@ sql_common = {
 }
 
 sqllineage_lib = {
-    "sqllineage==1.3.6",
+    "sqllineage==1.3.8",
     # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # As per https://github.com/reata/sqllineage/issues/361
-    # and https://github.com/reata/sqllineage/pull/360
-    # sqllineage has compat issues with sqlparse 0.4.4.
-    "sqlparse==0.4.3",
+    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
+    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
+    "sqlparse==0.4.4",
+}
+
+sqlglot_lib = {
+    # Using an Acryl fork of sqlglot.
+    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:hsheth?expand=1
+    "acryl-sqlglot==16.7.6.dev6",
 }
 
 aws_common = {
@@ -193,7 +200,7 @@ snowflake_common = {
     "pandas",
     "cryptography",
     "msal",
-    "acryl-datahub-classify==0.0.7",
+    "acryl-datahub-classify==0.0.8",
     # spacy version restricted to reduce backtracking, used by acryl-datahub-classify,
     "spacy==3.4.3",
 }
@@ -204,7 +211,21 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
-microsoft_common = {"msal==1.16.0"}
+pyhive_common = {
+    # Acryl Data maintains a fork of PyHive
+    # - 0.6.11 adds support for table comments and column comments,
+    #   and also releases HTTP and HTTPS transport schemes
+    # - 0.6.12 adds support for Spark Thrift Server
+    # - 0.6.13 adds a small fix for Databricks
+    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
+    "acryl-pyhive[hive_pure_sasl]==0.6.14",
+    # As per https://github.com/datahub-project/datahub/issues/8405
+    # and https://github.com/dropbox/PyHive/issues/417, new versions
+    # of thrift break PyHive's hive+http transport.
+    "thrift<0.14.0",
+}
+
+microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -226,7 +247,7 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1",
+    "pydeequ>=1.0.1, <1.1",
     "pyspark==3.0.3",
 }
 
@@ -241,9 +262,9 @@ usage_common = {
     "sqlparse",
 }
 
-databricks_cli = {
-    "databricks-cli>=0.17.7",
-    "databricks-sdk>=0.1.1",
+databricks = {
+    # 0.1.11 appears to have authentication issues with azure databricks
+    "databricks-sdk>=0.1.1, <0.1.11",
     "pyspark",
     "requests",
 }
@@ -268,6 +289,8 @@ plugins: Dict[str, Set[str]] = {
         "gql[requests]>=3.3.0",
     },
     "great-expectations": sql_common | sqllineage_lib,
+    # Misc plugins.
+    "sql-parser": sqlglot_lib,
     # Source plugins
     # PyAthena is pinned with exact version because we use private method in PyAthena
     "athena": sql_common | {"PyAthena[SQLAlchemy]==2.4.1"},
@@ -275,18 +298,13 @@ plugins: Dict[str, Set[str]] = {
     "bigquery": sql_common
     | bigquery_common
     | {
+        # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
+        *sqlglot_lib,
         "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
-    "bigquery-beta": sql_common
-    | bigquery_common
-    | {
-        *sqllineage_lib,
-        "sql_metadata",
-        "sqlalchemy-bigquery>=1.4.1",
-    },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
@@ -314,12 +332,8 @@ plugins: Dict[str, Set[str]] = {
         "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
+    | pyhive_common
     | {
-        # Acryl Data maintains a fork of PyHive
-        # - 0.6.11 adds support for table comments and column comments,
-        #   and also releases HTTP and HTTPS transport schemes
-        # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
         # Due to https://github.com/great-expectations/great_expectations/issues/6146,
         # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
@@ -344,9 +358,10 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
+    "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
-    | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    | pyhive_common
+    | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
     "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
@@ -356,10 +371,7 @@ plugins: Dict[str, Set[str]] = {
     "gcs": {*s3_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
-    "snowflake": snowflake_common | usage_common,
-    "snowflake-beta": (
-        snowflake_common | usage_common
-    ),  # deprecated, but keeping the extra for backwards compatibility
+    "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "superset": {
         "requests",
@@ -367,14 +379,16 @@ plugins: Dict[str, Set[str]] = {
         "great_expectations",
         "greenlet",
     },
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
+    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
+    # to remove that dependency.
+    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
-    "unity-catalog": databricks_cli | sqllineage_lib,
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
+    "unity-catalog": databricks | sqllineage_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -400,7 +414,9 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]",
+    # The boto3-stubs package seems to have regularly breaking minor releases,
+    # we pin to a specific version to avoid this.
+    "boto3-stubs[s3,glue,sagemaker,sts]==1.28.15",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
@@ -410,7 +426,13 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
+    "types-tzlocal",
 }
+
+
+pytest_dep = "pytest>=6.2.2"
+deepdiff_dep = "deepdiff"
+test_api_requirements = {pytest_dep, deepdiff_dep, "PyYAML"}
 
 base_dev_requirements = {
     *base_requirements,
@@ -430,11 +452,12 @@ base_dev_requirements = {
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.9.0",
-    "pytest>=6.2.2",
+    *test_api_requirements,
+    pytest_dep,
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-docker>=1.0.1",
-    "deepdiff",
+    deepdiff_dep,
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -479,7 +502,8 @@ base_dev_requirements = {
             "powerbi-report-server",
             "salesforce",
             "unity-catalog",
-            "nifi"
+            "nifi",
+            "vertica"
             # airflow is added below
         ]
         if plugin
@@ -513,7 +537,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            # "vertica",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),
@@ -594,6 +618,7 @@ entry_points = {
         "add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags",
         "simple_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags",
         "pattern_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags",
+        "extract_dataset_tags = datahub.ingestion.transformer.extract_dataset_tags:ExtractDatasetTags",
         "add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:AddDatasetTerms",
         "simple_add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:SimpleAddDatasetTerms",
         "pattern_add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:PatternAddDatasetTerms",
@@ -686,6 +711,7 @@ setuptools.setup(
             )
         ),
         "dev": list(dev_requirements),
+        "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
     },
 )

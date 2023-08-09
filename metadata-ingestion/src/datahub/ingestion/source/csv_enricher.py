@@ -17,7 +17,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source_config.csv_enricher import CSVEnricherConfig
 from datahub.metadata.schema_classes import (
@@ -439,7 +438,7 @@ class CSVEnricherSource(Source):
         field_match = False
         for field_info in current_editable_schema_metadata.editableSchemaFieldInfo:
             if (
-                DatasetUrn._get_simple_field_path_from_v2_field_path(
+                DatasetUrn.get_simple_field_path_from_v2_field_path(
                     field_info.fieldPath
                 )
                 == field_path
@@ -546,7 +545,9 @@ class CSVEnricherSource(Source):
         term_urns: List[str] = terms_array_string.split(self.config.array_delimiter)
 
         term_associations: List[GlossaryTermAssociationClass] = [
-            GlossaryTermAssociationClass(term) for term in term_urns
+            GlossaryTermAssociationClass(term)
+            for term in term_urns
+            if term.startswith("urn:li:")
         ]
         return term_associations
 
@@ -559,7 +560,7 @@ class CSVEnricherSource(Source):
         tag_urns: List[str] = tags_array_string.split(self.config.array_delimiter)
 
         tag_associations: List[TagAssociationClass] = [
-            TagAssociationClass(tag) for tag in tag_urns
+            TagAssociationClass(tag) for tag in tag_urns if tag.startswith("urn:li:")
         ]
         return tag_associations
 
@@ -582,12 +583,11 @@ class CSVEnricherSource(Source):
         owner_urns: List[str] = owners_array_string.split(self.config.array_delimiter)
 
         owners: List[OwnerClass] = [
-            OwnerClass(owner_urn, type=ownership_type) for owner_urn in owner_urns
+            OwnerClass(owner_urn, type=ownership_type)
+            for owner_urn in owner_urns
+            if owner_urn.startswith("urn:li:")
         ]
         return owners
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # As per https://stackoverflow.com/a/49150749/5004662, we want to use

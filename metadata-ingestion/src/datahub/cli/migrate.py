@@ -141,6 +141,9 @@ def dataplatform2instance_func(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
+    # initialize for dry-run
+    graph = DataHubGraph(config=DataHubGraphConfig(server="127.0.0.1"))
+
     if not dry_run:
         graph = DataHubGraph(
             config=DataHubGraphConfig(server=cli_utils.get_session_and_host()[1])
@@ -179,7 +182,7 @@ def dataplatform2instance_func(
         )
         sampled_new_urns: List[str] = [
             make_dataset_urn_with_platform_instance(
-                platform=key.platform,
+                platform=key.platform[len("urn:li:dataPlatform:") :],
                 name=key.name,
                 platform_instance=instance,
                 env=str(key.origin),
@@ -199,7 +202,7 @@ def dataplatform2instance_func(
         key = dataset_urn_to_key(src_entity_urn)
         assert key
         new_urn = make_dataset_urn_with_platform_instance(
-            platform=key.platform,
+            platform=key.platform[len("urn:li:dataPlatform:") :],
             name=key.name,
             platform_instance=instance,
             env=str(key.origin),

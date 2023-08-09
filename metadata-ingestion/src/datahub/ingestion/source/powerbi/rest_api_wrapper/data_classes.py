@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-from datahub.emitter.mcp_builder import PlatformKey
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DateTypeClass,
@@ -28,11 +28,11 @@ FIELD_TYPE_MAPPING: Dict[
 }
 
 
-class WorkspaceKey(PlatformKey):
+class WorkspaceKey(ContainerKey):
     workspace: str
 
 
-class DatasetKey(PlatformKey):
+class DatasetKey(ContainerKey):
     dataset: str
 
 
@@ -46,6 +46,7 @@ class Workspace:
     report_endorsements: Dict[str, List[str]]
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
+    independent_datasets: List["PowerBIDataset"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -56,7 +57,7 @@ class Workspace:
         platform_name: str,
         platform_instance: Optional[str] = None,
         workspace_id_as_urn_part: Optional[bool] = False,
-    ) -> PlatformKey:
+    ) -> ContainerKey:
         return WorkspaceKey(
             workspace=self.get_urn_part(workspace_id_as_urn_part),
             platform=platform_name,
@@ -149,7 +150,7 @@ class PowerBIDataset:
     def __hash__(self):
         return hash(self.__members())
 
-    def get_dataset_key(self, platform_name: str) -> PlatformKey:
+    def get_dataset_key(self, platform_name: str) -> ContainerKey:
         return DatasetKey(
             dataset=self.id,
             platform=platform_name,

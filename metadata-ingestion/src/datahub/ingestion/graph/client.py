@@ -1,4 +1,5 @@
 import enum
+import functools
 import json
 import logging
 import textwrap
@@ -14,9 +15,8 @@ from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import Aspect, make_data_platform_urn
+from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -44,26 +44,25 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.state.entity_removal_state import (
         GenericCheckpointState,
     )
+    from datahub.utilities.sqlglot_lineage import SchemaResolver, SqlParsingResult
 
 
 logger = logging.getLogger(__name__)
+
+SearchFilterRule = Dict[str, Any]
 
 
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
     server: str = "http://localhost:8080"
-    token: Optional[str]
-    timeout_sec: Optional[int]
-    retry_status_codes: Optional[List[int]]
-    retry_max_times: Optional[int]
-    extra_headers: Optional[Dict[str, str]]
-    ca_certificate_path: Optional[str]
+    token: Optional[str] = None
+    timeout_sec: Optional[int] = None
+    retry_status_codes: Optional[List[int]] = None
+    retry_max_times: Optional[int] = None
+    extra_headers: Optional[Dict[str, str]] = None
+    ca_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
-
-    _max_threads_moved_to_sink = pydantic_removed_field(
-        "max_threads", print_warning=False
-    )
 
 
 # Alias for backwards compatibility.
@@ -82,6 +81,12 @@ class RemovedStatusFilter(enum.Enum):
 
     ONLY_SOFT_DELETED = "ONLY_SOFT_DELETED"
     """Search only soft-deleted entities."""
+
+
+@dataclass
+class RelatedEntity:
+    urn: str
+    relationship_type: str
 
 
 def _graphql_entity_type(entity_type: str) -> str:
@@ -538,8 +543,9 @@ class DataHubGraph(DatahubRestEmitter):
         query: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
+        extraFilters: Optional[List[SearchFilterRule]] = None,
     ) -> Iterable[str]:
-        """Fetch all urns that match the given filters.
+        """Fetch all urns that match all of the given filters.
 
         Filters are combined conjunctively. If multiple filters are specified, the results will match all of them.
         Note that specifying a platform filter will automatically exclude all entity types that do not have a platform.
@@ -549,6 +555,7 @@ class DataHubGraph(DatahubRestEmitter):
         :param platform: Platform to filter on. If None, all platforms will be returned.
         :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
+        :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         """
 
         types: Optional[List[str]] = None
@@ -561,8 +568,7 @@ class DataHubGraph(DatahubRestEmitter):
         # Add the query default of * if no query is specified.
         query = query or "*"
 
-        FilterRule = Dict[str, Any]
-        andFilters: List[FilterRule] = []
+        andFilters: List[SearchFilterRule] = []
 
         # Platform filter.
         if platform:
@@ -602,14 +608,18 @@ class DataHubGraph(DatahubRestEmitter):
         else:
             raise ValueError(f"Invalid status filter: {status}")
 
-        orFilters: List[Dict[str, List[FilterRule]]] = [{"and": andFilters}]
+        # Extra filters.
+        if extraFilters:
+            andFilters += extraFilters
+
+        orFilters: List[Dict[str, List[SearchFilterRule]]] = [{"and": andFilters}]
 
         # Env filter.
         if env:
             # The env filter is a bit more tricky since it's not always stored
             # in the same place in ElasticSearch.
 
-            envOrConditions: List[FilterRule] = [
+            envOrConditions: List[SearchFilterRule] = [
                 # For most entity types, we look at the origin field.
                 {
                     "field": "origin",
@@ -760,11 +770,6 @@ class DataHubGraph(DatahubRestEmitter):
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
-    @dataclass
-    class RelatedEntity:
-        urn: str
-        relationship_type: str
-
     def get_related_entities(
         self,
         entity_urn: str,
@@ -785,7 +790,7 @@ class DataHubGraph(DatahubRestEmitter):
                 },
             )
             for related_entity in response.get("entities", []):
-                yield DataHubGraph.RelatedEntity(
+                yield RelatedEntity(
                     urn=related_entity["urn"],
                     relationship_type=related_entity["relationshipType"],
                 )
@@ -947,6 +952,49 @@ class DataHubGraph(DatahubRestEmitter):
         reference_count = response.get("total", 0)
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
+
+    @functools.lru_cache()
+    def _make_schema_resolver(
+        self, platform: str, platform_instance: Optional[str], env: str
+    ) -> "SchemaResolver":
+        from datahub.utilities.sqlglot_lineage import SchemaResolver
+
+        return SchemaResolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=self,
+        )
+
+    def parse_sql_lineage(
+        self,
+        sql: str,
+        *,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = DEFAULT_ENV,
+        default_db: Optional[str] = None,
+        default_schema: Optional[str] = None,
+    ) -> "SqlParsingResult":
+        from datahub.utilities.sqlglot_lineage import sqlglot_lineage
+
+        # Cache the schema resolver to make bulk parsing faster.
+        schema_resolver = self._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+        return sqlglot_lineage(
+            sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+
+    def close(self) -> None:
+        self._make_schema_resolver.cache_clear()
+        super().close()
 
 
 def get_default_graph() -> DataHubGraph:

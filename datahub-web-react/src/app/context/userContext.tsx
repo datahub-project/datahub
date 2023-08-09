@@ -8,6 +8,7 @@ export type LocalState = {
     selectedViewUrn?: string | null;
     selectedPath?: string | null;
     selectedSearch?: string | null;
+    showBrowseV2Sidebar?: boolean;
 };
 
 /**
@@ -21,10 +22,6 @@ export type State = {
         loadedPersonalDefaultViewUrn: boolean;
         hasSetDefaultView: boolean;
     };
-    /**
-     * Whether the initial page path has been loaded.
-     */
-    loadedInitialPath: boolean;
 };
 
 /**
@@ -53,7 +50,6 @@ export const DEFAULT_STATE: State = {
         loadedPersonalDefaultViewUrn: false,
         hasSetDefaultView: false,
     },
-    loadedInitialPath: false,
 };
 
 export const DEFAULT_CONTEXT = {

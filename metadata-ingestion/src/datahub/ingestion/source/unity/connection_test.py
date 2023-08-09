@@ -35,10 +35,7 @@ class UnityCatalogConnectionTest:
 
     def basic_connectivity(self) -> CapabilityReport:
         try:
-            if self.config.only_ingest_assigned_metastore:
-                return CapabilityReport(capable=self.proxy.check_basic_connectivity())
-            else:
-                return CapabilityReport(capable=self.proxy.check_account_admin())
+            return CapabilityReport(capable=self.proxy.check_basic_connectivity())
         except Exception as e:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
@@ -63,7 +60,7 @@ class UnityCatalogConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
     def profiling_connectivity(self) -> Optional[CapabilityReport]:
-        if not self.config.profiling.enabled:
+        if not self.config.is_profiling_enabled():
             return None
         try:
             return CapabilityReport(capable=self.proxy.check_profiling_connectivity())

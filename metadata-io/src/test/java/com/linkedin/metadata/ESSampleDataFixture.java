@@ -1,21 +1,20 @@
 package com.linkedin.metadata;
 
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -65,6 +64,9 @@ public class ESSampleDataFixture {
     @Autowired
     private SearchConfiguration _searchConfiguration;
 
+    @Autowired
+    private CustomSearchConfiguration _customSearchConfiguration;
+
     @Bean(name = "sampleDataPrefix")
     protected String indexPrefix() {
         return "smpldat";
@@ -106,7 +108,7 @@ public class ESSampleDataFixture {
 
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, customSearchConfiguration);
-        ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
+        ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
     }
@@ -132,23 +134,6 @@ public class ESSampleDataFixture {
                 new CachingEntitySearchService(
                         cacheManager,
                         entitySearchService,
-                        batchSize,
-                        false
-                ),
-                new CachingAllEntitiesSearchAggregator(
-                        cacheManager,
-                        new AllEntitiesSearchAggregator(
-                                entityRegistry,
-                                entitySearchService,
-                                new CachingEntitySearchService(
-                                        cacheManager,
-                                        entitySearchService,
-                                        batchSize,
-                                        false
-                                ),
-                                ranker,
-                                entityDocCountCacheConfiguration
-                        ),
                         batchSize,
                         false
                 ),
@@ -184,8 +169,11 @@ public class ESSampleDataFixture {
         AspectDao mockAspectDao = mock(AspectDao.class);
         when(mockAspectDao.batchGet(anySet())).thenReturn(Map.of(mock(EntityAspectIdentifier.class), mock(EntityAspect.class)));
 
+        PreProcessHooks preProcessHooks = new PreProcessHooks();
+        preProcessHooks.setUiEnabled(true);
         return new JavaEntityClient(
-                new EntityService(mockAspectDao, null, entityRegistry, true),
+                new EntityServiceImpl(mockAspectDao, null, entityRegistry, true, null,
+                    preProcessHooks),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

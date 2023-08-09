@@ -17,7 +17,7 @@ type Props = {
 
 export const ViewOptionName = ({ name, description }: Props) => {
     return (
-        <Tooltip placement="left" title={<ViewOptionTooltipTitle name={name} description={description} />}>
+        <Tooltip placement="bottom" showArrow title={<ViewOptionTooltipTitle name={name} description={description} />}>
             <ViewName>{name}</ViewName>
         </Tooltip>
     );

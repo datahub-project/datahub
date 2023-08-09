@@ -30,6 +30,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
+snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
             )

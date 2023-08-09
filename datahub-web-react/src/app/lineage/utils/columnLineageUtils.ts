@@ -1,5 +1,5 @@
 import { ColumnEdge, FetchedEntity, NodeData } from '../types';
-import { InputFields, SchemaField } from '../../../types.generated';
+import { EntityType, InputFields, SchemaField, SchemaFieldDataType } from '../../../types.generated';
 import { downgradeV2FieldPath } from '../../entity/dataset/profile/schema/utils/utils';
 
 export function getHighlightedColumnsForNode(highlightedEdges: ColumnEdge[], fields: SchemaField[], nodeUrn: string) {
@@ -63,10 +63,15 @@ export function convertInputFieldsToSchemaFields(inputFields?: InputFields) {
     return inputFields?.fields?.map((field) => field?.schemaField) as SchemaField[] | undefined;
 }
 
-export function populateColumnsByUrn(
+/*
+ * Populate a columnsByUrn map with a list of columns per entity in the order that they will appear.
+ * We need columnsByUrn in order to ensure that an entity does have a column that lineage data is
+ * pointing to and to know where to draw column arrows in and out of the entity. DataJobs won't show columns
+ * underneath them, but we need this populated for validating that this column "exists" on the entity.
+ */
+export function getPopulatedColumnsByUrn(
     columnsByUrn: Record<string, SchemaField[]>,
     fetchedEntities: { [x: string]: FetchedEntity },
-    setColumnsByUrn: (colsByUrn: Record<string, SchemaField[]>) => void,
 ) {
     let populatedColumnsByUrn = { ...columnsByUrn };
     Object.entries(fetchedEntities).forEach(([urn, fetchedEntity]) => {
@@ -82,9 +87,35 @@ export function populateColumnsByUrn(
                     convertInputFieldsToSchemaFields(fetchedEntity.inputFields) as SchemaField[],
                 ),
             };
+        } else if (fetchedEntity.type === EntityType.DataJob && fetchedEntity.fineGrainedLineages) {
+            // Add upstream fields from fineGrainedLineage onto DataJob to mimic upstream dataset fields.
+            // DataJobs will virtually "have" these fields so we can draw full column paths
+            // from upstream dataset fields to downstream dataset fields.
+            const fields: SchemaField[] = [];
+            fetchedEntity.fineGrainedLineages.forEach((fineGrainedLineage) => {
+                fineGrainedLineage.upstreams?.forEach((upstream) => {
+                    if (!fields.some((field) => field.fieldPath === upstream.path)) {
+                        fields.push({
+                            fieldPath: downgradeV2FieldPath(upstream.path) || '',
+                            nullable: false,
+                            recursive: false,
+                            type: SchemaFieldDataType.String,
+                        });
+                    }
+                });
+            });
+            populatedColumnsByUrn = { ...populatedColumnsByUrn, [urn]: fields };
         }
     });
-    setColumnsByUrn(populatedColumnsByUrn);
+    return populatedColumnsByUrn;
+}
+
+export function populateColumnsByUrn(
+    columnsByUrn: Record<string, SchemaField[]>,
+    fetchedEntities: { [x: string]: FetchedEntity },
+    setColumnsByUrn: (colsByUrn: Record<string, SchemaField[]>) => void,
+) {
+    setColumnsByUrn(getPopulatedColumnsByUrn(columnsByUrn, fetchedEntities));
 }
 
 export function haveDisplayedFieldsChanged(displayedFields: SchemaField[], previousDisplayedFields?: SchemaField[]) {
@@ -107,7 +138,10 @@ export function filterColumns(
     node: { x: number; y: number; data: Omit<NodeData, 'children'> },
     setColumnsByUrn: (value: React.SetStateAction<Record<string, SchemaField[]>>) => void,
 ) {
-    const filteredFields = node.data.schemaMetadata?.fields.filter((field) => field.fieldPath.includes(filterText));
+    const formattedFilterText = filterText.toLocaleLowerCase();
+    const filteredFields = node.data.schemaMetadata?.fields.filter((field) =>
+        field.fieldPath.toLocaleLowerCase().includes(formattedFilterText),
+    );
     if (filteredFields) {
         setColumnsByUrn((colsByUrn) => ({
             ...colsByUrn,
@@ -127,6 +161,21 @@ export function encodeSchemaField(fieldPath: string) {
 export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
     return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
 }
+
 export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
     return decodeSchemaField(schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1].replace(',', ''));
+}
+
+export function isSameColumn({
+    sourceUrn,
+    targetUrn,
+    sourceField,
+    targetField,
+}: {
+    sourceUrn: string;
+    targetUrn: string;
+    sourceField: string;
+    targetField: string;
+}) {
+    return sourceUrn === targetUrn && sourceField === targetField;
 }

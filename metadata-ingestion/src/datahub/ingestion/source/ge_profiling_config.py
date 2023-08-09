@@ -7,6 +7,7 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.ingestion.source_config.operation_config import OperationConfig
 
 _PROFILING_FLAGS_TO_REPORT = {
     "turn_off_expensive_profiling_metrics",
@@ -21,6 +22,10 @@ logger = logging.getLogger(__name__)
 class GEProfilingConfig(ConfigModel):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
     )
     limit: Optional[int] = Field(
         default=None,
@@ -118,7 +123,7 @@ class GEProfilingConfig(ConfigModel):
     profile_table_row_count_estimate_only: bool = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
-        "less accurate. Only supported for Postgres. ",
+        "less accurate. Only supported for Postgres and MySQL. ",
     )
 
     # The default of (5 * cpu_count) is adopted from the default max_workers
@@ -156,7 +161,7 @@ class GEProfilingConfig(ConfigModel):
             del values["bigquery_temp_table_schema"]
         return values
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(pre=True)
     def ensure_field_level_settings_are_normalized(
         cls: "GEProfilingConfig", values: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -167,7 +172,11 @@ class GEProfilingConfig(ConfigModel):
         if values.get("profile_table_level_only"):
             for field_level_metric in cls.__fields__:
                 if field_level_metric.startswith("include_field_"):
-                    values.setdefault(field_level_metric, False)
+                    if values.get(field_level_metric):
+                        raise ValueError(
+                            "Cannot enable field-level metrics if profile_table_level_only is set"
+                        )
+                    values[field_level_metric] = False
 
             assert (
                 max_num_fields_to_profile is None

@@ -68,10 +68,12 @@ class StatefulIngestionConfig(ConfigModel):
     ignore_old_state: bool = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
+        hidden_from_docs=True,
     )
     ignore_new_state: bool = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
+        hidden_from_docs=True,
     )
 
     @pydantic.root_validator()

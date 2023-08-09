@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
@@ -15,9 +18,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.linkedin.metadata.config.search.ExactMatchConfiguration;
-import com.linkedin.metadata.config.search.PartialConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -29,6 +29,7 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder;
 import org.elasticsearch.index.query.TermsQueryBuilder;
@@ -138,9 +139,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride")
         .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
     AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType")
-        .field("_index").size(testQueryConfig.getMaxTermBucketSize());
+        .field("_index").size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0);
     AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index")
-        .size(testQueryConfig.getMaxTermBucketSize())
+        .size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0)
         .subAggregation(AggregationBuilders.terms(nestedAggString)
             .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
 
@@ -215,7 +216,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   private void testFilterQuery(BoolQueryBuilder testQuery) {
-    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition = testQuery.must()
+    Optional<MatchQueryBuilder> mustNotHaveRemovedCondition = testQuery.filter()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .map(or -> (BoolQueryBuilder) or)
@@ -292,13 +293,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
-    // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [terms]
-    List<TermsQueryBuilder> termsQueryBuilders = testQuery.must()
+    // bool -> filter -> [bool] -> should -> [bool] -> filter -> [bool] -> should -> [terms]
+    List<TermsQueryBuilder> termsQueryBuilders = testQuery.filter()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
-        .flatMap(should -> ((BoolQueryBuilder) should).must().stream())
+        .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
         .filter(must -> must instanceof BoolQueryBuilder)
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
         .filter(should -> should instanceof TermsQueryBuilder)
@@ -342,12 +343,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
     // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [bool] -> should -> [match]
-    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.must()
+    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.filter()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
-        .flatMap(should -> ((BoolQueryBuilder) should).must().stream())
+        .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
         .filter(must -> must instanceof BoolQueryBuilder)
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
@@ -381,13 +382,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
-    // bool -> must -> [bool] -> should -> [bool] -> must -> [bool] -> should -> [match]
-    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.must()
+    // bool -> filter -> [bool] -> should -> [bool] -> filter -> [bool] -> should -> [match]
+    List<MultiMatchQueryBuilder> matchQueryBuilders = testQuery.filter()
         .stream()
         .filter(or -> or instanceof BoolQueryBuilder)
         .flatMap(or -> ((BoolQueryBuilder) or).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
-        .flatMap(should -> ((BoolQueryBuilder) should).must().stream())
+        .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
         .filter(must -> must instanceof BoolQueryBuilder)
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
         .filter(should -> should instanceof MultiMatchQueryBuilder)
@@ -414,13 +415,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     final BoolQueryBuilder testQuery = getQuery(filterCriterion);
 
-    // bool -> must -> [bool] -> should -> [bool] -> must -> [terms]
-    List<TermsQueryBuilder> termsQueryBuilders = testQuery.must()
+    // bool -> filter -> [bool] -> should -> [bool] -> filter -> [terms]
+    List<TermsQueryBuilder> termsQueryBuilders = testQuery.filter()
         .stream()
         .filter(must -> must instanceof BoolQueryBuilder)
         .flatMap(must -> ((BoolQueryBuilder) must).should().stream())
         .filter(should -> should instanceof BoolQueryBuilder)
-        .flatMap(should -> ((BoolQueryBuilder) should).must().stream())
+        .flatMap(should -> ((BoolQueryBuilder) should).filter().stream())
         .filter(must -> must instanceof TermsQueryBuilder)
         .map(must -> (TermsQueryBuilder) must)
         .collect(Collectors.toList());
@@ -437,6 +438,44 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(values.size(), 2, "Expected two platform filter values");
     assertTrue(values.contains("mysql"));
     assertTrue(values.contains("bigquery"));
+  }
+
+  @Test
+  public void testBrowsePathQueryFilter() {
+    // Condition: has `browsePaths` AND does NOT have `browsePathV2`
+    Criterion missingBrowsePathV2 = new Criterion();
+    missingBrowsePathV2.setCondition(Condition.IS_NULL);
+    missingBrowsePathV2.setField("browsePathV2");
+    // Excludes entities without browsePaths
+    Criterion hasBrowsePathV1 = new Criterion();
+    hasBrowsePathV1.setCondition(Condition.EXISTS);
+    hasBrowsePathV1.setField("browsePaths");
+
+    CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(missingBrowsePathV2);
+    criterionArray.add(hasBrowsePathV1);
+
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    conjunctiveCriterion.setAnd(criterionArray);
+
+    ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
+    conjunctiveCriterionArray.add(conjunctiveCriterion);
+
+    Filter filter = new Filter();
+    filter.setOr(conjunctiveCriterionArray);
+
+    BoolQueryBuilder test = SearchRequestHandler.getFilterQuery(filter);
+
+    assertEquals(test.should().size(), 1);
+
+    BoolQueryBuilder shouldQuery = (BoolQueryBuilder) test.should().get(0);
+    assertEquals(shouldQuery.filter().size(), 2);
+
+    BoolQueryBuilder mustNotHaveV2 = (BoolQueryBuilder) shouldQuery.filter().get(0);
+    assertEquals(((ExistsQueryBuilder) mustNotHaveV2.mustNot().get(0)).fieldName(), "browsePathV2");
+
+    BoolQueryBuilder mustHaveV1 = (BoolQueryBuilder) shouldQuery.filter().get(1);
+    assertEquals(((ExistsQueryBuilder) mustHaveV1.must().get(0)).fieldName(), "browsePaths");
   }
 
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {

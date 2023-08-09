@@ -111,7 +111,9 @@ AND
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
 )"""  # noqa: W293
-    source = BigQueryUsageExtractor(config, BigQueryV2Report())
+    source = BigQueryUsageExtractor(
+        config, BigQueryV2Report(), dataset_urn_builder=lambda _: ""
+    )
     filter: str = source._generate_filter(BQ_AUDIT_V2)
     assert filter == expected_filter
 

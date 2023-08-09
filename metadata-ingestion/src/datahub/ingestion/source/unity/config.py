@@ -7,6 +7,7 @@ from pydantic import Field
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -16,12 +17,20 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
     # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
     )
 
     warehouse_id: Optional[str] = Field(
@@ -88,19 +97,11 @@ class UnityCatalogSourceConfig(
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
-    only_ingest_assigned_metastore: bool = pydantic.Field(
-        default=False,
-        description=(
-            "Only ingest the workspace's currently assigned metastore. "
-            "Use if you only want to ingest one metastore and "
-            "do not want to grant your ingestion service account the admin role."
-        ),
+    _only_ingest_assigned_metastore_removed = pydantic_removed_field(
+        "only_ingest_assigned_metastore"
     )
 
-    metastore_id_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for metastore id to filter in ingestion.",
-    )
+    _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
 
     catalog_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -149,22 +150,14 @@ class UnityCatalogSourceConfig(
         default=UnityCatalogProfilerConfig(), description="Data profiling configuration"
     )
 
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
-
-    @pydantic.validator("metastore_id_pattern")
-    def no_metastore_pattern_if_only_ingest_assigned_metastore(
-        cls, v: bool, values: Dict[str, Any]
-    ) -> bool:
-        if (
-            values.get("only_ingest_assigned_metastore")
-            and v != AllowDenyPattern.allow_all()
-        ):
-            raise ValueError(
-                "metastore_id_pattern cannot be set when only_ingest_assigned_metastore is specified."
-            )
-        return v
 
     @pydantic.validator("start_time")
     def within_thirty_days(cls, v: datetime) -> datetime:

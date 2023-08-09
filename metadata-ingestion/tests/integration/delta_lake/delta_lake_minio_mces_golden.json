@@ -135,7 +135,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -155,7 +155,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -170,7 +170,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -185,7 +185,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -202,7 +202,22 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -222,7 +237,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -237,7 +252,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -252,7 +267,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -269,7 +284,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -284,7 +299,27 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -299,7 +334,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -310,7 +345,7 @@
     "aspectName": "operation",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1672531200000,
             "partitionSpec": {
                 "type": "FULL_TABLE",
                 "partition": "FULL_TABLE_SNAPSHOT"
@@ -326,7 +361,31 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+                },
+                {
+                    "id": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+                    "urn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 }

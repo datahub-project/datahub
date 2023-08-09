@@ -321,6 +321,21 @@ public class PoliciesConfig {
       "Restore Indicies API",
       "The ability to use the Restore Indices API.");
 
+  public static final Privilege GET_TIMESERIES_INDEX_SIZES_PRIVILEGE = Privilege.of(
+      "GET_TIMESERIES_INDEX_SIZES_PRIVILEGE",
+      "Get Timeseries index sizes API",
+      "The ability to use the get Timeseries indices size API.");
+
+  public static final Privilege TRUNCATE_TIMESERIES_INDEX_PRIVILEGE = Privilege.of(
+      "TRUNCATE_TIMESERIES_INDEX_PRIVILEGE",
+      "Truncate timeseries aspect index size API",
+      "The ability to use the API to truncate a timeseries index.");
+
+  public static final Privilege GET_ES_TASK_STATUS_PRIVILEGE = Privilege.of(
+      "GET_ES_TASK_STATUS_PRIVILEGE",
+      "Get ES task status API",
+      "The ability to use the get task status API for an ElasticSearch task.");
+
   public static final Privilege SEARCH_PRIVILEGE = Privilege.of(
       "SEARCH_PRIVILEGE",
       "Search API",

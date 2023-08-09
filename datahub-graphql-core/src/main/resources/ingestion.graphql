@@ -428,6 +428,11 @@ input ListIngestionSourcesInput {
   An optional search query
   """
   query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
 }
 
 """

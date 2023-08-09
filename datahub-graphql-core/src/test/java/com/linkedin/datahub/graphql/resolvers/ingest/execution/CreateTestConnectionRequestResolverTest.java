@@ -1,10 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateTestConnectionRequestInput;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
@@ -39,7 +39,8 @@ public class CreateTestConnectionRequestResolverTest {
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.any(MetadataChangeProposal.class),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 

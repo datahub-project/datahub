@@ -29,9 +29,9 @@ queryConfigurations:
       boost_mode: multiply
 
   # Criteria for exact-match only
-  # Contains quoted or contains underscore then use exact match query
+  # Contains quoted then use exact match query
   - queryRegex: >-
-      ["'].+["']|\S+_\S+
+      ["'].+["']
     simpleQuery: false
     prefixMatchQuery: true
     exactMatchQuery: true
