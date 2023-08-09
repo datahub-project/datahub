@@ -19,6 +19,7 @@ export const ContainerEntitiesTab = () => {
             }}
             emptySearchQuery="*"
             placeholderText="Filter container entities..."
+            applyView
         />
     );
 };
