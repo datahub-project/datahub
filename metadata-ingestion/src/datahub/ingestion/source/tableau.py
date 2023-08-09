@@ -1036,6 +1036,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 table_name,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.lineage_platform_instance
             )
             table_id_to_urn[table[tableau_constant.ID]] = table_urn
 
