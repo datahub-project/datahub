@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback, EventHandler, SyntheticEvent } from 'react';
 import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
@@ -6,7 +6,7 @@ import { useHistory } from 'react-router';
 import { AutoCompleteResultForEntity, Entity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
-import { ANTD_GRAY } from '../entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { getEntityPath } from '../entity/shared/containers/profile/utils';
 import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
@@ -22,6 +22,7 @@ import { useUserContext } from '../context/useUserContext';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { getQuickFilterDetails } from './autoComplete/quickFilters/utils';
 import ViewAllSearchItem from './ViewAllSearchItem';
+import { ViewSelect } from '../entity/view/select/ViewSelect';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -39,9 +40,14 @@ const StyledSearchBar = styled(Input)`
         height: 40px;
         font-size: 20px;
         color: ${ANTD_GRAY[7]};
+        background-color: ${ANTD_GRAY_V2[2]};
     }
     > .ant-input {
         font-size: 14px;
+        background-color: ${ANTD_GRAY_V2[2]};
+    }
+    > .ant-input::placeholder {
+        color: ${ANTD_GRAY_V2[10]};
     }
     .ant-input-clear-icon {
         height: 15px;
@@ -54,6 +60,16 @@ const ClearIcon = styled(CloseCircleFilled)`
         height: 15px;
         width: 15px;
     }
+`;
+
+const ViewSelectContainer = styled.div`
+    &&& {
+        border-right: 1px solid ${ANTD_GRAY_V2[5]};
+    }
+`;
+
+const SearchIcon = styled(SearchOutlined)`
+    color: ${ANTD_GRAY_V2[8]};
 `;
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
@@ -89,6 +105,10 @@ const renderRecommendedQuery = (query: string) => {
     };
 };
 
+const handleStopPropagation: EventHandler<SyntheticEvent> = (e) => {
+    e.stopPropagation();
+};
+
 interface Props {
     initialQuery?: string;
     placeholderText: string;
@@ -102,6 +122,7 @@ interface Props {
     fixAutoComplete?: boolean;
     hideRecommendations?: boolean;
     showQuickFilters?: boolean;
+    viewsEnabled?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -127,6 +148,7 @@ export const SearchBar = ({
     fixAutoComplete,
     hideRecommendations,
     showQuickFilters,
+    viewsEnabled = false,
     setIsSearchBarFocused,
     onFocus,
     onBlur,
@@ -326,6 +348,7 @@ export const SearchBar = ({
                 listHeight={480}
             >
                 <StyledSearchBar
+                    bordered={false}
                     placeholder={placeholderText}
                     onPressEnter={() => {
                         handleSearch(
@@ -334,7 +357,7 @@ export const SearchBar = ({
                             getFiltersWithQuickFilter(selectedQuickFilter),
                         );
                     }}
-                    style={inputStyle}
+                    style={{ ...inputStyle, color: 'red' }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
@@ -342,15 +365,28 @@ export const SearchBar = ({
                     onBlur={handleBlur}
                     allowClear={{ clearIcon: <ClearIcon /> }}
                     prefix={
-                        <SearchOutlined
-                            onClick={() => {
-                                handleSearch(
-                                    filterSearchQuery(searchQuery || ''),
-                                    undefined,
-                                    getFiltersWithQuickFilter(selectedQuickFilter),
-                                );
-                            }}
-                        />
+                        <>
+                            {viewsEnabled && (
+                                <ViewSelectContainer
+                                    onClick={handleStopPropagation}
+                                    onFocus={handleStopPropagation}
+                                    onMouseDown={handleStopPropagation}
+                                    onKeyUp={handleStopPropagation}
+                                    onKeyDown={handleStopPropagation}
+                                >
+                                    <ViewSelect />
+                                </ViewSelectContainer>
+                            )}
+                            <SearchIcon
+                                onClick={() => {
+                                    handleSearch(
+                                        filterSearchQuery(searchQuery || ''),
+                                        undefined,
+                                        getFiltersWithQuickFilter(selectedQuickFilter),
+                                    );
+                                }}
+                            />
+                        </>
                     }
                 />
             </StyledAutoComplete>
