@@ -13,7 +13,10 @@ from google.cloud.bigquery.table import (
 )
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.bigquery_report import (
+    BigQueryApiPerfReport,
+    BigQueryV2Report,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -345,26 +348,41 @@ ORDER BY
 
 
 class BigQueryDataDictionary:
+    def __init__(self, report: BigQueryApiPerfReport) -> None:
+        self.bq_client: Optional[bigquery.Client] = None
+        self.api_perf_report = report
+
+    def set_client(self, bq_client: bigquery.Client) -> None:
+        self.bq_client = bq_client
+
+    def get_client(self) -> bigquery.Client:
+        assert self.bq_client is not None
+        return self.bq_client
+
     @staticmethod
     def get_query_result(conn: bigquery.Client, query: str) -> RowIterator:
         logger.debug(f"Query : {query}")
         resp = conn.query(query)
         return resp.result()
 
-    @staticmethod
-    def get_projects(conn: bigquery.Client) -> List[BigqueryProject]:
-        projects = conn.list_projects()
+    def get_projects(self) -> List[BigqueryProject]:
+        with self.api_perf_report.list_projects:
+            projects = self.get_client().list_projects()
 
-        return [
-            BigqueryProject(id=p.project_id, name=p.friendly_name) for p in projects
-        ]
+            return [
+                BigqueryProject(id=p.project_id, name=p.friendly_name) for p in projects
+            ]
 
-    @staticmethod
     def get_datasets_for_project_id(
-        conn: bigquery.Client, project_id: str, maxResults: Optional[int] = None
+        self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        datasets = conn.list_datasets(project_id, max_results=maxResults)
-        return [BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets]
+        with self.api_perf_report.get_datasets_for_project:
+            datasets = self.get_client().list_datasets(
+                project_id, max_results=maxResults
+            )
+            return [
+                BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
+            ]
 
     @staticmethod
     def get_datasets_for_project_id_with_information_schema(
@@ -391,56 +409,69 @@ class BigQueryDataDictionary:
             for s in schemas
         ]
 
-    @staticmethod
+    def list_tables(
+        self, dataset_name: str, project_id: str
+    ) -> Iterator[TableListItem]:
+        with self.api_perf_report.list_tables as current_timer:
+            for table in self.get_client().list_tables(f"{project_id}.{dataset_name}"):
+                with current_timer.pause_timer():
+                    yield table
+
     def get_tables_for_dataset(
-        conn: bigquery.Client,
+        self,
         project_id: str,
         dataset_name: str,
         tables: Dict[str, TableListItem],
         with_data_read_permission: bool = False,
         report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryTable]:
-        filter: str = ", ".join(f"'{table}'" for table in tables.keys())
+        with self.api_perf_report.get_tables_for_dataset as current_timer:
+            filter: str = ", ".join(f"'{table}'" for table in tables.keys())
 
-        if with_data_read_permission:
-            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
-            # and skip the others. Sharded tables are tables with suffix _20220102
-            cur = BigQueryDataDictionary.get_query_result(
-                conn,
-                BigqueryQuery.tables_for_dataset.format(
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                    table_filter=f" and t.table_name in ({filter})" if filter else "",
-                ),
-            )
-        else:
-            # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
-            # and skip the others. Sharded tables are tables with suffix _20220102
-            cur = BigQueryDataDictionary.get_query_result(
-                conn,
-                BigqueryQuery.tables_for_dataset_without_partition_data.format(
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                    table_filter=f" and t.table_name in ({filter})" if filter else "",
-                ),
-            )
+            if with_data_read_permission:
+                # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+                # and skip the others. Sharded tables are tables with suffix _20220102
+                cur = BigQueryDataDictionary.get_query_result(
+                    self.get_client(),
+                    BigqueryQuery.tables_for_dataset.format(
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        table_filter=f" and t.table_name in ({filter})"
+                        if filter
+                        else "",
+                    ),
+                )
+            else:
+                # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
+                # and skip the others. Sharded tables are tables with suffix _20220102
+                cur = BigQueryDataDictionary.get_query_result(
+                    self.get_client(),
+                    BigqueryQuery.tables_for_dataset_without_partition_data.format(
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        table_filter=f" and t.table_name in ({filter})"
+                        if filter
+                        else "",
+                    ),
+                )
 
-        for table in cur:
-            try:
-                yield BigQueryDataDictionary._make_bigquery_table(
-                    table, tables.get(table.table_name)
-                )
-            except Exception as e:
-                table_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                logger.warning(
-                    f"Error while processing table {table_name}",
-                    exc_info=True,
-                )
-                if report:
-                    report.report_warning(
-                        "metadata-extraction",
-                        f"Failed to get table {table_name}: {e}",
+            for table in cur:
+                try:
+                    with current_timer.pause_timer():
+                        yield BigQueryDataDictionary._make_bigquery_table(
+                            table, tables.get(table.table_name)
+                        )
+                except Exception as e:
+                    table_name = f"{project_id}.{dataset_name}.{table.table_name}"
+                    logger.warning(
+                        f"Error while processing table {table_name}",
+                        exc_info=True,
                     )
+                    if report:
+                        report.report_warning(
+                            "metadata-extraction",
+                            f"Failed to get table {table_name}: {e}",
+                        )
 
     @staticmethod
     def _make_bigquery_table(
@@ -480,43 +511,44 @@ class BigQueryDataDictionary:
             long_term_billable_bytes=table.get("long_term_billable_bytes"),
         )
 
-    @staticmethod
     def get_views_for_dataset(
-        conn: bigquery.Client,
+        self,
         project_id: str,
         dataset_name: str,
         has_data_read: bool,
         report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryView]:
-        if has_data_read:
-            cur = BigQueryDataDictionary.get_query_result(
-                conn,
-                BigqueryQuery.views_for_dataset.format(
-                    project_id=project_id, dataset_name=dataset_name
-                ),
-            )
-        else:
-            cur = BigQueryDataDictionary.get_query_result(
-                conn,
-                BigqueryQuery.views_for_dataset_without_data_read.format(
-                    project_id=project_id, dataset_name=dataset_name
-                ),
-            )
-
-        for table in cur:
-            try:
-                yield BigQueryDataDictionary._make_bigquery_view(table)
-            except Exception as e:
-                view_name = f"{project_id}.{dataset_name}.{table.table_name}"
-                logger.warning(
-                    f"Error while processing view {view_name}",
-                    exc_info=True,
+        with self.api_perf_report.get_views_for_dataset as current_timer:
+            if has_data_read:
+                cur = BigQueryDataDictionary.get_query_result(
+                    self.get_client(),
+                    BigqueryQuery.views_for_dataset.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    ),
                 )
-                if report:
-                    report.report_warning(
-                        "metadata-extraction",
-                        f"Failed to get view {view_name}: {e}",
+            else:
+                cur = BigQueryDataDictionary.get_query_result(
+                    self.get_client(),
+                    BigqueryQuery.views_for_dataset_without_data_read.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    ),
+                )
+
+            for table in cur:
+                try:
+                    with current_timer.pause_timer():
+                        yield BigQueryDataDictionary._make_bigquery_view(table)
+                except Exception as e:
+                    view_name = f"{project_id}.{dataset_name}.{table.table_name}"
+                    logger.warning(
+                        f"Error while processing view {view_name}",
+                        exc_info=True,
                     )
+                    if report:
+                        report.report_warning(
+                            "metadata-extraction",
+                            f"Failed to get view {view_name}: {e}",
+                        )
 
     @staticmethod
     def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
@@ -533,58 +565,58 @@ class BigQueryDataDictionary:
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
         )
 
-    @staticmethod
     def get_columns_for_dataset(
-        conn: bigquery.Client,
+        self,
         project_id: str,
         dataset_name: str,
         column_limit: int,
         run_optimized_column_query: bool = False,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
-        try:
-            cur = BigQueryDataDictionary.get_query_result(
-                conn,
-                BigqueryQuery.columns_for_dataset.format(
-                    project_id=project_id, dataset_name=dataset_name
+        with self.api_perf_report.get_columns_for_dataset:
+            try:
+                cur = BigQueryDataDictionary.get_query_result(
+                    self.get_client(),
+                    BigqueryQuery.columns_for_dataset.format(
+                        project_id=project_id, dataset_name=dataset_name
+                    )
+                    if not run_optimized_column_query
+                    else BigqueryQuery.optimized_columns_for_dataset.format(
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        column_limit=column_limit,
+                    ),
                 )
-                if not run_optimized_column_query
-                else BigqueryQuery.optimized_columns_for_dataset.format(
-                    project_id=project_id,
-                    dataset_name=dataset_name,
-                    column_limit=column_limit,
-                ),
-            )
-        except Exception as e:
-            logger.warning(f"Columns for dataset query failed with exception: {e}")
-            # Error - Information schema query returned too much data.
-            # Please repeat query with more selective predicates.
-            return None
+            except Exception as e:
+                logger.warning(f"Columns for dataset query failed with exception: {e}")
+                # Error - Information schema query returned too much data.
+                # Please repeat query with more selective predicates.
+                return None
 
-        last_seen_table: str = ""
-        for column in cur:
-            if (
-                column_limit
-                and column.table_name in columns
-                and len(columns[column.table_name]) >= column_limit
-            ):
-                if last_seen_table != column.table_name:
-                    logger.warning(
-                        f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+            last_seen_table: str = ""
+            for column in cur:
+                if (
+                    column_limit
+                    and column.table_name in columns
+                    and len(columns[column.table_name]) >= column_limit
+                ):
+                    if last_seen_table != column.table_name:
+                        logger.warning(
+                            f"{project_id}.{dataset_name}.{column.table_name} contains more than {column_limit} columns, only processing {column_limit} columns"
+                        )
+                        last_seen_table = column.table_name
+                else:
+                    columns[column.table_name].append(
+                        BigqueryColumn(
+                            name=column.column_name,
+                            ordinal_position=column.ordinal_position,
+                            field_path=column.field_path,
+                            is_nullable=column.is_nullable == "YES",
+                            data_type=column.data_type,
+                            comment=column.comment,
+                            is_partition_column=column.is_partitioning_column == "YES",
+                        )
                     )
-                    last_seen_table = column.table_name
-            else:
-                columns[column.table_name].append(
-                    BigqueryColumn(
-                        name=column.column_name,
-                        ordinal_position=column.ordinal_position,
-                        field_path=column.field_path,
-                        is_nullable=column.is_nullable == "YES",
-                        data_type=column.data_type,
-                        comment=column.comment,
-                        is_partition_column=column.is_partitioning_column == "YES",
-                    )
-                )
 
         return columns
 

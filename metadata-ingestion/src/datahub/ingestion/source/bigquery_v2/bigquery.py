@@ -54,7 +54,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
-    get_bigquery_client,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
@@ -227,6 +226,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
+        self.bigquery_data_dictionary = BigQueryDataDictionary(self.report)
+
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
         self.usage_extractor = BigQueryUsageExtractor(
@@ -271,6 +272,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform, env=self.config.env
         )
 
+        self.add_config_to_report()
         atexit.register(cleanup, config)
 
     @classmethod
@@ -295,18 +297,20 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project_id in project_ids:
             try:
                 logger.info((f"Metadata read capability test for project {project_id}"))
-                client: bigquery.Client = get_bigquery_client(config)
+                client: bigquery.Client = config.get_bigquery_client()
                 assert client
-                result = BigQueryDataDictionary.get_datasets_for_project_id(
-                    client, project_id, 10
+                report = BigQueryV2Report()
+                bigquery_data_dictionary = BigQueryDataDictionary(report)
+                bigquery_data_dictionary.set_client(client)
+                result = bigquery_data_dictionary.get_datasets_for_project_id(
+                    project_id, 10
                 )
                 if len(result) == 0:
                     return CapabilityReport(
                         capable=False,
                         failure_reason=f"Dataset query returned empty dataset. It is either empty or no dataset in project {project_id}",
                     )
-                tables = BigQueryDataDictionary.get_tables_for_dataset(
-                    conn=client,
+                tables = bigquery_data_dictionary.get_tables_for_dataset(
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
@@ -378,7 +382,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         try:
             connection_conf = BigQueryV2Config.parse_obj_allow_extras(config_dict)
-            client: bigquery.Client = get_bigquery_client(connection_conf)
+            client: bigquery.Client = connection_conf.get_bigquery_client()
             assert client
 
             test_report.basic_connectivity = BigqueryV2Source.connectivity_test(client)
@@ -498,17 +502,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        conn: bigquery.Client = get_bigquery_client(self.config)
-        self.add_config_to_report()
+        bq_client: bigquery.Client = self.config.get_bigquery_client()
+        self.bigquery_data_dictionary.set_client(bq_client)
 
-        projects = self._get_projects(conn)
+        projects = self._get_projects()
         if not projects:
             return
 
         for project_id in projects:
             self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
             logger.info(f"Processing project: {project_id.id}")
-            yield from self._process_project(conn, project_id)
+            yield from self._process_project(project_id)
 
         if self._should_ingest_usage():
             yield from self.usage_extractor.get_usage_workunits(
@@ -563,7 +567,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
         return True
 
-    def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
+    def _get_projects(self) -> List[BigqueryProject]:
         logger.info("Getting projects")
         if self.config.project_ids or self.config.project_id:
             project_ids = self.config.project_ids or [self.config.project_id]  # type: ignore
@@ -572,11 +576,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 for project_id in project_ids
             ]
         else:
-            return list(self._get_project_list(conn))
+            return list(self._query_project_list())
 
-    def _get_project_list(self, conn: bigquery.Client) -> Iterable[BigqueryProject]:
+    def _query_project_list(self) -> Iterable[BigqueryProject]:
         try:
-            projects = BigQueryDataDictionary.get_projects(conn)
+            projects = self.bigquery_data_dictionary.get_projects()
         except Exception as e:
             logger.error(f"Error getting projects. {e}", exc_info=True)
             projects = []
@@ -597,7 +601,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_dropped(project.id)
 
     def _process_project(
-        self, conn: bigquery.Client, bigquery_project: BigqueryProject
+        self, bigquery_project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
         db_tables: Dict[str, List[BigqueryTable]] = {}
         db_views: Dict[str, List[BigqueryView]] = {}
@@ -608,7 +612,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         try:
             bigquery_project.datasets = (
-                BigQueryDataDictionary.get_datasets_for_project_id(conn, project_id)
+                self.bigquery_data_dictionary.get_datasets_for_project_id(project_id)
             )
         except Exception as e:
             error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
@@ -642,7 +646,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             try:
                 # db_tables and db_views are populated in the this method
                 yield from self._process_schema(
-                    conn, project_id, bigquery_dataset, db_tables, db_views
+                    project_id, bigquery_dataset, db_tables, db_views
                 )
 
             except Exception as e:
@@ -735,7 +739,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _process_schema(
         self,
-        conn: bigquery.Client,
         project_id: str,
         bigquery_dataset: BigqueryDataset,
         db_tables: Dict[str, List[BigqueryTable]],
@@ -749,8 +752,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         columns = None
         if self.config.include_tables or self.config.include_views:
-            columns = BigQueryDataDictionary.get_columns_for_dataset(
-                conn,
+            columns = self.bigquery_data_dictionary.get_columns_for_dataset(
                 project_id=project_id,
                 dataset_name=dataset_name,
                 column_limit=self.config.column_limit,
@@ -759,7 +761,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_tables:
             db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(conn, project_id, dataset_name)
+                self.get_tables_for_dataset(project_id, dataset_name)
             )
 
             for table in db_tables[dataset_name]:
@@ -772,7 +774,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
         elif self.config.include_table_lineage or self.config.include_usage_statistics:
             # Need table_refs to calculate lineage and usage
-            for table_item in conn.list_tables(f"{project_id}.{dataset_name}"):
+            for table_item in self.bigquery_data_dictionary.list_tables(
+                dataset_name, project_id
+            ):
                 identifier = BigqueryTableIdentifier(
                     project_id=project_id,
                     dataset=dataset_name,
@@ -792,8 +796,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_views:
             db_views[dataset_name] = list(
-                BigQueryDataDictionary.get_views_for_dataset(
-                    conn, project_id, dataset_name, self.config.is_profiling_enabled()
+                self.bigquery_data_dictionary.get_views_for_dataset(
+                    project_id, dataset_name, self.config.is_profiling_enabled()
                 )
             )
 
@@ -1205,7 +1209,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_tables_for_dataset(
         self,
-        conn: bigquery.Client,
         project_id: str,
         dataset_name: str,
     ) -> Iterable[BigqueryTable]:
@@ -1224,14 +1227,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
-            table_items = self.get_core_table_details(conn, dataset_name, project_id)
+            table_items = self.get_core_table_details(
+                dataset_name, project_id, self.config.temp_table_dataset_prefix
+            )
 
             items_to_get: Dict[str, TableListItem] = {}
             for table_item in table_items.keys():
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    yield from BigQueryDataDictionary.get_tables_for_dataset(
-                        conn,
+                    yield from self.bigquery_data_dictionary.get_tables_for_dataset(
                         project_id,
                         dataset_name,
                         items_to_get,
@@ -1240,8 +1244,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     items_to_get.clear()
 
             if items_to_get:
-                yield from BigQueryDataDictionary.get_tables_for_dataset(
-                    conn,
+                yield from self.bigquery_data_dictionary.get_tables_for_dataset(
                     project_id,
                     dataset_name,
                     items_to_get,
@@ -1253,13 +1256,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
     def get_core_table_details(
-        self, conn: bigquery.Client, dataset_name: str, project_id: str
+        self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str
     ) -> Dict[str, TableListItem]:
         table_items: Dict[str, TableListItem] = {}
         # Dict to store sharded table and the last seen max shard id
         sharded_tables: Dict[str, TableListItem] = {}
 
-        for table in conn.list_tables(f"{project_id}.{dataset_name}"):
+        for table in self.bigquery_data_dictionary.list_tables(
+            dataset_name, project_id
+        ):
             table_identifier = BigqueryTableIdentifier(
                 project_id=project_id,
                 dataset=dataset_name,
@@ -1296,9 +1301,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if stored_shard < shard:
                     sharded_tables[table_name] = table
                 continue
-            elif str(table_identifier).startswith(
-                self.config.temp_table_dataset_prefix
-            ):
+            elif str(table_identifier).startswith(temp_table_dataset_prefix):
                 logger.debug(f"Dropping temporary table {table_identifier.table}")
                 self.report.report_dropped(table_identifier.raw_table_name())
                 continue

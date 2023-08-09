@@ -26,8 +26,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATE_SHARD_FORMAT,
     BQ_DATETIME_FORMAT,
-    _make_gcp_logging_client,
-    get_bigquery_client,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -133,7 +131,6 @@ def _follow_column_lineage(
 def make_lineage_edges_from_parsing_result(
     sql_lineage: SqlParsingResult, audit_stamp: datetime, lineage_type: str
 ) -> List[LineageEdge]:
-
     # Note: This ignores the out_tables section of the sql parsing result.
     audit_stamp = datetime.now(timezone.utc)
 
@@ -295,7 +292,7 @@ timestamp < "{end_time}"
 
         try:
             lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
-            bigquery_client: BigQueryClient = get_bigquery_client(self.config)
+            bigquery_client: BigQueryClient = self.config.get_bigquery_client()
             # Filtering datasets
             datasets = list(bigquery_client.list_datasets(project_id))
             project_tables = []
@@ -381,12 +378,12 @@ timestamp < "{end_time}"
         parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
         if self.config.use_exported_bigquery_audit_metadata:
             logger.info("Populating lineage info via exported GCP audit logs")
-            bq_client = get_bigquery_client(self.config)
+            bq_client = self.config.get_bigquery_client()
             entries = self._get_exported_bigquery_audit_metadata(bq_client)
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
             logger.info("Populating lineage info via exported GCP audit logs")
-            logging_client = _make_gcp_logging_client(project_id)
+            logging_client = self.config.make_gcp_logging_client(project_id)
             entries = self._get_bigquery_log_entries(logging_client)
             parse_fn = self._parse_bigquery_log_entries
 
@@ -406,15 +403,13 @@ timestamp < "{end_time}"
     ) -> Iterable[AuditLogEntry]:
         self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
-        self.report.log_entry_start_time = start_time
+        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
+        self.report.log_entry_start_time = corrected_start_time
 
-        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
-        self.report.log_entry_end_time = end_time
+        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
+        self.report.log_entry_end_time = corrected_end_time
 
         filter = self.BQ_FILTER_RULE_TEMPLATE_V2.format(
             start_time=start_time,
@@ -465,12 +460,12 @@ timestamp < "{end_time}"
         corrected_start_time = self.config.start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
-        self.report.audit_start_time = start_time
+        self.report.audit_start_time = corrected_start_time
 
         corrected_end_time = self.config.end_time + self.config.max_query_duration
         end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
         end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
-        self.report.audit_end_time = end_time
+        self.report.audit_end_time = corrected_end_time
 
         for dataset in self.config.bigquery_audit_metadata_datasets:
             logger.info(
@@ -827,8 +822,8 @@ timestamp < "{end_time}"
                     f"Connection test got one exported_bigquery_audit_metadata {entry}"
                 )
         else:
-            gcp_logging_client: GCPLoggingClient = _make_gcp_logging_client(
-                project_id, self.config.extra_client_options
+            gcp_logging_client: GCPLoggingClient = self.config.make_gcp_logging_client(
+                project_id
             )
             for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")

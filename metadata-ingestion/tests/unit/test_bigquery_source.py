@@ -18,6 +18,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigQueryDataDictionary,
     BigqueryProject,
@@ -100,7 +101,7 @@ def test_get_projects_with_project_ids(client_mock):
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects(client_mock) == [
+    assert source._get_projects() == [
         BigqueryProject("test-1", "test-1"),
         BigqueryProject("test-2", "test-2"),
     ]
@@ -110,7 +111,7 @@ def test_get_projects_with_project_ids(client_mock):
         {"project_ids": ["test-1", "test-2"], "project_id": "test-3"}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test2"))
-    assert source._get_projects(client_mock) == [
+    assert source._get_projects() == [
         BigqueryProject("test-1", "test-1"),
         BigqueryProject("test-2", "test-2"),
     ]
@@ -125,7 +126,7 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern():
         }
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects(MagicMock())
+    projects = source._get_projects()
     assert projects == [
         BigqueryProject(id="test-project", name="test-project"),
         BigqueryProject(id="test-project-2", name="test-project-2"),
@@ -156,7 +157,7 @@ def test_get_dataplatform_instance_aspect_returns_project_id():
 def test_get_projects_with_single_project_id(client_mock):
     config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects(client_mock) == [
+    assert source._get_projects() == [
         BigqueryProject("test-3", "test-3"),
     ]
     assert client_mock.list_projects.call_count == 0
@@ -177,7 +178,8 @@ def test_get_projects_by_list(client_mock):
 
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
-    assert source._get_projects(client_mock) == [
+    source.bigquery_data_dictionary.set_client(client_mock)
+    assert source._get_projects() == [
         BigqueryProject("test-1", "one"),
         BigqueryProject("test-2", "two"),
     ]
@@ -195,7 +197,7 @@ def test_get_projects_filter_by_pattern(get_projects_mock):
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects(MagicMock())
+    projects = source._get_projects()
     assert projects == [
         BigqueryProject(id="test-project-2", name="Test Project 2"),
     ]
@@ -209,7 +211,7 @@ def test_get_projects_list_empty(get_projects_mock):
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects(MagicMock())
+    projects = source._get_projects()
     assert len(source.report.failures) == 1
     assert projects == []
 
@@ -227,7 +229,7 @@ def test_get_projects_list_failure(
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
     caplog.records.clear()
     with caplog.at_level(logging.ERROR):
-        projects = source._get_projects(MagicMock())
+        projects = source._get_projects()
         assert len(caplog.records) == 1
         assert error_str in caplog.records[0].msg
     assert len(source.report.failures) == 1
@@ -242,7 +244,7 @@ def test_get_projects_list_fully_filtered(get_projects_mock):
         {"project_id_pattern": {"deny": ["^test-project$"]}}
     )
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
-    projects = source._get_projects(MagicMock())
+    projects = source._get_projects()
     assert len(source.report.failures) == 0
     assert projects == []
 
@@ -496,10 +498,11 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
     data_dictionary_mock.get_tables_for_dataset.return_value = None
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    source.bigquery_data_dictionary.set_client(client_mock)
 
     _ = list(
         source.get_tables_for_dataset(
-            conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+            project_id="test-project", dataset_name="test-dataset"
         )
     )
 
@@ -507,7 +510,7 @@ def test_table_processing_logic(client_mock, data_dictionary_mock):
 
     # args only available from python 3.8 and that's why call_args_list is sooo ugly
     tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
-        3
+        2
     ]  # alternatively
     for table in tables.keys():
         assert table in ["test-table", "test-sharded-table_20220102"]
@@ -568,10 +571,11 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
     data_dictionary_mock.get_tables_for_dataset.return_value = None
 
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    source.bigquery_data_dictionary.set_client(client_mock)
 
     _ = list(
         source.get_tables_for_dataset(
-            conn=client_mock, project_id="test-project", dataset_name="test-dataset"
+            project_id="test-project", dataset_name="test-dataset"
         )
     )
 
@@ -579,7 +583,7 @@ def test_table_processing_logic_date_named_tables(client_mock, data_dictionary_m
 
     # args only available from python 3.8 and that's why call_args_list is sooo ugly
     tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
-        3
+        2
     ]  # alternatively
     for table in tables.keys():
         assert tables[table].table_id in ["test-table", "20220103"]
@@ -651,9 +655,10 @@ def test_get_views_for_dataset(
         )
     )
     query_mock.return_value = [row1, row2]
+    bigquery_data_dictionary = BigQueryDataDictionary(BigQueryV2Report())
+    bigquery_data_dictionary.set_client(client_mock)
 
-    views = BigQueryDataDictionary.get_views_for_dataset(
-        conn=client_mock,
+    views = bigquery_data_dictionary.get_views_for_dataset(
         project_id="test-project",
         dataset_name="test-dataset",
         has_data_read=False,

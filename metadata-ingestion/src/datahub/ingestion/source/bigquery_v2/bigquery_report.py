@@ -15,8 +15,24 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class BigQueryApiPerfReport:
+    list_projects = PerfTimer()
+    get_datasets_for_project = PerfTimer()
+    get_columns_for_dataset = PerfTimer()
+    get_tables_for_dataset = PerfTimer()
+    list_tables = PerfTimer()
+    get_views_for_dataset = PerfTimer()
+
+
+class BigQueryAuditLogApiPerfReport:
+    get_exported_bigquery_audit_metadata = PerfTimer()
+    get_bigquery_log_entries_via_gcp_logging = PerfTimer()
+
+
 @dataclass
-class BigQueryV2Report(ProfilingSqlReport):
+class BigQueryV2Report(
+    ProfilingSqlReport, BigQueryApiPerfReport, BigQueryAuditLogApiPerfReport
+):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -53,10 +69,11 @@ class BigQueryV2Report(ProfilingSqlReport):
     log_page_size: Optional[pydantic.PositiveInt] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
     end_time: Optional[datetime] = None
-    log_entry_start_time: Optional[str] = None
-    log_entry_end_time: Optional[str] = None
-    audit_start_time: Optional[str] = None
-    audit_end_time: Optional[str] = None
+    # TODO: remove one or replace by lineage ones
+    log_entry_start_time: Optional[datetime] = None
+    log_entry_end_time: Optional[datetime] = None
+    audit_start_time: Optional[datetime] = None
+    audit_end_time: Optional[datetime] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
     partition_info: Dict[str, str] = field(default_factory=TopKDict)
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
