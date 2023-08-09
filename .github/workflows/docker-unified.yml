@@ -39,7 +39,11 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      slim_tag: ${{ steps.tag.outputs.slim_tag }}
+      full_tag: ${{ steps.tag.outputs.full_tag }}
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
+      unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
+      unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
@@ -644,6 +648,9 @@ jobs:
               - 'docker/datahub-ingestion-base/**'
             datahub-ingestion:
               - 'docker/datahub-ingestion/**'
+      - name: Build codegen
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
