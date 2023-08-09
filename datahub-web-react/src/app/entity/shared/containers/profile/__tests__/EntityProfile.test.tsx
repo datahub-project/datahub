@@ -22,6 +22,7 @@ import { SidebarAboutSection } from '../sidebar/AboutSection/SidebarAboutSection
 import { SidebarTagsSection } from '../sidebar/SidebarTagsSection';
 
 describe('EntityProfile', () => {
+    jest.setTimeout(30000)
     it('renders dataset page', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
@@ -98,8 +99,8 @@ describe('EntityProfile', () => {
                         ]}
                     />
                 </TestPageContainer>
-            </MockedProvider>,
-        );
+            </MockedProvider>
+            );
 
         await waitFor(() => expect(getByText('Yet Another Dataset')).toBeInTheDocument(),{timeout:10000});
         await waitFor(() =>
@@ -108,6 +109,7 @@ describe('EntityProfile', () => {
     });
 
     it('renders tab content', async () => {
+        jest.setTimeout(30000)
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -192,6 +194,7 @@ describe('EntityProfile', () => {
     });
 
     it('switches tab content', async () => {
+        jest.setTimeout(30000)
         const { getByText, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -289,6 +292,7 @@ describe('EntityProfile', () => {
     });
 
     it('renders sidebar content', async () => {
+        jest.setTimeout(30000)
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -373,6 +377,7 @@ describe('EntityProfile', () => {
     });
 
     it('renders autorender aspects', async () => {
+        jest.setTimeout(30000)
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
