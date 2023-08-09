@@ -21,6 +21,7 @@ import {
 } from './BrowseContext';
 import useSidebarAnalytics from './useSidebarAnalytics';
 import EntityLink from './EntityLink';
+import { EntityType } from '../../../types.generated';
 
 const FolderStyled = styled(FolderOutlined)`
     font-size: 16px;
@@ -42,7 +43,7 @@ const BrowseNode = () => {
     const platformAggregation = usePlatformAggregation();
     const browseResultGroup = useBrowseResultGroup();
     const { count, entity } = browseResultGroup;
-    const hasEntityLink = !!entity;
+    const hasEntityLink = !!entity && entity.type !== EntityType.DataPlatformInstance;
     const displayName = useBrowseDisplayName();
     const { trackSelectNodeEvent, trackToggleNodeEvent } = useSidebarAnalytics();
 

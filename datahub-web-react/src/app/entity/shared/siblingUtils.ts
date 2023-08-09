@@ -2,7 +2,7 @@ import merge from 'deepmerge';
 import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
-import { Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
+import { Dataset, Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -235,6 +235,11 @@ export function combineSiblingsInSearchResults(
             combinedResult.matchedEntities = entity.siblings.isPrimary
                 ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
                 : [...entity.siblings.siblings, stripSiblingsFromEntity(entity)];
+
+            combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
+                (resultToFilter) => (resultToFilter as Dataset).exists,
+            );
+
             siblingUrns.forEach((urn) => {
                 siblingsToPair[urn] = combinedResult;
             });

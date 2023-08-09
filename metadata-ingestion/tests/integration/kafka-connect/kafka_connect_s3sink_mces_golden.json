@@ -1,0 +1,109 @@
+[
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,confluent_s3_sink_connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {
+          "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+          "s3.region": "ap-southeast-2",
+          "flush.size": "100",
+          "tasks.max": "1",
+          "timezone": "UTC",
+          "topics": "my-topic",
+          "store.url": "http://s3mock:9090",
+          "max.interval": "5000",
+          "locale": "en_AU",
+          "key.converter.schemas.enable": "false",
+          "s3.compression.type": "gzip",
+          "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+          "partitioner.class": "io.confluent.connect.storage.partitioner.HourlyPartitioner",
+          "value.converter.schemas.enable": "false",
+          "name": "confluent_s3_sink_connector",
+          "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+          "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+          "s3.bucket.name": "test-bucket",
+          "timestamp.extractor": "Record",
+          "key.converter": "org.apache.kafka.connect.json.JsonConverter"
+        },
+        "name": "confluent_s3_sink_connector",
+        "description": "Sink connector using `io.confluent.connect.s3.S3SinkConnector` plugin."
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1635166800000,
+      "runId": "kafka-connect-run"
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent_s3_sink_connector,PROD),my-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "confluent_s3_sink_connector:my-topic",
+        "type": {
+          "string": "COMMAND"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1635166800000,
+      "runId": "kafka-connect-run"
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent_s3_sink_connector,PROD),my-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:kafka,my-topic,PROD)"
+        ],
+        "outputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/topics/my-topic,PROD)"
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1635166800000,
+      "runId": "kafka-connect-run"
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,confluent_s3_sink_connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1635166800000,
+      "runId": "kafka-connect-run"
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,confluent_s3_sink_connector,PROD),my-topic)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "json": {
+        "removed": false
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1635166800000,
+      "runId": "kafka-connect-run"
+    }
+  }
+]

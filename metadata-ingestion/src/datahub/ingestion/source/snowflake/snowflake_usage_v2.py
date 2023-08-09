@@ -218,7 +218,9 @@ class SnowflakeUsageExtractor(
                 )
                 if self.config.include_top_n_queries
                 else None,
-                userCounts=self._map_user_counts(json.loads(row["USER_COUNTS"])),
+                userCounts=self._map_user_counts(
+                    json.loads(row["USER_COUNTS"]),
+                ),
                 fieldCounts=self._map_field_counts(json.loads(row["FIELD_COUNTS"])),
             )
 
@@ -247,7 +249,10 @@ class SnowflakeUsageExtractor(
             ]
         )
 
-    def _map_user_counts(self, user_counts: Dict) -> List[DatasetUserUsageCounts]:
+    def _map_user_counts(
+        self,
+        user_counts: Dict,
+    ) -> List[DatasetUserUsageCounts]:
         filtered_user_counts = []
         for user_count in user_counts:
             user_email = user_count.get("email")
@@ -261,7 +266,11 @@ class SnowflakeUsageExtractor(
             filtered_user_counts.append(
                 DatasetUserUsageCounts(
                     user=make_user_urn(
-                        self.get_user_identifier(user_count["user_name"], user_email)
+                        self.get_user_identifier(
+                            user_count["user_name"],
+                            user_email,
+                            self.config.email_as_user_identifier,
+                        )
                     ),
                     count=user_count["total"],
                     # NOTE: Generated emails may be incorrect, as email may be different than
@@ -347,6 +356,7 @@ class SnowflakeUsageExtractor(
     def _get_operation_aspect_work_unit(
         self, event: SnowflakeJoinedAccessEvent, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
+
         if event.query_start_time and event.query_type:
             start_time = event.query_start_time
             query_type = event.query_type
@@ -357,7 +367,11 @@ class SnowflakeUsageExtractor(
             )
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
-            user_urn = make_user_urn(self.get_user_identifier(user_name, user_email))
+            user_urn = make_user_urn(
+                self.get_user_identifier(
+                    user_name, user_email, self.config.email_as_user_identifier
+                )
+            )
 
             # NOTE: In earlier `snowflake-usage` connector this was base_objects_accessed, which is incorrect
             for obj in event.objects_modified:

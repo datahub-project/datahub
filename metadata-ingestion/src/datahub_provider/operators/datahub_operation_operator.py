@@ -76,9 +76,9 @@ class DataHubOperationCircuitBreakerOperator(BaseSensorOperator):
             return True
 
         self.log.info(f"Checking if dataset {self.urn} is ready to be consumed")
-        if type(self.urn) == str:
+        if isinstance(self.urn, str):
             urns = [self.urn]
-        elif type(self.urn) == list:
+        elif isinstance(self.urn, list):
             urns = self.urn
         else:
             raise Exception(f"urn parameter has invalid type {type(self.urn)}")

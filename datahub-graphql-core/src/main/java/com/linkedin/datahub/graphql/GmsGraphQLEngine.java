@@ -645,6 +645,7 @@ public class GmsGraphQLEngine {
         configureOrganisationRoleResolvers(builder);
         configureGlossaryNodeResolvers(builder);
         configureDomainResolvers(builder);
+        configureDataProductResolvers(builder);
         configureAssertionResolvers(builder);
         configurePolicyResolvers(builder);
         configureDataProcessInstanceResolvers(builder);
@@ -1676,6 +1677,13 @@ public class GmsGraphQLEngine {
             .dataFetcher("domain",
                 new LoadableTypeResolver<>(domainType,
                     (env) -> ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource()).getDomain().getUrn()))
+        );
+    }
+
+    private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("DataProduct", typeWiring -> typeWiring
+            .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
     }
 

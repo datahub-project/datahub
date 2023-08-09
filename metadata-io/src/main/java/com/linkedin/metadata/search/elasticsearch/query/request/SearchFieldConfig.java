@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
@@ -19,6 +20,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 @Builder
 @Getter
 @Accessors(fluent = true)
+@EqualsAndHashCode
 public class SearchFieldConfig {
     public static final float DEFAULT_BOOST = 1.0f;
 

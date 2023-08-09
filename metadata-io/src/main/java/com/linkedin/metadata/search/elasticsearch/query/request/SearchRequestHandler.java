@@ -490,7 +490,7 @@ public class SearchRequestHandler {
       return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
     }
     for (Map.Entry<String, Aggregation> entry : searchResponse.getAggregations().getAsMap().entrySet()) {
-      final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue());
+      final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue(), entry.getKey().equals("_entityType"));
       if (oneTermAggResult.isEmpty()) {
         continue;
       }
@@ -514,7 +514,7 @@ public class SearchRequestHandler {
     if (aggregation == null) {
       return Collections.emptyMap();
     }
-    return extractTermAggregations((ParsedTerms) aggregation);
+    return extractTermAggregations((ParsedTerms) aggregation, aggregationName.equals("_entityType"));
   }
 
   /**
@@ -555,7 +555,7 @@ public class SearchRequestHandler {
    * @return a map with aggregation key and corresponding doc counts
    */
   @Nonnull
-  private static Map<String, Long> extractTermAggregations(@Nonnull ParsedTerms terms) {
+  private static Map<String, Long> extractTermAggregations(@Nonnull ParsedTerms terms, boolean includeZeroes) {
 
     final Map<String, Long> aggResult = new HashMap<>();
     List<? extends Terms.Bucket> bucketList = terms.getBuckets();
@@ -568,7 +568,7 @@ public class SearchRequestHandler {
         aggResult.put(String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, subAggEntry.getKey()), subAggEntry.getValue());
       }
       long docCount = bucket.getDocCount();
-      if (docCount > 0) {
+      if (includeZeroes || docCount > 0) {
         aggResult.put(key, docCount);
       }
     }

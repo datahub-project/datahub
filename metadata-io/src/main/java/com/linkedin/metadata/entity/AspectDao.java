@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.PagedList;
 
 import javax.annotation.Nonnull;
@@ -28,6 +29,8 @@ import java.util.function.Supplier;
  * worth looking into ways to move this responsibility inside {@link AspectDao} implementations.
  */
 public interface AspectDao {
+    String ASPECT_WRITE_COUNT_METRIC_NAME = "aspectWriteCount";
+    String ASPECT_WRITE_BYTES_METRIC_NAME = "aspectWriteBytes";
 
     @Nullable
     EntityAspect getAspect(@Nonnull final String urn, @Nonnull final String aspectName, final long version);
@@ -116,4 +119,11 @@ public interface AspectDao {
 
     @Nonnull
     <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry);
+
+    default void incrementWriteMetrics(String aspectName, long count, long bytes) {
+        MetricUtils.counter(this.getClass(),
+                String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_COUNT_METRIC_NAME, aspectName))).inc(count);
+        MetricUtils.counter(this.getClass(),
+                String.join(MetricUtils.DELIMITER, List.of(ASPECT_WRITE_BYTES_METRIC_NAME, aspectName))).inc(bytes);
+    }
 }

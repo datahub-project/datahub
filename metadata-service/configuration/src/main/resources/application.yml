@@ -168,6 +168,7 @@ elasticsearch:
     numRetries: ${ES_BULK_NUM_RETRIES:3}
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
+    enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
   index:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:1}
@@ -222,10 +223,9 @@ kafka:
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
-    #url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8080/schema-registry/api/}
-    #awsGlue:
-    #  region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
-    #  registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
+    awsGlue:
+      region: ${AWS_GLUE_SCHEMA_REGISTRY_REGION:us-east-1}
+      registryName: ${AWS_GLUE_SCHEMA_REGISTRY_NAME:#{null}}
   schema:
     registry:
       security:
@@ -269,7 +269,7 @@ bootstrap:
   upgradeDefaultBrowsePaths:
     enabled: ${UPGRADE_DEFAULT_BROWSE_PATHS_ENABLED:false} # enable to run the upgrade to migrate legacy default browse paths to new ones
   backfillBrowsePathsV2:
-    enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag.
+    enabled: ${BACKFILL_BROWSE_PATHS_V2:false} # Enables running the backfill of browsePathsV2 upgrade step. There are concerns about the load of this step so hiding it behind a flag. Deprecating in favor of running through SystemUpdate
 
 systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}

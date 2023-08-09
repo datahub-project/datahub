@@ -173,4 +173,5 @@ class DataHubClassifier(Classifier):
             infotypes=self.config.info_types,
             minimum_values_threshold=self.config.minimum_values_threshold,
         )
+
         return columns

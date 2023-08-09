@@ -47,6 +47,9 @@ public class ESBulkProcessor implements Closeable {
     @NonNull
     private Boolean async = false;
     @Builder.Default
+    @NonNull
+    private Boolean batchDelete = false;
+    @Builder.Default
     private Integer bulkRequestsLimit = 500;
     @Builder.Default
     private Integer bulkFlushPeriod = 1;
@@ -62,12 +65,13 @@ public class ESBulkProcessor implements Closeable {
     @Getter(AccessLevel.NONE)
     private final BulkProcessor bulkProcessor;
 
-    private ESBulkProcessor(@NonNull RestHighLevelClient searchClient, @NonNull Boolean async, Integer bulkRequestsLimit,
-                            Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
+    private ESBulkProcessor(@NonNull RestHighLevelClient searchClient, @NonNull Boolean async, @NonNull Boolean batchDelete,
+                            Integer bulkRequestsLimit, Integer bulkFlushPeriod, Integer numRetries, Long retryInterval,
                             TimeValue defaultTimeout, WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
                             BulkProcessor ignored) {
         this.searchClient = searchClient;
         this.async = async;
+        this.batchDelete = batchDelete;
         this.bulkRequestsLimit = bulkRequestsLimit;
         this.bulkFlushPeriod = bulkFlushPeriod;
         this.numRetries = numRetries;
@@ -103,8 +107,10 @@ public class ESBulkProcessor implements Closeable {
         deleteByQueryRequest.indices(indices);
 
         try {
-            // flush pending writes
-            bulkProcessor.flush();
+            if (!batchDelete) {
+                // flush pending writes
+                bulkProcessor.flush();
+            }
             // perform delete after local flush
             final BulkByScrollResponse deleteResponse = searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
             MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(deleteResponse.getTotal());

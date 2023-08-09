@@ -1277,6 +1277,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
+                                "isPartitioningKey": true,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
                             },
                             {

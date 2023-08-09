@@ -21,13 +21,15 @@ import static com.linkedin.metadata.utils.SearchUtil.*;
 public class AggregationQueryBuilder {
 
   private final SearchConfiguration _configs;
-  private final Set<String> _facetFields;
+  private final Set<String> _defaultFacetFields;
+  private final Set<String> _allFacetFields;
 
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull final List<SearchableAnnotation> annotations) {
     this._configs = Objects.requireNonNull(configs, "configs must not be null");
-    this._facetFields = getFacetFields(annotations);
+    this._defaultFacetFields = getDefaultFacetFields(annotations);
+    this._allFacetFields = getAllFacetFields(annotations);
   }
 
   /**
@@ -44,19 +46,28 @@ public class AggregationQueryBuilder {
     final Set<String> facetsToAggregate;
     if (facets != null) {
       facets.stream().filter(f -> !isValidAggregate(f)).forEach(facet -> {
-        log.warn(String.format("Provided facet for search filter aggregations that doesn't exist. Provided: %s; Available: %s", facet, _facetFields));
+        log.warn(String.format("Requested facet for search filter aggregations that isn't part of the default filters. Provided: %s; Available: %s", facet,
+            _defaultFacetFields));
       });
       facetsToAggregate = facets.stream().filter(this::isValidAggregate).collect(Collectors.toSet());
     } else {
-      facetsToAggregate = _facetFields;
+      facetsToAggregate = _defaultFacetFields;
     }
     return facetsToAggregate.stream().map(this::facetToAggregationBuilder).collect(Collectors.toList());
   }
 
 
-  private Set<String> getFacetFields(final List<SearchableAnnotation> annotations) {
+  private Set<String> getDefaultFacetFields(final List<SearchableAnnotation> annotations) {
     Set<String> facets = annotations.stream()
-        .flatMap(annotation -> getFacetFieldsFromAnnotation(annotation).stream())
+        .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
+        .collect(Collectors.toSet());
+    facets.add(INDEX_VIRTUAL_FIELD);
+    return facets;
+  }
+
+  private Set<String> getAllFacetFields(final List<SearchableAnnotation> annotations) {
+    Set<String> facets = annotations.stream()
+        .flatMap(annotation -> getAllFacetFieldsFromAnnotation(annotation).stream())
         .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
     return facets;
@@ -64,7 +75,7 @@ public class AggregationQueryBuilder {
 
   private boolean isValidAggregate(final String inputFacet) {
     Set<String> facets = Set.of(inputFacet.split(AGGREGATION_SEPARATOR_CHAR));
-    return facets.size() > 0 && _facetFields.containsAll(facets);
+    return facets.size() > 0 && _allFacetFields.containsAll(facets);
   }
 
   private AggregationBuilder facetToAggregationBuilder(final String inputFacet) {
@@ -72,13 +83,15 @@ public class AggregationQueryBuilder {
     AggregationBuilder lastAggBuilder = null;
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
-      if (facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)) {
-        facet = "_index";
-      }
       AggregationBuilder aggBuilder =
-          AggregationBuilders.terms(inputFacet)
-              .field(getAggregationField(facet))
-              .size(_configs.getMaxTermBucketSize());
+          facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+              ? AggregationBuilders.terms(inputFacet)
+                  .field(getAggregationField("_index"))
+                  .size(_configs.getMaxTermBucketSize())
+                  .minDocCount(0)
+              : AggregationBuilders.terms(inputFacet)
+                  .field(getAggregationField(facet))
+                  .size(_configs.getMaxTermBucketSize());
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);
       }
@@ -97,12 +110,21 @@ public class AggregationQueryBuilder {
     return ESUtils.toKeywordField(facet, false);
   }
 
-  List<String> getFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
+  List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
     final List<String> facetsFromAnnotation = new ArrayList<>();
     if (annotation.isAddToFilters()) {
       facetsFromAnnotation.add(annotation.getFieldName());
     }
     if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
+      facetsFromAnnotation.add(annotation.getHasValuesFieldName().get());
+    }
+    return facetsFromAnnotation;
+  }
+
+  List<String> getAllFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
+    final List<String> facetsFromAnnotation = new ArrayList<>();
+    facetsFromAnnotation.add(annotation.getFieldName());
+    if (annotation.getHasValuesFieldName().isPresent()) {
       facetsFromAnnotation.add(annotation.getHasValuesFieldName().get());
     }
     return facetsFromAnnotation;

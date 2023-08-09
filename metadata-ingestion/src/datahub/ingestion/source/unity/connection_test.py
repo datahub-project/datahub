@@ -60,7 +60,7 @@ class UnityCatalogConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
     def profiling_connectivity(self) -> Optional[CapabilityReport]:
-        if not self.config.profiling.enabled:
+        if not self.config.is_profiling_enabled():
             return None
         try:
             return CapabilityReport(capable=self.proxy.check_profiling_connectivity())

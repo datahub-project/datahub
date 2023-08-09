@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic import validator
@@ -26,8 +27,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, SourceReport
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
@@ -139,8 +143,11 @@ class LineageFileSource(Source):
         lineage_config = LineageConfig.parse_obj(config)
         return lineage_config
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            auto_status_aspect,
+            partial(auto_workunit_reporter, self.get_report()),
+        ]
 
     def get_workunits_internal(
         self,

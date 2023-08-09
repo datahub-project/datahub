@@ -195,9 +195,11 @@ public class ElasticSearchTimeseriesAspectService implements TimeseriesAspectSer
       @Nonnull final String aspectName,
       @Nullable final Filter filter
   ) {
+    final String indexName = _indexConvention.getTimeseriesAspectIndexName(entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder = QueryBuilders.boolQuery().must(ESUtils.buildFilterQuery(filter, true));
     CountRequest countRequest = new CountRequest();
     countRequest.query(filterQueryBuilder);
+    countRequest.indices(indexName);
     try {
       CountResponse resp = _searchClient.count(countRequest, RequestOptions.DEFAULT);
       return resp.getCount();

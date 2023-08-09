@@ -56,7 +56,7 @@ services:
     restart: on-failure
     healthcheck:
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
-      start_period: 2s
+      start_period: 20s
       interval: 1s
       retries: 5
       timeout: 5s

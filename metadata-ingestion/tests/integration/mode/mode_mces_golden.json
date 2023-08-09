@@ -1,6 +1,5 @@
 [
 {
-    "auditHeader": null,
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(mode,2934237)",
@@ -8,7 +7,6 @@
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
                         "customProperties": {},
-                        "externalUrl": null,
                         "title": "Report 1",
                         "description": "First Report",
                         "charts": [
@@ -18,19 +16,14 @@
                         "lastModified": {
                             "created": {
                                 "time": 1639169724316,
-                                "actor": "urn:li:corpuser:modeuser",
-                                "impersonator": null
+                                "actor": "urn:li:corpuser:modeuser"
                             },
                             "lastModified": {
                                 "time": 1639182684451,
-                                "actor": "urn:li:corpuser:modeuser",
-                                "impersonator": null
-                            },
-                            "deleted": null
+                                "actor": "urn:li:corpuser:modeuser"
+                            }
                         },
-                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e",
-                        "access": null,
-                        "lastRefreshed": null
+                        "dashboardUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e"
                     }
                 },
                 {
@@ -45,31 +38,49 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:modeuser",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mode-test"
     }
 },
 {
-    "auditHeader": null,
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acryl"
+                },
+                {
+                    "id": "AcrylTest"
+                },
+                {
+                    "id": "Report 1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
             "urn": "urn:li:chart:(mode,f622b9ee725b)",
@@ -80,37 +91,31 @@
                             "Columns": "payment_date,Staff First Name,amount,Staff Last Name",
                             "Filters": "amount"
                         },
-                        "externalUrl": null,
                         "title": "Customer Staff Table",
                         "description": "",
                         "lastModified": {
                             "created": {
                                 "time": 1639170083088,
-                                "actor": "urn:li:corpuser:modeuser",
-                                "impersonator": null
+                                "actor": "urn:li:corpuser:modeuser"
                             },
                             "lastModified": {
                                 "time": 1639182684438,
-                                "actor": "urn:li:corpuser:modeuser",
-                                "impersonator": null
-                            },
-                            "deleted": null
+                                "actor": "urn:li:corpuser:modeuser"
+                            }
                         },
                         "chartUrl": "https://app.mode.com/acryltest/reports/9d2da37fa91e/viz/f622b9ee725b",
                         "inputs": [
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.rental,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.staff,PROD)"
                             },
                             {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.payment,PROD)"
                             },
                             {
-                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.staff,PROD)"
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:postgres,dvdrental.public.rental,PROD)"
                             }
                         ],
-                        "type": "TABLE",
-                        "access": null,
-                        "lastRefreshed": null
+                        "type": "TABLE"
                     }
                 },
                 {
@@ -131,27 +136,82 @@
                         "owners": [
                             {
                                 "owner": "urn:li:corpuser:modeuser",
-                                "type": "DATAOWNER",
-                                "source": null
+                                "type": "DATAOWNER"
                             }
                         ],
                         "lastModified": {
                             "time": 0,
-                            "actor": "urn:li:corpuser:unknown",
-                            "impersonator": null
+                            "actor": "urn:li:corpuser:unknown"
                         }
                     }
                 }
             ]
         }
     },
-    "proposedDelta": null,
     "systemMetadata": {
         "lastObserved": 1638860400000,
-        "runId": "mode-test",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "mode-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(mode,f622b9ee725b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "acryl"
+                },
+                {
+                    "id": "AcrylTest"
+                },
+                {
+                    "id": "Report 1"
+                },
+                {
+                    "id": "Customer and staff"
+                },
+                {
+                    "id": "Customer Staff Table"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(mode,2934237)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test"
     }
 }
 ]

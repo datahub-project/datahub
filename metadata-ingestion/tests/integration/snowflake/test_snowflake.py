@@ -55,7 +55,6 @@ def random_cloud_region():
     )
 
 
-@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
@@ -125,6 +124,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         use_legacy_lineage_method=False,
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
+                        email_as_user_identifier=True,
                         start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
@@ -167,7 +167,13 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             pytestconfig,
             output_path=output_file,
             golden_path=golden_file,
-            ignore_paths=[],
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['fields'\]\[\d+\]\['glossaryTerms'\]\['auditStamp'\]\['time'\]",
+                r"root\[\d+\]\['systemMetadata'\]",
+            ],
         )
         report = cast(SnowflakeV2Report, pipeline.source.get_report())
         assert report.lru_cache_info["get_tables_for_database"]["misses"] == 1

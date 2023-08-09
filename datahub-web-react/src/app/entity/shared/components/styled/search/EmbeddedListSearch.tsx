@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
-import { FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput } from '../../../../../../types.generated';
+import {
+    EntityType,
+    FacetFilterInput,
+    FacetMetadata,
+    SearchAcrossEntitiesInput,
+} from '../../../../../../types.generated';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchCfg } from '../../../../../../conf';
 import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
@@ -11,6 +16,7 @@ import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './typ
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
+import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -64,6 +70,7 @@ export const removeFixedFiltersFromFacets = (fixedFilters: FilterSet, facets: Fa
 
 type Props = {
     query: string;
+    entityTypes?: EntityType[];
     page: number;
     unionType: UnionType;
     filters: FacetFilterInput[];
@@ -71,6 +78,7 @@ type Props = {
     onChangeFilters: (filters) => void;
     onChangePage: (page) => void;
     onChangeUnionType: (unionType: UnionType) => void;
+    onTotalChanged?: (newTotal: number) => void;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
     fixedQuery?: string | null;
@@ -79,6 +87,7 @@ type Props = {
     defaultFilters?: Array<FacetFilterInput>;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    entityAction?: React.FC<EntityActionProps>;
     skipCache?: boolean;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
@@ -98,6 +107,7 @@ type Props = {
 
 export const EmbeddedListSearch = ({
     query,
+    entityTypes,
     filters,
     page,
     unionType,
@@ -105,6 +115,7 @@ export const EmbeddedListSearch = ({
     onChangeFilters,
     onChangePage,
     onChangeUnionType,
+    onTotalChanged,
     emptySearchQuery,
     fixedFilters,
     fixedQuery,
@@ -113,6 +124,7 @@ export const EmbeddedListSearch = ({
     defaultFilters,
     searchBarStyle,
     searchBarInputStyle,
+    entityAction,
     skipCache,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
@@ -143,7 +155,7 @@ export const EmbeddedListSearch = ({
     const { refetch: refetchForDownload } = useGetDownloadSearchResults({
         variables: {
             input: {
-                types: [],
+                types: entityTypes || [],
                 query,
                 count: SearchCfg.RESULTS_PER_PAGE,
                 orFilters: generateOrFilters(unionType, filters),
@@ -154,7 +166,7 @@ export const EmbeddedListSearch = ({
     });
 
     let searchInput: SearchAcrossEntitiesInput = {
-        types: [],
+        types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
@@ -187,6 +199,12 @@ export const EmbeddedListSearch = ({
             setShouldRefetchEmbeddedListSearch?.(false);
         }
     });
+
+    useEffect(() => {
+        if (data?.total !== undefined && onTotalChanged) {
+            onTotalChanged(data?.total);
+        }
+    }, [data?.total, onTotalChanged]);
 
     const searchResultEntities =
         data?.searchResults?.map((result) => ({ urn: result.entity.urn, type: result.entity.type })) || [];
@@ -276,6 +294,7 @@ export const EmbeddedListSearch = ({
                 isSelectMode={isSelectMode}
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                entityAction={entityAction}
             />
         </Container>
     );

@@ -199,7 +199,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         if dpi_aspect:
             yield dpi_aspect
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
 

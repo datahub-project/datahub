@@ -126,12 +126,11 @@ sql_common = {
 }
 
 sqllineage_lib = {
-    "sqllineage==1.3.6",
+    "sqllineage==1.3.8",
     # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # As per https://github.com/reata/sqllineage/issues/361
-    # and https://github.com/reata/sqllineage/pull/360
-    # sqllineage has compat issues with sqlparse 0.4.4.
-    "sqlparse==0.4.3",
+    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
+    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
+    "sqlparse==0.4.4",
 }
 
 sqlglot_lib = {
@@ -369,13 +368,15 @@ plugins: Dict[str, Set[str]] = {
         "great_expectations",
         "greenlet",
     },
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
+    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
+    # to remove that dependency.
+    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
     "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
 }
 
@@ -402,7 +403,9 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.4",
+    # The boto3-stubs package seems to have regularly breaking minor releases,
+    # we pin to a specific version to avoid this.
+    "boto3-stubs[s3,glue,sagemaker,sts]==1.28.15",
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
@@ -412,6 +415,7 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
+    "types-tzlocal",
 }
 
 
@@ -487,7 +491,8 @@ base_dev_requirements = {
             "powerbi-report-server",
             "salesforce",
             "unity-catalog",
-            "nifi"
+            "nifi",
+            "vertica"
             # airflow is added below
         ]
         if plugin
@@ -521,7 +526,7 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            # "vertica",
+            "vertica",
         ]
         for dependency in plugins[plugin]
     ),

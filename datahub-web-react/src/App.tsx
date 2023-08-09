@@ -34,6 +34,7 @@ import { ContainerEntity } from './app/entity/container/ContainerEntity';
 import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
 import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
+import { DataPlatformInstanceEntity } from './app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 
 /*
     Construct Apollo Client
@@ -47,7 +48,8 @@ const errorLink = onError((error) => {
         if (serverError.statusCode === 401) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-            window.location.replace(PageRoutes.AUTHENTICATE);
+            const currentPath = window.location.pathname + window.location.search;
+            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
     if (graphQLErrors && graphQLErrors.length) {
@@ -116,6 +118,7 @@ const App: React.VFC = () => {
         register.register(new GlossaryNodeEntity());
         register.register(new DataPlatformEntity());
         register.register(new DataProductEntity());
+        register.register(new DataPlatformInstanceEntity());
         return register;
     }, []);
 

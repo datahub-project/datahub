@@ -13,6 +13,7 @@ import {
     Deprecation,
     DatasetStatsSummary,
     DataProduct,
+    Health,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -47,6 +48,7 @@ export const Preview = ({
     sizeInBytes,
     statsSummary,
     lastUpdatedMs,
+    health,
 }: {
     urn: string;
     name: string;
@@ -74,6 +76,7 @@ export const Preview = ({
     sizeInBytes?: number | null;
     statsSummary?: DatasetStatsSummary | null;
     lastUpdatedMs?: number | null;
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -107,11 +110,10 @@ export const Preview = ({
                     rowCount={rowCount}
                     columnCount={columnCount}
                     sizeInBytes={sizeInBytes}
-                    queryCountLast30Days={statsSummary?.queryCountLast30Days}
-                    uniqueUserCountLast30Days={statsSummary?.uniqueUserCountLast30Days}
                     lastUpdatedMs={lastUpdatedMs}
                 />
             }
+            health={health || undefined}
         />
     );
 };

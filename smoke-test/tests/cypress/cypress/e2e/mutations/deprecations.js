@@ -10,10 +10,10 @@ describe("deprecation", () => {
         cy.addViaFormModal("test deprecation", "Add Deprecation Details");
 
         cy.goToDataset(urn, datasetName);
-        cy.contains("Deprecated");
+        cy.contains("DEPRECATED");
 
         cy.openThreeDotDropdown();
         cy.clickOptionWithText("Mark as un-deprecated");
-        cy.ensureTextNotPresent("Deprecated");
+        cy.ensureTextNotPresent("DEPRECATED");
     });
 });

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import dateutil.parser as dp
 import pydantic
@@ -21,7 +21,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -60,6 +59,10 @@ class MetabaseConfig(DatasetLineageProviderConfigBase):
     engine_platform_map: Optional[Dict[str, str]] = Field(
         default=None,
         description="Custom mappings between metabase database engines and DataHub platforms",
+    )
+    database_id_to_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Custom mappings between metabase database id and DataHub platform instance",
     )
     default_schema: str = Field(
         default="public",
@@ -123,7 +126,9 @@ class MetabaseSource(Source):
         super().__init__(ctx)
         self.config = config
         self.report = SourceReport()
+        self.setup_session()
 
+    def setup_session(self) -> None:
         login_response = requests.post(
             f"{self.config.connect_uri}/api/session",
             None,
@@ -273,6 +278,16 @@ class MetabaseSource(Source):
             user_info_response.raise_for_status()
             user_details = user_info_response.json()
         except HTTPError as http_error:
+            if (
+                http_error.response is not None
+                and http_error.response.status_code == 404
+            ):
+                self.report.report_warning(
+                    key=f"metabase-user-{creator_id}",
+                    reason=f"User {creator_id} is blocked in Metabase or missing",
+                )
+                return None
+            # For cases when the error is not 404 but something else
             self.report.report_failure(
                 key=f"metabase-user-{creator_id}",
                 reason=f"Unable to retrieve User info. " f"Reason: {str(http_error)}",
@@ -526,6 +541,36 @@ class MetabaseSource(Source):
         return None, None
 
     @lru_cache(maxsize=None)
+    def get_platform_instance(
+        self, platform: Union[str, None] = None, datasource_id: Union[int, None] = None
+    ) -> Union[str, None]:
+        """
+        Method will attempt to detect `platform_instance` by checking
+        `database_id_to_instance_map` and `platform_instance_map` mappings.
+        If `database_id_to_instance_map` is defined it is first checked for
+        `datasource_id` extracted from Metabase. If this mapping is not defined
+        or corresponding key is not found, `platform_instance_map` mapping
+        is checked for datasource platform. If no mapping found `None`
+        is returned.
+        :param str platform: DataHub platform name (e.g. `postgres` or `clickhouse`)
+        :param int datasource_id: Numeric datasource ID received from Metabase API
+        :return: platform instance name or None
+        """
+        platform_instance = None
+        # For cases when metabase has several platform instances (e.g. several individual ClickHouse clusters)
+        if datasource_id is not None and self.config.database_id_to_instance_map:
+            platform_instance = self.config.database_id_to_instance_map.get(
+                str(datasource_id)
+            )
+
+        # If Metabase datasource ID is not mapped to platform instace, fall back to platform mapping
+        # Set platform_instance if configuration provides a mapping from platform name to instance
+        if platform and self.config.platform_instance_map and platform_instance is None:
+            platform_instance = self.config.platform_instance_map.get(platform)
+
+        return platform_instance
+
+    @lru_cache(maxsize=None)
     def get_datasource_from_id(self, datasource_id):
         try:
             dataset_response = self.session.get(
@@ -565,11 +610,8 @@ class MetabaseSource(Source):
                 reason=f"Platform was not found in DataHub. Using {platform} name as is",
             )
 
-        # Set platform_instance if configuration provides a mapping from platform name to instance
-        platform_instance = (
-            self.config.platform_instance_map.get(platform)
-            if self.config.platform_instance_map
-            else None
+        platform_instance = self.get_platform_instance(
+            platform, dataset_json.get("id", None)
         )
 
         field_for_dbname_mapping = {
@@ -610,9 +652,6 @@ class MetabaseSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = MetabaseConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_card_mces()
