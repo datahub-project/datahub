@@ -51,13 +51,13 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
 }
 
 task quickstartSlim(type: Exec, dependsOn: ':metadata-ingestion:install') {
-    dependsOn(([':docker:datahub-ingestion-slim'] + quickstart_modules).collect { it + ':dockerTag' })
+    dependsOn(([':docker:datahub-ingestion'] + quickstart_modules).collect { it + ':dockerTag' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
-    environment "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion-slim"
-    environment "ACTIONS_VERSION", "v${version}"
+    environment "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion"
+    environment "ACTIONS_VERSION", "v${version}-slim"
     environment "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
     environment "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
 

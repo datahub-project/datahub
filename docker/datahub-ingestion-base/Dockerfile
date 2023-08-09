@@ -1,3 +1,6 @@
+ARG APP_ENV=full
+ARG BASE_IMAGE=base
+
 FROM golang:1-alpine3.17 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
@@ -29,15 +32,29 @@ RUN apt-get update && apt-get install -y -qq \
     zip \
     unzip \
     ldap-utils \
-    default-jre-headless \
-    && python -m pip install --upgrade pip wheel setuptools==57.5.0 \
+    && python -m pip install --no-cache --upgrade pip wheel setuptools==57.5.0 \
     && curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
     &&  tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
     &&  cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
-    &&  ./configure --prefix /usr && make && make install && make clean && ./configure --clean \
-    && apt-get remove -y make \
-    && rm -rf /var/cache/apk/*
+    &&  ./configure --prefix /usr && make && make install && make clean && ./configure --clean
+
 COPY --from=binary /go/bin/dockerize /usr/local/bin
+
+COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
+COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+
+RUN pip install --no-cache -r requirements.txt && \
+    pip uninstall -y acryl-datahub && \
+    chmod +x /entrypoint.sh && \
+    addgroup --gid 1000 datahub && \
+    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+FROM ${BASE_IMAGE} as full-install
+
+RUN apt-get install -y -qq \
+    default-jre-headless
 
 RUN if [ $(arch) = "x86_64" ]; then \
     mkdir /opt/oracle && \
@@ -57,16 +74,14 @@ RUN if [ $(arch) = "x86_64" ]; then \
     ldconfig; \
     fi;
 
-COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
-COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+FROM ${BASE_IMAGE} as slim-install
+# Do nothing else on top of base
 
-RUN pip install -r requirements.txt && \
-    pip uninstall -y acryl-datahub && \
-    chmod +x /entrypoint.sh && \
-    addgroup --gid 1000 datahub && \
-    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+FROM ${APP_ENV}-install
+
+RUN apt-get remove -y make \
+    && rm -rf /var/cache/apk/* \
+    && rm -rf /var/lib/apt/lists/*
 
 USER datahub
 ENV PATH=/datahub-ingestion/.local/bin:/usr/local/bin:$PATH
-
-ENTRYPOINT [ "/entrypoint.sh" ]
