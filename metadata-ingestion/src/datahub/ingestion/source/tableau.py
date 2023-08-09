@@ -1004,6 +1004,7 @@ class TableauSource(StatefulIngestionSourceBase):
                 self.config.env,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
+                self.config.lineage_platform_instance
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
