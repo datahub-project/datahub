@@ -159,6 +159,13 @@ reporting:
   - type: datahub
     config:
       report_recipe: false
+
+# Optional log to put failed JSONs into a file
+# Helpful in case you are trying to debug some issue with specific ingestion failing
+failure_log:
+  enabled: false
+  log_config:
+    filename: ./path/to/failure.json
 ```
 
 #### Deploying and scheduling ingestion to the UI

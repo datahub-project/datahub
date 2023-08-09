@@ -357,6 +357,10 @@ def make_lineage_mce(
     downstream_urn: str,
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED,
 ) -> MetadataChangeEventClass:
+    """
+    Note: this function only supports lineage for dataset aspects. It will not
+    update lineage for any other aspect types.
+    """
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=downstream_urn,
