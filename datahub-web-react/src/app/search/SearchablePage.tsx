@@ -1,14 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../types.generated';
-import {
-    GetAutoCompleteMultipleResultsQuery,
-    useGetAutoCompleteMultipleResultsLazyQuery,
-} from '../../graphql/search.generated';
 import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import analytics, { EventType } from '../analytics';
 import useFilters from './utils/useFilters';
@@ -16,6 +12,7 @@ import { PageRoutes } from '../../conf/Global';
 import { getAutoCompleteInputFromQuickFilter } from './utils/filterUtils';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
+import useSuggestionsWithCombinedSiblings from './useSuggestionsWithCombinedSiblings';
 
 const styles = {
     children: {
@@ -58,17 +55,10 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     const themeConfig = useTheme();
     const { selectedQuickFilter } = useQuickFiltersContext();
 
-    const [getAutoCompleteResults, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
+    const [getSuggestions, { suggestions }] = useSuggestionsWithCombinedSiblings();
     const userContext = useUserContext();
-    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
-
-    useEffect(() => {
-        if (suggestionsData !== undefined) {
-            setNewSuggestionData(suggestionsData);
-        }
-    }, [suggestionsData]);
 
     const search = (query: string, type?: EntityType, quickFilters?: FacetFilterInput[]) => {
         analytics.event({
@@ -92,7 +82,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
 
     const autoComplete = (query: string) => {
         if (query && query.trim() !== '') {
-            getAutoCompleteResults({
+            getSuggestions({
                 variables: {
                     input: {
                         query,
@@ -107,7 +97,7 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
     // Load correct autocomplete results on initial page load.
     useEffect(() => {
         if (currentQuery && currentQuery.trim() !== '') {
-            getAutoCompleteResults({
+            getSuggestions({
                 variables: {
                     input: {
                         query: currentQuery,
@@ -116,19 +106,14 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 },
             });
         }
-    }, [currentQuery, getAutoCompleteResults, viewUrn]);
+    }, [currentQuery, getSuggestions, viewUrn]);
 
     return (
         <>
             <SearchHeader
                 initialQuery={currentQuery as string}
                 placeholderText={themeConfig.content.search.searchbarMessage}
-                suggestions={
-                    (newSuggestionData &&
-                        newSuggestionData?.autoCompleteForMultiple &&
-                        newSuggestionData.autoCompleteForMultiple.suggestions) ||
-                    []
-                }
+                suggestions={suggestions || []}
                 onSearch={onSearch || search}
                 onQueryChange={onAutoComplete || autoComplete}
                 authenticatedUserUrn={user?.urn || ''}

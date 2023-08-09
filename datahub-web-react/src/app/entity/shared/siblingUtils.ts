@@ -246,6 +246,7 @@ export function combineSiblingsInSearchResults(
         }
         combinedResults.push(combinedResult);
     });
+    console.log({ combinedResults });
 
     return combinedResults;
 }
