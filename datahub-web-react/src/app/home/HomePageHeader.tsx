@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Typography, Image, Row, Button, Tag } from 'antd';
 import styled, { useTheme } from 'styled-components/macro';
@@ -7,7 +7,11 @@ import { ManageAccount } from '../shared/ManageAccount';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
 import { SearchBar } from '../search/SearchBar';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
+import {
+    GetAutoCompleteMultipleResultsQuery,
+    useGetAutoCompleteMultipleResultsLazyQuery,
+    useGetSearchResultsForMultipleQuery,
+} from '../../graphql/search.generated';
 import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
@@ -20,7 +24,6 @@ import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils
 import { useUserContext } from '../context/useUserContext';
 import AcrylDemoBanner from './AcrylDemoBanner';
 import DemoButton from '../entity/shared/components/styled/DemoButton';
-import useSuggestionsWithCombinedSiblings from '../search/useSuggestionsWithCombinedSiblings';
 
 const Background = styled.div`
     width: 100%;
@@ -140,15 +143,22 @@ function sortRandom() {
 export const HomePageHeader = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const [getAutoCompleteResultsForMultiple, { data: suggestionsData }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const userContext = useUserContext();
     const themeConfig = useTheme();
     const appConfig = useAppConfig();
-    const [getSuggestions, { suggestions }] = useSuggestionsWithCombinedSiblings();
+    const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { selectedQuickFilter } = useQuickFiltersContext();
     const showAcrylInfo = useIsShowAcrylInfoEnabled();
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
     const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
+
+    useEffect(() => {
+        if (suggestionsData !== undefined) {
+            setNewSuggestionData(suggestionsData);
+        }
+    }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
         analytics.event({
@@ -168,7 +178,7 @@ export const HomePageHeader = () => {
 
     const onAutoComplete = (query: string) => {
         if (query && query.trim() !== '') {
-            getSuggestions({
+            getAutoCompleteResultsForMultiple({
                 variables: {
                     input: {
                         query,
@@ -257,12 +267,13 @@ export const HomePageHeader = () => {
                 <SearchBarContainer id={HOME_PAGE_SEARCH_BAR_ID}>
                     <SearchBar
                         placeholderText={themeConfig.content.search.searchbarMessage}
-                        suggestions={suggestions || []}
+                        suggestions={newSuggestionData?.autoCompleteForMultiple?.suggestions || []}
                         onSearch={onSearch}
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
                         viewsEnabled={viewsEnabled}
+                        combineSiblings
                         showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (

@@ -18,9 +18,10 @@ export const SuggestionContainer = styled.div`
 interface Props {
     query: string;
     entity: Entity;
+    siblings?: Array<Entity>;
 }
 
-export default function AutoCompleteItem({ query, entity }: Props) {
+export default function AutoCompleteItem({ query, entity, siblings }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayTooltip = getShouldDisplayTooltip(entity, entityRegistry);
     let componentToRender: React.ReactNode = null;
@@ -46,7 +47,7 @@ export default function AutoCompleteItem({ query, entity }: Props) {
             color="rgba(0, 0, 0, 0.9)"
         >
             <SuggestionContainer data-testid={`auto-complete-option--${entity.urn}`}>
-                {componentToRender}
+                {componentToRender} {siblings?.map((sibling) => sibling.urn)}
             </SuggestionContainer>
         </Tooltip>
     );

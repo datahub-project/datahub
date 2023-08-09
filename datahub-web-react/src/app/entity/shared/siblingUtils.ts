@@ -2,7 +2,15 @@ import merge from 'deepmerge';
 import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
-import { Dataset, Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
+import {
+    AutoCompleteResultForEntity,
+    Dataset,
+    Entity,
+    EntityType,
+    MatchedField,
+    Maybe,
+    SiblingProperties,
+} from '../../../types.generated';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -216,7 +224,7 @@ export function combineSiblingsInSearchResults(
           }[]
         | undefined,
 ) {
-    const combinedResults: CombinedSearchResult[] | undefined = [];
+    const combinedResults: CombinedSearchResult[] = [];
     const siblingsToPair: Record<string, CombinedSearchResult> = {};
 
     // set sibling associations
@@ -246,10 +254,72 @@ export function combineSiblingsInSearchResults(
         }
         combinedResults.push(combinedResult);
     });
-    console.log({ combinedResults });
 
     return combinedResults;
 }
+
+type CombinedAutoCompleteEntityResult = {
+    entity: Entity;
+    matchedEntities?: Entity[];
+};
+
+export type CombinedSuggestion = {
+    type: EntityType;
+    combinedEntities: Array<CombinedAutoCompleteEntityResult>;
+    suggestions?: AutoCompleteResultForEntity['suggestions'];
+};
+
+// todo - combine logic
+export function combineSiblingsInAutoComplete(
+    autoCompleteResultForEntity: AutoCompleteResultForEntity,
+    { combine = true } = {},
+) {
+    const combinedEntities: CombinedAutoCompleteEntityResult[] = [];
+    const siblingsToPair: Record<string, CombinedAutoCompleteEntityResult> = {};
+
+    // set sibling associations
+    autoCompleteResultForEntity.entities.forEach((entityReadOnly) => {
+        if (!combine) {
+            combinedEntities.push({ entity: entityReadOnly });
+            return;
+        }
+
+        if (entityReadOnly.urn in siblingsToPair) {
+            // filter from repeating
+            // const siblingsCombinedResult = siblingsToPair[result.entity.urn];
+            // siblingsCombinedResult.matchedEntities?.push(result.entity);
+            return;
+        }
+
+        const combinedResult: CombinedAutoCompleteEntityResult = { entity: entityReadOnly };
+        // todo - get rid of this `any` cast both here and in the search results (previous tech debt)
+        const entity: any = entityReadOnly;
+        const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
+        if (siblingUrns.length > 0) {
+            combinedResult.matchedEntities = entity.siblings.isPrimary
+                ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
+                : [...entity.siblings.siblings, stripSiblingsFromEntity(entity)];
+
+            combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
+                (resultToFilter) => (resultToFilter as Dataset).exists,
+            );
+
+            siblingUrns.forEach((urn) => {
+                siblingsToPair[urn] = combinedResult;
+            });
+        }
+        combinedEntities.push(combinedResult);
+    });
+
+    const combinedSuggestion: CombinedSuggestion = {
+        type: autoCompleteResultForEntity.type,
+        suggestions: autoCompleteResultForEntity.suggestions,
+        combinedEntities,
+    };
+
+    return combinedSuggestion;
+}
+
 // used to determine whether sibling entities should be shown merged or not
 export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 

@@ -19,6 +19,26 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    exists
+                    platform {
+                        ...platformFields
+                    }
+                    name
+                    properties {
+                        name
+                        description
+                        qualifiedName
+                        externalUrl
+                    }
+                }
+            }
+        }
         ...datasetStatsFields
     }
     ... on CorpUser {
