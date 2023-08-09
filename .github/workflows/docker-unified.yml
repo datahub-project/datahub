@@ -589,21 +589,6 @@ jobs:
           context: .
           file: ./docker/datahub-ingestion/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-      - name: Build and push Image
-        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
-        uses: ./.github/actions/docker-custom-build-and-push
-        with:
-          images: |
-            ${{ env.DATAHUB_INGESTION_IMAGE }}
-          build-args: |
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}
-          tags: ${{ needs.setup.outputs.slim_tag }}
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          publish: ${{ needs.setup.outputs.publish }}
-          context: .
-          file: ./docker/datahub-ingestion/Dockerfile
-          platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag
         id: tag
         run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.slim_tag || 'head' }}" >> $GITHUB_OUTPUT
@@ -665,7 +650,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}
       - name: Build and push Full Image
-        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: final
@@ -673,7 +658,7 @@ jobs:
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true') && needs.setup.outputs.full_tag || 'head' }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}
           tags: ${{ needs.setup.outputs.full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
@@ -683,7 +668,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag (Full)
         id: tag
-        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion-slim == 'true') && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_full_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
