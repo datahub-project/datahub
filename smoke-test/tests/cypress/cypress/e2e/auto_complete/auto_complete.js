@@ -34,7 +34,7 @@ describe("auto-complete", () => {
     cy.wait(2000);
   });
 
-  it.only("should filter auto-complete results when clicking on a quick filter", () => {
+  it("should filter auto-complete results when clicking on a quick filter", () => {
     cy.login();
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("baz");
