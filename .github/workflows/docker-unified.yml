@@ -482,7 +482,7 @@ jobs:
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
+          target: slim-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           tags: ${{ needs.setup.outputs.slim_tag }}
@@ -525,7 +525,7 @@ jobs:
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
-          target: final
+          target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
           tags: ${{ needs.setup.outputs.full_tag }}
