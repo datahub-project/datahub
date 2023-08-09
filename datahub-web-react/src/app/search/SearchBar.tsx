@@ -57,7 +57,7 @@ const ClearIcon = styled(CloseCircleFilled)`
 `;
 
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
-const RECOMMENDED_QUERY_OPTION_TYPE = 'recommendation';
+const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
 const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
     label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
@@ -85,7 +85,7 @@ const renderRecommendedQuery = (query: string) => {
     return {
         value: query,
         label: <RecommendedOption text={query} />,
-        type: RECOMMENDED_QUERY_OPTION_TYPE,
+        type: RELEVANCE_QUERY_OPTION_TYPE,
     };
 };
 
@@ -278,10 +278,7 @@ export const SearchBar = ({
                 filterOption={false}
                 onSelect={(value, option) => {
                     // If the autocomplete option type is NOT an entity, then render as a normal search query.
-                    if (
-                        option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
-                        option.type === RECOMMENDED_QUERY_OPTION_TYPE
-                    ) {
+                    if (option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE || option.type === RELEVANCE_QUERY_OPTION_TYPE) {
                         handleSearch(
                             `${filterSearchQuery(value as string)}`,
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
