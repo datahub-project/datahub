@@ -97,7 +97,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
      **/
 
     // TODO: enable once PFP-481 is complete
-    @Test(enabled=false)
+    @Test(enabled = false)
     public void testNameMatchPartiallyQualified() {
         /*
           Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
