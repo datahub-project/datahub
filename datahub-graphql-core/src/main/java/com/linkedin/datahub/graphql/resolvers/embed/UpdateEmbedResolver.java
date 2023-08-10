@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateEmbedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -49,7 +50,7 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
           _entityService
       );
       try {
-        final Embed embed = (Embed) getAspectFromEntity(
+        final Embed embed = (Embed) EntityUtils.getAspectFromEntity(
             entityUrn.toString(),
             EMBED_ASPECT_NAME,
             _entityService,
