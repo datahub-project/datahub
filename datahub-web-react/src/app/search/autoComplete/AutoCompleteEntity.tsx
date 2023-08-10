@@ -1,14 +1,13 @@
-import { Image, Typography } from 'antd';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 import { Entity } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { getPlatformName } from '../../entity/shared/utils';
-import { IconStyleType } from '../../entity/Entity';
 import { getAutoCompleteEntityText } from './utils';
 import { SuggestionText } from './AutoCompleteUser';
 import ParentContainers from './ParentContainers';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -17,12 +16,9 @@ const AutoCompleteEntityWrapper = styled.div`
     align-items: center;
 `;
 
-const PreviewImage = styled(Image)`
-    height: 22px;
-    width: 22px;
-    width: auto;
-    object-fit: contain;
-    background-color: transparent;
+const IconsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
 `;
 
 const ContentWrapper = styled.div`
@@ -44,28 +40,39 @@ const Subtype = styled.span`
 interface Props {
     query: string;
     entity: Entity;
+    siblings?: Array<Entity>;
     hasParentTooltip: boolean;
 }
 
-export default function AutoCompleteEntity({ query, entity, hasParentTooltip }: Props) {
+// todo - this is mostly working well, but we really need to grab the entity details (path etc) from the bigquery one
+// check out the search results de-dupe and see if there's something going on here that lets it pick the bq stuff
+
+// todo - maybe for some reason the dbt being the primary is throwing things off here?
+
+// todo - look at how Chris did the search result stuff, maybe we have some extra de-dupe step somewhere?
+export default function AutoCompleteEntity({ query, entity, siblings, hasParentTooltip }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const platformName = getPlatformName(genericEntityProps);
-    const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
-    const icon =
-        (platformLogoUrl && <PreviewImage preview={false} src={platformLogoUrl} alt={platformName || ''} />) ||
-        entityRegistry.getIcon(entity.type, 12, IconStyleType.ACCENT);
+
+    const iconScale = siblings?.length ? 0.66 : 1;
+
     const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
     const parentContainers = genericEntityProps?.parentContainers?.containers || [];
     // Need to reverse parentContainers since it returns direct parent first.
     const orderedParentContainers = [...parentContainers].reverse();
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
 
+    const entitiesForIconRendering = [entity, ...(siblings ?? [])];
+
     return (
         <AutoCompleteEntityWrapper>
             <ContentWrapper>
-                {icon}
+                <IconsContainer>
+                    {entitiesForIconRendering.map((renderableIcon) => (
+                        <AutoCompleteEntityIcon key={renderableIcon.urn} entity={renderableIcon} scale={iconScale} />
+                    ))}
+                </IconsContainer>
                 <SuggestionText>
                     <ParentContainers parentContainers={orderedParentContainers} />
                     <Typography.Text

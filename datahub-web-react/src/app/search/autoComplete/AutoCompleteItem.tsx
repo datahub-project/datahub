@@ -34,7 +34,14 @@ export default function AutoCompleteItem({ query, entity, siblings }: Props) {
             componentToRender = <AutoCompleteTag tag={entity as Tag} />;
             break;
         default:
-            componentToRender = <AutoCompleteEntity query={query} entity={entity} hasParentTooltip={displayTooltip} />;
+            componentToRender = (
+                <AutoCompleteEntity
+                    query={query}
+                    entity={entity}
+                    siblings={siblings}
+                    hasParentTooltip={displayTooltip}
+                />
+            );
             break;
     }
 
@@ -47,7 +54,7 @@ export default function AutoCompleteItem({ query, entity, siblings }: Props) {
             color="rgba(0, 0, 0, 0.9)"
         >
             <SuggestionContainer data-testid={`auto-complete-option--${entity.urn}`}>
-                {componentToRender} {siblings?.map((sibling) => sibling.urn)}
+                {componentToRender}
             </SuggestionContainer>
         </Tooltip>
     );
