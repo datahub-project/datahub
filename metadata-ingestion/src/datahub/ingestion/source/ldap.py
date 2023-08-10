@@ -146,6 +146,11 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Use pagination while do search query (enabled by default).",
     )
 
+    use_email_as_username: bool = Field(
+        default=False,
+        description="Use email for users' usernames instead of username (disabled by default). \
+            If enabled, the user and group urn would be having email as the id part of the urn.",
+    )
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -387,8 +392,10 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
+        user_urn = email if self.config.use_email_as_username else ldap_user
+
         user_snapshot = CorpUserSnapshotClass(
-            urn=f"urn:li:corpuser:{ldap_user}",
+            urn=f"urn:li:corpuser:{user_urn}",
             aspects=[
                 CorpUserInfoClass(
                     active=True,
@@ -429,8 +436,10 @@ class LDAPSource(StatefulIngestionSourceBase):
                 attrs, self.config.group_attrs_map["displayName"]
             )
 
+            group_urn = email if self.config.use_email_as_username else full_name
+
             group_snapshot = CorpGroupSnapshotClass(
-                urn=f"urn:li:corpGroup:{full_name}",
+                urn=f"urn:li:corpGroup:{group_urn}",
                 aspects=[
                     CorpGroupInfoClass(
                         email=email,
