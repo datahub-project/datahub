@@ -71,10 +71,13 @@ public class MappingsBuilderTest {
     assertEquals(textArrayField.get("type"), "keyword");
     assertEquals(textArrayField.get("normalizer"), "keyword_normalizer");
     Map<String, Object> textArrayFieldSubfields = (Map<String, Object>) textArrayField.get("fields");
-    assertEquals(textArrayFieldSubfields.size(), 3);
+    assertEquals(textArrayFieldSubfields.size(), 6);
     assertTrue(textArrayFieldSubfields.containsKey("delimited"));
     assertTrue(textArrayFieldSubfields.containsKey("ngram"));
     assertTrue(textArrayFieldSubfields.containsKey("keyword"));
+    assertTrue(textArrayFieldSubfields.containsKey("wordGrams2"));
+    assertTrue(textArrayFieldSubfields.containsKey("wordGrams3"));
+    assertTrue(textArrayFieldSubfields.containsKey("wordGrams4"));
 
     // URN
     Map<String, Object> foreignKey = (Map<String, Object>) properties.get("foreignKey");

@@ -323,7 +323,7 @@ It takes the following parameters:
   annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
   the set of mappings to be applied in the MappingsBuilder.
 
-  Thus far, we have implemented 10 fieldTypes:
+  Thus far, we have implemented 11 fieldTypes:
 
     1. *KEYWORD* - Short text fields that only support exact matches, often used only for filtering
 
@@ -348,6 +348,8 @@ It takes the following parameters:
     10. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
     `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
     mapping explosion in Elasticsearch.
+
+    11. *WORD_GRAM* - TODO(indy): Write this
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.

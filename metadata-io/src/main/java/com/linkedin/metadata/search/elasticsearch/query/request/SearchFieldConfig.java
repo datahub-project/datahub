@@ -11,11 +11,8 @@ import javax.annotation.Nonnull;
 
 import java.util.Set;
 
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_V2_HIERARCHY_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+
 
 @Builder
 @Getter
@@ -68,6 +65,11 @@ public class SearchFieldConfig {
                     SearchableAnnotation.FieldType.URN,
                     SearchableAnnotation.FieldType.URN_PARTIAL
             );
+
+    public static final Set<SearchableAnnotation.FieldType> TYPES_WITH_WORD_GRAM =
+        Set.of(
+            SearchableAnnotation.FieldType.WORD_GRAM
+        );
 
     @Nonnull
     private final String fieldName;
@@ -145,6 +147,10 @@ public class SearchFieldConfig {
             return KEYWORD_ANALYZER;
         } else if (TYPES_WITH_URN_TEXT.contains(fieldType)) {
             return URN_SEARCH_ANALYZER;
+        } else if (TYPES_WITH_WORD_GRAM.contains(fieldType)) {
+            // how to set them all?
+            // this isn't enough
+            return WORD_GRAM_2_ANALYZER;
         } else {
             throw new IllegalStateException(String.format("Unknown analyzer for fieldName: %s, fieldType: %s", fieldName, fieldType));
         }
