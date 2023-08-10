@@ -75,7 +75,7 @@ public class ESSampleDataFixture {
     private CustomSearchConfiguration _customSearchConfiguration;
 
     @Bean(name = "sampleDataPrefix")
-    protected String indexPrefix() {
+    protected String sampleDataPrefix() {
         return "smpldat";
     }
 
@@ -139,8 +139,7 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataPrefix") String prefix,
             @Qualifier("sampleDataFixtureName") String sampleDataFixtureName
     ) throws IOException {
-        SearchService test1 = searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, sampleDataFixtureName);
-        return test1;
+        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, sampleDataFixtureName);
     }
 
     @Bean(name = "longTailSampleDataSearchService")
@@ -152,8 +151,7 @@ public class ESSampleDataFixture {
             @Qualifier("longTailSampleDataPrefix") String longTailPrefix,
             @Qualifier("longTailFixtureName") String longTailFixtureName
     ) throws IOException {
-        SearchService test2 = searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, longTailPrefix, longTailFixtureName);
-        return test2;
+        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, longTailPrefix, longTailFixtureName);
     }
 
     public SearchService searchServiceHelper(
