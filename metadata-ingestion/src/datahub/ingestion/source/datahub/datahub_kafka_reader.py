@@ -42,6 +42,14 @@ class DataHubKafkaReader:
             [TopicPartition(self.config.kafka_topic_name, from_offset)]
         )
         # TODO: Check if I have to reassign if there are multiple partitions?
+        try:
+            yield from self._poll_partition(stop_time)
+        finally:
+            self.consumer.unassign()
+
+    def _poll_partition(
+        self, stop_time: datetime
+    ) -> Iterable[Tuple[MetadataChangeLogClass, int]]:
         while True:
             msg = self.consumer.poll(10)
             if msg is None:
@@ -64,5 +72,3 @@ class DataHubKafkaReader:
                 break
 
             yield mcl, msg.offset()
-
-        self.consumer.unassign()

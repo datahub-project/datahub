@@ -257,8 +257,6 @@ databricks = {
 
 mysql = sql_common | {"pymysql>=1.0.2"}
 
-kafka = kafka_common | kafka_protobuf
-
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -278,7 +276,7 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "datahub": mysql | kafka,
+    "datahub": mysql | kafka_common,
     "great-expectations": sql_common | sqllineage_lib,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
@@ -337,7 +335,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "json-schema": set(),
-    "kafka": kafka,
+    "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,

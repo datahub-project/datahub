@@ -1,4 +1,4 @@
-from dataclasses import field, dataclass
+from dataclasses import dataclass, field
 
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,

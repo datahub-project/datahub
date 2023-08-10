@@ -61,7 +61,13 @@ class DataHubSource(StatefulIngestionSourceBase):
         for i, (mcp, createdon) in enumerate(mcps):
             yield mcp.as_workunit()
 
-            self.stateful_ingestion_handler.update_checkpoint(last_createdon=createdon)
+            if (
+                self.config.commit_with_parse_errors
+                or not self.report.num_mysql_parse_errors
+            ):
+                self.stateful_ingestion_handler.update_checkpoint(
+                    last_createdon=createdon
+                )
             self._commit_progress(i)
 
     def _get_kafka_workunits(self, from_offset: int) -> Iterable[MetadataWorkUnit]:
@@ -79,7 +85,11 @@ class DataHubSource(StatefulIngestionSourceBase):
                     id=f"{mcp.entityUrn}-{mcp.aspectName}-{i}", mcp_raw=mcp
                 )
 
-            self.stateful_ingestion_handler.update_checkpoint(last_offset=offset)
+            if (
+                self.config.commit_with_parse_errors
+                or not self.report.num_kafka_parse_errors
+            ):
+                self.stateful_ingestion_handler.update_checkpoint(last_offset=offset)
             self._commit_progress(i)
 
     def _commit_progress(self, i: Optional[int] = None) -> None:
@@ -88,14 +98,11 @@ class DataHubSource(StatefulIngestionSourceBase):
         If an index `i` is provided, only commit if we are at the appropriate interval
         as per `config.commit_state_interval`.
         """
-        has_errors = (
-            self.report.num_mysql_parse_errors or self.report.num_kafka_parse_errors
-        )
         on_interval = (
             i
             and self.config.commit_state_interval
             and i % self.config.commit_state_interval == 0
         )
 
-        if not has_errors and (i is None or on_interval):
+        if i is None or on_interval:
             self.stateful_ingestion_handler.commit_checkpoint()

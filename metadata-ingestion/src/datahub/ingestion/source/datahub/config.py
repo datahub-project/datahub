@@ -3,17 +3,19 @@ from typing import Optional
 from pydantic import Field
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.ingestion.source.sql.mysql import MySQLConfig
+from datahub.ingestion.source.sql.mysql import MySQLConnectionConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
 )
 
+DEFAULT_MYSQL_TABLE_NAME = "metadata_aspect_v2"
+DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
+
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
-    mysql_connection: MySQLConfig = Field(
-        # TODO: Check, do these defaults make sense?
-        default=MySQLConfig(username="datahub", password="datahub", database="datahub"),
+    mysql_connection: MySQLConnectionConfig = Field(
+        default=MySQLConnectionConfig(),
         description="MySQL connection config",
     )
 
@@ -31,12 +33,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     mysql_table_name: str = Field(
-        default="metadata_aspect_v2",
+        default=DEFAULT_MYSQL_TABLE_NAME,
         description="Name of MySQL table containing all versioned aspects",
     )
 
     kafka_topic_name: str = Field(
-        default="MetadataChangeLog_Timeseries_v1",
+        default=DEFAULT_KAFKA_TOPIC_NAME,
         description="Name of kafka topic containing timeseries MCLs",
     )
 
@@ -49,4 +51,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     commit_state_interval: Optional[int] = Field(
         default=1000,
         description="Number of records to process before committing state",
+    )
+
+    commit_with_parse_errors: bool = Field(
+        default=False,
+        description=(
+            "Whether to update createdon timestamp and kafka offset despite parse errors. "
+            "Enable if you want to ignore the errors."
+        ),
     )

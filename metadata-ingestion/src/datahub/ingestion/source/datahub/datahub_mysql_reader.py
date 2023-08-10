@@ -8,6 +8,7 @@ from sqlalchemy.engine import Row
 
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.metadata.schema_classes import ChangeTypeClass, SystemMetadataClass
@@ -30,7 +31,7 @@ class DataHubMySQLReader:
     @property
     def query(self) -> str:
         return f"""
-            SELECT urn, aspect, metadata, createdon
+            SELECT urn, aspect, metadata, systemmetadata, createdon
             FROM `{self.config.mysql_table_name}`
             WHERE createdon >= %(since_createdon)s
             {"" if self.config.include_all_versions else "AND version = 0"}
@@ -51,13 +52,14 @@ class DataHubMySQLReader:
 
     def _parse_mysql_row(self, row: Row) -> Optional[MetadataChangeProposalWrapper]:
         try:
+            json_aspect = post_json_transform(json.loads(row.metadata))
+            json_metadata = post_json_transform(json.loads(row.systemmetadata))
+            system_metadata = SystemMetadataClass.from_obj(json_metadata)
+            system_metadata.lastObserved = int(row.createdon.timestamp() * 1000)
             return MetadataChangeProposalWrapper(
                 entityUrn=row.urn,
-                # TODO: Get rid of deserialization -- create MCPC?
-                aspect=ASPECT_MAP[row.aspect].from_obj(json.loads(row.metadata)),
-                systemMetadata=SystemMetadataClass(
-                    lastObserved=int(row.createdon.timestamp() * 1000)
-                ),
+                aspect=ASPECT_MAP[row.aspect].from_obj(json_aspect),
+                systemMetadata=system_metadata,
                 changeType=ChangeTypeClass.UPSERT,
             )
         except Exception as e:
