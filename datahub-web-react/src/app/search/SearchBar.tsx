@@ -23,7 +23,7 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { getQuickFilterDetails } from './autoComplete/quickFilters/utils';
 import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entity/view/select/ViewSelect';
-import { combineSiblingsInAutoComplete } from '../entity/shared/siblingUtils';
+import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;

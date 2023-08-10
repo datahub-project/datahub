@@ -2,15 +2,8 @@ import merge from 'deepmerge';
 import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
-import {
-    AutoCompleteResultForEntity,
-    Dataset,
-    Entity,
-    EntityType,
-    MatchedField,
-    Maybe,
-    SiblingProperties,
-} from '../../../types.generated';
+import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
+import { GenericEntityProperties } from './types';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -210,12 +203,19 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
 
-type CombinedEntityResult = {
+export type CombinedEntityResult = {
     entity: Entity;
     matchedEntities?: Array<Entity>;
 };
 
-function combineSiblingEntities(entities?: Array<Entity>, { combine = true } = {}): Array<CombinedEntityResult> {
+type CombineOptions = {
+    combine?: boolean;
+};
+
+export function combineSiblingEntities(
+    entities?: Array<Entity>,
+    { combine = true }: CombineOptions = {},
+): Array<CombinedEntityResult> {
     const combinedResults: CombinedEntityResult[] = [];
     const siblingsToPair: Set<string> = new Set();
 
@@ -226,69 +226,31 @@ function combineSiblingEntities(entities?: Array<Entity>, { combine = true } = {
         }
 
         if (siblingsToPair.has(entityReadOnly.urn)) {
-            // filter from repeating
-            // const siblingsCombinedResult = siblingsToPair[result.entity.urn];
-            // siblingsCombinedResult.matchedEntities?.push(result.entity);
             return;
         }
 
         const combinedResult: CombinedEntityResult = { entity: entityReadOnly };
-        const entity: any = entityReadOnly;
-        const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
+        const entity = entityReadOnly as GenericEntityProperties;
+        const siblings = entity.siblings?.siblings ?? [];
+        const isPrimary = entity.siblings?.isPrimary;
+        const siblingUrns = siblings.map((sibling) => sibling?.urn) || [];
 
         if (siblingUrns.length > 0) {
-            combinedResult.matchedEntities = entity.siblings.isPrimary
-                ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
-                : [...entity.siblings.siblings, stripSiblingsFromEntity(entity)];
+            combinedResult.matchedEntities = isPrimary
+                ? [stripSiblingsFromEntity(entity), ...siblings]
+                : [...siblings, stripSiblingsFromEntity(entity)];
 
             combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
                 (resultToFilter) => (resultToFilter as Dataset).exists,
             );
 
-            siblingUrns.forEach((urn) => siblingsToPair.add(urn));
+            siblingUrns.forEach((urn) => urn && siblingsToPair.add(urn));
         }
 
         combinedResults.push(combinedResult);
     });
 
     return combinedResults;
-}
-
-export type CombinedSearchResult = CombinedEntityResult & {
-    matchedFields: Array<MatchedField>;
-};
-
-export function combineSiblingsInSearchResults(
-    input:
-        | Array<{
-              entity: Entity;
-              matchedFields: Array<MatchedField>;
-          }>
-        | undefined,
-): Array<CombinedSearchResult> {
-    return combineSiblingEntities(input?.map((value) => value.entity)).map((combinedResult) => ({
-        ...combinedResult,
-        matchedFields: [],
-    }));
-}
-
-export type CombinedSuggestion = {
-    type: EntityType;
-    combinedEntities: Array<CombinedEntityResult>;
-    suggestions?: AutoCompleteResultForEntity['suggestions'];
-};
-
-export function combineSiblingsInAutoComplete(
-    input: AutoCompleteResultForEntity,
-    { combine = true } = {},
-): CombinedSuggestion {
-    const combinedSuggestion: CombinedSuggestion = {
-        type: input.type,
-        suggestions: input.suggestions,
-        combinedEntities: combineSiblingEntities(input.entities, { combine }),
-    };
-
-    return combinedSuggestion;
 }
 
 // used to determine whether sibling entities should be shown merged or not
