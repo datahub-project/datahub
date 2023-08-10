@@ -2,6 +2,7 @@ fragment autoCompleteFields on Entity {
     urn
     type
     ... on Dataset {
+        exists
         name
         platform {
             ...platformFields
@@ -28,6 +29,9 @@ fragment autoCompleteFields on Entity {
                     exists
                     platform {
                         ...platformFields
+                    }
+                    parentContainers {
+                        ...parentContainersFields
                     }
                     name
                     properties {

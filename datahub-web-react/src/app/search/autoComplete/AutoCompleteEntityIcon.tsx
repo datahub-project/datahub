@@ -26,9 +26,9 @@ const AutoCompleteEntityIcon = ({ entity, scale }: Props) => {
     const iconFontSize = Math.floor(DEFAULT_ICON_SIZE * scale);
     const previewImageSize = Math.floor(DEFAULT_PREVIEW_IMAGE_SIZE * scale);
 
-    const genericEntityParops = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const platformLogoUrl = genericEntityParops?.platform?.properties?.logoUrl;
-    const platformName = getPlatformName(genericEntityParops);
+    const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+    const platformLogoUrl = genericEntityProps?.platform?.properties?.logoUrl;
+    const platformName = getPlatformName(genericEntityProps);
     const icon =
         (platformLogoUrl && (
             <PreviewImage

@@ -222,7 +222,6 @@ export const SearchBar = ({
     }, [showQuickFilters, suggestions.length, effectiveQuery, selectedQuickFilter, entityRegistry]);
 
     const autoCompleteEntityOptions = useMemo(() => {
-        // todo - we need to actually render the other sibling / icon / data into the autocomplete
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
             const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combine: combineSiblings });
             return {

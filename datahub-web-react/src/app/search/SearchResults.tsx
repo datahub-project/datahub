@@ -169,6 +169,7 @@ export const SearchResults = ({
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const authenticatedUserUrn = useUserContext().user?.urn;
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(searchResponse?.searchResults);
+    console.log('search', { combinedSiblingSearchResults });
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);

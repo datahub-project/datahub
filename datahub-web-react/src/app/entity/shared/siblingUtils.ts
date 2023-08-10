@@ -210,35 +210,32 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
 
-export type CombinedSearchResult = {
+type CombinedEntityResult = {
     entity: Entity;
-    matchedFields: MatchedField[];
-    matchedEntities?: Entity[];
+    matchedEntities?: Array<Entity>;
 };
 
-export function combineSiblingsInSearchResults(
-    results:
-        | {
-              entity: Entity;
-              matchedFields: MatchedField[];
-          }[]
-        | undefined,
-) {
-    const combinedResults: CombinedSearchResult[] = [];
-    const siblingsToPair: Record<string, CombinedSearchResult> = {};
+function combineSiblingEntities(entities?: Array<Entity>, { combine = true } = {}): Array<CombinedEntityResult> {
+    const combinedResults: CombinedEntityResult[] = [];
+    const siblingsToPair: Set<string> = new Set();
 
-    // set sibling associations
-    results?.forEach((result) => {
-        if (result.entity.urn in siblingsToPair) {
+    entities?.forEach((entityReadOnly) => {
+        if (!combine) {
+            combinedResults.push({ entity: entityReadOnly });
+            return;
+        }
+
+        if (siblingsToPair.has(entityReadOnly.urn)) {
             // filter from repeating
             // const siblingsCombinedResult = siblingsToPair[result.entity.urn];
             // siblingsCombinedResult.matchedEntities?.push(result.entity);
             return;
         }
 
-        const combinedResult: CombinedSearchResult = result;
-        const { entity }: { entity: any } = result;
+        const combinedResult: CombinedEntityResult = { entity: entityReadOnly };
+        const entity: any = entityReadOnly;
         const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
+
         if (siblingUrns.length > 0) {
             combinedResult.matchedEntities = entity.siblings.isPrimary
                 ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
@@ -248,73 +245,47 @@ export function combineSiblingsInSearchResults(
                 (resultToFilter) => (resultToFilter as Dataset).exists,
             );
 
-            siblingUrns.forEach((urn) => {
-                siblingsToPair[urn] = combinedResult;
-            });
+            siblingUrns.forEach((urn) => siblingsToPair.add(urn));
         }
+
         combinedResults.push(combinedResult);
     });
 
     return combinedResults;
 }
 
-type CombinedAutoCompleteEntityResult = {
-    entity: Entity;
-    matchedEntities?: Entity[];
+export type CombinedSearchResult = CombinedEntityResult & {
+    matchedFields: Array<MatchedField>;
 };
+
+export function combineSiblingsInSearchResults(
+    input:
+        | Array<{
+              entity: Entity;
+              matchedFields: Array<MatchedField>;
+          }>
+        | undefined,
+): Array<CombinedSearchResult> {
+    return combineSiblingEntities(input?.map((value) => value.entity)).map((combinedResult) => ({
+        ...combinedResult,
+        matchedFields: [],
+    }));
+}
 
 export type CombinedSuggestion = {
     type: EntityType;
-    combinedEntities: Array<CombinedAutoCompleteEntityResult>;
+    combinedEntities: Array<CombinedEntityResult>;
     suggestions?: AutoCompleteResultForEntity['suggestions'];
 };
 
-// todo - combine logic
 export function combineSiblingsInAutoComplete(
-    autoCompleteResultForEntity: AutoCompleteResultForEntity,
+    input: AutoCompleteResultForEntity,
     { combine = true } = {},
-) {
-    const combinedEntities: CombinedAutoCompleteEntityResult[] = [];
-    const siblingsToPair: Record<string, CombinedAutoCompleteEntityResult> = {};
-
-    // set sibling associations
-    autoCompleteResultForEntity.entities.forEach((entityReadOnly) => {
-        if (!combine) {
-            combinedEntities.push({ entity: entityReadOnly });
-            return;
-        }
-
-        if (entityReadOnly.urn in siblingsToPair) {
-            // filter from repeating
-            // const siblingsCombinedResult = siblingsToPair[result.entity.urn];
-            // siblingsCombinedResult.matchedEntities?.push(result.entity);
-            return;
-        }
-
-        const combinedResult: CombinedAutoCompleteEntityResult = { entity: entityReadOnly };
-        // todo - get rid of this `any` cast both here and in the search results (previous tech debt)
-        const entity: any = entityReadOnly;
-        const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
-        if (siblingUrns.length > 0) {
-            combinedResult.matchedEntities = entity.siblings.isPrimary
-                ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
-                : [...entity.siblings.siblings, stripSiblingsFromEntity(entity)];
-
-            combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
-                (resultToFilter) => (resultToFilter as Dataset).exists,
-            );
-
-            siblingUrns.forEach((urn) => {
-                siblingsToPair[urn] = combinedResult;
-            });
-        }
-        combinedEntities.push(combinedResult);
-    });
-
+): CombinedSuggestion {
     const combinedSuggestion: CombinedSuggestion = {
-        type: autoCompleteResultForEntity.type,
-        suggestions: autoCompleteResultForEntity.suggestions,
-        combinedEntities,
+        type: input.type,
+        suggestions: input.suggestions,
+        combinedEntities: combineSiblingEntities(input.entities, { combine }),
     };
 
     return combinedSuggestion;
