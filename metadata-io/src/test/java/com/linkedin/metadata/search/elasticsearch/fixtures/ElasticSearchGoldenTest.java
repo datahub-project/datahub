@@ -12,8 +12,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import java.net.URISyntaxException;
-
 import static com.linkedin.metadata.ESTestUtils.searchAcrossEntities;
 import static org.testng.AssertJUnit.*;
 
@@ -24,8 +22,10 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     protected SearchService searchService;
 
     @Test
-    public void testNameMatchPetProfiles() throws URISyntaxException {
-        //Searching for "pet profiles" should return "pet_profiles" as the first 2 search results
+    public void testNameMatchPetProfiles() {
+        /*
+          Searching for "pet profiles" should return "pet_profiles" as the first 2 search results
+         */
         assertNotNull(searchService);
         SearchResult searchResult = searchAcrossEntities(searchService, "pet profiles");
         assertTrue(searchResult.getEntities().size() >= 2);
@@ -37,8 +37,10 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     }
 
      @Test
-    public void testNameMatchPetProfile() throws URISyntaxException {
-        // Searching for "pet profiles" should return "pet_profiles" as the first 2 search results
+    public void testNameMatchPetProfile() {
+        /*
+          Searching for "pet profile" should return "pet_profiles" as the first 2 search results
+         */
         assertNotNull(searchService);
         SearchResult searchResult = searchAcrossEntities(searchService, "pet profile");
         assertTrue(searchResult.getEntities().size() >= 2);
@@ -50,12 +52,14 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testNameMatchMemberInWorkspace() throws URISyntaxException {
-        // Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
-        // result, followed by "collaborative_actionitems_old"
+    public void testNameMatchMemberInWorkspace() {
+        /*
+          Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
+          result, followed by "collaborative_actionitems_old"
+         */
         assertNotNull(searchService);
         SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems");
-        assertFalse(searchResult.getEntities().isEmpty());
+        assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
         Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
 
@@ -65,16 +69,19 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testGlossaryTerms() throws URISyntaxException {
-        // Searching for "ReturnRate" should return the tables that have the glossary term applied
+    public void testGlossaryTerms() {
+        /*
+          Searching for "ReturnRate" should return all tables that have the glossary term applied before
+          anything else
+         */
         assertNotNull(searchService);
         SearchResult searchResult = searchAcrossEntities(searchService, "ReturnRate");
         SearchEntityArray entities = searchResult.getEntities();
         assertTrue(searchResult.getEntities().size() >= 4);
-        MatchedFieldArray firstResultMatchedFields = entities.get(2).getMatchedFields();
-        MatchedFieldArray secondResultMatchedFields = entities.get(2).getMatchedFields();
+        MatchedFieldArray firstResultMatchedFields = entities.get(0).getMatchedFields();
+        MatchedFieldArray secondResultMatchedFields = entities.get(1).getMatchedFields();
         MatchedFieldArray thirdResultMatchedFields = entities.get(2).getMatchedFields();
-        MatchedFieldArray fourthResultMatchedFields = entities.get(2).getMatchedFields();
+        MatchedFieldArray fourthResultMatchedFields = entities.get(3).getMatchedFields();
 
         assertTrue(firstResultMatchedFields.toString().contains("ReturnRate"));
         assertTrue(secondResultMatchedFields.toString().contains("ReturnRate"));
@@ -89,11 +96,13 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
      *
      **/
 
-    // TODO: add back in once PFP-481 is complete
+    // TODO: enable once PFP-481 is complete
     @Test(enabled=false)
-    public void testNameMatchPartiallyQualified() throws URISyntaxException {
-        // Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
-        // name as the first search results before any others
+    public void testNameMatchPartiallyQualified() {
+        /*
+          Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
+          name as the first search results before any others
+         */
         assertNotNull(searchService);
         SearchResult searchResult = searchAcrossEntities(searchService, "analytics.pet_details");
         assertTrue(searchResult.getEntities().size() >= 2);
