@@ -347,8 +347,6 @@ export const SearchBar = ({
                         }, 0);
                     }
                 }}
-                // todo - disable
-                // open={isDropdownVisible || true}
                 open={isDropdownVisible}
                 listHeight={480}
             >
