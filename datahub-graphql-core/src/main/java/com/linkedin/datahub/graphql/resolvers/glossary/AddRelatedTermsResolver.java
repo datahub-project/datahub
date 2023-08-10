@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.glossary.GlossaryRelatedTerms;
+import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
@@ -48,7 +49,7 @@ public class AddRelatedTermsResolver implements DataFetcher<CompletableFuture<Bo
           validateRelatedTermsInput(urn, termUrns);
           Urn actor = Urn.createFromString(((QueryContext) context).getActorUrn());
 
-          GlossaryRelatedTerms glossaryRelatedTerms = (GlossaryRelatedTerms) getAspectFromEntity(
+          GlossaryRelatedTerms glossaryRelatedTerms = (GlossaryRelatedTerms) EntityUtils.getAspectFromEntity(
               urn.toString(),
               Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
               _entityService,

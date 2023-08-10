@@ -699,6 +699,27 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                             testResult.getMetadata().getAggregations().stream()
                                     .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
+        AggregationMetadata entityAggMeta = testResult.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("entity")).findFirst().get();
+        Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+        expectedEntityTypeCounts.put("container", 0L);
+        expectedEntityTypeCounts.put("corpuser", 0L);
+        expectedEntityTypeCounts.put("corpgroup", 0L);
+        expectedEntityTypeCounts.put("mlmodel", 0L);
+        expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+        expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+        expectedEntityTypeCounts.put("dataflow", 1L);
+        expectedEntityTypeCounts.put("glossarynode", 1L);
+        expectedEntityTypeCounts.put("mlfeature", 0L);
+        expectedEntityTypeCounts.put("datajob", 2L);
+        expectedEntityTypeCounts.put("domain", 0L);
+        expectedEntityTypeCounts.put("tag", 0L);
+        expectedEntityTypeCounts.put("glossaryterm", 2L);
+        expectedEntityTypeCounts.put("mlprimarykey", 1L);
+        expectedEntityTypeCounts.put("dataset", 9L);
+        expectedEntityTypeCounts.put("chart", 0L);
+        expectedEntityTypeCounts.put("dashboard", 0L);
+        assertEquals(entityAggMeta.getAggregations(), expectedEntityTypeCounts);
     }
 
     @Test
@@ -722,10 +743,66 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     testResult2.getMetadata().getAggregations().stream()
                         .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
+        AggregationMetadata entityTypeAggMeta = testResult2.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("_entityType")).findFirst().get();
+        AggregationMetadata entityAggMeta = testResult2.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("entity")).findFirst().get();
+        assertEquals(entityTypeAggMeta.getAggregations(), entityAggMeta.getAggregations());
+        Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+        expectedEntityTypeCounts.put("container", 0L);
+        expectedEntityTypeCounts.put("corpuser", 0L);
+        expectedEntityTypeCounts.put("corpgroup", 0L);
+        expectedEntityTypeCounts.put("mlmodel", 0L);
+        expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+        expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+        expectedEntityTypeCounts.put("dataflow", 1L);
+        expectedEntityTypeCounts.put("glossarynode", 1L);
+        expectedEntityTypeCounts.put("mlfeature", 0L);
+        expectedEntityTypeCounts.put("datajob", 2L);
+        expectedEntityTypeCounts.put("domain", 0L);
+        expectedEntityTypeCounts.put("tag", 0L);
+        expectedEntityTypeCounts.put("glossaryterm", 2L);
+        expectedEntityTypeCounts.put("mlprimarykey", 1L);
+        expectedEntityTypeCounts.put("dataset", 9L);
+        expectedEntityTypeCounts.put("chart", 0L);
+        expectedEntityTypeCounts.put("dashboard", 0L);
+        assertEquals(entityTypeAggMeta.getAggregations(), expectedEntityTypeCounts);
+
+        expectedFacets = Set.of("platform", "typeNames", "entity");
+        SearchResult testResult3 = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResult3.getMetadata().getAggregations().size(), 4);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult3.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResult3.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+        AggregationMetadata entityTypeAggMeta3 = testResult3.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("_entityType")).findFirst().get();
+        AggregationMetadata entityAggMeta3 = testResult3.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("entity")).findFirst().get();
+        assertEquals(entityTypeAggMeta3.getAggregations(), entityAggMeta3.getAggregations());
+        assertEquals(entityTypeAggMeta3.getAggregations(), expectedEntityTypeCounts);
+
         String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
         expectedFacets = Set.of(singleNestedFacet);
         SearchResult testResultSingleNested = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
+        Map<String, Long> expectedNestedFacetCounts = new HashMap<>();
+        expectedNestedFacetCounts.put("datajob␞urn:li:corpuser:datahub", 2L);
+        expectedNestedFacetCounts.put("glossarynode␞urn:li:corpuser:jdoe", 1L);
+        expectedNestedFacetCounts.put("dataflow␞urn:li:corpuser:datahub", 1L);
+        expectedNestedFacetCounts.put("mlfeaturetable", 1L);
+        expectedNestedFacetCounts.put("mlmodelgroup", 1L);
+        expectedNestedFacetCounts.put("glossarynode", 1L);
+        expectedNestedFacetCounts.put("dataflow", 1L);
+        expectedNestedFacetCounts.put("mlmodelgroup␞urn:li:corpuser:some-user", 1L);
+        expectedNestedFacetCounts.put("datajob", 2L);
+        expectedNestedFacetCounts.put("glossaryterm␞urn:li:corpuser:jdoe", 2L);
+        expectedNestedFacetCounts.put("glossaryterm", 2L);
+        expectedNestedFacetCounts.put("dataset", 9L);
+        expectedNestedFacetCounts.put("mlprimarykey", 1L);
+        assertEquals(testResultSingleNested.getMetadata().getAggregations().get(0).getAggregations(), expectedNestedFacetCounts);
 
         expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
         SearchResult testResultNested = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));

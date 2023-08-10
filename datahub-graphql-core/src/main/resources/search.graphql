@@ -184,6 +184,11 @@ input SearchAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
@@ -1195,4 +1200,37 @@ type BrowseResultGroupV2 {
   Whether or not there are any more groups underneath this group
   """
   hasSubGroups: Boolean!
+}
+
+"""
+Input required in order to sort search results
+"""
+input SearchSortInput {
+  """
+  A criterion to sort search results on
+  """
+  sortCriterion: SortCriterion!
+}
+
+"""
+Order for sorting
+"""
+enum SortOrder {
+  ASCENDING
+  DESCENDING
+}
+
+"""
+A single sorting criterion for sorting search.
+"""
+input SortCriterion {
+  """
+  A field upon which we'll do sorting on.
+  """
+  field: String!
+
+  """
+  The order in which we will be sorting
+  """
+  sortOrder: SortOrder!
 }

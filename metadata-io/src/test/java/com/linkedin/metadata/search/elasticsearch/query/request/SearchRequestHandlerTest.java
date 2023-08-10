@@ -139,9 +139,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride")
         .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
     AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType")
-        .field("_index").size(testQueryConfig.getMaxTermBucketSize());
+        .field("_index").size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0);
     AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index")
-        .size(testQueryConfig.getMaxTermBucketSize())
+        .size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0)
         .subAggregation(AggregationBuilders.terms(nestedAggString)
             .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
 
