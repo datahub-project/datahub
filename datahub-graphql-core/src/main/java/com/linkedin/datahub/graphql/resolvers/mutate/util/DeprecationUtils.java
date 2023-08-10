@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,7 +70,7 @@ public class DeprecationUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Deprecation deprecation = (Deprecation) getAspectFromEntity(
+    Deprecation deprecation = (Deprecation) EntityUtils.getAspectFromEntity(
         resource.getResourceUrn(),
         Constants.DEPRECATION_ASPECT_NAME,
         entityService,

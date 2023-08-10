@@ -14,7 +14,11 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
+
+import java.net.URISyntaxException;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -28,6 +32,43 @@ public class EntityUtils {
   @Nonnull
   public static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
     return RecordUtils.toJsonString(aspectRecord);
+  }
+
+  @Nullable
+  public static Urn getUrnFromString(String urnStr) {
+    try {
+      return Urn.createFromString(urnStr);
+    } catch (URISyntaxException e) {
+      return null;
+    }
+  }
+
+  @Nullable
+  public static RecordTemplate getAspectFromEntity(
+          String entityUrn,
+          String aspectName,
+          EntityService entityService,
+          RecordTemplate defaultValue
+  ) {
+    Urn urn = getUrnFromString(entityUrn);
+    if (urn == null) {
+      return defaultValue;
+    }
+    try {
+      RecordTemplate aspect = entityService.getAspect(urn, aspectName, 0);
+      if (aspect == null) {
+        return defaultValue;
+      }
+      return aspect;
+    } catch (Exception e) {
+      log.error(
+              "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
+              entityUrn,
+              aspectName,
+              e.toString()
+      );
+      return null;
+    }
   }
 
   @Nonnull

@@ -14,6 +14,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,7 @@ public class DomainUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Domains domains = (Domains) getAspectFromEntity(
+    Domains domains = (Domains) EntityUtils.getAspectFromEntity(
         resource.getResourceUrn(),
         Constants.DOMAINS_ASPECT_NAME,
         entityService,

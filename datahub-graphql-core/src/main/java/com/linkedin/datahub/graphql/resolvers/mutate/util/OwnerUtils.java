@@ -17,10 +17,10 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,7 +70,7 @@ public class OwnerUtils {
 
 
   private static MetadataChangeProposal buildAddOwnersProposal(List<OwnerInput> owners, Urn resourceUrn, Urn actor, EntityService entityService) {
-    Ownership ownershipAspect = (Ownership) getAspectFromEntity(
+    Ownership ownershipAspect = (Ownership) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(),
         Constants.OWNERSHIP_ASPECT_NAME, entityService,
         new Ownership());
@@ -85,7 +85,7 @@ public class OwnerUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Ownership ownershipAspect = (Ownership) MutationUtils.getAspectFromEntity(
+    Ownership ownershipAspect = (Ownership) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(),
         Constants.OWNERSHIP_ASPECT_NAME,
         entityService,

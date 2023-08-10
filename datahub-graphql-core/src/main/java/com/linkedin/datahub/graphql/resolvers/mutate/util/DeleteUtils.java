@@ -12,6 +12,7 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +63,7 @@ public class DeleteUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Status status = (Status) getAspectFromEntity(
+    Status status = (Status) EntityUtils.getAspectFromEntity(
         urnStr,
         Constants.STATUS_ASPECT_NAME,
         entityService,
