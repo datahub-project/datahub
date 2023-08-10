@@ -208,27 +208,36 @@ export type CombinedEntity = {
     matchedEntities?: Array<Entity>;
 };
 
-export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntity | null {
-    if (visitedSiblingUrns.has(entity.urn)) return null;
+type CombinedEntityResult =
+    | {
+          skipped: true;
+      }
+    | {
+          skipped: false;
+          combinedEntity: CombinedEntity;
+      };
 
-    const combinedResult: CombinedEntity = { entity };
+export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
+    if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
+
+    const combinedEntity: CombinedEntity = { entity };
     const siblings = (entity as GenericEntityProperties).siblings?.siblings ?? [];
     const isPrimary = (entity as GenericEntityProperties).siblings?.isPrimary;
     const siblingUrns = siblings.map((sibling) => sibling?.urn);
 
     if (siblingUrns.length > 0) {
-        combinedResult.matchedEntities = isPrimary
+        combinedEntity.matchedEntities = isPrimary
             ? [stripSiblingsFromEntity(entity), ...siblings]
             : [...siblings, stripSiblingsFromEntity(entity)];
 
-        combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
+        combinedEntity.matchedEntities = combinedEntity.matchedEntities.filter(
             (resultToFilter) => (resultToFilter as Dataset).exists,
         );
 
         siblingUrns.forEach((urn) => urn && visitedSiblingUrns.add(urn));
     }
 
-    return combinedResult;
+    return { combinedEntity, skipped: false };
 }
 
 export function createSiblingEntityCombiner() {

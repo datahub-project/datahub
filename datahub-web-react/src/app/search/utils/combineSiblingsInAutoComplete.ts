@@ -12,20 +12,20 @@ export function combineSiblingsInAutoComplete(
     { combineSiblings = false } = {},
 ): CombinedSuggestion {
     const combine = createSiblingEntityCombiner();
-    const combinedResults: Array<CombinedEntity> = [];
+    const combinedEntities: Array<CombinedEntity> = [];
 
     autoCompleteResultForEntity.entities.forEach((entity) => {
         if (!combineSiblings) {
-            combinedResults.push({ entity });
+            combinedEntities.push({ entity });
             return;
         }
-        const combinedEntity = combine(entity);
-        if (combinedEntity) combinedResults.push(combinedEntity);
+        const combinedResult = combine(entity);
+        if (!combinedResult.skipped) combinedEntities.push(combinedResult.combinedEntity);
     });
 
     return {
         type: autoCompleteResultForEntity.type,
         suggestions: autoCompleteResultForEntity.suggestions,
-        combinedEntities: combinedResults,
+        combinedEntities,
     };
 }

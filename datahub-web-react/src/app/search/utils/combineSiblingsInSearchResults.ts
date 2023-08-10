@@ -14,18 +14,17 @@ export function combineSiblingsInSearchResults(
     searchResults: Array<UncombinedSeaerchResults> | undefined = [],
 ): Array<CombinedSearchResult> {
     const combine = createSiblingEntityCombiner();
-    const combinedResults: Array<CombinedSearchResult> = [];
+    const combinedSearchResults: Array<CombinedSearchResult> = [];
 
-    searchResults.forEach(({ entity, matchedFields }) => {
-        const combinedEntity = combine(entity);
-        if (combinedEntity) {
-            combinedResults.push({
-                entity: combinedEntity.entity,
-                matchedEntities: combinedEntity.matchedEntities,
-                matchedFields,
+    searchResults.forEach((searchResult) => {
+        const combinedResult = combine(searchResult.entity);
+        if (!combinedResult.skipped) {
+            combinedSearchResults.push({
+                ...searchResult,
+                ...combinedResult.combinedEntity,
             });
         }
     });
 
-    return combinedResults;
+    return combinedSearchResults;
 }
