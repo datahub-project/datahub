@@ -1,21 +1,31 @@
 import { AutoCompleteResultForEntity, EntityType } from '../../../types.generated';
-import { CombineOptions, CombinedEntityResult, combineSiblingEntities } from '../../entity/shared/siblingUtils';
+import { CombinedEntity, createSiblingEntityCombiner } from '../../entity/shared/siblingUtils';
 
 export type CombinedSuggestion = {
     type: EntityType;
-    combinedEntities: Array<CombinedEntityResult>;
+    combinedEntities: Array<CombinedEntity>;
     suggestions?: AutoCompleteResultForEntity['suggestions'];
 };
 
 export function combineSiblingsInAutoComplete(
-    input: AutoCompleteResultForEntity,
-    { combine = true }: CombineOptions = {},
+    autoCompleteResultForEntity: AutoCompleteResultForEntity,
+    { combineSiblings = false } = {},
 ): CombinedSuggestion {
-    const combinedSuggestion: CombinedSuggestion = {
-        type: input.type,
-        suggestions: input.suggestions,
-        combinedEntities: combineSiblingEntities(input.entities, { combine }),
-    };
+    const combine = createSiblingEntityCombiner();
+    const combinedResults: Array<CombinedEntity> = [];
 
-    return combinedSuggestion;
+    autoCompleteResultForEntity.entities.forEach((entity) => {
+        if (!combineSiblings) {
+            combinedResults.push({ entity });
+            return;
+        }
+        const combinedEntity = combine(entity);
+        if (combinedEntity) combinedResults.push(combinedEntity);
+    });
+
+    return {
+        type: autoCompleteResultForEntity.type,
+        suggestions: autoCompleteResultForEntity.suggestions,
+        combinedEntities: combinedResults,
+    };
 }

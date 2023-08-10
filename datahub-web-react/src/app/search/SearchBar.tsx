@@ -223,7 +223,7 @@ export const SearchBar = ({
 
     const autoCompleteEntityOptions = useMemo(() => {
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
-            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combine: combineSiblings });
+            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combineSiblings });
             return {
                 label: <SectionHeader entityType={combinedSuggestion.type} />,
                 options: combinedSuggestion.combinedEntities.map((combinedEntity) => ({

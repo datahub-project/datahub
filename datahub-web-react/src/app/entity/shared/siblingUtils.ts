@@ -203,54 +203,37 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
 
-export type CombinedEntityResult = {
+export type CombinedEntity = {
     entity: Entity;
     matchedEntities?: Array<Entity>;
 };
 
-export type CombineOptions = {
-    combine?: boolean;
-};
+export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntity | null {
+    if (visitedSiblingUrns.has(entity.urn)) return null;
 
-export function combineSiblingEntities(
-    entities?: Array<Entity>,
-    { combine = true }: CombineOptions = {},
-): Array<CombinedEntityResult> {
-    const combinedResults: CombinedEntityResult[] = [];
-    const siblingsToPair: Set<string> = new Set();
+    const combinedResult: CombinedEntity = { entity };
+    const siblings = (entity as GenericEntityProperties).siblings?.siblings ?? [];
+    const isPrimary = (entity as GenericEntityProperties).siblings?.isPrimary;
+    const siblingUrns = siblings.map((sibling) => sibling?.urn);
 
-    entities?.forEach((entityReadOnly) => {
-        if (!combine) {
-            combinedResults.push({ entity: entityReadOnly });
-            return;
-        }
+    if (siblingUrns.length > 0) {
+        combinedResult.matchedEntities = isPrimary
+            ? [stripSiblingsFromEntity(entity), ...siblings]
+            : [...siblings, stripSiblingsFromEntity(entity)];
 
-        if (siblingsToPair.has(entityReadOnly.urn)) {
-            return;
-        }
+        combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
+            (resultToFilter) => (resultToFilter as Dataset).exists,
+        );
 
-        const combinedResult: CombinedEntityResult = { entity: entityReadOnly };
-        const entity = entityReadOnly as GenericEntityProperties;
-        const siblings = entity.siblings?.siblings ?? [];
-        const isPrimary = entity.siblings?.isPrimary;
-        const siblingUrns = siblings.map((sibling) => sibling?.urn);
+        siblingUrns.forEach((urn) => urn && visitedSiblingUrns.add(urn));
+    }
 
-        if (siblingUrns.length > 0) {
-            combinedResult.matchedEntities = isPrimary
-                ? [stripSiblingsFromEntity(entity), ...siblings]
-                : [...siblings, stripSiblingsFromEntity(entity)];
+    return combinedResult;
+}
 
-            combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
-                (resultToFilter) => (resultToFilter as Dataset).exists,
-            );
-
-            siblingUrns.forEach((urn) => urn && siblingsToPair.add(urn));
-        }
-
-        combinedResults.push(combinedResult);
-    });
-
-    return combinedResults;
+export function createSiblingEntityCombiner() {
+    const visitedSiblingUrns: Set<string> = new Set();
+    return (entity: Entity) => combineSiblingsForEntity(entity, visitedSiblingUrns);
 }
 
 // used to determine whether sibling entities should be shown merged or not

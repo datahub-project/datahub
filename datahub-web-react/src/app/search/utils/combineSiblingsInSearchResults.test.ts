@@ -502,6 +502,8 @@ describe('siblingUtils', () => {
             );
 
             expect(result?.[0]?.matchedEntities).toHaveLength(2);
+
+            expect(result?.[0]?.matchedFields).toHaveLength(2);
         });
 
         it('will not combine an entity with a ghost node', () => {
@@ -512,6 +514,8 @@ describe('siblingUtils', () => {
                 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.raw_orders,PROD)',
             );
             expect(result?.[0]?.matchedEntities).toHaveLength(1);
+
+            expect(result?.[0]?.matchedFields).toHaveLength(2);
         });
     });
 });
