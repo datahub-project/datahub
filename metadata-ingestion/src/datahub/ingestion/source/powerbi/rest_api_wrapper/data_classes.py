@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import dataclasses
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
