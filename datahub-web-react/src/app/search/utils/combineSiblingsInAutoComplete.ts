@@ -1,5 +1,5 @@
 import { AutoCompleteResultForEntity, EntityType } from '../../../types.generated';
-import { CombinedEntityResult, combineSiblingEntities } from '../../entity/shared/siblingUtils';
+import { CombineOptions, CombinedEntityResult, combineSiblingEntities } from '../../entity/shared/siblingUtils';
 
 export type CombinedSuggestion = {
     type: EntityType;
@@ -9,7 +9,7 @@ export type CombinedSuggestion = {
 
 export function combineSiblingsInAutoComplete(
     input: AutoCompleteResultForEntity,
-    { combine = true } = {},
+    { combine = true }: CombineOptions = {},
 ): CombinedSuggestion {
     const combinedSuggestion: CombinedSuggestion = {
         type: input.type,

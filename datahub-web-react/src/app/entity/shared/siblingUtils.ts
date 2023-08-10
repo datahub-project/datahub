@@ -208,7 +208,7 @@ export type CombinedEntityResult = {
     matchedEntities?: Array<Entity>;
 };
 
-type CombineOptions = {
+export type CombineOptions = {
     combine?: boolean;
 };
 
