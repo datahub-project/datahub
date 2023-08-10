@@ -58,7 +58,7 @@ public class DomainUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(domainUrn, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(
@@ -83,13 +83,6 @@ public class DomainUtils {
   public static void validateDomain(Urn domainUrn, EntityService entityService) {
     if (!entityService.exists(domainUrn)) {
       throw new IllegalArgumentException(String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
-    }
-  }
-
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), false);
     }
   }
 }

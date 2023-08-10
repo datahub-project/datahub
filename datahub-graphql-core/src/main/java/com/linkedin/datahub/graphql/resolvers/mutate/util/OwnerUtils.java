@@ -52,7 +52,7 @@ public class OwnerUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddOwnersProposal(owners, UrnUtils.getUrn(resource.getResourceUrn()), actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   public static void removeOwnersFromResources(
@@ -65,7 +65,7 @@ public class OwnerUtils {
       changes.add(buildRemoveOwnersProposal(ownerUrns, maybeOwnershipTypeUrn, UrnUtils.getUrn(resource.getResourceUrn()),
           actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
 
@@ -266,13 +266,6 @@ public class OwnerUtils {
       throw new IllegalArgumentException(String.format("Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
     }
     return true;
-  }
-
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), false);
-    }
   }
 
   public static void addCreatorAsOwner(

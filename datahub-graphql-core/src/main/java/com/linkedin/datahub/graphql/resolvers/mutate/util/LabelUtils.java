@@ -81,7 +81,7 @@ public class LabelUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveTagsProposal(tags, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   public static void addTagsToResources(
@@ -94,7 +94,7 @@ public class LabelUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTagsProposal(tagUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   public static void removeTermsFromResources(
@@ -107,7 +107,7 @@ public class LabelUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildRemoveTermsProposal(termUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   public static void addTermsToResources(
@@ -120,7 +120,7 @@ public class LabelUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildAddTermsProposal(termUrns, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   public static void addTermsToResource(
@@ -556,12 +556,5 @@ public class LabelUtils {
       termAssociationArray.removeIf(association -> association.getUrn().equals(termUrn));
     }
     return termAssociationArray;
-  }
-
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), false);
-    }
   }
 }

@@ -54,7 +54,7 @@ public class DeleteUtils {
     for (String urnStr : urnStrs) {
       changes.add(buildSoftDeleteProposal(removed, urnStr, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildSoftDeleteProposal(
@@ -70,12 +70,5 @@ public class DeleteUtils {
         new Status());
     status.setRemoved(removed);
     return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(urnStr), Constants.STATUS_ASPECT_NAME, status);
-  }
-
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), false);
-    }
   }
 }

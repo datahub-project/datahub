@@ -13,6 +13,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -20,6 +21,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URISyntaxException;
+import java.util.List;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -52,6 +54,26 @@ public class EntityUtils {
     return auditStamp;
   }
 
+  public static void ingestChangeProposals(
+          @Nonnull List<MetadataChangeProposal> changes,
+          @Nonnull EntityService entityService,
+          @Nonnull Urn actor,
+          @Nonnull Boolean async
+  ) {
+    // TODO: Replace this with a batch ingest proposals endpoint.
+    for (MetadataChangeProposal change : changes) {
+      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), async);
+    }
+  }
+
+  /**
+   * Get aspect from entity
+   * @param entityUrn URN of the entity
+   * @param aspectName aspect name string
+   * @param entityService EntityService obj
+   * @param defaultValue default value if null is found
+   * @return a record template of the aspect
+   */
   @Nullable
   public static RecordTemplate getAspectFromEntity(
           String entityUrn,
