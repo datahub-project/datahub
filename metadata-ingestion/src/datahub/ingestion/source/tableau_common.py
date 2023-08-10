@@ -560,7 +560,7 @@ def get_fully_qualified_table_name(
             fully_qualified_table_name.split(".")[-3:]
         )
 
-    if lineage_platform_instance and platform == "athena":
+    if lineage_platform_instance:
         fully_qualified_table_name = f"{lineage_platform_instance}.{fully_qualified_table_name}"
 
     return fully_qualified_table_name
