@@ -17,7 +17,9 @@ from datahub.utilities.sqlglot_lineage import SchemaResolver
 def test_lineage_with_timestamps():
     config = BigQueryV2Config()
     report = BigQueryV2Report()
-    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(config, report)
+    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(
+        config, report, lambda x: ""
+    )
     lineage_entries: List[QueryEvent] = [
         QueryEvent(
             timestamp=datetime.datetime.now(tz=datetime.timezone.utc),
@@ -86,7 +88,6 @@ def test_lineage_with_timestamps():
         bq_table=bq_table,
         bq_table_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
         lineage_metadata=lineage_map,
-        platform="bigquery",
     )
     assert upstream_lineage
     assert len(upstream_lineage.upstreams) == 4

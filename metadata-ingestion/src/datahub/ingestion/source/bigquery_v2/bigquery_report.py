@@ -17,7 +17,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class BigQueryApiPerfReport:
     list_projects = PerfTimer()
-    get_datasets_for_project = PerfTimer()
+    list_datasets = PerfTimer()
     get_columns_for_dataset = PerfTimer()
     get_tables_for_dataset = PerfTimer()
     list_tables = PerfTimer()
@@ -25,8 +25,8 @@ class BigQueryApiPerfReport:
 
 
 class BigQueryAuditLogApiPerfReport:
-    get_exported_bigquery_audit_metadata = PerfTimer()
-    get_bigquery_log_entries_via_gcp_logging = PerfTimer()
+    get_exported_log_entries = PerfTimer()
+    list_log_entries = PerfTimer()
 
 
 @dataclass
@@ -46,8 +46,12 @@ class BigQueryV2Report(
     num_skipped_lineage_entries_other: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
-    num_total_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
-    num_parsed_log_entries: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    num_lineage_total_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    num_lineage_parsed_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     num_lineage_log_parse_failures: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
     )
@@ -57,7 +61,14 @@ class BigQueryV2Report(
     lineage_mem_size: Dict[str, str] = field(default_factory=TopKDict)
     lineage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
     usage_extraction_sec: Dict[str, float] = field(default_factory=TopKDict)
+    num_usage_total_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    num_usage_parsed_log_entries: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
     usage_error_count: Dict[str, int] = field(default_factory=int_top_k_dict)
+
     num_usage_resources_dropped: int = 0
     num_usage_operations_dropped: int = 0
     operation_dropped: LossyList[str] = field(default_factory=LossyList)

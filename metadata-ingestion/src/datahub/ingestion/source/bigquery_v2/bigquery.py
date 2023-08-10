@@ -5,7 +5,7 @@ import os
 import re
 import traceback
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud import bigquery
@@ -43,22 +43,19 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import (
     BigqueryColumn,
-    BigQueryDataDictionary,
     BigqueryDataset,
     BigqueryProject,
     BigqueryTable,
+    BigQueryTechnicalSchemaApi,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
     BQ_EXTERNAL_DATASET_URL_TEMPLATE,
     BQ_EXTERNAL_TABLE_URL_TEMPLATE,
 )
-from datahub.ingestion.source.bigquery_v2.lineage import (
-    BigqueryLineageExtractor,
-    make_lineage_edges_from_parsing_result,
-)
+from datahub.ingestion.source.bigquery_v2.lineage import BigqueryLineageExtractor
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.common.subtypes import (
@@ -88,7 +85,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
-    UpstreamLineage,
     ViewProperties,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -107,11 +103,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
-    DatasetLineageTypeClass,
     GlobalTagsClass,
     TagAssociationClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
@@ -120,7 +114,7 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
+from datahub.utilities.sqlglot_lineage import SchemaResolver
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -226,10 +220,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
-        self.bigquery_data_dictionary = BigQueryDataDictionary(self.report)
+        self.bigquery_data_dictionary = BigQueryTechnicalSchemaApi(self.report)
 
         # For database, schema, tables, views, etc
-        self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
+        self.lineage_extractor = BigqueryLineageExtractor(
+            config,
+            self.report,
+            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+        )
         self.usage_extractor = BigQueryUsageExtractor(
             config, self.report, dataset_urn_builder=self.gen_dataset_urn_from_ref
         )
@@ -300,7 +298,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 report = BigQueryV2Report()
-                bigquery_data_dictionary = BigQueryDataDictionary(report)
+                bigquery_data_dictionary = BigQueryTechnicalSchemaApi(report)
                 bigquery_data_dictionary.set_client(client)
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
@@ -336,7 +334,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_ids: List[str],
         report: BigQueryV2Report,
     ) -> CapabilityReport:
-        lineage_extractor = BigqueryLineageExtractor(connection_conf, report)
+        lineage_extractor = BigqueryLineageExtractor(
+            connection_conf, report, lambda ref: ""
+        )
         for project_id in project_ids:
             try:
                 logger.info(f"Lineage capability test for project {project_id}")
@@ -520,9 +520,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
 
         if self._should_ingest_lineage():
-            for project in projects:
-                self.report.set_ingestion_stage(project.id, "Lineage Extraction")
-                yield from self.generate_lineage(project.id)
+            yield from self.lineage_extractor.get_lineage_workunits(
+                projects,
+                self.sql_parser_schema_resolver,
+                self.view_definition_ids,
+                self.table_refs,
+            )
 
     def _should_ingest_usage(self) -> bool:
         if not self.config.include_usage_statistics:
@@ -670,72 +673,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 project_id=project_id,
                 tables=db_tables,
             )
-
-    def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Generate lineage for {project_id}")
-        lineage = self.lineage_extractor.calculate_lineage_for_project(
-            project_id,
-            sql_parser_schema_resolver=self.sql_parser_schema_resolver,
-        )
-
-        if self.config.lineage_parse_view_ddl:
-            for view, view_definition_id in self.view_definition_ids[
-                project_id
-            ].items():
-                view_definition = self.view_definitions[view_definition_id]
-                raw_view_lineage = sqlglot_lineage(
-                    view_definition,
-                    schema_resolver=self.sql_parser_schema_resolver,
-                    default_db=project_id,
-                )
-                if raw_view_lineage.debug_info.table_error:
-                    logger.debug(
-                        f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
-                    )
-                    self.report.num_view_definitions_failed_parsing += 1
-                    self.report.view_definitions_parsing_failures.append(
-                        f"Table-level sql parsing error for view {view}: {raw_view_lineage.debug_info.table_error}"
-                    )
-                    continue
-                elif raw_view_lineage.debug_info.column_error:
-                    self.report.num_view_definitions_failed_column_parsing += 1
-                    self.report.view_definitions_parsing_failures.append(
-                        f"Column-level sql parsing error for view {view}: {raw_view_lineage.debug_info.column_error}"
-                    )
-                else:
-                    self.report.num_view_definitions_parsed += 1
-
-                # For views, we override the upstreams obtained by parsing audit logs
-                # as they may contain indirectly referenced tables.
-                ts = datetime.now(timezone.utc)
-                lineage[view] = set(
-                    make_lineage_edges_from_parsing_result(
-                        raw_view_lineage,
-                        audit_stamp=ts,
-                        lineage_type=DatasetLineageTypeClass.VIEW,
-                    )
-                )
-
-        for lineage_key in lineage.keys():
-            if lineage_key not in self.table_refs:
-                continue
-
-            table_ref = BigQueryTableRef.from_string_name(lineage_key)
-            dataset_urn = self.gen_dataset_urn(
-                project_id=table_ref.table_identifier.project_id,
-                dataset_name=table_ref.table_identifier.dataset,
-                table=table_ref.table_identifier.get_table_display_name(),
-            )
-
-            lineage_info = self.lineage_extractor.get_lineage_for_table(
-                bq_table=table_ref,
-                bq_table_urn=dataset_urn,
-                platform=self.platform,
-                lineage_metadata=lineage,
-            )
-
-            if lineage_info:
-                yield from self.gen_lineage(dataset_urn, lineage_info)
 
     def _process_schema(
         self,
@@ -1068,39 +1005,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
             )
-
-    def gen_lineage(
-        self,
-        dataset_urn: str,
-        upstream_lineage: Optional[UpstreamLineage] = None,
-    ) -> Iterable[MetadataWorkUnit]:
-        if upstream_lineage is None:
-            return
-
-        if upstream_lineage is not None:
-            if self.config.incremental_lineage:
-                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_urn
-                )
-                for upstream in upstream_lineage.upstreams:
-                    patch_builder.add_upstream_lineage(upstream)
-
-                yield from [
-                    MetadataWorkUnit(
-                        id=f"upstreamLineage-for-{dataset_urn}",
-                        mcp_raw=mcp,
-                    )
-                    for mcp in patch_builder.build()
-                ]
-            else:
-                if not self.config.extract_column_lineage:
-                    upstream_lineage.fineGrainedLineages = None
-
-                yield from [
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=upstream_lineage
-                    ).as_workunit()
-                ]
 
     def gen_tags_aspect_workunit(
         self, dataset_urn: str, tags_to_add: List[str]

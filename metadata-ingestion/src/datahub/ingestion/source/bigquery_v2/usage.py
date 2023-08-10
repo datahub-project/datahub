@@ -36,9 +36,14 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     QueryEvent,
     ReadEvent,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_audit_api import BigQueryAuditLogApi
+from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
+    BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
+    BigQueryAuditLogApi,
+    bigquery_audit_metadata_query_template_usage,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
+from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.ingestion.source.usage.usage_common import (
     TOTAL_BUDGET_FOR_QUERY_LIST,
     make_usage_workunit,
@@ -286,7 +291,8 @@ class BigQueryUsageExtractor:
     * Aggregation of these statistics into buckets, by day or hour granularity
 
     :::note
-    1. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    1. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient.
+    In that case, use either admin or private log viewer permission.
     :::
     """
 
@@ -788,6 +794,7 @@ class BigQueryUsageExtractor:
             entries = audit_log_api.get_exported_bigquery_audit_metadata(
                 bigquery_client=bq_client,
                 bigquery_audit_metadata_datasets=self.config.bigquery_audit_metadata_datasets,
+                bigquery_audit_metadata_query_template=bigquery_audit_metadata_query_template_usage,
                 use_date_sharded_audit_log_tables=self.config.use_date_sharded_audit_log_tables,
                 start_time=corrected_start_time,
                 end_time=corrected_end_time,
@@ -796,10 +803,13 @@ class BigQueryUsageExtractor:
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
             logging_client = self.config.make_gcp_logging_client(project_id)
+            logger.info(
+                f"Start loading log entries from BigQuery for {project_id} "
+                f"with start_time={corrected_start_time} and end_time={corrected_end_time}"
+            )
             entries = audit_log_api.get_bigquery_log_entries_via_gcp_logging(
                 logging_client,
-                start_time=corrected_start_time,
-                end_time=corrected_end_time,
+                filter=self._generate_filter(corrected_start_time, corrected_end_time),
                 log_page_size=self.config.log_page_size,
                 limit=limit,
             )
@@ -807,9 +817,10 @@ class BigQueryUsageExtractor:
 
         for entry in entries:
             try:
-                self.report.total_query_log_entries += 1
+                self.report.num_usage_total_log_entries[project_id] += 1
                 event = parse_fn(entry)
                 if event:
+                    self.report.num_usage_parsed_log_entries[project_id] += 1
                     yield event
             except Exception as e:
                 logger.warning(
@@ -819,6 +830,12 @@ class BigQueryUsageExtractor:
                 self._report_error(
                     f"log-parse-{project_id}", e, group="usage-log-parse"
                 )
+
+    def _generate_filter(self, corrected_start_time, corrected_end_time):
+        return BQ_FILTER_RULE_TEMPLATE_V2_USAGE.format(
+            start_time=corrected_start_time.strftime(BQ_DATETIME_FORMAT),
+            end_time=corrected_end_time.strftime(BQ_DATETIME_FORMAT),
+        )
 
     def get_tables_from_query(
         self, default_project: str, query: str

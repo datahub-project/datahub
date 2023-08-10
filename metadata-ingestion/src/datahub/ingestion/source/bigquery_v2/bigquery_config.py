@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import pydantic
 from google.cloud import bigquery
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
@@ -263,6 +263,17 @@ class BigQueryV2Config(
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         values["options"].setdefault("max_overflow", values["profiling"].max_workers)
+
+        return values
+
+    @validator("bigquery_audit_metadata_datasets")
+    def validate_bigquery_audit_metadata_datasets(
+        cls, v: Optional[List[str]], values: Dict
+    ) -> Dict:
+        if values.get("use_exported_bigquery_audit_metadata"):
+            assert (
+                v and len(v) > 0
+            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata` for usage/lineage."
 
         return values
 

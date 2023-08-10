@@ -347,11 +347,14 @@ ORDER BY
   table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
 
 
-class BigQueryDataDictionary:
+# TODO: remove static methods from here
+# TODO: move queries into separate file
+class BigQueryTechnicalSchemaApi:
     def __init__(self, report: BigQueryApiPerfReport) -> None:
         self.bq_client: Optional[bigquery.Client] = None
         self.api_perf_report = report
 
+    # TODO: remove need to set_client. maybe pass in constructor?
     def set_client(self, bq_client: bigquery.Client) -> None:
         self.bq_client = bq_client
 
@@ -359,10 +362,9 @@ class BigQueryDataDictionary:
         assert self.bq_client is not None
         return self.bq_client
 
-    @staticmethod
-    def get_query_result(conn: bigquery.Client, query: str) -> RowIterator:
+    def get_query_result(self, query: str) -> RowIterator:
         logger.debug(f"Query : {query}")
-        resp = conn.query(query)
+        resp = self.get_client().query(query)
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
@@ -376,7 +378,7 @@ class BigQueryDataDictionary:
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        with self.api_perf_report.get_datasets_for_project:
+        with self.api_perf_report.list_datasets:
             datasets = self.get_client().list_datasets(
                 project_id, max_results=maxResults
             )
@@ -384,9 +386,9 @@ class BigQueryDataDictionary:
                 BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
             ]
 
-    @staticmethod
+    # This is not used anywhere
     def get_datasets_for_project_id_with_information_schema(
-        conn: bigquery.Client, project_id: str
+        self, project_id: str
     ) -> List[BigqueryDataset]:
         """
         This method is not used as of now, due to below limitation.
@@ -394,8 +396,7 @@ class BigQueryDataDictionary:
         We'll need Region wise separate queries to fetch all datasets
         https://cloud.google.com/bigquery/docs/information-schema-datasets-schemata
         """
-        schemas = BigQueryDataDictionary.get_query_result(
-            conn,
+        schemas = self.get_query_result(
             BigqueryQuery.datasets_for_project_id.format(project_id=project_id),
         )
         return [
@@ -431,8 +432,7 @@ class BigQueryDataDictionary:
             if with_data_read_permission:
                 # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
                 # and skip the others. Sharded tables are tables with suffix _20220102
-                cur = BigQueryDataDictionary.get_query_result(
-                    self.get_client(),
+                cur = self.get_query_result(
                     BigqueryQuery.tables_for_dataset.format(
                         project_id=project_id,
                         dataset_name=dataset_name,
@@ -444,8 +444,7 @@ class BigQueryDataDictionary:
             else:
                 # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
                 # and skip the others. Sharded tables are tables with suffix _20220102
-                cur = BigQueryDataDictionary.get_query_result(
-                    self.get_client(),
+                cur = self.get_query_result(
                     BigqueryQuery.tables_for_dataset_without_partition_data.format(
                         project_id=project_id,
                         dataset_name=dataset_name,
@@ -458,7 +457,7 @@ class BigQueryDataDictionary:
             for table in cur:
                 try:
                     with current_timer.pause_timer():
-                        yield BigQueryDataDictionary._make_bigquery_table(
+                        yield BigQueryTechnicalSchemaApi._make_bigquery_table(
                             table, tables.get(table.table_name)
                         )
                 except Exception as e:
@@ -520,15 +519,13 @@ class BigQueryDataDictionary:
     ) -> Iterator[BigqueryView]:
         with self.api_perf_report.get_views_for_dataset as current_timer:
             if has_data_read:
-                cur = BigQueryDataDictionary.get_query_result(
-                    self.get_client(),
+                cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
                 )
             else:
-                cur = BigQueryDataDictionary.get_query_result(
-                    self.get_client(),
+                cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset_without_data_read.format(
                         project_id=project_id, dataset_name=dataset_name
                     ),
@@ -537,7 +534,7 @@ class BigQueryDataDictionary:
             for table in cur:
                 try:
                     with current_timer.pause_timer():
-                        yield BigQueryDataDictionary._make_bigquery_view(table)
+                        yield BigQueryTechnicalSchemaApi._make_bigquery_view(table)
                 except Exception as e:
                     view_name = f"{project_id}.{dataset_name}.{table.table_name}"
                     logger.warning(
@@ -575,8 +572,7 @@ class BigQueryDataDictionary:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
         with self.api_perf_report.get_columns_for_dataset:
             try:
-                cur = BigQueryDataDictionary.get_query_result(
-                    self.get_client(),
+                cur = self.get_query_result(
                     BigqueryQuery.columns_for_dataset.format(
                         project_id=project_id, dataset_name=dataset_name
                     )
@@ -620,14 +616,13 @@ class BigQueryDataDictionary:
 
         return columns
 
-    @staticmethod
+    # This is not used anywhere
     def get_columns_for_table(
-        conn: bigquery.Client,
+        self,
         table_identifier: BigqueryTableIdentifier,
         column_limit: Optional[int],
     ) -> List[BigqueryColumn]:
-        cur = BigQueryDataDictionary.get_query_result(
-            conn,
+        cur = self.get_query_result(
             BigqueryQuery.columns_for_table.format(table_identifier=table_identifier),
         )
 

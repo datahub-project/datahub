@@ -1,7 +1,6 @@
 import collections
 import itertools
 import logging
-import textwrap
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Union
@@ -10,9 +9,10 @@ import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from ratelimiter import RateLimiter
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     AuditLogEntry,
     BigQueryAuditMetadata,
@@ -21,12 +21,18 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     QueryEvent,
     ReadEvent,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
+    BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
+    BigQueryAuditLogApi,
+    bigquery_audit_metadata_query_template_lineage,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import (
-    BQ_DATE_SHARD_FORMAT,
-    BQ_DATETIME_FORMAT,
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import (
+    BigqueryProject,
+    BigQueryTechnicalSchemaApi,
 )
+from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
@@ -36,6 +42,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities import memory_footprint
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlglot_lineage import (
@@ -177,98 +184,132 @@ def make_lineage_edges_from_parsing_result(
 
 
 class BigqueryLineageExtractor:
-    BQ_FILTER_RULE_TEMPLATE_V2 = """
-resource.type=("bigquery_project")
-AND
-(
-    protoPayload.methodName=
-        (
-            "google.cloud.bigquery.v2.JobService.Query"
-            OR
-            "google.cloud.bigquery.v2.JobService.InsertJob"
-        )
-    AND
-    protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
-    AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-    AND (
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-        OR
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedViews:*
-    )
-    AND (
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/_.*/tables/anon.*"
-        AND
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/INFORMATION_SCHEMA.*"
-        AND
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/__TABLES__"
-        AND
-        protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable !~ "projects/.*/datasets/_.*/tables/anon.*"
-    )
-
-)
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
-""".strip()
-
-    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+    ):
         self.config = config
         self.report = report
+        self.dataset_urn_builder = dataset_urn_builder
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
         log.error(f"{key} => {reason}")
 
-    @staticmethod
-    def bigquery_audit_metadata_query_template(
-        dataset: str, use_date_sharded_tables: bool, limit: Optional[int] = None
-    ) -> str:
-        """
-        Receives a dataset (with project specified) and returns a query template that is used to query exported
-        AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
-        Include only those that:
-        - have been completed (jobStatus.jobState = "DONE")
-        - do not contain errors (jobStatus.errorResults is none)
-        :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
-        :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
-               tables
-        :param limit: set a limit for the maximum event to return. It is used for connection testing currently
-        :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
-        """
-        limit_text = f"limit {limit}" if limit else ""
-
-        shard_condition = ""
-        if use_date_sharded_tables:
-            from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access_*`"
-            shard_condition = (
-                """ AND _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" """
+    def get_lineage_workunits(
+        self,
+        projects: List[BigqueryProject],
+        sql_parser_schema_resolver: SchemaResolver,
+        view_definition_ids: Dict[str, Dict[str, str]],
+        table_refs: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        for project in projects:
+            self.report.set_ingestion_stage(project.id, "Lineage Extraction")
+            yield from self.generate_lineage(
+                project.id,
+                sql_parser_schema_resolver,
+                view_definition_ids[project.id],
+                table_refs,
             )
-        else:
-            from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
 
-        query = f"""
-            SELECT
-                timestamp,
-                logName,
-                insertId,
-                protopayload_auditlog AS protoPayload,
-                protopayload_auditlog.metadataJson AS metadata
-            FROM
-                {from_table}
-            WHERE (
-                timestamp >= "{{start_time}}"
-                AND timestamp < "{{end_time}}"
+    def generate_lineage(
+        self,
+        project_id: str,
+        sql_parser_schema_resolver: SchemaResolver,
+        view_definition_ids: Dict[str, str],
+        table_refs: Set[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Generate lineage for {project_id}")
+        lineage = self.calculate_lineage_for_project(
+            project_id, sql_parser_schema_resolver=sql_parser_schema_resolver
+        )
+
+        if self.config.lineage_parse_view_ddl:
+            for view, view_definition_id in view_definition_ids.items():
+                view_definition = view_definition_ids[view_definition_id]
+                raw_view_lineage = sqlglot_lineage(
+                    view_definition,
+                    schema_resolver=sql_parser_schema_resolver,
+                    default_db=project_id,
+                )
+                if raw_view_lineage.debug_info.table_error:
+                    logger.debug(
+                        f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
+                    )
+                    self.report.num_view_definitions_failed_parsing += 1
+                    self.report.view_definitions_parsing_failures.append(
+                        f"Table-level sql parsing error for view {view}: {raw_view_lineage.debug_info.table_error}"
+                    )
+                    continue
+                elif raw_view_lineage.debug_info.column_error:
+                    self.report.num_view_definitions_failed_column_parsing += 1
+                    self.report.view_definitions_parsing_failures.append(
+                        f"Column-level sql parsing error for view {view}: {raw_view_lineage.debug_info.column_error}"
+                    )
+                else:
+                    self.report.num_view_definitions_parsed += 1
+
+                # For views, we override the upstreams obtained by parsing audit logs
+                # as they may contain indirectly referenced tables.
+                ts = datetime.now(timezone.utc)
+                lineage[view] = set(
+                    make_lineage_edges_from_parsing_result(
+                        raw_view_lineage,
+                        audit_stamp=ts,
+                        lineage_type=DatasetLineageTypeClass.VIEW,
+                    )
+                )
+
+        for lineage_key in lineage.keys():
+            if lineage_key not in table_refs:
+                continue
+
+            table_ref = BigQueryTableRef.from_string_name(lineage_key)
+            dataset_urn = self.dataset_urn_builder(table_ref)
+
+            lineage_info = self.get_lineage_for_table(
+                bq_table=table_ref,
+                bq_table_urn=dataset_urn,
+                lineage_metadata=lineage,
             )
-            {shard_condition}
-            AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-            AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-            AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-            AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-            {limit_text};
-        """
 
-        return textwrap.dedent(query)
+            if lineage_info:
+                yield from self.gen_lineage(dataset_urn, lineage_info)
+
+    def gen_lineage(
+        self,
+        dataset_urn: str,
+        upstream_lineage: Optional[UpstreamLineageClass] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        if upstream_lineage is None:
+            return
+
+        if upstream_lineage is not None:
+            if self.config.incremental_lineage:
+                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
+                    urn=dataset_urn
+                )
+                for upstream in upstream_lineage.upstreams:
+                    patch_builder.add_upstream_lineage(upstream)
+
+                yield from [
+                    MetadataWorkUnit(
+                        id=f"upstreamLineage-for-{dataset_urn}",
+                        mcp_raw=mcp,
+                    )
+                    for mcp in patch_builder.build()
+                ]
+            else:
+                if not self.config.extract_column_lineage:
+                    upstream_lineage.fineGrainedLineages = None
+
+                yield from [
+                    MetadataChangeProposalWrapper(
+                        entityUrn=dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
+                ]
 
     def lineage_via_catalog_lineage_api(
         self, project_id: str
@@ -292,22 +333,26 @@ timestamp < "{end_time}"
 
         try:
             lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
-            bigquery_client: BigQueryClient = self.config.get_bigquery_client()
+
+            data_dictionary = BigQueryTechnicalSchemaApi(self.report)
+            data_dictionary.set_client(self.config.get_bigquery_client())
             # Filtering datasets
-            datasets = list(bigquery_client.list_datasets(project_id))
+            datasets = list(data_dictionary.get_datasets_for_project_id(project_id))
             project_tables = []
             for dataset in datasets:
                 # Enables only tables where type is TABLE, VIEW or MATERIALIZED_VIEW (not EXTERNAL)
                 project_tables.extend(
                     [
                         table
-                        for table in bigquery_client.list_tables(dataset.dataset_id)
+                        for table in data_dictionary.list_tables(
+                            dataset.name, project_id
+                        )
                         if table.table_type in ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
                     ]
                 )
 
             # Convert project tables to <project_id>.<dataset_id>.<table_id> format
-            project_tables = list(
+            project_table_names = list(
                 map(
                     lambda table: "{}.{}.{}".format(
                         table.project, table.dataset_id, table.table_id
@@ -318,7 +363,7 @@ timestamp < "{end_time}"
 
             lineage_map: Dict[str, Set[LineageEdge]] = {}
             curr_date = datetime.now()
-            for table in project_tables:
+            for table in project_table_names:
                 logger.info("Creating lineage map for table %s", table)
                 upstreams = set()
                 downstream_table = lineage_v1.EntityReference()
@@ -375,125 +420,60 @@ timestamp < "{end_time}"
             raise e
 
     def _get_parsed_audit_log_events(self, project_id: str) -> Iterable[QueryEvent]:
+        audit_log_api = BigQueryAuditLogApi(
+            self.report, self.config.rate_limit, self.config.requests_per_min
+        )
+        # We adjust the filter values a bit, since we need to make sure that the join
+        # between query events and read events is complete. For example, this helps us
+        # handle the case where the read happens within our time range but the query
+        # completion event is delayed and happens after the configured end time.
+        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        corrected_end_time = self.config.end_time + -self.config.max_query_duration
+        self.report.audit_start_time = corrected_start_time
+        self.report.audit_end_time = corrected_end_time
+
         parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
         if self.config.use_exported_bigquery_audit_metadata:
             logger.info("Populating lineage info via exported GCP audit logs")
             bq_client = self.config.get_bigquery_client()
-            entries = self._get_exported_bigquery_audit_metadata(bq_client)
+            # TODO: make this call simpler
+            entries = audit_log_api.get_exported_bigquery_audit_metadata(
+                bigquery_client=bq_client,
+                bigquery_audit_metadata_query_template=bigquery_audit_metadata_query_template_lineage,
+                bigquery_audit_metadata_datasets=self.config.bigquery_audit_metadata_datasets,
+                use_date_sharded_audit_log_tables=self.config.use_date_sharded_audit_log_tables,
+                start_time=corrected_start_time,
+                end_time=corrected_end_time,
+            )
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
             logger.info("Populating lineage info via exported GCP audit logs")
+
             logging_client = self.config.make_gcp_logging_client(project_id)
-            entries = self._get_bigquery_log_entries(logging_client)
+            logger.info(
+                f"Start loading log entries from BigQuery for {project_id} "
+                f"with start_time={corrected_start_time} and end_time={corrected_end_time}"
+            )
+            entries = audit_log_api.get_bigquery_log_entries_via_gcp_logging(
+                logging_client,
+                BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE.format(
+                    corrected_start_time.strftime(BQ_DATETIME_FORMAT),
+                    corrected_end_time.strftime(BQ_DATETIME_FORMAT),
+                ),
+                self.config.log_page_size,
+            )
             parse_fn = self._parse_bigquery_log_entries
 
         for entry in entries:
-            self.report.num_total_log_entries[project_id] += 1
+            self.report.num_lineage_total_log_entries[project_id] += 1
             try:
                 event = parse_fn(entry)
                 if event:
-                    self.report.num_parsed_log_entries[project_id] += 1
+                    self.report.num_lineage_parsed_log_entries[project_id] += 1
                     yield event
             except Exception as e:
                 logger.warning(f"Unable to parse log entry `{entry}`: {e}")
                 self.report.num_lineage_log_parse_failures[project_id] += 1
-
-    def _get_bigquery_log_entries(
-        self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Iterable[AuditLogEntry]:
-        self.report.num_total_log_entries[client.project] = 0
-        # Add a buffer to start and end time to account for delays in logging events.
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
-        start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
-        self.report.log_entry_start_time = corrected_start_time
-
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
-        end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
-        self.report.log_entry_end_time = corrected_end_time
-
-        filter = self.BQ_FILTER_RULE_TEMPLATE_V2.format(
-            start_time=start_time,
-            end_time=end_time,
-        )
-
-        logger.info(
-            f"Start loading log entries from BigQuery for {client.project} with start_time={start_time} and end_time={end_time}"
-        )
-
-        if self.config.rate_limit:
-            with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                entries = client.list_entries(
-                    filter_=filter,
-                    page_size=self.config.log_page_size,
-                    max_results=limit,
-                )
-        else:
-            entries = client.list_entries(
-                filter_=filter, page_size=self.config.log_page_size, max_results=limit
-            )
-
-        logger.info(
-            f"Start iterating over log entries from BigQuery for {client.project}"
-        )
-        for entry in entries:
-            self.report.num_total_log_entries[client.project] += 1
-            if self.report.num_total_log_entries[client.project] % 1000 == 0:
-                logger.info(
-                    f"{self.report.num_total_log_entries[client.project]} log entries loaded for project {client.project} so far..."
-                )
-            yield entry
-
-        logger.info(
-            f"Finished loading {self.report.num_total_log_entries[client.project]} log entries from BigQuery project {client.project} so far"
-        )
-
-    def _get_exported_bigquery_audit_metadata(
-        self, bigquery_client: BigQueryClient, limit: Optional[int] = None
-    ) -> Iterable[BigQueryAuditMetadata]:
-        if self.config.bigquery_audit_metadata_datasets is None:
-            self.error(
-                logger, "audit-metadata", "bigquery_audit_metadata_datasets not set"
-            )
-            self.report.bigquery_audit_metadata_datasets_missing = True
-            return
-
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
-        start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
-        start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
-        self.report.audit_start_time = corrected_start_time
-
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
-        end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
-        end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
-        self.report.audit_end_time = corrected_end_time
-
-        for dataset in self.config.bigquery_audit_metadata_datasets:
-            logger.info(
-                f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
-            )
-
-            query: str = self.bigquery_audit_metadata_query_template(
-                dataset=dataset,
-                use_date_sharded_tables=self.config.use_date_sharded_audit_log_tables,
-                limit=limit,
-            ).format(
-                start_time=start_time,
-                end_time=end_time,
-                start_date=start_date,
-                end_date=end_date,
-            )
-
-            query_job = bigquery_client.query(query)
-
-            logger.info(
-                f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
-            )
-
-            if self.config.rate_limit:
-                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                    yield from query_job
-            else:
-                yield from query_job
 
     # Currently we only parse JobCompleted events but in future we would want to parse other
     # events to also create field level lineage.
@@ -749,7 +729,6 @@ timestamp < "{end_time}"
         bq_table: BigQueryTableRef,
         bq_table_urn: str,
         lineage_metadata: Dict[str, Set[LineageEdge]],
-        platform: str,
     ) -> Optional[UpstreamLineageClass]:
         upstream_list: List[UpstreamClass] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
@@ -757,12 +736,7 @@ timestamp < "{end_time}"
         # even if the lineage is same but the order is different.
         for upstream in sorted(self.get_upstream_tables(bq_table, lineage_metadata)):
             upstream_table = BigQueryTableRef.from_string_name(upstream.table)
-            upstream_table_urn = mce_builder.make_dataset_urn_with_platform_instance(
-                platform,
-                upstream_table.table_identifier.get_table_name(),
-                self.config.platform_instance,
-                self.config.env,
-            )
+            upstream_table_urn = self.dataset_urn_builder(upstream_table)
 
             # Generate table-level lineage.
             upstream_table_class = UpstreamClass(
@@ -812,12 +786,21 @@ timestamp < "{end_time}"
         return None
 
     def test_capability(self, project_id: str) -> None:
+        audit_log_api = BigQueryAuditLogApi(
+            self.report, self.config.rate_limit, self.config.requests_per_min
+        )
+
         if self.config.use_exported_bigquery_audit_metadata:
             bigquery_client: BigQueryClient = BigQueryClient(project=project_id)
-            entries = self._get_exported_bigquery_audit_metadata(
-                bigquery_client=bigquery_client, limit=1
-            )
-            for entry in entries:
+            for entry in audit_log_api.get_exported_bigquery_audit_metadata(
+                bigquery_client=bigquery_client,
+                bigquery_audit_metadata_query_template=bigquery_audit_metadata_query_template_lineage,
+                bigquery_audit_metadata_datasets=self.config.bigquery_audit_metadata_datasets,
+                use_date_sharded_audit_log_tables=self.config.use_date_sharded_audit_log_tables,
+                start_time=self.config.start_time,
+                end_time=self.config.end_time,
+                limit=1,
+            ):
                 logger.debug(
                     f"Connection test got one exported_bigquery_audit_metadata {entry}"
                 )
@@ -825,5 +808,13 @@ timestamp < "{end_time}"
             gcp_logging_client: GCPLoggingClient = self.config.make_gcp_logging_client(
                 project_id
             )
-            for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
+            for entry in audit_log_api.get_bigquery_log_entries_via_gcp_logging(
+                gcp_logging_client,
+                filter=BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE.format(
+                    self.config.start_time.strftime(BQ_DATETIME_FORMAT),
+                    self.config.end_time.strftime(BQ_DATETIME_FORMAT),
+                ),
+                log_page_size=self.config.log_page_size,
+                limit=1,
+            ):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")
