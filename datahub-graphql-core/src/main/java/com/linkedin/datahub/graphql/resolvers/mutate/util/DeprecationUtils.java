@@ -5,7 +5,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
@@ -22,6 +21,8 @@ import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+
+import static com.linkedin.metadata.aspect.utils.DeprecationUtils.*;
 
 
 @Slf4j
@@ -69,20 +70,19 @@ public class DeprecationUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Deprecation deprecation = (Deprecation) EntityUtils.getAspectFromEntity(
-        resource.getResourceUrn(),
-        Constants.DEPRECATION_ASPECT_NAME,
-        entityService,
-        new Deprecation());
-    deprecation.setActor(actor);
-    deprecation.setDeprecated(deprecated);
-    deprecation.setDecommissionTime(decommissionTime, SetMode.REMOVE_IF_NULL);
-    if (note != null) {
-      deprecation.setNote(note);
-    } else {
-      // Note is required field in GMS. Set to empty string if not provided.
-      deprecation.setNote("");
-    }
-    return MutationUtils.buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DEPRECATION_ASPECT_NAME, deprecation);
+    String resourceUrn = resource.getResourceUrn();
+    Deprecation deprecation = getDeprecation(
+            entityService,
+            resourceUrn,
+            actor,
+            note,
+            deprecated,
+            decommissionTime
+    );
+    return MutationUtils.buildMetadataChangeProposalWithUrn(
+            UrnUtils.getUrn(resourceUrn),
+            Constants.DEPRECATION_ASPECT_NAME,
+            deprecation
+    );
   }
 }
