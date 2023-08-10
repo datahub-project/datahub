@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -41,6 +42,14 @@ public class EntityUtils {
     } catch (URISyntaxException e) {
       return null;
     }
+  }
+
+  @Nonnull
+  public static AuditStamp getAuditStamp(Urn actor) {
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setActor(actor);
+    return auditStamp;
   }
 
   @Nullable

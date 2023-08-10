@@ -90,7 +90,7 @@ public class OwnerUtils {
         Constants.OWNERSHIP_ASPECT_NAME,
         entityService,
         new Ownership());
-    ownershipAspect.setLastModified(getAuditStamp(actor));
+    ownershipAspect.setLastModified(EntityUtils.getAuditStamp(actor));
     removeOwnersIfExists(ownershipAspect, ownerUrns, maybeOwnershipTypeUrn);
     return buildMetadataChangeProposalWithUrn(resourceUrn, Constants.OWNERSHIP_ASPECT_NAME, ownershipAspect);
   }
@@ -271,7 +271,7 @@ public class OwnerUtils {
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false);
+      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), false);
     }
   }
 

@@ -53,7 +53,7 @@ public class LabelUtils {
       com.linkedin.common.GlossaryTerms terms =
           (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(
               resourceUrn.toString(), Constants.GLOSSARY_TERMS_ASPECT_NAME, entityService, new GlossaryTerms());
-      terms.setAuditStamp(getAuditStamp(actor));
+      terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
       removeTermIfExists(terms, labelUrn);
       persistAspect(resourceUrn, Constants.GLOSSARY_TERMS_ASPECT_NAME, terms, actor, entityService);
@@ -134,7 +134,7 @@ public class LabelUtils {
       com.linkedin.common.GlossaryTerms terms =
           (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(resourceUrn.toString(), Constants.GLOSSARY_TERMS_ASPECT_NAME,
               entityService, new GlossaryTerms());
-      terms.setAuditStamp(getAuditStamp(actor));
+      terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
       if (!terms.hasTerms()) {
         terms.setTerms(new GlossaryTermAssociationArray());
@@ -152,7 +152,7 @@ public class LabelUtils {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
       }
 
-      editableFieldInfo.getGlossaryTerms().setAuditStamp(getAuditStamp(actor));
+      editableFieldInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
 
       addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), labelUrns);
       persistAspect(resourceUrn, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata, actor, entityService);
@@ -453,7 +453,7 @@ public class LabelUtils {
     com.linkedin.common.GlossaryTerms terms =
         (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME,
             entityService, new GlossaryTerms());
-    terms.setAuditStamp(getAuditStamp(actor));
+    terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
     if (!terms.hasTerms()) {
       terms.setTerms(new GlossaryTermAssociationArray());
@@ -478,7 +478,7 @@ public class LabelUtils {
       editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
     }
 
-    editableFieldInfo.getGlossaryTerms().setAuditStamp(getAuditStamp(actor));
+    editableFieldInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
 
     addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), termUrns);
     return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()),
@@ -494,7 +494,7 @@ public class LabelUtils {
     com.linkedin.common.GlossaryTerms terms =
         (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(
             resource.getResourceUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, entityService, new GlossaryTerms());
-    terms.setAuditStamp(getAuditStamp(actor));
+    terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
     removeTermsIfExists(terms, termUrns);
     return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOSSARY_TERMS_ASPECT_NAME, terms);
@@ -561,7 +561,7 @@ public class LabelUtils {
   private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
     // TODO: Replace this with a batch ingest proposals endpoint.
     for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false);
+      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), false);
     }
   }
 }

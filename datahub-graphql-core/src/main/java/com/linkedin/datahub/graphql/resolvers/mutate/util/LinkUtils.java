@@ -75,7 +75,7 @@ public class LinkUtils {
 
     InstitutionalMemoryMetadata newLink = new InstitutionalMemoryMetadata();
     newLink.setUrl(new Url(linkUrl));
-    newLink.setCreateStamp(getAuditStamp(actor));
+    newLink.setCreateStamp(EntityUtils.getAuditStamp(actor));
     newLink.setDescription(linkLabel); // We no longer support, this is really a label.
     linksArray.add(newLink);
   }

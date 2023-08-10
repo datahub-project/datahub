@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
@@ -8,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -29,7 +29,7 @@ public class MutationUtils {
 
   public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
     final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
-    entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+    entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
   }
 
   /**
@@ -74,13 +74,6 @@ public class MutationUtils {
     systemMetadata.setProperties(properties);
     proposal.setSystemMetadata(systemMetadata);
     return proposal;
-  }
-
-  public static AuditStamp getAuditStamp(Urn actor) {
-    AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
-    auditStamp.setActor(actor);
-    return auditStamp;
   }
 
   public static EditableSchemaFieldInfo getFieldInfoFromSchema(
