@@ -43,6 +43,7 @@ import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
@@ -57,7 +58,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -138,7 +138,7 @@ public class ActionRequestUtils {
       if (type == null || type == ActionRequestType.TERM_ASSOCIATION) {
         if (rejectedActionRequest.getSubResource() != null && rejectedActionRequest.getSubResourceType() != null) {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
-              (EditableSchemaMetadata) getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
+              (EditableSchemaMetadata) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
                   EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, null);
 
           if (editableSchemaMetadataAspect != null && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
@@ -159,7 +159,7 @@ public class ActionRequestUtils {
           }
         } else {
           com.linkedin.common.GlossaryTerms glossaryTermsAspect =
-              (GlossaryTerms) getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
+              (GlossaryTerms) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
                   GLOSSARY_TERMS_ASPECT_NAME, entityService, null);
 
           if (glossaryTermsAspect != null && glossaryTermsAspect.hasTerms()) {
@@ -175,7 +175,7 @@ public class ActionRequestUtils {
       if (type == null || type == ActionRequestType.TAG_ASSOCIATION) {
         if (rejectedActionRequest.getSubResource() != null && rejectedActionRequest.getSubResourceType() != null) {
           com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadataAspect =
-              (EditableSchemaMetadata) getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
+              (EditableSchemaMetadata) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(),
                   EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, null);
 
           if (editableSchemaMetadataAspect != null && editableSchemaMetadataAspect.hasEditableSchemaFieldInfo()) {
@@ -197,7 +197,7 @@ public class ActionRequestUtils {
           }
         } else {
           com.linkedin.common.GlobalTags globalTagsAspect =
-              (GlobalTags) getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(), GLOBAL_TAGS_ASPECT_NAME,
+              (GlobalTags) EntityUtils.getAspectFromEntity(rejectedActionRequest.getEntity().getUrn(), GLOBAL_TAGS_ASPECT_NAME,
                   entityService, null);
 
           if (globalTagsAspect != null && globalTagsAspect.hasTags()) {

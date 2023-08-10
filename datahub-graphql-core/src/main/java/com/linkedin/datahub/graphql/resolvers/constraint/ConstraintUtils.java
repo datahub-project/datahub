@@ -26,6 +26,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.policy.DataHubResourceFilter;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
@@ -36,7 +37,6 @@ import javax.annotation.Nullable;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
@@ -107,7 +107,7 @@ public class ConstraintUtils {
               datasetConstraintSatisfied.getSecond()));
     }
 
-    Container container = (Container) getAspectFromEntity(urn, CONTAINER_ASPECT_NAME, entityService, new Container());
+    Container container = (Container) EntityUtils.getAspectFromEntity(urn, CONTAINER_ASPECT_NAME, entityService, new Container());
     if (container != null && container.hasContainer()) {
       Urn containerUrn = container.getContainer();
       Pair<Boolean, String> containerConstraintSatisfied =

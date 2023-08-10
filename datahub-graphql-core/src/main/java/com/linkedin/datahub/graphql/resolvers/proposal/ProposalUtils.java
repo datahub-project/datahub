@@ -29,7 +29,6 @@ import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
-import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -37,6 +36,7 @@ import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.aspect.ActionRequestAspectArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -330,12 +330,12 @@ public class ProposalUtils {
     if (assignedUsers.isEmpty() && assignedGroups.isEmpty()) {
       // also potentially fetch the owners of the dataset's container
       Container containerAspect =
-          (Container) getAspectFromEntity(targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
+          (Container) EntityUtils.getAspectFromEntity(targetUrn.toString(), CONTAINER_ASPECT_NAME, entityService, new Container());
 
       if (containerAspect.hasContainer()) {
         // the dataset has a container- fetch the container's owners
         Ownership ownership =
-            (Ownership) getAspectFromEntity(containerAspect.getContainer().toString(), OWNERSHIP_ASPECT_NAME, entityService, new Ownership());
+            (Ownership) EntityUtils.getAspectFromEntity(containerAspect.getContainer().toString(), OWNERSHIP_ASPECT_NAME, entityService, new Ownership());
         if (ownership.hasOwners()) {
           List<Urn> usersToAdd = ownership.getOwners().stream()
               .filter(owner -> owner.getOwner().getEntityType().equals(CORP_USER_ENTITY_NAME))
@@ -414,7 +414,7 @@ public class ProposalUtils {
   private static void addTagToEntityProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
       EntityService entityService) {
     Proposals proposals =
-        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedTags()) {
       proposals.setProposedTags(new UrnArray());
     }
@@ -432,7 +432,7 @@ public class ProposalUtils {
       EntityService entityService) {
 
     SchemaProposals schemaProposals =
-        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
             new SchemaProposals());
 
     if (!schemaProposals.hasSchemaProposals()) {
@@ -476,7 +476,7 @@ public class ProposalUtils {
   private static void deleteTagFromEntityProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn,
       EntityService entityService) {
     Proposals proposals =
-        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedTags()) {
       return;
     }
@@ -491,7 +491,7 @@ public class ProposalUtils {
   private static void deleteTagFromSchemaProposalsAspect(Urn creator, Urn tagUrn, Urn targetUrn, String subResource,
       EntityService entityService) {
     SchemaProposals schemaProposals =
-        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
             new SchemaProposals());
     if (!schemaProposals.hasSchemaProposals()) {
       return;
@@ -514,7 +514,7 @@ public class ProposalUtils {
   private static void addTermToEntityProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
       EntityService entityService) {
     Proposals proposals =
-        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedGlossaryTerms()) {
       proposals.setProposedGlossaryTerms(new UrnArray());
     }
@@ -532,7 +532,7 @@ public class ProposalUtils {
       EntityService entityService) {
 
     SchemaProposals schemaProposals =
-        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
             new SchemaProposals());
 
     if (!schemaProposals.hasSchemaProposals()) {
@@ -576,7 +576,7 @@ public class ProposalUtils {
   private static void deleteTermFromEntityProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn,
       EntityService entityService) {
     Proposals proposals =
-        (Proposals) getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
+        (Proposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), PROPOSALS_ASPECT_NAME, entityService, new Proposals());
     if (!proposals.hasProposedGlossaryTerms()) {
       return;
     }
@@ -591,7 +591,7 @@ public class ProposalUtils {
   private static void deleteTermFromSchemaProposalsAspect(Urn creator, Urn termUrn, Urn targetUrn, String subResource,
       EntityService entityService) {
     SchemaProposals schemaProposals =
-        (SchemaProposals) getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
+        (SchemaProposals) EntityUtils.getAspectFromEntity(targetUrn.toString(), SCHEMA_PROPOSALS_ASPECT_NAME, entityService,
             new SchemaProposals());
     if (!schemaProposals.hasSchemaProposals()) {
       return;
@@ -826,7 +826,7 @@ public class ProposalUtils {
   ) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlobalTags tags =
-          (com.linkedin.common.GlobalTags) getAspectFromEntity(targetUrn.toString(), LabelUtils.TAGS_ASPECT_NAME, entityService, new GlobalTags());
+          (com.linkedin.common.GlobalTags) EntityUtils.getAspectFromEntity(targetUrn.toString(), GLOBAL_TAGS_ASPECT_NAME, entityService, new GlobalTags());
 
       if (!tags.hasTags()) {
         return false;
@@ -835,8 +835,8 @@ public class ProposalUtils {
       return doesTagsListContainTag(tags, labelUrn);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), LabelUtils.EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
+              targetUrn.toString(), EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
 
       if (!editableFieldInfo.hasGlobalTags()) {
@@ -855,8 +855,8 @@ public class ProposalUtils {
   ) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) getAspectFromEntity(
-              targetUrn.toString(), LabelUtils.GLOSSARY_TERM_ASPECT_NAME, entityService, new GlossaryTerms()
+          (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(
+              targetUrn.toString(), GLOSSARY_TERMS_ASPECT_NAME, entityService, new GlossaryTerms()
           );
 
       if (!terms.hasTerms()) {
@@ -866,8 +866,8 @@ public class ProposalUtils {
       return doesTermsListContainTerm(terms, labelUrn);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) getAspectFromEntity(
-              targetUrn.toString(), LabelUtils.EDITABLE_SCHEMA_METADATA, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
+              targetUrn.toString(), GLOSSARY_TERMS_ASPECT_NAME, entityService, new EditableSchemaMetadata());
 
       EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
