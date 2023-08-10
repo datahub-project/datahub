@@ -54,6 +54,13 @@ import static org.mockito.Mockito.when;
 @TestConfiguration
 @Import(ESTestConfiguration.class)
 public class ESSampleDataFixture {
+    /**
+     * Interested in addin more fixtures? Here's what you will need to update?
+     * 1. Create a new indexPrefix
+     * 2. Create a new FixtureName
+     * Both are needed or else all fixtures will load on top of each other,
+     * overwriting each other
+     */
 
     @Autowired
     private ESBulkProcessor _bulkProcessor;
@@ -72,13 +79,18 @@ public class ESSampleDataFixture {
         return "smpldat";
     }
 
+    @Bean(name = "longTailSampleDataPrefix")
+    protected String longTailIndexPrefix() {
+        return "longTailSmpldat";
+    }
+
     @Bean(name = "sampleDataIndexConvention")
     protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
         return new IndexConventionImpl(prefix);
     }
 
     @Bean(name = "sampleDataFixtureName")
-    protected String fixtureName() {
+    protected String sampleDataFixtureName() {
         return "sample_data";
     }
 
@@ -125,9 +137,10 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
             @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
             @Qualifier("sampleDataPrefix") String prefix,
-            @Qualifier("sampleDataFixtureName") String fixtureName
+            @Qualifier("sampleDataFixtureName") String sampleDataFixtureName
     ) throws IOException {
-        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, fixtureName);
+        SearchService test1 = searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, sampleDataFixtureName);
+        return test1;
     }
 
     @Bean(name = "longTailSampleDataSearchService")
@@ -136,13 +149,14 @@ public class ESSampleDataFixture {
             @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
             @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
-            @Qualifier("sampleDataPrefix") String prefix,
+            @Qualifier("longTailSampleDataPrefix") String longTailPrefix,
             @Qualifier("longTailFixtureName") String longTailFixtureName
     ) throws IOException {
-        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, prefix, longTailFixtureName);
+        SearchService test2 = searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, longTailPrefix, longTailFixtureName);
+        return test2;
     }
 
-    private SearchService searchServiceHelper(
+    public SearchService searchServiceHelper(
             EntityRegistry entityRegistry,
             ElasticSearchService entitySearchService,
             EntityIndexBuilders indexBuilders,

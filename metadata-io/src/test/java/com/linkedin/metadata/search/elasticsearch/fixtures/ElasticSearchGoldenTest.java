@@ -2,21 +2,29 @@ package com.linkedin.metadata.search.elasticsearch.fixtures;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ESSampleDataFixture;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
+
+import javax.annotation.Nonnull;
+import java.io.IOException;
 
 import static com.linkedin.metadata.ESTestUtils.searchAcrossEntities;
 import static org.testng.AssertJUnit.*;
 
 @Import(ESSampleDataFixture.class)
 public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
+
     @Autowired
     @Qualifier("longTailSampleDataSearchService")
     protected SearchService searchService;
