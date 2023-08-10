@@ -13,6 +13,8 @@ import java.util.Objects;
 
 public class DeprecationUtils {
 
+    private DeprecationUtils() { }
+
     @Nullable
     public static Deprecation getDeprecation(
             @Nonnull EntityService entityService,
