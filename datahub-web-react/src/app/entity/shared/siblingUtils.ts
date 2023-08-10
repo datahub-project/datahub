@@ -233,7 +233,7 @@ export function combineSiblingEntities(
         const entity = entityReadOnly as GenericEntityProperties;
         const siblings = entity.siblings?.siblings ?? [];
         const isPrimary = entity.siblings?.isPrimary;
-        const siblingUrns = siblings.map((sibling) => sibling?.urn) || [];
+        const siblingUrns = siblings.map((sibling) => sibling?.urn);
 
         if (siblingUrns.length > 0) {
             combinedResult.matchedEntities = isPrimary
