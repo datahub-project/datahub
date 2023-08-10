@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -58,6 +59,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
       final Filter baseFilter = ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
 
       SearchFlags searchFlags = mapInputFlags(input.getSearchFlags());
+      SortCriterion sortCriterion = input.getSortInput() != null ? mapSortCriterion(input.getSortInput().getSortCriterion()) : null;
 
       try {
         log.debug(
@@ -75,6 +77,7 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             start,
             count,
             searchFlags,
+            sortCriterion,
             ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(

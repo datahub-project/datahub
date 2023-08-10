@@ -11,11 +11,12 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import javax.annotation.Nonnull;
+
+import com.linkedin.metadata.entity.EntityUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
@@ -36,7 +37,7 @@ public class LinkUtils {
       Urn actor,
       EntityService entityService
   ) {
-    InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) getAspectFromEntity(
+    InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(),
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         entityService,
@@ -51,7 +52,7 @@ public class LinkUtils {
       Urn actor,
       EntityService entityService
   ) {
-    InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) MutationUtils.getAspectFromEntity(
+    InstitutionalMemory institutionalMemoryAspect = (InstitutionalMemory) EntityUtils.getAspectFromEntity(
         resourceUrn.toString(),
         Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME,
         entityService,
@@ -74,7 +75,7 @@ public class LinkUtils {
 
     InstitutionalMemoryMetadata newLink = new InstitutionalMemoryMetadata();
     newLink.setUrl(new Url(linkUrl));
-    newLink.setCreateStamp(getAuditStamp(actor));
+    newLink.setCreateStamp(EntityUtils.getAuditStamp(actor));
     newLink.setDescription(linkLabel); // We no longer support, this is really a label.
     linksArray.add(newLink);
   }

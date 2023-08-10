@@ -35,6 +35,7 @@ def ldap_ingest_common(
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
         wait_for_port(docker_services, "openldap", 389)
+        # without this ldap server can provide empty results
         time.sleep(5)
 
         with mock.patch(

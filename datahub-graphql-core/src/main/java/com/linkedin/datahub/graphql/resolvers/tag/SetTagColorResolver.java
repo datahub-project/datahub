@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
 import graphql.schema.DataFetcher;
@@ -55,7 +56,7 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
       }
 
       try {
-        TagProperties tagProperties = (TagProperties) getAspectFromEntity(
+        TagProperties tagProperties = (TagProperties) EntityUtils.getAspectFromEntity(
             tagUrn.toString(),
             TAG_PROPERTIES_ASPECT_NAME,
             _entityService,

@@ -360,6 +360,7 @@ public class AggregateAcrossEntitiesResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.eq(null),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenThrow(new RemoteInvocationException());
 
@@ -439,6 +440,7 @@ public class AggregateAcrossEntitiesResolverTest {
         Mockito.eq(start),
         Mockito.eq(limit),
         Mockito.eq(null),
+        Mockito.eq(null),
         Mockito.any(Authentication.class),
         Mockito.eq(facets)
     )).thenReturn(
@@ -463,6 +465,7 @@ public class AggregateAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
+            Mockito.eq(null),
             Mockito.eq(null),
             Mockito.any(Authentication.class),
             Mockito.eq(facets)

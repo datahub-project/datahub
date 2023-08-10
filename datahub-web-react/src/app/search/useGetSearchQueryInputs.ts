@@ -7,6 +7,7 @@ import { ENTITY_FILTER_NAME, FILTER_DELIMITER, UnionType } from './utils/constan
 import { useUserContext } from '../context/useUserContext';
 import useFilters from './utils/useFilters';
 import { generateOrFilters } from './utils/generateOrFilters';
+import useSortInput from './sorting/useSortInput';
 
 type SearchPageParams = {
     type?: string;
@@ -23,6 +24,7 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
     const viewUrn = userContext.localState?.selectedViewUrn;
+    const sortInput = useSortInput();
 
     const filters: Array<FacetFilterInput> = useFilters(params);
     const nonNestedFilters = filters.filter(
@@ -45,5 +47,5 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
         [nonNestedFilters, nestedFilters, unionType],
     );
 
-    return { entityFilters, query, unionType, filters, orFilters, viewUrn, page, activeType };
+    return { entityFilters, query, unionType, filters, orFilters, viewUrn, page, activeType, sortInput };
 }

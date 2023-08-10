@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.glossary.GlossaryRelatedTerms;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAspectFromEntity;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persistAspect;
 
 @Slf4j
@@ -51,7 +51,7 @@ public class RemoveRelatedTermsResolver implements DataFetcher<CompletableFuture
 
           Urn actor = Urn.createFromString(((QueryContext) context).getActorUrn());
 
-          GlossaryRelatedTerms glossaryRelatedTerms = (GlossaryRelatedTerms) getAspectFromEntity(
+          GlossaryRelatedTerms glossaryRelatedTerms = (GlossaryRelatedTerms) EntityUtils.getAspectFromEntity(
               urn.toString(),
               Constants.GLOSSARY_RELATED_TERM_ASPECT_NAME,
               _entityService,

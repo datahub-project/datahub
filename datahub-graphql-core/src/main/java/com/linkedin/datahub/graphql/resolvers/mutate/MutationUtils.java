@@ -1,12 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.mutate;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -23,13 +24,12 @@ import static com.linkedin.metadata.Constants.*;
 
 @Slf4j
 public class MutationUtils {
-  public static final String SCHEMA_ASPECT_NAME = "schemaMetadata";
 
   private MutationUtils() { }
 
   public static void persistAspect(Urn urn, String aspectName, RecordTemplate aspect, Urn actor, EntityService entityService) {
     final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(urn, aspectName, aspect);
-    entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+    entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
   }
 
   /**
@@ -76,38 +76,6 @@ public class MutationUtils {
     return proposal;
   }
 
-  public static RecordTemplate getAspectFromEntity(String entityUrn, String aspectName, EntityService entityService, RecordTemplate defaultValue) {
-    try {
-      RecordTemplate aspect = entityService.getAspect(
-          Urn.createFromString(entityUrn),
-          aspectName,
-          0
-      );
-
-      if (aspect == null) {
-        return defaultValue;
-      }
-
-      return aspect;
-    } catch (Exception e) {
-      log.error(
-          "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
-          entityUrn,
-          aspectName,
-          e.toString()
-      );
-      e.printStackTrace();
-      return null;
-    }
-  }
-
-  public static AuditStamp getAuditStamp(Urn actor) {
-    AuditStamp auditStamp = new AuditStamp();
-    auditStamp.setTime(System.currentTimeMillis());
-    auditStamp.setActor(actor);
-    return auditStamp;
-  }
-
   public static EditableSchemaFieldInfo getFieldInfoFromSchema(
       EditableSchemaMetadata editableSchemaMetadata,
       String fieldPath
@@ -139,7 +107,8 @@ public class MutationUtils {
       EntityService entityService
   ) {
     if (subResourceType.equals(SubResourceType.DATASET_FIELD)) {
-      SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn, SCHEMA_ASPECT_NAME, 0);
+      SchemaMetadata schemaMetadata = (SchemaMetadata) entityService.getAspect(targetUrn,
+              Constants.SCHEMA_METADATA_ASPECT_NAME, 0);
 
       if (schemaMetadata == null) {
         throw new IllegalArgumentException(

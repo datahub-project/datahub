@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -47,7 +48,7 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
         _entityService
       );
       try {
-        Domains domains = (Domains) getAspectFromEntity(
+        Domains domains = (Domains) EntityUtils.getAspectFromEntity(
             entityUrn.toString(),
             DOMAINS_ASPECT_NAME,
             _entityService,
