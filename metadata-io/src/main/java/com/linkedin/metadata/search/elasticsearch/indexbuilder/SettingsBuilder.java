@@ -83,13 +83,6 @@ public class SettingsBuilder {
   public static final String MULTIFILTER = "multifilter";
   public static final String MULTIFILTER_GRAPH = "multifilter_graph";
   public static final String PARTIAL_URN_COMPONENT = "partial_urn_component";
-  // how to set 2 3 and 4 .... ?
-  /* A: Like this
-    filters.put(MIN_LENGTH, ImmutableMap.<String, Object>builder()
-            .put(TYPE, "length")
-            .put("min", "3")
-            .build());
-   */
   public static final String SHINGLE = "shingle";
   public static final String WORD_GRAM_2_FILTER = "word_gram_2_filter";
   public static final String WORD_GRAM_3_FILTER = "word_gram_3_filter";
@@ -425,7 +418,10 @@ public class SettingsBuilder {
             .build());
 
     // Support word grams
-    for (Map.Entry<String, String> entry : Map.of(WORD_GRAM_2_ANALYZER, WORD_GRAM_2_FILTER, WORD_GRAM_3_ANALYZER, WORD_GRAM_3_FILTER, WORD_GRAM_4_ANALYZER, WORD_GRAM_4_FILTER).entrySet()) {
+    for (Map.Entry<String, String> entry : Map.of(
+        WORD_GRAM_2_ANALYZER, WORD_GRAM_2_FILTER,
+        WORD_GRAM_3_ANALYZER, WORD_GRAM_3_FILTER,
+        WORD_GRAM_4_ANALYZER, WORD_GRAM_4_FILTER).entrySet()) {
       String analyzerName = entry.getKey();
       String filterName = entry.getValue();
       analyzers.put(analyzerName, ImmutableMap.<String, Object>builder()

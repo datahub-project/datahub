@@ -373,13 +373,16 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         String testMoreSeparators = "quick.brown:fox jumped-LAZY_Dog";
         request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", testMoreSeparators);
         assertEquals(getTokens(request)
-            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("quick brown", "brown fox", "fox jumped", "jumped lazy", "lazy dog"));
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown", "brown fox", "fox jumped", "jumped lazy", "lazy dog"));
         request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", testMoreSeparators);
         assertEquals(getTokens(request)
-            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("quick brown fox", "brown fox jumped", "fox jumped lazy", "jumped lazy dog"));
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown fox", "brown fox jumped", "fox jumped lazy", "jumped lazy dog"));
         request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", testMoreSeparators);
         assertEquals(getTokens(request)
-            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("quick brown fox jumped", "brown fox jumped lazy", "fox jumped lazy dog"));
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown fox jumped", "brown fox jumped lazy", "fox jumped lazy dog"));
 
         String textWithQuotesAndDuplicateWord = "\"my_db.my_exact_table\"";
         request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithQuotesAndDuplicateWord);

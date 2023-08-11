@@ -108,7 +108,10 @@ public class MappingsBuilder {
                 )
         ));
         if (fieldType == FieldType.WORD_GRAM) {
-          for (Map.Entry<String, String> entry : Map.of(WORD_GRAMS_LENGTH_2, WORD_GRAM_2_ANALYZER, WORD_GRAMS_LENGTH_3, WORD_GRAM_3_ANALYZER, WORD_GRAMS_LENGTH_4, WORD_GRAM_4_ANALYZER).entrySet()) {
+          for (Map.Entry<String, String> entry : Map.of(
+              WORD_GRAMS_LENGTH_2, WORD_GRAM_2_ANALYZER,
+              WORD_GRAMS_LENGTH_3, WORD_GRAM_3_ANALYZER,
+              WORD_GRAMS_LENGTH_4, WORD_GRAM_4_ANALYZER).entrySet()) {
             String fieldName = entry.getKey();
             String analyzerName = entry.getValue();
             subFields.put(fieldName, ImmutableMap.of(
