@@ -527,7 +527,6 @@ def get_fully_qualified_table_name(
     upstream_db: str,
     schema: str,
     full_name: str,
-    lineage_platform_instance: Optional[str] = None,
 ) -> str:
     if platform == "athena":
         upstream_db = ""
@@ -560,9 +559,6 @@ def get_fully_qualified_table_name(
             fully_qualified_table_name.split(".")[-3:]
         )
 
-    if lineage_platform_instance:
-        fully_qualified_table_name = f"{lineage_platform_instance}.{fully_qualified_table_name}"
-
     return fully_qualified_table_name
 
 
@@ -583,7 +579,6 @@ def make_table_urn(
     full_name: str,
     platform_instance_map: Optional[Dict[str, str]],
     lineage_overrides: Optional[TableauLineageOverrides] = None,
-    lineage_platform_instance: Optional[str] = None,
 ) -> str:
     original_platform = platform = get_platform(connection_type)
     if (
@@ -602,7 +597,7 @@ def make_table_urn(
         upstream_db = lineage_overrides.database_override_map[upstream_db]
 
     table_name = get_fully_qualified_table_name(
-        original_platform, upstream_db, schema, full_name, lineage_platform_instance
+        original_platform, upstream_db, schema, full_name
     )
     platform_instance = get_platform_instance(original_platform, platform_instance_map)
     return builder.make_dataset_urn_with_platform_instance(
