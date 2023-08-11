@@ -19,7 +19,9 @@ export const TestCardActions = ({ test, showEdit, showDelete, onClickEdit, onCli
     return (
         <Container>
             {showEdit && <TestCardEditButton onClickEdit={onClickEdit} index={index} />}
-            {showDelete && test.urn && <TestCardActionMenu onClickDelete={onClickDelete} index={index} />}
+            {showDelete && test.urn && (
+                <TestCardActionMenu onClickDelete={onClickDelete} index={index} urn={test.urn} />
+            )}
         </Container>
     );
 };

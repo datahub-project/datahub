@@ -10,15 +10,25 @@ const StyledMoreOutlined = styled(MoreOutlined)`
 type Props = {
     onClickDelete: () => void;
     index?: number;
+    urn: string;
 };
 
-export default function TestCardActionMenu({ onClickDelete, index }: Props) {
+export default function TestCardActionMenu({ onClickDelete, index, urn }: Props) {
     return (
         <Dropdown
             overlay={
                 <Menu>
                     <Menu.Item key="0" onClick={onClickDelete} data-testid={`test-delete-button-${index}`}>
                         <DeleteOutlined /> &nbsp; Delete
+                    </Menu.Item>
+                    <Menu.Item
+                        key="1"
+                        onClick={() => {
+                            navigator.clipboard.writeText(urn);
+                        }}
+                        data-testid={`test-copy-button-${index}`}
+                    >
+                        &nbsp; Copy URN
                     </Menu.Item>
                 </Menu>
             }
