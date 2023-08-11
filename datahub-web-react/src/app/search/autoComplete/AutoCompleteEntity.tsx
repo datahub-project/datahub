@@ -103,7 +103,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                         {platformNames.length > 0 && (
                             <>
                                 <PlatformText>{platformNames.join(' & ')}</PlatformText>
-                                <PlatformDivider />
+                                {!!parentContainers.length && <PlatformDivider />}
                             </>
                         )}
                         <ParentContainers parentContainers={parentContainers} />
