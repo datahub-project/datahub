@@ -10,7 +10,10 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -27,9 +30,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -40,17 +45,22 @@ import java.util.stream.Stream;
 public class DataGenerator {
     private final static Faker FAKER = new Faker();
     private final EntityRegistry entityRegistry;
+    private final EntityService entityService;
 
-    public DataGenerator(EntityRegistry entityRegistry) {
-        this.entityRegistry = entityRegistry;
+    public DataGenerator(EntityService entityService) {
+        this.entityService = entityService;
+        this.entityRegistry = entityService.getEntityRegistry();
     }
 
-    public Stream<MetadataChangeProposal> generateDatasets() {
+    public Stream<List<MetadataChangeProposal>> generateDatasets() {
         return generateMCPs("dataset", 10, List.of());
     }
 
-    public Stream<MetadataChangeProposal> generateMCPs(String entityName, long count, List<String> aspects) {
+    public Stream<List<MetadataChangeProposal>> generateMCPs(String entityName, long count, List<String> aspects) {
         EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+
+        // Prevent duplicate tags and terms generated as secondary entities
+        Set<Urn> secondaryUrns = new HashSet<>();
 
         return LongStream.range(0, count).mapToObj(idx -> {
             RecordTemplate key = randomKeyAspect(entitySpec);
@@ -62,20 +72,30 @@ public class DataGenerator {
             mcp.setChangeType(ChangeType.UPSERT);
             return mcp;
         }).flatMap(mcp -> {
+            // Expand with additional random aspects
             List<MetadataChangeProposal> additionalMCPs = new LinkedList<>();
 
-            // Expand with aspects
             for (String aspectName : aspects) {
                 AspectSpec aspectSpec = entitySpec.getAspectSpec(aspectName);
                 if (aspectSpec == null) {
                     throw new IllegalStateException("Aspect " + aspectName + " not found for entity " + entityName);
                 }
 
-                RecordTemplate aspect = overrideRandomAspectSuppliers.getOrDefault(aspectName,
+                RecordTemplate aspect = randomAspectGenerators.getOrDefault(aspectName,
                                 DataGenerator::defaultRandomAspect).apply(entitySpec, aspectSpec);
 
-                // Maybe nested, like globalTags/glossaryTerms
-                additionalMCPs.addAll(generateRandomNestedArray(aspect, aspectSpec, 5));
+                // Maybe generate nested entities at the same time, like globalTags/glossaryTerms
+                List<MetadataChangeProposal> secondaryEntities = nestedRandomAspectGenerators.getOrDefault(aspectSpec.getName(),
+                        (a, c) -> List.of()).apply(aspect, 5).stream()
+                        .filter(secondaryMCP -> {
+                            if (!secondaryUrns.contains(secondaryMCP.getEntityUrn())) {
+                                secondaryUrns.add(secondaryMCP.getEntityUrn());
+                                return true;
+                            }
+                            return false;
+                        })
+                        .collect(Collectors.toList());
+                additionalMCPs.addAll(secondaryEntities);
 
                 MetadataChangeProposal additionalMCP = new MetadataChangeProposal();
                 additionalMCP.setEntityType(entitySpec.getName());
@@ -88,10 +108,68 @@ public class DataGenerator {
             }
 
             return Stream.concat(Stream.of(mcp), additionalMCPs.stream());
+        }).map(mcp -> {
+            // Expand with default aspects per normal
+            return Stream.concat(Stream.of(mcp),
+                    AspectUtils.getAdditionalChanges(mcp, entityService, true).stream()).collect(Collectors.toList());
         });
     }
 
-    public static Map<String, BiFunction<EntitySpec, AspectSpec, ? extends RecordTemplate>> overrideRandomAspectSuppliers = Map.of(
+    public static Map<String, BiFunction<EntitySpec, AspectSpec, ? extends RecordTemplate>> randomAspectGenerators = Map.of(
+            "glossaryTermInfo", (e, a) -> {
+                GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo)  defaultRandomAspect(e, a);
+                glossaryTermInfo.setName(normalize(FAKER.company().buzzword()));
+                return glossaryTermInfo;
+            }
+    );
+
+    public Map<String, BiFunction<RecordTemplate, Integer, List<MetadataChangeProposal>>> nestedRandomAspectGenerators = Map.of(
+            "globalTags", (aspect, count) -> {
+                try {
+                    List<MetadataChangeProposal> tags = generateMCPs("tag", count, List.of())
+                            .map(mcps -> mcps.get(0))
+                            .collect(Collectors.toList());
+                    Method setTagsMethod = aspect.getClass().getMethod("setTags", TagAssociationArray.class);
+                    TagAssociationArray tagAssociations = new TagAssociationArray();
+                    tagAssociations.addAll(tags.stream().map(
+                            tagMCP -> {
+                                try {
+                                    return new TagAssociation().setTag(TagUrn.createFromUrn(tagMCP.getEntityUrn()));
+                                } catch (URISyntaxException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                    ).collect(Collectors.toList()));
+                    setTagsMethod.invoke(aspect, tagAssociations);
+                    return tags;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            },
+            "glossaryTerms", (aspect, count) -> {
+                try {
+                    List<MetadataChangeProposal> terms = generateMCPs("glossaryTerm", count,
+                            List.of("glossaryTermInfo"))
+                            .map(mcps -> mcps.get(0))
+                            .collect(Collectors.toList());
+                    Method setTermsMethod = aspect.getClass().getMethod("setTerms", GlossaryTermAssociationArray.class);
+                    GlossaryTermAssociationArray termAssociations = new GlossaryTermAssociationArray();
+                    termAssociations.addAll(terms.stream().map(
+                            termMCP -> {
+                                try {
+                                    return new GlossaryTermAssociation()
+                                            .setUrn(GlossaryTermUrn.createFromUrn(termMCP.getEntityUrn()));
+                                } catch (URISyntaxException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                    ).collect(Collectors.toList()));
+                    setTermsMethod.invoke(aspect, termAssociations);
+                    return terms;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
     );
 
     private static RecordTemplate defaultRandomAspect(@Nonnull EntitySpec entitySpec, @Nonnull AspectSpec aspectSpec) {
@@ -116,15 +194,10 @@ public class DataGenerator {
                     .collect(Collectors.toList());
 
             for (Method stringMethod : stringMethods) {
-                String value = FAKER.lorem().characters(8, 16, false);
-
-                switch (aspectSpec.getName()) {
-                    case "glossaryTermInfo":
-                        if (stringMethod.getName().equals("setName")) {
-                            value = normalize(FAKER.company().buzzword());
-                        }
-                        break;
+                String value;
+                switch (aspectSpec.getName() + "_" + stringMethod.getName()) {
                     default:
+                        value = FAKER.lorem().characters(8, 16, false);
                         break;
                 }
 
@@ -137,6 +210,19 @@ public class DataGenerator {
                 stringMethod.invoke(aspect, value);
             }
 
+            List<Method> enumMethods = Arrays.stream(aspectClass.getMethods())
+                    .filter(m -> m.getName().startsWith("set")
+                            && m.getParameterCount() == 1
+                            && m.getParameterTypes()[0].isEnum())
+                    .collect(Collectors.toList());
+
+            for (Method enumMethod : enumMethods) {
+                Object[] enumClass = enumMethod.getParameterTypes()[0].getEnumConstants();
+                // Excluding $UNKNOWNs
+                enumMethod.invoke(aspect, enumClass[FAKER.random().nextInt(0, enumClass.length - 2)]);
+            }
+
+            // auditStamp
             Arrays.stream(aspectClass.getMethods())
                     .filter(m -> m.getName().startsWith("set")
                             && m.getParameterCount() == 1
@@ -153,50 +239,6 @@ public class DataGenerator {
                     });
 
             return aspectClass.cast(aspect);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private List<MetadataChangeProposal> generateRandomNestedArray(RecordTemplate aspect, AspectSpec nestedAspect, int count) {
-        try {
-            switch (nestedAspect.getName()) {
-                case "globalTags":
-                    List<MetadataChangeProposal> tags = generateMCPs("tag", count, List.of())
-                            .collect(Collectors.toList());
-                    Method setTagsMethod = aspect.getClass().getMethod("setTags", TagAssociationArray.class);
-                    TagAssociationArray tagAssociations = new TagAssociationArray();
-                    tagAssociations.addAll(tags.stream().map(
-                            tagMCP -> {
-                                try {
-                                    return new TagAssociation().setTag(TagUrn.createFromUrn(tagMCP.getEntityUrn()));
-                                } catch (URISyntaxException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                    ).collect(Collectors.toList()));
-                    setTagsMethod.invoke(aspect, tagAssociations);
-                    return tags;
-                case "glossaryTerms":
-                    List<MetadataChangeProposal> terms = generateMCPs("glossaryTerm", count,
-                            List.of("glossaryTermInfo")).collect(Collectors.toList());
-                    Method setTermsMethod = aspect.getClass().getMethod("setTerms", GlossaryTermAssociationArray.class);
-                    GlossaryTermAssociationArray termAssociations = new GlossaryTermAssociationArray();
-                    termAssociations.addAll(terms.stream().map(
-                            termMCP -> {
-                                try {
-                                    return new GlossaryTermAssociation()
-                                            .setUrn(GlossaryTermUrn.createFromUrn(termMCP.getEntityUrn()));
-                                } catch (URISyntaxException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            }
-                    ).collect(Collectors.toList()));
-                    setTermsMethod.invoke(aspect, termAssociations);
-                    return terms;
-                default:
-                    return List.of();
-            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -220,6 +262,9 @@ public class DataGenerator {
                 case "glossaryTerm":
                     stringMethods.get(0).invoke(key, normalize(UUID.randomUUID().toString()));
                     break;
+                case "container":
+                    stringMethods.get(0).invoke(key, FAKER.examplify("b5e95fce839e7d78151ed7e0a7420d84"));
+                    break;
                 default:
                     switch (stringMethods.size()) {
                         case 1:
@@ -237,6 +282,7 @@ public class DataGenerator {
                             stringMethods.get(2).invoke(key, animal.name().toLowerCase());
                             break;
                     }
+                    break;
             }
 
             List<Method> urnMethods = Arrays.stream(keyClass.getMethods())
@@ -249,7 +295,7 @@ public class DataGenerator {
                 switch (entitySpec.getName()) {
                     case "dataset":
                         urnMethod.invoke(key, randomUrnLowerCase("dataPlatform",
-                                List.of(FAKER.device().platform())));
+                                List.of(randomDataPlatform())));
                         break;
                     default:
                         throw new NotImplementedException(entitySpec.getName());
@@ -299,5 +345,15 @@ public class DataGenerator {
 
     private static String normalize(String input) {
         return input.toLowerCase().replaceAll("\\W+", "_");
+    }
+
+    private static String randomDataPlatform() {
+        String[] platforms = {
+                "ambry", "bigquery", "couchbase", "druid", "external", "feast", "glue", "hdfs", "hive", "kafka", "kusto",
+                "looker", "mongodb", "mssql", "mysql", "oracle", "pinot", "postgres", "presto", "redshift", "s3",
+                "sagemaker", "snowflake", "teradata", "voldemort"
+        };
+
+        return platforms[FAKER.random().nextInt(0, platforms.length - 1)];
     }
 }

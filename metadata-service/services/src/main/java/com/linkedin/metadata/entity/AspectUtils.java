@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.datahub.authentication.Authentication;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -24,6 +25,8 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTimeUtils;
 
+import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
+
 
 @Slf4j
 public class AspectUtils {
@@ -32,21 +35,44 @@ public class AspectUtils {
   }
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
-      @Nonnull MetadataChangeProposal metadataChangeProposal,
-      @Nonnull EntityService entityService) {
+          @Nonnull MetadataChangeProposal metadataChangeProposal,
+          @Nonnull EntityService entityService,
+          boolean onPrimaryKeyInsertOnly) {
+
     // No additional changes for delete operation
     if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
       return Collections.emptyList();
     }
 
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
-        entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
+            entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
-    return entityService.generateDefaultAspectsIfMissing(urn, ImmutableSet.of(metadataChangeProposal.getAspectName()))
-        .stream()
-        .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
+    RecordTemplate aspectRecord = GenericRecordUtils.deserializeAspect(
+            metadataChangeProposal.getAspect().getValue(),
+            JSON,
+            entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpec(metadataChangeProposal.getAspectName()));
+
+    if (onPrimaryKeyInsertOnly) {
+      return entityService.generateDefaultAspectsOnFirstWrite(urn, ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord))
+              .getValue()
+              .stream()
+              .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
+    } else {
+      return entityService.generateDefaultAspectsIfMissing(urn, ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord))
+              .stream()
+              .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toList());
+    }
+  }
+
+  public static List<MetadataChangeProposal> getAdditionalChanges(
+          @Nonnull MetadataChangeProposal metadataChangeProposal,
+          @Nonnull EntityService entityService) {
+
+    return getAdditionalChanges(metadataChangeProposal, entityService, false);
   }
 
   public static Map<Urn, Aspect> batchGetLatestAspect(

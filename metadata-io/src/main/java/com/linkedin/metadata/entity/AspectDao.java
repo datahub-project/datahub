@@ -57,34 +57,36 @@ public interface AspectDao {
     Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects);
 
     void saveAspect(
-        @Nonnull final String urn,
-        @Nonnull final String aspectName,
-        @Nonnull final String aspectMetadata,
-        @Nonnull final String actor,
-        @Nullable final String impersonator,
-        @Nonnull final Timestamp timestamp,
-        @Nonnull final String systemMetadata,
-        final long version,
-        final boolean insert);
+            @Nullable Transaction tx,
+            @Nonnull final String urn,
+            @Nonnull final String aspectName,
+            @Nonnull final String aspectMetadata,
+            @Nonnull final String actor,
+            @Nullable final String impersonator,
+            @Nonnull final Timestamp timestamp,
+            @Nonnull final String systemMetadata,
+            final long version,
+            final boolean insert);
 
-    void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert);
+    void saveAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect, final boolean insert);
 
     long saveLatestAspect(
-        @Nonnull final String urn,
-        @Nonnull final String aspectName,
-        @Nullable final String oldAspectMetadata,
-        @Nullable final String oldActor,
-        @Nullable final String oldImpersonator,
-        @Nullable final Timestamp oldTime,
-        @Nullable final String oldSystemMetadata,
-        @Nonnull final String newAspectMetadata,
-        @Nonnull final String newActor,
-        @Nullable final String newImpersonator,
-        @Nonnull final Timestamp newTime,
-        @Nullable final String newSystemMetadata,
-        final Long nextVersion);
+            @Nullable Transaction tx,
+            @Nonnull final String urn,
+            @Nonnull final String aspectName,
+            @Nullable final String oldAspectMetadata,
+            @Nullable final String oldActor,
+            @Nullable final String oldImpersonator,
+            @Nullable final Timestamp oldTime,
+            @Nullable final String oldSystemMetadata,
+            @Nonnull final String newAspectMetadata,
+            @Nonnull final String newActor,
+            @Nullable final String newImpersonator,
+            @Nonnull final Timestamp newTime,
+            @Nullable final String newSystemMetadata,
+            final Long nextVersion);
 
-    void deleteAspect(@Nonnull final EntityAspect aspect);
+    void deleteAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect);
 
     @Nonnull
     ListResult<String> listUrns(
@@ -101,7 +103,7 @@ public interface AspectDao {
     @Nonnull
     PagedList<EbeanAspectV2> getPagedAspects(final RestoreIndicesArgs args);
 
-    int deleteUrn(@Nonnull final String urn);
+    int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn);
 
     @Nonnull
     ListResult<String> listLatestAspectMetadata(

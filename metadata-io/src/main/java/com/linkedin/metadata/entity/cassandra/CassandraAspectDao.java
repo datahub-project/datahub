@@ -163,7 +163,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nullable Transaction tx, @Nonnull EntityAspect aspect, final boolean insert) {
     validateConnection();
     SimpleStatement statement = generateSaveStatement(aspect, insert);
     _cqlSession.execute(statement);
@@ -333,7 +333,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void deleteAspect(@Nonnull final EntityAspect aspect) {
+  public void deleteAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect) {
     validateConnection();
     SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
@@ -346,7 +346,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public int deleteUrn(@Nonnull final String urn) {
+  public int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn) {
     validateConnection();
     SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn))
@@ -489,19 +489,20 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public long saveLatestAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nullable final String oldAspectMetadata,
-      @Nullable final String oldActor,
-      @Nullable final String oldImpersonator,
-      @Nullable final Timestamp oldTime,
-      @Nullable final String oldSystemMetadata,
-      @Nonnull final String newAspectMetadata,
-      @Nonnull final String newActor,
-      @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata,
-      final Long nextVersion
+          @Nullable Transaction tx,
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nullable final String oldAspectMetadata,
+          @Nullable final String oldActor,
+          @Nullable final String oldImpersonator,
+          @Nullable final Timestamp oldTime,
+          @Nullable final String oldSystemMetadata,
+          @Nonnull final String newAspectMetadata,
+          @Nonnull final String newActor,
+          @Nullable final String newImpersonator,
+          @Nonnull final Timestamp newTime,
+          @Nullable final String newSystemMetadata,
+          final Long nextVersion
   ) {
 
     validateConnection();
@@ -587,15 +588,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public void saveAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final String aspectMetadata,
-      @Nonnull final String actor,
-      @Nullable final String impersonator,
-      @Nonnull final Timestamp timestamp,
-      @Nonnull final String systemMetadata,
-      final long version,
-      final boolean insert) {
+          @Nullable Transaction tx,
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nonnull final String aspectMetadata,
+          @Nonnull final String actor,
+          @Nullable final String impersonator,
+          @Nonnull final Timestamp timestamp,
+          @Nonnull final String systemMetadata,
+          final long version,
+          final boolean insert) {
 
     validateConnection();
     final EntityAspect aspect = new EntityAspect(
@@ -609,7 +611,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         impersonator
     );
 
-    saveAspect(aspect, insert);
+    saveAspect(tx, aspect, insert);
 
     // metrics
     incrementWriteMetrics(aspectName, 1, aspectMetadata.getBytes(StandardCharsets.UTF_8).length);

@@ -90,6 +90,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.persistence.EntityNotFoundException;
 
+import io.ebean.Transaction;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
@@ -595,7 +596,7 @@ public class EntityServiceImpl implements EntityService {
 
                 final UpdateAspectResult result;
                 if (overwrite || latest == null) {
-                  result = ingestAspectToLocalDBNoTransaction(item.getUrn(), item.getAspectName(), item.getAspect(),
+                  result = ingestAspectToLocalDB(tx, item.getUrn(), item.getAspectName(), item.getAspect(),
                           auditStamp, item.getSystemMetadata(), latest, nextVersion).toBuilder().request(item).build();
 
                   // support inner-batch upserts
@@ -1198,63 +1199,93 @@ public class EntityServiceImpl implements EntityService {
   }
 
   @Override
-  public List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(@Nonnull final Urn urn,
-      Set<String> includedAspects) {
+  public Pair<Boolean, List<Pair<String, RecordTemplate>>> generateDefaultAspectsOnFirstWrite(@Nonnull final Urn urn,
+                                                                               Map<String, RecordTemplate> includedAspects) {
+    List<Pair<String, RecordTemplate>> returnAspects = new ArrayList<>();
 
-    Set<String> aspectsToGet = new HashSet<>();
-    String entityType = urnToEntityName(urn);
-
-    boolean shouldCheckBrowsePath = isAspectMissing(entityType, BROWSE_PATHS_ASPECT_NAME, includedAspects);
-    if (shouldCheckBrowsePath) {
-      aspectsToGet.add(BROWSE_PATHS_ASPECT_NAME);
-    }
-
-    boolean shouldCheckBrowsePathV2 = isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects);
-    if (shouldCheckBrowsePathV2) {
-      aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
-    }
-
-    boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE_ASPECT_NAME, includedAspects);
-    if (shouldCheckDataPlatform) {
-      aspectsToGet.add(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
-    }
-
-    List<Pair<String, RecordTemplate>> aspects = new ArrayList<>();
     final String keyAspectName = getKeyAspectName(urn);
-    aspectsToGet.add(keyAspectName);
+    final Map<String, RecordTemplate> latestAspects = new HashMap<>(getLatestAspectsForUrn(urn, Set.of(keyAspectName)));
 
-    Map<String, RecordTemplate> latestAspects = getLatestAspectsForUrn(urn, aspectsToGet);
+    // key aspect: does not exist in database && is being written
+    boolean generateDefaults = !latestAspects.containsKey(keyAspectName) && includedAspects.containsKey(keyAspectName);
 
-    RecordTemplate keyAspect = latestAspects.get(keyAspectName);
-    if (keyAspect == null) {
-      keyAspect = EntityUtils.buildKeyAspect(_entityRegistry, urn);
-      aspects.add(Pair.of(keyAspectName, keyAspect));
-    }
+    // conditionally generate defaults
+    if (generateDefaults) {
+      String entityType = urnToEntityName(urn);
+      Set<String> aspectsToGet = new HashSet<>();
 
-    if (shouldCheckBrowsePath && latestAspects.get(BROWSE_PATHS_ASPECT_NAME) == null) {
-      try {
-        BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
-        aspects.add(Pair.of(BROWSE_PATHS_ASPECT_NAME, generatedBrowsePath));
-      } catch (URISyntaxException e) {
-        log.error("Failed to parse urn: {}", urn);
+      boolean shouldCheckBrowsePath = isAspectMissing(entityType, BROWSE_PATHS_ASPECT_NAME, includedAspects.keySet());
+      if (shouldCheckBrowsePath) {
+        aspectsToGet.add(BROWSE_PATHS_ASPECT_NAME);
+      }
+
+      boolean shouldCheckBrowsePathV2 = isAspectMissing(entityType, BROWSE_PATHS_V2_ASPECT_NAME, includedAspects.keySet());
+      if (shouldCheckBrowsePathV2) {
+        aspectsToGet.add(BROWSE_PATHS_V2_ASPECT_NAME);
+      }
+
+      boolean shouldCheckDataPlatform = isAspectMissing(entityType, DATA_PLATFORM_INSTANCE_ASPECT_NAME, includedAspects.keySet());
+      if (shouldCheckDataPlatform) {
+        aspectsToGet.add(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+      }
+
+      // fetch additional aspects
+      latestAspects.putAll(getLatestAspectsForUrn(urn, aspectsToGet));
+
+      if (shouldCheckBrowsePath && latestAspects.get(BROWSE_PATHS_ASPECT_NAME) == null
+              && !includedAspects.containsKey(BROWSE_PATHS_ASPECT_NAME)) {
+        try {
+          BrowsePaths generatedBrowsePath = buildDefaultBrowsePath(urn);
+          returnAspects.add(Pair.of(BROWSE_PATHS_ASPECT_NAME, generatedBrowsePath));
+        } catch (URISyntaxException e) {
+          log.error("Failed to parse urn: {}", urn);
+        }
+      }
+
+      if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null
+              && !includedAspects.containsKey(BROWSE_PATHS_V2_ASPECT_NAME)) {
+        try {
+          BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
+          returnAspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
+        } catch (URISyntaxException e) {
+          log.error("Failed to parse urn: {}", urn);
+        }
+      }
+
+      if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE_ASPECT_NAME) == null
+              && !includedAspects.containsKey(DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
+        RecordTemplate keyAspect = includedAspects.get(keyAspectName);
+        DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
+                .ifPresent(aspect -> returnAspects.add(Pair.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME, aspect)));
       }
     }
 
-    if (shouldCheckBrowsePathV2 && latestAspects.get(BROWSE_PATHS_V2_ASPECT_NAME) == null) {
-      try {
-        BrowsePathsV2 generatedBrowsePathV2 = buildDefaultBrowsePathV2(urn, false);
-        aspects.add(Pair.of(BROWSE_PATHS_V2_ASPECT_NAME, generatedBrowsePathV2));
-      } catch (URISyntaxException e) {
-        log.error("Failed to parse urn: {}", urn);
+    return Pair.of(latestAspects.containsKey(keyAspectName), returnAspects);
+  }
+
+  @Override
+  public List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(@Nonnull final Urn urn,
+      Map<String, RecordTemplate> includedAspects) {
+
+    final String keyAspectName = getKeyAspectName(urn);
+
+    if (includedAspects.containsKey(keyAspectName)) {
+      return generateDefaultAspectsOnFirstWrite(urn, includedAspects).getValue();
+    } else {
+      // No key aspect being written, generate it and potentially suggest writing it later
+      HashMap<String, RecordTemplate> includedWithKeyAspect = new HashMap<>(includedAspects);
+      Pair<String, RecordTemplate> keyAspect = Pair.of(keyAspectName, EntityUtils.buildKeyAspect(_entityRegistry, urn));
+      includedWithKeyAspect.put(keyAspect.getKey(), keyAspect.getValue());
+
+      Pair<Boolean, List<Pair<String, RecordTemplate>>> returnAspects = generateDefaultAspectsOnFirstWrite(urn, includedWithKeyAspect);
+
+      // missing key aspect in database, add it
+      if (!returnAspects.getFirst()) {
+        returnAspects.getValue().add(keyAspect);
       }
-    }
 
-    if (shouldCheckDataPlatform && latestAspects.get(DATA_PLATFORM_INSTANCE_ASPECT_NAME) == null) {
-      DataPlatformInstanceUtils.buildDataPlatformInstance(entityType, keyAspect)
-          .ifPresent(aspect -> aspects.add(Pair.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME, aspect)));
+      return returnAspects.getValue();
     }
-
-    return aspects;
   }
 
   private void ingestSnapshotUnion(@Nonnull final Snapshot snapshotUnion, @Nonnull final AuditStamp auditStamp,
@@ -1266,7 +1297,7 @@ public class EntityServiceImpl implements EntityService {
 
     log.info("INGEST urn {} with system metadata {}", urn.toString(), systemMetadata.toString());
     aspectRecordsToIngest.addAll(generateDefaultAspectsIfMissing(urn,
-        aspectRecordsToIngest.stream().map(Pair::getFirst).collect(Collectors.toSet())));
+        aspectRecordsToIngest.stream().collect(Collectors.toMap(Pair::getKey, Pair::getValue))));
 
     AspectsBatchImpl aspectsBatch = AspectsBatchImpl.builder()
             .items(aspectRecordsToIngest.stream().map(pair -> UpsertBatchItem.builder()
@@ -1572,7 +1603,7 @@ public class EntityServiceImpl implements EntityService {
 
       // 5. Apply deletes and fix up latest row
 
-      aspectsToDelete.forEach(aspect -> _aspectDao.deleteAspect(aspect));
+      aspectsToDelete.forEach(aspect -> _aspectDao.deleteAspect(tx, aspect));
 
       if (survivingAspect != null) {
         // if there was a surviving aspect, copy its information into the latest row
@@ -1583,15 +1614,15 @@ public class EntityServiceImpl implements EntityService {
         latest.setCreatedOn(survivingAspect.getCreatedOn());
         latest.setCreatedBy(survivingAspect.getCreatedBy());
         latest.setCreatedFor(survivingAspect.getCreatedFor());
-        _aspectDao.saveAspect(latest, false);
+        _aspectDao.saveAspect(tx, latest, false);
         // metrics
         _aspectDao.incrementWriteMetrics(aspectName, 1, latest.getAspect().getBytes(StandardCharsets.UTF_8).length);
-        _aspectDao.deleteAspect(survivingAspect);
+        _aspectDao.deleteAspect(tx, survivingAspect);
       } else {
         if (isKeyAspect) {
           if (hardDelete) {
             // If this is the key aspect, delete the entity entirely.
-            additionalRowsDeleted = _aspectDao.deleteUrn(urn);
+            additionalRowsDeleted = _aspectDao.deleteUrn(tx, urn);
           } else if (entitySpec.hasAspect(Constants.STATUS_ASPECT_NAME)) {
             // soft delete by setting status.removed=true (if applicable)
             final Status statusAspect = new Status();
@@ -1609,7 +1640,7 @@ public class EntityServiceImpl implements EntityService {
           }
         } else {
           // Else, only delete the specific aspect.
-          _aspectDao.deleteAspect(latest);
+          _aspectDao.deleteAspect(tx, latest);
         }
       }
 
@@ -1764,14 +1795,15 @@ public class EntityServiceImpl implements EntityService {
   }
 
   @Nonnull
-  private UpdateAspectResult ingestAspectToLocalDBNoTransaction(
-      @Nonnull final Urn urn,
-      @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp,
-      @Nonnull final SystemMetadata providedSystemMetadata,
-      @Nullable final EntityAspect latest,
-      @Nonnull final Long nextVersion) {
+  private UpdateAspectResult ingestAspectToLocalDB(
+          @Nullable Transaction tx,
+          @Nonnull final Urn urn,
+          @Nonnull final String aspectName,
+          @Nonnull final RecordTemplate newValue,
+          @Nonnull final AuditStamp auditStamp,
+          @Nonnull final SystemMetadata providedSystemMetadata,
+          @Nullable final EntityAspect latest,
+          @Nonnull final Long nextVersion) {
 
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =
@@ -1786,7 +1818,7 @@ public class EntityServiceImpl implements EntityService {
       latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 
       log.info("Ingesting aspect with name {}, urn {}", aspectName, urn);
-      _aspectDao.saveAspect(latest, false);
+      _aspectDao.saveAspect(tx, latest, false);
 
       // metrics
       _aspectDao.incrementWriteMetrics(aspectName, 1, latest.getAspect().getBytes(StandardCharsets.UTF_8).length);
@@ -1806,7 +1838,7 @@ public class EntityServiceImpl implements EntityService {
     // 4. Save the newValue as the latest version
     log.debug("Ingesting aspect with name {}, urn {}", aspectName, urn);
     String newValueStr = EntityUtils.toJsonAspect(newValue);
-    long versionOfOld = _aspectDao.saveLatestAspect(urn.toString(), aspectName, latest == null ? null : EntityUtils.toJsonAspect(oldValue),
+    long versionOfOld = _aspectDao.saveLatestAspect(tx, urn.toString(), aspectName, latest == null ? null : EntityUtils.toJsonAspect(oldValue),
         latest == null ? null : latest.getCreatedBy(), latest == null ? null : latest.getCreatedFor(),
         latest == null ? null : latest.getCreatedOn(), latest == null ? null : latest.getSystemMetadata(),
             newValueStr, auditStamp.getActor().toString(),

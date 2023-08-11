@@ -17,7 +17,6 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
-import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.DuplicateKeyException;
@@ -30,10 +29,8 @@ import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
-import io.ebean.annotation.Platform;
 import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.util.ArrayList;
@@ -42,18 +39,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import io.ebean.SerializableConflictException;
-import javax.persistence.RollbackException;
+
+import javax.persistence.PersistenceException;
 import javax.persistence.Table;
 
-import io.ebean.config.dbplatform.DatabasePlatform;
-import io.ebean.plugin.SpiServer;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
@@ -114,19 +108,20 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public long saveLatestAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nullable final String oldAspectMetadata,
-      @Nullable final String oldActor,
-      @Nullable final String oldImpersonator,
-      @Nullable final Timestamp oldTime,
-      @Nullable final String oldSystemMetadata,
-      @Nonnull final String newAspectMetadata,
-      @Nonnull final String newActor,
-      @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata,
-      final Long nextVersion
+          @Nullable Transaction tx,
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nullable final String oldAspectMetadata,
+          @Nullable final String oldActor,
+          @Nullable final String oldImpersonator,
+          @Nullable final Timestamp oldTime,
+          @Nullable final String oldSystemMetadata,
+          @Nonnull final String newAspectMetadata,
+          @Nonnull final String newActor,
+          @Nullable final String newImpersonator,
+          @Nonnull final Timestamp newTime,
+          @Nullable final String newSystemMetadata,
+          final Long nextVersion
   ) {
 
     validateConnection();
@@ -137,26 +132,27 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     long largestVersion = ASPECT_LATEST_VERSION;
     if (oldAspectMetadata != null && oldTime != null) {
       largestVersion = nextVersion;
-      saveAspect(urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
+      saveAspect(tx, urn, aspectName, oldAspectMetadata, oldActor, oldImpersonator, oldTime, oldSystemMetadata, largestVersion, true);
     }
 
     // Save newValue as the latest version (v0)
-    saveAspect(urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
+    saveAspect(tx, urn, aspectName, newAspectMetadata, newActor, newImpersonator, newTime, newSystemMetadata, ASPECT_LATEST_VERSION, oldAspectMetadata == null);
 
     return largestVersion;
   }
 
   @Override
   public void saveAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final String aspectMetadata,
-      @Nonnull final String actor,
-      @Nullable final String impersonator,
-      @Nonnull final Timestamp timestamp,
-      @Nonnull final String systemMetadata,
-      final long version,
-      final boolean insert) {
+          @Nullable Transaction tx,
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nonnull final String aspectMetadata,
+          @Nonnull final String actor,
+          @Nullable final String impersonator,
+          @Nonnull final Timestamp timestamp,
+          @Nonnull final String systemMetadata,
+          final long version,
+          final boolean insert) {
 
     validateConnection();
 
@@ -170,21 +166,21 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       aspect.setCreatedFor(impersonator);
     }
 
-    saveEbeanAspect(aspect, insert);
+    saveEbeanAspect(tx, aspect, insert);
   }
 
   @Override
-  public void saveAspect(@Nonnull final EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect, final boolean insert) {
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
-    saveEbeanAspect(ebeanAspect, insert);
+    saveEbeanAspect(tx, ebeanAspect, insert);
   }
 
-  private void saveEbeanAspect(@Nonnull final EbeanAspectV2 ebeanAspect, final boolean insert) {
+  private void saveEbeanAspect(@Nullable Transaction tx, @Nonnull final EbeanAspectV2 ebeanAspect, final boolean insert) {
     validateConnection();
     if (insert) {
-      _server.insert(ebeanAspect);
+      _server.insert(ebeanAspect, tx);
     } else {
-      _server.update(ebeanAspect);
+      _server.update(ebeanAspect, tx);
     }
   }
 
@@ -238,16 +234,16 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void deleteAspect(@Nonnull final EntityAspect aspect) {
+  public void deleteAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect) {
     validateConnection();
     EbeanAspectV2 ebeanAspect = EbeanAspectV2.fromEntityAspect(aspect);
-    _server.delete(ebeanAspect);
+    _server.delete(ebeanAspect, tx);
   }
 
   @Override
-  public int deleteUrn(@Nonnull final String urn) {
+  public int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn) {
     validateConnection();
-    return _server.createQuery(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).delete();
+    return _server.createQuery(EbeanAspectV2.class).where().eq(EbeanAspectV2.URN_COLUMN, urn).delete(tx);
   }
 
   @Override
@@ -515,43 +511,17 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         transaction.commit();
         lastException = null;
         break;
-      } catch (RollbackException exception) {
-        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
-        lastException = exception;
-      } catch (DuplicateKeyException exception) {
-        if (batch != null && batch.getItems().stream().allMatch(a -> a.getAspectName().equals(a.getEntitySpec().getKeyAspectSpec().getName()))) {
-          log.warn("Skipping DuplicateKeyException retry since aspect is the key aspect.");
-        } else {
-          MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
-          lastException = exception;
-        }
-      } catch (SerializableConflictException exception) {
-        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
-
-        SpiServer pluginApi = _server.getPluginApi();
-        DatabasePlatform databasePlatform = pluginApi.getDatabasePlatform();
-
-        if (databasePlatform.isPlatform(Platform.POSTGRES)) {
-          Throwable cause = exception.getCause();
-          if (cause instanceof SQLException) {
-            SQLException sqlException = (SQLException) cause;
-            String sqlState = sqlException.getSQLState();
-            while (sqlState == null && sqlException.getCause() instanceof SQLException) {
-              sqlException = (SQLException) sqlException.getCause();
-              sqlState = sqlException.getSQLState();
-            }
-
-            // version 11.33.3 of io.ebean does not have a SerializableConflictException (will be available with version 11.44.1),
-            // therefore when using a PostgreSQL database we have to check the SQL state 40001 here to retry the transactions
-            // also in case of serialization errors ("could not serialize access due to concurrent update")
-            if (sqlState.equals("40001")) {
-              lastException = exception;
-              continue;
-            }
+      } catch (PersistenceException exception) {
+        if (exception instanceof DuplicateKeyException) {
+          if (batch != null && batch.getItems().stream().allMatch(a -> a.getAspectName().equals(a.getEntitySpec().getKeyAspectSpec().getName()))) {
+            log.warn("Skipping DuplicateKeyException retry since aspect is the key aspect. {}", batch.getUrnAspectsMap().keySet());
+            continue;
           }
         }
 
-        throw exception;
+        MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
+        log.warn("Retryable PersistenceException: {}", exception.getMessage());
+        lastException = exception;
       }
     } while (++retryCount <= maxTransactionRetry);
 
@@ -707,12 +677,6 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .entrySet().stream()
             .map(e -> Map.entry(e.getKey(), toAspectMap(e.getValue())))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-  }
-
-  private static void incrementExceptionMetrics(AspectsBatch batchOpt, Throwable failure) {
-    Optional.ofNullable(batchOpt).ifPresent(batch -> batch.getItems().stream()
-            .map(item -> buildMetricName(item.getEntitySpec(), item.getAspectSpec(), "retryLimitException"))
-            .forEach(metricName -> MetricUtils.exceptionCounter(BulkListener.class, metricName, failure)));
   }
 
   private static String buildMetricName(EntitySpec entitySpec, AspectSpec aspectSpec, String status) {

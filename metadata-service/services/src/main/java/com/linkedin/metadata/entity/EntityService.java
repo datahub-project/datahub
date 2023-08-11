@@ -220,8 +220,33 @@ public interface EntityService {
 
   String getKeyAspectName(@Nonnull final Urn urn);
 
+  /**
+   * Generate default aspects if not present in the database.
+   * @param urn entity urn
+   * @param includedAspects aspects being written
+   * @return additional aspects to be written
+   */
   List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(@Nonnull final Urn urn,
-      Set<String> includedAspects);
+                                                                     Map<String, RecordTemplate> includedAspects);
+
+  /**
+   * Generate default aspects if the entity key aspect is NOT in the database **AND**
+   * the key aspect is being written, present in `includedAspects`.
+   *
+   * Does not automatically create key aspects.
+   * @see EntityService#generateDefaultAspectsIfMissing if key aspects need autogeneration
+   *
+   * This version is more efficient in that it only generates additional writes
+   * when a new entity is being minted for the first time. The drawback is that it will not automatically
+   * add key aspects, in case the producer is not bothering to ensure that the entity exists
+   * before writing non-key aspects.
+   *
+   * @param urn entity urn
+   * @param includedAspects aspects being written
+   * @return whether key aspect exists in database and the additional aspects to be written
+   */
+  Pair<Boolean, List<Pair<String, RecordTemplate>>> generateDefaultAspectsOnFirstWrite(@Nonnull final Urn urn,
+                                                                                       Map<String, RecordTemplate> includedAspects);
 
   AspectSpec getKeyAspectSpec(@Nonnull final String entityName);
 
