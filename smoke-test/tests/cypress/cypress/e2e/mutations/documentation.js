@@ -19,7 +19,7 @@ describe("add, remove documentation and link to dataset", () => {
         cy.waitTextVisible("Share your knowledge by adding documentation and links to helpful resources.")
         cy.clickOptionWithText("Add Documentation");
         cy.focused().type(documentation);
-        cy.clickOptionWithTestId("propose-description");
+        cy.get("button").contains("Propose").click();
         cy.waitTextVisible("Proposed description update!").wait(3000);
         cy.waitTextVisible("No documentation yet");
         cy.clickOptionWithText("Inbox");
@@ -39,7 +39,7 @@ describe("add, remove documentation and link to dataset", () => {
         //add documentation, and propose, approve proposal
         cy.clickOptionWithText("Add Documentation");
         cy.focused().type(documentation);
-        cy.clickOptionWithTestId("propose-description");
+        cy.get("button").contains("Propose").click();
         cy.waitTextVisible("Proposed description update!").wait(3000);
         cy.waitTextVisible("No documentation yet");
         cy.clickOptionWithText("Inbox");
