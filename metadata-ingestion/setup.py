@@ -211,6 +211,20 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
+pyhive_common = {
+    # Acryl Data maintains a fork of PyHive
+    # - 0.6.11 adds support for table comments and column comments,
+    #   and also releases HTTP and HTTPS transport schemes
+    # - 0.6.12 adds support for Spark Thrift Server
+    # - 0.6.13 adds a small fix for Databricks
+    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
+    "acryl-pyhive[hive_pure_sasl]==0.6.14",
+    # As per https://github.com/datahub-project/datahub/issues/8405
+    # and https://github.com/dropbox/PyHive/issues/417, new versions
+    # of thrift break PyHive's hive+http transport.
+    "thrift<0.14.0",
+}
+
 microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
@@ -319,12 +333,8 @@ plugins: Dict[str, Set[str]] = {
         "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
+    | pyhive_common
     | {
-        # Acryl Data maintains a fork of PyHive
-        # - 0.6.11 adds support for table comments and column comments,
-        #   and also releases HTTP and HTTPS transport schemes
-        # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
         # Due to https://github.com/great-expectations/great_expectations/issues/6146,
         # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
@@ -349,9 +359,10 @@ plugins: Dict[str, Set[str]] = {
     "okta": {"okta~=1.7.0"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
+    "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
-    | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    | pyhive_common
+    | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
     "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
