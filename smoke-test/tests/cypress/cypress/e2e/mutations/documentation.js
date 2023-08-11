@@ -9,7 +9,9 @@ describe("add, remove documentation and link to dataset", () => {
     it("open test dataset page, add and remove dataset documentation", () => {
         //add documentation, and propose, decline proposal
         cy.loginWithCredentials();
-        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Schema");
+        cy.visit(
+            "/dataset/urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressDocumentationDataset,PROD)/Schema"
+          );
         cy.waitTextVisible("No documentation yet. Share your knowledge by adding documentation and links to helpful resources.");
         cy.waitTextVisible("Add Documentation")
         cy.get("[role='tab']").contains("Documentation").click();
@@ -29,7 +31,9 @@ describe("add, remove documentation and link to dataset", () => {
         cy.waitTextVisible("Are you sure you want to reject this proposal?");
         cy.get("button").contains("Yes").click();
         cy.waitTextVisible("Proposal declined.");
-        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Schema");
+        cy.visit(
+            "/dataset/urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressDocumentationDataset,PROD)/Schema"
+          );
         cy.get("[role='tab']").contains("Documentation").click();
         cy.waitTextVisible("No documentation yet")
         //add documentation, and propose, approve proposal
@@ -44,7 +48,9 @@ describe("add, remove documentation and link to dataset", () => {
         cy.waitTextVisible("Are you sure you want to accept this proposal?");
         cy.get("button").contains("Yes").click();
         cy.waitTextVisible("Successfully accepted the proposal!");
-        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Schema");
+        cy.visit(
+            "/dataset/urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressDocumentationDataset,PROD)/Schema"
+          );
         cy.get("[role='tab']").contains("Documentation").click();
         cy.ensureTextNotPresent("No documentation yet");
         cy.waitTextVisible(documentation);
@@ -65,7 +71,9 @@ describe("add, remove documentation and link to dataset", () => {
 
     it("open test dataset page, add and remove dataset link", () => {
         cy.loginWithCredentials();
-        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)/Schema");
+        cy.visit(
+            "/dataset/urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressDocumentationDataset,PROD)/Schema"
+          );
         cy.get("button").contains("Add Link").click();
         cy.get("#addLinkForm_url").type(wrong_url);
         cy.waitTextVisible("This field must be a valid url.");
