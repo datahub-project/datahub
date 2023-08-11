@@ -11,10 +11,10 @@ describe("add, remove documentation and link to dataset", () => {
         cy.loginWithCredentials();
         cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressDocumentationDataset,PROD)/Schema");
         cy.waitTextVisible("No documentation yet. Share your knowledge by adding documentation and links to helpful resources.");
-        cy.waitTextVisible("Add Documentation")
+        cy.waitTextVisible("Add Documentation");
         cy.get("[role='tab']").contains("Documentation").click();
-        cy.waitTextVisible("No documentation yet")
-        cy.waitTextVisible("Share your knowledge by adding documentation and links to helpful resources.")
+        cy.waitTextVisible("No documentation yet");
+        cy.waitTextVisible("Share your knowledge by adding documentation and links to helpful resources.");
         cy.clickOptionWithText("Add Documentation");
         cy.focused().type(documentation);
         cy.get("button").contains("Propose").click();
@@ -31,7 +31,7 @@ describe("add, remove documentation and link to dataset", () => {
         cy.waitTextVisible("Proposal declined.");
         cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressDocumentationDataset,PROD)/Schema");
         cy.get("[role='tab']").contains("Documentation").click();
-        cy.waitTextVisible("No documentation yet")
+        cy.waitTextVisible("No documentation yet");
         //add documentation, and propose, approve proposal
         cy.clickOptionWithText("Add Documentation");
         cy.focused().type(documentation);
@@ -69,7 +69,7 @@ describe("add, remove documentation and link to dataset", () => {
         cy.get("button").contains("Add Link").click();
         cy.get("#addLinkForm_url").type(wrong_url);
         cy.waitTextVisible("This field must be a valid url.");
-        cy.focused().clear()
+        cy.focused().clear();
         cy.waitTextVisible("A URL is required.");
         cy.focused().type(correct_url);
         cy.ensureTextNotPresent("This field must be a valid url.");
@@ -82,7 +82,7 @@ describe("add, remove documentation and link to dataset", () => {
         cy.get('[data-icon="delete"]').click();
         cy.waitTextVisible("Link Removed");
         cy.get(`[href='${correct_url}']`).should("not.exist");
-        cy.waitTextVisible("Add Documentation")
-        cy.waitTextVisible("No documentation yet")
+        cy.waitTextVisible("Add Documentation");
+        cy.waitTextVisible("No documentation yet");
     });
 });
