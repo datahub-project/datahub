@@ -22,7 +22,9 @@ from datahub.ingestion.source.bigquery_v2.common import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-# TODO: separation of api/extractor classes - client wise, functionality wise ?
+# Api interfaces are separated based on functionality they provide
+# rather than the underlying bigquery client that is used to
+# provide the functionality.
 class BigQueryAuditLogApi:
     def __init__(
         self,
@@ -34,7 +36,6 @@ class BigQueryAuditLogApi:
         self.rate_limit = rate_limit
         self.requests_per_min = requests_per_min
 
-    # TODO; should we refractor and move this to schema api , as this uses bigquery client ?
     def get_exported_bigquery_audit_metadata(
         self,
         bigquery_client: bigquery.Client,

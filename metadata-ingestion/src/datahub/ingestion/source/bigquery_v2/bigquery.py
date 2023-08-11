@@ -220,7 +220,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
-        self.bigquery_data_dictionary = BigQueryTechnicalSchemaApi(self.report)
+        self.bigquery_data_dictionary = BigQueryTechnicalSchemaApi(
+            self.report, self.config.get_bigquery_client()
+        )
 
         # For database, schema, tables, views, etc
         self.lineage_extractor = BigqueryLineageExtractor(
@@ -298,8 +300,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 report = BigQueryV2Report()
-                bigquery_data_dictionary = BigQueryTechnicalSchemaApi(report)
-                bigquery_data_dictionary.set_client(client)
+                bigquery_data_dictionary = BigQueryTechnicalSchemaApi(report, client)
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
                 )
@@ -502,9 +503,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        bq_client: bigquery.Client = self.config.get_bigquery_client()
-        self.bigquery_data_dictionary.set_client(bq_client)
-
         projects = self._get_projects()
         if not projects:
             return
@@ -521,7 +519,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self._should_ingest_lineage():
             yield from self.lineage_extractor.get_lineage_workunits(
-                projects,
+                [p.id for p in projects],
                 self.sql_parser_schema_resolver,
                 self.view_definition_ids,
                 self.table_refs,

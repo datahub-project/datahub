@@ -80,9 +80,6 @@ class BigQueryV2Report(
     log_page_size: Optional[pydantic.PositiveInt] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
     end_time: Optional[datetime] = None
-    # TODO: remove one or replace by lineage ones
-    log_entry_start_time: Optional[datetime] = None
-    log_entry_end_time: Optional[datetime] = None
     audit_start_time: Optional[datetime] = None
     audit_end_time: Optional[datetime] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
