@@ -356,9 +356,9 @@ class TableauConfig(
         description="[Experimental] Whether to extract lineage from unsupported custom sql queries using SQL parsing",
     )
 
-    lineage_platform_instance: str = Field(
-        default="uk",
-        description="Platform prefix for mapping upstream lineage URNs.",
+    ignore_upstream_lineage_platforms: Optional[str] = Field(
+        default="",
+        description="Comma separated list of platforms to not ingest upstream lineage for",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -497,6 +497,12 @@ class TableauSource(StatefulIngestionSourceBase):
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
+
+        if self.config.ignore_upstream_lineage_platforms:
+            self.ignore_upstream_lineage_platforms = [
+                x.strip()
+                for x in (self.config.ignore_upstream_lineage_platforms.split(","))
+            ]
 
         self._authenticate()
 
@@ -982,6 +988,15 @@ class TableauSource(StatefulIngestionSourceBase):
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
+            if (
+                table.get(tableau_constant.CONNECTION_TYPE, "")
+                in self.ignore_upstream_lineage_platforms
+            ):
+                logger.debug(
+                    f"Skipping upstream table {table[tableau_constant.ID]}, ignoring upstream platform {table.get(tableau_constant.CONNECTION_TYPE, '')}"
+                )
+                continue
+
             # skip upstream tables when there is no column info when retrieving datasource
             # Lineage and Schema details for these will be taken care in self.emit_custom_sql_datasources()
             num_tbl_cols: Optional[int] = table.get(
@@ -1036,7 +1051,6 @@ class TableauSource(StatefulIngestionSourceBase):
                 table_name,
                 self.config.platform_instance_map,
                 self.config.lineage_overrides,
-                self.config.lineage_platform_instance
             )
             table_id_to_urn[table[tableau_constant.ID]] = table_urn
 
