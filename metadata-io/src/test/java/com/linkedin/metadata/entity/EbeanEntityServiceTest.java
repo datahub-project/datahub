@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.common.AuditStamp;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -18,16 +20,25 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahub.test.DataGenerator;
 import io.ebean.EbeanServer;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
+import org.apache.commons.lang3.tuple.Triple;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
@@ -51,7 +62,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
     EbeanServer server = EbeanTestUtils.createTestServer();
     _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server);
-    _aspectDao.setConnectionValidated(true);
+
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
@@ -224,5 +235,102 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
       throw e;
     }
     System.out.println("done");
+  }
+
+  /**
+   * This test is designed to detect multi-threading persistence exceptions like duplicate key,
+   * exceptions that exceed retry limits or unnecessary versions.
+   */
+  @Test
+  public void multiThreadingTest() {
+    DataGenerator dataGenerator = new DataGenerator(_entityServiceImpl.getEntityRegistry());
+    EbeanServer server = ((EbeanAspectDao) _entityServiceImpl._aspectDao).getServer();
+    final int testEntityCount = 25;
+
+    int count = Objects.requireNonNull(server.createSqlQuery(
+            "select count(*) as cnt from metadata_aspect_v2")
+            .findOne()).getInteger("cnt");
+    assertEquals(count, 0, "Expected exactly 0 rows at the start.");
+
+    // Create ingest proposals in parallel, mimic the smoke-test ingestion
+    final int testThreads = 15;
+    final LinkedBlockingQueue<List<MetadataChangeProposal>> queue = new LinkedBlockingQueue<>(testThreads * 2);
+
+    // Spin up workers
+    List<Thread> writeThreads = IntStream.range(0, testThreads)
+            .mapToObj(threadId -> new Thread(new MultiThreadTestWorker(queue, _entityServiceImpl)))
+            .collect(Collectors.toList());
+    writeThreads.forEach(Thread::start);
+
+    // Add data
+    List<String> aspects = List.of("status", "globalTags", "glossaryTerms");
+
+    List<MetadataChangeProposal> generatedMCPs = dataGenerator.generateMCPs("dataset", testEntityCount, aspects)
+                    .collect(Collectors.toList());
+
+    generatedMCPs.forEach(mcp -> {
+      try {
+        queue.put(List.of(mcp));
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    });
+
+    // Terminate workers with empty mcp
+    IntStream.range(0, testThreads).forEach(threadId -> {
+      try {
+        queue.put(List.of());
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    });
+
+    // Wait for threads to finish
+    writeThreads.forEach(thread -> {
+      try {
+        thread.join(5000);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    });
+
+    // Expected aspects
+    Set<Triple<String, String, Long>> generatedAspectIds = generatedMCPs.stream()
+            .map(mcp -> Triple.of(mcp.getEntityUrn().toString(), mcp.getAspectName(), 0L))
+            .collect(Collectors.toSet());
+
+    // Actual inserts
+    Set<Triple<String, String, Long>> actualAspectIds = server.createSqlQuery(
+            "select urn, aspect, version from metadata_aspect_v2").findList().stream()
+            .map(row -> Triple.of(row.getString("urn"), row.getString("aspect"), row.getLong("version")))
+            .collect(Collectors.toSet());
+    assertEquals(actualAspectIds, generatedAspectIds);
+  }
+
+  public static class MultiThreadTestWorker implements Runnable {
+    private final EntityServiceImpl entityService;
+    private final LinkedBlockingQueue<List<MetadataChangeProposal>> queue;
+
+    public MultiThreadTestWorker(LinkedBlockingQueue<List<MetadataChangeProposal>> queue, EntityServiceImpl entityService) {
+      this.queue = queue;
+      this.entityService = entityService;
+    }
+
+    public void run() {
+      try {
+        while (true) {
+          List<MetadataChangeProposal> mcp = queue.take();
+          if (mcp.isEmpty()) {
+            break;
+          }
+          final AuditStamp auditStamp = new AuditStamp();
+          auditStamp.setActor(Urn.createFromString(Constants.DATAHUB_ACTOR));
+          auditStamp.setTime(System.currentTimeMillis());
+          entityService.ingestProposal(mcp.get(0), auditStamp, false);
+        }
+      } catch (InterruptedException | URISyntaxException ie) {
+        throw new RuntimeException(ie);
+      }
+    }
   }
 }

@@ -1156,7 +1156,7 @@ public class EntityServiceImpl implements EntityService {
 
   @Override
   public void ingestEntity(@Nonnull Entity entity, @Nonnull AuditStamp auditStamp,
-      @Nonnull SystemMetadata systemMetadata) {
+                           @Nonnull SystemMetadata systemMetadata) {
     log.debug("Invoked ingestEntity with entity {}, audit stamp {} systemMetadata {}", entity, auditStamp, systemMetadata.toString());
     ingestSnapshotUnion(entity.getValue(), auditStamp, systemMetadata);
   }

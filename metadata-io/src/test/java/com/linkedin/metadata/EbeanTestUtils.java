@@ -22,7 +22,7 @@ public class EbeanTestUtils {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
     dataSourceConfig.setUsername("tester");
     dataSourceConfig.setPassword("");
-    dataSourceConfig.setUrl("jdbc:h2:mem:;IGNORECASE=TRUE;");
+    dataSourceConfig.setUrl("jdbc:h2:mem:test;IGNORECASE=TRUE;mode=mysql;");
     dataSourceConfig.setDriver("org.h2.Driver");
 
     ServerConfig serverConfig = new ServerConfig();
