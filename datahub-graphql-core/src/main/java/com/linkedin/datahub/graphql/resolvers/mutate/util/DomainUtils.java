@@ -15,6 +15,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,7 +59,7 @@ public class DomainUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(domainUrn, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(
@@ -67,7 +68,7 @@ public class DomainUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Domains domains = (Domains) getAspectFromEntity(
+    Domains domains = (Domains) EntityUtils.getAspectFromEntity(
         resource.getResourceUrn(),
         Constants.DOMAINS_ASPECT_NAME,
         entityService,
@@ -84,10 +85,5 @@ public class DomainUtils {
     if (!entityService.exists(domainUrn)) {
       throw new IllegalArgumentException(String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
     }
-  }
-
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    entityService.ingestProposal(AspectsBatchImpl.builder()
-            .mcps(changes, entityService.getEntityRegistry()).build(), getAuditStamp(actor), false);
   }
 }

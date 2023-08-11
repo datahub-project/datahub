@@ -9,11 +9,11 @@ import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.AuthUtils;
-import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -74,7 +74,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
 
     // 2. fetch the assertion info
     AssertionInfo info =
-        (AssertionInfo) MutationUtils.getAspectFromEntity(
+        (AssertionInfo) EntityUtils.getAspectFromEntity(
             assertionUrn.toString(), Constants.ASSERTION_INFO_ASPECT_NAME, _entityService, null);
 
     if (info != null) {

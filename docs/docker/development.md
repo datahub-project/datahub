@@ -20,7 +20,7 @@ We highly recommend you just invoke `./gradlew quickstartDebug` task.
 This task is defined in `docker/build.gradle` and executes the following steps:
 
 1. Builds all required artifacts to run DataHub. This includes both application code such as the GMS war, the frontend
-distribution zip which contains javascript, as wel as secondary support docker containers.
+distribution zip which contains javascript, as well as secondary support docker containers.
  
 1. Locally builds Docker images with the expected `debug` tag required by the docker compose files.
 

@@ -436,9 +436,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication)
+      @Nullable SortCriterion sortCriterion, @Nonnull final Authentication authentication)
       throws RemoteInvocationException {
-    return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
+    return searchAcrossEntities(entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
   }
 
   /**
@@ -456,7 +456,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull final Authentication authentication, @Nullable List<String> facets)
+      @Nullable SortCriterion sortCriterion, @Nonnull final Authentication authentication, @Nullable List<String> facets)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchAcrossEntitiesRequestBuilder requestBuilder =
@@ -470,6 +470,10 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     }
     if (searchFlags != null) {
       requestBuilder.searchFlagsParam(searchFlags);
+    }
+
+    if (sortCriterion != null) {
+      requestBuilder.sortParam(sortCriterion);
     }
 
     return sendClientRequest(requestBuilder, authentication).getEntity();
