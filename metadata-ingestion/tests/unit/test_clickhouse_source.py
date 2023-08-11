@@ -77,7 +77,7 @@ def test_clickhouse_uri_native_secure_deprication():
     )
 
 
-def test_clickhouse_uri_https_deprication():
+def test_clickhouse_uri_https_backward_compatibility():
     config = ClickHouseConfig.parse_obj(
         {
             "username": "user",
