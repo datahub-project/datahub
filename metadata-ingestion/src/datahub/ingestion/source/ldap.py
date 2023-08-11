@@ -392,10 +392,10 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
-        user_urn = email if self.config.use_email_as_username else ldap_user
+        make_user_urn = email if self.config.use_email_as_username else ldap_user
 
         user_snapshot = CorpUserSnapshotClass(
-            urn=f"urn:li:corpuser:{user_urn}",
+            urn=f"urn:li:corpuser:{make_user_urn}",
             aspects=[
                 CorpUserInfoClass(
                     active=True,
@@ -436,10 +436,10 @@ class LDAPSource(StatefulIngestionSourceBase):
                 attrs, self.config.group_attrs_map["displayName"]
             )
 
-            group_urn = email if self.config.use_email_as_username else full_name
+            make_group_urn = email if self.config.use_email_as_username else full_name
 
             group_snapshot = CorpGroupSnapshotClass(
-                urn=f"urn:li:corpGroup:{group_urn}",
+                urn=f"urn:li:corpGroup:{make_group_urn}",
                 aspects=[
                     CorpGroupInfoClass(
                         email=email,
