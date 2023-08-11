@@ -358,6 +358,42 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    public void testWordGram() throws IOException {
+        String text = "hello.cat_cool_customer";
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat", "cat cool", "cool customer"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat cool", "cat cool customer"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat cool customer"));
+
+        String testMoreSeparators = "quick.brown:fox jumped-LAZY_Dog";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("quick brown", "brown fox", "fox jumped", "jumped lazy", "lazy dog"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("quick brown fox", "brown fox jumped", "fox jumped lazy", "jumped lazy dog"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("quick brown fox jumped", "brown fox jumped lazy", "fox jumped lazy dog"));
+
+        String textWithQuotesAndDuplicateWord = "\"my_db.my_exact_table\"";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db", "db my", "my exact", "exact table"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my", "db my exact", "my exact table"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my exact", "db my exact table"));
+    }
+
+    @Test
     public void testUrnSynonym() throws IOException {
         List<String> expectedTokens = List.of("bigquery");
 

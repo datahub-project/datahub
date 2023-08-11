@@ -122,6 +122,7 @@ public class SettingsBuilder {
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
   public static final String UNIT_SEPARATOR_PATH_TOKENIZER = "unit_separator_path_tokenizer";
   public static final String UNIT_SEPARATOR_TOKENIZER = "unit_separator_tokenizer";
+  public static final String WORD_GRAM_TOKENIZER = "word_gram_tokenizer";
   // Do not remove the space, needed for multi-term synonyms
   public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of(
           "([a-z0-9 _-]{2,})",
@@ -298,16 +299,15 @@ public class SettingsBuilder {
       }
 
       for (Map.Entry<String, Integer> entry : Map.of(WORD_GRAM_2_FILTER, 2, WORD_GRAM_3_FILTER, 3, WORD_GRAM_4_FILTER, 4).entrySet()) {
-        String analyzerName = entry.getKey();
+        String filterName = entry.getKey();
         Integer gramSize = entry.getValue();
-        filters.put(analyzerName, ImmutableMap.<String, Object>builder()
+        filters.put(filterName, ImmutableMap.<String, Object>builder()
             .put(TYPE, SHINGLE)
             .put("min_shingle_size", gramSize)
             .put("max_shingle_size", gramSize)
             .put("output_unigrams", false)
             .build());
       }
-
     }
 
     return filters.build();
@@ -335,12 +335,21 @@ public class SettingsBuilder {
             .put(DELIMITER, "␟")
             .build());
 
-    // Tokenize by whitespace and most special chars
+    // Tokenize by most special chars
+    // Do NOT tokenize by whitespace to keep multi-word synonyms in the same token
+    // The split by whitespace is done later in the token filters phase
     tokenizers.put(MAIN_TOKENIZER,
             ImmutableMap.<String, Object>builder()
                     .put(TYPE, PATTERN)
                     .put(PATTERN, "[(),./:]")
                     .build());
+
+    // Tokenize by whitespace and most special chars for wordgrams
+    tokenizers.put(WORD_GRAM_TOKENIZER,
+        ImmutableMap.<String, Object>builder()
+            .put(TYPE, PATTERN)
+            .put(PATTERN, "[(),./:\\s-_]")
+            .build());
 
     return tokenizers.build();
   }
@@ -420,7 +429,7 @@ public class SettingsBuilder {
       String analyzerName = entry.getKey();
       String filterName = entry.getValue();
       analyzers.put(analyzerName, ImmutableMap.<String, Object>builder()
-          .put(TOKENIZER, KEYWORD_TOKENIZER)
+          .put(TOKENIZER, WORD_GRAM_TOKENIZER)
           .put(FILTER, ImmutableList.<Object>builder()
               .addAll(WORD_GRAM_TOKEN_FILTERS)
               .add(filterName).build())
