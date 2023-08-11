@@ -5,9 +5,10 @@ import { Entity } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteEntityText } from './utils';
 import ParentContainers from './ParentContainers';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
 import { SuggestionText } from './styledComponents';
+import AutoCompletePlatformNames from './AutoCompletePlatformNames';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -27,8 +28,8 @@ const ContentWrapper = styled.div`
 `;
 
 const Subtype = styled.span`
-    color: ${ANTD_GRAY[9]};
-    border: 1px solid ${ANTD_GRAY[9]};
+    color: ${ANTD_GRAY_V2[8]};
+    border: 1px solid ${ANTD_GRAY_V2.colorBordered};
     border-radius: 16px;
     padding: 4px 8px;
     line-height: 12px;
@@ -43,17 +44,9 @@ const ItemHeader = styled.div`
     gap: 8px;
 `;
 
-const PlatformText = styled(Typography.Text)`
-    font-size: 12px;
-    line-height: 20px;
-    font-weight: 700;
-    color: ${ANTD_GRAY[7]};
-    white-space: nowrap;
-`;
-
-const PlatformDivider = styled.div`
-    border-right: 1px solid ${ANTD_GRAY[5]};
-    height: 14px;
+const Divider = styled.div`
+    border-right: 1px solid ${ANTD_GRAY_V2.colorBordered};
+    height: 12px;
 `;
 
 interface Props {
@@ -74,12 +67,10 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const platformNames = entities
         .map((ent) => {
             const genericPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
-            const platformName = genericPropsForEnt?.platform?.name;
+            const platformName = genericPropsForEnt?.platform?.name || '';
             return platformName;
         })
         .filter(Boolean);
-
-    console.log({ entity: entity.urn, platformNames });
 
     const parentContainers =
         entities
@@ -90,24 +81,27 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
             })
             .find((containers) => containers.length > 0) ?? [];
 
+    const showPlatforms = !!platformNames.length;
+    const showPlatformDivider = !!platformNames.length && !!parentContainers.length;
+    const showParentContainers = !!parentContainers.length;
+    const showHeader = showPlatforms || showParentContainers;
+
     return (
         <AutoCompleteEntityWrapper>
             <ContentWrapper>
                 <SuggestionText>
-                    <ItemHeader>
-                        <IconsContainer>
-                            {entities.map((ent) => (
-                                <AutoCompleteEntityIcon key={ent.urn} entity={ent} />
-                            ))}
-                        </IconsContainer>
-                        {platformNames.length > 0 && (
-                            <>
-                                <PlatformText>{platformNames.join(' & ')}</PlatformText>
-                                {!!parentContainers.length && <PlatformDivider />}
-                            </>
-                        )}
-                        <ParentContainers parentContainers={parentContainers} />
-                    </ItemHeader>
+                    {showHeader && (
+                        <ItemHeader>
+                            <IconsContainer>
+                                {entities.map((ent) => (
+                                    <AutoCompleteEntityIcon key={ent.urn} entity={ent} />
+                                ))}
+                            </IconsContainer>
+                            {showPlatforms && <AutoCompletePlatformNames platforms={platformNames} />}
+                            {showPlatformDivider && <Divider />}
+                            {showParentContainers && <ParentContainers parentContainers={parentContainers} />}
+                        </ItemHeader>
+                    )}
                     <Typography.Text
                         ellipsis={
                             hasParentTooltip ? {} : { tooltip: { title: displayName, color: 'rgba(0, 0, 0, 0.9)' } }
