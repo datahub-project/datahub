@@ -9,6 +9,7 @@ import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
 import { SuggestionText } from './styledComponents';
 import AutoCompletePlatformNames from './AutoCompletePlatformNames';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -29,7 +30,7 @@ const ContentWrapper = styled.div`
 
 const Subtype = styled.span`
     color: ${ANTD_GRAY_V2[8]};
-    border: 1px solid ${ANTD_GRAY_V2.colorBordered};
+    border: 1px solid ${ANTD_GRAY_V2[6]};
     border-radius: 16px;
     padding: 4px 8px;
     line-height: 12px;
@@ -45,7 +46,7 @@ const ItemHeader = styled.div`
 `;
 
 const Divider = styled.div`
-    border-right: 1px solid ${ANTD_GRAY_V2.colorBordered};
+    border-right: 1px solid ${ANTD_GRAY_V2[6]};
     height: 12px;
 `;
 
@@ -67,8 +68,10 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const platformNames = entities
         .map((ent) => {
             const genericPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
-            const platformName = genericPropsForEnt?.platform?.name || '';
-            return platformName;
+            const platform = genericPropsForEnt?.platform;
+            if (platform?.properties?.displayName) return platform.properties.displayName;
+            if (platform?.name) return capitalizeFirstLetterOnly(platform.name) || '';
+            return '';
         })
         .filter(Boolean);
 

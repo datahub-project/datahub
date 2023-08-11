@@ -23,9 +23,10 @@ export const ANTD_GRAY = {
 export const ANTD_GRAY_V2 = {
     2: '#F3F5F6',
     5: '#DDE0E4',
+    6: '#B2B8BD',
     8: '#5E666E',
     10: '#1B1E22',
-    colorBordered: '#B2B8BD',
+    // todo - this probably shouldn't go here
 };
 
 export const EMPTY_MESSAGES = {
