@@ -40,7 +40,20 @@ const ItemHeader = styled.div`
     display: flex;
     align-items: center;
     margin-bottom: 3px;
-    gap: 4px;
+    gap: 8px;
+`;
+
+const PlatformText = styled(Typography.Text)`
+    font-size: 12px;
+    line-height: 20px;
+    font-weight: 700;
+    color: ${ANTD_GRAY[7]};
+    white-space: nowrap;
+`;
+
+const PlatformDivider = styled.div`
+    border-right: 1px solid ${ANTD_GRAY[5]};
+    height: 14px;
 `;
 
 interface Props {
@@ -58,11 +71,21 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
     const entities = siblings?.length ? siblings : [entity];
 
+    const platformNames = entities
+        .map((ent) => {
+            const genericPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
+            const platformName = genericPropsForEnt?.platform?.name;
+            return platformName;
+        })
+        .filter(Boolean);
+
+    console.log({ entity: entity.urn, platformNames });
+
     const parentContainers =
         entities
             .map((ent) => {
-                const genericEntityPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
-                const entParentContainers = genericEntityPropsForEnt?.parentContainers?.containers || [];
+                const genericPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
+                const entParentContainers = genericPropsForEnt?.parentContainers?.containers || [];
                 return [...entParentContainers].reverse();
             })
             .find((containers) => containers.length > 0) ?? [];
@@ -77,6 +100,12 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                                 <AutoCompleteEntityIcon key={ent.urn} entity={ent} />
                             ))}
                         </IconsContainer>
+                        {platformNames.length > 0 && (
+                            <>
+                                <PlatformText>{platformNames.join(' & ')}</PlatformText>
+                                <PlatformDivider />
+                            </>
+                        )}
                         <ParentContainers parentContainers={parentContainers} />
                     </ItemHeader>
                     <Typography.Text
