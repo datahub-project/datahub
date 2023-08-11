@@ -32,7 +32,7 @@ export default function DescriptionSection({ description, isExpandable, limit }:
 
     // if we're not in compact mode, route them to the Docs tab for the best documentation viewing experience
     function readMore() {
-        if (isCompact|| isExpandable) {
+        if (isCompact || isExpandable) {
             setIsExpanded(true);
         } else {
             routeToTab({ tabName: 'Documentation' });
@@ -49,7 +49,7 @@ export default function DescriptionSection({ description, isExpandable, limit }:
             )}
             {!isExpanded && (
                 <NoMarkdownViewer
-                    limit={limit ||ABBREVIATED_LIMIT}
+                    limit={limit || ABBREVIATED_LIMIT}
                     readMore={
                         shouldShowReadMore ? <Typography.Link onClick={readMore}>Read More</Typography.Link> : undefined
                     }

@@ -272,7 +272,7 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             # For profiling
             self.profiler = SnowflakeProfiler(
                 config, self.report, self.profiling_state_handler
@@ -701,7 +701,7 @@ class SnowflakeV2Source(
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
 
-        if self.config.profiling.enabled and self.db_tables:
+        if self.config.is_profiling_enabled() and self.db_tables:
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(self, snowflake_db, db_name):
@@ -1029,9 +1029,7 @@ class SnowflakeV2Source(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
-        dataset_properties = self.get_dataset_properties(
-            table, schema_name, db_name, dataset_name
-        )
+        dataset_properties = self.get_dataset_properties(table, schema_name, db_name)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
@@ -1098,7 +1096,12 @@ class SnowflakeV2Source(
                 entityUrn=dataset_urn, aspect=view_properties_aspect
             ).as_workunit()
 
-    def get_dataset_properties(self, table, schema_name, db_name, dataset_name):
+    def get_dataset_properties(
+        self,
+        table: Union[SnowflakeTable, SnowflakeView],
+        schema_name: str,
+        db_name: str,
+    ) -> DatasetProperties:
         return DatasetProperties(
             name=table.name,
             created=TimeStamp(time=int(table.created.timestamp() * 1000))
@@ -1110,7 +1113,7 @@ class SnowflakeV2Source(
             if table.created is not None
             else None,
             description=table.comment,
-            qualifiedName=dataset_name,
+            qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
             externalUrl=self.get_external_url_for_table(
                 table.name,

@@ -1,5 +1,4 @@
 import React from 'react';
-import { t } from 'i18next';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { Maybe } from 'graphql/jsutils/Maybe';
@@ -237,24 +236,27 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>{t ("Applies to")}</Typography.Title>
-                <Typography.Paragraph>{t ("Select the users & groups that this policy should apply to.")}</Typography.Paragraph>
+                <Typography.Title level={4}>Applies to</Typography.Title>
+                <Typography.Paragraph>Select the users & groups that this policy should apply to.</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
-                <Form.Item label={<Typography.Text strong>{t ("Owners")}</Typography.Text>} labelAlign="right">
+                <Form.Item label={<Typography.Text strong>Owners</Typography.Text>} labelAlign="right">
                     <Typography.Paragraph>
-                        {t ("Whether this policy should be apply to owners of the Metadata asset. If true, those who are marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the selected privileges.")}
+                        Whether this policy should be apply to owners of the Metadata asset. If true, those who are
+                        marked as owners of a Metadata Asset, either directly or indirectly via a Group, will have the
+                        selected privileges.
                     </Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
                             <Typography.Paragraph>
-                                {t("List of types of ownership which will be used to match owners. If empty, the policies will applied to any type of ownership.")}
+                                List of types of ownership which will be used to match owners. If empty, the policies
+                                will applied to any type of ownership.
                             </Typography.Paragraph>
                             <Select
                                 value={ownershipTypesSelectValue}
                                 mode="multiple"
-                                placeholder={ t ("Ownership Types")}
+                                placeholder="Ownership types"
                                 onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
                                 onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
                                 tagRender={(tagProps) => {
@@ -277,16 +279,17 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>{t ("Users")}</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>Users</Typography.Text>}>
                 <Typography.Paragraph>
-                    {t ("Search for specific users that this policy should apply to, or select `All Users` to apply it to all users.")}
+                    Search for specific users that this policy should apply to, or select `All Users` to apply it to all
+                    users.
                 </Typography.Paragraph>
                 <Select
                     data-testid="users"
                     value={usersSelectValue}
                     mode="multiple"
                     filterOption={false}
-                    placeholder={t ("Search for users...")}
+                    placeholder="Search for users..."
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
@@ -295,18 +298,19 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">{t ("All Users")}</Select.Option>
+                    <Select.Option value="All">All Users</Select.Option>
                 </Select>
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>{t ("Groups")}</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>Groups</Typography.Text>}>
                 <Typography.Paragraph>
-                    {t ("Search for specific groups that this policy should apply to, or select `All Groups` to apply it to all groups.")}
+                    Search for specific groups that this policy should apply to, or select `All Groups` to apply it to
+                    all groups.
                 </Typography.Paragraph>
                 <Select
                     data-testid="groups"
                     value={groupsSelectValue}
                     mode="multiple"
-                    placeholder={t ("Search for groups...")}
+                    placeholder="Search for groups..."
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
@@ -316,7 +320,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
                     ))}
-                    <Select.Option value="All">{t ("All Groups")}</Select.Option>
+                    <Select.Option value="All">All Groups</Select.Option>
                 </Select>
             </Form.Item>
         </ActorForm>

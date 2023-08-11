@@ -1,5 +1,4 @@
 import React from 'react';
-import { t } from 'i18next';
 import styled from 'styled-components';
 import { useEntityData } from '../../../EntityContext';
 import { ANTD_GRAY } from '../../../constants';
@@ -25,7 +24,7 @@ export default function SourceDescription() {
 
     return (
         <SourceDescriptionWrapper>
-            <Title>{platformName ? <span>{platformName}</span> : <>Source</>} {t ("Documentation")}:</Title>
+            <Title>{platformName ? <span>{platformName}</span> : <>Source</>} Documentation:</Title>
             <DescriptionSection description={sourceDescription} limit={200} isExpandable />
         </SourceDescriptionWrapper>
     );
