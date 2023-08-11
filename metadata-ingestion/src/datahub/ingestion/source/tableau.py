@@ -982,11 +982,11 @@ class TableauSource(StatefulIngestionSourceBase):
         table_id_to_urn: Dict[str, str] = {}
         for table in tables:
             if (
-                table.get(tableau_constant.CONNECTION_TYPE, "")
+                table.get(c.CONNECTION_TYPE, "")
                 in self.ignore_upstream_lineage_platforms
             ):
                 logger.debug(
-                    f"Skipping upstream table {table[tableau_constant.ID]}, ignoring upstream platform {table.get(tableau_constant.CONNECTION_TYPE, '')}"
+                    f"Skipping upstream table {table[c.ID]}, ignoring upstream platform {table.get(c.CONNECTION_TYPE, '')}"
                 )
                 continue
 
@@ -1322,7 +1322,7 @@ class TableauSource(StatefulIngestionSourceBase):
                             if self.config.platform_instance
                             else ""
                         )
-                        + f"/{project}/{datasource[tableau_constant.NAME]}"
+                        + f"/{project}/{datasource[c.NAME]}"
                     ]
                 )
                 dataset_snapshot.aspects.append(browse_paths)
