@@ -133,7 +133,7 @@ public class EntityServiceImpl implements EntityService {
    * monotonically increasing version incrementing as usual once the latest version is replaced.
    */
 
-  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 4;
+  private static final int DEFAULT_MAX_TRANSACTION_RETRY = 3;
 
   protected final AspectDao _aspectDao;
   private final EventProducer _producer;

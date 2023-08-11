@@ -21,7 +21,7 @@ import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.DuplicateKeyException;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import io.ebean.ExpressionList;
 import io.ebean.Junction;
 import io.ebean.PagedList;
@@ -48,7 +48,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.persistence.PersistenceException;
+import io.ebean.SerializableConflictException;
 import javax.persistence.RollbackException;
 import javax.persistence.Table;
 
@@ -61,7 +61,7 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
-  private final EbeanServer _server;
+  private final Database _server;
   private boolean _connectionValidated = false;
   private final Clock _clock = Clock.systemUTC();
 
@@ -74,7 +74,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // more testing.
   private int _queryKeysCount = 375; // 0 means no pagination on keys
 
-  public EbeanAspectDao(@Nonnull final EbeanServer server) {
+  public EbeanAspectDao(@Nonnull final Database server) {
     _server = server;
   }
 
@@ -84,10 +84,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   /**
-   * Return the {@link EbeanServer} server instance used for customized queries.
+   * Return the {@link Database} server instance used for customized queries.
    * Only used in tests.
    */
-  public EbeanServer getServer() {
+  public Database getServer() {
     return _server;
   }
 
@@ -525,9 +525,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
           MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
           lastException = exception;
         }
-      } catch (PersistenceException exception) {
+      } catch (SerializableConflictException exception) {
         MetricUtils.counter(MetricRegistry.name(this.getClass(), "txFailed")).inc();
-        // TODO: replace this logic by catching SerializableConflictException above once the exception is available
+
         SpiServer pluginApi = _server.getPluginApi();
         DatabasePlatform databasePlatform = pluginApi.getDatabasePlatform();
 

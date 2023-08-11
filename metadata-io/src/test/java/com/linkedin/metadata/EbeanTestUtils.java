@@ -1,7 +1,7 @@
 package com.linkedin.metadata;
 
-import io.ebean.EbeanServer;
-import io.ebean.EbeanServerFactory;
+import io.ebean.Database;
+import io.ebean.DatabaseFactory;
 import io.ebean.config.ServerConfig;
 import io.ebean.datasource.DataSourceConfig;
 
@@ -13,8 +13,8 @@ public class EbeanTestUtils {
   }
 
   @Nonnull
-  public static EbeanServer createTestServer() {
-    return EbeanServerFactory.create(createTestingH2ServerConfig());
+  public static Database createTestServer() {
+    return DatabaseFactory.create(createTestingH2ServerConfig());
   }
 
   @Nonnull

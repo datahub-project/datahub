@@ -18,7 +18,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV1;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.util.Pair;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import io.ebean.PagedList;
 import java.net.URISyntaxException;
 import java.util.HashSet;
@@ -37,13 +37,13 @@ public class DataMigrationStep implements UpgradeStep {
 
   private static final String BROWSE_PATHS_ASPECT_NAME = PegasusUtils.getAspectNameFromSchema(new BrowsePaths().schema());
 
-  private final EbeanServer _server;
+  private final Database _server;
   private final EntityService _entityService;
   private final EntityRegistry _entityRegistry;
   private final Set<Urn> urnsWithBrowsePath = new HashSet<>();
 
   public DataMigrationStep(
-      final EbeanServer server,
+      final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry) {
     _server = server;

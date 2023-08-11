@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.entity.validation.EntityRegistryUrnValidator;
 import com.linkedin.metadata.entity.validation.RecordTemplateValidator;
 import com.linkedin.metadata.models.AspectSpec;
@@ -23,9 +24,8 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URISyntaxException;
-import java.util.List;
-import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.util.List;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
@@ -68,10 +68,8 @@ public class EntityUtils {
           @Nonnull Urn actor,
           @Nonnull Boolean async
   ) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), async);
-    }
+    entityService.ingestProposal(AspectsBatchImpl.builder()
+            .mcps(changes, entityService.getEntityRegistry()).build(), getAuditStamp(actor), async);
   }
 
   /**

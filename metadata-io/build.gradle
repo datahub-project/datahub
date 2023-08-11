@@ -37,6 +37,7 @@ dependencies {
   compile externalDependency.kafkaClients
   compile externalDependency.ebean
   enhance externalDependency.ebeanAgent
+  implementation externalDependency.ebeanDdl
   compile externalDependency.opentelemetryAnnotations
   compile externalDependency.resilience4j
   compile externalDependency.springContext

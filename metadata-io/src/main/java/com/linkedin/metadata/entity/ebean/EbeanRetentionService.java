@@ -14,7 +14,7 @@ import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.metadata.Constants;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import io.ebean.Expression;
 import io.ebean.ExpressionList;
 import io.ebean.PagedList;
@@ -41,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class EbeanRetentionService extends RetentionService {
   private final EntityService _entityService;
-  private final EbeanServer _server;
+  private final Database _server;
   private final int _batchSize;
 
   private final Clock _clock = Clock.systemUTC();

@@ -23,7 +23,7 @@ import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahub.test.DataGenerator;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
@@ -59,7 +59,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
 
   @BeforeMethod
   public void setupTest() {
-    EbeanServer server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer();
     _mockProducer = mock(EventProducer.class);
     _aspectDao = new EbeanAspectDao(server);
 
@@ -216,7 +216,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
   @Override
   @Test
   public void testNestedTransactions() throws AssertionError {
-    EbeanServer server = _aspectDao.getServer();
+    Database server = _aspectDao.getServer();
 
     try (Transaction transaction = server.beginTransaction(TxScope.requiresNew()
         .setIsolation(TxIsolation.REPEATABLE_READ))) {
@@ -244,10 +244,10 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
   @Test
   public void multiThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(_entityServiceImpl.getEntityRegistry());
-    EbeanServer server = ((EbeanAspectDao) _entityServiceImpl._aspectDao).getServer();
+    Database server = ((EbeanAspectDao) _entityServiceImpl._aspectDao).getServer();
     final int testEntityCount = 25;
 
-    int count = Objects.requireNonNull(server.createSqlQuery(
+    int count = Objects.requireNonNull(server.sqlQuery(
             "select count(*) as cnt from metadata_aspect_v2")
             .findOne()).getInteger("cnt");
     assertEquals(count, 0, "Expected exactly 0 rows at the start.");
@@ -300,7 +300,7 @@ public class EbeanEntityServiceTest extends EntityServiceTest<EbeanAspectDao, Eb
             .collect(Collectors.toSet());
 
     // Actual inserts
-    Set<Triple<String, String, Long>> actualAspectIds = server.createSqlQuery(
+    Set<Triple<String, String, Long>> actualAspectIds = server.sqlQuery(
             "select urn, aspect, version from metadata_aspect_v2").findList().stream()
             .map(row -> Triple.of(row.getString("urn"), row.getString("aspect"), row.getLong("version")))
             .collect(Collectors.toSet());
