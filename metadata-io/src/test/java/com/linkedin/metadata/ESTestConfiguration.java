@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -55,11 +56,17 @@ public class ESTestConfiguration {
         exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
         exactMatchConfiguration.setEnableStructured(true);
 
+        WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
+        wordGramConfiguration.setTwoGramFactor(1.0f);
+        wordGramConfiguration.setThreeGramFactor(1.0f);
+        wordGramConfiguration.setFourGramFactor(1.0f);
+
         PartialConfiguration partialConfiguration = new PartialConfiguration();
         partialConfiguration.setFactor(0.4f);
         partialConfiguration.setUrnFactor(0.5f);
 
         searchConfiguration.setExactMatch(exactMatchConfiguration);
+        searchConfiguration.setWordGram(wordGramConfiguration);
         searchConfiguration.setPartial(partialConfiguration);
         return searchConfiguration;
     }

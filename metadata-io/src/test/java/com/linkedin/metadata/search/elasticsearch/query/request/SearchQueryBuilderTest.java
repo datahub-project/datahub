@@ -4,6 +4,7 @@ import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
@@ -46,11 +47,17 @@ public class SearchQueryBuilderTest {
     exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
     exactMatchConfiguration.setEnableStructured(true);
 
+    WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
+    wordGramConfiguration.setTwoGramFactor(1.0f);
+    wordGramConfiguration.setThreeGramFactor(1.0f);
+    wordGramConfiguration.setFourGramFactor(1.0f);
+
     PartialConfiguration partialConfiguration = new PartialConfiguration();
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
     testQueryConfig.setExactMatch(exactMatchConfiguration);
+    testQueryConfig.setWordGram(wordGramConfiguration);
     testQueryConfig.setPartial(partialConfiguration);
   }
   public static final SearchQueryBuilder TEST_BUILDER = new SearchQueryBuilder(testQueryConfig, null);
@@ -240,4 +247,7 @@ public class SearchQueryBuilderTest {
       assertEquals(termQueryBuilder.value().toString(), triggerQuery);
     }
   }
+
+
+  // NEW TEST HERE
 }

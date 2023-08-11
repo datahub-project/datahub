@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -65,11 +66,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
     exactMatchConfiguration.setEnableStructured(true);
 
+    WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
+    wordGramConfiguration.setTwoGramFactor(1.0f);
+    wordGramConfiguration.setThreeGramFactor(1.0f);
+    wordGramConfiguration.setFourGramFactor(1.0f);
+
     PartialConfiguration partialConfiguration = new PartialConfiguration();
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
     testQueryConfig.setExactMatch(exactMatchConfiguration);
+    testQueryConfig.setWordGram(wordGramConfiguration);
     testQueryConfig.setPartial(partialConfiguration);
   }
 

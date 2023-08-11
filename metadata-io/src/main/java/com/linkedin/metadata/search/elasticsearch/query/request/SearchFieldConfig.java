@@ -30,7 +30,8 @@ public class SearchFieldConfig {
     private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
             Set.of(
                     SearchableAnnotation.FieldType.TEXT,
-                    SearchableAnnotation.FieldType.TEXT_PARTIAL
+                    SearchableAnnotation.FieldType.TEXT_PARTIAL,
+                    SearchableAnnotation.FieldType.WORD_GRAM
                     // NOT URN_PARTIAL (urn field is special)
             );
     // NOT comprehensive
@@ -53,6 +54,7 @@ public class SearchFieldConfig {
                     SearchableAnnotation.FieldType.TEXT,
                     SearchableAnnotation.FieldType.TEXT_PARTIAL,
                     SearchableAnnotation.FieldType.KEYWORD,
+                    SearchableAnnotation.FieldType.WORD_GRAM,
                     // not analyzed
                     SearchableAnnotation.FieldType.BOOLEAN,
                     SearchableAnnotation.FieldType.COUNT,
@@ -80,6 +82,7 @@ public class SearchFieldConfig {
     private final String analyzer;
     private boolean hasKeywordSubfield;
     private boolean hasDelimitedSubfield;
+    private boolean hasWordGramSubfields;
     private boolean isQueryByDefault;
     private boolean isDelimitedSubfield;
     private boolean isKeywordSubfield;
@@ -108,6 +111,7 @@ public class SearchFieldConfig {
                 .analyzer(getAnalyzer(fieldName, fieldType))
                 .hasKeywordSubfield(hasKeywordSubfield(fieldName, fieldType))
                 .hasDelimitedSubfield(hasDelimitedSubfield(fieldName, fieldType))
+                .hasWordGramSubfields(hasWordGramSubfields(fieldName, fieldType))
                 .isQueryByDefault(isQueryByDefault)
                 .build();
     }
@@ -119,6 +123,11 @@ public class SearchFieldConfig {
     private static boolean hasDelimitedSubfield(String fieldName, SearchableAnnotation.FieldType fieldType) {
         return !fieldName.contains(".")
                 && ("urn".equals(fieldName) || TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType));
+    }
+
+    private static boolean hasWordGramSubfields(String fieldName, SearchableAnnotation.FieldType fieldType) {
+        return !fieldName.contains(".")
+            && (TYPES_WITH_WORD_GRAM.contains(fieldType));
     }
     private static boolean hasKeywordSubfield(String fieldName, SearchableAnnotation.FieldType fieldType) {
         return !"urn".equals(fieldName)
@@ -147,10 +156,6 @@ public class SearchFieldConfig {
             return KEYWORD_ANALYZER;
         } else if (TYPES_WITH_URN_TEXT.contains(fieldType)) {
             return URN_SEARCH_ANALYZER;
-        } else if (TYPES_WITH_WORD_GRAM.contains(fieldType)) {
-            // how to set them all?
-            // this isn't enough
-            return WORD_GRAM_2_ANALYZER;
         } else {
             throw new IllegalStateException(String.format("Unknown analyzer for fieldName: %s, fieldType: %s", fieldName, fieldType));
         }
