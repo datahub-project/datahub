@@ -60,7 +60,7 @@ def test_clickhouse_uri_default_password():
     assert config.get_sql_alchemy_url() == "clickhouse+native://user@host:1111/db"
 
 
-def test_clickhouse_uri_native_secure_deprication():
+def test_clickhouse_uri_native_secure_backward_compatibility():
     config = ClickHouseConfig.parse_obj(
         {
             "username": "user",
