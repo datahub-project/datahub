@@ -4,10 +4,10 @@ import styled from 'styled-components/macro';
 import { Entity } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteEntityText } from './utils';
-import { SuggestionText } from './AutoCompleteUser';
 import ParentContainers from './ParentContainers';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
+import { SuggestionText } from './styledComponents';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -18,7 +18,6 @@ const AutoCompleteEntityWrapper = styled.div`
 
 const IconsContainer = styled.div`
     display: flex;
-    flex-direction: column;
 `;
 
 const ContentWrapper = styled.div`
@@ -37,6 +36,13 @@ const Subtype = styled.span`
     margin-right: 8px;
 `;
 
+const ItemHeader = styled.div`
+    display: flex;
+    align-items: center;
+    margin-bottom: 3px;
+    gap: 4px;
+`;
+
 interface Props {
     query: string;
     entity: Entity;
@@ -48,9 +54,9 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const entityRegistry = useEntityRegistry();
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
-
+    const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
+    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
     const entities = siblings?.length ? siblings : [entity];
-    const iconScale = siblings && siblings.length > 1 ? 0.66 : 1;
 
     const parentContainers =
         entities
@@ -61,19 +67,18 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
             })
             .find((containers) => containers.length > 0) ?? [];
 
-    const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
-    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
-
     return (
         <AutoCompleteEntityWrapper>
             <ContentWrapper>
-                <IconsContainer>
-                    {entities.map((ent) => (
-                        <AutoCompleteEntityIcon key={ent.urn} entity={ent} scale={iconScale} />
-                    ))}
-                </IconsContainer>
                 <SuggestionText>
-                    <ParentContainers parentContainers={parentContainers} />
+                    <ItemHeader>
+                        <IconsContainer>
+                            {entities.map((ent) => (
+                                <AutoCompleteEntityIcon key={ent.urn} entity={ent} />
+                            ))}
+                        </IconsContainer>
+                        <ParentContainers parentContainers={parentContainers} />
+                    </ItemHeader>
                     <Typography.Text
                         ellipsis={
                             hasParentTooltip ? {} : { tooltip: { title: displayName, color: 'rgba(0, 0, 0, 0.9)' } }

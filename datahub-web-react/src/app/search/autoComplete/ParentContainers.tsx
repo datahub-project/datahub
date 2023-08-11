@@ -13,7 +13,6 @@ const ParentContainersWrapper = styled.div`
     color: ${ANTD_GRAY[9]};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
 `;
 
 const ParentContainer = styled(Typography.Text)`
