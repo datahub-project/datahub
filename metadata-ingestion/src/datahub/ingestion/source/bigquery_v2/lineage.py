@@ -406,9 +406,9 @@ timestamp < "{end_time}"
     ) -> Iterable[AuditLogEntry]:
         self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
-        start_time = (
-            self.config.parsed_start_time - self.config.max_query_duration
-        ).strftime(BQ_DATETIME_FORMAT)
+        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+            BQ_DATETIME_FORMAT
+        )
         self.report.log_entry_start_time = start_time
 
         end_time = (self.config.end_time + self.config.max_query_duration).strftime(
@@ -462,9 +462,7 @@ timestamp < "{end_time}"
             self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
-        corrected_start_time = (
-            self.config.parsed_start_time - self.config.max_query_duration
-        )
+        corrected_start_time = self.config.start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time

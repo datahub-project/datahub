@@ -146,7 +146,7 @@ class TrinoUsageSource(Source):
         return trino_usage_sql_comment.format(
             audit_catalog=self.config.audit_catalog,
             audit_schema=self.config.audit_schema,
-            start_time=self.config.parsed_start_time.strftime(trino_datetime_format),
+            start_time=self.config.start_time.strftime(trino_datetime_format),
             end_time=self.config.end_time.strftime(trino_datetime_format),
         )
 

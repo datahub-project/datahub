@@ -344,7 +344,7 @@ class RedshiftLineageExtractor:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
                 self.config.database,
-                self.config.parsed_start_time,
+                self.config.start_time,
                 self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
@@ -352,7 +352,7 @@ class RedshiftLineageExtractor:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
-                start_time=self.config.parsed_start_time,
+                start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
@@ -360,7 +360,7 @@ class RedshiftLineageExtractor:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
-                start_time=self.config.parsed_start_time,
+                start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
@@ -368,7 +368,7 @@ class RedshiftLineageExtractor:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
                 db_name=database,
-                start_time=self.config.parsed_start_time,
+                start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
@@ -385,7 +385,7 @@ class RedshiftLineageExtractor:
         if self.config.include_copy_lineage:
             query = RedshiftQuery.list_copy_commands_sql(
                 db_name=database,
-                start_time=self.config.parsed_start_time,
+                start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.COPY))
@@ -393,7 +393,7 @@ class RedshiftLineageExtractor:
         if self.config.include_unload_lineage:
             query = RedshiftQuery.list_unload_commands_sql(
                 db_name=database,
-                start_time=self.config.parsed_start_time,
+                start_time=self.config.start_time,
                 end_time=self.config.end_time,
             )
 

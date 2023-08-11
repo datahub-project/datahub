@@ -903,7 +903,7 @@ class RedshiftSource(SQLAlchemySource):
         """.format(
             # We need the original database name for filtering
             db_name=self.config.database,
-            start_time=self.config.parsed_start_time.strftime(redshift_datetime_format),
+            start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
         view_lineage_query = """
@@ -1003,7 +1003,7 @@ class RedshiftSource(SQLAlchemySource):
         """.format(
             # We need the original database name for filtering
             db_name=self.config.database,
-            start_time=self.config.parsed_start_time.strftime(redshift_datetime_format),
+            start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
 
@@ -1027,7 +1027,7 @@ class RedshiftSource(SQLAlchemySource):
         """.format(
             # We need the original database name for filtering
             db_name=self.config.database,
-            start_time=self.config.parsed_start_time.strftime(redshift_datetime_format),
+            start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
 
@@ -1055,7 +1055,7 @@ class RedshiftSource(SQLAlchemySource):
         """.format(
             # We need the original database name for filtering
             db_name=self.config.database,
-            start_time=self.config.parsed_start_time.strftime(redshift_datetime_format),
+            start_time=self.config.start_time.strftime(redshift_datetime_format),
             end_time=self.config.end_time.strftime(redshift_datetime_format),
         )
 

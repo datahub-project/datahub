@@ -420,7 +420,7 @@ def test_auto_empty_dataset_usage_statistics(caplog):
         MetadataChangeProposalWrapper(
             entityUrn=has_urn,
             aspect=models.DatasetUsageStatisticsClass(
-                timestampMillis=int(config.parsed_start_time.timestamp() * 1000),
+                timestampMillis=int(config.start_time.timestamp() * 1000),
                 eventGranularity=models.TimeWindowSizeClass(
                     models.CalendarIntervalClass.DAY
                 ),
@@ -493,7 +493,7 @@ def test_auto_empty_dataset_usage_statistics_invalid_timestamp(caplog):
         MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=models.DatasetUsageStatisticsClass(
-                timestampMillis=int(config.parsed_start_time.timestamp() * 1000),
+                timestampMillis=int(config.start_time.timestamp() * 1000),
                 eventGranularity=models.TimeWindowSizeClass(
                     models.CalendarIntervalClass.DAY
                 ),

@@ -141,7 +141,7 @@ class UnityCatalogUsageExtractor:
     def _get_queries(self) -> Iterable[Query]:
         try:
             yield from self.proxy.query_history(
-                self.config.parsed_start_time, self.config.end_time
+                self.config.start_time, self.config.end_time
             )
         except Exception as e:
             logger.warning("Error getting queries", exc_info=True)

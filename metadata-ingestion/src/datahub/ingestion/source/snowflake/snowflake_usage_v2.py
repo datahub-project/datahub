@@ -168,7 +168,7 @@ class SnowflakeUsageExtractor(
                 results = self.query(
                     SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
                         start_time_millis=int(
-                            self.config.parsed_start_time.timestamp() * 1000
+                            self.config.start_time.timestamp() * 1000
                         ),
                         end_time_millis=int(self.config.end_time.timestamp() * 1000),
                         time_bucket_size=self.config.bucket_duration,
@@ -311,7 +311,7 @@ class SnowflakeUsageExtractor(
             yield from self._process_snowflake_history_row(row)
 
     def _make_operations_query(self) -> str:
-        start_time = int(self.config.parsed_start_time.timestamp() * 1000)
+        start_time = int(self.config.start_time.timestamp() * 1000)
         end_time = int(self.config.end_time.timestamp() * 1000)
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 

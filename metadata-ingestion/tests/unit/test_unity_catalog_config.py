@@ -18,7 +18,7 @@ def test_within_thirty_days():
             "start_time": FROZEN_TIME - timedelta(days=30),
         }
     )
-    assert config.parsed_start_time == FROZEN_TIME - timedelta(days=30)
+    assert config.start_time == FROZEN_TIME - timedelta(days=30)
 
     with pytest.raises(
         ValueError, match="Query history is only maintained for 30 days."

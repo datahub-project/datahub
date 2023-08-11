@@ -82,12 +82,6 @@ class BaseTimeWindowConfig(ConfigModel):
 
         return v
 
-    @property
-    def parsed_start_time(self) -> datetime:
-        # start_time str is resolved to datetime in pydantic validator
-        assert isinstance(self.start_time, datetime)
-        return self.start_time
-
     def buckets(self) -> List[datetime]:
         """Returns list of timestamps for each DatasetUsageStatistics bucket.
 
@@ -95,7 +89,7 @@ class BaseTimeWindowConfig(ConfigModel):
         """
         bucket_timedelta = get_bucket_duration_delta(self.bucket_duration)
 
-        curr_bucket = get_time_bucket(self.parsed_start_time, self.bucket_duration)
+        curr_bucket = get_time_bucket(self.start_time, self.bucket_duration)
         buckets = []
         while curr_bucket < self.end_time:
             buckets.append(curr_bucket)
@@ -110,10 +104,10 @@ class BaseTimeWindowConfig(ConfigModel):
         """
         bucket_timedelta = get_bucket_duration_delta(self.bucket_duration)
 
-        curr_bucket = get_time_bucket(self.parsed_start_time, self.bucket_duration)
+        curr_bucket = get_time_bucket(self.start_time, self.bucket_duration)
         buckets = []
         while curr_bucket < self.end_time:
-            start = max(self.parsed_start_time, curr_bucket)
+            start = max(self.start_time, curr_bucket)
             end = min(self.end_time, curr_bucket + bucket_timedelta)
             if end - start >= bucket_timedelta / 2:
                 buckets.append(curr_bucket)

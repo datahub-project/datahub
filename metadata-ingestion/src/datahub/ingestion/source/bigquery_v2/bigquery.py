@@ -526,21 +526,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.store_last_usage_extraction_timestamp:
             if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(
-                    self.config.parsed_start_time
-                )
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
             ):
                 self.report.report_warning(
                     "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.parsed_start_time}",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
                 )
                 return False
             else:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(
-                        self.config.parsed_start_time
-                    ),
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
         return True
@@ -551,22 +547,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.store_last_lineage_extraction_timestamp:
             if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(
-                    self.config.parsed_start_time
-                )
+                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
             ):
                 # Skip this run
                 self.report.report_warning(
                     "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.parsed_start_time}",
+                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
                 )
                 return False
             else:
                 # Update the checkpoint state for this run.
                 self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(
-                        self.config.parsed_start_time
-                    ),
+                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
                     end_time_millis=datetime_to_ts_millis(self.config.end_time),
                 )
         return True

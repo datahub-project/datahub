@@ -226,7 +226,7 @@ class RedshiftUsageSource(Source):
 
         # Generate aggregate events
         query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
-            start_time=self.config.parsed_start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
             database=self.config.database,
         )
@@ -249,7 +249,7 @@ class RedshiftUsageSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
         query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
-            start_time=self.config.parsed_start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            start_time=self.config.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.config.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
         access_events_iterable: Iterable[
