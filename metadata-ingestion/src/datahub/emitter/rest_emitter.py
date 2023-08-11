@@ -62,6 +62,7 @@ class DataHubRestEmitter(Closeable):
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
     ):
         if not gms_server:
@@ -88,8 +89,11 @@ class DataHubRestEmitter(Closeable):
         if extra_headers:
             self._session.headers.update(extra_headers)
 
+        if client_certificate_path:
+            self._session.cert = client_certificate_path
+
         if ca_certificate_path:
-            self._session.cert = ca_certificate_path
+            self._session.verify = ca_certificate_path
 
         if disable_ssl_verification:
             self._session.verify = False

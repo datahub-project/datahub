@@ -19,6 +19,7 @@ import com.linkedin.incident.IncidentState;
 import com.linkedin.incident.IncidentStatus;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -47,7 +48,7 @@ public class UpdateIncidentStatusResolver implements DataFetcher<CompletableFutu
     return CompletableFuture.supplyAsync(() -> {
 
       // Check whether the incident exists.
-      IncidentInfo info = (IncidentInfo) getAspectFromEntity(
+      IncidentInfo info = (IncidentInfo) EntityUtils.getAspectFromEntity(
         incidentUrn.toString(),
         INCIDENT_INFO_ASPECT_NAME,
         _entityService,

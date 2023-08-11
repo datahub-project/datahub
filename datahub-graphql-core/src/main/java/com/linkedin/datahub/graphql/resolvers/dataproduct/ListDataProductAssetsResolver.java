@@ -126,6 +126,7 @@ public class ListDataProductAssetsResolver implements DataFetcher<CompletableFut
             start,
             count,
             searchFlags,
+            null,
             ResolverUtils.getAuthentication(environment)));
       } catch (Exception e) {
         log.error(

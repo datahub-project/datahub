@@ -86,6 +86,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
             start,
             count,
             null,
+            null,
             context.getAuthentication()
         ));
 

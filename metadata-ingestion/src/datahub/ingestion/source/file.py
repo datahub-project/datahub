@@ -3,12 +3,11 @@ import json
 import logging
 import os.path
 import pathlib
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import auto
 from functools import partial
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
@@ -108,8 +107,6 @@ class FileSourceReport(SourceReport):
     total_parse_time_in_seconds: float = 0
     total_count_time_in_seconds: float = 0
     total_deserialize_time_in_seconds: float = 0
-    aspect_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    entity_type_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
     def add_deserialize_time(self, delta: datetime.timedelta) -> None:
         self.total_deserialize_time_in_seconds += round(delta.total_seconds(), 2)
@@ -220,15 +217,12 @@ class GenericFileSource(TestableSource):
                 if isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
-                    self.report.entity_type_counts[obj.entityType] += 1
-                    if obj.aspectName is not None:
-                        cur_aspect_name = str(obj.aspectName)
-                        self.report.aspect_counts[cur_aspect_name] += 1
-                        if (
-                            self.config.aspect is not None
-                            and cur_aspect_name != self.config.aspect
-                        ):
-                            continue
+                    if (
+                        self.config.aspect is not None
+                        and obj.aspectName is not None
+                        and obj.aspectName != self.config.aspect
+                    ):
+                        continue
 
                     if isinstance(obj, MetadataChangeProposalWrapper):
                         yield MetadataWorkUnit(id, mcp=obj)

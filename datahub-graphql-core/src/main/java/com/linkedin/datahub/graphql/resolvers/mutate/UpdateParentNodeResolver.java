@@ -12,6 +12,7 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAspectFromEntity;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persistAspect;
 
 @Slf4j
@@ -76,7 +76,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       QueryContext context
   ) {
     try {
-      GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
+      GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) EntityUtils.getAspectFromEntity(
           targetUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, _entityService, null);
       if (glossaryTermInfo == null) {
         // If there is no info aspect for the term already, then we should throw since the model also requires a name.
@@ -105,7 +105,7 @@ public class UpdateParentNodeResolver implements DataFetcher<CompletableFuture<B
       QueryContext context
   ) {
     try {
-      GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
+      GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) EntityUtils.getAspectFromEntity(
           targetUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, _entityService, null);
       if (glossaryNodeInfo == null) {
         throw new IllegalArgumentException("Info for this Glossary Node does not yet exist!");

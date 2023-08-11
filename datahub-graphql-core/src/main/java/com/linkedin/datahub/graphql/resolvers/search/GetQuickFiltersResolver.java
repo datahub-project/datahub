@@ -90,6 +90,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
         0,
         0,
         null,
+        null,
         authentication);
   }
 
