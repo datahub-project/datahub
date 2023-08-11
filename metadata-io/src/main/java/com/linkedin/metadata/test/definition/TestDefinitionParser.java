@@ -139,7 +139,8 @@ public class TestDefinitionParser {
     }
     if (!parsedTestDefinition.isObject() || !parsedTestDefinition.has(ON_FIELD) || !parsedTestDefinition.has(RULES_FIELD)) {
       throw new TestDefinitionParsingException(String.format(
-          "Failed to deserialize test definition %s: test definition must have a on clause and a rules clause",
+          "Failed to deserialize test definitio for urn %s: %s: test definition must have a on clause and a rules clause",
+          testUrn,
           jsonTestDefinition));
     }
     return new TestDefinition(

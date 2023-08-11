@@ -53,7 +53,7 @@ public enum ActionType {
   /**
    * Deprecate item
    */
-  DEPRECATION;
+  DEPRECATE;
 
   private static final Map<String, ActionType> NAME_TO_ACTION_TYPE = Arrays.stream(
       ActionType.values())

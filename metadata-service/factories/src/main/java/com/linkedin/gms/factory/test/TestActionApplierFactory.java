@@ -5,12 +5,14 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.entity.JavaEntityClientFactory;
 import com.linkedin.gms.factory.spring.YamlPropertySourceFactory;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DomainService;
 import com.linkedin.metadata.service.OwnerService;
 import com.linkedin.metadata.service.TagService;
 import com.linkedin.metadata.service.GlossaryTermService;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
+import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
 import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
@@ -42,6 +44,10 @@ public class TestActionApplierFactory {
   @Qualifier("systemAuthentication")
   private Authentication systemAuthentication;
 
+  @Autowired
+  @Qualifier("entityService")
+  private EntityService entityService;
+
   @Bean(name = "testActionApplier")
   @Nonnull
   protected ActionApplier getInstance() {
@@ -58,6 +64,7 @@ public class TestActionApplierFactory {
     appliers.add(new RemoveOwnersAction(ownerService));
     appliers.add(new SetDomainAction(domainService));
     appliers.add(new UnsetDomainAction(domainService));
+    appliers.add(new DeprecationAction(entityService));
     return new ActionApplier(appliers);
   }
 }

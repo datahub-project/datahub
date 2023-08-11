@@ -13,6 +13,7 @@ export enum ActionId {
     REMOVE_GLOSSARY_TERMS = 'remove_glossary_terms',
     SET_DOMAIN = 'set_domain',
     UNSET_DOMAIN = 'unset_domain',
+    DEPRECATE = 'deprecate',
 }
 
 export type ActionType = {
@@ -105,6 +106,15 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.SINGLE,
+        },
+    },
+    {
+        id: ActionId.DEPRECATE,
+        displayName: 'Deprecate Asset',
+        description: 'Mark asset as Deprecated.',
+        valueType: ValueTypeId.NO_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.NONE,
         },
     },
 ];

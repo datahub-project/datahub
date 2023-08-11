@@ -1,6 +1,8 @@
 package com.linkedin.metadata.test.action;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
@@ -12,6 +14,8 @@ import java.util.stream.Collectors;
  * An Action Applier is responsible for executing an action of a specific {@link ActionType}
  */
 public interface Action {
+
+  Urn METADATA_TEST_ACTOR_URN = EntityUtils.getUrnFromString(Constants.METATDATA_TEST_ACTOR);
   /**
    * Action being applied
    */

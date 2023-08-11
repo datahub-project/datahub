@@ -53,6 +53,10 @@ export enum ValueTypeId {
      * An exists value type
      */
     EXISTS_LIST = 'EXISTS_LIST',
+    /**
+     * No value type
+     */
+    NO_VALUE = 'NO_VALUE',
 }
 
 /**
@@ -173,6 +177,7 @@ export enum ValueInputType {
 }
 
 export enum SelectInputMode {
+    NONE = 'none',
     SINGLE = 'single',
     MULTIPLE = 'multiple',
 }

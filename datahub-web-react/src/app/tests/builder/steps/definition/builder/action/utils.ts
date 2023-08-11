@@ -12,6 +12,13 @@ const hasSearchableValueType = (actionType: ActionType): boolean => {
     );
 };
 
+/**
+ * Returns true if there is no Property
+ */
+const isNoInput = (actionType: ActionType): boolean => {
+    return actionType.valueType === ValueTypeId.NO_VALUE;
+};
+
 export const getActionType = (action: Action, actionTypes: ActionType[]): ActionType | undefined => {
     const maybeActionTypes = actionTypes.filter((type) => action.type.toLowerCase() === type.id.toLowerCase());
     if (maybeActionTypes.length === 1) {
@@ -27,6 +34,12 @@ export const getActionType = (action: Action, actionTypes: ActionType[]): Action
 export const getValueOptions = (actionType: ActionType | undefined): ValueOptions | undefined => {
     if (!actionType) {
         return undefined;
+    }
+    if (isNoInput(actionType)) {
+        return {
+            inputType: ValueInputType.NONE,
+            options: actionType.valueOptions,
+        };
     }
     // Display an Entity Search values input.
     if (hasSearchableValueType(actionType)) {
