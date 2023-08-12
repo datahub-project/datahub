@@ -52,7 +52,7 @@ runs:
         # add git short SHA as Docker tag
         tag-custom: ${{ inputs.tags }}
         tag-custom-only: true
-    
+
     # Code for testing the build when not pushing to Docker Hub.
     - name: Build and Load image for testing (if not publishing)
       uses: docker/build-push-action@v3
@@ -68,12 +68,14 @@ runs:
         target: ${{ inputs.target }}
         load: true
         push: false
+        cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: type=inline
     - name: Upload image locally for testing (if not publishing)
       uses: ishworkh/docker-image-artifact-upload@v1
       if: ${{ inputs.publish != 'true' }}
       with:
         image: ${{ steps.docker_meta.outputs.tags }}
-    
+
     # Code for building multi-platform images and pushing to Docker Hub.
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v2
@@ -98,5 +100,7 @@ runs:
         tags: ${{ steps.docker_meta.outputs.tags }}
         target: ${{ inputs.target }}
         push: true
+        cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
+        cache-to: type=inline
 
     # TODO add code for vuln scanning?

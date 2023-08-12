@@ -83,9 +83,9 @@ export const AddGroupMembersModal = ({ urn, visible, onCloseModal, onSubmit }: P
         setSelectedMembers(newUsers);
     };
 
-    const onDeselectMember = (memberUrn: { key: string; label: React.ReactNode; value: string }) => {
+    const onDeselectMember = (member: { key: string; label: React.ReactNode; value: string }) => {
         setInputValue('');
-        const newUserActors = selectedMembers.filter((user) => user.value !== memberUrn.value);
+        const newUserActors = selectedMembers.filter((user) => user.value !== member.value);
         setSelectedMembers(newUserActors);
     };
 

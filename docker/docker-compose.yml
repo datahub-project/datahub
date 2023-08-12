@@ -153,7 +153,7 @@ services:
     env_file: schema-registry/env/docker.env
     healthcheck:
       test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
-      start_period: 30s
+      start_period: 60s
       interval: 1s
       retries: 3
       timeout: 5s
@@ -169,7 +169,7 @@ services:
     env_file: broker/env/docker.env
     healthcheck:
       test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
-      start_period: 30s
+      start_period: 60s
       interval: 1s
       retries: 5
       timeout: 5s

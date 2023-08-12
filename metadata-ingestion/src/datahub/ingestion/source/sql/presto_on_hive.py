@@ -524,6 +524,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
             # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
 
+            self._set_partition_key(columns, schema_fields)
+
             schema_metadata = get_schema_metadata(
                 self.report,
                 dataset_name,
@@ -887,6 +889,18 @@ class PrestoOnHiveSource(SQLAlchemySource):
             else "",
             default_nullable=True,
         )
+
+    def _set_partition_key(self, columns, schema_fields):
+        if len(columns) > 0:
+            partition_key_names = set()
+            for column in columns:
+                if column["is_partition_col"]:
+                    partition_key_names.add(column["col_name"])
+
+            for schema_field in schema_fields:
+                name = schema_field.fieldPath.split(".")[-1]
+                if name in partition_key_names:
+                    schema_field.isPartitioningKey = True
 
 
 class SQLAlchemyClient:

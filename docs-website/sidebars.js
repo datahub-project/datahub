@@ -410,7 +410,6 @@ module.exports = {
         "docs/features/dataset-usage-and-query-history",
         "docs/posts",
         "docs/sync-status",
-        "docs/architecture/stemming_and_synonyms",
         "docs/lineage/lineage-feature-guide",
         {
           type: "doc",
@@ -418,6 +417,9 @@ module.exports = {
           className: "saasOnly",
         },
         "docs/act-on-metadata/impact-analysis",
+        {
+          Observability: ["docs/managed-datahub/observe/freshness-assertions"],
+        },
       ],
     },
     {
@@ -576,6 +578,7 @@ module.exports = {
         },
         {
           "Managed DataHub Release History": [
+            "docs/managed-datahub/release-notes/v_0_2_10",
             "docs/managed-datahub/release-notes/v_0_2_9",
             "docs/managed-datahub/release-notes/v_0_2_8",
             "docs/managed-datahub/release-notes/v_0_2_7",
