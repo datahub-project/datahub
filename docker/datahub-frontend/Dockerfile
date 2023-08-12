@@ -10,21 +10,23 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 RUN apk update
 
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl sqlite \
-    && apk --no-cache add openjdk11-jre --repository=http://mirrors.ustc.edu.cn/alpine/edge/community \
-    && apk --no-cache add jattach --repository http://mirrors.ustc.edu.cn/alpine/edge/community/
+RUN apk --available upgrade \
+    && apk add curl sqlite \
+    && apk add openjdk11-jre \
+    && apk add jattach
+
+RUN rm -vrf /var/cache/apk/*
 
 FROM base as prod-install
 
-COPY ./datahub-frontend.zip /
-RUN unzip datahub-frontend.zip && rm datahub-frontend.zip
+COPY docker/datahub-frontend-v0.10.5-SNAPSHOT.zip /
+RUN unzip datahub-frontend-v0.10.5-SNAPSHOT.zip && rm datahub-frontend-v0.10.5-SNAPSHOT.zip
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 
 ENV JMX_VERSION=0.18.0
-RUN wget https://kgithub.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
-    && wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
+RUN wget https://gh.api.99988866.xyz/https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar -O opentelemetry-javaagent.jar \
+    && wget https://maven.aliyun.com/repository/central/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar
 
 FROM base as dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

@@ -8,7 +8,7 @@ WORKDIR /go/src/github.com/jwilder
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 RUN apk update
-RUN apk --no-cache --update add openssl git tar curl
+RUN apk add openssl git tar curl
 
 WORKDIR /go/src/github.com/jwilder/dockerize
 
@@ -21,13 +21,14 @@ FROM alpine:3 AS base
 ENV JMX_VERSION=0.18.0
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 
-RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils sqlite \
-    && apk --no-cache add openjdk11-jre --repository=http://mirrors.ustc.edu.cn/alpine/edge/community \
-    && apk --no-cache add jattach --repository http://mirrors.ustc.edu.cn/alpine/edge/community/ \
+RUN apk  --available upgrade \
+    && apk  add curl bash coreutils sqlite \
+    && apk  add openjdk11-jre --repository=http://mirrors.ustc.edu.cn/alpine/edge/community \
+    && apk  add jattach --repository http://mirrors.ustc.edu.cn/alpine/edge/community/ \
     && wget --no-verbose https://kgithub.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
-    && wget --no-verbose https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
+    && wget --no-verbose https://maven.aliyun.com/repository/central/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
+RUN rm -vrf /var/cache/apk/*
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base as prod-install

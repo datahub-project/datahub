@@ -6,7 +6,7 @@ WORKDIR /go/src/github.com/jwilder
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 RUN apk update
 
-RUN apk --no-cache --update add openssl git tar curl
+RUN apk add openssl git tar curl
 
 WORKDIR /go/src/github.com/jwilder/dockerize
 
@@ -17,7 +17,11 @@ FROM alpine:3
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN apk add --no-cache mysql-client bash mariadb-connector-c sqlite
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
+RUN apk add mysql-client bash mariadb-connector-c sqlite
+
+RUN rm -vrf /var/cache/apk/*
 
 COPY docker/mysql-setup/init.sql /init.sql
 COPY docker/mysql-setup/init.sh /init.sh
