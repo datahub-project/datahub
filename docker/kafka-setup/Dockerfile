@@ -24,6 +24,9 @@ ARG PYTHON_CONFLUENT_DOCKER_UTILS_INSTALL_SPEC="git+https://github.com/confluent
 
 LABEL name="kafka" version=${KAFKA_VERSION}
 
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
+
 RUN apk add --no-cache bash coreutils
 RUN apk --no-cache add openjdk11-jre --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
 
