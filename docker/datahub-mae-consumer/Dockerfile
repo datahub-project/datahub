@@ -6,6 +6,8 @@ FROM golang:1-alpine3.17 AS binary
 ENV DOCKERIZE_VERSION v0.6.1
 WORKDIR /go/src/github.com/jwilder
 
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
 RUN apk --no-cache --update add openssl git tar curl
 
 WORKDIR /go/src/github.com/jwilder/dockerize
@@ -18,7 +20,6 @@ FROM alpine:3 AS base
 # Upgrade Alpine and base packages
 ENV JMX_VERSION=0.18.0
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
 
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl bash coreutils sqlite \

@@ -8,6 +8,7 @@ RUN addgroup -S datahub && adduser -S datahub -G datahub
 # Upgrade Alpine and base packages
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
 
 RUN apk --no-cache --update-cache --available upgrade \
     && apk --no-cache add curl sqlite \
