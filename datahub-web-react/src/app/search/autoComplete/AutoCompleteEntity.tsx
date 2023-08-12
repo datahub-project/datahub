@@ -63,7 +63,7 @@ export default function AutoCompleteEntity({ query, entity, hasParentTooltip }: 
     const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
 
     return (
-        <AutoCompleteEntityWrapper>
+        <AutoCompleteEntityWrapper data-testid={`auto-complete-entity-name-${displayName}`}>
             <ContentWrapper>
                 {icon}
                 <SuggestionText>
