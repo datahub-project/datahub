@@ -25,8 +25,6 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.joda.time.DateTimeUtils;
 
-import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
-
 
 @Slf4j
 public class AspectUtils {
@@ -47,10 +45,9 @@ public class AspectUtils {
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
             entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
-    RecordTemplate aspectRecord = GenericRecordUtils.deserializeAspect(
-            metadataChangeProposal.getAspect().getValue(),
-            JSON,
-            entityService.getEntityRegistry().getEntitySpec(urn.getEntityType()).getAspectSpec(metadataChangeProposal.getAspectName()));
+    RecordTemplate aspectRecord = GenericRecordUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
+            metadataChangeProposal.getAspect().getContentType(), entityService.getEntityRegistry()
+                    .getEntitySpec(urn.getEntityType()).getAspectSpec(metadataChangeProposal.getAspectName()));
 
     if (onPrimaryKeyInsertOnly) {
       return entityService.generateDefaultAspectsOnFirstWrite(urn, ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord))
