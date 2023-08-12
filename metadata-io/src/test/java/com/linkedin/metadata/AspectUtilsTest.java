@@ -54,7 +54,7 @@ public class AspectUtilsTest {
     DatasetProperties datasetProperties = new DatasetProperties().setName("name");
     proposal1.setAspect(GenericRecordUtils.serializeAspect(datasetProperties));
     proposal1.setEntityType("dataset");
-    proposal1.setChangeType(ChangeType.PATCH);
+    proposal1.setChangeType(ChangeType.UPSERT);
 
     List<MetadataChangeProposal> proposalList = AspectUtils.getAdditionalChanges(proposal1, entityServiceImpl);
     // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
