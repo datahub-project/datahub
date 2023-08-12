@@ -29,7 +29,7 @@ docker {
                 i.file == project(':metadata-ingestion').buildDir
     }
     buildArgs([DOCKER_VERSION: version,
-               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', ''),
+               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', ''),
                APP_ENV: 'slim'])
 }
 tasks.getByName('docker').dependsOn(['build',
@@ -45,7 +45,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}-slim")
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
