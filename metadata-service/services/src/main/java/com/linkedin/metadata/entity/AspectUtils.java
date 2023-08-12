@@ -32,13 +32,15 @@ public class AspectUtils {
   private AspectUtils() {
   }
 
+  public static final Set<ChangeType> SUPPORTED_TYPES = Set.of(ChangeType.UPSERT, ChangeType.CREATE);
+
   public static List<MetadataChangeProposal> getAdditionalChanges(
           @Nonnull MetadataChangeProposal metadataChangeProposal,
           @Nonnull EntityService entityService,
           boolean onPrimaryKeyInsertOnly) {
 
-    // No additional changes for delete operation
-    if (metadataChangeProposal.getChangeType() == ChangeType.DELETE) {
+    // No additional changes for unsupported operations
+    if (!SUPPORTED_TYPES.contains(metadataChangeProposal.getChangeType())) {
       return Collections.emptyList();
     }
 
