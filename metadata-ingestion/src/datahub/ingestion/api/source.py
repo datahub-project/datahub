@@ -166,12 +166,15 @@ class Extractor(Generic[WorkUnitType, ExtractorConfig], Closeable, metaclass=ABC
         pass
 
 
+T = TypeVar("T", bound="Source")
+
+
 @dataclass
 class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
+    def create(cls: Type[T], config_dict: dict, ctx: PipelineContext) -> T:
         # Technically, this method should be abstract. However, the @config_class
         # decorator automatically generates a create method at runtime if one is
         # not defined. Python still treats the class as abstract because it thinks
