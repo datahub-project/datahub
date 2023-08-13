@@ -27,9 +27,9 @@ RUN apk  --update-cache --available upgrade \
     && apk  add curl bash coreutils gcompat sqlite \
     && apk  add openjdk11-jre \
     && apk  add jattach \
-    && curl -sS https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-runner/9.4.46.v20220331/jetty-runner-9.4.46.v20220331.jar --output jetty-runner.jar \
-    && curl -sS https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-jmx/9.4.46.v20220331/jetty-jmx-9.4.46.v20220331.jar --output jetty-jmx.jar \
-    && curl -sS https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-util/9.4.46.v20220331/jetty-util-9.4.46.v20220331.jar --output jetty-util.jar \
+    && wget --noverbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-runner/9.4.46.v20220331/jetty-runner-9.4.46.v20220331.jar -O jetty-runner.jar \
+    && wget --noverbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-jmx/9.4.46.v20220331/jetty-jmx-9.4.46.v20220331.jar -O jetty-jmx.jar \
+    && wget --no-verbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-util/9.4.46.v20220331/jetty-util-9.4.46.v20220331.jar -O jetty-util.jar \
     && wget --no-verbose https://gh.api.99988866.xyz/https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
     && wget --no-verbose https://maven.aliyun.com/repository/central/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
     && cp /usr/lib/jvm/java-11-openjdk/jre/lib/security/cacerts /tmp/kafka.client.truststore.jks
