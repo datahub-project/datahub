@@ -63,7 +63,7 @@ dependencies {
 
 test {
     // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(4) ?: 1
+    maxParallelForks = Runtime.runtime.availableProcessors() - 1  ?: 1
     testLogging.showStandardStreams = true
     testLogging.exceptionFormat = 'full'
 }
