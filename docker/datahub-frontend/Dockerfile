@@ -20,7 +20,7 @@ RUN rm -vrf /var/cache/apk/*
 FROM base as prod-install
 
 COPY docker/datahub-frontend.zip /
-RUN unzip datahub-frontend.zip && rm datahub-frontend.zip
+RUN unzip datahub-frontend.zip && rm datahub-frontend.zip && mv datahub-frontend-v0.10.5-SNAPSHOT datahub-frontend
 COPY ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 RUN chown -R datahub:datahub /datahub-frontend && chmod 755 /datahub-frontend
 

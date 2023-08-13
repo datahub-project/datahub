@@ -27,8 +27,8 @@ RUN apk  --update-cache --available upgrade \
     && apk  add curl bash coreutils gcompat sqlite \
     && apk  add openjdk11-jre \
     && apk  add jattach \
-    && wget --noverbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-runner/9.4.46.v20220331/jetty-runner-9.4.46.v20220331.jar -O jetty-runner.jar \
-    && wget --noverbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-jmx/9.4.46.v20220331/jetty-jmx-9.4.46.v20220331.jar -O jetty-jmx.jar \
+    && wget --no-verbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-runner/9.4.46.v20220331/jetty-runner-9.4.46.v20220331.jar -O jetty-runner.jar \
+    && wget --no-verbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-jmx/9.4.46.v20220331/jetty-jmx-9.4.46.v20220331.jar -O jetty-jmx.jar \
     && wget --no-verbose https://maven.aliyun.com/repository/central/org/eclipse/jetty/jetty-util/9.4.46.v20220331/jetty-util-9.4.46.v20220331.jar -O jetty-util.jar \
     && wget --no-verbose https://gh.api.99988866.xyz/https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v1.24.0/opentelemetry-javaagent.jar \
     && wget --no-verbose https://maven.aliyun.com/repository/central/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_VERSION}/jmx_prometheus_javaagent-${JMX_VERSION}.jar -O jmx_prometheus_javaagent.jar \
