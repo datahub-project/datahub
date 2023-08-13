@@ -227,6 +227,7 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
       GraphFilters graphFilters, int offset, int count, int maxHops) {
+    this.configure();
     return getLineage(entityUrn, direction, graphFilters, offset, count, maxHops, null, null);
   }
 
@@ -235,6 +236,7 @@ public class Neo4jGraphService implements GraphService {
   public EntityLineageResult getLineage(@Nonnull Urn entityUrn, @Nonnull LineageDirection direction,
       GraphFilters graphFilters, int offset, int count, int maxHops, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
+    this.configure();
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
 
     final String statement =
@@ -504,6 +506,9 @@ public class Neo4jGraphService implements GraphService {
   @Override
   public void configure() {
     // Do nothing
+    log.debug("Creating Neo4j index for datasets on dataset's urn");
+    runQuery(new Statement("DROP INDEX index_dataset_urn IF EXISTS",Map.of())).consume();
+    runQuery(new Statement("CREATE INDEX index_dataset_urn IF NOT EXISTS FOR (n:dataset) ON n.urn",Map.of())).consume();
   }
 
   @Override

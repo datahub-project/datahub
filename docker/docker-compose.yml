@@ -1,4 +1,4 @@
-# Docker compose file covering DataHub's default configuration, which is to run all containers on a single host.
+  # Docker compose file covering DataHub's default configuration, which is to run all containers on a single host.
 
 # Please see the README.md for instructions as to how to use and customize.
 
