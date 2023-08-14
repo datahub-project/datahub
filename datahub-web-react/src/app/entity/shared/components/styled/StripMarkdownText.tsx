@@ -1,8 +1,6 @@
 import React from 'react';
 import removeMd from '@tommoor/remove-markdown';
 import styled from 'styled-components';
-import SearchHighlighter from '../../../../search/highlight/SearchHighlighter';
-import { HighlightField } from '../../../../search/highlight/HighlightContext';
 
 const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`
     display: block;
@@ -19,7 +17,7 @@ export type Props = {
     suffix?: JSX.Element;
     limit?: number;
     shouldWrap?: boolean;
-    highlightField?: HighlightField;
+    customRender?: (text: string) => JSX.Element;
 };
 
 export const removeMarkdown = (text: string) => {
@@ -32,7 +30,7 @@ export const removeMarkdown = (text: string) => {
         .replace(/^•/, ''); // remove first •
 };
 
-export default function NoMarkdownViewer({ children, readMore, suffix, limit, shouldWrap, highlightField }: Props) {
+export default function NoMarkdownViewer({ children, customRender, readMore, suffix, limit, shouldWrap }: Props) {
     let plainText = removeMarkdown(children || '');
 
     if (limit) {
@@ -47,7 +45,7 @@ export default function NoMarkdownViewer({ children, readMore, suffix, limit, sh
 
     return (
         <RemoveMarkdownContainer shouldWrap={!!shouldWrap}>
-            <SearchHighlighter field={highlightField} text={plainText} />
+            {customRender ? customRender(plainText) : plainText}
             {showReadMore && <>{readMore}</>} {suffix}
         </RemoveMarkdownContainer>
     );

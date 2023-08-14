@@ -30,6 +30,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { SearchResultProvider } from '../../search/context/SearchResultContext';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -266,7 +267,7 @@ export class DatasetEntity implements Entity<Dataset> {
         const data = result.entity as Dataset;
         const genericProperties = this.getGenericEntityProperties(data);
 
-        return (
+        const preview = (
             <Preview
                 urn={data.urn}
                 name={data.properties?.name || data.name}
@@ -303,6 +304,8 @@ export class DatasetEntity implements Entity<Dataset> {
                 health={data.health}
             />
         );
+
+        return <SearchResultProvider searchResult={result}>{preview}</SearchResultProvider>;
     };
 
     getLineageVizConfig = (entity: Dataset) => {

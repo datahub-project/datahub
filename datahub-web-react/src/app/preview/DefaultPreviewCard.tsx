@@ -34,6 +34,7 @@ import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import SearchHighlighter from '../search/highlight/SearchHighlighter';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -287,7 +288,15 @@ export default function DefaultPreviewCard({
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {name || ' '}
+                                    {/* todo - for this we need a mapping */}
+                                    {/* depending on entity type we use a different matchedField here */}
+                                    {/* or, we pass in entity type and a list of matchedFields based on that? */}
+                                    {/* one option is we add that to the entity class... */}
+                                    {/* or maybe the SearchHighlighter can do it automatically */}
+
+                                    {/* maybe in the render fn above we call a hook that gives us back the valid field? */}
+                                    {/* we could just store it on the schema since it appears to be static info */}
+                                    <SearchHighlighter field="id" text={name || ''} />
                                 </EntityTitle>
                             )}
                         </Link>

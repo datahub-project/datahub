@@ -1,6 +1,6 @@
 import React, { CSSProperties } from 'react';
 import Highlight from 'react-highlighter';
-import { HighlightField, useHighlightedValue } from './HighlightContext';
+import { HighlightField, useMatchedField } from '../context/SearchResultContext';
 import { useSearchQuery } from '../context/SearchContext';
 
 type Props = {
@@ -15,13 +15,13 @@ const highlightStyle: CSSProperties = {
 };
 
 const SearchHighlighter = ({ field, text }: Props) => {
-    const highlightedValue = useHighlightedValue(field);
+    const matchedField = useMatchedField(field);
     const searchQuery = useSearchQuery();
-    const hasSubstring = searchQuery && text?.includes(searchQuery);
+    const hasSubstring = matchedField?.value && searchQuery && text?.includes(searchQuery);
 
     return (
         <>
-            {highlightedValue ? (
+            {matchedField ? (
                 <Highlight search={hasSubstring ? searchQuery : HIGHLIGHT_ALL_PATTERN} matchStyle={highlightStyle}>
                     {text}
                 </Highlight>

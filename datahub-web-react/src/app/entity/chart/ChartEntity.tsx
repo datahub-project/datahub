@@ -183,6 +183,7 @@ export class ChartEntity implements Entity<Chart> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
         const genericProperties = this.getGenericEntityProperties(data);
+        console.log('chart', { result });
         return (
             <ChartPreview
                 urn={data.urn}

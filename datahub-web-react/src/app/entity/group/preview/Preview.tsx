@@ -103,7 +103,10 @@ export const Preview = ({
                 </Link>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={200} highlightField="description">
+                        <NoMarkdownViewer
+                            limit={200}
+                            customRender={(text) => <SearchHighlighter field="description" text={text} />}
+                        >
                             {description}
                         </NoMarkdownViewer>
                     </DescriptionContainer>
