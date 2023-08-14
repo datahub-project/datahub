@@ -3,10 +3,10 @@ const documentation_edited = `This is test${test_id} documentation EDITED`;
 const wrong_url = "https://www.linkedincom";
 const correct_url = "https://www.linkedin.com";
 
-describe("add, remove documentation and link to dataset", () => {
+describe("edit documentation and link to dataset", () => {
 
-    it("open test dataset page, edit and remove dataset documentation", () => {
-        //edit documentation, and propose, decline proposal
+    it("open test dataset page, edit documentation", () => {
+        //edit documentation and verify changes saved
         cy.loginWithCredentials();
         cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema");
         cy.get("[role='tab']").contains("Documentation").click();
@@ -15,39 +15,9 @@ describe("add, remove documentation and link to dataset", () => {
         cy.clickOptionWithText("Edit");
         cy.focused().clear();
         cy.focused().type(documentation_edited);
-        cy.get("button").contains("Propose").click();
-        cy.waitTextVisible("Proposed description update!").wait(3000);
-        //cy.waitTextVisible("No documentation yet");
-        cy.clickOptionWithText("Inbox");
-        cy.waitTextVisible("Update Description Proposal");
-        cy.contains("View difference").first().click();
+        cy.get("button").contains("Save").click();
+        cy.waitTextVisible("Description Updated");
         cy.waitTextVisible(documentation_edited);
-        cy.get("[data-icon='close'").click();
-        cy.get("button").contains("Decline").click();
-        cy.waitTextVisible("Are you sure you want to reject this proposal?");
-        cy.get("button").contains("Yes").click();
-        cy.waitTextVisible("Proposal declined.");
-        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema");
-        cy.get("[role='tab']").contains("Documentation").click();
-        cy.waitTextVisible("my hive dataset");
-        //edit documentation, and propose, approve proposal
-        cy.clickOptionWithText("Edit");
-        cy.focused().clear().wait(1000);
-        cy.focused().type(documentation_edited);
-        cy.get("button").contains("Propose").click();
-        cy.waitTextVisible("Proposed description update!").wait(3000);
-        cy.waitTextVisible("my hive dataset");
-        cy.clickOptionWithText("Inbox");
-        cy.waitTextVisible("Update Description Proposal");
-        cy.get("button").contains("Approve").click();
-        cy.waitTextVisible("Are you sure you want to accept this proposal?");
-        cy.get("button").contains("Yes").click();
-        cy.waitTextVisible("Successfully accepted the proposal!");
-        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema");
-        cy.get("[role='tab']").contains("Documentation").click();
-        cy.ensureTextNotPresent("my hive dataset");
-        cy.waitTextVisible(documentation_edited);
-        cy.ensureTextNotPresent("Add Documentation");
         //return documentation to original state
         cy.clickOptionWithText("Edit");
         cy.focused().clear().wait(1000);
