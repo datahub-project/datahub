@@ -83,13 +83,15 @@ public class AggregationQueryBuilder {
     AggregationBuilder lastAggBuilder = null;
     for (int i = facets.size() - 1; i >= 0; i--) {
       String facet = facets.get(i);
-      if (facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)) {
-        facet = "_index";
-      }
       AggregationBuilder aggBuilder =
-          AggregationBuilders.terms(inputFacet)
-              .field(getAggregationField(facet))
-              .size(_configs.getMaxTermBucketSize());
+          facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
+              ? AggregationBuilders.terms(inputFacet)
+                  .field(getAggregationField("_index"))
+                  .size(_configs.getMaxTermBucketSize())
+                  .minDocCount(0)
+              : AggregationBuilders.terms(inputFacet)
+                  .field(getAggregationField(facet))
+                  .size(_configs.getMaxTermBucketSize());
       if (lastAggBuilder != null) {
         aggBuilder = aggBuilder.subAggregation(lastAggBuilder);
       }
