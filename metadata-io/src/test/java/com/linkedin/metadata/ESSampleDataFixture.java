@@ -55,7 +55,7 @@ import static org.mockito.Mockito.when;
 @Import(ESTestConfiguration.class)
 public class ESSampleDataFixture {
     /**
-     * Interested in addin more fixtures? Here's what you will need to update?
+     * Interested in adding more fixtures? Here's what you will need to update?
      * 1. Create a new indexPrefix
      * 2. Create a new FixtureName
      * Both are needed or else all fixtures will load on top of each other,
@@ -67,6 +67,9 @@ public class ESSampleDataFixture {
 
     @Autowired
     private RestHighLevelClient _searchClient;
+
+    @Autowired
+    private RestHighLevelClient _longTailSearchClient;
 
     @Autowired
     private SearchConfiguration _searchConfiguration;
@@ -81,7 +84,7 @@ public class ESSampleDataFixture {
 
     @Bean(name = "longTailSampleDataPrefix")
     protected String longTailIndexPrefix() {
-        return "longTailSmpldat";
+        return "lngtlsmpldat";
     }
 
     @Bean(name = "sampleDataIndexConvention")
@@ -103,6 +106,21 @@ public class ESSampleDataFixture {
     protected EntityIndexBuilders entityIndexBuilders(
             @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
+    ) {
+        return entityIndexBuildersHelper(entityRegistry, indexConvention);
+    }
+
+    @Bean(name = "longTailSampleDataEntityIndexBuilders")
+    protected EntityIndexBuilders longTailEntityIndexBuilders(
+            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
+            @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
+    ) {
+        return entityIndexBuildersHelper(longTailEntityRegistry, indexConvention);
+    }
+
+    protected EntityIndexBuilders entityIndexBuildersHelper(
+            EntityRegistry entityRegistry,
+            IndexConvention indexConvention
     ) {
         GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
         ESIndexBuilder indexBuilder = new ESIndexBuilder(_searchClient, 1, 0, 1,
@@ -145,13 +163,13 @@ public class ESSampleDataFixture {
     @Bean(name = "longTailSampleDataSearchService")
     @Nonnull
     protected SearchService longTailSearchService(
-            @Qualifier("entityRegistry") EntityRegistry entityRegistry,
+            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
             @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
-            @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
+            @Qualifier("longTailSampleDataEntityIndexBuilders") EntityIndexBuilders longTailIndexBuilders,
             @Qualifier("longTailSampleDataPrefix") String longTailPrefix,
             @Qualifier("longTailFixtureName") String longTailFixtureName
     ) throws IOException {
-        return searchServiceHelper(entityRegistry, entitySearchService, indexBuilders, longTailPrefix, longTailFixtureName);
+        return searchServiceHelper(longTailEntityRegistry, entitySearchService, longTailIndexBuilders, longTailPrefix, longTailFixtureName);
     }
 
     public SearchService searchServiceHelper(
@@ -198,6 +216,24 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
             @Qualifier("entityRegistry") EntityRegistry entityRegistry
     ) {
+        return entityClientHelper(searchService, entitySearchService, entityRegistry);
+    }
+
+    @Bean(name = "longTailSampleDataEntityClient")
+    @Nonnull
+    protected EntityClient longTailEntityClient(
+            @Qualifier("sampleDataSearchService") SearchService searchService,
+            @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
+            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry
+    ) {
+        return entityClientHelper(searchService, entitySearchService, longTailEntityRegistry);
+    }
+
+    private EntityClient entityClientHelper(
+            SearchService searchService,
+            ElasticSearchService entitySearchService,
+            EntityRegistry entityRegistry
+    ) {
         CachingEntitySearchService cachingEntitySearchService = new CachingEntitySearchService(
                 new ConcurrentMapCacheManager(),
                 entitySearchService,
@@ -211,7 +247,7 @@ public class ESSampleDataFixture {
         preProcessHooks.setUiEnabled(true);
         return new JavaEntityClient(
                 new EntityServiceImpl(mockAspectDao, null, entityRegistry, true, null,
-                    preProcessHooks),
+                        preProcessHooks),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

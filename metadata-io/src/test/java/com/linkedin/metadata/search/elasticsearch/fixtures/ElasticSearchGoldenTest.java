@@ -1,33 +1,41 @@
 package com.linkedin.metadata.search.elasticsearch.fixtures;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nonnull;
-import java.io.IOException;
-
 import static com.linkedin.metadata.ESTestUtils.searchAcrossEntities;
+import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.*;
 
 @Import(ESSampleDataFixture.class)
 public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
 
     @Autowired
+    private RestHighLevelClient _searchClient;
+
+    @Autowired
     @Qualifier("longTailSampleDataSearchService")
     protected SearchService searchService;
+
+    @Autowired
+    @Qualifier("longTailSampleDataEntityClient")
+    protected EntityClient entityClient;
+
+    @Autowired
+    @Qualifier("longTailEntityRegistry")
+    private EntityRegistry entityRegistry;
 
     @Test
     public void testNameMatchPetProfiles() {
@@ -35,6 +43,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
           Searching for "pet profiles" should return "pet_profiles" as the first 2 search results
          */
         assertNotNull(searchService);
+        assertNotNull(entityRegistry);
         SearchResult searchResult = searchAcrossEntities(searchService, "pet profiles");
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
