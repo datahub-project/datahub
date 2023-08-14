@@ -16,7 +16,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 17);
+    assertEquals(properties.size(), 18);
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
             "fields",
             ImmutableMap.of("delimited",
@@ -71,13 +71,23 @@ public class MappingsBuilderTest {
     assertEquals(textArrayField.get("type"), "keyword");
     assertEquals(textArrayField.get("normalizer"), "keyword_normalizer");
     Map<String, Object> textArrayFieldSubfields = (Map<String, Object>) textArrayField.get("fields");
-    assertEquals(textArrayFieldSubfields.size(), 6);
+    assertEquals(textArrayFieldSubfields.size(), 3);
     assertTrue(textArrayFieldSubfields.containsKey("delimited"));
     assertTrue(textArrayFieldSubfields.containsKey("ngram"));
     assertTrue(textArrayFieldSubfields.containsKey("keyword"));
-    assertTrue(textArrayFieldSubfields.containsKey("wordGrams2"));
-    assertTrue(textArrayFieldSubfields.containsKey("wordGrams3"));
-    assertTrue(textArrayFieldSubfields.containsKey("wordGrams4"));
+
+    // WORD_GRAM
+    Map<String, Object> wordGramField = (Map<String, Object>) properties.get("wordGramField");
+    assertEquals(wordGramField.get("type"), "keyword");
+    assertEquals(wordGramField.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> wordGramFieldSubfields = (Map<String, Object>) wordGramField.get("fields");
+    assertEquals(wordGramFieldSubfields.size(), 6);
+    assertTrue(wordGramFieldSubfields.containsKey("delimited"));
+    assertTrue(wordGramFieldSubfields.containsKey("ngram"));
+    assertTrue(wordGramFieldSubfields.containsKey("keyword"));
+    assertTrue(wordGramFieldSubfields.containsKey("wordGrams2"));
+    assertTrue(wordGramFieldSubfields.containsKey("wordGrams3"));
+    assertTrue(wordGramFieldSubfields.containsKey("wordGrams4"));
 
     // URN
     Map<String, Object> foreignKey = (Map<String, Object>) properties.get("foreignKey");
