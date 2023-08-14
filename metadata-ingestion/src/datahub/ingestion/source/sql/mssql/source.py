@@ -48,7 +48,6 @@ from datahub.ingestion.source.sql.sql_config import (
 )
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
-    ChangeTypeClass,
     UnionTypeClass,
 )
 
@@ -604,16 +603,12 @@ class SQLServerSource(SQLAlchemySource):
         data_job: MSSQLDataJob,
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
-            entityType=data_job.type,
             entityUrn=data_job.urn,
-            changeType=ChangeTypeClass.UPSERT,
             aspect=data_job.as_datajob_info_aspect,
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
-            entityType=data_job.type,
             entityUrn=data_job.urn,
-            changeType=ChangeTypeClass.UPSERT,
             aspect=data_job.as_datajob_input_output_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
@@ -623,9 +618,7 @@ class SQLServerSource(SQLAlchemySource):
         data_flow: MSSQLDataFlow,
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
-            entityType=data_flow.type,
             entityUrn=data_flow.urn,
-            changeType=ChangeTypeClass.UPSERT,
             aspect=data_flow.as_dataflow_info_aspect,
         ).as_workunit()
         # TODO: Add SubType when it appear
