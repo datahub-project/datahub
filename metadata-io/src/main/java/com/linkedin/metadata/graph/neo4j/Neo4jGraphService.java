@@ -508,11 +508,15 @@ public class Neo4jGraphService implements GraphService {
     // add dataset urn index to improve query performance
     log.debug("Creating Neo4j index for datasets on dataset's urn");
     runQuery(new Statement("CREATE INDEX index_dataset_urn IF NOT EXISTS FOR (n:dataset) ON n.urn",Map.of())).consume();
+    // add index on createOn and updateOn for rel r_Downstreamof
+    runQuery(new Statement("CREATE INDEX rel_index_upserton IF NOT EXISTS FOR ()-[r:r_DownstreamOf]-() ON (r.createOn,r.updatedOn)",Map.of())).consume();
+    runQuery(new Statement("CALL db.awaitIndexes",Map.of())).consume();
   }
 
   @Override
   public void clear() {
     runQuery(new Statement("DROP INDEX index_dataset_urn IF EXISTS",Map.of())).consume();
+    runQuery(new Statement("DROP INDEX rel_index_upserton IF EXISTS", Map.of())).consume();
     removeNodesMatchingLabel(".*");
   }
 
@@ -732,7 +736,7 @@ public class Neo4jGraphService implements GraphService {
 
   private String generateFullQueryTemplate(@Nonnull String multiHopMatchTemplate, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
-    final String sourceUiCheck = String.format("(EXISTS(rt.%s) AND rt.%s = '%s') ", SOURCE, SOURCE, UI);
+    final String sourceUiCheck = String.format("(rt.%s IS NOT NULL AND rt.%s = '%s') ", SOURCE, SOURCE, UI);
     final String whereTemplate = "WHERE (b:%s) AND b.urn <> '%s' ";
     final String returnTemplate = "RETURN a,r,b";
     String withTimeTemplate = "";
