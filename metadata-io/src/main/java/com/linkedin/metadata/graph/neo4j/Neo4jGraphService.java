@@ -505,14 +505,14 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void configure() {
-    // Do nothing
+    // add dataset urn index to improve query performance
     log.debug("Creating Neo4j index for datasets on dataset's urn");
-    runQuery(new Statement("DROP INDEX index_dataset_urn IF EXISTS",Map.of())).consume();
     runQuery(new Statement("CREATE INDEX index_dataset_urn IF NOT EXISTS FOR (n:dataset) ON n.urn",Map.of())).consume();
   }
 
   @Override
   public void clear() {
+    runQuery(new Statement("DROP INDEX index_dataset_urn IF EXISTS",Map.of())).consume();
     removeNodesMatchingLabel(".*");
   }
 
