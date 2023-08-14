@@ -9,8 +9,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
 
 ### Other Notable Changes
+- #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
+  container db (None) -> container schema and now we have platform_instance -> container database.
+- #8300: Added `uri_opts` argument; now we can add any options for clickhouse client.
 
 ## 0.10.5
 

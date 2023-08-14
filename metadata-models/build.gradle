@@ -37,3 +37,7 @@ tasks.register('generateJsonSchema', GenerateJsonSchemaTask) {
   it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
   dependsOn generateAvroSchema
 }
+
+clean {
+  project.delete("$projectDir/src/generatedJsonSchema")
+}
