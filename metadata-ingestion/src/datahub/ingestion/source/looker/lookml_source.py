@@ -1206,7 +1206,10 @@ class LookerView:
 
         return LookerView(
             id=LookerViewId(
-                project_name=project_name, model_name=model_name, view_name=view_name
+                project_name=project_name,
+                model_name=model_name,
+                view_name=view_name,
+                absolute_file_path=looker_viewfile.absolute_file_path,
             ),
             absolute_file_path=looker_viewfile.absolute_file_path,
             connection=connection,

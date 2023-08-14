@@ -81,6 +81,7 @@ class NamingPatternMapping:
     project: str
     model: str
     name: str
+    file_path: str
 
 
 class LookerNamingPattern(NamingPattern):

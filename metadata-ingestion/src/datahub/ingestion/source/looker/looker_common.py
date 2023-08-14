@@ -90,6 +90,7 @@ class LookerViewId:
     project_name: str
     model_name: str
     view_name: str
+    absolute_file_path: str
 
     def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
         return NamingPatternMapping(
@@ -98,6 +99,9 @@ class LookerViewId:
             project=self.project_name,
             model=self.model_name,
             name=self.view_name,
+            file_path=self.absolute_file_path.split("/checkout", 1)[
+                1
+            ],  # split on first /checkout path to get relative path of view file
         )
 
     @validator("view_name")
