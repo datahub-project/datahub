@@ -26,7 +26,6 @@ export const ANTD_GRAY_V2 = {
     6: '#B2B8BD',
     8: '#5E666E',
     10: '#1B1E22',
-    // todo - this probably shouldn't go here
 };
 
 export const EMPTY_MESSAGES = {
