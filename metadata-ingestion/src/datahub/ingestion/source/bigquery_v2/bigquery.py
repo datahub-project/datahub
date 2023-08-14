@@ -299,9 +299,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 logger.info((f"Metadata read capability test for project {project_id}"))
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
-                report = BigQueryV2Report()
                 bigquery_data_dictionary = BigQuerySchemaApi(
-                    report.schema_api_perf, client
+                    BigQueryV2Report().schema_api_perf, client
                 )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
@@ -524,6 +523,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 [p.id for p in projects],
                 self.sql_parser_schema_resolver,
                 self.view_definition_ids,
+                self.view_definitions,
                 self.table_refs,
             )
 

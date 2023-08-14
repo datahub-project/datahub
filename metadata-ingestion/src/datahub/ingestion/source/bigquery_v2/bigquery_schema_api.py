@@ -130,7 +130,7 @@ class BigQuerySchemaApi:
         self, report: BigQuerySchemaApiPerfReport, client: bigquery.Client
     ) -> None:
         self.bq_client = client
-        self.api_perf_report = report
+        self.report = report
 
     def get_client(self) -> bigquery.Client:
         assert self.bq_client is not None
@@ -142,7 +142,7 @@ class BigQuerySchemaApi:
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
-        with self.api_perf_report.list_projects:
+        with self.report.list_projects:
             projects = self.get_client().list_projects()
 
             return [
@@ -152,7 +152,7 @@ class BigQuerySchemaApi:
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
-        with self.api_perf_report.list_datasets:
+        with self.report.list_datasets:
             datasets = self.get_client().list_datasets(
                 project_id, max_results=maxResults
             )
@@ -187,7 +187,7 @@ class BigQuerySchemaApi:
     def list_tables(
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:
-        with self.api_perf_report.list_tables as current_timer:
+        with self.report.list_tables as current_timer:
             for table in self.get_client().list_tables(f"{project_id}.{dataset_name}"):
                 with current_timer.pause_timer():
                     yield table
@@ -200,8 +200,8 @@ class BigQuerySchemaApi:
         with_data_read_permission: bool = False,
         report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryTable]:
-        with self.api_perf_report.get_tables_for_dataset as current_timer:
-            filter: str = ", ".join(f"'{table}'" for table in tables.keys())
+        with self.report.get_tables_for_dataset as current_timer:
+            filter_clause: str = ", ".join(f"'{table}'" for table in tables.keys())
 
             if with_data_read_permission:
                 # Tables are ordered by name and table suffix to make sure we always process the latest sharded table
@@ -210,8 +210,8 @@ class BigQuerySchemaApi:
                     BigqueryQuery.tables_for_dataset.format(
                         project_id=project_id,
                         dataset_name=dataset_name,
-                        table_filter=f" and t.table_name in ({filter})"
-                        if filter
+                        table_filter=f" and t.table_name in ({filter_clause})"
+                        if filter_clause
                         else "",
                     ),
                 )
@@ -222,8 +222,8 @@ class BigQuerySchemaApi:
                     BigqueryQuery.tables_for_dataset_without_partition_data.format(
                         project_id=project_id,
                         dataset_name=dataset_name,
-                        table_filter=f" and t.table_name in ({filter})"
-                        if filter
+                        table_filter=f" and t.table_name in ({filter_clause})"
+                        if filter_clause
                         else "",
                     ),
                 )
@@ -291,7 +291,7 @@ class BigQuerySchemaApi:
         has_data_read: bool,
         report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryView]:
-        with self.api_perf_report.get_views_for_dataset as current_timer:
+        with self.report.get_views_for_dataset as current_timer:
             if has_data_read:
                 cur = self.get_query_result(
                     BigqueryQuery.views_for_dataset.format(
@@ -344,7 +344,7 @@ class BigQuerySchemaApi:
         run_optimized_column_query: bool = False,
     ) -> Optional[Dict[str, List[BigqueryColumn]]]:
         columns: Dict[str, List[BigqueryColumn]] = defaultdict(list)
-        with self.api_perf_report.get_columns_for_dataset:
+        with self.report.get_columns_for_dataset:
             try:
                 cur = self.get_query_result(
                     BigqueryQuery.columns_for_dataset.format(

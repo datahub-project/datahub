@@ -37,13 +37,15 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     ReadEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
-    BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
     BigQueryAuditLogApi,
-    bigquery_audit_metadata_query_template_usage,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
+    bigquery_audit_metadata_query_template_usage,
+)
 from datahub.ingestion.source.usage.usage_common import (
     TOTAL_BUDGET_FOR_QUERY_LIST,
     make_usage_workunit,

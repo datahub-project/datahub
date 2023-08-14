@@ -21,14 +21,16 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     ReadEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
-    BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     BigQueryAuditLogApi,
-    bigquery_audit_metadata_query_template_lineage,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import BigQuerySchemaApi
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
+    bigquery_audit_metadata_query_template_lineage,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetLineageTypeClass,
@@ -40,6 +42,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities import memory_footprint
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlglot_lineage import (
     SchemaResolver,
@@ -204,6 +207,7 @@ class BigqueryLineageExtractor:
         projects: List[str],
         sql_parser_schema_resolver: SchemaResolver,
         view_definition_ids: Dict[str, Dict[str, str]],
+        view_definitions: FileBackedDict[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         views_skip_audit_log_lineage: Set[str] = set()
@@ -213,6 +217,7 @@ class BigqueryLineageExtractor:
                 self.populate_view_lineage_with_sql_parsing(
                     view_lineage,
                     view_definition_ids[project],
+                    view_definitions,
                     sql_parser_schema_resolver,
                     project,
                 )
@@ -289,11 +294,12 @@ class BigqueryLineageExtractor:
         self,
         view_lineage: Dict[str, Set[LineageEdge]],
         view_definition_ids: Dict[str, str],
+        view_definitions: FileBackedDict[str],
         sql_parser_schema_resolver: SchemaResolver,
         default_project: str,
     ) -> None:
         for view, view_definition_id in view_definition_ids.items():
-            view_definition = view_definition_ids[view_definition_id]
+            view_definition = view_definitions[view_definition_id]
             raw_view_lineage = sqlglot_lineage(
                 view_definition,
                 schema_resolver=sql_parser_schema_resolver,
@@ -493,7 +499,9 @@ class BigqueryLineageExtractor:
 
         parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
         if self.config.use_exported_bigquery_audit_metadata:
-            self.get_exported_log_entries(corrected_start_time, corrected_end_time)
+            entries = self.get_exported_log_entries(
+                corrected_start_time, corrected_end_time
+            )
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
             entries = self.get_log_entries_via_gcp_logging(
@@ -541,8 +549,8 @@ class BigqueryLineageExtractor:
         entries = self.audit_log_api.get_bigquery_log_entries_via_gcp_logging(
             logging_client,
             BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE.format(
-                corrected_start_time.strftime(BQ_DATETIME_FORMAT),
-                corrected_end_time.strftime(BQ_DATETIME_FORMAT),
+                start_time=corrected_start_time.strftime(BQ_DATETIME_FORMAT),
+                end_time=corrected_end_time.strftime(BQ_DATETIME_FORMAT),
             ),
             self.config.log_page_size,
         )

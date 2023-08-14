@@ -1,5 +1,4 @@
 import logging
-import textwrap
 from datetime import datetime
 from typing import Callable, Iterable, List, Optional
 
@@ -40,7 +39,12 @@ class BigQueryAuditLogApi:
         self,
         bigquery_client: bigquery.Client,
         bigquery_audit_metadata_query_template: Callable[
-            [str, bool, Optional[int]], str
+            [
+                str,  # dataset: str
+                bool,  # use_date_sharded_tables: bool
+                Optional[int],  # limit: Optional[int] = None
+            ],
+            str,
         ],
         bigquery_audit_metadata_datasets: Optional[List[str]],
         use_date_sharded_audit_log_tables: bool,
@@ -56,6 +60,10 @@ class BigQueryAuditLogApi:
 
         audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
         audit_end_date = end_time.strftime(BQ_DATE_SHARD_FORMAT)
+
+        rate_limiter: Optional[RateLimiter] = None
+        if self.rate_limit:
+            rate_limiter = RateLimiter(max_calls=self.requests_per_min, period=60)
 
         with self.report.get_exported_log_entries as current_timer:
             for dataset in bigquery_audit_metadata_datasets:
@@ -79,8 +87,8 @@ class BigQueryAuditLogApi:
                     f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
                 )
 
-                if self.rate_limit:
-                    with RateLimiter(max_calls=self.requests_per_min, period=60):
+                if rate_limiter:
+                    with rate_limiter:
                         for entry in query_job:
                             with current_timer.pause_timer():
                                 yield entry
@@ -136,198 +144,3 @@ class BigQueryAuditLogApi:
             logger.info(
                 f"Finished loading log entries from GCP Log for {client.project}"
             )
-
-
-def bigquery_audit_metadata_query_template_usage(
-    dataset: str,
-    use_date_sharded_tables: bool,
-    limit: Optional[int] = None,
-) -> str:
-    """
-    Receives a dataset (with project specified) and returns a query template that is used to query exported
-    v2 AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
-    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
-    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
-           tables
-    :param limit: maximum number of events to query for
-    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
-    """
-
-    limit_text = f"limit {limit}" if limit else ""
-
-    shard_condition = ""
-    if use_date_sharded_tables:
-        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access_*`"
-        shard_condition = (
-            """ AND _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" """
-        )
-    else:
-        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
-
-    # Deduplicates insertId via QUALIFY, see:
-    # https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry, insertId field
-    query = f"""
-        SELECT
-            timestamp,
-            logName,
-            insertId,
-            protopayload_auditlog AS protoPayload,
-            protopayload_auditlog.metadataJson AS metadata
-        FROM
-            {from_table}
-        WHERE (
-            timestamp >= "{{start_time}}"
-            AND timestamp < "{{end_time}}"
-        )
-        {shard_condition}
-        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-        AND
-        (
-            (
-                protopayload_auditlog.methodName IN
-                    (
-                        "google.cloud.bigquery.v2.JobService.Query",
-                        "google.cloud.bigquery.v2.JobService.InsertJob"
-                    )
-                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-                AND (
-                        JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
-                                                            "$.jobChange.job.jobStats.queryStats.referencedTables") IS NOT NULL
-                    OR
-                        JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig.destinationTable") IS NOT NULL
-                    )
-            )
-            OR
-                JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
-        )
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY insertId, timestamp, logName) = 1
-        {limit_text};
-    """
-
-    return textwrap.dedent(query)
-
-
-def bigquery_audit_metadata_query_template_lineage(
-    dataset: str, use_date_sharded_tables: bool, limit: Optional[int] = None
-) -> str:
-    """
-    Receives a dataset (with project specified) and returns a query template that is used to query exported
-    AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
-    Include only those that:
-    - have been completed (jobStatus.jobState = "DONE")
-    - do not contain errors (jobStatus.errorResults is none)
-    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
-    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
-           tables
-    :param limit: set a limit for the maximum event to return. It is used for connection testing currently
-    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
-    """
-    limit_text = f"limit {limit}" if limit else ""
-
-    shard_condition = ""
-    if use_date_sharded_tables:
-        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access_*`"
-        shard_condition = (
-            """ AND _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" """
-        )
-    else:
-        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
-
-    query = f"""
-            SELECT
-                timestamp,
-                logName,
-                insertId,
-                protopayload_auditlog AS protoPayload,
-                protopayload_auditlog.metadataJson AS metadata
-            FROM
-                {from_table}
-            WHERE (
-                timestamp >= "{{start_time}}"
-                AND timestamp < "{{end_time}}"
-            )
-            {shard_condition}
-            AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-            AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-            AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-            AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-            {limit_text};
-        """
-
-    return textwrap.dedent(query)
-
-
-BQ_FILTER_RULE_TEMPLATE_V2_USAGE = """
-resource.type=("bigquery_project" OR "bigquery_dataset")
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
-AND protoPayload.serviceName="bigquery.googleapis.com"
-AND
-(
-    (
-        protoPayload.methodName=
-            (
-                "google.cloud.bigquery.v2.JobService.Query"
-                OR
-                "google.cloud.bigquery.v2.JobService.InsertJob"
-            )
-        AND protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
-        AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
-        AND
-        (
-            (
-                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-                AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
-            )
-            OR
-            (
-                protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable:*
-            )
-        )
-    )
-    OR
-    protoPayload.metadata.tableDataRead.reason = "JOB"
-)
-""".strip(
-    "\t \n"
-)
-
-BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE = """
-resource.type=("bigquery_project")
-AND
-(
-    protoPayload.methodName=
-        (
-            "google.cloud.bigquery.v2.JobService.Query"
-            OR
-            "google.cloud.bigquery.v2.JobService.InsertJob"
-        )
-    AND
-    protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
-    AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-    AND (
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-        OR
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedViews:*
-    )
-    AND (
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/_.*/tables/anon.*"
-        AND
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/INFORMATION_SCHEMA.*"
-        AND
-        protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables !~ "projects/.*/datasets/.*/tables/__TABLES__"
-        AND
-        protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable !~ "projects/.*/datasets/_.*/tables/anon.*"
-    )
-
-)
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
-""".strip()

@@ -269,13 +269,13 @@ class BigQueryV2Config(
     @validator("bigquery_audit_metadata_datasets")
     def validate_bigquery_audit_metadata_datasets(
         cls, v: Optional[List[str]], values: Dict
-    ) -> Dict:
+    ) -> Optional[List[str]]:
         if values.get("use_exported_bigquery_audit_metadata"):
             assert (
                 v and len(v) > 0
-            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata` for usage/lineage."
+            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
 
-        return values
+        return v
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
