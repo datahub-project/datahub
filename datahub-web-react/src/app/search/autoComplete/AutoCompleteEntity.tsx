@@ -90,7 +90,7 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const showHeader = showPlatforms || showParentContainers;
 
     return (
-        <AutoCompleteEntityWrapper>
+        <AutoCompleteEntityWrapper data-testid={`auto-complete-entity-name-${displayName}`}>
             <ContentWrapper>
                 <SuggestionText>
                     {showHeader && (

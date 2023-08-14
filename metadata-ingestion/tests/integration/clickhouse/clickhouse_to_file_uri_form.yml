@@ -3,10 +3,8 @@ run_id: clickhouse-test
 source:
   type: clickhouse
   config:
-    username: clickhouseuser
-    password: clickhousepass
-    host_port: localhost:28123
     platform_instance: clickhousetestserver
+    sqlalchemy_uri: "clickhouse://clickhouseuser:clickhousepass@localhost:28123/?compression=lz4&secure=false"
     database_pattern:
       allow:
         - "^db1"
@@ -28,4 +26,4 @@ source:
 sink:
   type: file
   config:
-    filename: "./clickhouse_mces.json"
+    filename: "./clickhouse_mces_uri_form.json"
