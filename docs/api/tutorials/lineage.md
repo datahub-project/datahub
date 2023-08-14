@@ -74,7 +74,7 @@ For more information about the `updateLineage` mutation, please refer to [update
 
 If you see the following response, the operation was successful:
 
-```python
+```json
 {
   "data": {
     "updateLineage": true

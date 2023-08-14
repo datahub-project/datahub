@@ -333,6 +333,7 @@ module.exports = {
           "API and SDK Guides": [
             "docs/advanced/patch",
             "docs/api/tutorials/datasets",
+            "docs/api/tutorials/operational",
             "docs/api/tutorials/lineage",
             "docs/api/tutorials/tags",
             "docs/api/tutorials/terms",
