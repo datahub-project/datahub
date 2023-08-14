@@ -845,6 +845,7 @@ jobs:
         run: |
           docker ps -a
           docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log
+          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
