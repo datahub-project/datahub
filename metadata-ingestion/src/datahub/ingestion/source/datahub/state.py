@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Dict, NamedTuple, Optional, cast
 from pydantic import Field
 from pydantic.types import NonNegativeInt
 
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.use_case_handler import (

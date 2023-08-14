@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Iterable, Optional, Tuple
 
 from sqlalchemy import create_engine

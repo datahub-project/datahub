@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field, validator
+from pydantic import Field
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.source.sql.mysql import MySQLConnectionConfig
