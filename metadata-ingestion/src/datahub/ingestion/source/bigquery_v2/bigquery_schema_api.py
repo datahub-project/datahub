@@ -14,7 +14,7 @@ from google.cloud.bigquery.table import (
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
-    BigQueryApiPerfReport,
+    BigQuerySchemaApiPerfReport,
     BigQueryV2Report,
 )
 from datahub.ingestion.source.bigquery_v2.queries import (
@@ -125,8 +125,10 @@ class BigqueryProject:
     datasets: List[BigqueryDataset] = field(default_factory=list)
 
 
-class BigQueryTechnicalSchemaApi:
-    def __init__(self, report: BigQueryApiPerfReport, client: bigquery.Client) -> None:
+class BigQuerySchemaApi:
+    def __init__(
+        self, report: BigQuerySchemaApiPerfReport, client: bigquery.Client
+    ) -> None:
         self.bq_client = client
         self.api_perf_report = report
 
@@ -229,7 +231,7 @@ class BigQueryTechnicalSchemaApi:
             for table in cur:
                 try:
                     with current_timer.pause_timer():
-                        yield BigQueryTechnicalSchemaApi._make_bigquery_table(
+                        yield BigQuerySchemaApi._make_bigquery_table(
                             table, tables.get(table.table_name)
                         )
                 except Exception as e:
@@ -306,7 +308,7 @@ class BigQueryTechnicalSchemaApi:
             for table in cur:
                 try:
                     with current_timer.pause_timer():
-                        yield BigQueryTechnicalSchemaApi._make_bigquery_view(table)
+                        yield BigQuerySchemaApi._make_bigquery_view(table)
                 except Exception as e:
                     view_name = f"{project_id}.{dataset_name}.{table.table_name}"
                     logger.warning(

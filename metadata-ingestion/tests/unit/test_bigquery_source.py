@@ -21,7 +21,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Confi
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import (
     BigqueryProject,
-    BigQueryTechnicalSchemaApi,
+    BigQuerySchemaApi,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
@@ -93,12 +93,10 @@ def test_bigquery_uri_with_credential():
         raise e
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_projects_with_project_ids(get_bigquery_client):
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_projects_with_project_ids(get_bq_client_mock):
     client_mock = MagicMock()
-    get_bigquery_client.return_value = client_mock
+    get_bq_client_mock.return_value = client_mock
     config = BigQueryV2Config.parse_obj(
         {
             "project_ids": ["test-1", "test-2"],
@@ -122,11 +120,9 @@ def test_get_projects_with_project_ids(get_bigquery_client):
     assert client_mock.list_projects.call_count == 0
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_projects_with_project_ids_overrides_project_id_pattern(
-    get_bigquery_client,
+    get_bq_client_mock,
 ):
     config = BigQueryV2Config.parse_obj(
         {
@@ -142,10 +138,8 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern(
     ]
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_dataplatform_instance_aspect_returns_project_id(get_bigquery_client):
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_dataplatform_instance_aspect_returns_project_id(get_bq_client_mock):
     project_id = "project_id"
     expected_instance = (
         f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,{project_id})"
@@ -165,12 +159,10 @@ def test_get_dataplatform_instance_aspect_returns_project_id(get_bigquery_client
     assert metadata.aspect.instance == expected_instance
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_projects_with_single_project_id(get_bigquery_client):
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_projects_with_single_project_id(get_bq_client_mock):
     client_mock = MagicMock()
-    get_bigquery_client.return_value = client_mock
+    get_bq_client_mock.return_value = client_mock
     config = BigQueryV2Config.parse_obj({"project_id": "test-3"})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test1"))
     assert source._get_projects() == [
@@ -179,12 +171,10 @@ def test_get_projects_with_single_project_id(get_bigquery_client):
     assert client_mock.list_projects.call_count == 0
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_projects_by_list(get_bigquery_client):
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_projects_by_list(get_bq_client_mock):
     client_mock = MagicMock()
-    get_bigquery_client.return_value = client_mock
+    get_bq_client_mock.return_value = client_mock
     client_mock.list_projects.return_value = [
         SimpleNamespace(
             project_id="test-1",
@@ -205,11 +195,9 @@ def test_get_projects_by_list(get_bigquery_client):
     assert client_mock.list_projects.call_count == 1
 
 
-@patch.object(BigQueryTechnicalSchemaApi, "get_projects")
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_projects_filter_by_pattern(get_bigquery_client, get_projects_mock):
+@patch.object(BigQuerySchemaApi, "get_projects")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_projects_filter_by_pattern(get_bq_client_mock, get_projects_mock):
     get_projects_mock.return_value = [
         BigqueryProject("test-project", "Test Project"),
         BigqueryProject("test-project-2", "Test Project 2"),
@@ -225,11 +213,9 @@ def test_get_projects_filter_by_pattern(get_bigquery_client, get_projects_mock):
     ]
 
 
-@patch.object(BigQueryTechnicalSchemaApi, "get_projects")
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_projects_list_empty(get_bigquery_client, get_projects_mock):
+@patch.object(BigQuerySchemaApi, "get_projects")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_projects_list_empty(get_bq_client_mock, get_projects_mock):
     get_projects_mock.return_value = []
 
     config = BigQueryV2Config.parse_obj(
@@ -241,12 +227,10 @@ def test_get_projects_list_empty(get_bigquery_client, get_projects_mock):
     assert projects == []
 
 
-@patch.object(BigQueryTechnicalSchemaApi, "get_projects")
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQuerySchemaApi, "get_projects")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_projects_list_failure(
-    get_bigquery_client: MagicMock,
+    get_bq_client_mock: MagicMock,
     get_projects_mock: MagicMock,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -266,11 +250,9 @@ def test_get_projects_list_failure(
     assert projects == []
 
 
-@patch.object(BigQueryTechnicalSchemaApi, "get_projects")
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_get_projects_list_fully_filtered(get_projects_mock, get_bigquery_client):
+@patch.object(BigQuerySchemaApi, "get_projects")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_projects_list_fully_filtered(get_projects_mock, get_bq_client_mock):
     get_projects_mock.return_value = [BigqueryProject("test-project", "Test Project")]
 
     config = BigQueryV2Config.parse_obj(
@@ -282,10 +264,8 @@ def test_get_projects_list_fully_filtered(get_projects_mock, get_bigquery_client
     assert projects == []
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_simple_upstream_table_generation(get_bigquery_client):
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_simple_upstream_table_generation(get_bq_client_mock):
     a: BigQueryTableRef = BigQueryTableRef(
         BigqueryTableIdentifier(
             project_id="test-project", dataset="test-dataset", table="a"
@@ -316,11 +296,9 @@ def test_simple_upstream_table_generation(get_bigquery_client):
     assert list(upstreams)[0].table == str(b)
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_upstream_table_generation_with_temporary_table_without_temp_upstream(
-    get_bigquery_client,
+    get_bq_client_mock,
 ):
     a: BigQueryTableRef = BigQueryTableRef(
         BigqueryTableIdentifier(
@@ -351,10 +329,8 @@ def test_upstream_table_generation_with_temporary_table_without_temp_upstream(
     assert list(upstreams) == []
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_upstream_table_column_lineage_with_temp_table(get_bigquery_client):
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_upstream_table_column_lineage_with_temp_table(get_bq_client_mock):
     from datahub.ingestion.api.common import PipelineContext
 
     a: BigQueryTableRef = BigQueryTableRef(
@@ -428,11 +404,9 @@ def test_upstream_table_column_lineage_with_temp_table(get_bigquery_client):
     assert upstream.column_confidence == 0.7
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstream(
-    get_bigquery_client,
+    get_bq_client_mock,
 ):
     a: BigQueryTableRef = BigQueryTableRef(
         BigqueryTableIdentifier(
@@ -493,15 +467,11 @@ def test_upstream_table_generation_with_temporary_table_with_multiple_temp_upstr
     assert sorted_list[1].table == str(e)
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_schema_api.BigQueryTechnicalSchemaApi.get_tables_for_dataset"
-)
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
-def test_table_processing_logic(get_bigquery_client, data_dictionary_mock):
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_table_processing_logic(get_bq_client_mock, data_dictionary_mock):
     client_mock = MagicMock()
-    get_bigquery_client.return_value = client_mock
+    get_bq_client_mock.return_value = client_mock
     config = BigQueryV2Config.parse_obj(
         {
             "project_id": "test-project",
@@ -568,17 +538,13 @@ def test_table_processing_logic(get_bigquery_client, data_dictionary_mock):
         assert table in ["test-table", "test-sharded-table_20220102"]
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_schema_api.BigQueryTechnicalSchemaApi.get_tables_for_dataset"
-)
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_table_processing_logic_date_named_tables(
-    get_bigquery_client, data_dictionary_mock
+    get_bq_client_mock, data_dictionary_mock
 ):
     client_mock = MagicMock()
-    get_bigquery_client.return_value = client_mock
+    get_bq_client_mock.return_value = client_mock
     # test that tables with date names are processed correctly
     config = BigQueryV2Config.parse_obj(
         {
@@ -681,20 +647,16 @@ def bigquery_view_2() -> BigqueryView:
     )
 
 
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_schema_api.BigQueryTechnicalSchemaApi.get_query_result"
-)
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQuerySchemaApi, "get_query_result")
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_views_for_dataset(
-    get_bigquery_client: Mock,
+    get_bq_client_mock: Mock,
     query_mock: Mock,
     bigquery_view_1: BigqueryView,
     bigquery_view_2: BigqueryView,
 ) -> None:
     client_mock = MagicMock()
-    get_bigquery_client.return_value = client_mock
+    get_bq_client_mock.return_value = client_mock
     assert bigquery_view_1.last_altered
     row1 = create_row(
         dict(
@@ -716,8 +678,8 @@ def test_get_views_for_dataset(
         )
     )
     query_mock.return_value = [row1, row2]
-    bigquery_data_dictionary = BigQueryTechnicalSchemaApi(
-        BigQueryV2Report(), client_mock
+    bigquery_data_dictionary = BigQuerySchemaApi(
+        BigQueryV2Report().schema_api_perf, client_mock
     )
 
     views = bigquery_data_dictionary.get_views_for_dataset(
@@ -729,11 +691,9 @@ def test_get_views_for_dataset(
 
 
 @patch.object(BigqueryV2Source, "gen_dataset_workunits", lambda *args, **kwargs: [])
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_config.BigQueryV2Config.get_bigquery_client"
-)
+@patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_gen_view_dataset_workunits(
-    get_bigquery_client, bigquery_view_1, bigquery_view_2
+    get_bq_client_mock, bigquery_view_1, bigquery_view_2
 ):
     project_id = "test-project"
     dataset_name = "test-dataset"

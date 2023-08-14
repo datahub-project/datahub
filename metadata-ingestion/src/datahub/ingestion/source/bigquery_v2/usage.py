@@ -776,7 +776,9 @@ class BigQueryUsageExtractor:
         self, project_id: str, limit: Optional[int] = None
     ) -> Iterable[AuditEvent]:
         audit_log_api = BigQueryAuditLogApi(
-            self.report, self.config.rate_limit, self.config.requests_per_min
+            self.report.audit_log_api_perf,
+            self.config.rate_limit,
+            self.config.requests_per_min,
         )
         # We adjust the filter values a bit, since we need to make sure that the join
         # between query events and read events is complete. For example, this helps us

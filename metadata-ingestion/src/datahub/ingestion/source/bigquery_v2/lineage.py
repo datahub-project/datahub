@@ -27,9 +27,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import (
-    BigQueryTechnicalSchemaApi,
-)
+from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import BigQuerySchemaApi
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -192,7 +190,9 @@ class BigqueryLineageExtractor:
         self.report = report
         self.dataset_urn_builder = dataset_urn_builder
         self.audit_log_api = BigQueryAuditLogApi(
-            report, self.config.rate_limit, self.config.requests_per_min
+            report.audit_log_api_perf,
+            self.config.rate_limit,
+            self.config.requests_per_min,
         )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
@@ -394,8 +394,8 @@ class BigqueryLineageExtractor:
         try:
             lineage_client: lineage_v1.LineageClient = lineage_v1.LineageClient()
 
-            data_dictionary = BigQueryTechnicalSchemaApi(
-                self.report, self.config.get_bigquery_client()
+            data_dictionary = BigQuerySchemaApi(
+                self.report.schema_api_perf, self.config.get_bigquery_client()
             )
 
             # Filtering datasets

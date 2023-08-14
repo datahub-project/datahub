@@ -47,8 +47,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import (
     BigqueryColumn,
     BigqueryDataset,
     BigqueryProject,
+    BigQuerySchemaApi,
     BigqueryTable,
-    BigQueryTechnicalSchemaApi,
     BigqueryView,
 )
 from datahub.ingestion.source.bigquery_v2.common import (
@@ -220,8 +220,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
-        self.bigquery_data_dictionary = BigQueryTechnicalSchemaApi(
-            self.report, self.config.get_bigquery_client()
+        self.bigquery_data_dictionary = BigQuerySchemaApi(
+            self.report.schema_api_perf, self.config.get_bigquery_client()
         )
 
         # For database, schema, tables, views, etc
@@ -300,7 +300,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 client: bigquery.Client = config.get_bigquery_client()
                 assert client
                 report = BigQueryV2Report()
-                bigquery_data_dictionary = BigQueryTechnicalSchemaApi(report, client)
+                bigquery_data_dictionary = BigQuerySchemaApi(
+                    report.schema_api_perf, client
+                )
                 result = bigquery_data_dictionary.get_datasets_for_project_id(
                     project_id, 10
                 )

@@ -1,5 +1,4 @@
 import collections
-import dataclasses
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -15,7 +14,7 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BigQueryApiPerfReport:
+class BigQuerySchemaApiPerfReport:
     list_projects = PerfTimer()
     list_datasets = PerfTimer()
     get_columns_for_dataset = PerfTimer()
@@ -30,9 +29,7 @@ class BigQueryAuditLogApiPerfReport:
 
 
 @dataclass
-class BigQueryV2Report(
-    ProfilingSqlReport, BigQueryApiPerfReport, BigQueryAuditLogApiPerfReport
-):
+class BigQueryV2Report(ProfilingSqlReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -106,16 +103,18 @@ class BigQueryV2Report(
     num_view_definitions_failed_column_parsing: int = 0
     view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
 
-    read_reasons_stat: Counter[str] = dataclasses.field(
-        default_factory=collections.Counter
-    )
-    operation_types_stat: Counter[str] = dataclasses.field(
-        default_factory=collections.Counter
-    )
+    read_reasons_stat: Counter[str] = field(default_factory=collections.Counter)
+    operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
+
     usage_state_size: Optional[str] = None
     ingestion_stage: Optional[str] = None
     ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
-
+    schema_api_perf: BigQuerySchemaApiPerfReport = field(
+        default_factory=BigQuerySchemaApiPerfReport
+    )
+    audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
+        default_factory=BigQueryAuditLogApiPerfReport
+    )
     _timer: Optional[PerfTimer] = field(
         default=None, init=False, repr=False, compare=False
     )
