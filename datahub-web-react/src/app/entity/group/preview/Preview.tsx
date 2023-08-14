@@ -96,7 +96,9 @@ export const Preview = ({
                 </Link>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
-                        <NoMarkdownViewer limit={200}>{description}</NoMarkdownViewer>
+                        <NoMarkdownViewer limit={200} highlightField="description">
+                            {description}
+                        </NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
             </div>
