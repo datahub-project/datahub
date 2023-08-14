@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,7 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -55,7 +56,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
           _entityService
       );
       try {
-        Deprecation deprecation = (Deprecation) getAspectFromEntity(
+        Deprecation deprecation = (Deprecation) EntityUtils.getAspectFromEntity(
             entityUrn.toString(),
             DEPRECATION_ASPECT_NAME,
             _entityService,
@@ -63,7 +64,7 @@ public class UpdateDeprecationResolver implements DataFetcher<CompletableFuture<
         updateDeprecation(deprecation, input, context);
 
         // Create the Deprecation aspect
-        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(entityUrn, DEPRECATION_ASPECT_NAME, deprecation);
+        final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(entityUrn, DEPRECATION_ASPECT_NAME, deprecation);
         _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         return true;
       } catch (Exception e) {

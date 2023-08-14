@@ -340,8 +340,9 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nullable SearchFlags searchFlags,
+        @Nullable SortCriterion sortCriterion,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
+        return searchAcrossEntities(entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
     }
 
     /**
@@ -353,6 +354,7 @@ public class JavaEntityClient implements EntityClient {
      * @param start start offset for search results
      * @param count max number of search results requested
      * @param facets list of facets we want aggregations for
+     * @param sortCriterion sorting criterion
      * @return Snapshot key
      * @throws RemoteInvocationException
      */
@@ -364,11 +366,12 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nullable SearchFlags searchFlags,
+        @Nullable SortCriterion sortCriterion,
         @Nonnull final Authentication authentication,
         @Nullable List<String> facets) throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets), _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, sortCriterion, start, count, finalFlags, facets), _entityService);
     }
 
     @Nonnull

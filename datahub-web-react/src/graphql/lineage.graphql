@@ -251,6 +251,9 @@ fragment lineageFields on EntityWithRelationships {
             siblings {
                 urn
                 type
+                ... on Dataset {
+                    exists
+                }
                 ...lineageNodeProperties
             }
         }
@@ -369,6 +372,9 @@ query getEntityLineage(
                 siblings {
                     urn
                     type
+                    ... on Dataset {
+                        exists
+                    }
                     ...lineageNodeProperties
                 }
             }

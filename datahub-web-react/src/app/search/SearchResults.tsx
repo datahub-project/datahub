@@ -25,6 +25,7 @@ import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
+import SearchSortSelect from './sorting/SearchSortSelect';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -209,6 +210,7 @@ export const SearchResults = ({
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
+                                <SearchSortSelect />
                                 <SearchExtendedMenu
                                     downloadSearchResults={downloadSearchResults}
                                     filters={generateOrFilters(unionType, selectedFilters)}
