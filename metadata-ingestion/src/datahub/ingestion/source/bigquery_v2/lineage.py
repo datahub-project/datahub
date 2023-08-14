@@ -332,7 +332,7 @@ class BigqueryLineageExtractor:
             )
 
     def gen_lineage_workunits_for_table(
-        self, lineage: dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
+        self, lineage: Dict[str, Set[LineageEdge]], table_ref: BigQueryTableRef
     ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.dataset_urn_builder(table_ref)
 

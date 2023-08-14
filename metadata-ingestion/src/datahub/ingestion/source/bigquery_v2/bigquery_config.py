@@ -39,7 +39,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
 class BigQueryConnectionConfig(ConfigModel):
     credential: Optional[BigQueryCredential] = Field(
-        description="BigQuery credential informations"
+        default=None, description="BigQuery credential informations"
     )
 
     _credentials_path: Optional[str] = PrivateAttr(None)
