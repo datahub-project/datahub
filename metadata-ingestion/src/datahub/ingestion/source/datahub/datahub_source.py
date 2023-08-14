@@ -48,18 +48,23 @@ class DataHubSource(StatefulIngestionSourceBase):
         return []  # Exactly replicate data from DataHub source
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        stop_time = datetime.now(tz=timezone.utc)
+        logger.info(f"Ingesting DataHub metadata up until roughly {stop_time}")
         state = self.stateful_ingestion_handler.get_last_run_state()
-        yield from self._get_mysql_workunits(state.mysql_createdon_datetime)
+        yield from self._get_mysql_workunits(state.mysql_createdon_datetime, stop_time)
         self._commit_progress()
-        yield from self._get_kafka_workunits(state.kafka_offset)
+        yield from self._get_kafka_workunits(state.kafka_offsets, stop_time)
         self._commit_progress()
 
     def _get_mysql_workunits(
-        self, from_createdon: datetime
+        self, from_createdon: datetime, stop_time: datetime
     ) -> Iterable[MetadataWorkUnit]:
-        mcps = DataHubMySQLReader(self.config, self.report).get_aspects(from_createdon)
+        logger.info(f"Fetching MySQL aspects from {from_createdon}")
+        reader = DataHubMySQLReader(self.config, self.report)
+        mcps = reader.get_aspects(from_createdon, stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
             yield mcp.as_workunit()
+            self.report.num_mysql_aspects_ingested += 1
 
             if (
                 self.config.commit_with_parse_errors
@@ -70,27 +75,31 @@ class DataHubSource(StatefulIngestionSourceBase):
                 )
             self._commit_progress(i)
 
-    def _get_kafka_workunits(self, from_offset: int) -> Iterable[MetadataWorkUnit]:
-        stop_time = datetime.now(tz=timezone.utc)
-        mcls = DataHubKafkaReader(self.config, self.report).get_mcls(
-            from_offset=from_offset, stop_time=stop_time
-        )
-        for i, (mcl, offset) in enumerate(mcls):
-            # TODO: Get rid of deserialization?
-            mcp = MetadataChangeProposalWrapper.try_from_mcl(mcl)
-            if isinstance(mcp, MetadataChangeProposalWrapper):
-                yield mcp.as_workunit()
-            else:
-                yield MetadataWorkUnit(
-                    id=f"{mcp.entityUrn}-{mcp.aspectName}-{i}", mcp_raw=mcp
-                )
+    def _get_kafka_workunits(
+        self, from_offsets: Dict[int, int], stop_time: datetime
+    ) -> Iterable[MetadataWorkUnit]:
+        logger.info(f"Fetching timeseries aspects from kafka until {stop_time}")
 
-            if (
-                self.config.commit_with_parse_errors
-                or not self.report.num_kafka_parse_errors
-            ):
-                self.stateful_ingestion_handler.update_checkpoint(last_offset=offset)
-            self._commit_progress(i)
+        with DataHubKafkaReader(self.config, self.report, self.ctx) as reader:
+            mcls = reader.get_mcls(from_offsets=from_offsets, stop_time=stop_time)
+            for i, (mcl, offset) in enumerate(mcls):
+                mcp = MetadataChangeProposalWrapper.try_from_mcl(mcl)
+                if isinstance(mcp, MetadataChangeProposalWrapper):
+                    yield mcp.as_workunit()
+                else:
+                    yield MetadataWorkUnit(
+                        id=f"{mcp.entityUrn}-{mcp.aspectName}-{i}", mcp_raw=mcp
+                    )
+                self.report.num_kafka_aspects_ingested += 1
+
+                if (
+                    self.config.commit_with_parse_errors
+                    or not self.report.num_kafka_parse_errors
+                ):
+                    self.stateful_ingestion_handler.update_checkpoint(
+                        last_offset=offset
+                    )
+                self._commit_progress(i)
 
     def _commit_progress(self, i: Optional[int] = None) -> None:
         """Commit progress to stateful storage, if there have been no errors.

@@ -1,27 +1,43 @@
 import logging
 from datetime import datetime
-from typing import Iterable, Tuple
+from typing import Dict, Iterable, List, Tuple
 
-from confluent_kafka import DeserializingConsumer, TopicPartition
+from confluent_kafka import (
+    OFFSET_BEGINNING,
+    Consumer,
+    DeserializingConsumer,
+    TopicPartition,
+)
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 
+from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
+from datahub.ingestion.source.datahub.state import PartitionOffset
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 
 logger = logging.getLogger(__name__)
 
-KAFKA_GROUP = "datahub_source"
+KAFKA_GROUP_PREFIX = "datahub_source"
 
 
-class DataHubKafkaReader:
-    def __init__(self, config: DataHubSourceConfig, report: DataHubSourceReport):
+class DataHubKafkaReader(Closeable):
+    def __init__(
+        self,
+        config: DataHubSourceConfig,
+        report: DataHubSourceReport,
+        ctx: PipelineContext,
+    ):
         self.config = config
         self.report = report
+        self.group_id = f"{KAFKA_GROUP_PREFIX}-{ctx.pipeline_name}"
+
+    def __enter__(self) -> "DataHubKafkaReader":
         self.consumer = DeserializingConsumer(
             {
-                "group.id": KAFKA_GROUP,
+                "group.id": self.group_id,
                 "bootstrap.servers": self.config.kafka_connection.bootstrap,
                 **self.config.kafka_connection.consumer_config,
                 "auto.offset.reset": "earliest",
@@ -34,22 +50,27 @@ class DataHubKafkaReader:
                 ),
             }
         )
+        return self
 
     def get_mcls(
-        self, from_offset: int, stop_time: datetime
-    ) -> Iterable[Tuple[MetadataChangeLogClass, int]]:
-        self.consumer.assign(
-            [TopicPartition(self.config.kafka_topic_name, from_offset)]
-        )
-        # TODO: Check if I have to reassign if there are multiple partitions?
+        self, from_offsets: Dict[int, int], stop_time: datetime
+    ) -> Iterable[Tuple[MetadataChangeLogClass, PartitionOffset]]:
+        # Based on https://github.com/confluentinc/confluent-kafka-python/issues/145#issuecomment-284843254
+        def on_assign(consumer: Consumer, partitions: List[TopicPartition]) -> None:
+            for p in partitions:
+                p.offset = from_offsets.get(p.partition, OFFSET_BEGINNING)
+                logger.debug(f"Set partition {p.partition} offset to {p.offset}")
+            consumer.assign(partitions)
+
+        self.consumer.subscribe([self.config.kafka_topic_name], on_assign=on_assign)
         try:
             yield from self._poll_partition(stop_time)
         finally:
-            self.consumer.unassign()
+            self.consumer.unsubscribe()
 
     def _poll_partition(
         self, stop_time: datetime
-    ) -> Iterable[Tuple[MetadataChangeLogClass, int]]:
+    ) -> Iterable[Tuple[MetadataChangeLogClass, PartitionOffset]]:
         while True:
             msg = self.consumer.poll(10)
             if msg is None:
@@ -71,4 +92,8 @@ class DataHubKafkaReader:
                 )
                 break
 
-            yield mcl, msg.offset()
+            # TODO: Consider storing state in kafka instead, via consumer.commit()
+            yield mcl, PartitionOffset(partition=msg.partition(), offset=msg.offset())
+
+    def close(self) -> None:
+        self.consumer.close()

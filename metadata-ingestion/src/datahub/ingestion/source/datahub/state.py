@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
 from functools import cache
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Dict, NamedTuple, Optional, cast
 
+from pydantic import Field
 from pydantic.types import NonNegativeInt
 
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.state.checkpoint import Checkpoint, CheckpointStateBase
 from datahub.ingestion.source.state.use_case_handler import (
@@ -16,11 +18,18 @@ if TYPE_CHECKING:
 
 class DataHubIngestionState(CheckpointStateBase):
     mysql_createdon_ts: NonNegativeInt = 0
-    kafka_offset: NonNegativeInt = 0
+
+    # Maps partition -> offset
+    kafka_offsets: Dict[int, NonNegativeInt] = Field(default_factory=dict)
 
     @property
     def mysql_createdon_datetime(self) -> datetime:
         return datetime.fromtimestamp(self.mysql_createdon_ts / 1000, tz=timezone.utc)
+
+
+class PartitionOffset(NamedTuple):
+    partition: int
+    offset: int
 
 
 class StatefulDataHubIngestionHandler(
@@ -60,14 +69,14 @@ class StatefulDataHubIngestionHandler(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
             run_id=self.run_id,
-            state=DataHubIngestionState(),
+            state=self.get_last_run_state(),
         )
 
     def update_checkpoint(
         self,
         *,
         last_createdon: Optional[datetime] = None,
-        last_offset: Optional[int] = None,
+        last_offset: Optional[PartitionOffset] = None,
     ) -> None:
         cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         if cur_checkpoint:
@@ -75,7 +84,7 @@ class StatefulDataHubIngestionHandler(
             if last_createdon:
                 cur_state.mysql_createdon_ts = int(last_createdon.timestamp() * 1000)
             if last_offset:
-                cur_state.kafka_offset = last_offset
+                cur_state.kafka_offsets[last_offset.partition] = last_offset.offset + 1
 
     def commit_checkpoint(self) -> None:
         if self.state_provider.ingestion_checkpointing_state_provider:

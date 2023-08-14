@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, validator
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.source.sql.mysql import MySQLConnectionConfig
@@ -11,6 +11,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 
 DEFAULT_MYSQL_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
+DEFAULT_MYSQL_BATCH_SIZE = 10_000
 
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
@@ -30,6 +31,11 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
             "If enabled, include all versions of each aspect. "
             "Otherwise, only include the latest version of each aspect."
         ),
+    )
+
+    mysql_batch_size: int = Field(
+        default=DEFAULT_MYSQL_BATCH_SIZE,
+        description="Number of records to fetch from MySQL at a time",
     )
 
     mysql_table_name: str = Field(
