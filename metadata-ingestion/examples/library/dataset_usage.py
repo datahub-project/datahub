@@ -8,10 +8,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
-    TimeWindowSizeClass,
     DatasetProfileClass,
+    TimeWindowSizeClass,
 )
-
 
 # Create rest emitter
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
