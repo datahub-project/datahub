@@ -1,7 +1,7 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { MatchedField } from '../../../types.generated';
 
-type FieldName = 'description';
+export type HighlightField = 'urn' | 'name' | 'description';
 
 type HighlightContextValue = {
     matchedFields: Array<MatchedField>;
@@ -32,14 +32,14 @@ const useMatchedFields = () => {
     return useHighlightContext()?.matchedFields;
 };
 
-export const useHighlightedValue = (fieldName?: string) => {
+export const useHighlightedValue = (fieldName?: HighlightField) => {
     return useMatchedFields()?.find((field) => field.name === fieldName);
 };
 
 export const useIsHighlighted = () => {
     const matchedFields = useMatchedFields();
 
-    return (fieldName: FieldName, fieldValue: string) => {
+    return (fieldName: HighlightField, fieldValue: string) => {
         return matchedFields?.some((field) => field.name === fieldName && field.value.includes(fieldValue));
     };
 };

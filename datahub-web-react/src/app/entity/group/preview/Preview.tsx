@@ -8,6 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../shared/constants';
 import { IconStyleType } from '../../Entity';
 import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
+import SearchHighlighter from '../../../search/highlight/SearchHighlighter';
 
 const PreviewContainer = styled.div`
     margin-bottom: 4px;
@@ -87,7 +88,13 @@ export const Preview = ({
                             <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
                         </PlatformInfo>
                         <Link to={url}>
-                            <EntityTitle>{name || urn}</EntityTitle>
+                            <EntityTitle>
+                                {name ? (
+                                    <SearchHighlighter field="name" text={name} />
+                                ) : (
+                                    <SearchHighlighter field="urn" text={urn} />
+                                )}
+                            </EntityTitle>
                             <MemberCountContainer>
                                 <Tag>{membersCount} members</Tag>
                             </MemberCountContainer>
