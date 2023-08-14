@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.base.Preconditions;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.RecordDataSchema;
@@ -12,11 +13,17 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.entity.EntityService.*;
+import java.net.URISyntaxException;
+import java.util.List;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
@@ -28,6 +35,71 @@ public class EntityUtils {
   @Nonnull
   public static String toJsonAspect(@Nonnull final RecordTemplate aspectRecord) {
     return RecordUtils.toJsonString(aspectRecord);
+  }
+
+  @Nullable
+  public static Urn getUrnFromString(String urnStr) {
+    try {
+      return Urn.createFromString(urnStr);
+    } catch (URISyntaxException e) {
+      return null;
+    }
+  }
+
+  @Nonnull
+  public static AuditStamp getAuditStamp(Urn actor) {
+    AuditStamp auditStamp = new AuditStamp();
+    auditStamp.setTime(System.currentTimeMillis());
+    auditStamp.setActor(actor);
+    return auditStamp;
+  }
+
+  public static void ingestChangeProposals(
+          @Nonnull List<MetadataChangeProposal> changes,
+          @Nonnull EntityService entityService,
+          @Nonnull Urn actor,
+          @Nonnull Boolean async
+  ) {
+    // TODO: Replace this with a batch ingest proposals endpoint.
+    for (MetadataChangeProposal change : changes) {
+      entityService.ingestProposal(change, EntityUtils.getAuditStamp(actor), async);
+    }
+  }
+
+  /**
+   * Get aspect from entity
+   * @param entityUrn URN of the entity
+   * @param aspectName aspect name string
+   * @param entityService EntityService obj
+   * @param defaultValue default value if null is found
+   * @return a record template of the aspect
+   */
+  @Nullable
+  public static RecordTemplate getAspectFromEntity(
+          String entityUrn,
+          String aspectName,
+          EntityService entityService,
+          RecordTemplate defaultValue
+  ) {
+    Urn urn = getUrnFromString(entityUrn);
+    if (urn == null) {
+      return defaultValue;
+    }
+    try {
+      RecordTemplate aspect = entityService.getAspect(urn, aspectName, 0);
+      if (aspect == null) {
+        return defaultValue;
+      }
+      return aspect;
+    } catch (Exception e) {
+      log.error(
+              "Error constructing aspect from entity. Entity: {} aspect: {}. Error: {}",
+              entityUrn,
+              aspectName,
+              e.toString()
+      );
+      return null;
+    }
   }
 
   @Nonnull

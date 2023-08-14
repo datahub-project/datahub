@@ -1,13 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -191,7 +191,7 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery()
             .must(getQuery(input, finalSearchFlags.isFulltext()))
-            .must(filterQuery));
+            .filter(filterQuery));
     if (!finalSearchFlags.isSkipAggregates()) {
       _aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
@@ -231,7 +231,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.fetchSource("urn", null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
-    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).must(filterQuery));
+    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
     _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
@@ -490,7 +490,7 @@ public class SearchRequestHandler {
       return addFiltersToAggregationMetadata(aggregationMetadataList, filter);
     }
     for (Map.Entry<String, Aggregation> entry : searchResponse.getAggregations().getAsMap().entrySet()) {
-      final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue());
+      final Map<String, Long> oneTermAggResult = extractTermAggregations((ParsedTerms) entry.getValue(), entry.getKey().equals("_entityType"));
       if (oneTermAggResult.isEmpty()) {
         continue;
       }
@@ -514,7 +514,7 @@ public class SearchRequestHandler {
     if (aggregation == null) {
       return Collections.emptyMap();
     }
-    return extractTermAggregations((ParsedTerms) aggregation);
+    return extractTermAggregations((ParsedTerms) aggregation, aggregationName.equals("_entityType"));
   }
 
   /**
@@ -555,7 +555,7 @@ public class SearchRequestHandler {
    * @return a map with aggregation key and corresponding doc counts
    */
   @Nonnull
-  private static Map<String, Long> extractTermAggregations(@Nonnull ParsedTerms terms) {
+  private static Map<String, Long> extractTermAggregations(@Nonnull ParsedTerms terms, boolean includeZeroes) {
 
     final Map<String, Long> aggResult = new HashMap<>();
     List<? extends Terms.Bucket> bucketList = terms.getBuckets();
@@ -568,7 +568,7 @@ public class SearchRequestHandler {
         aggResult.put(String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, subAggEntry.getKey()), subAggEntry.getValue());
       }
       long docCount = bucket.getDocCount();
-      if (docCount > 0) {
+      if (includeZeroes || docCount > 0) {
         aggResult.put(key, docCount);
       }
     }

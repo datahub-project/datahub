@@ -7,7 +7,7 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part1.csv"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part2.csv"
             },
             "name": "folder_aaa.food_csv",
             "description": "",
@@ -125,7 +125,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684552113000
+            "lastUpdatedTimestamp": 1586847990000
         }
     },
     "systemMetadata": {
@@ -193,6 +193,21 @@
             "typeNames": [
                 "S3 bucket"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -284,6 +299,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -357,6 +392,30 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -447,6 +506,34 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                },
+                {
+                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
     "changeType": "UPSERT",
@@ -463,13 +550,45 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                },
+                {
+                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                },
+                {
+                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
             "customProperties": {
-                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part1.parquet"
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
             },
             "name": "folder_aaa.food_parquet",
             "description": "",
@@ -587,7 +706,7 @@
                 "partition": "FULL_TABLE_SNAPSHOT"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1684552113000
+            "lastUpdatedTimestamp": 1586847810000
         }
     },
     "systemMetadata": {
@@ -603,6 +722,38 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_filename.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:050fedde7a12cb8c8447db8d298f5577",
+                    "urn": "urn:li:container:050fedde7a12cb8c8447db8d298f5577"
+                },
+                {
+                    "id": "urn:li:container:86297df39321e4948dbe8b8e941de98b",
+                    "urn": "urn:li:container:86297df39321e4948dbe8b8e941de98b"
+                },
+                {
+                    "id": "urn:li:container:273fbeff7bd9ecb74982205aadd77994",
+                    "urn": "urn:li:container:273fbeff7bd9ecb74982205aadd77994"
+                },
+                {
+                    "id": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2",
+                    "urn": "urn:li:container:ec362903c4c7de60197fcc7b7a79e4c2"
+                }
+            ]
         }
     },
     "systemMetadata": {

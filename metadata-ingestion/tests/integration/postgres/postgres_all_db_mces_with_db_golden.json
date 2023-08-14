@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:0202f800c992262c01ae6bbd5ee313f7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:a208486b83be39fa411922e07701d984",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -151,6 +166,26 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:a208486b83be39fa411922e07701d984",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0202f800c992262c01ae6bbd5ee313f7",
+                    "urn": "urn:li:container:0202f800c992262c01ae6bbd5ee313f7"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -209,6 +244,21 @@
             "typeNames": [
                 "Database"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
         }
     },
     "systemMetadata": {
@@ -292,6 +342,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -558,6 +628,30 @@
                 },
                 {
                     "fieldPath": "metadata_json"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
                 }
             ]
         }

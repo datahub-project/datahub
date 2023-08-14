@@ -3,11 +3,12 @@ import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
-import { EntityNameList } from '../../../../../recommendations/renderer/component/EntityNameList';
+import { EntityNameList, EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { EntityAndType } from '../../../types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
+import MatchingViewsLabel from './MatchingViewsLabel';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -74,6 +75,8 @@ interface Props {
     setSelectedEntities: (entities: EntityAndType[]) => any;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
+    entityAction?: React.FC<EntityActionProps>;
+    applyView?: boolean;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -92,6 +95,8 @@ export const EmbeddedListSearchResults = ({
     setSelectedEntities,
     numResultsPerPage,
     setNumResultsPerPage,
+    entityAction,
+    applyView,
 }: Props) => {
     const pageStart = searchResponse?.start || 0;
     const pageSize = searchResponse?.count || 0;
@@ -135,6 +140,7 @@ export const EmbeddedListSearchResults = ({
                             selectedEntities={selectedEntities}
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}
+                            entityAction={entityAction}
                         />
                     )}
                 </ResultContainer>
@@ -156,7 +162,7 @@ export const EmbeddedListSearchResults = ({
                     onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                     pageSizeOptions={['10', '20', '50', '100']}
                 />
-                <span />
+                {applyView ? <MatchingViewsLabel /> : <span />}
             </PaginationInfoContainer>
         </>
     );

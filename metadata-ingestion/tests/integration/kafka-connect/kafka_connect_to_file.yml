@@ -9,6 +9,7 @@ source:
     connector_patterns:
       deny:
         - source_mongodb_connector
+        - confluent_s3_sink_connector
     provided_configs:
       - provider: env
         path_key: MYSQL_CONNECTION_URL
@@ -16,12 +17,16 @@ source:
       - provider: env
         path_key: POSTGRES_CONNECTION_URL
         value: jdbc:postgresql://test_postgres:5432/postgres
+      - provider: env
+        path_key: S3_ENDPOINT_URL
+        value: http://s3mock:9090
     convert_lineage_urns_to_lowercase: true
     platform_instance_map:   # optional
       mysql: mysql1      # optional
     connect_to_platform_map: # optional
       postgres_source:     # optional - Connector name
         postgres: postgres1  # optional - Platform to instance map
+        kafka: kafka1
     generic_connectors:   # optional - Generic connector lineage info
       - connector_name: generic-connector
         source_dataset: generic-dataset

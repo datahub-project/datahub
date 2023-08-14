@@ -68,6 +68,21 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:8df46c5e3ded05a3122b0015822c0ef0",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -143,6 +158,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8df46c5e3ded05a3122b0015822c0ef0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+                    "urn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -256,6 +291,30 @@
         "json": {
             "typeNames": [
                 "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:068bd9323110994a40019fcf6cfc60d3",
+                    "urn": "urn:li:container:068bd9323110994a40019fcf6cfc60d3"
+                },
+                {
+                    "id": "urn:li:container:8df46c5e3ded05a3122b0015822c0ef0",
+                    "urn": "urn:li:container:8df46c5e3ded05a3122b0015822c0ef0"
+                }
             ]
         }
     },

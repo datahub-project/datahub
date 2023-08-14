@@ -3,14 +3,22 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -22,9 +30,15 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import com.linkedin.metadata.search.utils.ESUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.common.lucene.search.function.CombineFunction;
 import org.elasticsearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.elasticsearch.common.lucene.search.function.FunctionScoreQuery;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.LoggingDeprecationHandler;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.common.xcontent.XContentParser;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -34,11 +48,23 @@ import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
+import org.elasticsearch.search.SearchModule;
 
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
 
-
+@Slf4j
 public class SearchQueryBuilder {
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  static {
+    OBJECT_MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH, Constants.MAX_JACKSON_STRING_SIZE));
+    OBJECT_MAPPER.getFactory().setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+  }
+  private static final NamedXContentRegistry X_CONTENT_REGISTRY;
+  static {
+    SearchModule searchModule = new SearchModule(Settings.EMPTY, false, Collections.emptyList());
+    X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
+  }
 
   public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
@@ -72,7 +98,7 @@ public class SearchQueryBuilder {
                                           @Nonnull String query, boolean fulltext) {
     final String sanitizedQuery = query.replaceFirst("^:+", "");
     final BoolQueryBuilder finalQuery = Optional.ofNullable(customQueryConfig)
-            .flatMap(cqc -> cqc.boolQueryBuilder(sanitizedQuery))
+            .flatMap(cqc -> boolQueryBuilder(cqc, sanitizedQuery))
             .orElse(QueryBuilders.boolQuery());
 
     if (fulltext && !query.startsWith(STRUCTURED_QUERY_PREFIX)) {
@@ -135,7 +161,6 @@ public class SearchQueryBuilder {
   private static boolean isQuoted(String query) {
     return Stream.of("\"", "'").anyMatch(query::contains);
   }
-
   private Optional<QueryBuilder> getSimpleQuery(@Nullable QueryConfiguration customQueryConfig,
                                                 List<EntitySpec> entitySpecs,
                                                 String sanitizedQuery) {
@@ -145,10 +170,15 @@ public class SearchQueryBuilder {
     if (customQueryConfig != null) {
       executeSimpleQuery = customQueryConfig.isSimpleQuery();
     } else {
-      executeSimpleQuery = !isQuoted(sanitizedQuery) || !exactMatchConfiguration.isExclusive();
+      executeSimpleQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
     }
 
     if (executeSimpleQuery) {
+      /*
+       * NOTE: This logic applies the queryByDefault annotations for each entity to ALL entities
+       * If we ever have fields that are queryByDefault on some entities and not others, this section will need to be refactored
+       * to apply an index filter AND the analyzers added here.
+       */
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
       // Simple query string does not use per field analyzers
       // Group the fields by analyzer
@@ -163,7 +193,12 @@ public class SearchQueryBuilder {
         SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
         simpleBuilder.analyzer(analyzer);
         simpleBuilder.defaultOperator(Operator.AND);
-        fieldConfigs.forEach(cfg -> simpleBuilder.field(cfg.fieldName(), cfg.boost()));
+        Map<String, List<SearchFieldConfig>> fieldAnalyzers = fieldConfigs.stream().collect(Collectors.groupingBy(SearchFieldConfig::fieldName));
+        // De-duplicate fields across different indices
+        for (Map.Entry<String, List<SearchFieldConfig>> fieldAnalyzer : fieldAnalyzers.entrySet()) {
+          SearchFieldConfig cfg = fieldAnalyzer.getValue().get(0);
+          simpleBuilder.field(cfg.fieldName(), cfg.boost());
+        }
         simplePerField.should(simpleBuilder);
       });
 
@@ -229,7 +264,7 @@ public class SearchQueryBuilder {
 
     if (customQueryConfig != null) {
       // Prefer configuration function scoring over annotation scoring
-      return customQueryConfig.functionScoreQueryBuilder(queryBuilder);
+      return functionScoreQueryBuilder(customQueryConfig, queryBuilder);
     } else {
       return QueryBuilders.functionScoreQuery(queryBuilder, buildAnnotationScoreFunctions(entitySpecs))
               .scoreMode(FunctionScoreQuery.ScoreMode.AVG) // Average score functions
@@ -295,6 +330,51 @@ public class SearchQueryBuilder {
         return FieldValueFactorFunction.Modifier.RECIPROCAL;
       default:
         return FieldValueFactorFunction.Modifier.NONE;
+    }
+  }
+
+  public FunctionScoreQueryBuilder functionScoreQueryBuilder(QueryConfiguration customQueryConfiguration,
+      QueryBuilder queryBuilder) {
+    return toFunctionScoreQueryBuilder(queryBuilder, customQueryConfiguration.getFunctionScore());
+  }
+
+  public Optional<BoolQueryBuilder> boolQueryBuilder(QueryConfiguration customQueryConfiguration, String query) {
+    if (customQueryConfiguration.getBoolQuery() != null) {
+      log.debug("Using custom query configuration queryRegex: {}", customQueryConfiguration.getQueryRegex());
+    }
+    return Optional.ofNullable(customQueryConfiguration.getBoolQuery()).map(bq -> toBoolQueryBuilder(query, bq));
+  }
+
+  private BoolQueryBuilder toBoolQueryBuilder(String query, BoolQueryConfiguration boolQuery) {
+    try {
+      String jsonFragment = OBJECT_MAPPER.writeValueAsString(boolQuery)
+          .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query));
+      XContentParser parser = XContentType.JSON.xContent().createParser(X_CONTENT_REGISTRY,
+          LoggingDeprecationHandler.INSTANCE, jsonFragment);
+      return BoolQueryBuilder.fromXContent(parser);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private FunctionScoreQueryBuilder toFunctionScoreQueryBuilder(QueryBuilder queryBuilder,
+      Map<String, Object> params) {
+    try {
+      HashMap<String, Object> body = new HashMap<>(params);
+      if (!body.isEmpty()) {
+        log.debug("Using custom scoring functions: {}", body);
+      }
+
+      body.put("query", OBJECT_MAPPER.readValue(queryBuilder.toString(), Map.class));
+
+      String jsonFragment = OBJECT_MAPPER.writeValueAsString(Map.of(
+          "function_score", body
+      ));
+      XContentParser parser = XContentType.JSON.xContent().createParser(X_CONTENT_REGISTRY,
+          LoggingDeprecationHandler.INSTANCE, jsonFragment);
+      return (FunctionScoreQueryBuilder) FunctionScoreQueryBuilder.parseInnerQueryBuilder(parser);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 }

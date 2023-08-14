@@ -53,12 +53,14 @@ def loaded_presto_on_hive(presto_on_hive_runner):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_1
 @pytest.mark.parametrize(
-    "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,test_suffix",
+    "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,simplify_nested_field_paths,"
+    "test_suffix",
     [
-        ("hive", False, False, False, "_1"),
-        ("presto-on-hive", True, True, False, "_2"),
-        ("hive", False, False, True, "_3"),
-        ("presto-on-hive", True, True, True, "_4"),
+        ("hive", False, False, False, False, "_1"),
+        ("presto-on-hive", True, True, False, False, "_2"),
+        ("hive", False, False, True, False, "_3"),
+        ("presto-on-hive", True, True, True, False, "_4"),
+        ("hive", False, False, False, True, "_5"),
     ],
 )
 def test_presto_on_hive_ingest(
@@ -71,6 +73,7 @@ def test_presto_on_hive_ingest(
     use_catalog_subtype,
     use_dataset_pascalcase_subtype,
     include_catalog_name_in_ids,
+    simplify_nested_field_paths,
     test_suffix,
 ):
     # Run the metadata ingestion pipeline.
@@ -97,6 +100,7 @@ def test_presto_on_hive_ingest(
                     "mode": mode,
                     "use_catalog_subtype": use_catalog_subtype,
                     "use_dataset_pascalcase_subtype": use_dataset_pascalcase_subtype,
+                    "simplify_nested_field_paths": simplify_nested_field_paths,
                 },
             },
             "sink": {
@@ -124,7 +128,7 @@ def test_presto_on_hive_ingest(
             golden_path=test_resources_dir
             / f"presto_on_hive_mces_golden{test_suffix}.json",
             ignore_paths=[
-                r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+                r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
                 r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['create_date'\]",

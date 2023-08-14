@@ -8,7 +8,7 @@ import { formatNumber } from '../../shared/formatNumber';
 import ExpandableNode from './ExpandableNode';
 import EnvironmentNode from './EnvironmentNode';
 import useAggregationsQuery from './useAggregationsQuery';
-import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
+import { MAX_COUNT_VAL, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
 import PlatformNode from './PlatformNode';
 import SidebarLoadingError from './SidebarLoadingError';
 import useToggle from '../../shared/useToggle';
@@ -28,6 +28,7 @@ const EntityNode = () => {
     const entityAggregation = useEntityAggregation();
     const hasEnvironmentFilter = useHasFilterField(ORIGIN_FILTER_NAME);
     const { count } = entityAggregation;
+    const countText = count === MAX_COUNT_VAL ? '10k+' : formatNumber(count);
     const registry = useEntityRegistry();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
 
@@ -41,7 +42,7 @@ const EntityNode = () => {
         if (count) toggle();
     };
 
-    const { loaded, error, environmentAggregations, platformAggregations } = useAggregationsQuery({
+    const { loaded, error, environmentAggregations, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
@@ -67,7 +68,7 @@ const EntityNode = () => {
                         <ExpandableNode.Title color={color} size={16} padLeft>
                             {registry.getCollectionName(entityType)}
                         </ExpandableNode.Title>
-                        <Count color={color}>{formatNumber(entityAggregation.count)}</Count>
+                        <Count color={color}>{countText}</Count>
                     </ExpandableNode.HeaderLeft>
                     <ExpandableNode.CircleButton isOpen={isOpen && !isClosing} color={color} />
                 </ExpandableNode.Header>
@@ -93,7 +94,7 @@ const EntityNode = () => {
                                   <PlatformNode />
                               </BrowseProvider>
                           ))}
-                    {error && <SidebarLoadingError />}
+                    {error && <SidebarLoadingError onClickRetry={retry} />}
                 </ExpandableNode.Body>
             }
         />

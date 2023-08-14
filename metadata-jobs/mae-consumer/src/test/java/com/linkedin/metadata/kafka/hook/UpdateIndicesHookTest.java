@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hook;
 
+import com.linkedin.metadata.config.SystemUpdateConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InputField;
 import com.linkedin.common.InputFieldArray;
@@ -20,8 +22,6 @@ import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.graph.Edge;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;

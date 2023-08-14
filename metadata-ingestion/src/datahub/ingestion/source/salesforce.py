@@ -30,6 +30,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
@@ -69,6 +73,10 @@ class SalesforceProfilingConfig(ConfigModel):
     enabled: bool = Field(
         default=False,
         description="Whether profiling should be done. Supports only table-level profiling at this stage",
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
     )
 
     # TODO - support field level profiling
@@ -123,6 +131,11 @@ class SalesforceConfig(DatasetSourceConfigMixin):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for profiles to filter in ingestion, allowed by the `object_pattern`.",
     )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     @validator("instance_url")
     def remove_trailing_slash(cls, v):
@@ -281,7 +294,7 @@ class SalesforceSource(Source):
                 )
             )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         sObjects = self.get_salesforce_objects()
 
         for sObject in sObjects:
@@ -329,7 +342,7 @@ class SalesforceSource(Source):
         if self.config.domain is not None:
             yield from self.get_domain_workunit(sObjectName, datasetUrn)
 
-        if self.config.profiling.enabled and self.config.profile_pattern.allowed(
+        if self.config.is_profiling_enabled() and self.config.profile_pattern.allowed(
             sObjectName
         ):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
