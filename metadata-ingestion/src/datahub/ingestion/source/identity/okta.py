@@ -2,12 +2,12 @@ import asyncio
 import logging
 import re
 import urllib
-import nest_asyncio
 from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
 from typing import Dict, Iterable, List, Optional, Union
 
+import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
