@@ -205,6 +205,8 @@ export class ChartEntity implements Entity<Chart> {
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
                 snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
         return <SearchResultProvider searchResult={result}>{preview}</SearchResultProvider>;

@@ -144,7 +144,7 @@ def default_query_results(  # noqa: C901
             }
         ]
     elif query == snowflake_query.SnowflakeQuery.operational_data_for_time_window(
-        1654499820000,
+        1654473600000,
         1654586220000,
     ):
         return [
@@ -257,7 +257,7 @@ def default_query_results(  # noqa: C901
     elif (
         query
         == snowflake_query.SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
-            1654499820000,
+            1654473600000,
             1654586220000,
             use_base_objects=False,
             top_n_queries=10,
@@ -268,11 +268,11 @@ def default_query_results(  # noqa: C901
         return []
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-            1654499820000,
+            1654473600000,
             1654586220000,
         ),
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-            1654499820000, 1654586220000, False
+            1654473600000, 1654586220000, False
         ),
     ):
         return [
@@ -331,7 +331,7 @@ def default_query_results(  # noqa: C901
         ]
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-            start_time_millis=1654499820000,
+            start_time_millis=1654473600000,
             end_time_millis=1654586220000,
             include_view_lineage=True,
             include_column_lineage=True,
@@ -403,7 +403,7 @@ def default_query_results(  # noqa: C901
         ]
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-            start_time_millis=1654499820000,
+            start_time_millis=1654473600000,
             end_time_millis=1654586220000,
             include_view_lineage=False,
             include_column_lineage=False,
@@ -435,7 +435,7 @@ def default_query_results(  # noqa: C901
             for op_idx in range(1, num_ops + 1)
         ]
     elif query == snowflake_query.SnowflakeQuery.external_table_lineage_history(
-        1654499820000,
+        1654473600000,
         1654586220000,
     ):
         return []
@@ -470,11 +470,11 @@ def default_query_results(  # noqa: C901
         ]
     elif query in [
         snowflake_query.SnowflakeQuery.view_lineage_history(
-            1654499820000,
+            1654473600000,
             1654586220000,
         ),
         snowflake_query.SnowflakeQuery.view_lineage_history(
-            1654499820000, 1654586220000, False
+            1654473600000, 1654586220000, False
         ),
     ]:
         return [
@@ -510,7 +510,7 @@ def default_query_results(  # noqa: C901
         ]
     elif query in [
         snowflake_query.SnowflakeQuery.external_table_lineage_history(
-            1654499820000,
+            1654473600000,
             1654586220000,
         ),
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),

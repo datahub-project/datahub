@@ -35,6 +35,7 @@ import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchHighlighter from '../search/highlight/SearchHighlighter';
+import { getUniqueOwners } from './utils';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -261,6 +262,7 @@ export default function DefaultPreviewCard({
     };
 
     const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+    const uniqueOwners = getUniqueOwners(owners);
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
@@ -384,12 +386,14 @@ export default function DefaultPreviewCard({
                             </UserListContainer>
                         </>
                     )}
-                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                    {owners && owners?.length > 0 && (
+                    {(topUsers?.length || 0) > 0 && (uniqueOwners?.length || 0) > 0 && (
+                        <UserListDivider type="vertical" />
+                    )}
+                    {uniqueOwners && uniqueOwners?.length > 0 && (
                         <UserListContainer>
                             <UserListTitle strong>Owners</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
+                                <ExpandedActorGroup actors={uniqueOwners.map((owner) => owner.owner)} max={2} />
                             </div>
                         </UserListContainer>
                     )}
