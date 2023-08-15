@@ -84,4 +84,4 @@ RUN apt-get remove -y make \
     && rm -rf /var/lib/apt/lists/*
 
 USER datahub
-ENV PATH=/datahub-ingestion/.local/bin:/usr/local/bin:$PATH
+ENV PATH="/datahub-ingestion/.local/bin:$PATH"
