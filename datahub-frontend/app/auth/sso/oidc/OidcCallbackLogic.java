@@ -423,8 +423,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             log.debug(String.format("Extracted group that does not yet exist %s. Provisioning...",
                 corpGroupSnapshot.getUrn()));
             groupsToCreate.add(extractedGroup);
-          }
-          else {
+          } else {
             log.debug(String.format("Group %s already exists. Skipping provisioning", corpGroupSnapshot.getUrn()));
           }
 
