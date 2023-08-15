@@ -1,7 +1,7 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity } from '../../../types.generated';
+import { Entity, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteEntityText } from './utils';
 import ParentContainers from './ParentContainers';
@@ -9,7 +9,7 @@ import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 import AutoCompleteEntityIcon from './AutoCompleteEntityIcon';
 import { SuggestionText } from './styledComponents';
 import AutoCompletePlatformNames from './AutoCompletePlatformNames';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
+import { getPlatformName } from '../../entity/shared/utils';
 
 const AutoCompleteEntityWrapper = styled.div`
     display: flex;
@@ -62,30 +62,22 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const genericEntityProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
-    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
     const entities = siblings?.length ? siblings : [entity];
+    const platforms =
+        genericEntityProps?.siblingPlatforms
+            ?.map(
+                (platform) =>
+                    getPlatformName(entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, platform)) || '',
+            )
+            .filter(Boolean) ?? [];
 
-    const platformNames = entities
-        .map((ent) => {
-            const genericPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
-            const platform = genericPropsForEnt?.platform;
-            if (platform?.properties?.displayName) return platform.properties.displayName;
-            if (platform?.name) return capitalizeFirstLetterOnly(platform.name) || '';
-            return '';
-        })
-        .filter(Boolean);
+    const parentContainers = genericEntityProps?.parentContainers?.containers || [];
+    // Need to reverse parentContainers since it returns direct parent first.
+    const orderedParentContainers = [...parentContainers].reverse();
+    const subtype = genericEntityProps?.subTypes?.typeNames?.[0];
 
-    const parentContainers =
-        entities
-            .map((ent) => {
-                const genericPropsForEnt = entityRegistry.getGenericEntityProperties(ent.type, ent);
-                const entParentContainers = genericPropsForEnt?.parentContainers?.containers || [];
-                return [...entParentContainers].reverse();
-            })
-            .find((containers) => containers.length > 0) ?? [];
-
-    const showPlatforms = !!platformNames.length;
-    const showPlatformDivider = !!platformNames.length && !!parentContainers.length;
+    const showPlatforms = !!platforms.length;
+    const showPlatformDivider = !!platforms.length && !!parentContainers.length;
     const showParentContainers = !!parentContainers.length;
     const showHeader = showPlatforms || showParentContainers;
 
@@ -100,9 +92,9 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
                                     <AutoCompleteEntityIcon key={ent.urn} entity={ent} />
                                 ))}
                             </IconsContainer>
-                            {showPlatforms && <AutoCompletePlatformNames platforms={platformNames} />}
+                            {showPlatforms && <AutoCompletePlatformNames platforms={platforms} />}
                             {showPlatformDivider && <Divider />}
-                            {showParentContainers && <ParentContainers parentContainers={parentContainers} />}
+                            {showParentContainers && <ParentContainers parentContainers={orderedParentContainers} />}
                         </ItemHeader>
                     )}
                     <Typography.Text
