@@ -67,7 +67,7 @@ class DataLakeSourceConfig(
     )
 
     spark_config: Dict[str, Any] = Field(
-        description="Spark configuration properties to set on the SparkSession. Put config property names into quotes. ",
+        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
         default={},
     )
 
