@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from functools import cache
+from functools import lru_cache
 from typing import TYPE_CHECKING, Dict, NamedTuple, Optional, cast
 
 from pydantic import Field
@@ -41,7 +41,7 @@ class StatefulDataHubIngestionHandler(
         self.pipeline_name = source.ctx.pipeline_name
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
-    @cache
+    @lru_cache
     def is_checkpointing_enabled(self) -> bool:
         return self.state_provider.is_stateful_ingestion_configured()
 

@@ -1,10 +1,9 @@
 import json
 import logging
 from datetime import datetime
-from typing import Iterable, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Row
 
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -56,38 +55,44 @@ class DataHubMySQLReader:
                     limit=self.config.mysql_batch_size,
                     offset=offset,
                 )
-                if not rows:
-                    break
+                if not rows.rowcount:
+                    return
 
                 for i, row in enumerate(rows):
-                    mcp = self._parse_mysql_row(row)
+                    # TODO: Replace with namedtuple usage once we drop sqlalchemy 1.3
+                    if hasattr(row, "_asdict"):
+                        row_dict = row._asdict()
+                    else:
+                        row_dict = dict(row)
+                    mcp = self._parse_mysql_row(row_dict)
                     if mcp:
-                        yield mcp, row.createdon
+                        yield mcp, row_dict["createdon"]
 
-                if ts == row.createdon:
+                if ts == row_dict["createdon"]:
                     offset += i
                 else:
-                    ts = row.createdon
+                    ts = row_dict["createdon"]
+                    print(ts)
                     offset = 0
 
-    def _parse_mysql_row(self, row: Row) -> Optional[MetadataChangeProposalWrapper]:
+    def _parse_mysql_row(self, d: Dict) -> Optional[MetadataChangeProposalWrapper]:
         try:
-            json_aspect = post_json_transform(json.loads(row.metadata))
-            json_metadata = post_json_transform(json.loads(row.systemmetadata or "{}"))
+            json_aspect = post_json_transform(json.loads(d["metadata"]))
+            json_metadata = post_json_transform(json.loads(d["systemmetadata"] or "{}"))
             system_metadata = SystemMetadataClass.from_obj(json_metadata)
-            system_metadata.lastObserved = int(row.createdon.timestamp() * 1000)
+            system_metadata.lastObserved = int(d["createdon"].timestamp() * 1000)
             return MetadataChangeProposalWrapper(
-                entityUrn=row.urn,
-                aspect=ASPECT_MAP[row.aspect].from_obj(json_aspect),
+                entityUrn=d["urn"],
+                aspect=ASPECT_MAP[d["aspect"]].from_obj(json_aspect),
                 systemMetadata=system_metadata,
                 changeType=ChangeTypeClass.UPSERT,
             )
         except Exception as e:
             logger.warning(
-                f"Failed to parse metadata for {row.urn}: {e}", exc_info=True
+                f"Failed to parse metadata for {d['urn']}: {e}", exc_info=True
             )
             self.report.num_mysql_parse_errors += 1
             self.report.mysql_parse_errors.setdefault(str(e), LossyDict()).setdefault(
-                row.aspect, LossyList()
-            ).append(row.urn)
+                d["aspect"], LossyList()
+            ).append(d["urn"])
             return None

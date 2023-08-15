@@ -20,6 +20,7 @@ from datahub.ingestion.source.datahub.state import StatefulDataHubIngestionHandl
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.schema_classes import ChangeTypeClass
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,13 @@ class DataHubSource(StatefulIngestionSourceBase):
             mcls = reader.get_mcls(from_offsets=from_offsets, stop_time=stop_time)
             for i, (mcl, offset) in enumerate(mcls):
                 mcp = MetadataChangeProposalWrapper.try_from_mcl(mcl)
+                if mcp.changeType == ChangeTypeClass.DELETE:
+                    self.report.num_timeseries_deletions_dropped += 1
+                    logger.info(
+                        f"Dropping timeseries deletion of {mcp.aspectName} on {mcp.entityUrn}"
+                    )
+                    continue
+
                 if isinstance(mcp, MetadataChangeProposalWrapper):
                     yield mcp.as_workunit()
                 else:
