@@ -346,6 +346,7 @@ export default function DefaultPreviewCard({
                                     </Typography.Link>
                                 ) : undefined
                             }
+                            customRender={(text) => <SearchHighlighter field="description" text={text} />}
                         >
                             {description}
                         </NoMarkdownViewer>

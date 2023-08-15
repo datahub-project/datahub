@@ -1,6 +1,7 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { SearchResult } from '../../../types.generated';
-import { MATCHED_FIELD_MAPPING, NormalizedMatchedFieldName } from '../highlight/utils';
+import { getMatchedFieldNames } from '../highlight/utils';
+import { NormalizedMatchedFieldName } from '../highlight/constants';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;
@@ -37,9 +38,7 @@ const useMatchedFields = () => {
 
 export const useMatchedField = (normalizedFieldName?: NormalizedMatchedFieldName) => {
     const entityType = useEntityType();
-    const fieldName =
-        normalizedFieldName && entityType && entityType in MATCHED_FIELD_MAPPING
-            ? MATCHED_FIELD_MAPPING[entityType][normalizedFieldName]
-            : undefined;
-    return useMatchedFields()?.find((field) => field.name === fieldName);
+    const matchedFields = useMatchedFields();
+    const matchedFieldNames = getMatchedFieldNames(entityType, normalizedFieldName);
+    return matchedFields?.find((field) => matchedFieldNames.includes(field.name));
 };

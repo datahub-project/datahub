@@ -1,27 +1,16 @@
 import { EntityType } from '../../../types.generated';
+import { MATCHED_FIELD_MAPPING, NormalizedMatchedFieldName } from './constants';
 
-export type MatchedFieldName = 'urn' | 'id' | 'name' | 'title' | 'description';
-
-type SupportedEntityTypes = EntityType.Dataset | EntityType.CorpGroup | EntityType.Chart;
-
-export type NormalizedMatchedFieldName = 'urn' | 'name' | 'description';
-
-type MatchedFieldMapping = Record<SupportedEntityTypes, Record<NormalizedMatchedFieldName, MatchedFieldName>>;
-
-export const MATCHED_FIELD_MAPPING: MatchedFieldMapping = {
-    [EntityType.Dataset]: {
-        name: 'id',
-        description: 'description',
-        urn: 'urn',
-    },
-    [EntityType.CorpGroup]: {
-        name: 'name',
-        description: 'description',
-        urn: 'urn',
-    },
-    [EntityType.Chart]: {
-        name: 'title',
-        description: 'description',
-        urn: 'urn',
-    },
+export const getMatchedFieldNames = (
+    entityType: EntityType | undefined,
+    normalizedFieldName: NormalizedMatchedFieldName | undefined,
+): Array<string> => {
+    if (
+        normalizedFieldName &&
+        entityType &&
+        entityType in MATCHED_FIELD_MAPPING &&
+        normalizedFieldName in MATCHED_FIELD_MAPPING[entityType]
+    )
+        return MATCHED_FIELD_MAPPING[entityType][normalizedFieldName] ?? [];
+    return [];
 };

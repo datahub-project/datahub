@@ -2,7 +2,7 @@ import React, { CSSProperties } from 'react';
 import Highlight from 'react-highlighter';
 import { useMatchedField } from '../context/SearchResultContext';
 import { useSearchQuery } from '../context/SearchContext';
-import { NormalizedMatchedFieldName } from './utils';
+import { NormalizedMatchedFieldName } from './constants';
 
 type Props = {
     field?: NormalizedMatchedFieldName;
@@ -18,7 +18,7 @@ const highlightStyle: CSSProperties = {
 const SearchHighlighter = ({ field, text }: Props) => {
     const matchedField = useMatchedField(field);
     const searchQuery = useSearchQuery();
-    const hasSubstring = matchedField?.value && searchQuery && text?.includes(searchQuery);
+    const hasSubstring = matchedField?.value && searchQuery && text?.toLowerCase().includes(searchQuery.toLowerCase());
 
     return (
         <>
