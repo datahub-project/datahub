@@ -424,7 +424,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
                 corpGroupSnapshot.getUrn()));
             groupsToCreate.add(extractedGroup);
           }
-          log.debug(String.format("Group %s already exists. Skipping provisioning", corpGroupSnapshot.getUrn()));
+          else {
+            log.debug(String.format("Group %s already exists. Skipping provisioning", corpGroupSnapshot.getUrn()));
+          }
+
         } else {
           // Should not occur until we stop returning default Key aspects for unrecognized entities.
           log.debug(
