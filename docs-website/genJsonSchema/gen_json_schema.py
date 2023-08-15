@@ -55,7 +55,11 @@ def get_base() -> Any:
                 "properties": {
                     "ca_certificate_path": {
                         "type": "string",
-                        "description": "Path to CA certificate for HTTPS communications.",
+                        "description": "Path to server's CA certificate for verification of HTTPS communications",
+                    },
+                    "client_certificate_path": {
+                        "type": "string",
+                        "descritption": "Path to client's CA certificate for HTTPS communications",
                     },
                     "max_threads": {
                         "type": "number",

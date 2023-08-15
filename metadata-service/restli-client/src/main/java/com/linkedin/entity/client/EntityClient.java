@@ -205,7 +205,7 @@ public interface EntityClient {
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      @Nullable SortCriterion sortCriterion, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   /**
@@ -224,7 +224,7 @@ public interface EntityClient {
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication, List<String> facets)
+      @Nullable SortCriterion sortCriterion, @Nonnull Authentication authentication, List<String> facets)
       throws RemoteInvocationException;
 
   /**

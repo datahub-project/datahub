@@ -180,6 +180,8 @@ export class DataJobEntity implements Entity<DataJob> {
                 lastRunTimeMs={
                     ((data as any).lastRun?.runs?.length && (data as any).lastRun?.runs[0]?.created?.time) || undefined
                 }
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
