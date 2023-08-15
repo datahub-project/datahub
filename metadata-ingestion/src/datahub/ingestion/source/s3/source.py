@@ -329,6 +329,9 @@ class S3Source(StatefulIngestionSourceBase):
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
+        if self.source_config.spark_config:
+            for key, value in self.source_config.spark_config.items():
+                conf.set(key, value)
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     @classmethod
