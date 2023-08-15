@@ -1,13 +1,27 @@
-// import { EntityType } from '../../../types.generated';
+import { EntityType } from '../../../types.generated';
 
-// we need a function somewhere we "register" our name/description internal matchedFields.field names we expect
-// because it's based on the schema unforunately...
-// maybe we make a simple class that holds the mapping or something
+export type MatchedFieldName = 'urn' | 'id' | 'name' | 'title' | 'description';
 
-// DatasetEntity makes the most sense, but I don't want to add a method per search card field...
+type SupportedEntityTypes = EntityType.Dataset | EntityType.CorpGroup | EntityType.Chart;
 
-// const FIELDS_TO_HIGHLIGHT_MAPPING = {
-//     [EntityType.Dataset]: {
-//         name: 'id',
-//     },
-// };
+export type NormalizedMatchedFieldName = 'urn' | 'name' | 'description';
+
+type MatchedFieldMapping = Record<SupportedEntityTypes, Record<NormalizedMatchedFieldName, MatchedFieldName>>;
+
+export const MATCHED_FIELD_MAPPING: MatchedFieldMapping = {
+    [EntityType.Dataset]: {
+        name: 'id',
+        description: 'description',
+        urn: 'urn',
+    },
+    [EntityType.CorpGroup]: {
+        name: 'name',
+        description: 'description',
+        urn: 'urn',
+    },
+    [EntityType.Chart]: {
+        name: 'title',
+        description: 'description',
+        urn: 'urn',
+    },
+};

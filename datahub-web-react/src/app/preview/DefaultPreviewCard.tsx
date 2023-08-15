@@ -296,7 +296,7 @@ export default function DefaultPreviewCard({
 
                                     {/* maybe in the render fn above we call a hook that gives us back the valid field? */}
                                     {/* we could just store it on the schema since it appears to be static info */}
-                                    <SearchHighlighter field="id" text={name || ''} />
+                                    <SearchHighlighter field="name" text={name || ''} />
                                 </EntityTitle>
                             )}
                         </Link>

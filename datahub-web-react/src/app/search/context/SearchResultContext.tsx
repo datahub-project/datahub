@@ -1,7 +1,6 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { SearchResult } from '../../../types.generated';
-
-export type HighlightField = 'urn' | 'id' | 'name' | 'description';
+import { MATCHED_FIELD_MAPPING, NormalizedMatchedFieldName } from '../highlight/utils';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;
@@ -28,14 +27,19 @@ const useSearchResultContext = () => {
     return useContext(SearchResultContext);
 };
 
-// const useEntityType = () => {
-//     return useSearchResultContext()?.searchResult.entity.type;
-// };
+export const useEntityType = () => {
+    return useSearchResultContext()?.searchResult.entity.type;
+};
 
 const useMatchedFields = () => {
     return useSearchResultContext()?.searchResult.matchedFields;
 };
 
-export const useMatchedField = (fieldName?: HighlightField) => {
+export const useMatchedField = (normalizedFieldName?: NormalizedMatchedFieldName) => {
+    const entityType = useEntityType();
+    const fieldName =
+        normalizedFieldName && entityType && entityType in MATCHED_FIELD_MAPPING
+            ? MATCHED_FIELD_MAPPING[entityType][normalizedFieldName]
+            : undefined;
     return useMatchedFields()?.find((field) => field.name === fieldName);
 };

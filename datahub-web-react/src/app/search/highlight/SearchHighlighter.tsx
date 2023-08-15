@@ -1,10 +1,11 @@
 import React, { CSSProperties } from 'react';
 import Highlight from 'react-highlighter';
-import { HighlightField, useMatchedField } from '../context/SearchResultContext';
+import { useMatchedField } from '../context/SearchResultContext';
 import { useSearchQuery } from '../context/SearchContext';
+import { NormalizedMatchedFieldName } from './utils';
 
 type Props = {
-    field?: HighlightField;
+    field?: NormalizedMatchedFieldName;
     text?: string;
 };
 
