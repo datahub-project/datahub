@@ -259,7 +259,7 @@ class S3Source(StatefulIngestionSourceBase):
         import pydeequ
 
         conf = SparkConf()
-        spark_version = os.getenv("SPARK_VERSION", "3.0")
+        spark_version = os.getenv("SPARK_VERSION", "3.3")
         conf.set(
             "spark.jars.packages",
             ",".join(
