@@ -41,7 +41,7 @@ class StatefulDataHubIngestionHandler(
         self.pipeline_name = source.ctx.pipeline_name
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
-    @lru_cache
+    @lru_cache(maxsize=1)
     def is_checkpointing_enabled(self) -> bool:
         return self.state_provider.is_stateful_ingestion_configured()
 
