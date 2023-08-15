@@ -170,6 +170,33 @@ export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: { siblings?:
     return isPrimary;
 };
 
+const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
+    // eslint-disable-next-line @typescript-eslint/dot-notation
+    const siblingAspect = entity.siblings;
+    if ((siblingAspect?.siblings || []).length === 0) {
+        return entity;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/dot-notation
+    const siblings = siblingAspect?.siblings || [];
+
+    const isPrimary = shouldEntityBeTreatedAsPrimary(entity);
+
+    const combinedBaseEntity: any = siblings.reduce(
+        (prev, current) =>
+            merge(clean(isPrimary ? current : prev), clean(isPrimary ? prev : current), {
+                arrayMerge: combineMerge,
+                customMerge: customMerge.bind({}, isPrimary),
+            }),
+        entity,
+    );
+
+    // Force the urn of the combined entity to the current entity urn.
+    combinedBaseEntity.urn = entity.urn;
+
+    return combinedBaseEntity;
+};
+
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {
         return baseEntity;
@@ -183,22 +210,7 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
         return baseEntity;
     }
 
-    // eslint-disable-next-line @typescript-eslint/dot-notation
-    const siblings: T[] = siblingAspect?.siblings || [];
-
-    const isPrimary = shouldEntityBeTreatedAsPrimary(extractedBaseEntity);
-
-    const combinedBaseEntity: any = siblings.reduce(
-        (prev, current) =>
-            merge(clean(isPrimary ? current : prev), clean(isPrimary ? prev : current), {
-                arrayMerge: combineMerge,
-                customMerge: customMerge.bind({}, isPrimary),
-            }),
-        extractedBaseEntity,
-    ) as T;
-
-    // Force the urn of the combined entity to the current entity urn.
-    combinedBaseEntity.urn = extractedBaseEntity.urn;
+    const combinedBaseEntity = combineEntityWithSiblings(extractedBaseEntity);
 
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
@@ -220,15 +232,15 @@ type CombinedEntityResult =
 export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
     if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
 
-    const combinedEntity: CombinedEntity = { entity };
-    const siblings = (entity as GenericEntityProperties).siblings?.siblings ?? [];
-    const isPrimary = (entity as GenericEntityProperties).siblings?.isPrimary;
+    const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };
+    const siblings = (combinedEntity.entity as GenericEntityProperties).siblings?.siblings ?? [];
+    const isPrimary = (combinedEntity.entity as GenericEntityProperties).siblings?.isPrimary;
     const siblingUrns = siblings.map((sibling) => sibling?.urn);
 
     if (siblingUrns.length > 0) {
         combinedEntity.matchedEntities = isPrimary
-            ? [stripSiblingsFromEntity(entity), ...siblings]
-            : [...siblings, stripSiblingsFromEntity(entity)];
+            ? [stripSiblingsFromEntity(combinedEntity.entity), ...siblings]
+            : [...siblings, stripSiblingsFromEntity(combinedEntity.entity)];
 
         combinedEntity.matchedEntities = combinedEntity.matchedEntities.filter(
             (resultToFilter) => (resultToFilter as Dataset).exists,
