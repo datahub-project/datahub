@@ -92,6 +92,11 @@ public class ESSampleDataFixture {
         return new IndexConventionImpl(prefix);
     }
 
+    @Bean(name = "longTailSampleDataIndexConvention")
+    protected IndexConvention longTailIndexConvention(@Qualifier("longTailSampleDataPrefix") String prefix) {
+        return new IndexConventionImpl(prefix);
+    }
+
     @Bean(name = "sampleDataFixtureName")
     protected String sampleDataFixtureName() {
         return "sample_data";
@@ -136,13 +141,30 @@ public class ESSampleDataFixture {
             @Qualifier("sampleDataEntityIndexBuilders") EntityIndexBuilders indexBuilders,
             @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
     ) throws IOException {
+        return entitySearchServiceHelper(entityRegistry, indexBuilders, indexConvention);
+    }
+
+    @Bean(name = "longTailSampleDataEntitySearchService")
+    protected ElasticSearchService longTailEntitySearchService(
+            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
+            @Qualifier("longTailSampleDataEntityIndexBuilders") EntityIndexBuilders longTailEndexBuilders,
+            @Qualifier("longTailSampleDataIndexConvention") IndexConvention longTailIndexConvention
+    ) throws IOException {
+        return entitySearchServiceHelper(longTailEntityRegistry, longTailEndexBuilders, longTailIndexConvention);
+    }
+
+    protected ElasticSearchService entitySearchServiceHelper(
+            EntityRegistry entityRegistry,
+            EntityIndexBuilders indexBuilders,
+            IndexConvention indexConvention
+    ) throws IOException {
         CustomConfiguration customConfiguration = new CustomConfiguration();
         customConfiguration.setEnabled(true);
         customConfiguration.setFile("search_config_fixture_test.yml");
         CustomSearchConfiguration customSearchConfiguration = customConfiguration.resolve(new YAMLMapper());
 
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, customSearchConfiguration);
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, customSearchConfiguration);
         ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
@@ -164,12 +186,12 @@ public class ESSampleDataFixture {
     @Nonnull
     protected SearchService longTailSearchService(
             @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
-            @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
+            @Qualifier("longTailSampleDataEntitySearchService") ElasticSearchService longTailEntitySearchService,
             @Qualifier("longTailSampleDataEntityIndexBuilders") EntityIndexBuilders longTailIndexBuilders,
             @Qualifier("longTailSampleDataPrefix") String longTailPrefix,
             @Qualifier("longTailFixtureName") String longTailFixtureName
     ) throws IOException {
-        return searchServiceHelper(longTailEntityRegistry, entitySearchService, longTailIndexBuilders, longTailPrefix, longTailFixtureName);
+        return searchServiceHelper(longTailEntityRegistry, longTailEntitySearchService, longTailIndexBuilders, longTailPrefix, longTailFixtureName);
     }
 
     public SearchService searchServiceHelper(
