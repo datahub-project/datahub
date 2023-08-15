@@ -240,7 +240,7 @@ WHERE
         dataset_name = BigqueryTableIdentifier(
             project_id=project, dataset=dataset, table=table.name
         ).get_table_name()
-        if not self.is_dataset_eligible_for_profiling(
+        if not profile_table_level_only and not self.is_dataset_eligible_for_profiling(
             dataset_name, table.last_altered, table.size_in_bytes, table.rows_count
         ):
             profile_table_level_only = True
@@ -248,6 +248,7 @@ WHERE
 
         if not table.column_count:
             skip_profiling = True
+            self.report.profiling_skipped_no_column_count.append(dataset_name)
 
         if skip_profiling:
             if self.config.profiling.report_dropped_profiles:

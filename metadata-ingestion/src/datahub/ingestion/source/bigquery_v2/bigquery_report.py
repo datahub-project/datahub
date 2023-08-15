@@ -61,6 +61,7 @@ class BigQueryV2Report(ProfilingSqlReport):
     partition_info: Dict[str, str] = field(default_factory=TopKDict)
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
     selected_profile_tables: Dict[str, List[str]] = field(default_factory=TopKDict)
+    profiling_skipped_no_column_count: LossyList = field(default_factory=LossyList)
     invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
