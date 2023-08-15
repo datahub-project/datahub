@@ -47,4 +47,25 @@ describe("edit documentation and link to dataset", () => {
         cy.get("[role='tab']").contains("Documentation").click();
         cy.get(`[href='${correct_url}']`).should("be.visible");
     });
+
+    it("edit field documentation", () => {
+        cy.loginWithCredentials();
+        cy.visit("/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)/Schema");
+        cy.get("tbody [data-icon='edit']").first().click({ force: true });
+        cy.waitTextVisible("Update description");
+        cy.waitTextVisible("Foo field description has changed");
+        cy.focused().clear().wait(1000);
+        cy.focused().type(documentation_edited);
+        cy.get("button").contains("Update").click();
+        cy.waitTextVisible("Updated!");
+        cy.waitTextVisible(documentation_edited);
+        cy.waitTextVisible("(edited)");
+        cy.get("tbody [data-icon='edit']").first().click({ force: true });
+        cy.focused().clear().wait(1000);
+        cy.focused().type("Foo field description has changed");
+        cy.get("button").contains("Update").click();
+        cy.waitTextVisible("Updated!");
+        cy.waitTextVisible("Foo field description has changed");
+        cy.waitTextVisible("(edited)");
+    });
 });
