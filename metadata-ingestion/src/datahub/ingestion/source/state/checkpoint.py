@@ -213,7 +213,7 @@ class Checkpoint(Generic[StateType]):
                 ),
             )
             checkpoint_aspect = DatahubIngestionCheckpointClass(
-                timestampMillis=int(datetime.now().timestamp() * 1000),
+                timestampMillis=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
                 pipelineName=self.pipeline_name,
                 platformInstanceId="",
                 runId=self.run_id,
