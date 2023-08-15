@@ -311,6 +311,7 @@ class LDAPSource(StatefulIngestionSourceBase):
         work unit based on the information.
         """
         manager_ldap = None
+        make_manager_urn = None
         if self.config.user_attrs_map["managerUrn"] in attrs:
             try:
                 m_cn = attrs[self.config.user_attrs_map["managerUrn"]][0].decode()
@@ -327,10 +328,19 @@ class LDAPSource(StatefulIngestionSourceBase):
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
                     _m_dn, m_attrs = result[1][0]
+
                     manager_ldap = guess_person_ldap(m_attrs, self.config, self.report)
+
+                    m_email = get_attr_or_none(
+                        m_attrs, self.config.user_attrs_map["email"], manager_ldap
+                    )
+                    make_manager_urn = (
+                        m_email if self.config.use_email_as_username else manager_ldap
+                    )
+
             except ldap.LDAPError as e:
                 self.report.report_warning(dn, f"manager LDAP search failed: {e}")
-        mce = self.build_corp_user_mce(dn, attrs, manager_ldap)
+        mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
         if mce:
             yield MetadataWorkUnit(dn, mce)
         else:
