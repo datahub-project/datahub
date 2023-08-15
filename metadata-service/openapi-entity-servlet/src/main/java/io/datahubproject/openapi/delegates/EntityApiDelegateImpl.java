@@ -27,6 +27,7 @@ import io.datahubproject.openapi.generated.SortOrder;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
@@ -67,7 +68,8 @@ public class EntityApiDelegateImpl<I, O, S> {
     public ResponseEntity<O> get(String urn, Boolean systemMetadata, List<String> aspects) {
         String[] requestedAspects = Optional.ofNullable(aspects).map(asp -> asp.stream().distinct().toArray(String[]::new)).orElse(null);
         ResponseEntity<UrnResponseMap> result = _v1Controller.getEntities(new String[]{urn}, requestedAspects);
-        return ResponseEntity.of(OpenApiEntitiesUtil.convertEntity(result.getBody(), _respClazz, systemMetadata));
+        return ResponseEntity.of(OpenApiEntitiesUtil.convertEntity(Optional.ofNullable(result)
+                .map(HttpEntity::getBody).orElse(null), _respClazz, systemMetadata));
     }
 
     public ResponseEntity<List<O>> create(List<I> body) {
@@ -346,8 +348,9 @@ public class EntityApiDelegateImpl<I, O, S> {
                                     @Valid String scrollId, @Valid List<String> sort, @Valid SortOrder sortOrder, @Valid String query) {
         // TODO multi-field sort
         SortCriterion sortCriterion = new SortCriterion();
-        sortCriterion.setField(sort.get(0));
-        sortCriterion.setOrder(com.linkedin.metadata.query.filter.SortOrder.valueOf(sortOrder.name()));
+        sortCriterion.setField(Optional.ofNullable(sort).map(s -> s.get(0)).orElse("urn"));
+        sortCriterion.setOrder(com.linkedin.metadata.query.filter.SortOrder.valueOf(Optional.ofNullable(sortOrder)
+                .map(Enum::name).orElse("ASCENDING")));
 
         SearchFlags searchFlags = new SearchFlags()
                 .setFulltext(false)
