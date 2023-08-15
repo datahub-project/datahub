@@ -18,6 +18,7 @@ buildscript {
   ext.logbackClassic = '1.2.12'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
+  ext.hazelcastVersion = '5.3.1'
 
   ext.docker_registry = 'linkedin'
 
@@ -101,9 +102,9 @@ project.ext.externalDependency = [
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
     "hadoopClient": "org.apache.hadoop:hadoop-client:$hadoop3Version",
     "hadoopCommon3":"org.apache.hadoop:hadoop-common:$hadoop3Version",
-    'hazelcast':'com.hazelcast:hazelcast:5.2.3',
-    'hazelcastSpring':'com.hazelcast:hazelcast-spring:5.2.1',
-    'hazelcastTest':'com.hazelcast:hazelcast:5.2.1:tests',
+    'hazelcast':"com.hazelcast:hazelcast:$hazelcastVersion",
+    'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
+    'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
     'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
