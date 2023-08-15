@@ -265,6 +265,7 @@ class S3Source(StatefulIngestionSourceBase):
             ",".join(
                 [
                     "org.apache.hadoop:hadoop-aws:3.0.3",
+                    # Spark's avro version needs to be matched with the Spark version
                     f"org.apache.spark:spark-avro_2.12:{spark_version}.0",
                     pydeequ.deequ_maven_coord,
                 ]
