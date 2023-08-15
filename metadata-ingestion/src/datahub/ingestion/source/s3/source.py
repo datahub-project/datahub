@@ -259,13 +259,13 @@ class S3Source(StatefulIngestionSourceBase):
         import pydeequ
 
         conf = SparkConf()
-
+        spark_version = os.getenv("SPARK_VERSION", "3.0")
         conf.set(
             "spark.jars.packages",
             ",".join(
                 [
                     "org.apache.hadoop:hadoop-aws:3.0.3",
-                    "org.apache.spark:spark-avro_2.12:3.0.3",
+                    f"org.apache.spark:spark-avro_2.12:{spark_version}.0",
                     pydeequ.deequ_maven_coord,
                 ]
             ),
