@@ -87,7 +87,7 @@ class DataHubSource(StatefulIngestionSourceBase):
                 mcp = MetadataChangeProposalWrapper.try_from_mcl(mcl)
                 if mcp.changeType == ChangeTypeClass.DELETE:
                     self.report.num_timeseries_deletions_dropped += 1
-                    logger.info(
+                    logger.debug(
                         f"Dropping timeseries deletion of {mcp.aspectName} on {mcp.entityUrn}"
                     )
                     continue
