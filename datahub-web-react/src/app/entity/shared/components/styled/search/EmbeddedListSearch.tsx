@@ -251,7 +251,7 @@ export const EmbeddedListSearch = ({
     }, [isSelectMode]);
 
     useEffect(() => {
-        if (defaultFilters) {
+        if (defaultFilters && filters.length === 0) {
             onChangeFilters(defaultFilters);
         }
         // only want to run once on page load
