@@ -105,6 +105,7 @@ class BigqueryTable(BaseTable):
 @dataclass
 class BigqueryView(BaseView):
     columns: List[BigqueryColumn] = field(default_factory=list)
+    labels: Optional[Dict[str, str]] = None
     materialized: bool = False
 
 
@@ -486,6 +487,7 @@ class BigQueryDataDictionary:
         project_id: str,
         dataset_name: str,
         has_data_read: bool,
+        table_items: Dict[str, TableListItem],
         report: Optional[BigQueryV2Report] = None,
     ) -> Iterator[BigqueryView]:
         if has_data_read:
@@ -505,7 +507,9 @@ class BigQueryDataDictionary:
 
         for table in cur:
             try:
-                yield BigQueryDataDictionary._make_bigquery_view(table)
+                yield BigQueryDataDictionary._make_bigquery_view(
+                    table, table_items.get(table.table_name)
+                )
             except Exception as e:
                 view_name = f"{project_id}.{dataset_name}.{table.table_name}"
                 logger.warning(
@@ -519,7 +523,9 @@ class BigQueryDataDictionary:
                     )
 
     @staticmethod
-    def _make_bigquery_view(view: bigquery.Row) -> BigqueryView:
+    def _make_bigquery_view(
+        view: bigquery.Row, table_basic: Optional[TableListItem]
+    ) -> BigqueryView:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
@@ -531,6 +537,7 @@ class BigQueryDataDictionary:
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
+            labels=table_basic.labels if table_basic else None,
         )
 
     @staticmethod

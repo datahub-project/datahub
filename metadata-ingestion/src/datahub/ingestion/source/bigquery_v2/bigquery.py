@@ -792,9 +792,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_views:
             db_views[dataset_name] = list(
-                BigQueryDataDictionary.get_views_for_dataset(
-                    conn, project_id, dataset_name, self.config.is_profiling_enabled()
-                )
+                self.get_views_for_dataset(conn, project_id, dataset_name)
             )
 
             for view in db_views[dataset_name]:
@@ -967,12 +965,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_id: str,
         dataset_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+
+        tags_to_add = None
+        if table.labels and self.config.capture_table_label_as_tag:
+            tags_to_add = []
+            tags_to_add.extend(
+                [make_tag_urn(f"""{k}:{v}""") for k, v in table.labels.items()]
+            )
+
         yield from self.gen_dataset_workunits(
             table=table,
             columns=columns,
             project_id=project_id,
             dataset_name=dataset_name,
             sub_types=[DatasetSubTypes.VIEW],
+            tags_to_add=tags_to_add,
         )
 
         view = cast(BigqueryView, table)
@@ -1202,6 +1209,23 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> BigQueryV2Report:
         return self.report
+
+    def get_views_for_dataset(
+        self, conn: bigquery.Client, project_id: str, dataset_name: str
+    ) -> Iterable[BigqueryView]:
+
+        with PerfTimer() as timer:
+            table_items = self.get_core_table_details(conn, dataset_name, project_id)
+            yield from BigQueryDataDictionary.get_views_for_dataset(
+                conn,
+                project_id,
+                dataset_name,
+                has_data_read=self.config.is_profiling_enabled(),
+                table_items=table_items,
+            )
+        self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
+            timer.elapsed_seconds(), 2
+        )
 
     def get_tables_for_dataset(
         self,

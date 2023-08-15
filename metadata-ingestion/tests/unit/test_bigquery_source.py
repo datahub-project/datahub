@@ -10,6 +10,8 @@ import pytest
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
+from datahub.emitter.mce_builder import make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
@@ -28,7 +30,7 @@ from datahub.ingestion.source.bigquery_v2.lineage import (
     LineageEdgeColumnMapping,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import ViewProperties
-from datahub.metadata.schema_classes import MetadataChangeProposalClass
+from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeProposalClass
 
 
 def test_bigquery_uri():
@@ -604,6 +606,7 @@ def bigquery_view_1() -> BigqueryView:
         comment="comment1",
         view_definition="CREATE VIEW 1",
         materialized=False,
+        labels={"label": "label1"},
     )
 
 
@@ -617,6 +620,7 @@ def bigquery_view_2() -> BigqueryView:
         comment="comment2",
         view_definition="CREATE VIEW 2",
         materialized=True,
+        labels={"label": "label2"},
     )
 
 
@@ -652,13 +656,90 @@ def test_get_views_for_dataset(
     )
     query_mock.return_value = [row1, row2]
 
+    table_list_items = {
+        bigquery_view_1.name: TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": bigquery_view_1.name,
+                },
+                "labels": bigquery_view_1.labels,
+            }
+        ),
+        bigquery_view_2.name: TableListItem(
+            {
+                "tableReference": {
+                    "projectId": "test-project",
+                    "datasetId": "test-dataset",
+                    "tableId": bigquery_view_2.name,
+                },
+                "labels": bigquery_view_2.labels,
+            }
+        ),
+    }
     views = BigQueryDataDictionary.get_views_for_dataset(
         conn=client_mock,
         project_id="test-project",
         dataset_name="test-dataset",
         has_data_read=False,
+        table_items=table_list_items,
     )
     assert list(views) == [bigquery_view_1, bigquery_view_2]
+
+
+def test_view_with_label_generates_workunit_for_setting_tags(
+    bigquery_view_1: BigqueryView,
+) -> None:
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config(project_id=project_id, capture_table_label_as_tag=True)
+    source = BigqueryV2Source(config=config, ctx=PipelineContext("test"))
+
+    gen = source.gen_view_dataset_workunits(
+        table=bigquery_view_1,
+        columns=[],
+        project_id=project_id,
+        dataset_name=dataset_name,
+    )
+
+    tag_change_proposals = [
+        cp.metadata
+        for cp in gen
+        if isinstance(cp.metadata, MetadataChangeProposalWrapper)
+        and isinstance(cp.metadata.aspect, GlobalTagsClass)
+    ]
+    assert len(tag_change_proposals) == 1
+
+    datahub_tag_class = cast(GlobalTagsClass, tag_change_proposals[0].aspect)
+    actual_tag = datahub_tag_class.tags[0].tag
+    expected_tag = make_tag_urn("label:label1")
+
+    assert expected_tag == actual_tag
+
+
+def test_view_with_label_generates_no_workunit_for_setting_tags_when_excluding_table_labels(
+    bigquery_view_1: BigqueryView,
+) -> None:
+    project_id = "test-project"
+    dataset_name = "test-dataset"
+    config = BigQueryV2Config(project_id=project_id, capture_table_label_as_tag=False)
+    source = BigqueryV2Source(config=config, ctx=PipelineContext("test"))
+    gen = source.gen_view_dataset_workunits(
+        table=bigquery_view_1,
+        columns=[],
+        project_id=project_id,
+        dataset_name=dataset_name,
+    )
+    change_proposals = [
+        cast(MetadataChangeProposalWrapper, wu.metadata).aspect for wu in gen
+    ]
+    change_proposals_for_tag = [
+        change_proposal
+        for change_proposal in change_proposals
+        if isinstance(change_proposal, GlobalTagsClass)
+    ]
+    assert len(change_proposals_for_tag) == 0
 
 
 @patch.object(BigqueryV2Source, "gen_dataset_workunits", lambda *args, **kwargs: [])
