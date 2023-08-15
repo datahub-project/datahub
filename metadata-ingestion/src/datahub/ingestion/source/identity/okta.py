@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 import urllib
+import nest_asyncio
 from collections import defaultdict
 from dataclasses import dataclass, field
 from time import sleep
@@ -51,6 +52,7 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+nest_asyncio.apply()
 
 
 class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
