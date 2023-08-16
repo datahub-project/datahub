@@ -110,7 +110,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModelGroup;
-        return <Preview group={data} />;
+        return <Preview group={data} degree={(result as any).degree} paths={(result as any).paths} />;
     };
 
     getLineageVizConfig = (entity: MlModelGroup) => {
