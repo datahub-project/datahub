@@ -345,7 +345,7 @@ plugins: Dict[str, Set[str]] = {
     "mysql": sql_common | {"pymysql>=1.0.2"},
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
-    "okta": {"okta~=1.7.0"},
+    "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
