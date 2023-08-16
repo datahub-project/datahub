@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,6 +43,10 @@ public class MappingsBuilder {
   // Subfields
   public static final String DELIMITED = "delimited";
   public static final String LENGTH = "length";
+
+  // Alias field mappings constants
+  public static final String ALIAS = "alias";
+  public static final String PATH = "path";
 
   private MappingsBuilder() {
   }
@@ -163,6 +168,7 @@ public class MappingsBuilder {
     searchableFieldSpec.getSearchableAnnotation()
         .getNumValuesFieldName()
         .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, LONG)));
+    mappings.putAll(getMappingsForFieldNameAliases(searchableFieldSpec));
 
     return mappings;
   }
@@ -171,5 +177,19 @@ public class MappingsBuilder {
       @Nonnull final SearchScoreFieldSpec searchScoreFieldSpec) {
     return ImmutableMap.of(searchScoreFieldSpec.getSearchScoreAnnotation().getFieldName(),
         ImmutableMap.of(TYPE, DOUBLE));
+  }
+
+  private static Map<String, Object> getMappingsForFieldNameAliases(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
+    Map<String, Object> mappings = new HashMap<>();
+    List<String> fieldNameAliases = searchableFieldSpec.getSearchableAnnotation().getFieldNameAliases();
+    if (fieldNameAliases.size() > 0) {
+      fieldNameAliases.forEach(alias -> {
+        Map<String, Object> aliasMappings = new HashMap<>();
+        aliasMappings.put(TYPE, ALIAS);
+        aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
+        mappings.put(alias, aliasMappings);
+      });
+    }
+    return mappings;
   }
 }

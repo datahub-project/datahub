@@ -16,7 +16,8 @@ record RoleProperties {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
 

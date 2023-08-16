@@ -22,7 +22,8 @@ record MLFeatureKey {
   @Searchable = {
     "fieldType": "TEXT_PARTIAL",
     "enableAutocomplete": true,
-    "boostScore": 8.0
+    "boostScore": 8.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
 }
