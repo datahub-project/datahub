@@ -139,7 +139,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         # Now verify whether there are any events in the window
         if maybe_events is not None and len(maybe_events) > 0:
             # We have some events within the expected window. That means the assertion has passed! Make sure we establish WHY the assertion has passed.
-            logger.error(
+            logger.debug(
                 "Found matching events within the provided window! Assertion is passing."
             )
             return AssertionEvaluationResult(
@@ -147,7 +147,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             )
         else:
             # No events are found. The assertion is failing!
-            logger.error(
+            logger.info(
                 "No matching events found within the provided window! Assertion is failing."
             )
             return AssertionEvaluationResult(
