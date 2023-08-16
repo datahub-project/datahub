@@ -32,12 +32,15 @@ RUN apt-get update && apt-get install -y -qq \
     zip \
     unzip \
     ldap-utils \
-    && python -m pip install --no-cache --upgrade pip wheel setuptools==57.5.0 \
-    && curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
-    &&  tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
-    &&  cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
-    &&  ./configure --prefix /usr && make && make install && make clean && ./configure --clean
+    && python -m pip install --no-cache --upgrade pip wheel setuptools \
+    && wget -q https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz -O - | \
+          tar -xz -C /root \
+    && cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
+    && ./configure --prefix /usr && make && make install && cd .. && rm -rf /root/librdkafka-${LIBRDKAFKA_VERSION} \
+    && apt-get remove -y make \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
+# compiled against newer golang for security fixes
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
@@ -53,8 +56,9 @@ ENTRYPOINT [ "/entrypoint.sh" ]
 
 FROM ${BASE_IMAGE} as full-install
 
-RUN apt-get install -y -qq \
-    default-jre-headless
+RUN apt-get update && apt-get install -y -qq \
+    default-jre-headless \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 RUN if [ $(arch) = "x86_64" ]; then \
     mkdir /opt/oracle && \
@@ -78,10 +82,6 @@ FROM ${BASE_IMAGE} as slim-install
 # Do nothing else on top of base
 
 FROM ${APP_ENV}-install
-
-RUN apt-get remove -y make \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /var/lib/apt/lists/*
 
 USER datahub
 ENV PATH="/datahub-ingestion/.local/bin:$PATH"

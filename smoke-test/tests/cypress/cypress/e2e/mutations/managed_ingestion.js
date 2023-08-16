@@ -31,7 +31,7 @@ describe("run managed ingestion", () => {
         cy.waitTextVisible(testName)
 
         cy.contains(testName).parent().within(() => {
-            cy.contains("Succeeded", {timeout: 1200000})
+            cy.contains("Succeeded", {timeout: 180000})
             cy.clickOptionWithTestId("delete-button");
         })
         cy.clickOptionWithText("Yes")
