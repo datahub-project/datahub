@@ -1,6 +1,8 @@
+import concurrent.futures
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List
+from math import ceil
+from typing import Dict, Iterable, List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo, Metadata
 from pydantic import Field
@@ -108,15 +110,23 @@ class ClassificationHandler:
             return None
 
         logger.debug(f"Classifying Table {dataset_name}")
+
         self.report.num_tables_classification_attempted += 1
         field_terms: Dict[str, str] = {}
         with PerfTimer() as timer:
             try:
                 for classifier in self.classifiers:
-                    column_info_with_proposals = classifier.classify(column_infos)
-                    self.extract_field_wise_terms(
-                        field_terms, column_info_with_proposals
-                    )
+                    column_infos_with_proposals: Iterable[ColumnInfo]
+                    if self.config.classification.max_workers > 1:
+                        column_infos_with_proposals = self.async_classify(
+                            classifier, column_infos
+                        )
+                    else:
+                        column_infos_with_proposals = classifier.classify(column_infos)
+
+                    for column_info_proposal in column_infos_with_proposals:
+                        self.update_field_terms(field_terms, column_info_proposal)
+
             except Exception:
                 self.report.num_tables_classification_failed += 1
                 raise
@@ -129,6 +139,44 @@ class ClassificationHandler:
         if field_terms:
             self.report.num_tables_classified += 1
             self.populate_terms_in_schema_metadata(schema_metadata, field_terms)
+
+    def update_field_terms(
+        self, field_terms: Dict[str, str], col_info: ColumnInfo
+    ) -> None:
+        term = self.get_terms_for_column(col_info)
+        if term:
+            field_terms[col_info.metadata.name] = term
+
+    def async_classify(
+        self, classifier: Classifier, columns: List[ColumnInfo]
+    ) -> Iterable[ColumnInfo]:
+        num_columns = len(columns)
+        BATCH_SIZE = 5  # Number of columns passed to classify api at a time
+
+        logger.debug(
+            f"Will Classify {num_columns} column(s) with {self.config.classification.max_workers} worker(s) with batch size {BATCH_SIZE}."
+        )
+
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=self.config.classification.max_workers,
+        ) as executor:
+            column_info_proposal_futures = [
+                executor.submit(
+                    classifier.classify,
+                    columns[
+                        (i * BATCH_SIZE) : min(i * BATCH_SIZE + BATCH_SIZE, num_columns)
+                    ],
+                )
+                for i in range(ceil(num_columns / BATCH_SIZE))
+            ]
+
+            return [
+                column_with_proposal
+                for proposal_future in concurrent.futures.as_completed(
+                    column_info_proposal_futures
+                )
+                for column_with_proposal in proposal_future.result()
+            ]
 
     def populate_terms_in_schema_metadata(
         self,
@@ -154,25 +202,20 @@ class ClassificationHandler:
                     ),
                 )
 
-    def extract_field_wise_terms(
-        self,
-        field_terms: Dict[str, str],
-        column_info_with_proposals: List[ColumnInfo],
-    ) -> None:
-        for col_info in column_info_with_proposals:
-            if not col_info.infotype_proposals:
-                continue
-            infotype_proposal = max(
-                col_info.infotype_proposals, key=lambda p: p.confidence_level
-            )
-            self.report.info_types_detected.setdefault(
-                infotype_proposal.infotype, LossyList()
-            ).append(f"{col_info.metadata.dataset_name}.{col_info.metadata.name}")
-            field_terms[
-                col_info.metadata.name
-            ] = self.config.classification.info_type_to_term.get(
-                infotype_proposal.infotype, infotype_proposal.infotype
-            )
+    def get_terms_for_column(self, col_info: ColumnInfo) -> Optional[str]:
+        if not col_info.infotype_proposals:
+            return None
+        infotype_proposal = max(
+            col_info.infotype_proposals, key=lambda p: p.confidence_level
+        )
+        self.report.info_types_detected.setdefault(
+            infotype_proposal.infotype, LossyList()
+        ).append(f"{col_info.metadata.dataset_name}.{col_info.metadata.name}")
+        term = self.config.classification.info_type_to_term.get(
+            infotype_proposal.infotype, infotype_proposal.infotype
+        )
+
+        return term
 
     def get_columns_to_classify(
         self,
