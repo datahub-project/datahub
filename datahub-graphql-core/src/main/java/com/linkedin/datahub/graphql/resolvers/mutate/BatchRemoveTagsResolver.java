@@ -4,6 +4,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.TagAuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -37,6 +38,9 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
     return CompletableFuture.supplyAsync(() -> {
 
       // First, validate the batch
+      validateTags(tagUrns, context);
+
+      // Next, validate the batch
       validateInputResources(resources, context);
 
       try {
@@ -48,6 +52,14 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
         throw new RuntimeException(String.format("Failed to perform update against input %s", input.toString()), e);
       }
     });
+  }
+
+  private void validateTags(List<Urn> tagUrns, QueryContext context) {
+    for (Urn tagUrn : tagUrns) {
+      if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
+        throw new TagAuthorizationException("Only users granted permission to this tag can assign or remove it");
+      }
+    }
   }
 
   private void validateInputResources(List<ResourceRefInput> resources, QueryContext context) {

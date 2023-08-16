@@ -8200,6 +8200,10 @@ enum PolicyMatchCondition {
   Whether the field matches the value
   """
   EQUALS
+  """
+  Whether the field does not the value
+  """
+  NOT_EQUALS
 }
 
 """

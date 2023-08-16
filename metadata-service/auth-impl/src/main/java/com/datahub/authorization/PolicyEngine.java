@@ -251,6 +251,8 @@ public class PolicyEngine {
   private boolean checkCondition(Set<String> fieldValues, String filterValue, PolicyMatchCondition condition) {
     if (condition == PolicyMatchCondition.EQUALS) {
       return fieldValues.contains(filterValue);
+    } else if (condition == PolicyMatchCondition.NOT_EQUALS) {
+      return !fieldValues.contains(filterValue);
     }
     log.error("Unsupported condition {}", condition);
     return false;

@@ -5,6 +5,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.TagAuthorizationException;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.TagAssociationInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -32,6 +33,9 @@ public class RemoveTagResolver implements DataFetcher<CompletableFuture<Boolean>
 
     if (!LabelUtils.isAuthorizedToUpdateTags(environment.getContext(), targetUrn, input.getSubResource())) {
       throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+    }
+    if (!LabelUtils.isAuthorizedToAssociateTag(environment.getContext(), tagUrn)) {
+      throw new TagAuthorizationException("Only users granted permission to this tag can assign or remove it");
     }
 
     return CompletableFuture.supplyAsync(() -> {

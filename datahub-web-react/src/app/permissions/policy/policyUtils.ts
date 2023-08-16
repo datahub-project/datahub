@@ -82,10 +82,11 @@ export const mapResourceTypeToPrivileges = (
 export const createCriterion = (
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
+    condition: PolicyMatchCondition,
 ): PolicyMatchCriterion => ({
     field: resourceFieldType,
     values: fieldValues,
-    condition: PolicyMatchCondition.Equals,
+    condition,
 });
 
 export const createCriterionValue = (value: string): PolicyMatchCriterionValue => ({ value });
@@ -99,10 +100,18 @@ export const convertLegacyResourceFilter = (resourceFilter: Maybe<ResourceFilter
     }
     const criteria = new Array<PolicyMatchCriterion>();
     if (resourceFilter.type) {
-        criteria.push(createCriterion('RESOURCE_TYPE', [createCriterionValue(resourceFilter.type)]));
+        criteria.push(
+            createCriterion('RESOURCE_TYPE', [createCriterionValue(resourceFilter.type)], PolicyMatchCondition.Equals),
+        );
     }
     if (resourceFilter.resources && resourceFilter.resources.length > 0) {
-        criteria.push(createCriterion('RESOURCE_URN', resourceFilter.resources.map(createCriterionValue)));
+        criteria.push(
+            createCriterion(
+                'RESOURCE_URN',
+                resourceFilter.resources.map(createCriterionValue),
+                PolicyMatchCondition.Equals,
+            ),
+        );
     }
     return {
         filter: {
@@ -115,14 +124,22 @@ export const getFieldValues = (filter: Maybe<PolicyMatchFilter> | undefined, res
     return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
 };
 
+export const getFieldCondition = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {
+    return (
+        filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.condition ||
+        PolicyMatchCondition.Equals
+    );
+};
+
 export const setFieldValues = (
     filter: PolicyMatchFilter,
     resourceFieldType: string,
     fieldValues: Array<PolicyMatchCriterionValue>,
+    condition: PolicyMatchCondition,
 ): PolicyMatchFilter => {
     const restCriteria = filter.criteria?.filter((criterion) => criterion.field !== resourceFieldType) || [];
     if (fieldValues.length === 0) {
         return { ...filter, criteria: restCriteria };
     }
-    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues)] };
+    return { ...filter, criteria: [...restCriteria, createCriterion(resourceFieldType, fieldValues, condition)] };
 };

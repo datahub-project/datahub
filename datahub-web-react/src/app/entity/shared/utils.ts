@@ -145,6 +145,13 @@ export const handleBatchError = (urns, e, defaultMessage) => {
             duration: 3,
         };
     }
+    if (urns.length > 1 && getGraphqlErrorCode(e) === 405) {
+        return {
+            content:
+                'Only users granted permission to this tag can assign or remove it. The bulk edit being performed will not be saved. ',
+            duration: 3,
+        };
+    }
     return defaultMessage;
 };
 
