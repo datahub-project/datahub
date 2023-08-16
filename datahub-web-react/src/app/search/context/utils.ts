@@ -15,10 +15,7 @@ export const getMatchedFieldNames = (
     return normalizedFieldName && normalizedFieldName in fieldMapping ? fieldMapping[normalizedFieldName] : [];
 };
 
-export const getMatchedFieldsByNames = (
-    fields: Array<MatchedField> | undefined,
-    names: Array<string>,
-): Array<MatchedField> => {
+export const getMatchedFieldsByNames = (fields: Array<MatchedField>, names: Array<string>): Array<MatchedField> => {
     return fields?.filter((field) => names.includes(field.name)) ?? [];
 };
 

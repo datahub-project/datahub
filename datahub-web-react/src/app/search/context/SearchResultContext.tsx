@@ -32,8 +32,8 @@ const useEntityType = () => {
     return useSearchResultContext()?.searchResult.entity.type;
 };
 
-const useMatchedFields = () => {
-    return useSearchResultContext()?.searchResult.matchedFields;
+export const useMatchedFields = () => {
+    return useSearchResultContext()?.searchResult.matchedFields ?? [];
 };
 
 export const useMatchedFieldsByNormalizedFieldName = (normalizedFieldName?: NormalizedMatchedFieldName) => {

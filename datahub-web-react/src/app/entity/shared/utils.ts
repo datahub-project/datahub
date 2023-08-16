@@ -91,40 +91,38 @@ function normalize(value: string) {
     return value.trim().toLowerCase();
 }
 
-function fromQueryGetBestMatch(selectedMatchedFields: MatchedField[], rawQuery: string) {
+function fromQueryGetBestMatch(
+    selectedMatchedFields: MatchedField[],
+    rawQuery: string,
+    primaryField: string,
+): Array<MatchedField> {
     const query = normalize(rawQuery);
-    // first lets see if there's an exact match between a field value and the query
-    const exactMatch = selectedMatchedFields.find((field) => normalize(field.value) === query);
-    if (exactMatch) {
-        return exactMatch;
-    }
+    const primaryMatches: Array<MatchedField> = [];
+    const exactMatches: Array<MatchedField> = [];
+    const containedMatches: Array<MatchedField> = [];
+    const rest: Array<MatchedField> = [];
 
-    // if no exact match exists, we'll see if the entire query is contained in any of the values
-    const containedMatch = selectedMatchedFields.find((field) => normalize(field.value).includes(query));
-    if (containedMatch) {
-        return containedMatch;
-    }
+    selectedMatchedFields.forEach((field) => {
+        const normalizedValue = normalize(field.value);
+        if (field.name === primaryField) primaryMatches.push(field);
+        else if (normalizedValue === query) exactMatches.push(field);
+        else if (normalizedValue.includes(query)) containedMatches.push(field);
+        else rest.push(field);
+    });
 
-    // otherwise, just return whichever is first
-    return selectedMatchedFields[0];
+    return [...primaryMatches, ...exactMatches, ...containedMatches, ...rest];
 }
 
-export const getMatchPrioritizingPrimary = (
+export const getMatchesPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
-): MatchedField | undefined => {
+): Array<MatchedField> => {
     const { location } = window;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
-
-    const primaryMatches = matchedFields.filter((field) => field.name === primaryField);
-    if (primaryMatches.length > 0) {
-        return fromQueryGetBestMatch(primaryMatches, query);
-    }
-
-    const matchesThatShouldBeShownOnFE = matchedFields.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
-
-    return fromQueryGetBestMatch(matchesThatShouldBeShownOnFE, query);
+    const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
+    // todo - need to update / consolidate with FIELDS_TO_HIGHLIGHT
+    return matches.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
 };
 
 function getGraphqlErrorCode(e) {

@@ -1,4 +1,4 @@
-import { getMatchPrioritizingPrimary } from '../utils';
+import { getMatchesPrioritizingPrimary } from '../utils';
 
 const MOCK_MATCHED_FIELDS = [
     {
@@ -23,13 +23,13 @@ describe('utils', () => {
     describe('getMatchPrioritizingPrimary', () => {
         it('prioritizes exact match', () => {
             global.window.location.search = 'query=rainbow';
-            const match = getMatchPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const match = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
             expect(match?.value).toEqual('rainbow');
             expect(match?.name).toEqual('fieldPaths');
         });
         it('will accept first contains match', () => {
             global.window.location.search = 'query=bow';
-            const match = getMatchPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const match = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
             expect(match?.value).toEqual('rainbow');
             expect(match?.name).toEqual('fieldPaths');
         });

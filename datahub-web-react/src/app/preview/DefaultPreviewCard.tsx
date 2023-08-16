@@ -290,7 +290,7 @@ export default function DefaultPreviewCard({
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    <SearchHighlighter field="name" text={name || ''} highlightAllOnFallback={false} />
+                                    <SearchHighlighter field="name" text={name || ''} />
                                 </EntityTitle>
                             )}
                         </Link>

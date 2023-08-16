@@ -226,13 +226,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
-                snippet={
-                    <ChartSnippet
-                        isMatchingDashboard
-                        matchedFields={result.matchedFields}
-                        inputFields={data.inputFields}
-                    />
-                }
+                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
                 subtype={data.subTypes?.typeNames?.[0]}
                 degree={(result as any).degree}
                 paths={(result as any).paths}

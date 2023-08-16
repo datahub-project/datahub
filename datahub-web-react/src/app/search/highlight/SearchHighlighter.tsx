@@ -8,7 +8,6 @@ import { NormalizedMatchedFieldName } from '../context/constants';
 type Props = {
     field: NormalizedMatchedFieldName;
     text: string;
-    highlightAllOnFallback?: boolean;
 };
 
 const HIGHLIGHT_ALL_PATTERN = /.*/;
@@ -17,17 +16,19 @@ const StyledHighlight = styled(Highlight).attrs((props) => ({
     matchStyle: { background: props.theme.styles['highlight-color'] },
 }))``;
 
-const SearchHighlighter = ({ field, text, highlightAllOnFallback = true }: Props) => {
+const SearchHighlighter = ({ field, text }: Props) => {
     const matchedField = useMatchedFieldsByNormalizedFieldName(field);
     const hasMatchedField = !!matchedField?.length;
-    const searchQuery = useSearchQuery();
-    const hasSubstring = hasMatchedField && !!searchQuery && text.toLowerCase().includes(searchQuery.toLowerCase());
-    const pattern = highlightAllOnFallback ? HIGHLIGHT_ALL_PATTERN : undefined;
+    const normalizedSearchQuery = useSearchQuery()?.trim().toLowerCase();
+    const normalizedText = text.trim().toLowerCase();
+    const hasSubstring = hasMatchedField && !!normalizedSearchQuery && normalizedText.includes(normalizedSearchQuery);
 
     return (
         <>
             {hasMatchedField ? (
-                <StyledHighlight search={hasSubstring ? searchQuery : pattern}>{text}</StyledHighlight>
+                <StyledHighlight search={hasSubstring ? normalizedSearchQuery : HIGHLIGHT_ALL_PATTERN}>
+                    {text}
+                </StyledHighlight>
             ) : (
                 text
             )}

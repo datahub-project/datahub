@@ -33,6 +33,7 @@ export type MatchedFieldName =
     | 'glossaryTerms'
     | 'editedFieldGlossaryTerms'
     // todo - implement me
+    | 'fieldLabels'
     | 'fieldPaths';
 
 export type MatchFieldMapping = {
@@ -58,7 +59,7 @@ const DEFAULT_FIELD_MAPPING: MatchFieldMapping = {
     fieldTags: ['editedFieldTags', 'fieldTags'],
     terms: ['glossaryTerms'],
     fieldTerms: ['editedFieldGlossaryTerms'],
-    fieldPaths: ['fieldPaths'],
+    fieldPaths: ['fieldLabels', 'fieldPaths'],
 };
 
 export const CORP_USER_FIELD_MAPPING: MatchFieldMapping = {

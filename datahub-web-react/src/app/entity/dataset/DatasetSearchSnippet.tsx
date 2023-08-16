@@ -1,39 +1,61 @@
 import React from 'react';
 
 import { Typography } from 'antd';
-import { MatchedField } from '../../../types.generated';
+import styled from 'styled-components';
 import { TagSummary } from './shared/TagSummary';
 import { TermSummary } from './shared/TermSummary';
 import { FIELDS_TO_HIGHLIGHT } from './search/highlights';
-import { getMatchPrioritizingPrimary } from '../shared/utils';
+import { getMatchesPrioritizingPrimary } from '../shared/utils';
 import { downgradeV2FieldPath } from './profile/schema/utils/utils';
+import { useMatchedFields } from '../../search/context/SearchResultContext';
+import { MatchedField } from '../../../types.generated';
+import { ANTD_GRAY_V2 } from '../shared/constants';
 
-type Props = {
-    matchedFields: MatchedField[];
-};
+// todo - modify this component to match the designs first
+// then, we can generalize it to all search cards
+// then, we can remove the ChartSnippet
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 
-export const DatasetSearchSnippet = ({ matchedFields }: Props) => {
-    const matchedField = getMatchPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
+const MatchesContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+`;
 
-    let snippet: React.ReactNode;
+const MatchText = styled(Typography.Text)`
+    color: ${ANTD_GRAY_V2[8]};
+    background: ${(props) => props.theme.styles['highlight-color']};
+    border-radius: 4px;
+    padding: 2px 4px 2px 4px;
+    padding-right: 4px;
+`;
 
-    if (matchedField) {
-        if (matchedField.value.includes('urn:li:tag')) {
-            snippet = <TagSummary urn={matchedField.value} />;
-        } else if (matchedField.value.includes('urn:li:glossaryTerm')) {
-            snippet = <TermSummary urn={matchedField.value} />;
-        } else if (matchedField.name === 'fieldPaths') {
-            snippet = <b>{downgradeV2FieldPath(matchedField.value)}</b>;
-        } else {
-            snippet = <b>{matchedField.value}</b>;
-        }
-    }
+export const DatasetSearchSnippet = () => {
+    const matchedFields = useMatchedFields();
+    const matchedFieldsPrioritized = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
 
-    return matchedField ? (
-        <Typography.Text>
-            Matches {FIELDS_TO_HIGHLIGHT.get(matchedField.name)} {snippet}{' '}
-        </Typography.Text>
-    ) : null;
+    // todo - group by field somehow?
+    // ie. columns into a csv
+    // need, a map of match.field=>[...matchedFields]
+    const renderSnippet = (field: MatchedField) => {
+        if (field.value.includes('urn:li:tag')) return <TagSummary urn={field.value} />;
+        if (field.value.includes('urn:li:glossaryTerm')) return <TermSummary urn={field.value} />;
+        if (field.name === 'fieldPaths') return <b>{downgradeV2FieldPath(field.value)}</b>;
+        return <b>{field.value}</b>;
+    };
+
+    return (
+        <>
+            {matchedFieldsPrioritized.length > 0 ? (
+                <MatchesContainer>
+                    {matchedFieldsPrioritized.map((field) => (
+                        <MatchText>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(field.name)} {renderSnippet(field)}{' '}
+                        </MatchText>
+                    ))}
+                </MatchesContainer>
+            ) : null}
+        </>
+    );
 };
