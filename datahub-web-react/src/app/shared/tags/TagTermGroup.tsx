@@ -102,6 +102,7 @@ export default function TagTermGroup({
                         entitySubresource={entitySubresource}
                         canRemove={false}
                         readOnly={readOnly}
+                        // todo - plumb in a style rule here - but need to leave this old highlight rule? or can we modify this
                         highlightText={highlightText}
                         onOpenModal={onOpenModal}
                         refetch={refetch}
@@ -116,6 +117,7 @@ export default function TagTermGroup({
                     entitySubresource={entitySubresource}
                     canRemove={canRemove}
                     readOnly={readOnly}
+                    // todo - plumb in a style rule here - but need to leave this old highlight rule? or can we modify this
                     highlightText={highlightText}
                     onOpenModal={onOpenModal}
                     refetch={refetch}

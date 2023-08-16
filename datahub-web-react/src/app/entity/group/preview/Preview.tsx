@@ -88,13 +88,7 @@ export const Preview = ({
                             <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
                         </PlatformInfo>
                         <Link to={url}>
-                            <EntityTitle>
-                                {name ? (
-                                    <SearchHighlighter field="name" text={name} />
-                                ) : (
-                                    <SearchHighlighter field="urn" text={urn} />
-                                )}
-                            </EntityTitle>
+                            <EntityTitle>{name ? <SearchHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
                                 <Tag>{membersCount} members</Tag>
                             </MemberCountContainer>

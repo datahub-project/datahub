@@ -18,6 +18,7 @@ export type Theme = {
         'homepage-background-lower-fade': string;
         'box-shadow': string;
         'box-shadow-hover': string;
+        'highlight-color': string;
     };
     assets: {
         logoUrl: string;

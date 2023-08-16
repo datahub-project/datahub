@@ -1,31 +1,33 @@
-import React, { CSSProperties } from 'react';
+import React from 'react';
 import Highlight from 'react-highlighter';
-import { useMatchedField } from '../context/SearchResultContext';
+import styled from 'styled-components';
+import { useMatchedFieldsByNormalizedFieldName } from '../context/SearchResultContext';
 import { useSearchQuery } from '../context/SearchContext';
 import { NormalizedMatchedFieldName } from './constants';
 
 type Props = {
-    field?: NormalizedMatchedFieldName;
-    text?: string;
+    field: NormalizedMatchedFieldName;
+    text: string;
+    highlightAllOnFallback?: boolean;
 };
 
 const HIGHLIGHT_ALL_PATTERN = /.*/;
 
-const highlightStyle: CSSProperties = {
-    background: '#F0FFFB',
-};
+const StyledHighlight = styled(Highlight).attrs((props) => ({
+    matchStyle: { background: props.theme.styles['highlight-color'] },
+}))``;
 
-const SearchHighlighter = ({ field, text }: Props) => {
-    const matchedField = useMatchedField(field);
+const SearchHighlighter = ({ field, text, highlightAllOnFallback = true }: Props) => {
+    const matchedField = useMatchedFieldsByNormalizedFieldName(field);
+    const hasMatchedField = !!matchedField?.length;
     const searchQuery = useSearchQuery();
-    const hasSubstring = matchedField?.value && searchQuery && text?.toLowerCase().includes(searchQuery.toLowerCase());
+    const hasSubstring = hasMatchedField && !!searchQuery && text.toLowerCase().includes(searchQuery.toLowerCase());
+    const pattern = highlightAllOnFallback ? HIGHLIGHT_ALL_PATTERN : undefined;
 
     return (
         <>
-            {matchedField ? (
-                <Highlight search={hasSubstring ? searchQuery : HIGHLIGHT_ALL_PATTERN} matchStyle={highlightStyle}>
-                    {text}
-                </Highlight>
+            {hasMatchedField ? (
+                <StyledHighlight search={hasSubstring ? searchQuery : pattern}>{text}</StyledHighlight>
             ) : (
                 text
             )}

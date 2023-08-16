@@ -290,15 +290,7 @@ export default function DefaultPreviewCard({
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {/* todo - for this we need a mapping */}
-                                    {/* depending on entity type we use a different matchedField here */}
-                                    {/* or, we pass in entity type and a list of matchedFields based on that? */}
-                                    {/* one option is we add that to the entity class... */}
-                                    {/* or maybe the SearchHighlighter can do it automatically */}
-
-                                    {/* maybe in the render fn above we call a hook that gives us back the valid field? */}
-                                    {/* we could just store it on the schema since it appears to be static info */}
-                                    <SearchHighlighter field="name" text={name || ''} />
+                                    <SearchHighlighter field="name" text={name || ''} highlightAllOnFallback={false} />
                                 </EntityTitle>
                             )}
                         </Link>
@@ -354,6 +346,7 @@ export default function DefaultPreviewCard({
                 )}
                 {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
                     <TagContainer>
+                        {/* todo - maybe pass in a boolean here to enable highlighting for just these ones? */}
                         {/* if there's a domain and dataProduct, show dataProduct */}
                         {dataProduct && <DataProductLink dataProduct={dataProduct} />}
                         {!dataProduct && domain && <TagTermGroup domain={domain} maxShow={3} />}
