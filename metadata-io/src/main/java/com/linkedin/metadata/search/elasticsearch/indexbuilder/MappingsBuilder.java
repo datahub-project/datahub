@@ -117,8 +117,7 @@ public class MappingsBuilder {
             subFields.put(fieldName, ImmutableMap.of(
                 TYPE, TEXT,
                 ANALYZER, analyzerName,
-                SEARCH_ANALYZER, analyzerName,
-                SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER
+                SEARCH_ANALYZER, analyzerName
             ));
           }
         }

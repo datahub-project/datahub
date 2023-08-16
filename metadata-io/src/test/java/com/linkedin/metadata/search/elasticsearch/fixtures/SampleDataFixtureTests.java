@@ -1305,6 +1305,53 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                 String.format("%s - Expected search results to include matched fields", query));
         assertEquals(result.getEntities().size(), 2);
     }
+    @Test
+    public void testGram() {
+        String query = "jaffle shop customers";
+        SearchResult result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+            "Expected exact match in 1st position");
+
+        query = "shop customers source";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "jaffle shop stg customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "jaffle shop transformers customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "shop raw customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+            "Expected ngram match in 1st position");
+    }
 
     @Test
     public void testPrefixVsExact() {

@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.datastax.dse.driver.api.core.graph.predicates.Search;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -225,7 +224,7 @@ public class SearchQueryBuilder {
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
 
-      analyzerGroup.keySet().stream().sorted().forEach(analyzer -> {
+      analyzerGroup.keySet().stream().sorted().filter(str -> !str.contains("word_gram")).forEach(analyzer -> {
         List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
         SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
         simpleBuilder.analyzer(analyzer);
@@ -289,6 +288,13 @@ public class SearchQueryBuilder {
                                 * exactMatchConfiguration.getExactFactor()
                                 * exactMatchConfiguration.getCaseSensitivityFactor())
                         .queryName(searchFieldConfig.fieldName()));
+              }
+
+              if (searchFieldConfig.isWordGramSubfield()) {
+                finalQuery.should(QueryBuilders
+                    .matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+                    .boost(searchFieldConfig.boost() * getWordGramFactor(searchFieldConfig.fieldName()))
+                    .queryName(searchFieldConfig.shortName()));
               }
             });
 
@@ -413,5 +419,16 @@ public class SearchQueryBuilder {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public float getWordGramFactor(String fieldName) {
+    if (fieldName.endsWith("Grams2")) {
+      return wordGramConfiguration.getTwoGramFactor();
+    } else if (fieldName.endsWith("Grams3")) {
+      return wordGramConfiguration.getThreeGramFactor();
+    } else if (fieldName.endsWith("Grams4")) {
+      return wordGramConfiguration.getFourGramFactor();
+    }
+    throw new IllegalArgumentException(fieldName + " does not end with Grams[2-4]");
   }
 }

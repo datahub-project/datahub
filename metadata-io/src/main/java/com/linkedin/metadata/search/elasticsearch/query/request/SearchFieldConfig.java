@@ -86,6 +86,7 @@ public class SearchFieldConfig {
     private boolean isQueryByDefault;
     private boolean isDelimitedSubfield;
     private boolean isKeywordSubfield;
+    private boolean isWordGramSubfield;
 
     public static SearchFieldConfig detectSubFieldType(@Nonnull SearchableFieldSpec fieldSpec) {
         final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
@@ -166,6 +167,7 @@ public class SearchFieldConfig {
             this.fieldName = fieldName;
             isDelimitedSubfield(fieldName.endsWith(".delimited"));
             isKeywordSubfield(fieldName.endsWith(".keyword"));
+            isWordGramSubfield(fieldName.contains("wordGrams"));
             shortName(fieldName.split("[.]")[0]);
             return this;
         }
