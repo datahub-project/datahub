@@ -19,7 +19,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 5
-      start_period: 30s
+      start_period: 60s
       test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
       timeout: 5s
     hostname: broker
@@ -270,7 +270,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 3
-      start_period: 30s
+      start_period: 60s
       test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
       timeout: 5s
     hostname: schema-registry

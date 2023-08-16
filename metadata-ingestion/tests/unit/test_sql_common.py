@@ -9,10 +9,10 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 
-class _TestSQLAlchemyConfig(SQLAlchemyConfig):
+class _TestSQLAlchemyConfig(SQLCommonConfig):
     def get_sql_alchemy_url(self):
         pass
 
@@ -22,7 +22,7 @@ class _TestSQLAlchemySource(SQLAlchemySource):
 
 
 def test_generate_foreign_key():
-    config: SQLAlchemyConfig = _TestSQLAlchemyConfig()
+    config: SQLCommonConfig = _TestSQLAlchemyConfig()
     ctx: PipelineContext = PipelineContext(run_id="test_ctx")
     platform: str = "TEST"
     inspector: Inspector = Mock()
@@ -49,7 +49,7 @@ def test_generate_foreign_key():
 
 
 def test_use_source_schema_for_foreign_key_if_not_specified():
-    config: SQLAlchemyConfig = _TestSQLAlchemyConfig()
+    config: SQLCommonConfig = _TestSQLAlchemyConfig()
     ctx: PipelineContext = PipelineContext(run_id="test_ctx")
     platform: str = "TEST"
     inspector: Inspector = Mock()

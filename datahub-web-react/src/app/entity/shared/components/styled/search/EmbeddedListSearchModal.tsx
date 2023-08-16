@@ -3,9 +3,9 @@ import { Button, Modal } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
+import { EntityActionProps } from './EntitySearchResults';
 
 const SearchContainer = styled.div`
     height: 500px;
@@ -30,6 +30,7 @@ type Props = {
     searchBarStyle?: any;
     searchBarInputStyle?: any;
     entityAction?: React.FC<EntityActionProps>;
+    applyView?: boolean;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -44,6 +45,7 @@ export const EmbeddedListSearchModal = ({
     searchBarStyle,
     searchBarInputStyle,
     entityAction,
+    applyView,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -93,6 +95,7 @@ export const EmbeddedListSearchModal = ({
                     searchBarStyle={searchBarStyle}
                     searchBarInputStyle={searchBarInputStyle}
                     entityAction={entityAction}
+                    applyView={applyView}
                 />
             </SearchContainer>
         </Modal>
