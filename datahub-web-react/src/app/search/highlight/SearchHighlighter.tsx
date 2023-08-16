@@ -3,7 +3,7 @@ import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 import { useMatchedFieldsByNormalizedFieldName } from '../context/SearchResultContext';
 import { useSearchQuery } from '../context/SearchContext';
-import { NormalizedMatchedFieldName } from './constants';
+import { NormalizedMatchedFieldName } from '../context/constants';
 
 type Props = {
     field: NormalizedMatchedFieldName;

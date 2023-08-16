@@ -346,7 +346,6 @@ export default function DefaultPreviewCard({
                 )}
                 {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
                     <TagContainer>
-                        {/* todo - maybe pass in a boolean here to enable highlighting for just these ones? */}
                         {/* if there's a domain and dataProduct, show dataProduct */}
                         {dataProduct && <DataProductLink dataProduct={dataProduct} />}
                         {!dataProduct && domain && <TagTermGroup domain={domain} maxShow={3} />}

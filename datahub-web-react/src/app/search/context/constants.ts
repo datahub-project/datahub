@@ -16,3 +16,45 @@ export const SORT_OPTIONS = {
         sortOrder: SortOrder.Descending,
     },
 };
+
+export type MatchedFieldName =
+    | 'urn'
+    | 'name'
+    | 'qualifiedName'
+    | 'displayName'
+    | 'title'
+    | 'description'
+    | 'editedDescription'
+    | 'editedFieldDescriptions'
+    | 'fieldDescriptions'
+    | 'tags'
+    | 'fieldTags'
+    | 'editedFieldTags'
+    | 'glossaryTerms'
+    | 'editedFieldGlossaryTerms'
+    // todo - implement me
+    | 'fieldPaths';
+
+type MatchFieldMapping = {
+    name: Array<MatchedFieldName>;
+    description: Array<MatchedFieldName>;
+    fieldDescription: Array<MatchedFieldName>;
+    tags: Array<MatchedFieldName>;
+    fieldTags: Array<MatchedFieldName>;
+    terms: Array<MatchedFieldName>;
+    fieldTerms: Array<MatchedFieldName>;
+    fieldPaths: Array<MatchedFieldName>;
+};
+
+export type NormalizedMatchedFieldName = keyof MatchFieldMapping;
+
+export const MATCHED_FIELD_MAPPING: MatchFieldMapping = {
+    name: ['qualifiedName', 'displayName', 'title', 'name'],
+    description: ['editedDescription', 'description'],
+    fieldDescription: ['editedFieldDescriptions', 'fieldDescriptions'],
+    tags: ['tags'],
+    fieldTags: ['editedFieldTags', 'fieldTags'],
+    terms: ['glossaryTerms'],
+    fieldTerms: ['editedFieldGlossaryTerms'],
+    fieldPaths: ['fieldPaths'],
+};

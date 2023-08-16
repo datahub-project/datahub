@@ -8,7 +8,7 @@ import { StyledTag } from '../../../entity/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { TagProfileDrawer } from '../TagProfileDrawer';
-import { useMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
+import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
 
 const TagLink = styled.span`
     display: inline-block;
@@ -42,7 +42,7 @@ export default function Tag({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTagMutation] = useRemoveTagMutation();
-    const highlightTag = useMatchedFieldByUrn(tag.tag.urn, 'tags');
+    const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');

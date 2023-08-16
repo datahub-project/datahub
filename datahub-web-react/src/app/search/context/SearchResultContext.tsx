@@ -1,7 +1,7 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { SearchResult } from '../../../types.generated';
-import { getMatchedFieldNames } from '../highlight/utils';
-import { NormalizedMatchedFieldName } from '../highlight/constants';
+import { getMatchedFieldByUrn, getMatchedFieldNames, getMatchedFieldsByNames } from './utils';
+import { NormalizedMatchedFieldName } from './constants';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;
@@ -32,24 +32,17 @@ export const useIsSearchResult = () => {
     return !!useSearchResultContext();
 };
 
-export const useEntityType = () => {
-    return useSearchResultContext()?.searchResult.entity.type;
-};
-
 const useMatchedFields = () => {
     return useSearchResultContext()?.searchResult.matchedFields;
 };
 
-// todo - what if we have both description and editedDescription? how do we pick
-// do we need to do a .filter instead of a .find or something like that?
 export const useMatchedFieldsByNormalizedFieldName = (normalizedFieldName?: NormalizedMatchedFieldName) => {
-    const entityType = useEntityType();
     const matchedFields = useMatchedFields();
-    const matchedFieldNames = getMatchedFieldNames(entityType, normalizedFieldName);
-    return matchedFields?.filter((field) => matchedFieldNames.includes(field.name));
+    const matchedFieldNames = getMatchedFieldNames(normalizedFieldName);
+    return getMatchedFieldsByNames(matchedFields, matchedFieldNames);
 };
 
-export const useMatchedFieldByUrn = (urn: string, normalizedFieldName: NormalizedMatchedFieldName) => {
+export const useHasMatchedFieldByUrn = (urn: string, normalizedFieldName: NormalizedMatchedFieldName) => {
     const matchedFieldsForNormalizedField = useMatchedFieldsByNormalizedFieldName(normalizedFieldName);
-    return matchedFieldsForNormalizedField?.some((field) => field.value === urn);
+    return getMatchedFieldByUrn(matchedFieldsForNormalizedField, urn);
 };
