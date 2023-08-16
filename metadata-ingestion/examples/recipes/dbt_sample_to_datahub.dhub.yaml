@@ -1,0 +1,10 @@
+source:
+    type: dbt-cloud
+    config:
+        project_id: '277462'
+        target_platform: postgres
+        stateful_ingestion:
+            enabled: false
+        account_id: '107298'
+        job_id: '399798'
+        token: REDACTED
