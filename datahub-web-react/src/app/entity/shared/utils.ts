@@ -113,16 +113,40 @@ function fromQueryGetBestMatch(
     return [...primaryMatches, ...exactMatches, ...containedMatches, ...rest];
 }
 
+type MatchesGroupedByFieldName = Array<{
+    fieldName: string;
+    matchedFields: Array<MatchedField>;
+}>;
+
+const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): MatchesGroupedByFieldName => {
+    const fieldNameToMatches = new Map<string, Array<MatchedField>>();
+    const fieldNames: Array<string> = [];
+    matchedFields.forEach((field) => {
+        const matchesInMap = fieldNameToMatches.get(field.name);
+        if (matchesInMap) {
+            matchesInMap.push(field);
+        } else {
+            fieldNameToMatches.set(field.name, [field]);
+            fieldNames.push(field.name);
+        }
+    });
+    return fieldNames.map((fieldName) => ({
+        fieldName,
+        matchedFields: fieldNameToMatches.get(fieldName) ?? [],
+    }));
+};
+
 export const getMatchesPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
-): Array<MatchedField> => {
+): MatchesGroupedByFieldName => {
     const { location } = window;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
     // todo - need to update / consolidate with FIELDS_TO_HIGHLIGHT
-    return matches.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+    const highlightedMatches = matches.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+    return getMatchesGroupedByFieldName(highlightedMatches);
 };
 
 function getGraphqlErrorCode(e) {

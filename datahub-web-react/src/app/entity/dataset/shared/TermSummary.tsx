@@ -13,11 +13,15 @@ const TermLink = styled.span`
 
 type Props = {
     urn: string;
+    mode?: 'text' | 'default';
 };
 
-export const TermSummary = ({ urn }: Props) => {
+export const TermSummary = ({ urn, mode }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { data } = useGetGlossaryTermQuery({ variables: { urn } });
+    const termName = data ? entityRegistry.getDisplayName(EntityType.GlossaryTerm, data?.glossaryTerm) : null;
+
+    if (mode === 'text') return <>{termName}</>;
 
     return (
         <>
@@ -26,7 +30,7 @@ export const TermSummary = ({ urn }: Props) => {
                     <TermLink key={data?.glossaryTerm?.urn}>
                         <Tag closable={false} style={{ cursor: 'pointer' }}>
                             <BookOutlined style={{ marginRight: '3%' }} />
-                            {entityRegistry.getDisplayName(EntityType.GlossaryTerm, data?.glossaryTerm)}
+                            {termName}
                         </Tag>
                     </TermLink>
                 </HoverEntityTooltip>

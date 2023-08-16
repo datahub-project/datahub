@@ -31,27 +31,44 @@ const MatchText = styled(Typography.Text)`
     padding-right: 4px;
 `;
 
+// todo - revert to 3
+const MATCH_GROUP_LIMIT = 1;
+
 export const DatasetSearchSnippet = () => {
     const matchedFields = useMatchedFields();
-    const matchedFieldsPrioritized = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
+    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
 
-    // todo - group by field somehow?
-    // ie. columns into a csv
-    // need, a map of match.field=>[...matchedFields]
-    const renderSnippet = (field: MatchedField) => {
-        if (field.value.includes('urn:li:tag')) return <TagSummary urn={field.value} />;
-        if (field.value.includes('urn:li:glossaryTerm')) return <TermSummary urn={field.value} />;
+    // todo - implement tooltip but limit rendering to only 10
+    const renderField = (field: MatchedField) => {
+        // todo - render just the text of the tag/term
+        if (field.value.includes('urn:li:tag')) return <TagSummary urn={field.value} mode="text" />;
+        if (field.value.includes('urn:li:glossaryTerm')) return <TermSummary urn={field.value} mode="text" />;
         if (field.name === 'fieldPaths') return <b>{downgradeV2FieldPath(field.value)}</b>;
         return <b>{field.value}</b>;
     };
 
     return (
         <>
-            {matchedFieldsPrioritized.length > 0 ? (
+            {groupedMatches.length > 0 ? (
                 <MatchesContainer>
-                    {matchedFieldsPrioritized.map((field) => (
-                        <MatchText>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(field.name)} {renderSnippet(field)}{' '}
+                    {groupedMatches.map((groupedMatch) => (
+                        <MatchText key={groupedMatch.fieldName}>
+                            Matches {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}{' '}
+                            {groupedMatch.matchedFields.slice(0, MATCH_GROUP_LIMIT).map((field, index) => {
+                                const moreCount = Math.max(groupedMatch.matchedFields.length - MATCH_GROUP_LIMIT, 0);
+                                return (
+                                    <>
+                                        {index > 0 && ', '}
+                                        <>{renderField(field)}</>
+                                        {moreCount > 0 && (
+                                            <>
+                                                {' '}
+                                                & <b>{moreCount} more</b>
+                                            </>
+                                        )}
+                                    </>
+                                );
+                            })}
                         </MatchText>
                     ))}
                 </MatchesContainer>

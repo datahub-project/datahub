@@ -32,9 +32,9 @@ const MatchText = styled(Typography.Text)`
 
 // todo - do we render out chart labels on the search card today? if so, maybe we highlight those?
 export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
-    const matchedFieldsPrioritized = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
+    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
 
-    const renderSnippet = (matchedField: MatchedField) => {
+    const renderField = (matchedField: MatchedField) => {
         if (matchedField?.name === LABEL_INDEX_NAME) {
             const matchedSchemaField = inputFields?.fields?.find(
                 (field) => field?.schemaField?.label === matchedField.value,
@@ -64,11 +64,17 @@ export const ChartSnippet = ({ matchedFields, inputFields }: Props) => {
 
     return (
         <>
-            {matchedFieldsPrioritized.length > 0 ? (
+            {groupedMatches.length > 0 ? (
                 <MatchesContainer>
-                    {matchedFieldsPrioritized.map((field) => (
+                    {groupedMatches.map((groupedMatch) => (
                         <MatchText>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(field.name)} {renderSnippet(field)}{' '}
+                            Matches {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}{' '}
+                            {groupedMatch.matchedFields.map((field, index) => (
+                                <>
+                                    {index > 0 && ', '}
+                                    <span>{renderField(field)}</span>
+                                </>
+                            ))}{' '}
                         </MatchText>
                     ))}
                 </MatchesContainer>
