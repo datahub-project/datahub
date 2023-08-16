@@ -28,8 +28,8 @@ const useSearchResultContext = () => {
     return useContext(SearchResultContext);
 };
 
-export const useIsSearchResult = () => {
-    return !!useSearchResultContext();
+const useEntityType = () => {
+    return useSearchResultContext()?.searchResult.entity.type;
 };
 
 const useMatchedFields = () => {
@@ -37,8 +37,9 @@ const useMatchedFields = () => {
 };
 
 export const useMatchedFieldsByNormalizedFieldName = (normalizedFieldName?: NormalizedMatchedFieldName) => {
+    const entityType = useEntityType();
     const matchedFields = useMatchedFields();
-    const matchedFieldNames = getMatchedFieldNames(normalizedFieldName);
+    const matchedFieldNames = getMatchedFieldNames(entityType, normalizedFieldName);
     return getMatchedFieldsByNames(matchedFields, matchedFieldNames);
 };
 

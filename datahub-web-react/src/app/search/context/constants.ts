@@ -1,4 +1,4 @@
-import { SortOrder } from '../../../types.generated';
+import { EntityType, SortOrder } from '../../../types.generated';
 
 export const RELEVANCE = 'relevance';
 export const NAME_FIELD = 'name';
@@ -35,8 +35,9 @@ export type MatchedFieldName =
     // todo - implement me
     | 'fieldPaths';
 
-type MatchFieldMapping = {
+export type MatchFieldMapping = {
     name: Array<MatchedFieldName>;
+    title: Array<MatchedFieldName>;
     description: Array<MatchedFieldName>;
     fieldDescription: Array<MatchedFieldName>;
     tags: Array<MatchedFieldName>;
@@ -48,8 +49,9 @@ type MatchFieldMapping = {
 
 export type NormalizedMatchedFieldName = keyof MatchFieldMapping;
 
-export const MATCHED_FIELD_MAPPING: MatchFieldMapping = {
-    name: ['qualifiedName', 'displayName', 'title', 'name'],
+const DEFAULT_FIELD_MAPPING: MatchFieldMapping = {
+    name: ['qualifiedName', 'displayName', 'name'],
+    title: [],
     description: ['editedDescription', 'description'],
     fieldDescription: ['editedFieldDescriptions', 'fieldDescriptions'],
     tags: ['tags'],
@@ -58,3 +60,20 @@ export const MATCHED_FIELD_MAPPING: MatchFieldMapping = {
     fieldTerms: ['editedFieldGlossaryTerms'],
     fieldPaths: ['fieldPaths'],
 };
+
+export const CORP_USER_FIELD_MAPPING: MatchFieldMapping = {
+    ...DEFAULT_FIELD_MAPPING,
+    title: ['title'],
+};
+
+export const CHART_DASHBOARD_FIELD_MAPPING: MatchFieldMapping = {
+    ...DEFAULT_FIELD_MAPPING,
+    name: [...DEFAULT_FIELD_MAPPING.name, 'title'],
+};
+
+export const MATCHED_FIELD_MAPPING = {
+    [EntityType.CorpUser]: CORP_USER_FIELD_MAPPING,
+    [EntityType.Chart]: CHART_DASHBOARD_FIELD_MAPPING,
+    [EntityType.Dashboard]: CHART_DASHBOARD_FIELD_MAPPING,
+    DEFAULT: DEFAULT_FIELD_MAPPING,
+} as const;
