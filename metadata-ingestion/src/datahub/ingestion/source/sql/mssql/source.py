@@ -46,10 +46,7 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
-from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    UnionTypeClass,
-)
+from datahub.metadata.schema_classes import BooleanTypeClass, UnionTypeClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
