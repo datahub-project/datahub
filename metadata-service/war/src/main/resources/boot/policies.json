@@ -258,7 +258,8 @@
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
-        "MANAGE_DATA_PRODUCTS"
+        "MANAGE_DATA_PRODUCTS",
+        "ASSOCIATE_TAGS_PRIVILEGE"
       ],
       "displayName":"Admins - Metadata Policy",
       "description":"Admins have all metadata privileges.",
@@ -341,7 +342,8 @@
         "GET_ENTITY_PRIVILEGE",
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
-        "MANAGE_DATA_PRODUCTS"
+        "MANAGE_DATA_PRODUCTS",
+        "ASSOCIATE_TAGS_PRIVILEGE"
       ],
       "displayName":"Editors - Metadata Policy",
       "description":"Editors have all metadata privileges.",
