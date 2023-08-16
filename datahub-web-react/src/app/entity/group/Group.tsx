@@ -5,7 +5,6 @@ import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
 import GroupProfile from './GroupProfile';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SearchResultProvider } from '../../search/context/SearchResultContext';
 
 /**
  * Definition of the DataHub CorpGroup entity.
@@ -59,8 +58,7 @@ export class GroupEntity implements Entity<CorpGroup> {
     );
 
     renderSearch = (result: SearchResult) => {
-        const preview = this.renderPreview(PreviewType.SEARCH, result.entity as CorpGroup);
-        return <SearchResultProvider searchResult={result}>{preview}</SearchResultProvider>;
+        return this.renderPreview(PreviewType.SEARCH, result.entity as CorpGroup);
     };
 
     displayName = (data: CorpGroup) => {

@@ -26,7 +26,6 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
-import { SearchResultProvider } from '../../search/context/SearchResultContext';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -184,7 +183,7 @@ export class ChartEntity implements Entity<Chart> {
     renderSearch = (result: SearchResult) => {
         const data = result.entity as Chart;
         const genericProperties = this.getGenericEntityProperties(data);
-        const preview = (
+        return (
             <ChartPreview
                 urn={data.urn}
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
@@ -209,7 +208,6 @@ export class ChartEntity implements Entity<Chart> {
                 paths={(result as any).paths}
             />
         );
-        return <SearchResultProvider searchResult={result}>{preview}</SearchResultProvider>;
     };
 
     getLineageVizConfig = (entity: Chart) => {
