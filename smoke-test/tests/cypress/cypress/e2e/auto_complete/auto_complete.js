@@ -39,12 +39,12 @@ describe("auto-complete", () => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("baz");
 
-    cy.get('[data-testid="auto-complete-option--urn:li:chart:(looker,baz2)"');
+    cy.get('[data-testid="auto-complete-entity-name-Baz Chart 2');
     cy.get('[data-testid="quick-filter-DASHBOARD"]').click();
     cy.wait(2000);
-    cy.get(
-      '[data-testid="auto-complete-option--urn:li:chart:(looker,baz2)"'
-    ).should("not.exist");
+    cy.get('[data-testid="auto-complete-entity-name-Baz Chart 2').should(
+      "not.exist"
+    );
     cy.contains("Baz Dashboard");
     cy.wait(1000);
   });
