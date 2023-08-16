@@ -1,19 +1,14 @@
 import React from 'react';
-import { Divider, List, Checkbox } from 'antd';
+import { Divider, List } from 'antd';
 import styled from 'styled-components';
-import { Entity, EntityType, EntityPath } from '../../../../types.generated';
+import { Entity } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { IconStyleType } from '../../../entity/Entity';
-import { EntityAndType } from '../../../entity/shared/types';
 import { getPlatformName } from '../../../entity/shared/utils';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 
-const StyledCheckbox = styled(Checkbox)`
-    margin-right: 12px;
-`;
-
-const StyledList = styled(List)`
+export const StyledList = styled(List)`
     overflow-y: auto;
     height: 100%;
     margin-top: -1px;
@@ -45,7 +40,7 @@ const StyledList = styled(List)`
     }
 ` as typeof List;
 
-const ListItem = styled.div<{ isSelectMode: boolean }>`
+export const ListItem = styled.div<{ isSelectMode: boolean }>`
     padding-right: 40px;
     padding-left: ${(props) => (props.isSelectMode ? '20px' : '40px')};
     padding-top: 16px;
@@ -54,78 +49,23 @@ const ListItem = styled.div<{ isSelectMode: boolean }>`
     align-items: center;
 `;
 
-const ThinDivider = styled(Divider)`
+export const ThinDivider = styled(Divider)`
     padding: 0px;
     margin: 0px;
 `;
 
-export type EntityActionProps = {
-    urn: string;
-    type: EntityType;
-};
-
-type AdditionalProperties = {
-    degree?: number;
-    paths?: EntityPath[];
-};
-
 type Props = {
-    // additional data about the search result that is not part of the entity used to enrich the
-    // presentation of the entity. For example, metadata about how the entity is related for the case
-    // of impact analysis
-    additionalPropertiesList?: Array<AdditionalProperties>;
     entities: Array<Entity>;
     onClick?: (index: number) => void;
-    isSelectMode?: boolean;
-    selectedEntities?: EntityAndType[];
-    setSelectedEntities?: (entities: EntityAndType[]) => any;
-    bordered?: boolean;
-    entityAction?: React.FC<EntityActionProps>;
 };
 
-export const EntityNameList = ({
-    additionalPropertiesList,
-    entities,
-    onClick,
-    isSelectMode,
-    selectedEntities = [],
-    setSelectedEntities,
-    bordered = true,
-    entityAction,
-}: Props) => {
+export const EntityNameList = ({ entities, onClick }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
-
-    if (
-        additionalPropertiesList?.length !== undefined &&
-        additionalPropertiesList.length > 0 &&
-        additionalPropertiesList?.length !== entities.length
-    ) {
-        console.warn(
-            'Warning: additionalPropertiesList length provided to EntityNameList does not match entity array length',
-            { additionalPropertiesList, entities },
-        );
-    }
-
-    /**
-     * Invoked when a new entity is selected. Simply updates the state of the list of selected entities.
-     */
-    const onSelectEntity = (selectedEntity: EntityAndType, selected: boolean) => {
-        if (selected) {
-            setSelectedEntities?.([...selectedEntities, selectedEntity]);
-        } else {
-            setSelectedEntities?.(selectedEntities?.filter((entity) => entity.urn !== selectedEntity.urn) || []);
-        }
-    };
-
-    const EntityAction = entityAction as React.FC<EntityActionProps>;
 
     return (
         <StyledList
-            bordered={bordered}
             dataSource={entities}
             renderItem={(entity, index) => {
-                const additionalProperties = additionalPropertiesList?.[index];
                 const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
                 const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
                 const platformName = getPlatformName(genericProps);
@@ -140,15 +80,7 @@ export const EntityNameList = ({
 
                 return (
                     <>
-                        <ListItem isSelectMode={isSelectMode || false}>
-                            {isSelectMode && (
-                                <StyledCheckbox
-                                    checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
-                                    onChange={(e) =>
-                                        onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
-                                    }
-                                />
-                            )}
+                        <ListItem isSelectMode={false}>
                             <DefaultPreviewCard
                                 name={displayName}
                                 urn={entity.urn}
@@ -163,12 +95,9 @@ export const EntityNameList = ({
                                 domain={genericProps?.domain?.domain}
                                 onClick={() => onClick?.(index)}
                                 entityCount={entityCount}
-                                degree={additionalProperties?.degree}
                                 deprecation={deprecation}
-                                paths={additionalProperties?.paths}
                                 health={health || undefined}
                             />
-                            {entityAction && <EntityAction urn={entity.urn} type={entity.type} />}
                         </ListItem>
                         <ThinDivider />
                     </>

@@ -228,7 +228,7 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
             default_query_results,
             [
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
-                    start_time_millis=1654499820000,
+                    start_time_millis=1654473600000,
                     end_time_millis=1654586220000,
                     include_view_lineage=False,
                     include_column_lineage=True,

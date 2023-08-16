@@ -104,7 +104,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
         for job_name, checkpoint in self.state_to_commit.items():
             # Emit the ingestion state for each job
-            logger.info(
+            logger.debug(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
                 f"job:'{job_name}'"
             )

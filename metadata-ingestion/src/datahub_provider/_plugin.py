@@ -107,7 +107,7 @@ def get_inlets_from_task(task: BaseOperator, context: Any) -> Iterable[Any]:
         ]
 
         for inlet in task_inlets:
-            if isinstance(inlet, str):
+            if not isinstance(inlet, str):
                 inlets.append(inlet)
 
     return inlets

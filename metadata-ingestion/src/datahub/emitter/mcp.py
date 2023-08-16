@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
     DictWrapper,
     GenericAspectClass,
     KafkaAuditHeaderClass,
+    MetadataChangeLogClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
     _Aspect,
@@ -213,6 +214,22 @@ class MetadataChangeProposalWrapper:
             )
         else:
             return None
+
+    @classmethod
+    def try_from_mcl(
+        cls, mcl: MetadataChangeLogClass
+    ) -> Union["MetadataChangeProposalWrapper", MetadataChangeProposalClass]:
+        mcpc = MetadataChangeProposalClass(
+            entityUrn=mcl.entityUrn,
+            entityType=mcl.entityType,
+            entityKeyAspect=mcl.entityKeyAspect,
+            aspect=mcl.aspect,
+            aspectName=mcl.aspectName,
+            changeType=mcl.changeType,
+            auditHeader=mcl.auditHeader,
+            systemMetadata=mcl.systemMetadata,
+        )
+        return cls.try_from_mcpc(mcpc) or mcpc
 
     @classmethod
     def from_obj_require_wrapper(

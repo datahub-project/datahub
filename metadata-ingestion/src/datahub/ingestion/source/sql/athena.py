@@ -22,10 +22,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import (
-    SQLAlchemyConfig,
-    make_sqlalchemy_uri,
-)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -33,7 +30,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 
 
-class AthenaConfig(SQLAlchemyConfig):
+class AthenaConfig(SQLCommonConfig):
     scheme: str = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,

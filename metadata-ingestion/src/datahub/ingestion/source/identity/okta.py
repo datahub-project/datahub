@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from time import sleep
 from typing import Dict, Iterable, List, Optional, Union
 
+import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
@@ -51,6 +52,7 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+nest_asyncio.apply()
 
 
 class OktaConfig(StatefulIngestionConfigBase, ConfigModel):

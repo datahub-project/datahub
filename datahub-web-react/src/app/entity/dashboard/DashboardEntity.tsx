@@ -234,6 +234,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                     />
                 }
                 subtype={data.subTypes?.typeNames?.[0]}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
