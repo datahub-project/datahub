@@ -21,10 +21,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_SESSION_KEEP_ALIVE,
 )
 from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.sql.sql_config import (
-    SQLAlchemyConfig,
-    make_sqlalchemy_uri,
-)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
@@ -261,7 +258,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return connect_args
 
 
-class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
+class SnowflakeConfig(BaseSnowflakeConfig, SQLCommonConfig):
     database_pattern: AllowDenyPattern = AllowDenyPattern(
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )

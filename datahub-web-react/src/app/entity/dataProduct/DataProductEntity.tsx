@@ -151,6 +151,8 @@ export class DataProductEntity implements Entity<DataProduct> {
                 domain={data.domain?.domain}
                 entityCount={data?.entities?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

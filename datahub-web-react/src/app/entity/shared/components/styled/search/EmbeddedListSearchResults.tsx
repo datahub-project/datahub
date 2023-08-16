@@ -3,11 +3,11 @@ import { Pagination, Typography } from 'antd';
 import styled from 'styled-components';
 import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
 import { SearchCfg } from '../../../../../../conf';
-import { EntityNameList, EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
 import { EntityAndType } from '../../../types';
 import { UnionType } from '../../../../../search/utils/constants';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
+import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
 import MatchingViewsLabel from './MatchingViewsLabel';
 
 const SearchBody = styled.div`
@@ -125,8 +125,8 @@ export const EmbeddedListSearchResults = ({
                         </LoadingContainer>
                     )}
                     {!loading && (
-                        <EntityNameList
-                            entities={searchResponse?.searchResults?.map((searchResult) => searchResult.entity) || []}
+                        <EntitySearchResults
+                            searchResults={searchResponse?.searchResults || []}
                             additionalPropertiesList={
                                 searchResponse?.searchResults?.map((searchResult) => ({
                                     // when we add impact analysis, we will want to pipe the path to each element to the result this

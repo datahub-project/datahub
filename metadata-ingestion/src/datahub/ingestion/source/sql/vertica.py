@@ -32,7 +32,7 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
 )
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
@@ -220,7 +220,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         table: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -242,7 +242,7 @@ class VerticaSource(SQLAlchemySource):
         self,
         inspector: VerticaInspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
@@ -314,7 +314,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         view: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         This function is used for performing operation and gets data for every view inside a schema
@@ -324,7 +324,7 @@ class VerticaSource(SQLAlchemySource):
             inspector (Inspector)
             schema (str): schema name
             view (str): name of the view to inspect
-            sql_config (SQLAlchemyConfig)
+            sql_config (SQLCommonConfig)
             table_tags (Dict[str, str], optional) Defaults to dict().
 
         Returns:
@@ -356,7 +356,7 @@ class VerticaSource(SQLAlchemySource):
         self,
         inspector: VerticaInspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         this function loop through all the projection in the given schema.
@@ -366,7 +366,7 @@ class VerticaSource(SQLAlchemySource):
         Args:
             inspector (Inspector): inspector obj from reflection
             schema (str): schema name
-            sql_config (SQLAlchemyConfig): config
+            sql_config (SQLCommonConfig): config
 
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
@@ -438,7 +438,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         projection: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = inspector.get_projection_columns(projection, schema)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -512,7 +512,7 @@ class VerticaSource(SQLAlchemySource):
         self,
         inspector: VerticaInspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
         """Function is used for collecting profiling related information for every projections
             inside an schema.
@@ -590,7 +590,7 @@ class VerticaSource(SQLAlchemySource):
         self,
         inspector: VerticaInspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         This function is for iterating over the ml models in vertica db
@@ -598,7 +598,7 @@ class VerticaSource(SQLAlchemySource):
         Args:
             inspector (Inspector) : inspector obj from reflection engine
             schema (str): schema name
-            sql_config (SQLAlchemyConfig): config
+            sql_config (SQLCommonConfig): config
 
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
@@ -646,7 +646,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: VerticaInspector,
         schema: str,
         table: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         """
         To fetch ml models related information of ml_model from vertica db
@@ -655,7 +655,7 @@ class VerticaSource(SQLAlchemySource):
             inspector (Inspector): inspector obj from reflection
             schema (str): schema name entity
             table (str): name of ml model
-            sql_config (SQLAlchemyConfig)
+            sql_config (SQLCommonConfig)
 
         Returns:
             Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]: [description]
