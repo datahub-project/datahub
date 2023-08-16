@@ -6,7 +6,7 @@ import { useRunTestDefinitionMutation } from '../../../../../graphql/test.genera
 import { RunTestDefinitionStatus } from '../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../entity/shared/constants';
 import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '../../../../entity/shared/tabs/Incident/incidentUtils';
-import { EntityActionProps } from '../../../../recommendations/renderer/component/EntityNameList';
+import { EntityActionProps } from '../../../../entity/shared/components/styled/search/EntitySearchResults';
 import { TestBuilderState } from '../../types';
 
 const StatusContainer = styled.div<{ color?: string }>`
