@@ -16,6 +16,8 @@ RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 FROM alpine:3
 
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.ustc.edu.cn/g' /etc/apk/repositories
+RUN apk update
 RUN apk add --no-cache postgresql-client sqlite
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
