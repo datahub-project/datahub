@@ -38,7 +38,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     downgrade_schema_from_v2,
@@ -331,7 +331,7 @@ class ProfileMetadata:
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
-    def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext, platform: str):
+    def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super(SQLAlchemySource, self).__init__(config, ctx)
         self.config = config
         self.platform = platform
@@ -613,7 +613,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         try:
@@ -661,7 +661,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         table: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -881,7 +881,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
@@ -918,7 +918,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         view: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             columns = inspector.get_columns(view, schema)
@@ -1040,7 +1040,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
@@ -1056,7 +1056,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
