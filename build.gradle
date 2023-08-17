@@ -3,8 +3,8 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.22.16'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.27'
-  ext.springBootVersion = '2.7.11'
+  ext.springVersion = '5.3.29'
+  ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
   ext.testContainersVersion = '1.17.4'
