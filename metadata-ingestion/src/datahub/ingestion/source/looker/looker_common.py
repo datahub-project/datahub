@@ -90,7 +90,7 @@ class LookerViewId:
     project_name: str
     model_name: str
     view_name: str
-    absolute_file_path: str
+    file_path: str
 
     def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
         return NamingPatternMapping(
@@ -99,9 +99,7 @@ class LookerViewId:
             project=self.project_name,
             model=self.model_name,
             name=self.view_name,
-            file_path=self.absolute_file_path.split("/checkout", 1)[
-                1
-            ],  # split on first /checkout path to get relative path of view file
+            file_path=self.file_path,
         )
 
     @validator("view_name")
@@ -574,6 +572,10 @@ class LookerExplore:
 
         try:
             explore = client.lookml_model_explore(model, explore_name)
+            
+            import pdb
+            pdb.set_trace()
+
             views: Set[str] = set()
 
             if explore.view_name is not None and explore.view_name != explore.name:
@@ -726,6 +728,7 @@ class LookerExplore:
             model=self.model_name,
             name=self.name,
             env=config.env.lower(),
+            file_path=None, # This value is not applicable for explore
         )
 
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
@@ -797,6 +800,7 @@ class LookerExplore:
                     else self.project_name,
                     model_name=self.model_name,
                     view_name=view_ref.include,
+                    file_path="TODO: Check How to get file_path here",
                 ).get_urn(config)
 
                 upstreams.append(
