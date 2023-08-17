@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 from snowflake.connector import SnowflakeConnection
@@ -38,7 +38,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.timeseries import TimeWindowSize
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
-from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -122,12 +121,17 @@ class SnowflakeUsageExtractor(
         self.dataset_urn_builder = dataset_urn_builder
         self.logger = logger
         self.connection: Optional[SnowflakeConnection] = None
+
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = self.get_time_window()
 
-        self.usage_start_time = self.config.start_time
-        self.usage_end_time = self.config.end_time
-
-        self.update_time_window()
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def get_usage_workunits(
         self, discovered_datasets: List[str]
@@ -181,10 +185,7 @@ class SnowflakeUsageExtractor(
                     event, discovered_datasets
                 )
 
-        if (
-            self.redundant_run_skip_handler
-            and self.redundant_run_skip_handler.is_current_run_succeessful()
-        ):
+        if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
                 self.config.start_time,
@@ -200,8 +201,8 @@ class SnowflakeUsageExtractor(
             try:
                 results = self.query(
                     SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
-                        start_time_millis=int(self.usage_start_time.timestamp() * 1000),
-                        end_time_millis=int(self.usage_end_time.timestamp() * 1000),
+                        start_time_millis=int(self.start_time.timestamp() * 1000),
+                        end_time_millis=int(self.end_time.timestamp() * 1000),
                         time_bucket_size=self.config.bucket_duration,
                         use_base_objects=self.config.apply_view_usage_to_tables,
                         top_n_queries=self.config.top_n_queries,
@@ -345,8 +346,8 @@ class SnowflakeUsageExtractor(
             yield from self._process_snowflake_history_row(row)
 
     def _make_operations_query(self) -> str:
-        start_time = int(self.usage_start_time.timestamp() * 1000)
-        end_time = int(self.usage_end_time.timestamp() * 1000)
+        start_time = int(self.start_time.timestamp() * 1000)
+        end_time = int(self.end_time.timestamp() * 1000)
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 
     def _check_usage_date_ranges(self) -> Any:
@@ -533,8 +534,8 @@ class SnowflakeUsageExtractor(
         if (
             self.redundant_run_skip_handler
             and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
             )
         ):
             # Skip this run
@@ -549,12 +550,3 @@ class SnowflakeUsageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
-
-    def update_time_window(self):
-        if self.redundant_run_skip_handler:
-            (
-                self.usage_start_time,
-                self.usage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )

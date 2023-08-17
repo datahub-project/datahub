@@ -66,7 +66,6 @@ from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -394,12 +393,16 @@ class BigQueryUsageExtractor:
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
 
-        self.usage_start_time = self.config.start_time
-        self.usage_end_time = self.config.end_time
-
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = self.get_time_window()
 
-        self.update_time_window()
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
@@ -412,8 +415,8 @@ class BigQueryUsageExtractor:
         if (
             self.redundant_run_skip_handler
             and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
             )
         ):
             # Skip this run
@@ -433,10 +436,7 @@ class BigQueryUsageExtractor:
         events = self._get_usage_events(projects)
         yield from self._get_workunits_internal(events, table_refs)
 
-        if (
-            self.redundant_run_skip_handler
-            and self.redundant_run_skip_handler.is_current_run_succeessful()
-        ):
+        if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
                 self.config.start_time,
@@ -632,7 +632,7 @@ class BigQueryUsageExtractor:
     ) -> bool:
         """Stores a usage event in `usage_state` and returns if an event was successfully processed."""
         if event.read_event and (
-            self.usage_start_time <= event.read_event.timestamp < self.usage_end_time
+            self.start_time <= event.read_event.timestamp < self.end_time
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
@@ -674,12 +674,12 @@ class BigQueryUsageExtractor:
         if self.config.bigquery_audit_metadata_datasets is None:
             return
 
-        corrected_start_time = self.usage_start_time - self.config.max_query_duration
+        corrected_start_time = self.start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        corrected_end_time = self.usage_end_time + self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
         end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time
@@ -755,11 +755,11 @@ class BigQueryUsageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
 
-        start_time = (self.usage_start_time - self.config.max_query_duration).strftime(
+        start_time = (self.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_start_time = start_time
-        end_time = (self.usage_end_time + self.config.max_query_duration).strftime(
+        end_time = (self.end_time + self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_end_time = end_time
@@ -1098,12 +1098,3 @@ class BigQueryUsageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
-
-    def update_time_window(self):
-        if self.redundant_run_skip_handler:
-            (
-                self.usage_start_time,
-                self.usage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )

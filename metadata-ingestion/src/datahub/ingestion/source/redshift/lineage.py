@@ -2,6 +2,7 @@ import logging
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
@@ -88,12 +89,16 @@ class RedshiftLineageExtractor:
         self.report = report
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
 
-        self.lineage_start_time = self.config.start_time
-        self.lineage_end_time = self.config.end_time
-
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = self.get_time_window()
 
-        self.update_time_window()
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -364,24 +369,24 @@ class RedshiftLineageExtractor:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
-                start_time=self.lineage_start_time,
-                end_time=self.lineage_end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
         elif self.config.table_lineage_mode == LineageMode.MIXED:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
-                start_time=self.lineage_start_time,
-                end_time=self.lineage_end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
 
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
                 db_name=database,
-                start_time=self.lineage_start_time,
-                end_time=self.lineage_end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
 
@@ -397,16 +402,16 @@ class RedshiftLineageExtractor:
         if self.config.include_copy_lineage:
             query = RedshiftQuery.list_copy_commands_sql(
                 db_name=database,
-                start_time=self.lineage_start_time,
-                end_time=self.lineage_end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.COPY))
 
         if self.config.include_unload_lineage:
             query = RedshiftQuery.list_unload_commands_sql(
                 db_name=database,
-                start_time=self.lineage_start_time,
-                end_time=self.lineage_end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
 
             populate_calls.append((query, LineageCollectorType.UNLOAD))
@@ -485,12 +490,3 @@ class RedshiftLineageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
-
-    def update_time_window(self):
-        if self.redundant_run_skip_handler:
-            (
-                self.lineage_start_time,
-                self.lineage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )

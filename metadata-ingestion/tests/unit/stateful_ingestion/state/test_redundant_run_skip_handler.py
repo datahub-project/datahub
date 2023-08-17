@@ -160,8 +160,7 @@ def test_redundant_run_skip_handler(
         assert stateful_source.lineage_extractor.redundant_run_skip_handler is not None
         assert (
             stateful_source.lineage_extractor.redundant_run_skip_handler.should_skip_this_run(
-                datetime_to_ts_millis(start_time),
-                datetime_to_ts_millis(end_time),
+                start_time, end_time
             )
             == should_skip
         )
@@ -180,8 +179,7 @@ def test_redundant_run_skip_handler(
         assert stateful_source.usage_extractor.redundant_run_skip_handler is not None
         assert (
             stateful_source.usage_extractor.redundant_run_skip_handler.should_skip_this_run(
-                datetime_to_ts_millis(start_time),
-                datetime_to_ts_millis(end_time),
+                start_time, end_time
             )
             == should_skip
         )

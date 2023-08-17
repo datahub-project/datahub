@@ -2,7 +2,7 @@ import collections
 import logging
 import time
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic.error_wrappers
 import redshift_connector
@@ -30,7 +30,6 @@ from datahub.ingestion.source_report.ingestion_stage import (
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
 
@@ -185,19 +184,23 @@ class RedshiftUsageExtractor:
         self.connection = connection
         self.dataset_urn_builder = dataset_urn_builder
 
-        self.usage_start_time = self.config.start_time
-        self.usage_end_time = self.config.end_time
-
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = self.get_time_window()
 
-        self.update_time_window()
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def _should_ingest_usage(self):
         if (
             self.redundant_run_skip_handler
             and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
             )
         ):
             # Skip this run
@@ -225,10 +228,7 @@ class RedshiftUsageExtractor:
             },
         )
 
-        if (
-            self.redundant_run_skip_handler
-            and self.redundant_run_skip_handler.is_current_run_succeessful()
-        ):
+        if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
                 self.config.start_time,
@@ -257,8 +257,8 @@ class RedshiftUsageExtractor:
         # Generate aggregate events
         self.report.report_ingestion_stage_start(USAGE_EXTRACTION_USAGE_AGGREGATION)
         query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
-            start_time=self.usage_start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.usage_end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
             database=self.config.database,
         )
         access_events_iterable: Iterable[
@@ -284,8 +284,8 @@ class RedshiftUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
         query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
-            start_time=self.usage_start_time.strftime(REDSHIFT_DATETIME_FORMAT),
-            end_time=self.usage_end_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
+            end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
         access_events_iterable: Iterable[
             RedshiftAccessEvent
@@ -444,12 +444,3 @@ class RedshiftUsageExtractor:
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
-
-    def update_time_window(self):
-        if self.redundant_run_skip_handler:
-            (
-                self.usage_start_time,
-                self.usage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )

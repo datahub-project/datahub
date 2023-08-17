@@ -101,7 +101,6 @@ from datahub.utilities import memory_footprint
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -894,10 +893,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             )
             yield from self.generate_lineage(database)
 
-            if (
-                self.redundant_lineage_run_skip_handler
-                and self.redundant_lineage_run_skip_handler.is_current_run_succeessful()
-            ):
+            if self.redundant_lineage_run_skip_handler:
                 # Update the checkpoint state for this run.
                 self.redundant_lineage_run_skip_handler.update_state(
                     self.config.start_time, self.config.end_time
@@ -907,8 +903,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         if (
             self.redundant_lineage_run_skip_handler
             and self.redundant_lineage_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
             )
         ):
             # Skip this run

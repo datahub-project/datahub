@@ -2,6 +2,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from typing import (
     Callable,
     Collection,
@@ -51,10 +52,7 @@ from datahub.utilities.sqlglot_lineage import (
     SqlParsingResult,
     sqlglot_lineage,
 )
-from datahub.utilities.time import (
-    datetime_to_ts_millis,
-    get_datetime_from_ts_millis_in_utc,
-)
+from datahub.utilities.time import ts_millis_to_datetime
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -100,17 +98,25 @@ class SnowflakeLineageExtractor(
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
         self.connection: Optional[SnowflakeConnection] = None
+
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = self.get_time_window()
 
-        self.lineage_start_time = (
-            self.config.start_time
-            if not self.config.ignore_start_time_lineage
-            else get_datetime_from_ts_millis_in_utc(0)
-        )
-
-        self.lineage_end_time = self.config.end_time
-
-        self.update_time_window()
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
+            )
+        else:
+            return (
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
+            )
 
     def get_workunits(
         self,
@@ -143,10 +149,7 @@ class SnowflakeLineageExtractor(
         if self._external_lineage_map:  # Some external lineage is yet to be emitted
             yield from self.get_table_external_upstream_workunits()
 
-        if (
-            self.redundant_run_skip_handler
-            and self.redundant_run_skip_handler.is_current_run_succeessful()
-        ):
+        if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
                 self.config.start_time, self.config.end_time
@@ -422,8 +425,8 @@ class SnowflakeLineageExtractor(
         self, discovered_tables: List[str]
     ) -> None:
         query: str = SnowflakeQuery.copy_lineage_history(
-            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
-            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
+            start_time_millis=int(self.start_time.timestamp() * 1000),
+            end_time_millis=int(self.end_time.timestamp() * 1000),
             downstreams_deny_pattern=self.config.temporary_tables_pattern,
         )
 
@@ -464,8 +467,8 @@ class SnowflakeLineageExtractor(
 
     def _fetch_upstream_lineages_for_tables(self):
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
-            start_time_millis=int(self.lineage_start_time.timestamp() * 1000),
-            end_time_millis=int(self.lineage_end_time.timestamp() * 1000),
+            start_time_millis=int(self.start_time.timestamp() * 1000),
+            end_time_millis=int(self.end_time.timestamp() * 1000),
             upstreams_deny_pattern=self.config.temporary_tables_pattern,
             include_view_lineage=self.config.include_view_lineage,
             include_column_lineage=self.config.include_column_lineage,
@@ -636,10 +639,10 @@ class SnowflakeLineageExtractor(
         if (
             self.redundant_run_skip_handler
             and self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+                cur_start_time=self.config.start_time
                 if not self.config.ignore_start_time_lineage
-                else 0,
-                cur_end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                else ts_millis_to_datetime(0),
+                cur_end_time=self.config.end_time,
             )
         ):
             # Skip this run
@@ -653,12 +656,3 @@ class SnowflakeLineageExtractor(
     def report_status(self, step: str, status: bool) -> None:
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.report_current_run_status(step, status)
-
-    def update_time_window(self):
-        if self.redundant_run_skip_handler:
-            (
-                self.lineage_start_time,
-                self.lineage_end_time,
-            ) = self.redundant_run_skip_handler.suggest_run_time_window(
-                self.config.start_time, self.config.end_time
-            )
