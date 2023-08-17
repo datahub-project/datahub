@@ -31,13 +31,19 @@ env:
   DATAHUB_ELASTIC_SETUP_IMAGE: "linkedin/datahub-elasticsearch-setup"
   DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
   DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
+  DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
+  DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
 
 jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      slim_tag: ${{ steps.tag.outputs.slim_tag }}
+      full_tag: ${{ steps.tag.outputs.full_tag }}
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
+      unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
+      unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
@@ -47,11 +53,15 @@ jobs:
         run: |
           source .github/scripts/docker_helpers.sh
           echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
+          echo "slim_tag=$(get_tag)-slim" >> $GITHUB_OUTPUT
+          echo "full_tag=$(get_tag)-full" >> $GITHUB_OUTPUT
           echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
+          echo "unique_slim_tag=$(get_unique_tag)-slim" >> $GITHUB_OUTPUT
+          echo "unique_full_tag=$(get_unique_tag)-full" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD }}
+          ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
@@ -414,6 +424,291 @@ jobs:
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
 
+  datahub_ingestion_base_build:
+    name: Build and Push DataHub Ingestion (Base) Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 800
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            datahub-ingestion-base:
+              - 'docker/datahub-ingestion-base/**'
+      - name: Build and push Base Image
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: base
+          images: |
+            ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
+          tags: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion-base/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Compute DataHub Ingestion (Base) Tag
+        id: tag
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}" >> $GITHUB_OUTPUT
+  datahub_ingestion_base_slim_build:
+    name: Build and Push DataHub Ingestion (Base-Slim) Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    needs: [setup, datahub_ingestion_base_build]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 800
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            datahub-ingestion-base:
+              - 'docker/datahub-ingestion-base/**'
+      - name: Download Base Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+      - name: Build and push Base-Slim Image
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: slim-install
+          images: |
+            ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
+          tags: ${{ needs.setup.outputs.slim_tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+            APP_ENV=slim
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion-base/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Compute DataHub Ingestion (Base-Slim) Tag
+        id: tag
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+  datahub_ingestion_base_full_build:
+    name: Build and Push DataHub Ingestion (Base-Full) Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    needs: [setup, datahub_ingestion_base_build]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 800
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            datahub-ingestion-base:
+              - 'docker/datahub-ingestion-base/**'
+      - name: Download Base Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+      - name: Build and push Base-Full Image
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: full-install
+          images: |
+            ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
+          tags: ${{ needs.setup.outputs.full_tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          build-args: |
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+            APP_ENV=full
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion-base/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Compute DataHub Ingestion (Base-Full) Tag
+        id: tag
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
+
+
+  datahub_ingestion_slim_build:
+    name: Build and Push DataHub Ingestion Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    needs: [setup, datahub_ingestion_base_slim_build]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 800
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            datahub-ingestion-base:
+              - 'docker/datahub-ingestion-base/**'
+            datahub-ingestion:
+              - 'docker/datahub-ingestion/**'
+      - name: Build codegen
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        run: ./gradlew :metadata-ingestion:codegen
+      - name: Download Base Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}
+      - name: Build and push Slim Image
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: final
+          images: |
+            ${{ env.DATAHUB_INGESTION_IMAGE }}
+          build-args: |
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}
+            APP_ENV=slim
+          tags: ${{ needs.setup.outputs.slim_tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Compute Tag
+        id: tag
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+  datahub_ingestion_slim_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: [setup, datahub_ingestion_slim_build]
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
+      - name: Download image Slim Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.slim_tag }}
+      - name: Run Trivy vulnerability scanner Slim Image
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.slim_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  datahub_ingestion_full_build:
+    name: Build and Push DataHub Ingestion (Full) Docker Images
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    needs: [setup, datahub_ingestion_base_full_build]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 800
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            datahub-ingestion-base:
+              - 'docker/datahub-ingestion-base/**'
+            datahub-ingestion:
+              - 'docker/datahub-ingestion/**'
+      - name: Build codegen
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        run: ./gradlew :metadata-ingestion:codegen
+      - name: Download Base Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}
+      - name: Build and push Full Image
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: final
+          images: |
+            ${{ env.DATAHUB_INGESTION_IMAGE }}
+          build-args: |
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}
+          tags: ${{ needs.setup.outputs.full_tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish }}
+          context: .
+          file: ./docker/datahub-ingestion/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Compute Tag (Full)
+        id: tag
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
+  datahub_ingestion_full_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: [setup, datahub_ingestion_full_build]
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: actions/checkout@v3
+      - name: Download image Full Image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.full_tag }}
+      - name: Run Trivy vulnerability scanner Full Image
+        uses: aquasecurity/trivy-action@0.8.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+        with:
+          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.full_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
+
   smoke_test:
     name: Run Smoke Tests
     runs-on: ubuntu-latest
@@ -432,8 +727,11 @@ jobs:
         mae_consumer_build,
         mce_consumer_build,
         datahub_upgrade_build,
+        datahub_ingestion_slim_build,
       ]
     steps:
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Check out the repo
         uses: actions/checkout@v3
       - name: Set up JDK 11
@@ -450,6 +748,8 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -490,13 +790,21 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
-      - name: Disable datahub-actions
-        run: |
-          yq -i 'del(.services.datahub-actions)' docker/quickstart/docker-compose-without-neo4j.quickstart.yml
+      - name: Download datahub-ingestion-slim image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Disk Check
+        run: df -h . && docker images
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
+          ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag }}
+          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions[executor] acryl-datahub-actions'
+          ACTIONS_CONFIG: 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
         run: |
           ./smoke-test/run-quickstart.sh
       - name: sleep 60s
@@ -518,6 +826,8 @@ jobs:
           }'
       - name: Remove Source Code
         run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Smoke test
         env:
           RUN_QUICKSTART: false
@@ -528,11 +838,14 @@ jobs:
         run: |
           echo "$DATAHUB_VERSION"
           ./smoke-test/smoke.sh
+      - name: Disk Check
+        run: df -h . && docker images
       - name: store logs
         if: failure()
         run: |
           docker ps -a
           docker logs datahub-gms >& gms-${{ matrix.test_strategy }}.log
+          docker logs datahub-actions >& actions-${{ matrix.test_strategy }}.log
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
