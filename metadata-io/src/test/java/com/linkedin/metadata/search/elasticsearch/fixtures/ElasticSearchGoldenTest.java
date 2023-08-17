@@ -28,8 +28,9 @@ import static org.testng.AssertJUnit.*;
 @Import(ESSampleDataFixture.class)
 public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
 
-    private static final List<String> SEARCHABLE_LONGTAIL_ENTITIES = Stream.of(EntityType.CHART, EntityType.CONTAINER, EntityType.DASHBOARD, EntityType.DATASET, EntityType.DOMAIN, EntityType.TAG)
-            .map(EntityTypeMapper::getName)
+    private static final List<String> SEARCHABLE_LONGTAIL_ENTITIES = Stream.of(EntityType.CHART, EntityType.CONTAINER,
+                    EntityType.DASHBOARD, EntityType.DATASET, EntityType.DOMAIN, EntityType.TAG
+            ).map(EntityTypeMapper::getName)
             .collect(Collectors.toList());
     @Autowired
     private RestHighLevelClient _searchClient;

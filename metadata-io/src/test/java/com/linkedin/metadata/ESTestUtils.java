@@ -5,7 +5,6 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
-import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
@@ -69,13 +68,6 @@ public class ESTestUtils {
                 .collect(Collectors.toList());
     }
 
-    public final static List<String> SEARCHABLE_LONGTAIL_ENTITIES;
-    static {
-        SEARCHABLE_LONGTAIL_ENTITIES = Stream.of(EntityType.CHART, EntityType.CONTAINER, EntityType.DASHBOARD, EntityType.DATASET, EntityType.DOMAIN, EntityType.TAG)
-                .map(EntityTypeMapper::getName)
-                .collect(Collectors.toList());
-    }
-
     public static SearchResult searchAcrossEntities(SearchService searchService, String query) {
         return searchAcrossEntities(searchService, query, null);
     }
@@ -85,8 +77,8 @@ public class ESTestUtils {
             100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
     }
 
-    public static SearchResult searchAcrossCustomEntities(SearchService searchService, String query, List<String> searchable_entities) {
-        return searchService.searchAcrossEntities(searchable_entities, query, null, null, 0,
+    public static SearchResult searchAcrossCustomEntities(SearchService searchService, String query, List<String> searchableEntities) {
+        return searchService.searchAcrossEntities(searchableEntities, query, null, null, 0,
                 100, new SearchFlags().setFulltext(true).setSkipCache(true));
     }
 
