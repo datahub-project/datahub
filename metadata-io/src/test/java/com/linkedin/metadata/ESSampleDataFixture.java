@@ -118,7 +118,7 @@ public class ESSampleDataFixture {
     @Bean(name = "longTailSampleDataEntityIndexBuilders")
     protected EntityIndexBuilders longTailEntityIndexBuilders(
             @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
-            @Qualifier("sampleDataIndexConvention") IndexConvention indexConvention
+            @Qualifier("longTailSampleDataIndexConvention") IndexConvention indexConvention
     ) {
         return entityIndexBuildersHelper(longTailEntityRegistry, indexConvention);
     }

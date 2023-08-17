@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.fixtures;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
+import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.ESSampleDataFixture;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -13,15 +16,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import static com.linkedin.metadata.ESTestUtils.searchAcrossEntities;
+import static com.linkedin.metadata.ESTestUtils.searchAcrossLongtailEntities;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.*;
 
 @Import(ESSampleDataFixture.class)
 public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
 
+    private static final List<String> SEARCHABLE_LONGTAIL_ENTITIES = Stream.of(EntityType.CHART, EntityType.CONTAINER, EntityType.DASHBOARD, EntityType.DATASET, EntityType.DOMAIN, EntityType.TAG)
+            .map(EntityTypeMapper::getName)
+            .collect(Collectors.toList());
     @Autowired
     private RestHighLevelClient _searchClient;
 
@@ -37,6 +49,11 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     @Qualifier("longTailEntityRegistry")
     private EntityRegistry entityRegistry;
 
+//    @BeforeClass
+//    public void setup() {
+//        SEARCHABLE_LONGTAIL_ENTITIES =
+//    }
+
     @Test
     public void testNameMatchPetProfiles() {
         /*
@@ -44,7 +61,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
          */
         assertNotNull(searchService);
         assertNotNull(entityRegistry);
-        SearchResult searchResult = searchAcrossEntities(searchService, "pet profiles");
+        SearchResult searchResult = searchAcrossLongtailEntities(searchService, "pet profiles");
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
         Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -59,7 +76,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
           Searching for "pet profile" should return "pet_profiles" as the first 2 search results
          */
         assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "pet profile");
+        SearchResult searchResult = searchAcrossEntities(searchService, "pet profile", SEARCHABLE_LONGTAIL_ENTITIES);
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
         Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -75,7 +92,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
           result, followed by "collaborative_actionitems_old"
          */
         assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems");
+        SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
         Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
@@ -92,7 +109,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
           anything else
          */
         assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "ReturnRate");
+        SearchResult searchResult = searchAcrossEntities(searchService, "ReturnRate", SEARCHABLE_LONGTAIL_ENTITIES);
         SearchEntityArray entities = searchResult.getEntities();
         assertTrue(searchResult.getEntities().size() >= 4);
         MatchedFieldArray firstResultMatchedFields = entities.get(0).getMatchedFields();
@@ -106,6 +123,11 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(fourthResultMatchedFields.toString().contains("ReturnRate"));
     }
 
+//    @Test
+//    public void testTrailingUnderscore() {
+//
+//    }
+
     /**
      *
      * The test below should be added back in as improvements are made to search,
@@ -114,14 +136,20 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
      **/
 
     // TODO: enable once PFP-481 is complete
-    @Test(enabled = false)
+    @Test()
     public void testNameMatchPartiallyQualified() {
         /*
           Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
           name as the first search results before any others
+
+          Current results:
+          {score=131.7781982421875, features={SEARCH_BACKEND_SCORE=131.7781982421875}, matchedFields=[{name=urn, value=urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)}, {name=fieldPaths, value=pet_fk}, {name=qualifiedName, value=long_tail_companions.analytics.pet_details}, {name=name, value=PET_DETAILS}, {name=id, value=long_tail_companions.analytics.pet_details}], entity=urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)}
+          {score=101.43421936035156, features={SEARCH_BACKEND_SCORE=101.43421936035156}, matchedFields=[{name=urn, value=urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)}, {name=qualifiedName, value=long_tail_companions.analytics.pet_status_history}, {name=name, value=PET_STATUS_HISTORY}, {name=id, value=long_tail_companions.analytics.pet_status_history}], entity=urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_status_history,PROD)}
+          {score=92.98851013183594, features={SEARCH_BACKEND_SCORE=92.98851013183594}, matchedFields=[{name=urn, value=urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.pet_details,PROD)}, {name=fieldPaths, value=pet_fk}, {name=name, value=pet_details}, {name=description, value=Table with all pet-related details}, {name=id, value=long_tail_companions.analytics.pet_details}], entity=urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.pet_details,PROD)}
+          {score=71.41470336914062, features={SEARCH_BACKEND_SCORE=71.41470336914062}, matchedFields=[{name=urn, value=urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.pet_status_history,PROD)}, {name=name, value=pet_status_history}, {name=description, value=Incremental table containing all historical statuses of a pet}, {name=id, value=long_tail_companions.analytics.pet_status_history}], entity=urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.analytics.pet_status_history,PROD)}
          */
         assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "analytics.pet_details");
+        SearchResult searchResult = searchAcrossEntities(searchService, "analytics.pet_details", SEARCHABLE_LONGTAIL_ENTITIES);
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
         Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();

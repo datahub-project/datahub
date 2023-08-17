@@ -1,0 +1,105 @@
+entities:
+  - name: dataset
+    doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
+    category: core
+    keyAspect: datasetKey
+    aspects:
+      - viewProperties
+      - subTypes
+      - datasetProfile
+      - datasetUsageStatistics
+      - operation
+      - domains
+      - schemaMetadata
+      - status
+      - container
+      - deprecation
+      - testResults
+      - siblings
+      - embed
+      - datasetProperties
+      - editableDatasetProperties
+      - datasetDeprecation
+      - datasetUpstreamLineage
+      - upstreamLineage
+      - institutionalMemory
+      - ownership
+      - editableSchemaMetadata
+      - globalTags
+      - glossaryTerms
+      - browsePaths
+      - dataPlatformInstance
+      - browsePathsV2
+      - access
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - chartInfo
+      - editableChartProperties
+      - chartQuery
+      - inputFields
+      - chartUsageStatistics
+      - embed
+      - browsePaths
+      - domains
+      - container
+      - deprecation
+      - ownership
+      - status
+      - institutionalMemory
+      - dataPlatformInstance
+      - globalTags
+      - glossaryTerms
+      - browsePathsV2
+  - name: dashboard
+    keyAspect: dashboardKey
+    aspects:
+      - domains
+      - container
+      - deprecation
+      - dashboardUsageStatistics
+      - inputFields
+      - subTypes
+      - embed
+      - dashboardInfo
+      - editableDashboardProperties
+      - ownership
+      - status
+      - globalTags
+      - browsePaths
+      - glossaryTerms
+      - institutionalMemory
+      - dataPlatformInstance
+      - browsePathsV2
+  - name: domain
+    doc: A data domain within an organization.
+    keyAspect: domainKey
+    aspects:
+      - domainProperties
+      - institutionalMemory
+      - ownership
+  - name: container
+    doc: A container of related data assets.
+    keyAspect: containerKey
+    aspects:
+      - containerProperties
+      - editableContainerProperties
+      - dataPlatformInstance
+      - subTypes
+      - ownership
+      - container
+      - globalTags
+      - glossaryTerms
+      - institutionalMemory
+      - browsePaths # unclear if this will be used
+      - status
+      - domains
+      - browsePathsV2
+  - name: tag
+    keyAspect: tagKey
+    aspects:
+      - tagProperties
+      - ownership
+      - deprecation
+      - status
+events:
