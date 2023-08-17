@@ -220,6 +220,11 @@ enum AssertionEvaluationParametersType {
   Parameters required to evaluate a Dataset Freshness Assertions
   """
   DATASET_FRESHNESS
+
+  """
+  Parameters required to evaluate a Dataset Volume Assertion
+  """
+  DATASET_VOLUME
 }
 
 """
@@ -235,6 +240,11 @@ type AssertionEvaluationParameters {
   The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
   """
   datasetFreshnessParameters: DatasetFreshnessAssertionParameters
+
+  """
+  The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
+  """
+  datasetVolumeParameters: DatasetVolumeAssertionParameters
 }
 
 """
@@ -255,6 +265,11 @@ type DatasetFreshnessAssertionParameters {
     Determine that a change has occurred by inspecting an audit log API
     """
     auditLog: AuditLogSpec
+
+    """
+    Determine that a change has occurred using Operations reported to DataHub
+    """
+    dataHubOperation: DataHubOperationSpec
 }
 
 """
@@ -417,6 +432,11 @@ input AssertionEvaluationParametersInput {
     The parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_FRESHNESS.
     """
     datasetFreshnessParameters: DatasetFreshnessAssertionParametersInput
+
+    """
+    The parameters required to evaluate a dataset volume assertion. Present if type is DATASET_VOLUME.
+    """
+    datasetVolumeParameters: DatasetVolumeAssertionParametersInput
 }
 
 """
@@ -437,6 +457,21 @@ input DatasetFreshnessAssertionParametersInput {
     Determine that a change has occurred by inspecting an audit log API
     """
     auditLog: AuditLogSpecInput
+
+    """
+    Determine that a change has occurred by inspecting Operations reported to DataHub
+    """
+    dataHubOperation: DataHubOperationSpecInput
+}
+
+"""
+Input for the parameters required to evaluate a dataset freshness assertion. Present if type is DATASET_VOLUME.
+"""
+input DatasetVolumeAssertionParametersInput {
+    """
+    The source of the volume source type
+    """
+    sourceType: DatasetVolumeSourceType!
 }
 
 """
@@ -500,6 +535,21 @@ input AuditLogSpecInput {
 }
 
 """
+Input for information about the DataHub Operation to use
+"""
+input DataHubOperationSpecInput {
+  """
+  The list of operation types that should be monitored. If not provided, a default set will be used.
+  """
+  operationTypes: [String!]
+
+  """
+  The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
+  """
+  customOperationTypes: [String!]
+}
+
+"""
 Input for creating an Assertion Monitor. Assumes that the assertion under monitor has already been created.
 """
 input CreateAssertionMonitorInput {
@@ -530,3 +580,49 @@ input CreateAssertionMonitorInput {
     """
     executorId: String
 }
+
+"""
+Information about the parameters required to evaluate a volume assertion
+"""
+type DatasetVolumeAssertionParameters {
+  """
+  The source of the volume metric (row count).
+  """
+  sourceType: DatasetVolumeSourceType!
+}
+
+"""
+Define the source type for evaluating a volume assertion
+"""
+enum DatasetVolumeSourceType {
+  """
+  Determine the row count using the information schema - only supported for some sources
+  """
+  INFORMATION_SCHEMA
+
+  """
+  Determine the row count using a COUNT(*) query
+  """
+  QUERY
+
+  """
+  Determine the row count using the DataHub Dataset Profile aspect
+  """
+  DATAHUB_DATASET_PROFILE
+}
+
+"""
+Information about the datahub operation to use in evaluating an assertion.
+"""
+type DataHubOperationSpec {
+  """
+  The list of operation types that should be monitored. If not provided, a default set will be used.
+  """
+  operationTypes: [String!]
+
+  """
+  The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
+  """
+  customOperationTypes: [String!]
+}
+

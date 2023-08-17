@@ -24,6 +24,11 @@ record DatasetFreshnessAssertionParameters {
     * Determine that a change has occurred by inspecting an audit log API
     */
     AUDIT_LOG
+
+    /**
+    * Determine whether the table has changed using an Operation aspect
+    */
+    DATAHUB_OPERATION
   }
 
   /**
@@ -35,4 +40,9 @@ record DatasetFreshnessAssertionParameters {
   * Information about the audit log operation to use. Present when sourceType is AUDIT_LOG
   */
   auditLog: optional AuditLogSpec
+
+  /**
+  * Information about the DataHub operation. Present when sourceType is DATAHUB_OPERATION
+  */
+  dataHubOperation: optional DataHubOperationSpec
 }

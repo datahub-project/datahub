@@ -8,8 +8,11 @@ import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
 import com.linkedin.datahub.graphql.generated.AssertionMonitor;
 import com.linkedin.datahub.graphql.generated.AuditLogSpec;
 import com.linkedin.datahub.graphql.generated.CronSchedule;
+import com.linkedin.datahub.graphql.generated.DataHubOperationSpec;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParameters;
 import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
+import com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParameters;
+import com.linkedin.datahub.graphql.generated.DatasetVolumeSourceType;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
@@ -106,6 +109,10 @@ public class MonitorMapper {
       assertionEvaluationParameters.setDatasetFreshnessParameters(mapDatasetFreshnessAssertionParameters(
           backendAssertionEvaluationParameters.getDatasetFreshnessParameters()));
     }
+    if (backendAssertionEvaluationParameters.getDatasetVolumeParameters() != null) {
+      assertionEvaluationParameters.setDatasetVolumeParameters(mapDatasetVolumeAssertionParameters(
+          backendAssertionEvaluationParameters.getDatasetVolumeParameters()));
+    }
     return assertionEvaluationParameters;
   }
 
@@ -120,7 +127,18 @@ public class MonitorMapper {
     if (backendDatasetFreshnessAssertionParameters.hasAuditLog()) {
       datasetFreshnessAssertionParameters.setAuditLog(mapAuditLogSpec(backendDatasetFreshnessAssertionParameters.getAuditLog()));
     }
+    if (backendDatasetFreshnessAssertionParameters.hasDataHubOperation()) {
+      datasetFreshnessAssertionParameters.setDataHubOperation(mapDataHubOperationSpec(backendDatasetFreshnessAssertionParameters.getDataHubOperation()));
+    }
     return datasetFreshnessAssertionParameters;
+  }
+
+  private static DatasetVolumeAssertionParameters mapDatasetVolumeAssertionParameters(
+      com.linkedin.monitor.DatasetVolumeAssertionParameters backendDatasetVolumeAssertionParameters) {
+    final DatasetVolumeAssertionParameters datasetVolumeAssertionParameters = new DatasetVolumeAssertionParameters();
+    datasetVolumeAssertionParameters.setSourceType(
+        DatasetVolumeSourceType.valueOf(backendDatasetVolumeAssertionParameters.getSourceType().name()));
+    return datasetVolumeAssertionParameters;
   }
 
   private static FreshnessFieldSpec mapFreshnessFieldSpec(com.linkedin.assertion.FreshnessFieldSpec backendFreshnessFieldSpec) {
@@ -143,6 +161,17 @@ public class MonitorMapper {
       auditLogSpec.setUserName(backendAuditLogSpec.getUserName());
     }
     return auditLogSpec;
+  }
+
+  private static DataHubOperationSpec mapDataHubOperationSpec(com.linkedin.monitor.DataHubOperationSpec backendOperationSpec) {
+    DataHubOperationSpec result = new DataHubOperationSpec();
+    if (backendOperationSpec.hasOperationTypes()) {
+      result.setOperationTypes(backendOperationSpec.getOperationTypes());
+    }
+    if (backendOperationSpec.hasCustomOperationTypes()) {
+      result.setCustomOperationTypes(backendOperationSpec.getCustomOperationTypes());
+    }
+    return result;
   }
 
   private static MonitorStatus mapMonitorStatus(com.linkedin.monitor.MonitorStatus backendStatus) {

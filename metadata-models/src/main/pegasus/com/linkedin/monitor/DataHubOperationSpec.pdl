@@ -1,0 +1,16 @@
+namespace com.linkedin.monitor
+
+/**
+* Information about the DataHub Operation aspect used to evaluate a freshness assertion
+**/
+record DataHubOperationSpec {
+  /**
+  * The list of operation types that should be monitored. If not provided, a default set will be used.
+  */
+  operationTypes: optional array[string]
+
+  /**
+  * The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
+  */
+  customOperationTypes: optional array[string]
+}

@@ -11,6 +11,8 @@ import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AuditLogSpec;
 import com.linkedin.monitor.DatasetFreshnessAssertionParameters;
 import com.linkedin.monitor.DatasetFreshnessSourceType;
+import com.linkedin.monitor.DatasetVolumeAssertionParameters;
+import com.linkedin.monitor.DatasetVolumeSourceType;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorStatus;
@@ -102,7 +104,14 @@ public class MonitorMapperTest {
         }
       }
     }
-
+    if (input.getAssertions().get(0).getParameters().hasDatasetVolumeParameters()) {
+      // Verify the dataset FRESHNESS parameters.
+      DatasetVolumeAssertionParameters
+          inputParams = input.getAssertions().get(0).getParameters().getDatasetVolumeParameters();
+      com.linkedin.datahub.graphql.generated.DatasetVolumeAssertionParameters outputParams =
+          output.getAssertions().get(0).getParameters().getDatasetVolumeParameters();
+      Assert.assertEquals(outputParams.getSourceType().toString(), inputParams.getSourceType().toString());
+    }
   }
 
   private EntityResponse createMonitorEntityResponse(final MonitorKey key, final MonitorInfo info) {
@@ -156,6 +165,9 @@ public class MonitorMapperTest {
                         .setField(new FreshnessFieldSpec()
                             .setNativeType("varchar").setType("STRING").setPath("name").setKind(FreshnessFieldKind.LAST_MODIFIED)
                         )
+                    )
+                    .setDatasetVolumeParameters(new DatasetVolumeAssertionParameters()
+                      .setSourceType(DatasetVolumeSourceType.QUERY)
                     )
                 )
           )
