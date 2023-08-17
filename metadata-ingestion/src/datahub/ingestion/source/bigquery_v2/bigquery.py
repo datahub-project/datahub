@@ -129,6 +129,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
+CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
 
 
 # We can't use close as it is not called if the ingestion is not successful
@@ -1161,7 +1162,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     tags.append(
                         TagAssociationClass(
                             make_tag_urn(
-                                f"CLUSTERING_COLUMN_{col.cluster_column_position}"
+                                f"{CLUSTERING_COLUMN_TAG}_{col.cluster_column_position}"
                             )
                         )
                     )
