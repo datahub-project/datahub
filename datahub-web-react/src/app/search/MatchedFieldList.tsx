@@ -32,8 +32,7 @@ const MatchText = styled(Typography.Text)`
     padding-right: 4px;
 `;
 
-// todo - revert to 3
-const MATCH_GROUP_LIMIT = 1;
+const MATCH_GROUP_LIMIT = 3;
 
 type Props = {
     fieldRenderer?: (field: MatchedField) => ReactNode;
@@ -65,26 +64,29 @@ export const MatchedFieldList = ({ fieldRenderer }: Props) => {
         <>
             {groupedMatches.length > 0 ? (
                 <MatchesContainer>
-                    {groupedMatches.map((groupedMatch) => (
-                        <MatchText key={groupedMatch.fieldName}>
-                            Matches {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}{' '}
-                            {groupedMatch.matchedFields.slice(0, MATCH_GROUP_LIMIT).map((field, index) => {
-                                const moreCount = Math.max(groupedMatch.matchedFields.length - MATCH_GROUP_LIMIT, 0);
-                                return (
+                    {groupedMatches.map((groupedMatch) => {
+                        const moreCount = Math.max(groupedMatch.matchedFields.length - MATCH_GROUP_LIMIT, 0);
+                        return (
+                            <MatchText key={groupedMatch.fieldName}>
+                                Matches {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}
+                                {groupedMatch.matchedFields.length > 1 && 's'}{' '}
+                                {groupedMatch.matchedFields.slice(0, MATCH_GROUP_LIMIT).map((field, index) => {
+                                    return (
+                                        <>
+                                            {index > 0 && ', '}
+                                            <>{renderField(field)}</>
+                                        </>
+                                    );
+                                })}
+                                {moreCount > 0 && (
                                     <>
-                                        {index > 0 && ', '}
-                                        <>{renderField(field)}</>
-                                        {moreCount > 0 && (
-                                            <>
-                                                {' '}
-                                                & <b>{moreCount} more</b>
-                                            </>
-                                        )}
+                                        {' '}
+                                        & <b>{moreCount} more</b>
                                     </>
-                                );
-                            })}
-                        </MatchText>
-                    ))}
+                                )}
+                            </MatchText>
+                        );
+                    })}
                 </MatchesContainer>
             ) : null}
         </>

@@ -144,7 +144,6 @@ export const getMatchesPrioritizingPrimary = (
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
-    // todo - need to update / consolidate with FIELDS_TO_HIGHLIGHT
     const highlightedMatches = matches.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
     return getMatchesGroupedByFieldName(highlightedMatches);
 };

@@ -32,7 +32,6 @@ export type MatchedFieldName =
     | 'editedFieldTags'
     | 'glossaryTerms'
     | 'editedFieldGlossaryTerms'
-    // todo - implement me
     | 'fieldLabels'
     | 'fieldPaths';
 
@@ -46,6 +45,7 @@ export type MatchFieldMapping = {
     terms: Array<MatchedFieldName>;
     fieldTerms: Array<MatchedFieldName>;
     fieldPaths: Array<MatchedFieldName>;
+    fieldLabels: Array<MatchedFieldName>;
 };
 
 export type NormalizedMatchedFieldName = keyof MatchFieldMapping;
@@ -59,7 +59,8 @@ const DEFAULT_FIELD_MAPPING: MatchFieldMapping = {
     fieldTags: ['editedFieldTags', 'fieldTags'],
     terms: ['glossaryTerms'],
     fieldTerms: ['editedFieldGlossaryTerms'],
-    fieldPaths: ['fieldLabels', 'fieldPaths'],
+    fieldPaths: ['fieldPaths'],
+    fieldLabels: ['fieldLabels'],
 };
 
 export const CORP_USER_FIELD_MAPPING: MatchFieldMapping = {
