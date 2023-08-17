@@ -30,6 +30,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { datasetMatchedFieldRenderer } from './datasetMatchedFieldRenderer';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -292,7 +293,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 parentContainers={data.parentContainers}
                 // todo - move this inside the preview containers, auto-render it
                 // only pass in an override when we need it?
-                snippet={<MatchedFieldList />}
+                snippet={<MatchedFieldList fieldRenderer={datasetMatchedFieldRenderer} />}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}

@@ -4,17 +4,15 @@ import { Typography } from 'antd';
 import styled from 'styled-components';
 import { TagSummary } from '../entity/dataset/shared/TagSummary';
 import { TermSummary } from '../entity/dataset/shared/TermSummary';
-import { FIELDS_TO_HIGHLIGHT } from '../entity/dataset/search/highlights';
-import { getMatchesPrioritizingPrimary } from '../entity/shared/utils';
-import { downgradeV2FieldPath } from '../entity/dataset/profile/schema/utils/utils';
 import { useMatchedFields } from './context/SearchResultContext';
 import { MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
+import { FIELDS_TO_HIGHLIGHT } from './context/constants';
+import { getMatchesPrioritizingPrimary } from './context/utils';
 
 // todo - modify this component to match the designs first
 // then, we can generalize it to all search cards
-// then, we can remove the ChartSnippet
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 
@@ -50,7 +48,6 @@ export const MatchedFieldList = ({ fieldRenderer }: Props) => {
         if (customRenderedField) return customRenderedField;
         if (field.value.includes('urn:li:tag')) return <TagSummary urn={field.value} mode="text" />;
         if (field.value.includes('urn:li:glossaryTerm')) return <TermSummary urn={field.value} mode="text" />;
-        if (field.name === 'fieldPaths') return <b>{downgradeV2FieldPath(field.value)}</b>;
         if (field.name.toLowerCase().includes('description') && query) {
             const queryIndex = field.value.indexOf(query);
             const start = Math.max(0, queryIndex - 10);

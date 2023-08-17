@@ -1,9 +1,7 @@
-import * as QueryString from 'query-string';
 import { Maybe } from 'graphql/jsutils/Maybe';
 
-import { Entity, EntityType, MatchedField, EntityRelationshipsResult, DataProduct } from '../../../types.generated';
+import { Entity, EntityType, EntityRelationshipsResult, DataProduct } from '../../../types.generated';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { FIELDS_TO_HIGHLIGHT } from '../dataset/search/highlights';
 import { GenericEntityProperties } from './types';
 
 export function dictToQueryStringParams(params: Record<string, string | boolean>) {
@@ -85,67 +83,6 @@ export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
  */
 export const isListSubset = (l1, l2): boolean => {
     return l1.every((result) => l2.indexOf(result) >= 0);
-};
-
-function normalize(value: string) {
-    return value.trim().toLowerCase();
-}
-
-function fromQueryGetBestMatch(
-    selectedMatchedFields: MatchedField[],
-    rawQuery: string,
-    primaryField: string,
-): Array<MatchedField> {
-    const query = normalize(rawQuery);
-    const primaryMatches: Array<MatchedField> = [];
-    const exactMatches: Array<MatchedField> = [];
-    const containedMatches: Array<MatchedField> = [];
-    const rest: Array<MatchedField> = [];
-
-    selectedMatchedFields.forEach((field) => {
-        const normalizedValue = normalize(field.value);
-        if (field.name === primaryField) primaryMatches.push(field);
-        else if (normalizedValue === query) exactMatches.push(field);
-        else if (normalizedValue.includes(query)) containedMatches.push(field);
-        else rest.push(field);
-    });
-
-    return [...primaryMatches, ...exactMatches, ...containedMatches, ...rest];
-}
-
-type MatchesGroupedByFieldName = Array<{
-    fieldName: string;
-    matchedFields: Array<MatchedField>;
-}>;
-
-const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): MatchesGroupedByFieldName => {
-    const fieldNameToMatches = new Map<string, Array<MatchedField>>();
-    const fieldNames: Array<string> = [];
-    matchedFields.forEach((field) => {
-        const matchesInMap = fieldNameToMatches.get(field.name);
-        if (matchesInMap) {
-            matchesInMap.push(field);
-        } else {
-            fieldNameToMatches.set(field.name, [field]);
-            fieldNames.push(field.name);
-        }
-    });
-    return fieldNames.map((fieldName) => ({
-        fieldName,
-        matchedFields: fieldNameToMatches.get(fieldName) ?? [],
-    }));
-};
-
-export const getMatchesPrioritizingPrimary = (
-    matchedFields: MatchedField[],
-    primaryField: string,
-): MatchesGroupedByFieldName => {
-    const { location } = window;
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
-    const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
-    const highlightedMatches = matches.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
-    return getMatchesGroupedByFieldName(highlightedMatches);
 };
 
 function getGraphqlErrorCode(e) {

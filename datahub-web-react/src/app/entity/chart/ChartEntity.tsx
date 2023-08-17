@@ -19,7 +19,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
-import { chartMatchedFieldRenderer } from './ChartSnippet';
+import { chartMatchedFieldRenderer } from './chartMatchedFieldRenderer';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
