@@ -7,7 +7,6 @@ import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.SearchUtils;
 import lombok.extern.slf4j.Slf4j;
