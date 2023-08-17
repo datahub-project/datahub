@@ -789,7 +789,7 @@ class LookerExplore:
         if self.upstream_views is not None:
             assert self.project_name is not None
             upstreams = []
-            observed_lineage_ts = datetime.datetime.now()
+            observed_lineage_ts = datetime.datetime.now(tz=datetime.timezone.utc)
             for view_ref in sorted(self.upstream_views):
                 view_urn = LookerViewId(
                     project_name=view_ref.project
