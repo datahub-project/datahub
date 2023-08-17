@@ -218,7 +218,7 @@ public class SettingsBuilder {
 
     filters.put(MIN_LENGTH, ImmutableMap.<String, Object>builder()
             .put(TYPE, "length")
-            .put("min", "3")
+            .put("min", "2")
             .build());
 
     Resource stemOverride = resourceResolver.getResource("classpath:elasticsearch/stem_override.txt");
