@@ -34,7 +34,8 @@ CREATE TABLE Foo.Persons (
 GO
 CREATE TABLE Foo.SalesReason 
    (
-      TempID int NOT NULL, 
+      TempID int NOT NULL,
+      SomeId UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
       Name nvarchar(50)
       , CONSTRAINT PK_TempSales PRIMARY KEY NONCLUSTERED (TempID)
       , CONSTRAINT FK_TempSales_SalesReason FOREIGN KEY (TempID)
@@ -60,4 +61,4 @@ EXEC sys.sp_addextendedproperty
 @level0type = N'SCHEMA', @level0name = 'Foo',  
 @level1type = N'TABLE', @level1name = 'Persons',   
 @level2type = N'COLUMN',@level2name = 'LastName';  
-GO  
+GO
