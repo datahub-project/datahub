@@ -1,9 +1,9 @@
 ## Advanced Configurations
 
 ### Working with Platform Instances
-If you've multiple instances of kafka OR source/sink systems that are referred in your kafka-connect, you'd need to configure platform instance for these systems in kafka-connect recipe to generate correct lineage edges. You must have already set `platform_instance` in recipes of original source/sink systems. Refer the document [Working with Platform Instances](https://datahubproject.io/docs/platform-instances) to understand more about this.
+If you've multiple instances of kafka OR source/sink systems that are referred in your `kafka-connect` setup, you'd need to configure platform instance for these systems in `kafka-connect` recipe to generate correct lineage edges. You must have already set `platform_instance` in recipes of original source/sink systems. Refer the document [Working with Platform Instances](https://datahubproject.io/docs/platform-instances) to understand more about this.
 
-There are two options available to declare source/sink system's `platform_instance` in kafka-connect recipe. If single instance of platform is used across all kafka-connect connectors, you can use `platform_instance_map` to specify platform_instance to use for a platform when constructing URNs for lineage.
+There are two options available to declare source/sink system's `platform_instance` in `kafka-connect` recipe. If single instance of platform is used across all `kafka-connect` connectors, you can use `platform_instance_map` to specify platform_instance to use for a platform when constructing URNs for lineage.
 
 Example:
 ```yml
@@ -13,7 +13,7 @@ Example:
       mysql: mysql_platform_instance
 
 ```
-If multiple instances of platform are used across kafka-connect connectors, you'd need to specify platform_instance to use for platform for every connector.
+If multiple instances of platform are used across `kafka-connect` connectors, you'd need to specify platform_instance to use for platform for every connector.
 
 #### Example - Multiple MySQL Source Connectors each reading from different mysql instance
 ```yml
@@ -25,7 +25,7 @@ If multiple instances of platform are used across kafka-connect connectors, you'
       mysql_connector2:
         mysql: mysql_instance2
 ```
-Here mysql_connector1 and mysql_connector2 are names of MySQL source connectors as defined in kafka-connect connector config.
+Here mysql_connector1 and mysql_connector2 are names of MySQL source connectors as defined in `kafka-connect` connector config.
 
 #### Example - Multiple MySQL Source Connectors each reading from difference mysql instance and writing to different kafka cluster
 ```yml
