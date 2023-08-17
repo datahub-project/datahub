@@ -24,12 +24,13 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
-import { ChartSnippet } from '../chart/ChartSnippet';
+import { chartMatchedFieldRenderer } from '../chart/ChartSnippet';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
+import { MatchedFieldList } from '../../search/MatchedFieldList';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -226,7 +227,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 statsSummary={data.statsSummary}
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
-                snippet={<ChartSnippet matchedFields={result.matchedFields} inputFields={data.inputFields} />}
+                snippet={
+                    <MatchedFieldList fieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)} />
+                }
                 subtype={data.subTypes?.typeNames?.[0]}
                 degree={(result as any).degree}
                 paths={(result as any).paths}

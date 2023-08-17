@@ -25,7 +25,7 @@ import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import { DatasetSearchSnippet } from './DatasetSearchSnippet';
+import { MatchedFieldList } from '../../search/MatchedFieldList';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -290,7 +290,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
                 parentContainers={data.parentContainers}
-                snippet={<DatasetSearchSnippet />}
+                // todo - move this inside the preview containers, auto-render it
+                // only pass in an override when we need it?
+                snippet={<MatchedFieldList />}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}

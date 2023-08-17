@@ -34,7 +34,7 @@ import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
-import SearchHighlighter from '../search/highlight/SearchHighlighter';
+import SearchTextHighlighter from '../search/highlight/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 
 const PreviewContainer = styled.div`
@@ -290,7 +290,7 @@ export default function DefaultPreviewCard({
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    <SearchHighlighter field="name" text={name || ''} />
+                                    <SearchTextHighlighter field="name" text={name || ''} />
                                 </EntityTitle>
                             )}
                         </Link>
@@ -338,7 +338,7 @@ export default function DefaultPreviewCard({
                                     </Typography.Link>
                                 ) : undefined
                             }
-                            customRender={(text) => <SearchHighlighter field="description" text={text} />}
+                            customRender={(text) => <SearchTextHighlighter field="description" text={text} />}
                         >
                             {description}
                         </NoMarkdownViewer>

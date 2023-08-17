@@ -16,7 +16,7 @@ const StyledHighlight = styled(Highlight).attrs((props) => ({
     matchStyle: { background: props.theme.styles['highlight-color'] },
 }))``;
 
-const SearchHighlighter = ({ field, text }: Props) => {
+const SearchTextHighlighter = ({ field, text }: Props) => {
     const matchedField = useMatchedFieldsByNormalizedFieldName(field);
     const hasMatchedField = !!matchedField?.length;
     const normalizedSearchQuery = useSearchQuery()?.trim().toLowerCase();
@@ -36,4 +36,4 @@ const SearchHighlighter = ({ field, text }: Props) => {
     );
 };
 
-export default SearchHighlighter;
+export default SearchTextHighlighter;

@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../shared/constants';
 import { IconStyleType } from '../../Entity';
 import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
-import SearchHighlighter from '../../../search/highlight/SearchHighlighter';
+import SearchTextHighlighter from '../../../search/highlight/SearchTextHighlighter';
 
 const PreviewContainer = styled.div`
     margin-bottom: 4px;
@@ -88,7 +88,7 @@ export const Preview = ({
                             <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
                         </PlatformInfo>
                         <Link to={url}>
-                            <EntityTitle>{name ? <SearchHighlighter field="name" text={name} /> : urn}</EntityTitle>
+                            <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
                             <MemberCountContainer>
                                 <Tag>{membersCount} members</Tag>
                             </MemberCountContainer>
@@ -99,7 +99,7 @@ export const Preview = ({
                     <DescriptionContainer>
                         <NoMarkdownViewer
                             limit={200}
-                            customRender={(text) => <SearchHighlighter field="description" text={text} />}
+                            customRender={(text) => <SearchTextHighlighter field="description" text={text} />}
                         >
                             {description}
                         </NoMarkdownViewer>
