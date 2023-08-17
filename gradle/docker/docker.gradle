@@ -21,6 +21,7 @@ ext.getDockerContainers = {
 
 ext.cleanLocalDockerImages = {
     String docker_registry, String docker_repo, String docker_tag ->
+        println("Docker image string: ${docker_registry}/${docker_repo}:${docker_tag}")
         def containers = getDockerContainers(docker_registry, docker_repo, docker_tag)
         if(!containers.isEmpty()) {
             println "Stopping containers: $containers"
@@ -35,6 +36,7 @@ ext.cleanLocalDockerImages = {
         if(!images.isEmpty()) {
             println "Removing images: $images"
             exec {
+                ignoreExitValue true // may not work if used by downstream image
                 commandLine = ["docker", "rmi", "-f"] + images
             }
         }
