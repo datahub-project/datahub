@@ -3,7 +3,7 @@ import React from 'react';
 import { Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
 import { useMatchedFields } from './context/SearchResultContext';
-import { EntityType, MatchedField } from '../../types.generated';
+import { MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
 import { FIELDS_TO_HIGHLIGHT, MatchesGroupedByFieldName } from './context/constants';
@@ -47,10 +47,7 @@ const RenderedField = ({
     const query = useSearchQuery()?.trim().toLowerCase();
     const customRenderedField = customFieldRenderer?.(field);
     if (customRenderedField) return <b>{customRenderedField}</b>;
-    if (field.value.includes('urn:li:tag') && field.entity)
-        return <>{entityRegistry.getDisplayName(EntityType.Tag, field.entity)}</>;
-    if (field.value.includes('urn:li:glossaryTerm') && field.entity)
-        return <>{entityRegistry.getDisplayName(EntityType.GlossaryTerm, field.entity)}</>;
+    if (field.entity) return <>{entityRegistry.getDisplayName(field.entity.type, field.entity)}</>;
     if (field.name.toLowerCase().includes('description') && query) {
         const queryIndex = field.value.indexOf(query);
         const start = Math.max(0, queryIndex - SURROUNDING_DESCRIPTION_CHARS);
