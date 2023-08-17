@@ -182,14 +182,12 @@ public class MappingsBuilder {
   private static Map<String, Object> getMappingsForFieldNameAliases(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
     Map<String, Object> mappings = new HashMap<>();
     List<String> fieldNameAliases = searchableFieldSpec.getSearchableAnnotation().getFieldNameAliases();
-    if (fieldNameAliases.size() > 0) {
-      fieldNameAliases.forEach(alias -> {
-        Map<String, Object> aliasMappings = new HashMap<>();
-        aliasMappings.put(TYPE, ALIAS);
-        aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
-        mappings.put(alias, aliasMappings);
-      });
-    }
+    fieldNameAliases.forEach(alias -> {
+      Map<String, Object> aliasMappings = new HashMap<>();
+      aliasMappings.put(TYPE, ALIAS);
+      aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
+      mappings.put(alias, aliasMappings);
+    });
     return mappings;
   }
 }
