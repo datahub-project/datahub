@@ -61,7 +61,8 @@ def metadata_file(json_file: str, rewrite: bool, unpack_mces: bool) -> None:
                         "type": "file",
                         "config": {"filename": out_file.name},
                     },
-                }
+                },
+                no_default_report=True,
             )
 
             pipeline.run()

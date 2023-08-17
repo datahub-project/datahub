@@ -24,7 +24,7 @@ services:
   datahub-actions:
     container_name: datahub-actions
     hostname: actions
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
     env_file: datahub-actions/env/docker.env
     depends_on:
       datahub-gms:
@@ -189,7 +189,7 @@ services:
     env_file: zookeeper/env/docker.env
     healthcheck:
       test: echo srvr | nc zookeeper 2181
-      start_period: 2s
+      start_period: 45s
       interval: 5s
       retries: 5
       timeout: 5s

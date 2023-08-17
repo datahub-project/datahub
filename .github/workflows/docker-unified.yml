@@ -64,7 +64,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-service:war:build -x test --parallel
@@ -122,7 +122,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mae-consumer-job:build -x test --parallel
@@ -180,7 +180,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :metadata-jobs:mce-consumer-job:build -x test --parallel
@@ -238,7 +238,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-upgrade:build -x test --parallel
@@ -296,7 +296,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Pre-build artifacts for docker image
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
@@ -356,7 +356,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -378,7 +378,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -400,7 +400,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 800
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -490,6 +490,9 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Disable datahub-actions
+        run: |
+          yq -i 'del(.services.datahub-actions)' docker/quickstart/docker-compose-without-neo4j.quickstart.yml
       - name: run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
@@ -501,6 +504,20 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+          -H 'Content-Type: application/json' -d'{
+            "persistent": {
+              "cluster": {
+                "routing": {
+                  "allocation.disk.threshold_enabled": false
+                }
+              }
+            }
+          }'
+      - name: Remove Source Code
+        run: find ./*/* ! -path "./metadata-ingestion*" ! -path "./smoke-test*" ! -path "./gradle*" -delete
       - name: Smoke test
         env:
           RUN_QUICKSTART: false

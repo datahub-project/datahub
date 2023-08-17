@@ -328,7 +328,7 @@ class SchemaResolver(Closeable):
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
@@ -336,7 +336,7 @@ class SchemaResolver(Closeable):
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "."
-            not in DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath)
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     # TODO add a method to load all from graphql
@@ -761,6 +761,54 @@ def sqlglot_lineage(
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
+    """Parse a SQL statement and generate lineage information.
+
+    This is a schema-aware lineage generator, meaning that it will use the
+    schema information for the tables involved to generate lineage information
+    for the columns involved. The schema_resolver is responsible for providing
+    the table schema information.
+
+    The parser supports most types of DML statements (SELECT, INSERT, UPDATE,
+    DELETE, MERGE) as well as CREATE TABLE AS SELECT (CTAS) statements. It
+    does not support DDL statements (CREATE TABLE, ALTER TABLE, etc.).
+
+    The table-level lineage tends to be fairly reliable, while column-level
+    can be brittle with respect to missing schema information and complex
+    SQL logic like UNNESTs.
+
+    The SQL dialect is inferred from the schema_resolver's platform. The
+    set of supported dialects is the same as sqlglot's. See their
+    `documentation <https://sqlglot.com/sqlglot/dialects/dialect.html#Dialects>`_
+    for the full list.
+
+    The default_db and default_schema parameters are used to resolve unqualified
+    table names. For example, the statement "SELECT * FROM my_table" would be
+    converted to "SELECT * FROM default_db.default_schema.my_table".
+
+    Args:
+        sql: The SQL statement to parse. This should be a single statement, not
+            a multi-statement string.
+        schema_resolver: The schema resolver to use for resolving table schemas.
+        default_db: The default database to use for unqualified table names.
+        default_schema: The default schema to use for unqualified table names.
+
+    Returns:
+        A SqlParsingResult object containing the parsed lineage information.
+
+        The in_tables and out_tables fields contain the input and output tables
+        for the statement, respectively. These are represented as urns.
+        The out_tables field will be empty for SELECT statements.
+
+        The column_lineage field contains the column-level lineage information
+        for the statement. This is a list of ColumnLineageInfo objects, each
+        representing the lineage for a single output column. The downstream
+        field contains the output column, and the upstreams field contains the
+        (urn, column) pairs for the input columns.
+
+        The debug_info field contains debug information about the parsing. If
+        table_error or column_error are set, then the parsing failed and the
+        other fields may be incomplete.
+    """
     try:
         return _sqlglot_lineage_inner(
             sql=sql,

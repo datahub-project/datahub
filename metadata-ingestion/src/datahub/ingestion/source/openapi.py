@@ -18,7 +18,6 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.openapi_parser import (
     clean_url,
@@ -213,9 +212,6 @@ class APISource(Source, ABC):
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return ApiWorkUnit(id=dataset_name, mce=mce)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
-
     def get_workunits_internal(self) -> Iterable[ApiWorkUnit]:  # noqa: C901
         config = self.config
 
@@ -250,6 +246,12 @@ class APISource(Source, ABC):
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
                 dataset_snapshot.aspects.append(schema_metadata)
                 yield self.build_wu(dataset_snapshot, dataset_name)
+            elif endpoint_dets["method"] != "get":
+                self.report.report_warning(
+                    key=endpoint_k,
+                    reason=f"No example provided for {endpoint_dets['method']}",
+                )
+                continue  # Only test endpoints if they're GETs
             elif (
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters

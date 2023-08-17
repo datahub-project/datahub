@@ -152,6 +152,7 @@ export const HomePageHeader = () => {
     const showAcrylInfo = useIsShowAcrylInfoEnabled();
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
+    const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -271,6 +272,8 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
+                        viewsEnabled={viewsEnabled}
+                        combineSiblings
                         showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (
