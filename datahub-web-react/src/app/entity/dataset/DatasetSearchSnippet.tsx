@@ -10,6 +10,7 @@ import { downgradeV2FieldPath } from './profile/schema/utils/utils';
 import { useMatchedFields } from '../../search/context/SearchResultContext';
 import { MatchedField } from '../../../types.generated';
 import { ANTD_GRAY_V2 } from '../shared/constants';
+import { useSearchQuery } from '../../search/context/SearchContext';
 
 // todo - modify this component to match the designs first
 // then, we can generalize it to all search cards
@@ -35,6 +36,7 @@ const MatchText = styled(Typography.Text)`
 const MATCH_GROUP_LIMIT = 1;
 
 export const DatasetSearchSnippet = () => {
+    const query = useSearchQuery()?.trim().toLowerCase();
     const matchedFields = useMatchedFields();
     const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
 
@@ -44,6 +46,15 @@ export const DatasetSearchSnippet = () => {
         if (field.value.includes('urn:li:tag')) return <TagSummary urn={field.value} mode="text" />;
         if (field.value.includes('urn:li:glossaryTerm')) return <TermSummary urn={field.value} mode="text" />;
         if (field.name === 'fieldPaths') return <b>{downgradeV2FieldPath(field.value)}</b>;
+        // todo - for any description column, don't output the whole value, just output the ellipsis match...
+        // todo - for dataset description, we already show that, don't need to repeat it down here
+        if (field.name.toLowerCase().includes('description') && query) {
+            const queryIndex = field.value.indexOf(query);
+            const start = Math.max(0, queryIndex - 10);
+            const end = Math.min(field.value.length, queryIndex + query.length + 10);
+            const value = field.value.slice(start, end);
+            return <b>...{value}...</b>;
+        }
         return <b>{field.value}</b>;
     };
 
