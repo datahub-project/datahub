@@ -1,7 +1,6 @@
 import * as QueryString from 'query-string';
 import { EntityType, MatchedField } from '../../../types.generated';
 import {
-    FIELDS_TO_HIGHLIGHT,
     MATCHED_FIELD_MAPPING,
     MatchFieldMapping,
     MatchedFieldName,
@@ -78,11 +77,12 @@ const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): Array
 export const getMatchesPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
+    filter: (field: MatchedField) => boolean,
 ): Array<MatchesGroupedByFieldName> => {
     const { location } = window;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
-    const highlightedMatches = matches.filter((field) => FIELDS_TO_HIGHLIGHT.has(field.name));
+    const highlightedMatches = matches.filter(filter);
     return getMatchesGroupedByFieldName(highlightedMatches);
 };

@@ -6,9 +6,21 @@ import { useMatchedFields } from './context/SearchResultContext';
 import { MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
-import { FIELDS_TO_HIGHLIGHT, MatchesGroupedByFieldName } from './context/constants';
+import { MatchedFieldName, MatchesGroupedByFieldName } from './context/constants';
 import { getMatchesPrioritizingPrimary } from './context/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
+
+export const FIELDS_TO_HIGHLIGHT_MAPPING = new Map<MatchedFieldName, string>();
+FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldPaths', 'column');
+FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldDescriptions', 'column description');
+FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldTags', 'column tag');
+FIELDS_TO_HIGHLIGHT_MAPPING.set('editedFieldDescriptions', 'column description');
+FIELDS_TO_HIGHLIGHT_MAPPING.set('editedFieldTags', 'column tag');
+FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldLabels', 'label');
+FIELDS_TO_HIGHLIGHT_MAPPING.set('editedFieldGlossaryTerms', 'column term');
+
+const getFieldText = (fieldName: string) => FIELDS_TO_HIGHLIGHT_MAPPING.get(fieldName as MatchedFieldName);
+const isHighlightable = (field: MatchedField) => FIELDS_TO_HIGHLIGHT_MAPPING.has(field.name as MatchedFieldName);
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 
@@ -87,7 +99,7 @@ const MatchedFieldsList = ({
     return (
         <>
             Matches {count > 1 && `${count} `}
-            {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}
+            {getFieldText(groupedMatch.fieldName)}
             {count > 1 && 's'}{' '}
             {groupedMatch.matchedFields.slice(0, limit).map((field, index) => (
                 <>
@@ -111,7 +123,7 @@ const MatchedFieldsList = ({
 
 export const MatchedFieldList = ({ customFieldRenderer }: Props) => {
     const matchedFields = useMatchedFields();
-    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
+    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME, isHighlightable);
 
     return (
         <>

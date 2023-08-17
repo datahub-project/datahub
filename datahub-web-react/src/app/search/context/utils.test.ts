@@ -1,4 +1,13 @@
+import { MatchedField } from '../../../types.generated';
+import { MatchedFieldName } from './constants';
 import { getMatchesPrioritizingPrimary } from './utils';
+
+const mapping = new Map();
+mapping.set('fieldPaths', 'column');
+mapping.set('fieldDescriptions', 'column description');
+mapping.set('fieldTags', 'column tag');
+
+const isHighlightable = (field: MatchedField) => mapping.has(field.name as MatchedFieldName);
 
 const MOCK_MATCHED_FIELDS = [
     {
@@ -23,7 +32,7 @@ describe('utils', () => {
     describe('getMatchPrioritizingPrimary', () => {
         it('prioritizes exact match', () => {
             global.window.location.search = 'query=rainbow';
-            const groupedMatches = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths', isHighlightable);
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -41,7 +50,7 @@ describe('utils', () => {
         });
         it('will accept first contains match', () => {
             global.window.location.search = 'query=bow';
-            const groupedMatches = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths', isHighlightable);
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
