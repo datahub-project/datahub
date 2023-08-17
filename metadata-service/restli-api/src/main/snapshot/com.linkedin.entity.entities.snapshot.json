@@ -5727,12 +5727,6 @@
       "doc" : "Whether to skip aggregates/facets",
       "default" : false,
       "optional" : true
-    }, {
-      "name" : "getSuggestions",
-      "type" : "boolean",
-      "doc" : "Whether to request for search suggestions on the _entityName virtualized field",
-      "default" : false,
-      "optional" : true
     } ]
   }, {
     "type" : "enum",
