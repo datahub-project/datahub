@@ -355,7 +355,9 @@ class RedshiftLineageExtractor:
         if self.config.table_lineage_mode == LineageMode.STL_SCAN_BASED:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
-                self.config.database, self.lineage_start_time, self.lineage_end_time
+                self.config.database,
+                self.config.start_time,
+                self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
         elif self.config.table_lineage_mode == LineageMode.SQL_BASED:

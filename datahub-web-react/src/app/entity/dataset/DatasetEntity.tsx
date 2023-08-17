@@ -301,6 +301,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
                 }
                 health={data.health}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

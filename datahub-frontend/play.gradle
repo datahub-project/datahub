@@ -28,6 +28,9 @@ dependencies {
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
     }
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
   }
 
   compile project(":metadata-service:restli-client")
