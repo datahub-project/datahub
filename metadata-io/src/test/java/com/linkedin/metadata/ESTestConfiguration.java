@@ -141,6 +141,6 @@ public class ESTestConfiguration {
     @Bean(name = "longTailEntityRegistry")
     public EntityRegistry longTailEntityRegistry() throws EntityRegistryException {
         return new ConfigEntityRegistry(
-                ESTestConfiguration.class.getClassLoader().getResourceAsStream("longtail-sample-data-entity-registry.yml"));
+                ESTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
     }
 }

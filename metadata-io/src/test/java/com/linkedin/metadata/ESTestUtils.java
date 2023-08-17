@@ -85,8 +85,8 @@ public class ESTestUtils {
             100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
     }
 
-    public static SearchResult searchAcrossLongtailEntities(SearchService searchService, String query) {
-        return searchService.searchAcrossEntities(SEARCHABLE_LONGTAIL_ENTITIES, query, null, null, 0,
+    public static SearchResult searchAcrossCustomEntities(SearchService searchService, String query, List<String> searchable_entities) {
+        return searchService.searchAcrossEntities(searchable_entities, query, null, null, 0,
                 100, new SearchFlags().setFulltext(true).setSkipCache(true));
     }
 
