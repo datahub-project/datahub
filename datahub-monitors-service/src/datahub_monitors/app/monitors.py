@@ -16,6 +16,7 @@ from datahub_monitors.connection.datahub_ingestion_source_connection_provider im
     DataHubIngestionSourceConnectionProvider,
 )
 from datahub_monitors.fetcher.fetcher import MonitorFetcher
+from datahub_monitors.fetcher.types import MonitorFetcherConfig
 from datahub_monitors.manager.manager import MonitorManager
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.state.datahub_monitor_state_provider import (
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 manager = None
 
 
-def start_async_monitors() -> None:
+def start_async_monitors(config: MonitorFetcherConfig) -> None:
     try:
         # Create DataHub Client
         DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
@@ -41,7 +42,7 @@ def start_async_monitors() -> None:
         )
 
         # Create a fetcher
-        fetcher = MonitorFetcher(graph)
+        fetcher = MonitorFetcher(graph, config)
 
         # Create secret store for resolving recipe credentials
         datahub_secret_store = DataHubSecretStore.create({"graph_client": graph})
