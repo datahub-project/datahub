@@ -1,4 +1,4 @@
-import { EntityType, SortOrder } from '../../../types.generated';
+import { EntityType, MatchedField, SortOrder } from '../../../types.generated';
 
 export const RELEVANCE = 'relevance';
 export const NAME_FIELD = 'name';
@@ -49,6 +49,11 @@ export type MatchFieldMapping = {
 };
 
 export type NormalizedMatchedFieldName = keyof MatchFieldMapping;
+
+export type MatchesGroupedByFieldName = {
+    fieldName: string;
+    matchedFields: Array<MatchedField>;
+};
 
 const DEFAULT_FIELD_MAPPING: MatchFieldMapping = {
     name: ['qualifiedName', 'displayName', 'name'],

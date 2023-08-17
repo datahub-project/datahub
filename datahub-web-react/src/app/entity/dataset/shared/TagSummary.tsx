@@ -12,16 +12,11 @@ const TagLink = styled.span`
 
 type Props = {
     urn: string;
-    mode?: 'text' | 'default';
 };
 
-export const TagSummary = ({ urn, mode = 'text' }: Props) => {
+export const TagSummary = ({ urn }: Props) => {
     const entityRegistry = useEntityRegistry();
     const { data } = useGetTagQuery({ variables: { urn } });
-    const tagName = data ? entityRegistry.getDisplayName(EntityType.Tag, data?.tag) : null;
-
-    if (mode === 'text') return <>{tagName}</>;
-
     return (
         <>
             {data && (
@@ -33,7 +28,7 @@ export const TagSummary = ({ urn, mode = 'text' }: Props) => {
                             $color={data?.tag?.properties?.colorHex}
                             closable={false}
                         >
-                            {tagName}
+                            {entityRegistry.getDisplayName(EntityType.Tag, data?.tag)}
                         </StyledTag>
                     </TagLink>
                 </HoverEntityTooltip>

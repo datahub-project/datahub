@@ -5,6 +5,7 @@ import {
     MATCHED_FIELD_MAPPING,
     MatchFieldMapping,
     MatchedFieldName,
+    MatchesGroupedByFieldName,
     NormalizedMatchedFieldName,
 } from './constants';
 
@@ -56,12 +57,7 @@ function fromQueryGetBestMatch(
     return [...exactMatches, ...containedMatches, ...rest];
 }
 
-type MatchesGroupedByFieldName = Array<{
-    fieldName: string;
-    matchedFields: Array<MatchedField>;
-}>;
-
-const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): MatchesGroupedByFieldName => {
+const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): Array<MatchesGroupedByFieldName> => {
     const fieldNameToMatches = new Map<string, Array<MatchedField>>();
     const fieldNames: Array<string> = [];
     matchedFields.forEach((field) => {
@@ -82,7 +78,7 @@ const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): Match
 export const getMatchesPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
-): MatchesGroupedByFieldName => {
+): Array<MatchesGroupedByFieldName> => {
     const { location } = window;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');

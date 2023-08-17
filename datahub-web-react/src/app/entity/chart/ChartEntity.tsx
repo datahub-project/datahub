@@ -205,7 +205,9 @@ export class ChartEntity implements Entity<Chart> {
                 createdMs={data.properties?.created?.time}
                 externalUrl={data.properties?.externalUrl}
                 snippet={
-                    <MatchedFieldList fieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)} />
+                    <MatchedFieldList
+                        customFieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)}
+                    />
                 }
                 degree={(result as any).degree}
                 paths={(result as any).paths}

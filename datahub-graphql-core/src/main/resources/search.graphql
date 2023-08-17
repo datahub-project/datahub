@@ -665,6 +665,11 @@ type MatchedField {
   Value of the field that matched
   """
   value: String!
+
+  """
+  Entity if the value was an urn
+  """
+  entity: Entity
 }
 
 """

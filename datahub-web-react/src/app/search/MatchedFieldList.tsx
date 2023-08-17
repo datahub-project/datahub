@@ -1,18 +1,14 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
 
-import { Typography } from 'antd';
+import { Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
-import { TagSummary } from '../entity/dataset/shared/TagSummary';
-import { TermSummary } from '../entity/dataset/shared/TermSummary';
 import { useMatchedFields } from './context/SearchResultContext';
-import { MatchedField } from '../../types.generated';
+import { EntityType, MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
-import { FIELDS_TO_HIGHLIGHT } from './context/constants';
+import { FIELDS_TO_HIGHLIGHT, MatchesGroupedByFieldName } from './context/constants';
 import { getMatchesPrioritizingPrimary } from './context/utils';
-
-// todo - modify this component to match the designs first
-// then, we can generalize it to all search cards
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 
@@ -30,57 +26,115 @@ const MatchText = styled(Typography.Text)`
     padding-right: 4px;
 `;
 
+const SURROUNDING_DESCRIPTION_CHARS = 10;
 const MATCH_GROUP_LIMIT = 3;
+const TOOLTIP_MATCH_GROUP_LIMIT = 10;
+
+type CustomFieldRenderer = (field: MatchedField) => JSX.Element | null;
 
 type Props = {
-    fieldRenderer?: (field: MatchedField) => ReactNode;
+    customFieldRenderer?: CustomFieldRenderer;
 };
 
-// todo - rename/move this to a generic location
-export const MatchedFieldList = ({ fieldRenderer }: Props) => {
+const RenderedField = ({
+    customFieldRenderer,
+    field,
+}: {
+    customFieldRenderer?: CustomFieldRenderer;
+    field: MatchedField;
+}) => {
+    const entityRegistry = useEntityRegistry();
     const query = useSearchQuery()?.trim().toLowerCase();
+    const customRenderedField = customFieldRenderer?.(field);
+    if (customRenderedField) return <b>{customRenderedField}</b>;
+    if (field.value.includes('urn:li:tag') && field.entity)
+        return <>{entityRegistry.getDisplayName(EntityType.Tag, field.entity)}</>;
+    if (field.value.includes('urn:li:glossaryTerm') && field.entity)
+        return <>{entityRegistry.getDisplayName(EntityType.GlossaryTerm, field.entity)}</>;
+    if (field.name.toLowerCase().includes('description') && query) {
+        const queryIndex = field.value.indexOf(query);
+        const start = Math.max(0, queryIndex - SURROUNDING_DESCRIPTION_CHARS);
+        const end = Math.min(field.value.length, queryIndex + query.length + SURROUNDING_DESCRIPTION_CHARS);
+        const startEllipsis = start > 0 ? '...' : undefined;
+        const endEllipsis = end < field.value.length ? '...' : undefined;
+        return (
+            <b>
+                {startEllipsis}
+                {field.value.slice(start, end)}
+                {endEllipsis}
+            </b>
+        );
+    }
+    return <b>{field.value}</b>;
+};
+
+const MatchedFieldsList = ({
+    groupedMatch,
+    limit,
+    tooltip,
+    customFieldRenderer,
+}: {
+    groupedMatch: MatchesGroupedByFieldName;
+    limit: number;
+    tooltip?: JSX.Element;
+    customFieldRenderer?: CustomFieldRenderer;
+}) => {
+    const count = groupedMatch.matchedFields.length;
+    const moreCount = Math.max(count - limit, 0);
+    const andMore = (
+        <>
+            {' '}
+            & <b>more</b>
+        </>
+    );
+    return (
+        <>
+            Matches {count > 1 && `${count} `}
+            {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}
+            {count > 1 && 's'}{' '}
+            {groupedMatch.matchedFields.slice(0, limit).map((field, index) => (
+                <>
+                    {index > 0 && ', '}
+                    <>
+                        <RenderedField field={field} customFieldRenderer={customFieldRenderer} />
+                    </>
+                </>
+            ))}
+            {moreCount > 0 &&
+                (tooltip ? (
+                    <Tooltip title={tooltip} placement="bottom" mouseEnterDelay={1}>
+                        {andMore}
+                    </Tooltip>
+                ) : (
+                    <>{andMore}</>
+                ))}
+        </>
+    );
+};
+
+export const MatchedFieldList = ({ customFieldRenderer }: Props) => {
     const matchedFields = useMatchedFields();
     const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
-
-    // todo - implement tooltip but limit rendering to only 10
-    const renderField = (field: MatchedField) => {
-        const customRenderedField = fieldRenderer?.(field);
-        if (customRenderedField) return customRenderedField;
-        if (field.value.includes('urn:li:tag')) return <TagSummary urn={field.value} mode="text" />;
-        if (field.value.includes('urn:li:glossaryTerm')) return <TermSummary urn={field.value} mode="text" />;
-        if (field.name.toLowerCase().includes('description') && query) {
-            const queryIndex = field.value.indexOf(query);
-            const start = Math.max(0, queryIndex - 10);
-            const end = Math.min(field.value.length, queryIndex + query.length + 10);
-            return <b>...{field.value.slice(start, end)}...</b>;
-        }
-        return <b>{field.value}</b>;
-    };
 
     return (
         <>
             {groupedMatches.length > 0 ? (
                 <MatchesContainer>
                     {groupedMatches.map((groupedMatch) => {
-                        const moreCount = Math.max(groupedMatch.matchedFields.length - MATCH_GROUP_LIMIT, 0);
                         return (
                             <MatchText key={groupedMatch.fieldName}>
-                                Matches {FIELDS_TO_HIGHLIGHT.get(groupedMatch.fieldName)}
-                                {groupedMatch.matchedFields.length > 1 && 's'}{' '}
-                                {groupedMatch.matchedFields.slice(0, MATCH_GROUP_LIMIT).map((field, index) => {
-                                    return (
-                                        <>
-                                            {index > 0 && ', '}
-                                            <>{renderField(field)}</>
-                                        </>
-                                    );
-                                })}
-                                {moreCount > 0 && (
-                                    <>
-                                        {' '}
-                                        & <b>{moreCount} more</b>
-                                    </>
-                                )}
+                                <MatchedFieldsList
+                                    groupedMatch={groupedMatch}
+                                    limit={MATCH_GROUP_LIMIT}
+                                    customFieldRenderer={customFieldRenderer}
+                                    tooltip={
+                                        <MatchedFieldsList
+                                            groupedMatch={groupedMatch}
+                                            limit={TOOLTIP_MATCH_GROUP_LIMIT}
+                                            customFieldRenderer={customFieldRenderer}
+                                        />
+                                    }
+                                />
                             </MatchText>
                         );
                     })}

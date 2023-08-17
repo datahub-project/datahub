@@ -291,9 +291,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
                 parentContainers={data.parentContainers}
-                // todo - move this inside the preview containers, auto-render it
-                // only pass in an override when we need it?
-                snippet={<MatchedFieldList fieldRenderer={datasetMatchedFieldRenderer} />}
+                snippet={<MatchedFieldList customFieldRenderer={datasetMatchedFieldRenderer} />}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}

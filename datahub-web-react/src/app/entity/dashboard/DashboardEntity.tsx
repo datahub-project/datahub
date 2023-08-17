@@ -228,7 +228,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 snippet={
-                    <MatchedFieldList fieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)} />
+                    <MatchedFieldList
+                        customFieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)}
+                    />
                 }
                 subtype={data.subTypes?.typeNames?.[0]}
                 degree={(result as any).degree}

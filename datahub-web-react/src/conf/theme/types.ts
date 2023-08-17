@@ -19,6 +19,7 @@ export type Theme = {
         'box-shadow': string;
         'box-shadow-hover': string;
         'highlight-color': string;
+        'highlight-border-color': string;
     };
     assets: {
         logoUrl: string;

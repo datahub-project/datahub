@@ -832,6 +832,11 @@ fragment searchResults on SearchResults {
         matchedFields {
             name
             value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
         }
         insights {
             text
