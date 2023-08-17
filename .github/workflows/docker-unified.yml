@@ -63,8 +63,8 @@ jobs:
         env:
           ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
+          echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
