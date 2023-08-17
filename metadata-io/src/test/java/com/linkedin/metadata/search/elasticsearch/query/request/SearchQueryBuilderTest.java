@@ -19,6 +19,7 @@ import com.linkedin.util.Pair;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.MatchPhrasePrefixQueryBuilder;
+import org.elasticsearch.index.query.MatchPhraseQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.SimpleQueryStringBuilder;
@@ -77,11 +78,12 @@ public class SearchQueryBuilderTest {
     assertEquals(keywordQuery.value(), "testQuery");
     assertEquals(keywordQuery.analyzer(), "keyword");
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 8);
+    assertEquals(keywordFields.size(), 9);
     assertEquals(keywordFields, Map.of(
        "urn", 10.f,
        "textArrayField", 1.0f,
        "customProperties", 1.0f,
+        "wordGramField", 1.0f,
        "nestedArrayArrayField", 1.0f,
        "textFieldOverride", 1.0f,
        "nestedArrayStringField", 1.0f,
@@ -106,7 +108,8 @@ public class SearchQueryBuilderTest {
             "nestedArrayArrayField.delimited", 0.4f,
             "urn.delimited", 7.0f,
             "textArrayField.delimited", 0.4f,
-            "nestedArrayStringField.delimited", 0.4f
+            "nestedArrayStringField.delimited", 0.4f,
+            "wordGramField.delimited", 0.4f
     ));
 
     BoolQueryBuilder boolPrefixQuery = (BoolQueryBuilder) shouldQueries.get(1);
@@ -116,21 +119,30 @@ public class SearchQueryBuilderTest {
       if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
         MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
         return Pair.of(builder.fieldName(), builder.boost());
-      } else {
+      } else if (prefixQuery instanceof TermQueryBuilder){
         // exact
         TermQueryBuilder builder = (TermQueryBuilder) prefixQuery;
+        return Pair.of(builder.fieldName(), builder.boost());
+      } else { // if (prefixQuery instanceof MatchPhraseQueryBuilder) {
+        // ngram
+        MatchPhraseQueryBuilder builder = (MatchPhraseQueryBuilder) prefixQuery;
         return Pair.of(builder.fieldName(), builder.boost());
       }
     }).collect(Collectors.toList());
 
-    assertEquals(prefixFieldWeights.size(), 22);
+    assertEquals(prefixFieldWeights.size(), 28);
 
     List.of(
             Pair.of("urn", 100.0f),
             Pair.of("urn", 70.0f),
             Pair.of("keyPart1.delimited", 16.8f),
             Pair.of("keyPart1.keyword", 100.0f),
-            Pair.of("keyPart1.keyword", 70.0f)
+            Pair.of("keyPart1.keyword", 70.0f),
+            Pair.of("wordGramField.wordGrams2", 1.0f),
+            Pair.of("wordGramField.wordGrams3", 1.0f),
+            Pair.of("wordGramField.wordGrams4", 1.0f),
+            Pair.of("wordGramField.keyword", 10.0f),
+            Pair.of("wordGramField.keyword", 7.0f)
     ).forEach(p -> assertTrue(prefixFieldWeights.contains(p), "Missing: " + p));
 
     // Validate scorer
@@ -151,7 +163,7 @@ public class SearchQueryBuilderTest {
     assertEquals(keywordQuery.queryString(), "testQuery");
     assertNull(keywordQuery.analyzer());
     Map<String, Float> keywordFields = keywordQuery.fields();
-    assertEquals(keywordFields.size(), 16);
+    assertEquals(keywordFields.size(), 21);
     assertEquals(keywordFields.get("keyPart1").floatValue(), 10.0f);
     assertFalse(keywordFields.containsKey("keyPart3"));
     assertEquals(keywordFields.get("textFieldOverride").floatValue(), 1.0f);
@@ -203,10 +215,14 @@ public class SearchQueryBuilderTest {
 
       List<QueryBuilder> queries = boolPrefixQuery.should().stream().map(prefixQuery -> {
         if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
+          // prefix
           return (MatchPhrasePrefixQueryBuilder) prefixQuery;
-        } else {
+        } else if (prefixQuery instanceof TermQueryBuilder){
           // exact
           return (TermQueryBuilder) prefixQuery;
+        } else { // if (prefixQuery instanceof MatchPhraseQueryBuilder) {
+          // ngram
+          return (MatchPhraseQueryBuilder) prefixQuery;
         }
       }).collect(Collectors.toList());
 
@@ -247,7 +263,4 @@ public class SearchQueryBuilderTest {
       assertEquals(termQueryBuilder.value().toString(), triggerQuery);
     }
   }
-
-
-  // NEW TEST HERE
 }

@@ -290,7 +290,7 @@ public class SearchQueryBuilder {
                         .queryName(searchFieldConfig.fieldName()));
               }
 
-              if (searchFieldConfig.isWordGramSubfield()) {
+              if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
                 finalQuery.should(QueryBuilders
                     .matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
                     .boost(searchFieldConfig.boost() * getWordGramFactor(searchFieldConfig.fieldName()))
