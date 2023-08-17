@@ -1,15 +1,18 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
-import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import lombok.extern.slf4j.Slf4j;
 
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -19,6 +22,7 @@ import static com.linkedin.datahub.graphql.util.SearchInsightsUtil.*;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 
+@Slf4j
 public class MapperUtils {
 
   private MapperUtils() {
@@ -62,7 +66,12 @@ public class MapperUtils {
           matchedField.setName(field.getName());
           matchedField.setValue(field.getValue());
           if (SearchUtils.isUrn(field.getValue())) {
-            matchedField.setEntity(UrnToEntityMapper.map(UrnUtils.getUrn(field.getValue())));
+              try {
+                  Urn urn = Urn.createFromString(field.getValue());
+                  matchedField.setEntity(UrnToEntityMapper.map(urn));
+              } catch (URISyntaxException e) {
+                  log.warn("Failed to create urn from MatchedField value: {}", field.getValue(), e);
+              }
           }
           return matchedField;
         })
