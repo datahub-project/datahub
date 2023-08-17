@@ -1,3 +1,6 @@
+ARG APP_ENV=full
+ARG BASE_IMAGE=base
+
 FROM golang:1-alpine3.17 AS binary
 
 ENV DOCKERIZE_VERSION v0.6.1
@@ -16,9 +19,7 @@ ENV CONFLUENT_KAFKA_VERSION=1.6.1
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && apt-get install -y \
-    && apt-get install -y -qq \
-    #    gcc \
+RUN apt-get update && apt-get install -y -qq \
     make \
     python3-ldap \
     libldap2-dev \
@@ -31,14 +32,33 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     ldap-utils \
-    openjdk-11-jre-headless \
-    && python -m pip install --upgrade pip wheel setuptools==57.5.0 \
-    && curl -Lk -o /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz \
-    &&  tar -xzf /root/librdkafka-${LIBRDKAFKA_VERSION}.tar.gz -C /root \
-    &&  cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
-    &&  ./configure --prefix /usr && make && make install && make clean && ./configure --clean \
-    && apt-get remove -y make
+    && python -m pip install --no-cache --upgrade pip wheel setuptools \
+    && wget -q https://github.com/edenhill/librdkafka/archive/v${LIBRDKAFKA_VERSION}.tar.gz -O - | \
+          tar -xz -C /root \
+    && cd /root/librdkafka-${LIBRDKAFKA_VERSION} \
+    && ./configure --prefix /usr && make && make install && cd .. && rm -rf /root/librdkafka-${LIBRDKAFKA_VERSION} \
+    && apt-get remove -y make \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
+
+# compiled against newer golang for security fixes
 COPY --from=binary /go/bin/dockerize /usr/local/bin
+
+COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
+COPY ./docker/datahub-ingestion-base/entrypoint.sh /entrypoint.sh
+
+RUN pip install --no-cache -r requirements.txt && \
+    pip uninstall -y acryl-datahub && \
+    chmod +x /entrypoint.sh && \
+    addgroup --gid 1000 datahub && \
+    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-ingestion datahub
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+FROM ${BASE_IMAGE} as full-install
+
+RUN apt-get update && apt-get install -y -qq \
+    default-jre-headless \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 RUN if [ $(arch) = "x86_64" ]; then \
     mkdir /opt/oracle && \
@@ -58,7 +78,10 @@ RUN if [ $(arch) = "x86_64" ]; then \
     ldconfig; \
     fi;
 
-COPY ./docker/datahub-ingestion-base/base-requirements.txt requirements.txt
+FROM ${BASE_IMAGE} as slim-install
+# Do nothing else on top of base
 
-RUN pip install -r requirements.txt && \
-    pip uninstall -y acryl-datahub
+FROM ${APP_ENV}-install
+
+USER datahub
+ENV PATH="/datahub-ingestion/.local/bin:$PATH"

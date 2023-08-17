@@ -127,7 +127,7 @@ class PluginRegistry(Generic[T]):
             plugin_class = import_path(path)
             self.register(key, plugin_class, override=True)
             return plugin_class
-        except (AssertionError, ImportError) as e:
+        except Exception as e:
             self.register_disabled(key, e, override=True)
             return e
 

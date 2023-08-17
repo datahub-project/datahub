@@ -31,8 +31,7 @@ describe("run managed ingestion", () => {
         cy.waitTextVisible(testName)
 
         cy.contains(testName).parent().within(() => {
-            // TODO: Skipping until disk size resolved
-            // cy.contains("Succeeded", {timeout: 30000})
+            cy.contains("Succeeded", {timeout: 180000})
             cy.clickOptionWithTestId("delete-button");
         })
         cy.clickOptionWithText("Yes")

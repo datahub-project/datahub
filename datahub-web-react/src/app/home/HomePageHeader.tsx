@@ -273,6 +273,7 @@ export const HomePageHeader = () => {
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
                         viewsEnabled={viewsEnabled}
+                        combineSiblings
                         showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (

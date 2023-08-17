@@ -306,7 +306,6 @@ export default function DefaultPreviewCard({
                             />
                         )}
                     </EntityTitleContainer>
-
                     {degree !== undefined && degree !== null && (
                         <Tooltip
                             title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
