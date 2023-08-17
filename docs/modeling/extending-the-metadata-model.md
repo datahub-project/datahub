@@ -332,24 +332,27 @@ It takes the following parameters:
     3. *TEXT_PARTIAL* - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
        matching is expensive, so this field type should not be applied to fields with long values (like description)
 
-    4. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+    4. *WORD_GRAM* - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND 
+       word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
+       matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is 
+       expensive, so should not be applied to fields with long values such as description.
 
-    5. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+    5. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+
+    6. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
        "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
 
-    6. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+    7. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
 
-    7. *BOOLEAN* - Boolean fields used for filtering.
+    8. *BOOLEAN* - Boolean fields used for filtering.
 
-    8. *COUNT* - Count fields used for filtering.
+    9. *COUNT* - Count fields used for filtering.
   
-    9. *DATETIME* - Datetime fields used to represent timestamps.
+    10. *DATETIME* - Datetime fields used to represent timestamps.
 
-    10. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
+    11. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
     `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
     mapping explosion in Elasticsearch.
-
-    11. *WORD_GRAM* - TODO(indy): Write this
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
