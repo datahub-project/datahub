@@ -59,6 +59,7 @@ export const SearchPage = () => {
                 orFilters,
                 viewUrn,
                 sortInput,
+                searchFlags: { getSuggestions: true },
             },
         },
     });

@@ -138,6 +138,11 @@ input  SearchFlags {
   Whether to skip aggregates/facets
   """
   skipAggregates: Boolean
+
+  """
+  Whether to request for search suggestions on the _entityName virtualized field
+  """
+  getSuggestions: Boolean
 }
 
 """

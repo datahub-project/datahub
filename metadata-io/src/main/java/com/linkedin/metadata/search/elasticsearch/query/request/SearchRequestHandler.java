@@ -68,6 +68,10 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.elasticsearch.search.suggest.SuggestBuilder;
+import org.elasticsearch.search.suggest.SuggestBuilders;
+import org.elasticsearch.search.suggest.SuggestionBuilder;
+import org.elasticsearch.search.suggest.term.TermSuggestionBuilder;
 
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
@@ -199,6 +203,14 @@ public class SearchRequestHandler {
       searchSourceBuilder.highlighter(_highlights);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
+
+    if (finalSearchFlags.isGetSuggestions()) {
+      SuggestionBuilder<TermSuggestionBuilder> builder = SuggestBuilders.termSuggestion("_entityName").text(input);
+      SuggestBuilder suggestBuilder = new SuggestBuilder();
+      suggestBuilder.addSuggestion("nameSuggestion", builder);
+      searchSourceBuilder.suggest(suggestBuilder);
+    }
+
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest.toString());
 
@@ -467,6 +479,13 @@ public class SearchRequestHandler {
   private SearchResultMetadata extractSearchResultMetadata(@Nonnull SearchResponse searchResponse, @Nullable Filter filter) {
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
+
+    // pull out suggestions here
+    System.out.println("~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~~~");
+    System.out.println(searchResponse);
+    System.out.println("..............");
+    System.out.println(searchResponse.getSuggest());
+    System.out.println("~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~~~");
 
     final List<AggregationMetadata> aggregationMetadataList = extractAggregationMetadata(searchResponse, filter);
     searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
