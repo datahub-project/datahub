@@ -120,10 +120,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 20);
+    assertEquals(fields.size(), 22);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
+            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "wordGramField");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field), "Missing: " + field);
       assertTrue(fields.contains(field + ".*"), "Missing: " + field + ".*");
