@@ -358,6 +358,32 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    public void testNegateAnalysis() throws IOException {
+        String queryWithMinus = "logging_events -bckp";
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "query_word_delimited", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("logging_events -bckp", "logging_ev", "-bckp", "log", "event", "bckp"));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "word_gram_3", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("logging events -bckp"));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "word_gram_4", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of());
+
+    }
+
+    @Test
     public void testWordGram() throws IOException {
         String text = "hello.cat_cool_customer";
         AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", text);
@@ -394,6 +420,18 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", textWithQuotesAndDuplicateWord);
         assertEquals(getTokens(request)
             .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my exact", "db my exact table"));
+
+        String textWithParens = "(hi) there";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithParens);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hi there"));
+
+        String oneWordText = "hello";
+        for (String analyzer : List.of("word_gram_2", "word_gram_3", "word_gram_4")) {
+            request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", analyzer, oneWordText);
+            assertEquals(getTokens(request)
+                .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of());
+        }
     }
 
     @Test
