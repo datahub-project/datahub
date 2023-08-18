@@ -31,105 +31,112 @@ export type MatchedFieldName =
     | 'fieldTags'
     | 'editedFieldTags'
     | 'glossaryTerms'
+    | 'fieldGlossaryTerms'
     | 'editedFieldGlossaryTerms'
     | 'fieldLabels'
     | 'fieldPaths';
 
 export type MatchedFieldConfig = {
     name: MatchedFieldName;
-    normalizedName?: MatchedFieldName;
+    groupInto?: MatchedFieldName;
     label: string;
     showInMatchedFieldList?: boolean;
 };
 
-const DEFAULT_MATCHED_FIELD_CONFIG: Record<MatchedFieldName, MatchedFieldConfig> = {
-    urn: {
+const DEFAULT_MATCHED_FIELD_CONFIG: Array<MatchedFieldConfig> = [
+    {
         name: 'urn',
         label: 'urn',
     },
-    name: {
-        name: 'name',
-        normalizedName: 'name',
-        label: 'name',
-    },
-    qualifiedName: {
-        name: 'qualifiedName',
-        normalizedName: 'name',
-        label: 'qualified name',
-    },
-    displayName: {
-        name: 'displayName',
-        normalizedName: 'name',
-        label: 'display name',
-    },
-    title: {
+    {
         name: 'title',
         label: 'title',
     },
-    description: {
-        name: 'description',
-        normalizedName: 'description',
+    {
+        name: 'displayName',
+        groupInto: 'name',
+        label: 'display name',
+    },
+    {
+        name: 'qualifiedName',
+        groupInto: 'name',
+        label: 'qualified name',
+    },
+    {
+        name: 'name',
+        groupInto: 'name',
+        label: 'name',
+    },
+    {
+        name: 'editedDescription',
+        groupInto: 'description',
         label: 'description',
     },
-    // todo - test editing the descriptions and see what actually renders in the card?
-    editedDescription: {
-        name: 'editedDescription',
-        normalizedName: 'description',
-        label: 'edited description',
+    {
+        name: 'description',
+        groupInto: 'description',
+        label: 'description',
     },
-    // todo - prefer editedFieldDescriptions over fieldDescriptions somehow, priority on all these? or maybe make this whole thing an array instead of a map
-    editedFieldDescriptions: {
+    {
         name: 'editedFieldDescriptions',
+        groupInto: 'fieldDescriptions',
         label: 'column description',
         showInMatchedFieldList: true,
     },
-    fieldDescriptions: {
+    {
         name: 'fieldDescriptions',
+        groupInto: 'fieldDescriptions',
         label: 'column description',
         showInMatchedFieldList: true,
     },
-    tags: {
+    {
         name: 'tags',
         label: 'tag',
     },
-    fieldTags: {
-        name: 'fieldTags',
-        label: 'column tag',
-        showInMatchedFieldList: true,
-    },
-    editedFieldTags: {
+    {
         name: 'editedFieldTags',
+        groupInto: 'fieldTags',
         label: 'column tag',
         showInMatchedFieldList: true,
     },
-    glossaryTerms: {
+    {
+        name: 'fieldTags',
+        groupInto: 'fieldTags',
+        label: 'column tag',
+        showInMatchedFieldList: true,
+    },
+    {
         name: 'glossaryTerms',
         label: 'term',
     },
-    editedFieldGlossaryTerms: {
+    {
         name: 'editedFieldGlossaryTerms',
+        groupInto: 'fieldGlossaryTerms',
         label: 'column term',
         showInMatchedFieldList: true,
     },
-    fieldLabels: {
+    {
+        name: 'fieldGlossaryTerms',
+        groupInto: 'fieldGlossaryTerms',
+        label: 'column term',
+        showInMatchedFieldList: true,
+    },
+    {
         name: 'fieldLabels',
         label: 'label',
         showInMatchedFieldList: true,
     },
-    fieldPaths: {
+    {
         name: 'fieldPaths',
         label: 'column',
         showInMatchedFieldList: true,
     },
-} as const;
+];
 
-export const CHART_DASHBOARD_FIELD_CONFIG: Record<MatchedFieldName, MatchedFieldConfig> = {
-    ...DEFAULT_MATCHED_FIELD_CONFIG,
-    title: {
-        ...DEFAULT_MATCHED_FIELD_CONFIG.title,
-        normalizedName: 'name',
-    },
-} as const;
+export const CHART_DASHBOARD_FIELD_CONFIG: Array<MatchedFieldConfig> = DEFAULT_MATCHED_FIELD_CONFIG.map((config) => {
+    if (config.name === 'title') return { ...config, groupInto: 'name' };
+    return config;
+});
 
 export const MATCHED_FIELD_CONFIG = {
     [EntityType.Chart]: CHART_DASHBOARD_FIELD_CONFIG,

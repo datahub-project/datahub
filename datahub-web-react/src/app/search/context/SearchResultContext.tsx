@@ -6,6 +6,7 @@ import {
     getMatchedFieldsByNames,
     shouldShowInMatchedFieldList,
     getMatchedFieldLabel,
+    getMatchesPrioritizingPrimary,
 } from './utils';
 import { MatchedFieldName } from './constants';
 
@@ -46,13 +47,14 @@ export const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
 
-export const useMatchedFieldsForList = () => {
+export const useMatchedFieldsForList = (primaryField: MatchedFieldName) => {
     const entityType = useEntityType();
     const matchedFields = useMatchedFields();
-    return matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
+    const showableFields = matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
+    return entityType ? getMatchesPrioritizingPrimary(entityType, showableFields, primaryField) : [];
 };
 
-export const useMatchedFieldsByName = (fieldName: MatchedFieldName) => {
+export const useMatchedFieldsByGroup = (fieldName: MatchedFieldName) => {
     const entityType = useEntityType();
     const matchedFields = useMatchedFields();
     const matchedFieldNames = getMatchedFieldNames(entityType, fieldName);
@@ -60,8 +62,8 @@ export const useMatchedFieldsByName = (fieldName: MatchedFieldName) => {
 };
 
 export const useHasMatchedFieldByUrn = (urn: string, fieldName: MatchedFieldName) => {
-    const matchedFieldsForNormalizedField = useMatchedFieldsByName(fieldName);
-    return getMatchedFieldsByUrn(matchedFieldsForNormalizedField, urn).length > 0;
+    const matchedFields = useMatchedFieldsByGroup(fieldName);
+    return getMatchedFieldsByUrn(matchedFields, urn).length > 0;
 };
 
 export const useMatchedFieldLabel = (fieldName: string) => {

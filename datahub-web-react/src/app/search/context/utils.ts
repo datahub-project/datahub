@@ -2,30 +2,37 @@ import * as QueryString from 'query-string';
 import { EntityType, MatchedField } from '../../../types.generated';
 import { MATCHED_FIELD_CONFIG, MatchedFieldConfig, MatchedFieldName, MatchesGroupedByFieldName } from './constants';
 
-const getFieldConfigByEntityType = (
-    entityType: EntityType | undefined,
-): Record<MatchedFieldName, MatchedFieldConfig> => {
+const getFieldConfigsByEntityType = (entityType: EntityType | undefined): Array<MatchedFieldConfig> => {
     return entityType && entityType in MATCHED_FIELD_CONFIG
         ? MATCHED_FIELD_CONFIG[entityType]
         : MATCHED_FIELD_CONFIG.DEFAULT;
 };
 
 export const shouldShowInMatchedFieldList = (entityType: EntityType | undefined, field: MatchedField): boolean => {
-    const config = getFieldConfigByEntityType(entityType);
-    return field.name in config && !!config[field.name].showInMatchedFieldList;
+    const configs = getFieldConfigsByEntityType(entityType);
+    return configs.some((config) => config.name === field.name && config.showInMatchedFieldList);
 };
 
 export const getMatchedFieldLabel = (entityType: EntityType | undefined, fieldName: string): string => {
-    const config = getFieldConfigByEntityType(entityType);
-    return fieldName in config ? config[fieldName].label : '';
+    const configs = getFieldConfigsByEntityType(entityType);
+    return configs.find((config) => config.name === fieldName)?.label ?? '';
+};
+
+export const getGroupedFieldName = (
+    entityType: EntityType | undefined,
+    fieldName: string,
+): MatchedFieldName | undefined => {
+    const configs = getFieldConfigsByEntityType(entityType);
+    const fieldConfig = configs.find((config) => config.name === fieldName);
+    return fieldConfig?.groupInto || fieldConfig?.name;
 };
 
 export const getMatchedFieldNames = (
     entityType: EntityType | undefined,
     fieldName: MatchedFieldName,
 ): Array<MatchedFieldName> => {
-    return Object.values(getFieldConfigByEntityType(entityType))
-        .filter((config) => fieldName === config.normalizedName || fieldName === config.name)
+    return getFieldConfigsByEntityType(entityType)
+        .filter((config) => fieldName === config.groupInto || fieldName === config.name)
         .map((field) => field.name);
 };
 
@@ -63,16 +70,21 @@ function fromQueryGetBestMatch(
     return [...exactMatches, ...containedMatches, ...rest];
 }
 
-const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): Array<MatchesGroupedByFieldName> => {
+const getMatchesGroupedByFieldName = (
+    entityType: EntityType,
+    matchedFields: Array<MatchedField>,
+): Array<MatchesGroupedByFieldName> => {
     const fieldNameToMatches = new Map<string, Array<MatchedField>>();
     const fieldNames: Array<string> = [];
     matchedFields.forEach((field) => {
-        const matchesInMap = fieldNameToMatches.get(field.name);
+        const groupedFieldName = getGroupedFieldName(entityType, field.name);
+        if (!groupedFieldName) return;
+        const matchesInMap = fieldNameToMatches.get(groupedFieldName);
         if (matchesInMap) {
             matchesInMap.push(field);
         } else {
-            fieldNameToMatches.set(field.name, [field]);
-            fieldNames.push(field.name);
+            fieldNameToMatches.set(groupedFieldName, [field]);
+            fieldNames.push(groupedFieldName);
         }
     });
     return fieldNames.map((fieldName) => ({
@@ -82,6 +94,7 @@ const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): Array
 };
 
 export const getMatchesPrioritizingPrimary = (
+    entityType: EntityType,
     matchedFields: MatchedField[],
     primaryField: string,
 ): Array<MatchesGroupedByFieldName> => {
@@ -89,5 +102,5 @@ export const getMatchesPrioritizingPrimary = (
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
-    return getMatchesGroupedByFieldName(matches);
+    return getMatchesGroupedByFieldName(entityType, matches);
 };

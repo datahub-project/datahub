@@ -1,7 +1,7 @@
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { useMatchedFieldsByName } from '../context/SearchResultContext';
+import { useMatchedFieldsByGroup } from '../context/SearchResultContext';
 import { useSearchQuery } from '../context/SearchContext';
 import { MatchedFieldName } from '../context/constants';
 
@@ -18,7 +18,7 @@ const StyledHighlight = styled(Highlight).attrs((props) => ({
 }))``;
 
 const SearchTextHighlighter = ({ field, text, enableFullHighlight = false }: Props) => {
-    const matchedFields = useMatchedFieldsByName(field);
+    const matchedFields = useMatchedFieldsByGroup(field);
     const hasMatchedField = !!matchedFields?.length;
     const normalizedSearchQuery = useSearchQuery()?.trim().toLowerCase();
     const normalizedText = text.trim().toLowerCase();

@@ -1,3 +1,4 @@
+import { EntityType } from '../../../types.generated';
 import { getMatchesPrioritizingPrimary } from './utils';
 
 const mapping = new Map();
@@ -24,11 +25,30 @@ const MOCK_MATCHED_FIELDS = [
     },
 ];
 
+const MOCK_MATCHED_DESCRIPTION_FIELDS = [
+    {
+        name: 'editedDescription',
+        value: 'edited description value',
+    },
+    {
+        name: 'description',
+        value: 'description value',
+    },
+    {
+        name: 'fieldDescriptions',
+        value: 'field descriptions value',
+    },
+    {
+        name: 'editedFieldDescriptions',
+        value: 'edited field descriptions value',
+    },
+];
+
 describe('utils', () => {
     describe('getMatchPrioritizingPrimary', () => {
         it('prioritizes exact match', () => {
             global.window.location.search = 'query=rainbow';
-            const groupedMatches = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritizingPrimary(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -46,7 +66,7 @@ describe('utils', () => {
         });
         it('will accept first contains match', () => {
             global.window.location.search = 'query=bow';
-            const groupedMatches = getMatchesPrioritizingPrimary(MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritizingPrimary(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -59,6 +79,30 @@ describe('utils', () => {
                 {
                     fieldName: 'fieldDescriptions',
                     matchedFields: [{ name: 'fieldDescriptions', value: 'rainbow' }],
+                },
+            ]);
+        });
+        it('will group by field name', () => {
+            global.window.location.search = '';
+            const groupedMatches = getMatchesPrioritizingPrimary(
+                EntityType.Dataset,
+                MOCK_MATCHED_DESCRIPTION_FIELDS,
+                'fieldPaths',
+            );
+            expect(groupedMatches).toEqual([
+                {
+                    fieldName: 'description',
+                    matchedFields: [
+                        { name: 'editedDescription', value: 'edited description value' },
+                        { name: 'description', value: 'description value' },
+                    ],
+                },
+                {
+                    fieldName: 'fieldDescriptions',
+                    matchedFields: [
+                        { name: 'fieldDescriptions', value: 'field descriptions value' },
+                        { name: 'editedFieldDescriptions', value: 'edited field descriptions value' },
+                    ],
                 },
             ]);
         });

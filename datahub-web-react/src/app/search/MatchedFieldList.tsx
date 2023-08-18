@@ -7,10 +7,7 @@ import { MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
 import { MatchesGroupedByFieldName } from './context/constants';
-import { getMatchesPrioritizingPrimary } from './context/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
-
-const LABEL_INDEX_NAME = 'fieldLabels';
 
 const MatchesContainer = styled.div`
     display: flex;
@@ -47,6 +44,7 @@ const RenderedField = ({
     const query = useSearchQuery()?.trim().toLowerCase();
     const customRenderedField = customFieldRenderer?.(field);
     if (customRenderedField) return <b>{customRenderedField}</b>;
+    if (field.value.includes('urn:li:tag') && !field.entity) return <></>;
     if (field.entity) return <>{entityRegistry.getDisplayName(field.entity.type, field.entity)}</>;
     if (field.name.toLowerCase().includes('description') && query) {
         const queryIndex = field.value.indexOf(query);
@@ -111,8 +109,7 @@ const MatchedFieldsList = ({
 };
 
 export const MatchedFieldList = ({ customFieldRenderer }: Props) => {
-    const matchedFields = useMatchedFieldsForList();
-    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
+    const groupedMatches = useMatchedFieldsForList('fieldLabels');
 
     return (
         <>
