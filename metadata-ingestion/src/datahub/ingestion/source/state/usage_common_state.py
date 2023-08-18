@@ -13,8 +13,8 @@ class BaseTimeWindowCheckpointState(CheckpointStateBase):
     Subclasses can define additional state as appropriate.
     """
 
-    begin_timestamp_millis: pydantic.PositiveInt
-    end_timestamp_millis: pydantic.PositiveInt
+    begin_timestamp_millis: pydantic.NonNegativeInt
+    end_timestamp_millis: pydantic.NonNegativeInt
 
     # Required for time bucket based aggregations -  e.g. Usage
     bucket_duration: Optional[BucketDuration] = None

@@ -260,7 +260,10 @@ class SnowflakeLineageExtractor(
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
             )
 
     def _populate_table_lineage(self):

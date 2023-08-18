@@ -200,7 +200,7 @@ class RedundantRunSkipHandler(
                 )
         elif (
             allow_reduce
-            and cur_run.intersects(last_run)
+            and (cur_run.contains(last_run) or cur_run.intersects(last_run))
             and cur_run.ends_after(last_run)
         ):
             # scenario of scheduled ingestions with default start, end times
@@ -208,7 +208,7 @@ class RedundantRunSkipHandler(
             self.log("Reducing time window. Updating start time.")
         elif (
             allow_reduce
-            and cur_run.intersects(last_run)
+            and (cur_run.contains(last_run) or cur_run.intersects(last_run))
             and last_run.ends_after(cur_run)
         ):
             # a manual backdated run

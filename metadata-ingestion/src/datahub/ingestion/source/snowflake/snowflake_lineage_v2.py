@@ -155,7 +155,10 @@ class SnowflakeLineageExtractor(
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
-                self.config.start_time, self.config.end_time
+                self.config.start_time
+                if not self.config.ignore_start_time_lineage
+                else ts_millis_to_datetime(0),
+                self.config.end_time,
             )
 
     def get_table_external_upstream_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -181,12 +184,14 @@ class SnowflakeLineageExtractor(
         else:
             with PerfTimer() as timer:
                 results = self._fetch_upstream_lineages_for_tables()
+
+                if not results:
+                    return
+
+                yield from self._gen_workunits_from_query_result(
+                    discovered_tables, results
+                )
                 self.report.table_lineage_query_secs = timer.elapsed_seconds()
-
-            if not results:
-                return
-
-            yield from self._gen_workunits_from_query_result(discovered_tables, results)
             logger.info(
                 f"Upstream lineage detected for {self.report.num_tables_with_upstreams} tables.",
             )
@@ -253,12 +258,14 @@ class SnowflakeLineageExtractor(
 
         with PerfTimer() as timer:
             results = self._fetch_upstream_lineages_for_views()
-            self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
 
-        if results:
-            yield from self._gen_workunits_from_query_result(
-                set(discovered_views) - views_processed, results, upstream_for_view=True
-            )
+            if results:
+                yield from self._gen_workunits_from_query_result(
+                    set(discovered_views) - views_processed,
+                    results,
+                    upstream_for_view=True,
+                )
+            self.report.view_upstream_lineage_query_secs = timer.elapsed_seconds()
         logger.info(
             f"Upstream lineage detected for {self.report.num_views_with_upstreams} views.",
         )
