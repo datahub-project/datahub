@@ -143,6 +143,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 platform={platform}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
