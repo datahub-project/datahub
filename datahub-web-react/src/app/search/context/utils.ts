@@ -24,7 +24,7 @@ export const getGroupedFieldName = (
 ): MatchedFieldName | undefined => {
     const configs = getFieldConfigsByEntityType(entityType);
     const fieldConfig = configs.find((config) => config.name === fieldName);
-    return fieldConfig?.groupInto || fieldConfig?.name;
+    return fieldConfig?.groupInto;
 };
 
 export const getMatchedFieldNames = (
@@ -77,8 +77,7 @@ const getMatchesGroupedByFieldName = (
     const fieldNameToMatches = new Map<string, Array<MatchedField>>();
     const fieldNames: Array<string> = [];
     matchedFields.forEach((field) => {
-        const groupedFieldName = getGroupedFieldName(entityType, field.name);
-        if (!groupedFieldName) return;
+        const groupedFieldName = getGroupedFieldName(entityType, field.name) || field.name;
         const matchesInMap = fieldNameToMatches.get(groupedFieldName);
         if (matchesInMap) {
             matchesInMap.push(field);
