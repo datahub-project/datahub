@@ -67,9 +67,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     exactMatchConfiguration.setEnableStructured(true);
 
     WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
-    wordGramConfiguration.setTwoGramFactor(1.0f);
-    wordGramConfiguration.setThreeGramFactor(1.0f);
-    wordGramConfiguration.setFourGramFactor(1.0f);
+    wordGramConfiguration.setTwoGramFactor(1.2f);
+    wordGramConfiguration.setThreeGramFactor(1.5f);
+    wordGramConfiguration.setFourGramFactor(1.8f);
 
     PartialConfiguration partialConfiguration = new PartialConfiguration();
     partialConfiguration.setFactor(0.4f);

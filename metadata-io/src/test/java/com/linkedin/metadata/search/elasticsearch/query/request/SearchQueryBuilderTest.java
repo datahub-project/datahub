@@ -49,9 +49,9 @@ public class SearchQueryBuilderTest {
     exactMatchConfiguration.setEnableStructured(true);
 
     WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
-    wordGramConfiguration.setTwoGramFactor(1.0f);
-    wordGramConfiguration.setThreeGramFactor(1.0f);
-    wordGramConfiguration.setFourGramFactor(1.0f);
+    wordGramConfiguration.setTwoGramFactor(1.2f);
+    wordGramConfiguration.setThreeGramFactor(1.5f);
+    wordGramConfiguration.setFourGramFactor(1.8f);
 
     PartialConfiguration partialConfiguration = new PartialConfiguration();
     partialConfiguration.setFactor(0.4f);
@@ -80,15 +80,15 @@ public class SearchQueryBuilderTest {
     Map<String, Float> keywordFields = keywordQuery.fields();
     assertEquals(keywordFields.size(), 9);
     assertEquals(keywordFields, Map.of(
-       "urn", 10.f,
-       "textArrayField", 1.0f,
-       "customProperties", 1.0f,
+        "urn", 10.f,
+        "textArrayField", 1.0f,
+        "customProperties", 1.0f,
         "wordGramField", 1.0f,
-       "nestedArrayArrayField", 1.0f,
-       "textFieldOverride", 1.0f,
-       "nestedArrayStringField", 1.0f,
-       "keyPart1", 10.0f,
-       "esObjectField", 1.0f
+        "nestedArrayArrayField", 1.0f,
+        "textFieldOverride", 1.0f,
+        "nestedArrayStringField", 1.0f,
+        "keyPart1", 10.0f,
+        "esObjectField", 1.0f
     ));
 
     SimpleQueryStringBuilder urnComponentQuery = (SimpleQueryStringBuilder) analyzerGroupQuery.should().get(1);
@@ -138,9 +138,9 @@ public class SearchQueryBuilderTest {
             Pair.of("keyPart1.delimited", 16.8f),
             Pair.of("keyPart1.keyword", 100.0f),
             Pair.of("keyPart1.keyword", 70.0f),
-            Pair.of("wordGramField.wordGrams2", 1.0f),
-            Pair.of("wordGramField.wordGrams3", 1.0f),
-            Pair.of("wordGramField.wordGrams4", 1.0f),
+            Pair.of("wordGramField.wordGrams2", 1.44f),
+            Pair.of("wordGramField.wordGrams3", 2.25f),
+            Pair.of("wordGramField.wordGrams4", 3.2399998f),
             Pair.of("wordGramField.keyword", 10.0f),
             Pair.of("wordGramField.keyword", 7.0f)
     ).forEach(p -> assertTrue(prefixFieldWeights.contains(p), "Missing: " + p));
