@@ -121,6 +121,15 @@ last_run_end_time = datetime(2023, 7, 3, 12, tzinfo=timezone.utc)
             datetime(2023, 6, 30, tzinfo=timezone.utc),
             datetime(2023, 7, 2, tzinfo=timezone.utc),
         ],
+        # Case = current run time window starts before last run time window and ends exactly on last run end time
+        # Scenario for manual run for past dates
+        [
+            datetime(2023, 6, 30, tzinfo=timezone.utc),
+            datetime(2023, 7, 3, 12, tzinfo=timezone.utc),
+            False,
+            datetime(2023, 6, 30, tzinfo=timezone.utc),
+            datetime(2023, 7, 2, tzinfo=timezone.utc),
+        ],
         # Case = current run time window is before last run time window and has no overlap with last run
         # Scenario for manual run for past dates
         [

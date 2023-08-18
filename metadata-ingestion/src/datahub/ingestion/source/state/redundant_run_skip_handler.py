@@ -193,23 +193,20 @@ class RedundantRunSkipHandler(
                 self.log(
                     f"Observed gap in last run end time({last_run.end_time}) and current run start time({cur_start_time})."
                 )
-        elif (
-            allow_reduce
-            and cur_run.left_intersects(last_run)
-            and cur_run.ends_after(last_run)
-        ):
+        elif allow_reduce and cur_run.left_intersects(last_run):
             # scenario of scheduled ingestions with default start, end times
             suggested_start_time = last_run.end_time
             self.log("Reducing time window. Updating start time.")
-        elif (
-            allow_reduce
-            and cur_run.right_intersects(last_run)
-            and last_run.ends_after(cur_run)
-        ):
+        elif allow_reduce and cur_run.right_intersects(last_run):
             # a manual backdated run
             suggested_end_time = last_run.start_time
             self.log("Reducing time window. Updating end time.")
 
+        # make sure to consider complete time bucket for usage
+        if last_checkpoint.state.bucket_duration:
+            suggested_start_time = get_time_bucket(
+                suggested_start_time, last_checkpoint.state.bucket_duration
+            )
         self.log(
             "Suggested start, end times: "
             f"({suggested_start_time}, {suggested_end_time})"
@@ -253,20 +250,3 @@ class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
             cur_state.begin_timestamp_millis = datetime_to_ts_millis(start_time)
             cur_state.end_timestamp_millis = datetime_to_ts_millis(end_time)
             cur_state.bucket_duration = bucket_duration
-
-    def get_last_run_time_window(
-        self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
-    ) -> TimeWindow:
-        result = super().get_last_run_time_window(last_checkpoint)
-
-        # For time bucket based aggregations - e.g. usage
-        # Case : Ingestion is scheduled to be run on 17:00:00 time everyday with bucket_duration=DAY.
-        # Run on 2023-08-16 would ingest usage for 2023-08-15 00:00:00 to 2023-08-16 17:00:00 .
-        # Run on 2023-08-17 would ingest usage for 2023-08-16 00:00:00 to 2023-08-17 17:00:00 .
-        # The code makes sure that usage is ingested for complete bucket and not partial bucket.
-        if last_checkpoint.state.bucket_duration is not None:
-            result.end_time = get_time_bucket(
-                result.end_time, last_checkpoint.state.bucket_duration
-            )
-
-        return result
