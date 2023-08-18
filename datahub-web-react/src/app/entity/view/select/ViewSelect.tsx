@@ -60,6 +60,11 @@ const ViewSelectContainer = styled.div`
     }
 `;
 
+const SelectStyled = styled(Select)`
+    min-width: 110px;
+    max-width: 200px;
+`;
+
 /**
  * The View Select component allows you to select a View to apply to query on the current page. For example,
  * search, recommendations, and browse.
@@ -188,12 +193,11 @@ export const ViewSelect = () => {
 
     return (
         <ViewSelectContainer>
-            <Select
+            <SelectStyled
                 data-testid="view-select"
-                style={{ minWidth: '120px', maxWidth: '200px' }}
                 onChange={() => (selectRef?.current as any)?.blur()}
                 value={(foundSelectedUrn && selectedUrn) || undefined}
-                placeholder="All Entities"
+                placeholder="View all"
                 onSelect={onSelectView}
                 onClear={onClear}
                 ref={selectRef}
@@ -237,7 +241,7 @@ export const ViewSelect = () => {
                         onClickEditView,
                         onClickPreviewView,
                     })}
-            </Select>
+            </SelectStyled>
             {viewBuilderDisplayState.visible && (
                 <ViewBuilder
                     urn={viewBuilderDisplayState.view?.urn || undefined}
