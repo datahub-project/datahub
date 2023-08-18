@@ -116,24 +116,18 @@ class RedundantRunSkipHandler(
     def is_current_run_succeessful(self) -> bool:
         return all(self.status.values())
 
-    def update_state(
+    def get_current_checkpoint(
         self,
-        start_time: datetime,
-        end_time: datetime,
-        bucket_duration: Optional[BucketDuration] = None,
-    ) -> None:
+    ) -> Optional[Checkpoint]:
         if (
             not self.is_checkpointing_enabled()
             or self._ignore_new_state()
             or not self.is_current_run_succeessful()
         ):
-            return
+            return None
         cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
         assert cur_checkpoint is not None
-        cur_state = cast(BaseTimeWindowCheckpointState, cur_checkpoint.state)
-        cur_state.begin_timestamp_millis = datetime_to_ts_millis(start_time)
-        cur_state.end_timestamp_millis = datetime_to_ts_millis(end_time)
-        cur_state.bucket_duration = bucket_duration
+        return cur_checkpoint
 
     def should_skip_this_run(
         self, cur_start_time: datetime, cur_end_time: datetime
@@ -183,6 +177,7 @@ class RedundantRunSkipHandler(
         suggested_start_time, suggested_end_time = cur_start_time, cur_end_time
 
         last_run = self.get_last_run_time_window(last_checkpoint)
+        self.log(f"Last run start, end times:{last_run}")
         cur_run = TimeWindow(cur_start_time, cur_end_time)
 
         # In case of usage, it is assumed that start_time_millis (cur_start_time_millis as well as last_run_start_time) always conincides
@@ -200,7 +195,7 @@ class RedundantRunSkipHandler(
                 )
         elif (
             allow_reduce
-            and (cur_run.contains(last_run) or cur_run.intersects(last_run))
+            and cur_run.left_intersects(last_run)
             and cur_run.ends_after(last_run)
         ):
             # scenario of scheduled ingestions with default start, end times
@@ -208,7 +203,7 @@ class RedundantRunSkipHandler(
             self.log("Reducing time window. Updating start time.")
         elif (
             allow_reduce
-            and (cur_run.contains(last_run) or cur_run.intersects(last_run))
+            and cur_run.right_intersects(last_run)
             and last_run.ends_after(cur_run)
         ):
             # a manual backdated run
@@ -227,30 +222,9 @@ class RedundantRunSkipHandler(
     def get_last_run_time_window(
         self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
     ) -> TimeWindow:
-        # Determine from the last check point state
-        last_run_start_time: int = last_checkpoint.state.begin_timestamp_millis
-        last_run_end_time: int = last_checkpoint.state.end_timestamp_millis
-
-        # For time bucket based aggregations - e.g. usage
-        # Case : Ingestion is scheduled to be run on 17:00:00 time everyday with bucket_duration=DAY.
-        # Run on 2023-08-16 would ingest usage for 2023-08-15 00:00:00 to 2023-08-16 17:00:00 .
-        # Run on 2023-08-17 would ingest usage for 2023-08-16 00:00:00 to 2023-08-17 17:00:00 .
-        # The code makes sure that usage is ingested for complete bucket and not partial bucket.
-        if last_checkpoint.state.bucket_duration is not None:
-            last_run_end_time = datetime_to_ts_millis(
-                get_time_bucket(
-                    ts_millis_to_datetime(last_run_end_time),
-                    last_checkpoint.state.bucket_duration,
-                )
-            )
-
-        self.log(
-            f"Last run start, end times:({ts_millis_to_datetime(last_run_start_time)}, {ts_millis_to_datetime(last_run_end_time)})"
-        )
-
         return TimeWindow(
-            ts_millis_to_datetime(last_run_start_time),
-            ts_millis_to_datetime(last_run_end_time),
+            ts_millis_to_datetime(last_checkpoint.state.begin_timestamp_millis),
+            ts_millis_to_datetime(last_checkpoint.state.end_timestamp_millis),
         )
 
 
@@ -258,22 +232,41 @@ class RedundantLineageRunSkipHandler(RedundantRunSkipHandler):
     def get_job_name_suffix(self):
         return "_lineage"
 
+    def update_state(self, start_time: datetime, end_time: datetime) -> None:
+        cur_checkpoint = self.get_current_checkpoint()
+        if cur_checkpoint:
+            cur_state = cast(BaseTimeWindowCheckpointState, cur_checkpoint.state)
+            cur_state.begin_timestamp_millis = datetime_to_ts_millis(start_time)
+            cur_state.end_timestamp_millis = datetime_to_ts_millis(end_time)
+
 
 class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
     def get_job_name_suffix(self):
         return "_usage"
 
     def update_state(
-        self,
-        start_time: datetime,
-        end_time: datetime,
-        bucket_duration: Optional[BucketDuration] = None,
+        self, start_time: datetime, end_time: datetime, bucket_duration: BucketDuration
     ) -> None:
-        assert bucket_duration is not None
-        return super().update_state(start_time, end_time, bucket_duration)
+        cur_checkpoint = self.get_current_checkpoint()
+        if cur_checkpoint:
+            cur_state = cast(BaseTimeWindowCheckpointState, cur_checkpoint.state)
+            cur_state.begin_timestamp_millis = datetime_to_ts_millis(start_time)
+            cur_state.end_timestamp_millis = datetime_to_ts_millis(end_time)
+            cur_state.bucket_duration = bucket_duration
 
     def get_last_run_time_window(
         self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
     ) -> TimeWindow:
-        assert last_checkpoint.state.bucket_duration is not None
-        return super().get_last_run_time_window(last_checkpoint)
+        result = super().get_last_run_time_window(last_checkpoint)
+
+        # For time bucket based aggregations - e.g. usage
+        # Case : Ingestion is scheduled to be run on 17:00:00 time everyday with bucket_duration=DAY.
+        # Run on 2023-08-16 would ingest usage for 2023-08-15 00:00:00 to 2023-08-16 17:00:00 .
+        # Run on 2023-08-17 would ingest usage for 2023-08-16 00:00:00 to 2023-08-17 17:00:00 .
+        # The code makes sure that usage is ingested for complete bucket and not partial bucket.
+        if last_checkpoint.state.bucket_duration is not None:
+            result.end_time = get_time_bucket(
+                result.end_time, last_checkpoint.state.bucket_duration
+            )
+
+        return result

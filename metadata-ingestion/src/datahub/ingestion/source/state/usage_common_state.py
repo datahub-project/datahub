@@ -18,5 +18,3 @@ class BaseTimeWindowCheckpointState(CheckpointStateBase):
 
     # Required for time bucket based aggregations -  e.g. Usage
     bucket_duration: Optional[BucketDuration] = None
-
-    # Required for partial stage failure - repeat only failing substage

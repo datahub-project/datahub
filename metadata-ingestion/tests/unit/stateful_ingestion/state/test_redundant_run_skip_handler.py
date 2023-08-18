@@ -79,6 +79,14 @@ last_run_end_time = datetime(2023, 7, 3, 12, tzinfo=timezone.utc)
             None,
             None,
         ],
+        # Case = current run time window is starts at same time as of last run time window but ends later
+        [
+            datetime(2023, 7, 2, tzinfo=timezone.utc),
+            datetime(2023, 7, 3, 18, tzinfo=timezone.utc),
+            False,
+            datetime(2023, 7, 3, 12, tzinfo=timezone.utc),
+            datetime(2023, 7, 3, 18, tzinfo=timezone.utc),
+        ],
         # Case = current run time window is subset of last run time window
         [
             datetime(2023, 7, 2, tzinfo=timezone.utc),
@@ -96,7 +104,7 @@ last_run_end_time = datetime(2023, 7, 3, 12, tzinfo=timezone.utc)
             datetime(2023, 7, 3, 12, tzinfo=timezone.utc),
             datetime(2023, 7, 4, 12, tzinfo=timezone.utc),
         ],
-        # Case = current run time window is after last run time window and has no some overlap with last run
+        # Case = current run time window is after last run time window and has no overlap with last run
         [
             datetime(2023, 7, 5, tzinfo=timezone.utc),
             datetime(2023, 7, 7, 12, tzinfo=timezone.utc),
