@@ -448,6 +448,11 @@ enum FilterOperator {
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
+
+  """
+  Represents the relation: The field exists. If the field is an array, the field is either not present or empty.
+  """
+  EXISTS
 }
 
 """
