@@ -55,13 +55,14 @@ const ViewSelectContainer = styled.div`
             .ant-select-selection-item {
                 font-weight: 700;
                 font-size: 14px;
+                text-align: left;
             }
         }
     }
 `;
 
 const SelectStyled = styled(Select)`
-    min-width: 110px;
+    min-width: 90px;
     max-width: 200px;
 `;
 
