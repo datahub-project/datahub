@@ -47,7 +47,7 @@ export default function TermContent({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
-    const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'terms');
+    const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
 
     const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();

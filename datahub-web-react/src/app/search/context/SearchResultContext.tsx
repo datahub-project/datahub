@@ -1,7 +1,13 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
 import { SearchResult } from '../../../types.generated';
-import { getMatchedFieldByUrn, getMatchedFieldNames, getMatchedFieldsByNames } from './utils';
-import { NormalizedMatchedFieldName } from './constants';
+import {
+    getMatchedFieldsByUrn,
+    getMatchedFieldNames,
+    getMatchedFieldsByNames,
+    shouldShowInMatchedFieldList,
+    getMatchedFieldLabel,
+} from './utils';
+import { MatchedFieldName } from './constants';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;
@@ -40,14 +46,25 @@ export const useMatchedFields = () => {
     return useSearchResult()?.matchedFields ?? [];
 };
 
-export const useMatchedFieldsByNormalizedFieldName = (normalizedFieldName?: NormalizedMatchedFieldName) => {
+export const useMatchedFieldsForList = () => {
     const entityType = useEntityType();
     const matchedFields = useMatchedFields();
-    const matchedFieldNames = getMatchedFieldNames(entityType, normalizedFieldName);
+    return matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
+};
+
+export const useMatchedFieldsByName = (fieldName: MatchedFieldName) => {
+    const entityType = useEntityType();
+    const matchedFields = useMatchedFields();
+    const matchedFieldNames = getMatchedFieldNames(entityType, fieldName);
     return getMatchedFieldsByNames(matchedFields, matchedFieldNames);
 };
 
-export const useHasMatchedFieldByUrn = (urn: string, normalizedFieldName: NormalizedMatchedFieldName) => {
-    const matchedFieldsForNormalizedField = useMatchedFieldsByNormalizedFieldName(normalizedFieldName);
-    return getMatchedFieldByUrn(matchedFieldsForNormalizedField, urn);
+export const useHasMatchedFieldByUrn = (urn: string, fieldName: MatchedFieldName) => {
+    const matchedFieldsForNormalizedField = useMatchedFieldsByName(fieldName);
+    return getMatchedFieldsByUrn(matchedFieldsForNormalizedField, urn).length > 0;
+};
+
+export const useMatchedFieldLabel = (fieldName: string) => {
+    const entityType = useEntityType();
+    return getMatchedFieldLabel(entityType, fieldName);
 };

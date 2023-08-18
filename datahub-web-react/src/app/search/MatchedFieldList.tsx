@@ -2,25 +2,13 @@ import React from 'react';
 
 import { Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
-import { useMatchedFields } from './context/SearchResultContext';
+import { useMatchedFieldLabel, useMatchedFieldsForList } from './context/SearchResultContext';
 import { MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
-import { MatchedFieldName, MatchesGroupedByFieldName } from './context/constants';
+import { MatchesGroupedByFieldName } from './context/constants';
 import { getMatchesPrioritizingPrimary } from './context/utils';
 import { useEntityRegistry } from '../useEntityRegistry';
-
-export const FIELDS_TO_HIGHLIGHT_MAPPING = new Map<MatchedFieldName, string>();
-FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldPaths', 'column');
-FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldDescriptions', 'column description');
-FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldTags', 'column tag');
-FIELDS_TO_HIGHLIGHT_MAPPING.set('editedFieldDescriptions', 'column description');
-FIELDS_TO_HIGHLIGHT_MAPPING.set('editedFieldTags', 'column tag');
-FIELDS_TO_HIGHLIGHT_MAPPING.set('fieldLabels', 'label');
-FIELDS_TO_HIGHLIGHT_MAPPING.set('editedFieldGlossaryTerms', 'column term');
-
-const getFieldText = (fieldName: string) => FIELDS_TO_HIGHLIGHT_MAPPING.get(fieldName as MatchedFieldName);
-const isHighlightable = (field: MatchedField) => FIELDS_TO_HIGHLIGHT_MAPPING.has(field.name as MatchedFieldName);
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 
@@ -88,6 +76,7 @@ const MatchedFieldsList = ({
     tooltip?: JSX.Element;
     customFieldRenderer?: CustomFieldRenderer;
 }) => {
+    const label = useMatchedFieldLabel(groupedMatch.fieldName);
     const count = groupedMatch.matchedFields.length;
     const moreCount = Math.max(count - limit, 0);
     const andMore = (
@@ -99,7 +88,7 @@ const MatchedFieldsList = ({
     return (
         <>
             Matches {count > 1 && `${count} `}
-            {getFieldText(groupedMatch.fieldName)}
+            {label}
             {count > 1 && 's'}{' '}
             {groupedMatch.matchedFields.slice(0, limit).map((field, index) => (
                 <>
@@ -122,8 +111,8 @@ const MatchedFieldsList = ({
 };
 
 export const MatchedFieldList = ({ customFieldRenderer }: Props) => {
-    const matchedFields = useMatchedFields();
-    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME, isHighlightable);
+    const matchedFields = useMatchedFieldsForList();
+    const groupedMatches = getMatchesPrioritizingPrimary(matchedFields, LABEL_INDEX_NAME);
 
     return (
         <>

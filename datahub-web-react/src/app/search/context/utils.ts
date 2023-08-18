@@ -1,33 +1,40 @@
 import * as QueryString from 'query-string';
 import { EntityType, MatchedField } from '../../../types.generated';
-import {
-    MATCHED_FIELD_MAPPING,
-    MatchFieldMapping,
-    MatchedFieldName,
-    MatchesGroupedByFieldName,
-    NormalizedMatchedFieldName,
-} from './constants';
+import { MATCHED_FIELD_CONFIG, MatchedFieldConfig, MatchedFieldName, MatchesGroupedByFieldName } from './constants';
 
-const getFieldMappingByEntityType = (entityType: EntityType | undefined): MatchFieldMapping => {
-    return entityType && entityType in MATCHED_FIELD_MAPPING
-        ? MATCHED_FIELD_MAPPING[entityType]
-        : MATCHED_FIELD_MAPPING.DEFAULT;
+const getFieldConfigByEntityType = (
+    entityType: EntityType | undefined,
+): Record<MatchedFieldName, MatchedFieldConfig> => {
+    return entityType && entityType in MATCHED_FIELD_CONFIG
+        ? MATCHED_FIELD_CONFIG[entityType]
+        : MATCHED_FIELD_CONFIG.DEFAULT;
+};
+
+export const shouldShowInMatchedFieldList = (entityType: EntityType | undefined, field: MatchedField): boolean => {
+    const config = getFieldConfigByEntityType(entityType);
+    return field.name in config && !!config[field.name].showInMatchedFieldList;
+};
+
+export const getMatchedFieldLabel = (entityType: EntityType | undefined, fieldName: string): string => {
+    const config = getFieldConfigByEntityType(entityType);
+    return fieldName in config ? config[fieldName].label : '';
 };
 
 export const getMatchedFieldNames = (
     entityType: EntityType | undefined,
-    normalizedFieldName: NormalizedMatchedFieldName | undefined,
+    fieldName: MatchedFieldName,
 ): Array<MatchedFieldName> => {
-    const fieldMapping = getFieldMappingByEntityType(entityType);
-    return normalizedFieldName && normalizedFieldName in fieldMapping ? fieldMapping[normalizedFieldName] : [];
+    return Object.values(getFieldConfigByEntityType(entityType))
+        .filter((config) => fieldName === config.normalizedName || fieldName === config.name)
+        .map((field) => field.name);
 };
 
 export const getMatchedFieldsByNames = (fields: Array<MatchedField>, names: Array<string>): Array<MatchedField> => {
-    return fields?.filter((field) => names.includes(field.name)) ?? [];
+    return fields.filter((field) => names.includes(field.name));
 };
 
-export const getMatchedFieldByUrn = (fields: Array<MatchedField>, urn: string) => {
-    return fields.some((field) => field.value === urn);
+export const getMatchedFieldsByUrn = (fields: Array<MatchedField>, urn: string): Array<MatchedField> => {
+    return fields.filter((field) => field.value === urn);
 };
 
 function normalize(value: string) {
@@ -77,12 +84,10 @@ const getMatchesGroupedByFieldName = (matchedFields: Array<MatchedField>): Array
 export const getMatchesPrioritizingPrimary = (
     matchedFields: MatchedField[],
     primaryField: string,
-    filter: (field: MatchedField) => boolean,
 ): Array<MatchesGroupedByFieldName> => {
     const { location } = window;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
     const matches = fromQueryGetBestMatch(matchedFields, query, primaryField);
-    const highlightedMatches = matches.filter(filter);
-    return getMatchesGroupedByFieldName(highlightedMatches);
+    return getMatchesGroupedByFieldName(matches);
 };
