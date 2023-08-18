@@ -1,4 +1,5 @@
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 
@@ -14,3 +15,28 @@ def ts_millis_to_datetime(ts_millis: int) -> datetime:
 def datetime_to_ts_millis(dt: datetime) -> int:
     """Converts a datetime object to timestamp in milliseconds"""
     return int(round(dt.timestamp() * 1000))
+
+
+@dataclass
+class TimeWindow:
+    start_time: datetime
+    end_time: datetime
+
+    def contains(self, other: "TimeWindow") -> bool:
+        """Whether current window contains other window completely"""
+        return self.start_time <= other.start_time < other.end_time <= self.end_time
+
+    def intersects(self, other: "TimeWindow") -> bool:
+        """Whether current window intersects other window."""
+        return (
+            self.start_time < other.start_time < self.end_time < other.end_time
+            or other.start_time < self.start_time < other.end_time < self.end_time
+        )
+
+    def starts_after(self, other: "TimeWindow") -> bool:
+        """Whether current window starts after other window ends"""
+        return other.start_time < other.end_time <= self.start_time
+
+    def ends_after(self, other: "TimeWindow") -> bool:
+        """Whether current window ends after other window ends."""
+        return self.end_time > other.end_time

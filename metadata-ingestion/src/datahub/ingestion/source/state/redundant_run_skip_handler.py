@@ -19,7 +19,11 @@ from datahub.ingestion.source.state.usage_common_state import (
 from datahub.ingestion.source.state.use_case_handler import (
     StatefulIngestionUsecaseHandlerBase,
 )
-from datahub.utilities.time import datetime_to_ts_millis, ts_millis_to_datetime
+from datahub.utilities.time import (
+    TimeWindow,
+    datetime_to_ts_millis,
+    ts_millis_to_datetime,
+)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -141,24 +145,19 @@ class RedundantRunSkipHandler(
         )
 
         if last_checkpoint:
-            last_run_start_time: datetime = ts_millis_to_datetime(
-                last_checkpoint.state.begin_timestamp_millis
-            )
-            last_run_end_time: datetime = ts_millis_to_datetime(
-                last_checkpoint.state.end_timestamp_millis
+            last_run_time_window = TimeWindow(
+                ts_millis_to_datetime(last_checkpoint.state.begin_timestamp_millis),
+                ts_millis_to_datetime(last_checkpoint.state.end_timestamp_millis),
             )
 
             logger.debug(
                 f"{self.job_id} : Last run start, end times:"
-                f"({last_run_start_time}, {last_run_end_time})"
+                f"({last_run_time_window})"
             )
 
             # If current run's time window is subset of last run's time window, then skip.
             # Else there is at least some part in current time window that was not covered in past run's time window
-            if (
-                last_run_start_time <= cur_start_time <= last_run_end_time
-                and last_run_start_time <= cur_end_time <= last_run_end_time
-            ):
+            if last_run_time_window.contains(TimeWindow(cur_start_time, cur_end_time)):
                 skip = True
 
         return skip
@@ -181,60 +180,62 @@ class RedundantRunSkipHandler(
         ):
             return cur_start_time, cur_end_time
 
-        suggested_start_time: datetime = cur_start_time
-        suggested_end_time: datetime = cur_end_time
+        suggested_start_time, suggested_end_time = cur_start_time, cur_end_time
 
-        last_run_start_time, last_run_end_time = self.get_last_run_time_window(
-            last_checkpoint
-        )
+        last_run = self.get_last_run_time_window(last_checkpoint)
+        cur_run = TimeWindow(cur_start_time, cur_end_time)
 
         # In case of usage, it is assumed that start_time_millis (cur_start_time_millis as well as last_run_start_time) always conincides
         # with floored bucket start time. This should be taken care of outside this scope.
 
-        if cur_start_time >= last_run_start_time:
-            if cur_start_time > last_run_end_time:
-                # always run
-                if allow_expand:
-                    # scenario of time gap between past successful run window and current run window - maybe due to failed past run
-                    # Should we keep some configurable limits here to decide how much increase in time window is fine ?
-                    suggested_start_time = last_run_end_time
-                    logger.info(
-                        f"{self.job_id} : Expanding time window. Changing start time to  {last_run_end_time}"
-                    )
-                else:
-                    logger.warn(
-                        f"{self.job_id} : Observed gap in last run end time({last_run_end_time}) and current run start time({cur_start_time})."
-                    )
-            elif cur_end_time > last_run_end_time and allow_reduce:
-                # cur_start_time <= last_run_end_time
-                # scenario of scheduled ingestions with default start, end times
-                suggested_start_time = last_run_end_time
-                logger.info(
-                    f"{self.job_id} : Reducing time window. Changing start time to  {last_run_end_time}"
+        if cur_run.starts_after(last_run) and cur_run.start_time != last_run.end_time:
+            # scenario of time gap between past successful run window and current run window - maybe due to failed past run
+            # Should we keep some configurable limits here to decide how much increase in time window is fine ?
+            if allow_expand:
+                suggested_start_time = last_run.end_time
+                self.log("Expanding time window. Updating start time.")
+            else:
+                self.log(
+                    f"Observed gap in last run end time({last_run.end_time}) and current run start time({cur_start_time})."
                 )
-        else:
-            # cur_start_time_millis < last_run_start_time
-            # This is most likely a manual backdated run which we should always run.
-            if last_run_start_time < cur_end_time <= last_run_end_time and allow_reduce:
-                suggested_end_time = last_run_start_time
-                logger.info(
-                    f"{self.job_id} : Reducing time window. Changing end time to  {last_run_end_time}"
-                )
+        elif (
+            allow_reduce
+            and cur_run.intersects(last_run)
+            and cur_run.ends_after(last_run)
+        ):
+            # scenario of scheduled ingestions with default start, end times
+            suggested_start_time = last_run.end_time
+            self.log("Reducing time window. Updating start time.")
+        elif (
+            allow_reduce
+            and cur_run.intersects(last_run)
+            and last_run.ends_after(cur_run)
+        ):
+            # a manual backdated run
+            suggested_end_time = last_run.start_time
+            self.log("Reducing time window. Updating end time.")
 
-        logger.info(
-            f"{self.job_id} : Suggested start, end times: "
+        self.log(
+            "Suggested start, end times: "
             f"({suggested_start_time}, {suggested_end_time})"
         )
         return (suggested_start_time, suggested_end_time)
 
+    def log(self, msg: str) -> None:
+        logger.info(f"{self.job_id} : {msg}")
+
     def get_last_run_time_window(
         self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
-    ) -> Tuple[datetime, datetime]:
+    ) -> TimeWindow:
         # Determine from the last check point state
         last_run_start_time: int = last_checkpoint.state.begin_timestamp_millis
         last_run_end_time: int = last_checkpoint.state.end_timestamp_millis
 
         # For time bucket based aggregations - e.g. usage
+        # Case : Ingestion is scheduled to be run on 17:00:00 time everyday with bucket_duration=DAY.
+        # Run on 2023-08-16 would ingest usage for 2023-08-15 00:00:00 to 2023-08-16 17:00:00 .
+        # Run on 2023-08-17 would ingest usage for 2023-08-16 00:00:00 to 2023-08-17 17:00:00 .
+        # The code makes sure that usage is ingested for complete bucket and not partial bucket.
         if last_checkpoint.state.bucket_duration is not None:
             last_run_end_time = datetime_to_ts_millis(
                 get_time_bucket(
@@ -243,13 +244,13 @@ class RedundantRunSkipHandler(
                 )
             )
 
-        logger.debug(
-            f"{self.job_id} : Last run start, end times:"
-            f"({ts_millis_to_datetime(last_run_start_time)}, {ts_millis_to_datetime(last_run_end_time)})"
+        self.log(
+            f"Last run start, end times:({ts_millis_to_datetime(last_run_start_time)}, {ts_millis_to_datetime(last_run_end_time)})"
         )
 
-        return ts_millis_to_datetime(last_run_start_time), ts_millis_to_datetime(
-            last_run_end_time
+        return TimeWindow(
+            ts_millis_to_datetime(last_run_start_time),
+            ts_millis_to_datetime(last_run_end_time),
         )
 
 
@@ -273,6 +274,6 @@ class RedundantUsageRunSkipHandler(RedundantRunSkipHandler):
 
     def get_last_run_time_window(
         self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
-    ) -> Tuple[datetime, datetime]:
+    ) -> TimeWindow:
         assert last_checkpoint.state.bucket_duration is not None
         return super().get_last_run_time_window(last_checkpoint)
