@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
 
@@ -575,14 +576,17 @@ class SnowflakeQuery:
     def usage_per_object_per_time_bucket_for_time_window(
         start_time_millis: int,
         end_time_millis: int,
-        time_bucket_size: str,
+        time_bucket_size: BucketDuration,
         use_base_objects: bool,
         top_n_queries: int,
         include_top_n_queries: bool,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
-        assert time_bucket_size == "DAY" or time_bucket_size == "HOUR"
+        assert (
+            time_bucket_size == BucketDuration.DAY
+            or time_bucket_size == BucketDuration.HOUR
+        )
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
@@ -629,7 +633,7 @@ class SnowflakeQuery:
             SELECT
                 object_name,
                 ANY_VALUE(object_domain) AS object_domain,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 count( distinct(user_name) ) AS total_users
             FROM
@@ -644,7 +648,7 @@ class SnowflakeQuery:
             SELECT
                 object_name,
                 column_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries
             FROM
                 field_access_history
@@ -658,7 +662,7 @@ class SnowflakeQuery:
         (
             SELECT
                 object_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 user_name,
                 ANY_VALUE(users.email) AS user_email
@@ -677,7 +681,7 @@ class SnowflakeQuery:
         (
             SELECT
                 object_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 query_history.query_text AS query_text,
                 count(distinct(access_history.query_id)) AS total_queries
             FROM

@@ -162,9 +162,11 @@ _DBT_FIELDS_BY_TYPE = {
 }
 
 _DBT_GRAPHQL_QUERY = """
-query DatahubMetadataQuery_{type}($jobId: Int!, $runId: Int) {{
-  {type}(jobId: $jobId, runId: $runId) {{
+query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
+  job(id: $jobId, runId: $runId) {{
+    {type} {{
 {fields}
+    }}
   }}
 }}
 """
@@ -218,7 +220,7 @@ class DBTCloudSource(DBTSourceBase):
                 },
             )
 
-            raw_nodes.extend(data[node_type])
+            raw_nodes.extend(data["job"][node_type])
 
         nodes = [self._parse_into_dbt_node(node) for node in raw_nodes]
 

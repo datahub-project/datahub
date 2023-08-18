@@ -137,4 +137,10 @@ public class ESTestConfiguration {
         return new ConfigEntityRegistry(
                 ESTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
     }
+
+    @Bean(name = "longTailEntityRegistry")
+    public EntityRegistry longTailEntityRegistry() throws EntityRegistryException {
+        return new ConfigEntityRegistry(
+                ESTestConfiguration.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    }
 }
