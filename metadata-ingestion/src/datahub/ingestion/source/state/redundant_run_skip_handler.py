@@ -1,6 +1,5 @@
 import logging
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
 from datetime import datetime
 from typing import Dict, Optional, Tuple, cast
 
@@ -54,7 +53,7 @@ class RedundantRunSkipHandler(
         self.state_provider.register_stateful_ingestion_usecase_handler(self)
 
         # step -> step status
-        self.status: Dict[str, bool] = defaultdict(lambda: True)
+        self.status: Dict[str, bool] = {}
 
     def _ignore_new_state(self) -> bool:
         return (
@@ -111,7 +110,7 @@ class RedundantRunSkipHandler(
         self.status[step] = status
 
     def is_current_run_succeessful(self) -> bool:
-        return all(self.status)
+        return all(self.status.values())
 
     def update_state(
         self,
@@ -171,6 +170,9 @@ class RedundantRunSkipHandler(
         allow_reduce: int = True,
         allow_expand: int = False,
     ) -> Tuple[datetime, datetime]:
+        # If required in future, allow_reduce, allow_expand can be accepted as user input
+        # as part of stateful ingestion configuration. It is likely that they may cause
+        # more confusion than help to most users hence not added to start with.
         last_checkpoint = self.state_provider.get_last_checkpoint(
             self.job_id, BaseTimeWindowCheckpointState
         )
@@ -191,6 +193,7 @@ class RedundantRunSkipHandler(
 
         if cur_start_time >= last_run_start_time:
             if cur_start_time > last_run_end_time:
+                # always run
                 if allow_expand:
                     # scenario of time gap between past successful run window and current run window - maybe due to failed past run
                     # Should we keep some configurable limits here to decide how much increase in time window is fine ?
@@ -203,6 +206,7 @@ class RedundantRunSkipHandler(
                         f"{self.job_id} : Observed gap in last run end time({last_run_end_time}) and current run start time({cur_start_time})."
                     )
             elif cur_end_time > last_run_end_time and allow_reduce:
+                # cur_start_time <= last_run_end_time
                 # scenario of scheduled ingestions with default start, end times
                 suggested_start_time = last_run_end_time
                 logger.info(
@@ -211,7 +215,6 @@ class RedundantRunSkipHandler(
         else:
             # cur_start_time_millis < last_run_start_time
             # This is most likely a manual backdated run which we should always run.
-            # Do we really need below optimisation/reducing time window for manual runs ?
             if last_run_start_time < cur_end_time <= last_run_end_time and allow_reduce:
                 suggested_end_time = last_run_start_time
                 logger.info(

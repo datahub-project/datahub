@@ -320,6 +320,7 @@ class SnowflakeV2Source(
             env=self.config.env,
         )
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
+        self.add_config_to_report()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -520,7 +521,6 @@ class SnowflakeV2Source(
         if self.connection is None:
             return
 
-        self.add_config_to_report()
         self.inspect_session_metadata()
 
         if self.config.include_external_url:
@@ -599,7 +599,6 @@ class SnowflakeV2Source(
                 schema_resolver=self.sql_parser_schema_resolver,
                 view_definitions=self.view_definitions,
             )
-            # TODO -  Update the checkpoint state for this lineage run if usage extraction is successful.
 
         if (
             self.config.include_usage_stats or self.config.include_operational_stats
@@ -1431,16 +1430,20 @@ class SnowflakeV2Source(
         self.report.cleaned_account_id = self.config.get_account()
         self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
         self.report.upstream_lineage_in_report = self.config.upstream_lineage_in_report
-        if not self.report.ignore_start_time_lineage:
-            self.report.lineage_start_time = self.config.start_time
-        self.report.lineage_end_time = self.config.end_time
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
         self.report.include_column_lineage = self.config.include_column_lineage
-        if self.report.include_usage_stats or self.config.include_operational_stats:
-            self.report.window_start_time = self.config.start_time
-            self.report.window_end_time = self.config.end_time
+        self.report.stateful_lineage_ingestion_enabled = (
+            self.config.enable_stateful_lineage_ingestion
+        )
+        self.report.stateful_usage_ingestion_enabled = (
+            self.config.enable_stateful_usage_ingestion
+        )
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
+        )
 
     def inspect_session_metadata(self) -> None:
         try:
@@ -1622,7 +1625,7 @@ class SnowflakeV2Source(
         StatefulIngestionSourceBase.close(self)
         self.view_definitions.close()
         self.sql_parser_schema_resolver.close()
-        if hasattr(self, "lineage_extractor") and self.lineage_extractor:
+        if self.lineage_extractor:
             self.lineage_extractor.close()
-        if hasattr(self, "usage_extractor") and self.usage_extractor:
+        if self.usage_extractor:
             self.usage_extractor.close()

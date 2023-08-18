@@ -219,7 +219,7 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     ) -> datetime:
         if get_time_bucket(v, values["bucket_duration"]) != v:
             new_start_time = get_time_bucket(v, values["bucket_duration"])
-            logger.warning(
+            logger.info(
                 f"`start_time` will be changed to {new_start_time}, although the input `start_time` is {v}."
                 "This is necessary to record correct usage for the configured bucket duration."
             )

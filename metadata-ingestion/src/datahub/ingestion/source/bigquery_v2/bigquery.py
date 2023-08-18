@@ -294,7 +294,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.sql_parser_schema_resolver = SchemaResolver(
             platform=self.platform, env=self.config.env
         )
-
+        self.add_config_to_report()
         atexit.register(cleanup, config)
 
     @classmethod
@@ -523,7 +523,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         conn: bigquery.Client = get_bigquery_client(self.config)
-        self.add_config_to_report()
 
         projects = self._get_projects(conn)
         if not projects:
@@ -1324,4 +1323,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.log_page_size = self.config.log_page_size
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
+        )
+        self.report.stateful_lineage_ingestion_enabled = (
+            self.config.enable_stateful_lineage_ingestion
+        )
+        self.report.stateful_usage_ingestion_enabled = (
+            self.config.enable_stateful_usage_ingestion
+        )
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
         )

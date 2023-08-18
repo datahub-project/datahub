@@ -9,6 +9,7 @@ import pydantic
 
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
@@ -16,7 +17,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
-class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport):
+class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -52,7 +53,6 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport):
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
-    end_time: Optional[datetime] = None
     log_entry_start_time: Optional[str] = None
     log_entry_end_time: Optional[str] = None
     audit_start_time: Optional[str] = None
@@ -88,6 +88,14 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport):
         default_factory=collections.Counter
     )
     usage_state_size: Optional[str] = None
+
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
+    stateful_lineage_ingestion_enabled: bool = False
+
+    usage_start_time: Optional[datetime] = None
+    usage_end_time: Optional[datetime] = None
+    stateful_usage_ingestion_enabled: bool = False
 
     def set_ingestion_stage(self, project_id: str, stage: str) -> None:
         self.report_ingestion_stage_start(f"{project_id}: {stage}")

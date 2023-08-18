@@ -13,7 +13,7 @@ from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 
 
 @dataclass
-class SnowflakeUsageReport(BaseTimeWindowReport):
+class SnowflakeUsageReport:
     min_access_history_time: Optional[datetime] = None
     max_access_history_time: Optional[datetime] = None
     access_history_range_query_secs: float = -1
@@ -26,9 +26,13 @@ class SnowflakeUsageReport(BaseTimeWindowReport):
     rows_missing_email: int = 0
     rows_parsing_error: int = 0
 
+    usage_start_time: Optional[datetime] = None
+    usage_end_time: Optional[datetime] = None
+    stateful_usage_ingestion_enabled: bool = False
+
 
 @dataclass
-class SnowflakeReport(ProfilingSqlReport):
+class SnowflakeReport(ProfilingSqlReport, BaseTimeWindowReport):
     num_table_to_table_edges_scanned: int = 0
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0
@@ -36,8 +40,10 @@ class SnowflakeReport(ProfilingSqlReport):
     ignore_start_time_lineage: Optional[bool] = None
     upstream_lineage_in_report: Optional[bool] = None
     upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
+    stateful_lineage_ingestion_enabled: bool = False
 
     cleaned_account_id: str = ""
     run_ingestion: bool = False

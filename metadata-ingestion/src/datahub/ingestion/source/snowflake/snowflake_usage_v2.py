@@ -123,7 +123,10 @@ class SnowflakeUsageExtractor(
         self.connection: Optional[SnowflakeConnection] = None
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
-        self.start_time, self.end_time = self.get_time_window()
+        self.start_time, self.end_time = (
+            self.report.usage_start_time,
+            self.report.usage_end_time,
+        ) = self.get_time_window()
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:

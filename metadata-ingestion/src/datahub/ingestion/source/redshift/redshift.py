@@ -326,6 +326,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         self.db_views: Dict[str, Dict[str, List[RedshiftView]]] = {}
         self.db_schemas: Dict[str, Dict[str, RedshiftSchema]] = {}
 
+        self.add_config_to_report()
+
     @classmethod
     def create(cls, config_dict, ctx):
         config = RedshiftConfig.parse_obj(config_dict)
@@ -377,7 +379,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         database = get_db_name(self.config)
         logger.info(f"Processing db {self.config.database} with name {database}")
         self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
-        # self.add_config_to_report()
         self.db_tables[database] = defaultdict()
         self.db_views[database] = defaultdict()
         self.db_schemas.setdefault(database, {})
@@ -956,3 +957,15 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     yield from gen_lineage(
                         dataset_urn, lineage_info, self.config.incremental_lineage
                     )
+
+    def add_config_to_report(self):
+        self.report.stateful_lineage_ingestion_enabled = (
+            self.config.enable_stateful_lineage_ingestion
+        )
+        self.report.stateful_usage_ingestion_enabled = (
+            self.config.enable_stateful_usage_ingestion
+        )
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
+        )

@@ -90,10 +90,14 @@ class RedshiftLineageExtractor:
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
-        self.start_time, self.end_time = self.get_time_window()
+        self.start_time, self.end_time = (
+            self.report.lineage_start_time,
+            self.report.lineage_end_time,
+        ) = self.get_time_window()
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
+            self.report.stateful_lineage_ingestion_enabled = True
             return self.redundant_run_skip_handler.suggest_run_time_window(
                 self.config.start_time, self.config.end_time
             )

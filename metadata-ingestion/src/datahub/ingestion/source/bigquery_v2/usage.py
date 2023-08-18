@@ -394,7 +394,10 @@ class BigQueryUsageExtractor:
         self.uuid_to_query: Dict[str, str] = {}
 
         self.redundant_run_skip_handler = redundant_run_skip_handler
-        self.start_time, self.end_time = self.get_time_window()
+        self.start_time, self.end_time = (
+            self.report.usage_start_time,
+            self.report.usage_end_time,
+        ) = self.get_time_window()
 
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
@@ -672,6 +675,7 @@ class BigQueryUsageExtractor:
         limit: Optional[int] = None,
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
+            self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
         corrected_start_time = self.start_time - self.config.max_query_duration
