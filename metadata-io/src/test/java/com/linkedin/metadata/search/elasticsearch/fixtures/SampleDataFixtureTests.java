@@ -366,7 +366,8 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
             "query_word_delimited", queryWithMinus
         );
         assertEquals(getTokens(request)
-            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("logging_events -bckp", "logging_ev", "-bckp", "log", "event", "bckp"));
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("logging_events -bckp", "logging_ev", "-bckp", "log", "event", "bckp"));
 
         request = AnalyzeRequest.withIndexAnalyzer(
             "smpldat_datasetindex_v2",

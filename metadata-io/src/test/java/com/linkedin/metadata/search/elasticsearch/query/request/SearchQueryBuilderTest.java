@@ -119,7 +119,7 @@ public class SearchQueryBuilderTest {
       if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
         MatchPhrasePrefixQueryBuilder builder = (MatchPhrasePrefixQueryBuilder) prefixQuery;
         return Pair.of(builder.fieldName(), builder.boost());
-      } else if (prefixQuery instanceof TermQueryBuilder){
+      } else if (prefixQuery instanceof TermQueryBuilder) {
         // exact
         TermQueryBuilder builder = (TermQueryBuilder) prefixQuery;
         return Pair.of(builder.fieldName(), builder.boost());
@@ -217,7 +217,7 @@ public class SearchQueryBuilderTest {
         if (prefixQuery instanceof MatchPhrasePrefixQueryBuilder) {
           // prefix
           return (MatchPhrasePrefixQueryBuilder) prefixQuery;
-        } else if (prefixQuery instanceof TermQueryBuilder){
+        } else if (prefixQuery instanceof TermQueryBuilder) {
           // exact
           return (TermQueryBuilder) prefixQuery;
         } else { // if (prefixQuery instanceof MatchPhraseQueryBuilder) {
