@@ -28,6 +28,8 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.SearchSuggestion;
+import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
@@ -68,11 +70,14 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
+import org.elasticsearch.search.suggest.Suggest;
 import org.elasticsearch.search.suggest.SuggestBuilder;
 import org.elasticsearch.search.suggest.SuggestBuilders;
 import org.elasticsearch.search.suggest.SuggestionBuilder;
+import org.elasticsearch.search.suggest.term.TermSuggestion;
 import org.elasticsearch.search.suggest.term.TermSuggestionBuilder;
 
+import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 import static com.linkedin.metadata.utils.SearchUtil.*;
@@ -205,10 +210,7 @@ public class SearchRequestHandler {
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
 
     if (finalSearchFlags.isGetSuggestions()) {
-      SuggestionBuilder<TermSuggestionBuilder> builder = SuggestBuilders.termSuggestion("_entityName").text(input);
-      SuggestBuilder suggestBuilder = new SuggestBuilder();
-      suggestBuilder.addSuggestion("nameSuggestion", builder);
-      searchSourceBuilder.suggest(suggestBuilder);
+      ESUtils.buildNameSuggestions(searchSourceBuilder, input);
     }
 
     searchRequest.source(searchSourceBuilder);
@@ -480,15 +482,11 @@ public class SearchRequestHandler {
     final SearchResultMetadata searchResultMetadata =
         new SearchResultMetadata().setAggregations(new AggregationMetadataArray());
 
-    // pull out suggestions here
-    System.out.println("~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~~~");
-    System.out.println(searchResponse);
-    System.out.println("..............");
-    System.out.println(searchResponse.getSuggest());
-    System.out.println("~~~~~~~~~~~~~~~~~~~~~~HERE~~~~~~~~~~~~~~~~~~~~");
-
     final List<AggregationMetadata> aggregationMetadataList = extractAggregationMetadata(searchResponse, filter);
     searchResultMetadata.setAggregations(new AggregationMetadataArray(aggregationMetadataList));
+
+    final List<SearchSuggestion> searchSuggestions = extractSearchSuggestions(searchResponse);
+    searchResultMetadata.setSuggestions(new SearchSuggestionArray(searchSuggestions));
 
     return searchResultMetadata;
   }
@@ -534,6 +532,23 @@ public class SearchRequestHandler {
       return Collections.emptyMap();
     }
     return extractTermAggregations((ParsedTerms) aggregation, aggregationName.equals("_entityType"));
+  }
+
+  private List<SearchSuggestion> extractSearchSuggestions(@Nonnull SearchResponse searchResponse) {
+    final List<SearchSuggestion> searchSuggestions = new ArrayList<>();
+    if (searchResponse.getSuggest() != null) {
+      TermSuggestion termSuggestion = searchResponse.getSuggest().getSuggestion(NAME_SUGGESTION);
+      if (termSuggestion != null && termSuggestion.getEntries().size() > 0) {
+        termSuggestion.getEntries().get(0).getOptions().forEach(suggestOption -> {
+          SearchSuggestion searchSuggestion = new SearchSuggestion();
+          searchSuggestion.setText(String.valueOf(suggestOption.getText()));
+          searchSuggestion.setFrequency(suggestOption.getFreq());
+          searchSuggestion.setScore(suggestOption.getScore());
+          searchSuggestions.add(searchSuggestion);
+        });
+      }
+    }
+    return searchSuggestions;
   }
 
   /**

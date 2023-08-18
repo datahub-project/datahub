@@ -27,6 +27,10 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.ScoreSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
+import org.elasticsearch.search.suggest.SuggestBuilder;
+import org.elasticsearch.search.suggest.SuggestBuilders;
+import org.elasticsearch.search.suggest.SuggestionBuilder;
+import org.elasticsearch.search.suggest.term.TermSuggestionBuilder;
 
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
@@ -46,6 +50,8 @@ public class ESUtils {
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String KEYWORD_TYPE = "keyword";
+  public static final String ENTITY_NAME_FIELD = "_entityName";
+  public static final String NAME_SUGGESTION = "nameSuggestion";
 
   // we use this to make sure we filter for editable & non-editable fields. Also expands out top-level properties
   // to field level properties
@@ -195,6 +201,17 @@ public class ESUtils {
     if (sortCriterion == null || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
       searchSourceBuilder.sort(new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
+  }
+
+  /**
+   * Populates source field of search query with the suggestions query so that we get search suggestions back.
+   * Right now we are only supporting suggestions based on the virtual _entityName field alias.
+   */
+  public static void buildNameSuggestions(@Nonnull SearchSourceBuilder searchSourceBuilder, @Nullable String textInput) {
+    SuggestionBuilder<TermSuggestionBuilder> builder = SuggestBuilders.termSuggestion(ENTITY_NAME_FIELD).text(textInput);
+    SuggestBuilder suggestBuilder = new SuggestBuilder();
+    suggestBuilder.addSuggestion(NAME_SUGGESTION, builder);
+    searchSourceBuilder.suggest(suggestBuilder);
   }
 
   /**

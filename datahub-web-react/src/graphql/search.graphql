@@ -841,6 +841,11 @@ fragment searchResults on SearchResults {
     facets {
         ...facetFields
     }
+    suggestions {
+        text
+        frequency
+        score
+    }
 }
 
 fragment schemaFieldEntityFields on SchemaFieldEntity {

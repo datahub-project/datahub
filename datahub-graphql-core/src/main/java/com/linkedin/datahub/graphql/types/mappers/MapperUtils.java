@@ -4,9 +4,12 @@ import com.linkedin.datahub.graphql.generated.AggregationMetadata;
 import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.SearchResult;
+import com.linkedin.datahub.graphql.generated.SearchSuggestion;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchSuggestionArray;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -56,5 +59,9 @@ public class MapperUtils {
     return highlightMetadata.stream()
         .map(field -> new MatchedField(field.getName(), field.getValue()))
         .collect(Collectors.toList());
+  }
+
+  public static SearchSuggestion mapSearchSuggestion(com.linkedin.metadata.search.SearchSuggestion suggestion) {
+    return new SearchSuggestion(suggestion.getText(), suggestion.getScore(), Math.toIntExact(suggestion.getFrequency()));
   }
 }
