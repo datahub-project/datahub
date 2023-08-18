@@ -2872,6 +2872,11 @@ type SchemaField {
     Whether the field is part of a key schema
     """
     isPartOfKey: Boolean
+
+    """
+    Whether the field is part of a partitioning key schema
+    """
+    isPartitioningKey: Boolean
 }
 
 """

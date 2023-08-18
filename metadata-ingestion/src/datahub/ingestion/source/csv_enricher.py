@@ -106,9 +106,9 @@ class CSVEnricherSource(Source):
 
     ```
     resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe;urn:li:corpuser:jdoe],TECHNICAL_OWNER,"description for users table",urn:li:domain:Engineering
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description"
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],TECHNICAL_OWNER,"description for users table",urn:li:domain:Engineering
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description"
+    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description"
     ```
 
     Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
@@ -438,7 +438,7 @@ class CSVEnricherSource(Source):
         field_match = False
         for field_info in current_editable_schema_metadata.editableSchemaFieldInfo:
             if (
-                DatasetUrn._get_simple_field_path_from_v2_field_path(
+                DatasetUrn.get_simple_field_path_from_v2_field_path(
                     field_info.fieldPath
                 )
                 == field_path
