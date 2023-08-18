@@ -296,7 +296,7 @@ export default function DefaultPreviewCard({
                         {deprecation?.deprecated && (
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
-                        {health && health.length > 0 && <EntityHealth baseUrl={url} health={health} />}
+                        {health && health.length > 0 ? <EntityHealth baseUrl={url} health={health} /> : null}
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}
