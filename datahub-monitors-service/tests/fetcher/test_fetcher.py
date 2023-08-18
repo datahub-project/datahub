@@ -6,6 +6,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 
 from datahub_monitors.constants import LIST_MONITORS_BATCH_SIZE
 from datahub_monitors.fetcher.fetcher import MonitorFetcher
+from datahub_monitors.fetcher.types import MonitorFetcherConfig, MonitorFetcherMode
 from datahub_monitors.graphql.query import GRAPHQL_LIST_MONITORS_QUERY
 from datahub_monitors.types import (
     AssertionEvaluationParametersType,
@@ -95,7 +96,10 @@ def test_fetch_assertions() -> None:
     )
 
     # Create the MonitorFetcher with the mock graph
-    fetcher = MonitorFetcher(graph)
+    fetcher = MonitorFetcher(
+        graph=graph,
+        config=MonitorFetcherConfig(mode=MonitorFetcherMode.DEFAULT, executor_ids=None),
+    )
 
     # Call the fetch_monitors method
     monitors = fetcher.fetch_monitors()
@@ -154,6 +158,17 @@ def test_fetch_assertions() -> None:
                 "start": 0,
                 "count": LIST_MONITORS_BATCH_SIZE,
                 "query": "*",
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "executorId",
+                                "condition": "EXISTS",
+                                "negated": True,
+                            }
+                        ]
+                    }
+                ],
                 "searchFlags": {"skipCache": True},
             }
         },

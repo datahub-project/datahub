@@ -93,7 +93,13 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
         final String keyAspectCreatedTime = computeFirstSynchronized(urn, entityResponse);
         return new TestQueryResponse(Collections.singletonList(keyAspectCreatedTime));
       case LAST_SYNCHRONIZED_FIELD_NAME:
-        final String lastSynchronizedTime = SystemMetadataUtils.getLastIngested(entityResponse.getAspects()).toString();
+        final Long lastIngested = SystemMetadataUtils.getLastIngested(entityResponse.getAspects());
+        if (lastIngested == null) {
+          String error = String.format("last ingested time is null %s", urn);
+          log.error(error);
+          throw new RuntimeException(error);
+        }
+        final String lastSynchronizedTime = lastIngested.toString();
         return new TestQueryResponse(Collections.singletonList(lastSynchronizedTime));
       case LAST_UPDATED_FIELD_NAME:
         final String lastUpdatedTime = computeLastUpdated(urn, entityResponse);

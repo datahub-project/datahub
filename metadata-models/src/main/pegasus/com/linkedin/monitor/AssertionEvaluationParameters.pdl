@@ -12,10 +12,20 @@ record AssertionEvaluationParameters {
          * Parameters required to evaluate a Dataset Freshness Assertion
          */
         DATASET_FRESHNESS
+
+        /**
+         * Parameters required to evaluate a Dataset Volume Assertion
+         */
+        DATASET_VOLUME
     }
 
     /**
-     * Parameters required to evaluate a Dataset Freshness Assertion. Present if type is DATASET_FRESHNESS.
-     */
-     datasetFreshnessParameters: optional DatasetFreshnessAssertionParameters
+    * Parameters required to evaluate a Dataset Freshness Assertion. Present if type is DATASET_FRESHNESS.
+    */
+    datasetFreshnessParameters: optional DatasetFreshnessAssertionParameters
+
+    /**
+    * Parameters required to evaluate a Dataset Volume Assertion. Present if type is DATASET_VOLUME.
+    */
+    datasetVolumeParameters: optional DatasetVolumeAssertionParameters
 }

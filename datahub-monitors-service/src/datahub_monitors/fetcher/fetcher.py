@@ -6,6 +6,8 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from datahub_monitors.constants import LIST_MONITORS_BATCH_SIZE
 from datahub_monitors.fetcher.mapper import graphql_to_monitors
+from datahub_monitors.fetcher.types import MonitorFetcherConfig
+from datahub_monitors.fetcher.util import build_filters
 from datahub_monitors.graphql.query import GRAPHQL_LIST_MONITORS_QUERY
 from datahub_monitors.types import Monitor
 
@@ -15,13 +17,14 @@ logger = logging.getLogger(__name__)
 class MonitorFetcher:
     """Class used to fetch monitors from an external API."""
 
-    def __init__(self, graph: DataHubGraph):
+    def __init__(self, graph: DataHubGraph, config: MonitorFetcherConfig):
         """
         Initialize the MonitorFetcher with the URL of the API.
 
         :param graph: An instance of the DataHubGraph (API Client) object.
         """
         self.graph = graph
+        self.config = config
 
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
@@ -41,6 +44,7 @@ class MonitorFetcher:
                     "count": LIST_MONITORS_BATCH_SIZE,
                     "query": "*",
                     "searchFlags": {"skipCache": True},
+                    "orFilters": build_filters(self.config),
                 }
             },
         )
