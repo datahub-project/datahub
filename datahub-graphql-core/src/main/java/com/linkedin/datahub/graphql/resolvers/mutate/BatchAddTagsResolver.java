@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.exception.TagAuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchAddTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -123,7 +122,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
       LabelUtils.validateLabel(tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
 
       if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
-        throw new TagAuthorizationException("Only users granted permission to this tag can assign or remove it");
+        throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
       }
     }
   }

@@ -7,7 +7,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.exception.TagAuthorizationException;
 import com.linkedin.datahub.graphql.generated.AddTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -46,7 +45,7 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
 
       tagUrns.forEach((tagUrn) -> {
         if (!LabelUtils.isAuthorizedToAssociateTag(environment.getContext(), tagUrn)) {
-          throw new TagAuthorizationException("Only users granted permission to this tag can assign or remove it");
+          throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
         }
       });
 

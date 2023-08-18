@@ -4,7 +4,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.exception.TagAuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
@@ -57,7 +56,7 @@ public class BatchRemoveTagsResolver implements DataFetcher<CompletableFuture<Bo
   private void validateTags(List<Urn> tagUrns, QueryContext context) {
     for (Urn tagUrn : tagUrns) {
       if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
-        throw new TagAuthorizationException("Only users granted permission to this tag can assign or remove it");
+        throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
       }
     }
   }
