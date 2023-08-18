@@ -337,7 +337,7 @@ public class SettingsBuilder {
                     .put(PATTERN, "[(),./:]")
                     .build());
 
-    // Tokenize by whitespace and most [(),./:\\s_]special chars for wordgrams
+    // Tokenize by whitespace and most special chars for wordgrams
     // only split on - when not preceded by a whitespace to preserve exclusion functionality
     // i.e. "logging-events-bkcp" and "logging-events -bckp" should be handled differently
     tokenizers.put(WORD_GRAM_TOKENIZER,
