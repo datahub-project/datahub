@@ -71,11 +71,13 @@ const DEFAULT_MATCHED_FIELD_CONFIG: Record<MatchedFieldName, MatchedFieldConfig>
         normalizedName: 'description',
         label: 'description',
     },
+    // todo - test editing the descriptions and see what actually renders in the card?
     editedDescription: {
         name: 'editedDescription',
         normalizedName: 'description',
         label: 'edited description',
     },
+    // todo - prefer editedFieldDescriptions over fieldDescriptions somehow, priority on all these? or maybe make this whole thing an array instead of a map
     editedFieldDescriptions: {
         name: 'editedFieldDescriptions',
         label: 'column description',
@@ -83,12 +85,12 @@ const DEFAULT_MATCHED_FIELD_CONFIG: Record<MatchedFieldName, MatchedFieldConfig>
     },
     fieldDescriptions: {
         name: 'fieldDescriptions',
-        label: 'column descriptions',
+        label: 'column description',
         showInMatchedFieldList: true,
     },
     tags: {
         name: 'tags',
-        label: 'tags',
+        label: 'tag',
     },
     fieldTags: {
         name: 'fieldTags',
