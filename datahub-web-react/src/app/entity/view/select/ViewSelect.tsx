@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { CSSProperties, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import { Select } from 'antd';
 import styled from 'styled-components';
@@ -65,6 +65,10 @@ const SelectStyled = styled(Select)`
     max-width: 200px;
 `;
 
+type Props = {
+    dropdownStyle?: CSSProperties;
+};
+
 /**
  * The View Select component allows you to select a View to apply to query on the current page. For example,
  * search, recommendations, and browse.
@@ -74,7 +78,7 @@ const SelectStyled = styled(Select)`
  *
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
-export const ViewSelect = () => {
+export const ViewSelect = ({ dropdownStyle = {} }: Props) => {
     const history = useHistory();
     const userContext = useUserContext();
     const [isOpen, setIsOpen] = useState(false);
@@ -206,8 +210,8 @@ export const ViewSelect = () => {
                 dropdownMatchSelectWidth={false}
                 suffixIcon={<TriangleIcon isOpen={isOpen} />}
                 dropdownStyle={{
-                    position: 'fixed',
                     paddingBottom: 0,
+                    ...dropdownStyle,
                 }}
                 onDropdownVisibleChange={handleDropdownVisibleChange}
                 dropdownRender={(menu) => (
