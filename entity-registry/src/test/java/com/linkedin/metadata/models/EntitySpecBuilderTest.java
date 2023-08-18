@@ -142,7 +142,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(9, testEntityInfo.getSearchableFieldSpecs().size());
+    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 10);
     assertEquals("customProperties", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
@@ -157,6 +157,11 @@ public class EntitySpecBuilderTest {
         new PathSpec("textArrayField", "*").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT_PARTIAL, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textArrayField", "*").toString())
+        .getSearchableAnnotation().getFieldType());
+    assertEquals("wordGramField", testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("wordGramField").toString()).getSearchableAnnotation().getFieldName());
+    assertEquals(SearchableAnnotation.FieldType.WORD_GRAM, testEntityInfo.getSearchableFieldSpecMap().get(
+            new PathSpec("wordGramField").toString())
         .getSearchableAnnotation().getFieldType());
     assertEquals("nestedIntegerField", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordField", "nestedIntegerField").toString()).getSearchableAnnotation().getFieldName());
