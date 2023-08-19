@@ -595,7 +595,8 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag
         id: tag
-        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+        # TODO: Replace with `head` once publishing is fixed
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.slim_tag || 'pr8515-full' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_slim_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
