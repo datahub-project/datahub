@@ -407,9 +407,6 @@ class OktaSource(StatefulIngestionSourceBase):
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
-        # Step 4: Close the event loop
-        event_loop.close()
-
     def get_report(self):
         return self.report
 
