@@ -1,5 +1,7 @@
 import pytest
-from tests.utils import delete_urns_from_file, get_frontend_url, ingest_file_via_rest
+
+from tests.utils import (delete_urns_from_file, get_frontend_url,
+                         ingest_file_via_rest)
 
 
 @pytest.fixture(scope="module", autouse=False)
@@ -24,7 +26,6 @@ def test_get_full_container(frontend_session, ingest_cleanup_data):
     container_name = "datahub_schema"
     container_description = "The DataHub schema"
     editable_container_description = "custom description"
-    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)"
 
     # Get a full container
     get_container_json = {

@@ -1,6 +1,6 @@
+import logging
 import os
 import tempfile
-import time
 from random import randint
 from typing import List
 
@@ -17,14 +17,11 @@ from datahub.metadata.schema_classes import (DataProductPropertiesClass,
                                              DomainPropertiesClass,
                                              DomainsClass)
 from datahub.utilities.urns.urn import Urn
-import subprocess
-import logging
 
-logger = logging.getLogger(__name__)
-
-import requests_wrapper as requests
 from tests.utils import (delete_urns_from_file, get_gms_url, get_sleep_info,
                          ingest_file_via_rest, wait_for_writes_to_sync)
+
+logger = logging.getLogger(__name__)
 
 start_index = randint(10, 10000)
 dataset_urns = [

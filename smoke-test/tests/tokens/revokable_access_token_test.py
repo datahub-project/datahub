@@ -1,15 +1,10 @@
 import os
+
 import pytest
 import requests
-from time import sleep
 
-from tests.utils import (
-    get_frontend_url,
-    wait_for_healthcheck_util,
-    get_admin_credentials,
-    wait_for_writes_to_sync,
-)
-
+from tests.utils import (get_admin_credentials, get_frontend_url,
+                         wait_for_healthcheck_util, wait_for_writes_to_sync)
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -95,7 +90,7 @@ def custom_user_setup():
     res_data = removeUser(admin_session, "urn:li:corpuser:user")
     assert res_data
     assert res_data["data"]
-    assert res_data["data"]["removeUser"] == True
+    assert res_data["data"]["removeUser"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -174,7 +169,7 @@ def test_admin_can_create_list_and_revoke_tokens(wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -231,7 +226,7 @@ def test_admin_can_create_and_revoke_tokens_for_other_user(wait_for_healthchecks
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -284,7 +279,7 @@ def test_non_admin_can_create_list_revoke_tokens(wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 
@@ -355,7 +350,7 @@ def test_admin_can_manage_tokens_generated_by_other_user(wait_for_healthchecks):
     assert res_data
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
-    assert res_data["data"]["revokeAccessToken"] == True
+    assert res_data["data"]["revokeAccessToken"] is True
     # Sleep for eventual consistency
     wait_for_writes_to_sync()
 

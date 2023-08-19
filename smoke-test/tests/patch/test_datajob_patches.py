@@ -3,19 +3,14 @@ import uuid
 from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-from datahub.metadata.schema_classes import (
-    DataJobInfoClass,
-    DataJobInputOutputClass,
-    EdgeClass,
-)
+from datahub.metadata.schema_classes import (DataJobInfoClass,
+                                             DataJobInputOutputClass,
+                                             EdgeClass)
 from datahub.specific.datajob import DataJobPatchBuilder
 
 from tests.patch.common_patch_tests import (
-    helper_test_custom_properties_patch,
-    helper_test_dataset_tags_patch,
-    helper_test_entity_terms_patch,
-    helper_test_ownership_patch,
-)
+    helper_test_custom_properties_patch, helper_test_dataset_tags_patch,
+    helper_test_entity_terms_patch, helper_test_ownership_patch)
 
 
 def _make_test_datajob_urn(
@@ -37,16 +32,12 @@ def test_datajob_ownership_patch(wait_for_healthchecks):
 
 # Tags
 def test_datajob_tags_patch(wait_for_healthchecks):
-    helper_test_dataset_tags_patch(
-        _make_test_datajob_urn(), DataJobPatchBuilder
-    )
+    helper_test_dataset_tags_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
 
 
 # Terms
 def test_dataset_terms_patch(wait_for_healthchecks):
-    helper_test_entity_terms_patch(
-        _make_test_datajob_urn(), DataJobPatchBuilder
-    )
+    helper_test_entity_terms_patch(_make_test_datajob_urn(), DataJobPatchBuilder)
 
 
 # Custom Properties

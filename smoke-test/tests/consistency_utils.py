@@ -1,10 +1,16 @@
-import time
+import logging
 import os
 import subprocess
+import time
 
 _ELASTIC_BUFFER_WRITES_TIME_IN_SEC: int = 1
 USE_STATIC_SLEEP: bool = bool(os.getenv("USE_STATIC_SLEEP", False))
-ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = int(os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 5))
+ELASTICSEARCH_REFRESH_INTERVAL_SECONDS: int = int(
+    os.getenv("ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 5)
+)
+
+logger = logging.getLogger(__name__)
+
 
 def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
     if USE_STATIC_SLEEP:
@@ -24,13 +30,15 @@ def wait_for_writes_to_sync(max_timeout_in_sec: int = 120) -> None:
 
         result = str(completed_process.stdout)
         lines = result.splitlines()
-        lag_values = [int(l) for l in lines if l != ""]
+        lag_values = [int(lag) for lag in lines if lag != ""]
         maximum_lag = max(lag_values)
         if maximum_lag == 0:
             lag_zero = True
 
     if not lag_zero:
-        logger.warning(f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}")
+        logger.warning(
+            f"Exiting early from waiting for elastic to catch up due to a timeout. Current lag is {lag_values}"
+        )
     else:
         # we want to sleep for an additional period of time for Elastic writes buffer to clear
         time.sleep(_ELASTIC_BUFFER_WRITES_TIME_IN_SEC)
