@@ -257,5 +257,8 @@
   "Manage Ingestion": "摄取管理",
   "Create, schedule, and run DataHub ingestion sources.":"创建、调度和运行 DataHub 摄取源。",
   "Sources": "数据源",
-  "Secrets": "密钥"
+  "Secrets": "密钥",
+  "Recently Viewed": "最近浏览",
+  "Most Popular": "最受欢迎",
+  "Recently Edited": "最近修改"
 }

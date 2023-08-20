@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React, { useEffect, useMemo } from 'react';
+import { Trans } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 import { RecommendationModule as RecommendationModuleType, ScenarioType } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
@@ -31,7 +32,7 @@ export const RecommendationModule = ({ module, scenarioType, displayType, showTi
     }
     return (
         <>
-            {showTitle && <Typography.Title level={4}>{module.title}</Typography.Title>}
+            {showTitle && <Typography.Title level={4}><Trans>{module.title}</Trans></Typography.Title>}
             <RecommendationRenderer
                 renderId={renderId}
                 moduleId={module.moduleId}
