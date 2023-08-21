@@ -1,5 +1,3 @@
-### solution with docuemntation description and link
-
 import contextlib
 import ast
 import time
@@ -15,13 +13,6 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipTypeClass,
 )
-import datahub.metadata.schema_classes as models
-
-from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-
-# read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
 # Imports for metadata model classes
 from datahub.metadata.schema_classes import (
