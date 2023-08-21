@@ -79,23 +79,6 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testNameMatchMemberInWorkspace() {
-        /*
-          Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
-          result, followed by "collaborative_actionitems_old"
-         */
-        assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
-        assertTrue(searchResult.getEntities().size() >= 2);
-        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
-        Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
-
-        // Checks that the table name is not suffixed with anything
-        assertTrue(firstResultUrn.toString().contains("collaborative_actionitems,"));
-        assertTrue(secondResultUrn.toString().contains("collaborative_actionitems_old"));
-    }
-
-    @Test
     public void testGlossaryTerms() {
         /*
           Searching for "ReturnRate" should return all tables that have the glossary term applied before
@@ -122,6 +105,52 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
      * via the linked tickets.
      *
      **/
+
+    // TODO: enable once PRD-505 is complete
+    @Test(enabled = false)
+    public void testNameMatchCollaborativeActionitems() {
+        /*
+          Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
+          result, followed by "collaborative_actionitems_old"
+         */
+        assertNotNull(searchService);
+        SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
+        assertTrue(searchResult.getEntities().size() >= 2);
+        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+        Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
+
+        // Checks that the table name is not suffixed with anything
+        assertTrue(firstResultUrn.toString().contains("collaborative_actionitems,"));
+        assertTrue(secondResultUrn.toString().contains("collaborative_actionitems_old"));
+
+        Double firstResultScore = searchResult.getEntities().get(1).getScore();
+        Double secondResultScore = searchResult.getEntities().get(0).getScore();
+
+        // Checks that the scores aren't tied so that we are matching on table name more than column name
+        assertTrue(firstResultScore > secondResultScore);
+    }
+
+    // TODO: enable once PRD-505 is complete
+    @Test(enabled = false)
+    public void testNameMatchCustomerOrders() {
+        /*
+          Searching for "customer orders" should return "customer_orders" as the first search
+          result, not suffixed by anything
+         */
+        assertNotNull(searchService);
+        SearchResult searchResult = searchAcrossEntities(searchService, "customer orders", SEARCHABLE_LONGTAIL_ENTITIES);
+        assertTrue(searchResult.getEntities().size() >= 2);
+        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+
+        // Checks that the table name is not suffixed with anything
+        assertTrue(firstResultUrn.toString().contains("customer_orders,"));
+
+        Double firstResultScore = searchResult.getEntities().get(1).getScore();
+        Double secondResultScore = searchResult.getEntities().get(0).getScore();
+
+        // Checks that the scores aren't tied so that we are matching on table name more than column name
+        assertTrue(firstResultScore > secondResultScore);
+    }
 
     // TODO: enable once PFP-481 is complete
     @Test(enabled = false)
