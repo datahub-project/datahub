@@ -7,6 +7,10 @@ ext {
   venv_name = 'venv'
 }
 
+if (!project.hasProperty("extra_pip_requirements")) {
+    ext.extra_pip_requirements = ""
+}
+
 def pip_install_command = "${venv_name}/bin/pip install -e ../../metadata-ingestion"
 
 task checkPythonVersion(type: Exec) {
@@ -19,7 +23,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0'"
 }
 
-task installPackage(type: Exec, dependsOn: environmentSetup) {
+task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   // Workaround for https://github.com/yaml/pyyaml/issues/601.
@@ -27,7 +31,7 @@ task installPackage(type: Exec, dependsOn: environmentSetup) {
   // and https://github.com/datahub-project/datahub/pull/8435.
   commandLine 'bash', '-x', '-c',
     "${pip_install_command} install 'Cython<3.0' 'PyYAML<6' --no-build-isolation && " +
-    "${pip_install_command} -e ."
+    "${pip_install_command} -e . ${extra_pip_requirements}"
 }
 
 task install(dependsOn: [installPackage])
@@ -58,15 +62,6 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "mypy src/ tests/ "
 }
 
-task testQuick(type: Exec, dependsOn: installDev) {
-  // We can't enforce the coverage requirements if we run a subset of the tests.
-  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
-  inputs.files(project.fileTree(dir: "tests/"))
-  outputs.dir("${venv_name}")
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
-}
-
 task installDevTest(type: Exec, dependsOn: [installDev]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
@@ -88,6 +83,16 @@ task testSingle(dependsOn: [installDevTest]) {
     }
   }
 }
+
+task testQuick(type: Exec, dependsOn: installDevTest) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  outputs.dir("${venv_name}")
+  commandLine 'bash', '-x', '-c',
+    "source ${venv_name}/bin/activate && pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+}
+
 
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-x', '-c',
