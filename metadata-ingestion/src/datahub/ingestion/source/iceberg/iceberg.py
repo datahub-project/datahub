@@ -129,20 +129,22 @@ class IcebergSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        catalog = self.config.get_catalog()
-        datasets = []
-        if catalog:
-            for namespace in catalog.list_namespaces():
-                for tableName in catalog.list_tables(namespace):
-                    dataset_name = ".".join(tableName)
-                    if not self.config.table_pattern.allowed(dataset_name):
-                        # Dataset name is rejected by pattern, report as dropped.
-                        self.report.report_dropped(dataset_name)
-                        continue
-                    else:
-                        datasets.append((tableName, dataset_name))
+        try:
+            catalog = self.config.get_catalog()
+        except Exception as e:
+            logger.error("Failed to get catalog", exc_info=True)
+            self.report.report_failure(
+                "get-catalog", f"Failed to get catalog {self.config.catalog.name}: {e}"
+            )
+            return
 
-        for dataset_path, dataset_name in datasets:
+        for dataset_path in self._get_datasets(catalog):
+            dataset_name = ".".join(dataset_path)
+            if not self.config.table_pattern.allowed(dataset_name):
+                # Dataset name is rejected by pattern, report as dropped.
+                self.report.report_dropped(dataset_name)
+                continue
+
             try:
                 # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
                 table = catalog.load_table(dataset_path)
