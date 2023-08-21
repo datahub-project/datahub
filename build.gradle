@@ -14,8 +14,9 @@ buildscript {
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.2.12'
-  ext.logbackContrib = '0.1.5'
+  ext.logbackClassicVersion = '1.2.12'
+  ext.logbackContribVersion = '0.1.5'
+  ext.janinoVersion = '3.0.12'
   ext.hadoop3Version = '3.3.5'
   ext.kafkaVersion = '2.3.0'
   ext.hazelcastVersion = '5.3.1'
@@ -146,9 +147,10 @@ project.ext.externalDependency = [
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
     'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
     'snappy': 'org.xerial.snappy:snappy-java:1.1.10.3',
-    'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
-    'logbackJackson': "ch.qos.logback.contrib:logback-jackson:$logbackContrib",
-    'logbackJsonClassic': "ch.qos.logback.contrib:logback-json-classic:$logbackContrib",
+    'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassicVersion",
+    'logbackJackson': "ch.qos.logback.contrib:logback-jackson:$logbackContribVersion",
+    'logbackJsonClassic': "ch.qos.logback.contrib:logback-json-classic:$logbackContribVersion",
+    'janino': "org.codehaus.janino:janino:$janinoVersion",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
