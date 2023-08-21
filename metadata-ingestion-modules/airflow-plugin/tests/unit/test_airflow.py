@@ -9,12 +9,11 @@ from unittest.mock import Mock
 
 import airflow.configuration
 import airflow.version
+import datahub.emitter.mce_builder as builder
 import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
-
-import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
 from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_provider.entities import Dataset, Urn
@@ -22,8 +21,6 @@ from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 assert AIRFLOW_PATCHED
-
-pytestmark = pytest.mark.airflow
 
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
@@ -75,7 +72,8 @@ def test_airflow_provider_info():
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
-        pytestconfig.rootpath / "src/datahub_provider/example_dags"
+        pytestconfig.rootpath
+        / "../../metadata-ingestion/src/datahub_provider/example_dags"
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.

@@ -127,5 +127,11 @@ setuptools.setup(
         "datahub-kafka": [
             f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}"
         ],
+        "integration-tests": [
+            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
+            # Extra requirements for Airflow.
+            "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
+            "virtualenv",  # needed by PythonVirtualenvOperator
+        ],
     },
 )
