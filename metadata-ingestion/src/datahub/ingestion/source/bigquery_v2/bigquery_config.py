@@ -3,11 +3,12 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
+import pydantic
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -36,7 +37,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
 class BigQueryV2Config(
     BigQueryBaseConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -123,7 +124,7 @@ class BigQueryV2Config(
 
     lineage_use_sql_parser: bool = Field(
         default=True,
-        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
+        description="Use sql parser to resolve view/table lineage.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -134,6 +135,22 @@ class BigQueryV2Config(
         default=False,
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
     )
+
+    extract_column_lineage: bool = Field(
+        # TODO: Flip this default to True once we support patching column-level lineage.
+        default=False,
+        description="If enabled, generate column level lineage. "
+        "Requires lineage_use_sql_parser to be enabled. "
+        "This and `incremental_lineage` cannot both be enabled.",
+    )
+
+    @pydantic.validator("extract_column_lineage")
+    def validate_column_lineage(cls, v: bool, values: Dict[str, Any]) -> bool:
+        if v and values.get("incremental_lineage"):
+            raise ValueError(
+                "Cannot enable `extract_column_lineage` and `incremental_lineage` at the same time."
+            )
+        return v
 
     extract_lineage_from_catalog: bool = Field(
         default=False,

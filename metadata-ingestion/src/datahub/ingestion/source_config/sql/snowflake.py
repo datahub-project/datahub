@@ -21,10 +21,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_SESSION_KEEP_ALIVE,
 )
 from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.sql.sql_config import (
-    SQLAlchemyConfig,
-    make_sqlalchemy_uri,
-)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
@@ -91,7 +88,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
     )
     include_view_lineage: bool = pydantic.Field(
         default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages (no view->view lineage yet). Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
+        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
     )
     connect_args: Optional[Dict[str, Any]] = pydantic.Field(
         default=None,
@@ -261,7 +258,7 @@ class BaseSnowflakeConfig(BaseTimeWindowConfig):
         return connect_args
 
 
-class SnowflakeConfig(BaseSnowflakeConfig, SQLAlchemyConfig):
+class SnowflakeConfig(BaseSnowflakeConfig, SQLCommonConfig):
     database_pattern: AllowDenyPattern = AllowDenyPattern(
         deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"]
     )

@@ -13,6 +13,8 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import java.util.ArrayList;
@@ -70,8 +72,10 @@ public class SearchUtils {
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
           EntityType.DOMAIN,
-          EntityType.NOTEBOOK,
-          EntityType.DATA_PRODUCT);
+          EntityType.DATA_PRODUCT,
+          EntityType.ROLE,
+          EntityType.NOTEBOOK);
+
 
   /**
    * Entities that are part of autocomplete by default in Auto Complete Across Entities
@@ -369,6 +373,13 @@ public class SearchUtils {
       searchFlags = SearchFlagsInputMapper.INSTANCE.apply(inputFlags);
     }
     return searchFlags;
+  }
+
+  public static SortCriterion mapSortCriterion(com.linkedin.datahub.graphql.generated.SortCriterion sortCriterion) {
+    SortCriterion result = new SortCriterion();
+    result.setField(sortCriterion.getField());
+    result.setOrder(SortOrder.valueOf(sortCriterion.getSortOrder().name()));
+    return result;
   }
 
   public static List<String> getEntityNames(List<EntityType> inputTypes) {

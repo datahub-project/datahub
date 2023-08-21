@@ -139,16 +139,16 @@ export class DashboardEntity implements Entity<Dashboard> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
                         hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
                     },
                 },
                 {
@@ -234,6 +234,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                     />
                 }
                 subtype={data.subTypes?.typeNames?.[0]}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

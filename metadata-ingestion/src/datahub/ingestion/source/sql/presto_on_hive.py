@@ -38,7 +38,7 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -129,14 +129,14 @@ class PrestoOnHiveConfig(BasicSQLAlchemyConfig):
         description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
     )
 
-    extra_properties: List[str] = Field(
-        default=[],
-        description="By default, the connector extracts a specific set of properties from the metastore tables with a sql query. Use this list of keys to provide additional properties that you would like to extract. You have to make sure the column name returned by the sql query is the same as the key you provide here.",
-    )
-
     enable_properties_merge: bool = Field(
         default=False,
         description="By default, the connector overwrites properties every time. Set this to True to enable merging of properties with what exists on the server.",
+    )
+
+    simplify_nested_field_paths: bool = Field(
+        default=False,
+        description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
     )
 
     def get_sql_alchemy_url(
@@ -171,25 +171,23 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
     _TABLES_SQL_STATEMENT = """
     SELECT source.* FROM
-    (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, tp.PARAM_VALUE as description,
+    (SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type,
            FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, p.PKEY_NAME as col_name, p.INTEGER_IDX as col_sort_order,
            p.PKEY_COMMENT as col_description, p.PKEY_TYPE as col_type, 1 as is_partition_col, s.LOCATION as table_location
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
     JOIN SDS s ON t.SD_ID = s.SD_ID
     JOIN PARTITION_KEYS p ON t.TBL_ID = p.TBL_ID
-    LEFT JOIN TABLE_PARAMS tp ON (t.TBL_ID = tp.TBL_ID AND tp.PARAM_KEY='comment')
     WHERE t.TBL_TYPE IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     UNION
-    SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type, tp.PARAM_VALUE as description,
+    SELECT t.TBL_ID, d.NAME as schema_name, t.TBL_NAME as table_name, t.TBL_TYPE as table_type,
            FROM_UNIXTIME(t.CREATE_TIME, '%Y-%m-%d') as create_date, c.COLUMN_NAME as col_name, c.INTEGER_IDX as col_sort_order,
             c.COMMENT as col_description, c.TYPE_NAME as col_type, 0 as is_partition_col, s.LOCATION as table_location
     FROM TBLS t
     JOIN DBS d ON t.DB_ID = d.DB_ID
     JOIN SDS s ON t.SD_ID = s.SD_ID
     JOIN COLUMNS_V2 c ON s.CD_ID = c.CD_ID
-    LEFT JOIN TABLE_PARAMS tp ON (t.TBL_ID = tp.TBL_ID AND tp.PARAM_KEY='comment')
     WHERE t.TBL_TYPE IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     ) source
@@ -198,25 +196,23 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
     _TABLES_POSTGRES_SQL_STATEMENT = """
     SELECT source.* FROM
-    (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
+    (SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type,
             to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, p."PKEY_NAME" as col_name, p."INTEGER_IDX" as col_sort_order,
             p."PKEY_COMMENT" as col_description, p."PKEY_TYPE" as col_type, 1 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
     JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
     JOIN "PARTITION_KEYS" p ON t."TBL_ID" = p."TBL_ID"
-    LEFT JOIN "TABLE_PARAMS" tp ON (t."TBL_ID" = tp."TBL_ID" AND tp."PARAM_KEY"='comment')
     WHERE t."TBL_TYPE" IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     UNION
-    SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type, tp."PARAM_VALUE" as description,
+    SELECT t."TBL_ID" as tbl_id, d."NAME" as schema_name, t."TBL_NAME" as table_name, t."TBL_TYPE" as table_type,
            to_char(to_timestamp(t."CREATE_TIME"), 'YYYY-MM-DD') as create_date, c."COLUMN_NAME" as col_name,
            c."INTEGER_IDX" as col_sort_order, c."COMMENT" as col_description, c."TYPE_NAME" as col_type, 0 as is_partition_col, s."LOCATION" as table_location
     FROM "TBLS" t
     JOIN "DBS" d ON t."DB_ID" = d."DB_ID"
     JOIN "SDS" s ON t."SD_ID" = s."SD_ID"
     JOIN "COLUMNS_V2" c ON s."CD_ID" = c."CD_ID"
-    LEFT JOIN "TABLE_PARAMS" tp ON (t."TBL_ID" = tp."TBL_ID" AND tp."PARAM_KEY"='comment')
     WHERE t."TBL_TYPE" IN ('EXTERNAL_TABLE', 'MANAGED_TABLE')
     {where_clause_suffix}
     ) source
@@ -271,6 +267,26 @@ class PrestoOnHiveSource(SQLAlchemySource):
     {where_clause_suffix}
     ) source
     ORDER by tbl_id desc, col_sort_order asc;
+    """
+
+    _HIVE_PROPERTIES_SQL_STATEMENT = """
+    SELECT d.NAME as schema_name, t.TBL_NAME as table_name, tp.PARAM_KEY, tp.PARAM_VALUE
+    FROM TABLE_PARAMS tp
+    JOIN TBLS t on t.TBL_ID = tp.TBL_ID
+    JOIN DBS d on d.DB_ID = t.DB_ID
+    WHERE 1
+    {where_clause_suffix}
+    ORDER BY tp.TBL_ID desc;
+    """
+
+    _HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT = """
+    SELECT d."NAME" as schema_name, t."TBL_NAME" as table_name, tp."PARAM_KEY", tp."PARAM_VALUE"
+    FROM "TABLE_PARAMS" tp
+    JOIN "TBLS" t on t."TBL_ID" = tp."TBL_ID"
+    JOIN "DBS" d on d."DB_ID" = t."DB_ID"
+    WHERE 1 = 1
+    {where_clause_suffix}
+    ORDER BY tp."TBL_ID" desc;
     """
 
     _PRESTO_VIEW_PREFIX = "/* Presto View: "
@@ -408,11 +424,36 @@ class PrestoOnHiveSource(SQLAlchemySource):
         """
         return JobId(self.config.ingestion_job_id)
 
+    def _get_table_properties(
+        self, db_name: str, scheme: str, where_clause_suffix: str
+    ) -> Dict[str, Dict[str, str]]:
+        statement: str = (
+            PrestoOnHiveSource._HIVE_PROPERTIES_POSTGRES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+            if "postgresql" in scheme
+            else PrestoOnHiveSource._HIVE_PROPERTIES_SQL_STATEMENT.format(
+                where_clause_suffix=where_clause_suffix
+            )
+        )
+        iter_res = self._alchemy_client.execute_query(statement)
+        table_properties: Dict[str, Dict[str, str]] = {}
+        for row in iter_res:
+            dataset_name = f"{row['schema_name']}.{row['table_name']}"
+            if self.config.include_catalog_name_in_ids:
+                dataset_name = f"{db_name}.{dataset_name}"
+            if row["PARAM_KEY"] and row["PARAM_VALUE"]:
+                table_properties.setdefault(dataset_name, {})[row["PARAM_KEY"]] = row[
+                    "PARAM_VALUE"
+                ]
+
+        return table_properties
+
     def loop_tables(
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         # In mysql we get tables for all databases and we should filter out the non metastore one
         if (
@@ -434,10 +475,17 @@ class PrestoOnHiveSource(SQLAlchemySource):
             )
         )
 
+        db_name = self.get_db_name(inspector)
+
+        properties_cache = self._get_table_properties(
+            db_name=db_name,
+            scheme=sql_config.scheme,
+            where_clause_suffix=where_clause_suffix,
+        )
+
         iter_res = self._alchemy_client.execute_query(statement)
 
         for key, group in groupby(iter_res, self._get_table_key):
-            db_name = self.get_db_name(inspector)
             schema_name = (
                 f"{db_name}.{key.schema}"
                 if self.config.include_catalog_name_in_ids
@@ -476,6 +524,8 @@ class PrestoOnHiveSource(SQLAlchemySource):
             # add table schema fields
             schema_fields = self.get_schema_fields(dataset_name, columns)
 
+            self._set_partition_key(columns, schema_fields)
+
             schema_metadata = get_schema_metadata(
                 self.report,
                 dataset_name,
@@ -484,15 +534,15 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 None,
                 None,
                 schema_fields,
+                self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
             # add table properties
-            default_properties = ["create_date", "table_type", "table_location"]
-            properties: Dict[str, str] = {}
-            for prop in default_properties + self.config.extra_properties:
-                if prop in columns[-1]:
-                    properties[prop] = str(columns[-1][prop]) or ""
+            properties: Dict[str, str] = properties_cache.get(dataset_name, {})
+            properties["table_type"] = str(columns[-1]["table_type"] or "")
+            properties["table_location"] = str(columns[-1]["table_location"] or "")
+            properties["create_date"] = str(columns[-1]["create_date"] or "")
 
             par_columns: str = ", ".join(
                 [c["col_name"] for c in columns if c["is_partition_col"]]
@@ -500,10 +550,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
             if par_columns != "":
                 properties["partitioned_columns"] = par_columns
 
-            table_description = (
-                columns[-1]["description"] if "description" in columns[-1] else ""
-            )
-
+            table_description = properties.get("comment")
             yield from self.add_hive_dataset_to_container(
                 dataset_urn=dataset_urn, inspector=inspector, schema=key.schema
             )
@@ -514,9 +561,11 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
                     urn=dataset_snapshot.urn
                 )
-                patch_builder.set_display_name(key.table).set_description(
-                    description=table_description
-                )
+                patch_builder.set_display_name(key.table)
+
+                if table_description:
+                    patch_builder.set_description(description=table_description)
+
                 for prop, value in properties.items():
                     patch_builder.add_custom_property(key=prop, value=value)
                 yield from [
@@ -669,7 +718,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         assert isinstance(sql_config, PrestoOnHiveConfig)
 
@@ -715,6 +764,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
                 self.platform,
                 dataset.columns,
                 canonical_schema=schema_fields,
+                simplify_nested_field_paths=self.config.simplify_nested_field_paths,
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
@@ -840,9 +890,21 @@ class PrestoOnHiveSource(SQLAlchemySource):
             default_nullable=True,
         )
 
+    def _set_partition_key(self, columns, schema_fields):
+        if len(columns) > 0:
+            partition_key_names = set()
+            for column in columns:
+                if column["is_partition_col"]:
+                    partition_key_names.add(column["col_name"])
+
+            for schema_field in schema_fields:
+                name = schema_field.fieldPath.split(".")[-1]
+                if name in partition_key_names:
+                    schema_field.isPartitioningKey = True
+
 
 class SQLAlchemyClient:
-    def __init__(self, config: SQLAlchemyConfig):
+    def __init__(self, config: SQLCommonConfig):
         self.config = config
         self.connection = self._get_connection()
 

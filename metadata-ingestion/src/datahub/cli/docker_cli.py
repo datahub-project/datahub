@@ -893,6 +893,7 @@ def download_compose_files(
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
     if kafka_setup:
+        base_url = get_docker_compose_base_url(compose_git_ref)
         kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
 
         default_kafka_compose_file = (
@@ -985,7 +986,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     if token is not None:
         recipe["sink"]["config"]["token"] = token
 
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, no_default_report=True)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

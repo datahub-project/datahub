@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaMetadataClass
@@ -46,6 +47,7 @@ class QueryType(enum.Enum):
 
 
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
+    # UPGRADE: Once we use Python 3.10, replace this with a match expression.
     mapping = {
         sqlglot.exp.Create: QueryType.CREATE,
         sqlglot.exp.Select: QueryType.SELECT,
@@ -102,7 +104,6 @@ class _TableName(_FrozenModel):
     def from_sqlglot_table(
         cls,
         table: sqlglot.exp.Table,
-        dialect: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
@@ -149,12 +150,17 @@ class ColumnLineageInfo(BaseModel):
 
 
 class SqlParsingDebugInfo(BaseModel, arbitrary_types_allowed=True):
-    confidence: float
+    confidence: float = 0.0
 
-    tables_discovered: int
-    table_schemas_resolved: int
+    tables_discovered: int = 0
+    table_schemas_resolved: int = 0
 
-    column_error: Optional[Exception]
+    table_error: Optional[Exception] = None
+    column_error: Optional[Exception] = None
+
+    @property
+    def error(self) -> Optional[Exception]:
+        return self.table_error or self.column_error
 
 
 class SqlParsingResult(BaseModel):
@@ -169,12 +175,7 @@ class SqlParsingResult(BaseModel):
     # TODO include list of referenced columns
 
     debug_info: SqlParsingDebugInfo = pydantic.Field(
-        default_factory=lambda: SqlParsingDebugInfo(
-            confidence=0,
-            tables_discovered=0,
-            table_schemas_resolved=0,
-            column_error=None,
-        ),
+        default_factory=lambda: SqlParsingDebugInfo(),
         exclude=True,
     )
 
@@ -190,12 +191,9 @@ def _table_level_lineage(
     statement: sqlglot.Expression,
     dialect: str,
 ) -> Tuple[Set[_TableName], Set[_TableName]]:
-    def _raw_table_name(table: sqlglot.exp.Table) -> _TableName:
-        return _TableName.from_sqlglot_table(table, dialect=dialect)
-
     # Generate table-level lineage.
     modified = {
-        _raw_table_name(expr.this)
+        _TableName.from_sqlglot_table(expr.this)
         for expr in statement.find_all(
             sqlglot.exp.Create,
             sqlglot.exp.Insert,
@@ -209,7 +207,10 @@ def _table_level_lineage(
     }
 
     tables = (
-        {_raw_table_name(table) for table in statement.find_all(sqlglot.exp.Table)}
+        {
+            _TableName.from_sqlglot_table(table)
+            for table in statement.find_all(sqlglot.exp.Table)
+        }
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
@@ -223,7 +224,7 @@ def _table_level_lineage(
     return tables, modified
 
 
-class SchemaResolver:
+class SchemaResolver(Closeable):
     def __init__(
         self,
         *,
@@ -259,7 +260,6 @@ class SchemaResolver:
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
-            # TODO check that this is the right way to do it
             with contextlib.suppress(IndexError):
                 table_name = BigqueryTableIdentifier.from_string_name(
                     table_name
@@ -328,7 +328,7 @@ class SchemaResolver:
         cls, schema_metadata: SchemaMetadataClass
     ) -> SchemaInfo:
         return {
-            DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath): (
+            DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath): (
                 # The actual types are more of a "nice to have".
                 col.nativeDataType
                 or "str"
@@ -336,10 +336,13 @@ class SchemaResolver:
             for col in schema_metadata.fields
             # TODO: We can't generate lineage to columns nested within structs yet.
             if "."
-            not in DatasetUrn._get_simple_field_path_from_v2_field_path(col.fieldPath)
+            not in DatasetUrn.get_simple_field_path_from_v2_field_path(col.fieldPath)
         }
 
     # TODO add a method to load all from graphql
+
+    def close(self) -> None:
+        self._schema_cache.close()
 
 
 # TODO: Once PEP 604 is supported (Python 3.10), we can unify these into a
@@ -513,9 +516,7 @@ def _column_level_lineage(  # noqa: C901
                     pass
 
                 elif isinstance(node.expression, sqlglot.exp.Table):
-                    table_ref = _TableName.from_sqlglot_table(
-                        node.expression, dialect=dialect
-                    )
+                    table_ref = _TableName.from_sqlglot_table(node.expression)
 
                     # Parse the column name out of the node name.
                     # Sqlglot calls .sql(), so we have to do the inverse.
@@ -622,15 +623,15 @@ def _translate_internal_column_lineage(
     )
 
 
-def sqlglot_lineage(
+def _sqlglot_lineage_inner(
     sql: str,
-    platform: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
     # TODO: convert datahub platform names to sqlglot dialect
-    dialect = platform
+    # TODO: Pull the platform name from the schema resolver?
+    dialect = schema_resolver.platform
 
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
@@ -752,3 +753,75 @@ def sqlglot_lineage(
         column_lineage=column_lineage_urns,
         debug_info=debug_info,
     )
+
+
+def sqlglot_lineage(
+    sql: str,
+    schema_resolver: SchemaResolver,
+    default_db: Optional[str] = None,
+    default_schema: Optional[str] = None,
+) -> SqlParsingResult:
+    """Parse a SQL statement and generate lineage information.
+
+    This is a schema-aware lineage generator, meaning that it will use the
+    schema information for the tables involved to generate lineage information
+    for the columns involved. The schema_resolver is responsible for providing
+    the table schema information.
+
+    The parser supports most types of DML statements (SELECT, INSERT, UPDATE,
+    DELETE, MERGE) as well as CREATE TABLE AS SELECT (CTAS) statements. It
+    does not support DDL statements (CREATE TABLE, ALTER TABLE, etc.).
+
+    The table-level lineage tends to be fairly reliable, while column-level
+    can be brittle with respect to missing schema information and complex
+    SQL logic like UNNESTs.
+
+    The SQL dialect is inferred from the schema_resolver's platform. The
+    set of supported dialects is the same as sqlglot's. See their
+    `documentation <https://sqlglot.com/sqlglot/dialects/dialect.html#Dialects>`_
+    for the full list.
+
+    The default_db and default_schema parameters are used to resolve unqualified
+    table names. For example, the statement "SELECT * FROM my_table" would be
+    converted to "SELECT * FROM default_db.default_schema.my_table".
+
+    Args:
+        sql: The SQL statement to parse. This should be a single statement, not
+            a multi-statement string.
+        schema_resolver: The schema resolver to use for resolving table schemas.
+        default_db: The default database to use for unqualified table names.
+        default_schema: The default schema to use for unqualified table names.
+
+    Returns:
+        A SqlParsingResult object containing the parsed lineage information.
+
+        The in_tables and out_tables fields contain the input and output tables
+        for the statement, respectively. These are represented as urns.
+        The out_tables field will be empty for SELECT statements.
+
+        The column_lineage field contains the column-level lineage information
+        for the statement. This is a list of ColumnLineageInfo objects, each
+        representing the lineage for a single output column. The downstream
+        field contains the output column, and the upstreams field contains the
+        (urn, column) pairs for the input columns.
+
+        The debug_info field contains debug information about the parsing. If
+        table_error or column_error are set, then the parsing failed and the
+        other fields may be incomplete.
+    """
+    try:
+        return _sqlglot_lineage_inner(
+            sql=sql,
+            schema_resolver=schema_resolver,
+            default_db=default_db,
+            default_schema=default_schema,
+        )
+    except Exception as e:
+        return SqlParsingResult(
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+            debug_info=SqlParsingDebugInfo(
+                table_error=e,
+            ),
+        )

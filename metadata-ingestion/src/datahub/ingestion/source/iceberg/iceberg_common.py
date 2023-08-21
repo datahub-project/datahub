@@ -13,6 +13,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 
 
 class IcebergProfilingConfig(ConfigModel):
@@ -31,6 +35,10 @@ class IcebergProfilingConfig(ConfigModel):
     include_field_max_value: bool = Field(
         default=True,
         description="Whether to profile for the max value of numeric columns.",
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
     )
     # Stats we cannot compute without looking at data
     # include_field_mean_value: bool = True
@@ -82,6 +90,11 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     def get_catalog(self) -> Catalog:
         """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.

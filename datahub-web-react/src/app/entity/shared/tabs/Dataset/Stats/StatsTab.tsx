@@ -14,7 +14,7 @@ export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const [viewType, setViewType] = useState(ViewType.LATEST);
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.WEEK);
+    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },

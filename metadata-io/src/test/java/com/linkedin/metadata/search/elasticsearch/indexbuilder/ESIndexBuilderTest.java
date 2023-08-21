@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.ESTestConfiguration;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
 import com.linkedin.metadata.version.GitVersion;
 import java.util.Optional;

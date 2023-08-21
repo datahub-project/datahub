@@ -9,7 +9,7 @@ from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp_builder import PlatformKey
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -22,10 +22,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import (
-    SQLAlchemyConfig,
-    make_sqlalchemy_uri,
-)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
@@ -33,7 +30,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 
 
-class AthenaConfig(SQLAlchemyConfig):
+class AthenaConfig(SQLCommonConfig):
     scheme: str = "awsathena+rest"
     username: Optional[str] = pydantic.Field(
         default=None,
@@ -211,7 +208,7 @@ class AthenaSource(SQLAlchemySource):
             extra_properties=extra_properties,
         )
 
-    def get_database_container_key(self, db_name: str, schema: str) -> PlatformKey:
+    def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
         # Based on community feedback, db_name only available if it is explicitly specified in the connection string.
@@ -232,7 +229,7 @@ class AthenaSource(SQLAlchemySource):
         dataset_urn: str,
         db_name: str,
         schema: str,
-        schema_container_key: Optional[PlatformKey] = None,
+        schema_container_key: Optional[ContainerKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,

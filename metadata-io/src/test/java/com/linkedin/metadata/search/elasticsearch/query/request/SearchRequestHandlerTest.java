@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
@@ -15,9 +18,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.linkedin.metadata.config.search.ExactMatchConfiguration;
-import com.linkedin.metadata.config.search.PartialConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -139,9 +139,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride")
         .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
     AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType")
-        .field("_index").size(testQueryConfig.getMaxTermBucketSize());
+        .field("_index").size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0);
     AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index")
-        .size(testQueryConfig.getMaxTermBucketSize())
+        .size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0)
         .subAggregation(AggregationBuilders.terms(nestedAggString)
             .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
 

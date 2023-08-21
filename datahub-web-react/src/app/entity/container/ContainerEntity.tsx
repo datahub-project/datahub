@@ -89,14 +89,14 @@ export class ContainerEntity implements Entity<Container> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                },
+                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
                         hasTerms: true,
                     },
-                },
-                {
-                    component: SidebarOwnerSection,
                 },
                 {
                     component: SidebarDomainSection,
@@ -154,6 +154,8 @@ export class ContainerEntity implements Entity<Container> {
                 externalUrl={data.properties?.externalUrl}
                 tags={data.tags}
                 glossaryTerms={data.glossaryTerms}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };

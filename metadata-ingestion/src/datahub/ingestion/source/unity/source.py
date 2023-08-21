@@ -15,8 +15,8 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     CatalogKey,
+    ContainerKey,
     MetastoreKey,
-    PlatformKey,
     UnitySchemaKey,
     add_dataset_to_container,
     gen_containers,
@@ -175,7 +175,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         wait_on_warehouse = None
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
@@ -200,7 +200,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.table_refs | self.view_refs
             )
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             assert wait_on_warehouse
             timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
             wait_on_warehouse.result(timeout)
@@ -432,7 +432,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=f"{self.external_url_base}/{catalog.name}",
         )
 
-    def gen_schema_key(self, schema: Schema) -> PlatformKey:
+    def gen_schema_key(self, schema: Schema) -> ContainerKey:
         return UnitySchemaKey(
             unity_schema=schema.name,
             platform=self.platform,

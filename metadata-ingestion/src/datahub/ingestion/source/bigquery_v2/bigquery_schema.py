@@ -33,6 +33,7 @@ class BigqueryTableType:
 class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
+    cluster_column_position: Optional[int]
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -285,7 +286,8 @@ select
   CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   description as comment,
   c.is_hidden as is_hidden,
-  c.is_partitioning_column as is_partitioning_column
+  c.is_partitioning_column as is_partitioning_column,
+  c.clustering_ordinal_position as clustering_ordinal_position,
 from
   `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMNS c
   join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
@@ -307,6 +309,7 @@ select * from
   description as comment,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
+  c.clustering_ordinal_position as clustering_ordinal_position,
   -- We count the columns to be able limit it later
   row_number() over (partition by c.table_catalog, c.table_schema, c.table_name order by c.ordinal_position asc, c.data_type DESC) as column_num,
   -- Getting the maximum shard for each table
@@ -319,7 +322,7 @@ from
 -- We filter column limit + 1 to make sure we warn about the limit being reached but not reading too much data
 where column_num <= {column_limit} and shard_num = 1
 ORDER BY
-  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, table_name, data_type DESC"""
+  table_catalog, table_schema, table_name, ordinal_position, column_num ASC, data_type DESC"""
 
     columns_for_table: str = """
 select
@@ -333,6 +336,7 @@ select
   CASE WHEN CONTAINS_SUBSTR(field_path, ".") THEN NULL ELSE c.data_type END as data_type,
   c.is_hidden as is_hidden,
   c.is_partitioning_column as is_partitioning_column,
+  c.clustering_ordinal_position as clustering_ordinal_position,
   description as comment
 from
   `{table_identifier.project_id}`.`{table_identifier.dataset}`.INFORMATION_SCHEMA.COLUMNS as c
@@ -583,6 +587,7 @@ class BigQueryDataDictionary:
                         data_type=column.data_type,
                         comment=column.comment,
                         is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
                     )
                 )
 
@@ -621,6 +626,7 @@ class BigQueryDataDictionary:
                         data_type=column.data_type,
                         comment=column.comment,
                         is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
                     )
                 )
             last_seen_table = column.table_name
