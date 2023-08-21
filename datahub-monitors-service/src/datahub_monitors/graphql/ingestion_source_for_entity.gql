@@ -1,0 +1,10 @@
+query ingestionSourceForEntity($urn: String!) {
+    ingestionSourceForEntity(urn: $urn) {
+        urn
+        type
+        config {
+        recipe
+        executorId
+        }
+    }
+}

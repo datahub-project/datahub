@@ -23,7 +23,10 @@ from datahub_monitors.constants import (
     REDSHIFT_PLATFORM_NAME,
     SNOWFLAKE_PLATFORM_NAME,
 )
-from datahub_monitors.graphql.query import GRAPHQL_LIST_INGESTION_SOURCES_QUERY
+from datahub_monitors.graphql.query import (
+    GRAPHQL_INGESTION_SOURCE_FOR_ENTITY_QUERY,
+    GRAPHQL_LIST_INGESTION_SOURCES_QUERY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +85,23 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
 
         return result["listIngestionSources"]["ingestionSources"]
 
+    def get_ingestion_source_for_entity(self, entity_urn: str) -> Optional[Dict]:
+        result = self.graph.execute_graphql(
+            GRAPHQL_INGESTION_SOURCE_FOR_ENTITY_QUERY,
+            variables={"urn": entity_urn},
+        )
+
+        if "error" in result:
+            # TODO: add either logging or throwing here.
+            pass
+
+        if "ingestionSourceForEntity" not in result:
+            return None
+
+        return result["ingestionSourceForEntity"]
+
     def extract_connection_from_ingestion_source(
-        self, platform_urn: str, source_type: str, ingestion_source: Dict
+        self, source_type: str, ingestion_source: Dict
     ) -> Optional[Connection]:
         # 1. Resolve the recipe itself.
         final_recipe_dict = resolve_recipe(
@@ -92,7 +110,7 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
 
         if PLATFORM_TO_CONNECTION_SUPPLIER.get(source_type) is not None:
             supplier = PLATFORM_TO_CONNECTION_SUPPLIER.get(source_type)
-            return supplier(platform_urn, final_recipe_dict, self.graph)  # type: ignore
+            return supplier(f"urn:li:dataPlatform:{source_type}", final_recipe_dict, self.graph)  # type: ignore
         raise NotImplementedError(
             "Unable to extract connection from ingestion source. No extractor found."
         )
@@ -116,7 +134,7 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
                 ):  # Assumption Alert! This assumes that ingestion source name === data platform name.
                     # 3. Convert the recipe into a connection - currently only supports Snowflake, Redshift.
                     return self.extract_connection_from_ingestion_source(
-                        urn, source_type, ingestion_source
+                        source_type, ingestion_source
                     )
             # Did not find matching connection.
             logger.error(
@@ -127,6 +145,23 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
             "platform type " + platform_type + " is not currently supported!"
         )
 
+    def get_connection_from_entity(self, entity_urn: str) -> Optional[Connection]:
+        ingestion_source = self.get_ingestion_source_for_entity(entity_urn)
+        if ingestion_source is None:
+            logger.error(
+                f"Failed to resolve connection for entity with urn {entity_urn}. No matching ingestion sources configured."
+            )
+            return None
+        source_type = ingestion_source["type"]
+        (
+            ingestion_source["config"]["executorId"]
+            if "executorId" in ingestion_source["config"]
+            else None
+        )
+        return self.extract_connection_from_ingestion_source(
+            source_type, ingestion_source
+        )
+
     def get_connection(self, urn: str) -> Optional[Connection]:
         # First, determine which type of urn we are working with.
         entity_type = urn_to_entity_type(urn)
@@ -135,3 +170,6 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
         # TODO: Allow users to provide a connection along with the
         # monitor / assertion definition.
         raise NotImplementedError()
+
+    def get_connection_for_entity(self, urn: str) -> Optional[Connection]:
+        return self.get_connection_from_entity(urn)

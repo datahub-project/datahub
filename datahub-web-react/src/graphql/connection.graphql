@@ -27,7 +27,3 @@ query connection($urn: String!) {
         }
     }
 }
-
-query connectionForEntityExists($urn: String!) {
-    connectionForEntityExists(urn: $urn)
-}

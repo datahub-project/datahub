@@ -10,3 +10,7 @@ class ConnectionProvider(ABC):
     @abstractmethod
     def get_connection(self, urn: str) -> Optional[Connection]:
         raise NotImplementedError()
+
+    @abstractmethod
+    def get_connection_for_entity(self, entity_urn: str) -> Optional[Connection]:
+        raise NotImplementedError()

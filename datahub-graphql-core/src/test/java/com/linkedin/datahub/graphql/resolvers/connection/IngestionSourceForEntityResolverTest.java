@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.resolvers.connection;
 
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.resolvers.ingest.source.IngestionSourceForEntityResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -12,6 +14,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
 import org.testng.annotations.BeforeMethod;
@@ -24,12 +27,14 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-public class ConnectionForEntityExistsResolverTest {
+public class IngestionSourceForEntityResolverTest {
   private static final String ENTITY_URN_STRING = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test1,DEV)";
+  private static final String INGESTION_SOURCE_URN_STRING = "urn:li:dataHubIngestionSource:test";
+  private static final String EXECUTION_REQUEST_URN_STRING = "urn:li:dataHubExecutionRequest:test";
 
   private EntityClient _entityClient;
   private DataFetchingEnvironment _dataFetchingEnvironment;
-  private ConnectionForEntityExistsResolver _resolver;
+  private IngestionSourceForEntityResolver _resolver;
   private Urn _entityUrn;
   private QueryContext _mockContext;
   private EntityResponse _entityResponse;
@@ -40,7 +45,7 @@ public class ConnectionForEntityExistsResolverTest {
   public void setupTest() {
     _entityClient = mock(EntityClient.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
-    _resolver = new ConnectionForEntityExistsResolver(_entityClient);
+    _resolver = new IngestionSourceForEntityResolver(_entityClient);
     _mockContext = getMockAllowContext();
 
     try {
@@ -58,24 +63,34 @@ public class ConnectionForEntityExistsResolverTest {
 
     EnvelopedAspectMap executionRequestAspects = new EnvelopedAspectMap();
     final ExecutionRequestInput execInput = new ExecutionRequestInput();
-    execInput.setSource(new ExecutionRequestSource().setType("test-connection"));
+    execInput.setSource(new ExecutionRequestSource().setType("INGESTION_SOURCE").setIngestionSource(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)));
     EnvelopedAspect executionRequestEnvelopedInput = new EnvelopedAspect().setValue(new Aspect(execInput.data()));
     executionRequestAspects.put(
       Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, executionRequestEnvelopedInput
     );
     _executionRequestEntityResponse = new EntityResponse()
+        .setUrn(UrnUtils.getUrn(EXECUTION_REQUEST_URN_STRING))
         .setAspects(executionRequestAspects);
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
     DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo();
+    ingestionSourceInfo.setType("bigquery");
+    ingestionSourceInfo.setName("BigQuery");
+    ingestionSourceInfo.setSchedule(new DataHubIngestionSourceSchedule()
+      .setTimezone("America / Los Angeles")
+      .setInterval("* * * * *")
+    );
     ingestionSourceInfo.setConfig(new DataHubIngestionSourceConfig()
-        .setExecutorId("default")
+      .setExecutorId("default")
+      .setVersion("v0.10.5")
+      .setRecipe("{}")
     );
     EnvelopedAspect ingestionSourceEnvelopedInfo = new EnvelopedAspect().setValue(new Aspect(ingestionSourceInfo.data()));
     ingestionInfoAspects.put(
       Constants.INGESTION_INFO_ASPECT_NAME, ingestionSourceEnvelopedInfo
     );
     _ingestionSourceEntityResponse = new EntityResponse()
+        .setUrn(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING))
         .setAspects(ingestionInfoAspects);
 
     when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
@@ -107,12 +122,12 @@ public class ConnectionForEntityExistsResolverTest {
 
     when(_entityClient.getV2(
       eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
-      any(),
+      eq(UrnUtils.getUrn(INGESTION_SOURCE_URN_STRING)),
       eq(Collections.singleton(INGESTION_INFO_ASPECT_NAME)),
       any(Authentication.class)
     )).thenReturn(_ingestionSourceEntityResponse);
 
-    assertTrue(_resolver.get(_dataFetchingEnvironment).join());
+    assertEquals(_resolver.get(_dataFetchingEnvironment).join().getUrn(), INGESTION_SOURCE_URN_STRING);
   }
 
   @Test
@@ -124,7 +139,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(null);
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -142,7 +157,7 @@ public class ConnectionForEntityExistsResolverTest {
         .setAspects(aspectMap)
     );
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -161,7 +176,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(null);
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -180,7 +195,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(new EntityResponse());
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -208,7 +223,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(_executionRequestEntityResponse);
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -234,7 +249,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(null);
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -260,7 +275,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(new EntityResponse());
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -293,7 +308,7 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(new EntityResponse());
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 
   @Test
@@ -314,6 +329,7 @@ public class ConnectionForEntityExistsResolverTest {
 
     EnvelopedAspectMap ingestionInfoAspects = new EnvelopedAspectMap();
     DataHubIngestionSourceInfo ingestionSourceInfo = new DataHubIngestionSourceInfo();
+    ingestionSourceInfo.setType("bigquery");
     EnvelopedAspect ingestionSourceEnvelopedInfo = new EnvelopedAspect().setValue(new Aspect(ingestionSourceInfo.data()));
     ingestionInfoAspects.put(
       Constants.INGESTION_INFO_ASPECT_NAME, ingestionSourceEnvelopedInfo
@@ -328,6 +344,6 @@ public class ConnectionForEntityExistsResolverTest {
       any(Authentication.class)
     )).thenReturn(new EntityResponse());
 
-    assertFalse(_resolver.get(_dataFetchingEnvironment).join());
+    assertNull(_resolver.get(_dataFetchingEnvironment).join());
   }
 }
