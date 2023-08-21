@@ -440,7 +440,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return UnitySchemaKey(
             unity_schema=schema.name,
             platform=self.platform,
-            instance=self.platform_instance_name,
+            instance=self.config.platform_instance,
             catalog=schema.catalog.name,
             metastore=schema.catalog.metastore.name,
         )
@@ -449,7 +449,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return MetastoreKey(
             metastore=metastore.name,
             platform=self.platform,
-            instance=self.platform_instance_name,
+            instance=self.config.platform_instance,
         )
 
     def gen_catalog_key(self, catalog: Catalog) -> CatalogKey:
@@ -457,7 +457,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             catalog=catalog.name,
             metastore=catalog.metastore.name,
             platform=self.platform,
-            instance=self.platform_instance_name,
+            instance=self.config.platform_instance,
         )
 
     def _gen_domain_urn(self, dataset_name: str) -> Optional[str]:
