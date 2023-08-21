@@ -4,6 +4,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
+    InstitutionalMemoryClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceTypeClass,
@@ -231,3 +232,43 @@ def test_operation_processor_advanced_matching_tags():
     tag_aspect: GlobalTagsClass = aspect_map["add_tag"]
     assert len(tag_aspect.tags) == 1
     assert tag_aspect.tags[0].tag == "urn:li:tag:case_4567"
+
+
+def test_operation_processor_institutional_memory():
+    raw_props = {
+        "documentation_link": "{'descr': 'test', 'link': 'test.com'}",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "documentation_link": {
+                "match": ".*",
+                "operation": "add_doc_link",
+                "config": {"doc_link": "{{ $match }}"},
+            },
+        },
+    )
+    aspect_map = processor.process(raw_props)
+    assert "add_doc_link" in aspect_map
+
+    doc_link_aspect: InstitutionalMemoryClass = aspect_map["add_doc_link"]
+
+    assert doc_link_aspect.elements[0].url == "test.com"
+    assert doc_link_aspect.elements[0].description == "test"
+
+
+def test_operation_processor_institutional_memory_malformed():
+    raw_props = {
+        "documentation_link": "'descr': 'test', 'link': 'test.com'}",
+    }
+    processor = OperationProcessor(
+        operation_defs={
+            "documentation_link": {
+                "match": ".*",
+                "operation": "add_doc_link",
+                "config": {"doc_link": "{{ $match }}"},
+            },
+        },
+    )
+    # exception should be caught and aspect_map should return empty
+    aspect_map = processor.process(raw_props)
+    assert aspect_map == {}

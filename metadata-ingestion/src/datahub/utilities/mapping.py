@@ -199,29 +199,35 @@ class OperationProcessor:
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
+            try:
+                docs_dic = ast.literal_eval(
+                    operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
+                )
 
-            docs_dic = ast.literal_eval(
-                operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
-            )
+                doc_link = docs_dic["link"]
+                doc_link_descr = docs_dic["descr"]
+                now = int(time.time() * 1000)  # milliseconds since epoch
+                current_timestamp = AuditStampClass(
+                    time=now, actor="urn:li:corpuser:ingestion"
+                )
+                institutional_memory_element = InstitutionalMemoryMetadataClass(
+                    url=doc_link,
+                    description=doc_link_descr,
+                    createStamp=current_timestamp,
+                )
 
-            doc_link = docs_dic["link"]
-            doc_link_descr = docs_dic["descr"]
-            now = int(time.time() * 1000)  # milliseconds since epoch
-            current_timestamp = AuditStampClass(
-                time=now, actor="urn:li:corpuser:ingestion"
-            )
-            institutional_memory_element = InstitutionalMemoryMetadataClass(
-                url=doc_link,
-                description=doc_link_descr,
-                createStamp=current_timestamp,
-            )
+                # create a new institutional memory aspect
+                current_institutional_memory = InstitutionalMemoryClass(
+                    elements=[institutional_memory_element]
+                )
 
-            # create a new institutional memory aspect
-            current_institutional_memory = InstitutionalMemoryClass(
-                elements=[institutional_memory_element]
-            )
-
-            aspect_map[Constants.ADD_DOC_LINK_OPERATION] = current_institutional_memory
+                aspect_map[
+                    Constants.ADD_DOC_LINK_OPERATION
+                ] = current_institutional_memory
+            except Exception as e:
+                logger.error(
+                    f"Error while constructing aspect for documentation link and description : {e}"
+                )
 
         return aspect_map
 
