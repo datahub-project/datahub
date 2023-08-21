@@ -37,6 +37,7 @@ from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -81,6 +82,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OperationClass,
@@ -219,37 +221,6 @@ class TableData:
     supported=True,
 )
 class S3Source(StatefulIngestionSourceBase):
-    """
-    This plugin extracts:
-
-    - Row and column counts for each table
-    - For each column, if profiling is enabled:
-      - null counts and proportions
-      - distinct counts and proportions
-      - minimum, maximum, mean, median, standard deviation, some quantile values
-      - histograms or frequencies of unique values
-
-    This connector supports both local files as well as those stored on AWS S3 (which must be identified using the prefix `s3://`). Supported file types are as follows:
-
-    - CSV
-    - TSV
-    - JSON
-    - Parquet
-    - Apache Avro
-
-    Schemas for Parquet and Avro files are extracted as provided.
-
-    Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
-    JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
-    We are working on using iterator-based JSON parsers to avoid reading in the entire JSON object.
-
-    To ingest datasets from your data lake, you need to provide the dataset path format specifications using `path_specs` configuration in ingestion recipe.
-    Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/s3/#path-specs) for examples.
-
-    Note that because the profiling is run with PySpark, we require Spark 3.0.3 with Hadoop 3.2 to be installed (see [compatibility](#compatibility) for more details). If profiling, make sure that permissions for **s3a://** access are set because Spark and Hadoop use the s3a:// protocol to interface with AWS (schema inference outside of profiling requires s3:// access).
-    Enabling profiling will slow down ingestion runs.
-    """
-
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
@@ -360,6 +331,9 @@ class S3Source(StatefulIngestionSourceBase):
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
+        if self.source_config.spark_config:
+            for key, value in self.source_config.spark_config.items():
+                conf.set(key, value)
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     @classmethod
@@ -589,6 +563,15 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config.platform_instance,
             self.source_config.env,
         )
+
+        if self.source_config.platform_instance:
+            data_platform_instance = DataPlatformInstanceClass(
+                platform=data_platform_urn,
+                instance=make_dataplatform_instance_urn(
+                    self.source_config.platform, self.source_config.platform_instance
+                ),
+            )
+            aspects.append(data_platform_instance)
 
         customProperties = {"schema_inferred_from": str(table_data.full_path)}
 
