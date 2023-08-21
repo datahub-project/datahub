@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-import pydantic
 from pydantic import Field
 from pyiceberg.catalog import Catalog, load_catalog
 
@@ -41,12 +40,6 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_distinct_value_frequencies: bool = False
     # include_field_histogram: bool = False
     # include_field_sample_values: bool = True
-
-
-class IcebergSourceStatefulIngestionConfig(StatefulStaleMetadataRemovalConfig):
-    """Iceberg custom stateful ingestion config definition(overrides _entity_types of StatefulStaleMetadataRemovalConfig)."""
-
-    _entity_types: List[str] = pydantic.Field(default=["table"])
 
 
 class IcebergCatalogConfig(ConfigModel):

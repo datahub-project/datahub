@@ -8,8 +8,10 @@ import logging
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
+from pyiceberg.catalog import Catalog
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
+from pyiceberg.typedef import Identifier
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -128,11 +130,15 @@ class IcebergSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
+    def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
+        for namespace in catalog.list_namespaces():
+            yield from catalog.list_tables(namespace)
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             catalog = self.config.get_catalog()
         except Exception as e:
-            logger.error("Failed to get catalog", exc_info=True)
+            LOGGER.error("Failed to get catalog", exc_info=True)
             self.report.report_failure(
                 "get-catalog", f"Failed to get catalog {self.config.catalog.name}: {e}"
             )

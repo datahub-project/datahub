@@ -40,8 +40,6 @@ from datahub.ingestion.source.iceberg.iceberg import (
     IcebergSourceConfig,
 )
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergCatalogConfig
-
-from datahub.ingestion.api.common import PipelineContext
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
