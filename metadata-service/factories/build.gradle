@@ -49,6 +49,12 @@ dependencies {
   testCompile externalDependency.hazelcastTest
   implementation externalDependency.jline
   implementation externalDependency.common
+
+  constraints {
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
+  }
 }
 
 configurations.all{
