@@ -667,7 +667,7 @@ type MatchedField {
   value: String!
 
   """
-  Entity if the value was an urn
+  Entity if the value is an urn
   """
   entity: Entity
 }

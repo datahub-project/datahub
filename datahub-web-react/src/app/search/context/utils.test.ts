@@ -1,5 +1,5 @@
 import { EntityType } from '../../../types.generated';
-import { getMatchesPrioritizingPrimary } from './utils';
+import { getMatchesPrioritized } from './utils';
 
 const mapping = new Map();
 mapping.set('fieldPaths', 'column');
@@ -48,7 +48,7 @@ describe('utils', () => {
     describe('getMatchPrioritizingPrimary', () => {
         it('prioritizes exact match', () => {
             global.window.location.search = 'query=rainbow';
-            const groupedMatches = getMatchesPrioritizingPrimary(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritized(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -66,7 +66,7 @@ describe('utils', () => {
         });
         it('will accept first contains match', () => {
             global.window.location.search = 'query=bow';
-            const groupedMatches = getMatchesPrioritizingPrimary(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritized(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -84,7 +84,7 @@ describe('utils', () => {
         });
         it('will group by field name', () => {
             global.window.location.search = '';
-            const groupedMatches = getMatchesPrioritizingPrimary(
+            const groupedMatches = getMatchesPrioritized(
                 EntityType.Dataset,
                 MOCK_MATCHED_DESCRIPTION_FIELDS,
                 'fieldPaths',

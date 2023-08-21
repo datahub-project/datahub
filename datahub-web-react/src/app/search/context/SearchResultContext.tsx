@@ -6,7 +6,7 @@ import {
     getMatchedFieldsByNames,
     shouldShowInMatchedFieldList,
     getMatchedFieldLabel,
-    getMatchesPrioritizingPrimary,
+    getMatchesPrioritized,
 } from './utils';
 import { MatchedFieldName } from './constants';
 
@@ -51,7 +51,7 @@ export const useMatchedFieldsForList = (primaryField: MatchedFieldName) => {
     const entityType = useEntityType();
     const matchedFields = useMatchedFields();
     const showableFields = matchedFields.filter((field) => shouldShowInMatchedFieldList(entityType, field));
-    return entityType ? getMatchesPrioritizingPrimary(entityType, showableFields, primaryField) : [];
+    return entityType ? getMatchesPrioritized(entityType, showableFields, primaryField) : [];
 };
 
 export const useMatchedFieldsByGroup = (fieldName: MatchedFieldName) => {

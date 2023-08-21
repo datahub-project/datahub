@@ -8,6 +8,7 @@ import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
 import { MatchesGroupedByFieldName } from './context/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './context/utils';
 
 const MatchesContainer = styled.div`
     display: flex;
@@ -23,7 +24,6 @@ const MatchText = styled(Typography.Text)`
     padding-right: 4px;
 `;
 
-const SURROUNDING_DESCRIPTION_CHARS = 10;
 const MATCH_GROUP_LIMIT = 3;
 const TOOLTIP_MATCH_GROUP_LIMIT = 10;
 
@@ -31,6 +31,7 @@ type CustomFieldRenderer = (field: MatchedField) => JSX.Element | null;
 
 type Props = {
     customFieldRenderer?: CustomFieldRenderer;
+    matchSuffix?: string;
 };
 
 const RenderedField = ({
@@ -44,22 +45,10 @@ const RenderedField = ({
     const query = useSearchQuery()?.trim().toLowerCase();
     const customRenderedField = customFieldRenderer?.(field);
     if (customRenderedField) return <b>{customRenderedField}</b>;
-    if (field.value.includes('urn:li:tag') && !field.entity) return <></>;
-    if (field.entity) return <>{entityRegistry.getDisplayName(field.entity.type, field.entity)}</>;
-    if (field.name.toLowerCase().includes('description') && query) {
-        const queryIndex = field.value.indexOf(query);
-        const start = Math.max(0, queryIndex - SURROUNDING_DESCRIPTION_CHARS);
-        const end = Math.min(field.value.length, queryIndex + query.length + SURROUNDING_DESCRIPTION_CHARS);
-        const startEllipsis = start > 0 ? '...' : undefined;
-        const endEllipsis = end < field.value.length ? '...' : undefined;
-        return (
-            <b>
-                {startEllipsis}
-                {field.value.slice(start, end)}
-                {endEllipsis}
-            </b>
-        );
+    if (isHighlightableEntityField(field)) {
+        return field.entity ? <>{entityRegistry.getDisplayName(field.entity.type, field.entity)}</> : <></>;
     }
+    if (isDescriptionField(field) && query) return <b>{getDescriptionSlice(field.value, query)}</b>;
     return <b>{field.value}</b>;
 };
 
@@ -67,11 +56,13 @@ const MatchedFieldsList = ({
     groupedMatch,
     limit,
     tooltip,
+    matchSuffix = '',
     customFieldRenderer,
 }: {
     groupedMatch: MatchesGroupedByFieldName;
     limit: number;
     tooltip?: JSX.Element;
+    matchSuffix?: string;
     customFieldRenderer?: CustomFieldRenderer;
 }) => {
     const label = useMatchedFieldLabel(groupedMatch.fieldName);
@@ -103,12 +94,13 @@ const MatchedFieldsList = ({
                     </Tooltip>
                 ) : (
                     <>{andMore}</>
-                ))}
+                ))}{' '}
+            {matchSuffix}
         </>
     );
 };
 
-export const MatchedFieldList = ({ customFieldRenderer }: Props) => {
+export const MatchedFieldList = ({ customFieldRenderer, matchSuffix = '' }: Props) => {
     const groupedMatches = useMatchedFieldsForList('fieldLabels');
 
     return (
@@ -122,6 +114,7 @@ export const MatchedFieldList = ({ customFieldRenderer }: Props) => {
                                     groupedMatch={groupedMatch}
                                     limit={MATCH_GROUP_LIMIT}
                                     customFieldRenderer={customFieldRenderer}
+                                    matchSuffix={matchSuffix}
                                     tooltip={
                                         <MatchedFieldsList
                                             groupedMatch={groupedMatch}

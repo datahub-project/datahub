@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { Chart, Dashboard, EntityType, GlossaryTerm, MatchedField } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
+import { Chart, Dashboard, EntityType, GlossaryTerm, MatchedField } from '../../types.generated';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 const LABEL_INDEX_NAME = 'fieldLabels';
 const TYPE_PROPERTY_KEY_NAME = 'type';
@@ -11,7 +11,8 @@ const TermName = ({ term }: { term: GlossaryTerm }) => {
     return <>{entityRegistry.getDisplayName(EntityType.GlossaryTerm, term)}</>;
 };
 
-export const chartMatchedFieldRenderer = (matchedField: MatchedField, entity: Chart | Dashboard) => {
+export const matchedInputFieldRenderer = (matchedField: MatchedField, entity: Chart | Dashboard) => {
+    if (1) return <>hi</>;
     if (matchedField?.name === LABEL_INDEX_NAME) {
         const matchedSchemaField = entity.inputFields?.fields?.find(
             (field) => field?.schemaField?.label === matchedField.value,

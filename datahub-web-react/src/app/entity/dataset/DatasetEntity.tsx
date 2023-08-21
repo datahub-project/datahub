@@ -30,7 +30,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-import { datasetMatchedFieldRenderer } from './datasetMatchedFieldRenderer';
+import { matchedFieldPathsRenderer } from '../../search/matchedFieldPathsRenderer';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -291,7 +291,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
                 parentContainers={data.parentContainers}
-                snippet={<MatchedFieldList customFieldRenderer={datasetMatchedFieldRenderer} />}
+                snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}

@@ -19,7 +19,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
-import { chartMatchedFieldRenderer } from './chartMatchedFieldRenderer';
+import { matchedInputFieldRenderer } from '../../search/matchedInputFieldRenderer';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -206,7 +206,7 @@ export class ChartEntity implements Entity<Chart> {
                 externalUrl={data.properties?.externalUrl}
                 snippet={
                     <MatchedFieldList
-                        customFieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)}
+                        customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
                     />
                 }
                 degree={(result as any).degree}

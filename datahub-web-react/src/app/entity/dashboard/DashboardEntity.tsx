@@ -24,7 +24,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
-import { chartMatchedFieldRenderer } from '../chart/chartMatchedFieldRenderer';
+import { matchedInputFieldRenderer } from '../../search/matchedInputFieldRenderer';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -229,7 +229,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                 createdMs={data.properties?.created?.time}
                 snippet={
                     <MatchedFieldList
-                        customFieldRenderer={(matchedField) => chartMatchedFieldRenderer(matchedField, data)}
+                        customFieldRenderer={(matchedField) => matchedInputFieldRenderer(matchedField, data)}
+                        matchSuffix="on a contained chart"
                     />
                 }
                 subtype={data.subTypes?.typeNames?.[0]}
