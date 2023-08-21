@@ -211,6 +211,20 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
+pyhive_common = {
+    # Acryl Data maintains a fork of PyHive
+    # - 0.6.11 adds support for table comments and column comments,
+    #   and also releases HTTP and HTTPS transport schemes
+    # - 0.6.12 adds support for Spark Thrift Server
+    # - 0.6.13 adds a small fix for Databricks
+    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
+    "acryl-pyhive[hive_pure_sasl]==0.6.14",
+    # As per https://github.com/datahub-project/datahub/issues/8405
+    # and https://github.com/dropbox/PyHive/issues/417, new versions
+    # of thrift break PyHive's hive+http transport.
+    "thrift<0.14.0",
+}
+
 microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
@@ -255,6 +269,8 @@ databricks = {
     "requests",
 }
 
+mysql = sql_common | {"pymysql>=1.0.2"}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -274,6 +290,7 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
+    "datahub": mysql | kafka_common,
     "great-expectations": sql_common | sqllineage_lib,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
@@ -318,12 +335,8 @@ plugins: Dict[str, Set[str]] = {
         "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
+    | pyhive_common
     | {
-        # Acryl Data maintains a fork of PyHive
-        # - 0.6.11 adds support for table comments and column comments,
-        #   and also releases HTTP and HTTPS transport schemes
-        # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
         # Due to https://github.com/great-expectations/great_expectations/issues/6146,
         # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
@@ -332,7 +345,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "json-schema": set(),
-    "kafka": {*kafka_common, *kafka_protobuf},
+    "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
@@ -342,15 +355,16 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "mysql": mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
-    "okta": {"okta~=1.7.0"},
+    "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
+    "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
-    | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    | pyhive_common
+    | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
     "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
@@ -537,6 +551,7 @@ entry_points = {
     "datahub.ingestion.source.plugins": [
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
+        "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",

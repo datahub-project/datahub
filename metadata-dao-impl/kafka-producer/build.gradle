@@ -23,5 +23,8 @@ dependencies {
     implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
     }
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
   }
 }
