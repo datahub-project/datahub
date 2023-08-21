@@ -69,6 +69,9 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     BytesTypeClass,
@@ -237,7 +240,8 @@ class S3Source(StatefulIngestionSourceBase):
         }
         config_report = {
             **config_report,
-            "profiling_enabled": config.is_profiling_enabled(),
+            "profiling_enabled": config.is_profiling_enabled()
+            or config.is_weekly_stripping_enabled(),
         }
 
         telemetry.telemetry_instance.ping(
@@ -245,7 +249,7 @@ class S3Source(StatefulIngestionSourceBase):
             config_report,
         )
 
-        if config.is_profiling_enabled():
+        if config.is_profiling_enabled() or config.is_weekly_stripping_enabled():
             telemetry.telemetry_instance.ping(
                 "data_lake_profiling_config",
                 {
@@ -647,6 +651,9 @@ class S3Source(StatefulIngestionSourceBase):
 
         if self.source_config.is_profiling_enabled():
             yield from self.get_table_profile(table_data, dataset_urn)
+        elif self.source_config.is_weekly_stripping_enabled():
+            if is_hash_mod_matching_weekday(dataset_urn):
+                yield from self.get_table_profile(table_data, dataset_urn)
 
     def get_prefix(self, relative_path: str) -> str:
         index = re.search(r"[\*|\{]", relative_path)
@@ -870,7 +877,10 @@ class S3Source(StatefulIngestionSourceBase):
                 for guid, table_data in table_dict.items():
                     yield from self.ingest_table(table_data, path_spec)
 
-            if not self.source_config.is_profiling_enabled():
+            if not (
+                self.source_config.is_profiling_enabled()
+                or self.source_config.is_weekly_stripping_enabled()
+            ):
                 return
 
             total_time_taken = timer.elapsed_seconds()

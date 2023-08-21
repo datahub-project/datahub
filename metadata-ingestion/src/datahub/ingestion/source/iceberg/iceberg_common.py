@@ -24,7 +24,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
-    is_profiling_enabled,
+    is_unified_profiling_enabled,
+    is_weekly_stripping_enabled,
 )
 
 
@@ -91,7 +92,12 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling.enabled and is_profiling_enabled(
+        return self.profiling.enabled and is_unified_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    def is_weekly_stripping_enabled(self) -> bool:
+        return self.profiling.enabled and is_weekly_stripping_enabled(
             self.profiling.operation_config
         )
 

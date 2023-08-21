@@ -67,7 +67,11 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+    is_unified_profiling_enabled,
+    is_weekly_stripping_enabled,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status, SubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -163,7 +167,12 @@ class GlueSourceConfig(
     )
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling is not None and is_profiling_enabled(
+        return self.profiling is not None and is_unified_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    def is_weekly_stripping_enabled(self) -> bool:
+        return self.profiling is not None and is_weekly_stripping_enabled(
             self.profiling.operation_config
         )
 
@@ -821,7 +830,7 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         # We don't need both checks only the second one
         # but then lint believes that GlueProfilingConfig can be None
-        if self.source_config.profiling and self.source_config.is_profiling_enabled():
+        if self.source_config.profiling:
             # for cross-account ingestion
             kwargs = dict(
                 DatabaseName=database_name,
@@ -979,7 +988,13 @@ class GlueSource(StatefulIngestionSourceBase):
             if wu:
                 yield wu
 
-            yield from self.get_profile_if_enabled(mce, database_name, table_name)
+            if self.source_config.is_profiling_enabled():
+                yield from self.get_profile_if_enabled(mce, database_name, table_name)
+            elif self.source_config.is_weekly_stripping_enabled():
+                if is_hash_mod_matching_weekday(table_name):
+                    yield from self.get_profile_if_enabled(
+                        mce, database_name, table_name
+                    )
 
         if self.extract_transforms:
             yield from self._transform_extraction()

@@ -18,7 +18,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
-from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+from datahub.ingestion.source_config.operation_config import (
+    is_unified_profiling_enabled,
+    is_weekly_stripping_enabled,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -91,7 +94,12 @@ class DataLakeSourceConfig(
     )
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling.enabled and is_profiling_enabled(
+        return self.profiling.enabled and is_unified_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    def is_weekly_stripping_enabled(self) -> bool:
+        return self.profiling.enabled and is_weekly_stripping_enabled(
             self.profiling.operation_config
         )
 

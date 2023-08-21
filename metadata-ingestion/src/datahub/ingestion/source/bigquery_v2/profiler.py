@@ -21,6 +21,9 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -183,11 +186,19 @@ WHERE
                     )
 
                 # Emit the profile work unit
-                profile_request = self.get_bigquery_profile_request(
-                    project=project_id, dataset=dataset, table=table
-                )
-                if profile_request is not None:
-                    profile_requests.append(profile_request)
+                if self.config.is_profiling_enabled():
+                    profile_request = self.get_bigquery_profile_request(
+                        project=project_id, dataset=dataset, table=table
+                    )
+                    if profile_request is not None:
+                        profile_requests.append(profile_request)
+                elif self.config.is_weekly_stripping_enabled():
+                    if is_hash_mod_matching_weekday(str(table)):
+                        profile_request = self.get_bigquery_profile_request(
+                            project=project_id, dataset=dataset, table=table
+                        )
+                        if profile_request is not None:
+                            profile_requests.append(profile_request)
 
         if len(profile_requests) == 0:
             return

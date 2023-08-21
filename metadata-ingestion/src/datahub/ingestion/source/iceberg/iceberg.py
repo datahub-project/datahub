@@ -41,6 +41,9 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -202,6 +205,10 @@ class IcebergSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
+        elif self.config.is_weekly_stripping_enabled():
+            if is_hash_mod_matching_weekday(dataset_urn):
+                profiler = IcebergProfiler(self.report, self.config.profiling)
+                yield from profiler.profile_table(dataset_name, dataset_urn, table)
 
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []

@@ -28,6 +28,9 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+)
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
 snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
@@ -58,7 +61,10 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if self.config.is_profiling_enabled():
+        if (
+            self.config.is_profiling_enabled()
+            or self.config.is_weekly_stripping_enabled()
+        ):
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
             )
@@ -74,11 +80,19 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
                 continue
 
             for table in db_tables[schema.name]:
-                profile_request = self.get_snowflake_profile_request(
-                    table, schema.name, database.name
-                )
-                if profile_request is not None:
-                    profile_requests.append(profile_request)
+                if self.config.is_profiling_enabled():
+                    profile_request = self.get_snowflake_profile_request(
+                        table, schema.name, database.name
+                    )
+                    if profile_request is not None:
+                        profile_requests.append(profile_request)
+                elif self.config.is_weekly_stripping_enabled():
+                    if is_hash_mod_matching_weekday(str(table)):
+                        profile_request = self.get_snowflake_profile_request(
+                            table, schema.name, database.name
+                        )
+                        if profile_request is not None:
+                            profile_requests.append(profile_request)
 
         if len(profile_requests) == 0:
             return

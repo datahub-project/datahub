@@ -37,7 +37,8 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
-    is_profiling_enabled,
+    is_unified_profiling_enabled,
+    is_weekly_stripping_enabled,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -305,7 +306,12 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     )
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling.enabled and is_profiling_enabled(
+        return self.profiling.enabled and is_unified_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    def is_weekly_stripping_enabled(self) -> bool:
+        return self.profiling.enabled and is_weekly_stripping_enabled(
             self.profiling.operation_config
         )
 
@@ -524,7 +530,10 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.is_profiling_enabled():
+        if (
+            self.source_config.is_profiling_enabled()
+            or self.source_config.is_weekly_stripping_enabled()
+        ):
             if self.cat_response is None:
                 self.cat_response = self.client.cat.indices(
                     params={
@@ -555,6 +564,7 @@ class ElasticsearchSource(Source):
                 for profile_info in profile_info_current:
                     row_count += int(profile_info["docs.count"])
                     size_in_bytes += int(profile_info["store.size"])
+
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=DatasetProfileClass(

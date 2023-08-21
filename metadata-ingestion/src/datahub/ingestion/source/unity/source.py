@@ -62,6 +62,9 @@ from datahub.ingestion.source.unity.proxy_types import (
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineage,
     FineGrainedLineageUpstreamType,
@@ -175,7 +178,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         wait_on_warehouse = None
-        if self.config.is_profiling_enabled():
+        if (
+            self.config.is_profiling_enabled()
+            or self.config.is_weekly_stripping_enabled()
+        ):
             # Can take several minutes, so start now and wait later
             wait_on_warehouse = self.unity_catalog_api_proxy.start_warehouse()
             if wait_on_warehouse is None:
@@ -200,7 +206,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.table_refs | self.view_refs
             )
 
-        if self.config.is_profiling_enabled():
+        if (
+            self.config.is_profiling_enabled()
+            or self.config.is_weekly_stripping_enabled()
+        ):
             assert wait_on_warehouse
             timeout = timedelta(seconds=self.config.profiling.max_wait_secs)
             wait_on_warehouse.result(timeout)
@@ -210,7 +219,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.unity_catalog_api_proxy,
                 self.gen_dataset_urn,
             )
-            yield from profiling_extractor.get_workunits(self.table_refs)
+            if self.config.is_profiling_enabled():
+                yield from profiling_extractor.get_workunits(self.table_refs)
+            elif self.config.is_weekly_stripping_enabled():
+                table_references = {
+                    table_ref
+                    for table_ref in self.table_refs
+                    if is_hash_mod_matching_weekday(str(table_ref.table))
+                }
+                yield from profiling_extractor.get_workunits(table_references)
 
     def build_service_principal_map(self) -> None:
         try:

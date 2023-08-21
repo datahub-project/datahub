@@ -272,7 +272,7 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-        if config.is_profiling_enabled():
+        if config.is_profiling_enabled() or self.config.is_weekly_stripping_enabled():
             # For profiling
             self.profiler = SnowflakeProfiler(
                 config, self.report, self.profiling_state_handler
@@ -701,7 +701,10 @@ class SnowflakeV2Source(
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
 
-        if self.config.is_profiling_enabled() and self.db_tables:
+        if (
+            self.config.is_profiling_enabled()
+            or self.config.is_weekly_stripping_enabled()
+        ) and self.db_tables:
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(self, snowflake_db, db_name):

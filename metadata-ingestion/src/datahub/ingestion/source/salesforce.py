@@ -32,7 +32,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
-    is_profiling_enabled,
+    is_hash_mod_matching_weekday,
+    is_unified_profiling_enabled,
+    is_weekly_stripping_enabled,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -133,7 +135,12 @@ class SalesforceConfig(DatasetSourceConfigMixin):
     )
 
     def is_profiling_enabled(self) -> bool:
-        return self.profiling.enabled and is_profiling_enabled(
+        return self.profiling.enabled and is_unified_profiling_enabled(
+            self.profiling.operation_config
+        )
+
+    def is_weekly_stripping_enabled(self) -> bool:
+        return self.profiling.enabled and is_weekly_stripping_enabled(
             self.profiling.operation_config
         )
 
@@ -346,6 +353,13 @@ class SalesforceSource(Source):
             sObjectName
         ):
             yield from self.get_profile_workunit(sObjectName, datasetUrn)
+
+        if (
+            self.config.is_weekly_stripping_enabled()
+            and self.config.profile_pattern.allowed(sObjectName)
+        ):
+            if is_hash_mod_matching_weekday(datasetUrn):
+                yield from self.get_profile_workunit(sObjectName, datasetUrn)
 
     def get_custom_object_details(self, sObjectDeveloperName: str) -> dict:
         customObject = {}

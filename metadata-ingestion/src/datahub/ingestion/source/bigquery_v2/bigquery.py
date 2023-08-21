@@ -311,7 +311,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.is_profiling_enabled(),
+                    with_data_read_permission=config.is_profiling_enabled()
+                    or config.is_weekly_stripping_enabled(),
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(
@@ -613,7 +614,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
         except Exception as e:
             error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
-            if self.config.is_profiling_enabled():
+            if (
+                self.config.is_profiling_enabled()
+                or self.config.is_weekly_stripping_enabled()
+            ):
                 error_message = f"Unable to get datasets for project {project_id}, skipping. Does your service account has bigquery.datasets.get permission? The error was: {e}"
             logger.error(error_message)
             self.report.report_failure(
@@ -648,7 +652,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             except Exception as e:
                 error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission? The error was: {e}"
-                if self.config.is_profiling_enabled():
+                if (
+                    self.config.is_profiling_enabled()
+                    or self.config.is_weekly_stripping_enabled()
+                ):
                     error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission? The error was: {e}"
 
                 trace = traceback.format_exc()
@@ -660,7 +667,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.is_profiling_enabled():
+        if (
+            self.config.is_profiling_enabled()
+            or self.config.is_weekly_stripping_enabled()
+        ):
             logger.info(f"Starting profiling project {project_id}")
             self.report.set_ingestion_stage(project_id, "Profiling")
             yield from self.profiler.get_workunits(
@@ -794,7 +804,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_views:
             db_views[dataset_name] = list(
                 BigQueryDataDictionary.get_views_for_dataset(
-                    conn, project_id, dataset_name, self.config.is_profiling_enabled()
+                    conn,
+                    project_id,
+                    dataset_name,
+                    self.config.is_profiling_enabled()
+                    or self.config.is_weekly_stripping_enabled(),
                 )
             )
 
@@ -843,8 +857,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
         if (
             self.config.is_profiling_enabled()
-            and not self.config.profiling.profile_table_level_only
-        ):
+            or self.config.is_weekly_stripping_enabled()
+        ) and not self.config.profiling.profile_table_level_only:
             table.columns_ignore_from_profiling = self.generate_profile_ignore_list(
                 columns
             )
@@ -1226,7 +1240,10 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
             max_batch_size: int = (
                 self.config.number_of_datasets_process_in_batch
-                if not self.config.is_profiling_enabled()
+                if not (
+                    self.config.is_profiling_enabled()
+                    or self.config.is_weekly_stripping_enabled()
+                )
                 else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
             )
 
@@ -1243,7 +1260,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         project_id,
                         dataset_name,
                         items_to_get,
-                        with_data_read_permission=self.config.is_profiling_enabled(),
+                        with_data_read_permission=self.config.is_profiling_enabled()
+                        or self.config.is_weekly_stripping_enabled(),
                     )
                     items_to_get.clear()
 
@@ -1253,7 +1271,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dataset_name,
                     items_to_get,
-                    with_data_read_permission=self.config.is_profiling_enabled(),
+                    with_data_read_permission=self.config.is_profiling_enabled()
+                    or self.config.is_weekly_stripping_enabled(),
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(

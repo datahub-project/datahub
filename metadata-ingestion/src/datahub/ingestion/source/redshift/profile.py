@@ -18,6 +18,9 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source_config.operation_config import (
+    is_hash_mod_matching_weekday,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,13 @@ class RedshiftProfiler(GenericProfiler):
                     self.state_handler.add_to_state(
                         dataset_urn, int(datetime.now().timestamp() * 1000)
                     )
+
+        if self.config.is_profiling_enabled():
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=profile
+            ).as_workunit()
+        elif self.config.is_weekly_stripping_enabled():
+            if is_hash_mod_matching_weekday(dataset_urn):
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn, aspect=profile
