@@ -11,24 +11,30 @@ ext {
     docker_dir = 'datahub-ingestion'
 }
 
+dependencies {
+    project(':docker:datahub-ingestion-base')
+    project(':metadata-ingestion')
+}
+
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}"
-    version "v${version}"
+    name "${docker_registry}/${docker_repo}:v${version}-slim"
+    version "v${version}-slim"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
         include "metadata-ingestion/**"
-        include "metadata-events/**"
-        include "metadata-models/**"
-        include "li-utils/**"
-        include "docs/**"
-        include "gradle/**"
-        include "buildSrc/**"
-        include "*"
+    }.exclude {
+        i -> i.file.isHidden() ||
+                i.file == buildDir ||
+                i.file == project(':metadata-ingestion').buildDir
     }
-    buildArgs([DOCKER_VERSION: version])
+    buildArgs([DOCKER_VERSION: version,
+               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', ''),
+               APP_ENV: 'slim'])
 }
-tasks.getByPath('docker').dependsOn(['build', ':docker:datahub-ingestion-base:docker'])
+tasks.getByName('docker').dependsOn(['build',
+                                     ':docker:datahub-ingestion-base:docker',
+                                     ':metadata-ingestion:codegen'])
 
 task mkdirBuildDocker {
     doFirst {
@@ -39,7 +45,7 @@ dockerClean.finalizedBy(mkdirBuildDocker)
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
