@@ -84,33 +84,6 @@ class GCSSourceReport(DataLakeSourceReport):
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Not supported", supported=False)
 class GCSSource(StatefulIngestionSourceBase):
-    """
-    This connector extracting datasets located on Google Cloud Storage. Supported file types are as follows:
-
-    - CSV
-    - TSV
-    - JSON
-    - Parquet
-    - Apache Avro
-
-    Schemas for Parquet and Avro files are extracted as provided.
-
-    Schemas for schemaless formats (CSV, TSV, JSON) are inferred. For CSV and TSV files, we consider the first 100 rows by default, which can be controlled via the `max_rows` recipe parameter (see [below](#config-details))
-    JSON file schemas are inferred on the basis of the entire file (given the difficulty in extracting only the first few objects of the file), which may impact performance.
-
-
-    This source leverages [Interoperability of GCS with S3](https://cloud.google.com/storage/docs/interoperability)
-    and uses DataHub S3 Data Lake integration source under the hood.
-
-    ### Prerequisites
-    1. Create a service account with "Storage Object Viewer" Role - https://cloud.google.com/iam/docs/service-accounts-create
-    2. Make sure you meet following requirements to generate HMAC key - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#before-you-begin
-    3. Create an HMAC key for service account created above - https://cloud.google.com/storage/docs/authentication/managing-hmackeys#create .
-
-    To ingest datasets from your data lake, you need to provide the dataset path format specifications using `path_specs` configuration in ingestion recipe.
-    Refer section [Path Specs](https://datahubproject.io/docs/generated/ingestion/sources/gcs/#path-specs) for examples.
-    """
-
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config

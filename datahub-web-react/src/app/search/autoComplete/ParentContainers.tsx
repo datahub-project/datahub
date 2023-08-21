@@ -4,20 +4,21 @@ import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
 import { Container, EntityType } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const NUM_VISIBLE_CONTAINERS = 2;
 
 const ParentContainersWrapper = styled.div`
     font-size: 12px;
-    color: ${ANTD_GRAY[9]};
+    color: ${ANTD_GRAY_V2[8]};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
 `;
 
 const ParentContainer = styled(Typography.Text)`
+    color: ${ANTD_GRAY_V2[8]};
     margin-left: 4px;
+    font-weight: 500;
 `;
 
 export const ArrowWrapper = styled.span`
