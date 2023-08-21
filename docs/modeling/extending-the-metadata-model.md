@@ -327,7 +327,7 @@ It takes the following parameters:
   annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
   the set of mappings to be applied in the MappingsBuilder.
 
-  Thus far, we have implemented 10 fieldTypes:
+  Thus far, we have implemented 11 fieldTypes:
 
   1. _KEYWORD_ - Short text fields that only support exact matches, often used only for filtering
 
@@ -336,21 +336,27 @@ It takes the following parameters:
   3. _TEXT_PARTIAL_ - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
      matching is expensive, so this field type should not be applied to fields with long values (like description)
 
-  4. _BROWSE_PATH_ - Field type for browse paths. Applies specific mappings for slash delimited paths.
+    4. *WORD_GRAM* - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND 
+       word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
+       matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is 
+       expensive, so should not be applied to fields with long values such as description.
 
-  5. _URN_ - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
-     "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
+    5. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
 
-  6. _URN_PARTIAL_ - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+    6. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+       "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
 
-  7. _BOOLEAN_ - Boolean fields used for filtering.
+    7. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
 
-  8. _COUNT_ - Count fields used for filtering.
-  9. _DATETIME_ - Datetime fields used to represent timestamps.
+    8. *BOOLEAN* - Boolean fields used for filtering.
 
-  10. _OBJECT_ - Each property in an object will become an extra column in Elasticsearch and can be referenced as
-      `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
-      mapping explosion in Elasticsearch.
+    9. *COUNT* - Count fields used for filtering.
+  
+    10. *DATETIME* - Datetime fields used to represent timestamps.
+
+    11. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
+    `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
+    mapping explosion in Elasticsearch.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
