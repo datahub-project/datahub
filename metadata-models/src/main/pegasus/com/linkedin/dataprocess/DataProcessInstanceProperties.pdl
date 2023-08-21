@@ -31,7 +31,8 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Entity Type"
+    "fieldName": "processType",
+    "filterNameOverride": "Process Type"
   }
   type: optional enum DataProcessType {
     BATCH_SCHEDULED,

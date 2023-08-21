@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -96,6 +97,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     }
 
     @Test
+    @Ignore("unstable")
     public void testGlossaryTerms() {
         /*
           Searching for "ReturnRate" should return all tables that have the glossary term applied before

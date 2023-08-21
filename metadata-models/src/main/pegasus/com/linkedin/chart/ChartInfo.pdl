@@ -81,7 +81,7 @@ record ChartInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
-    "filterNameOverride": "Entity Type"
+    "filterNameOverride": "Chart Type"
   }
   type: optional ChartType
 
