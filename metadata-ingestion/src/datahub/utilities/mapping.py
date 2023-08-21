@@ -211,14 +211,9 @@ class OperationProcessor:
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
-            # use https://datahubproject.io/docs/generated/metamodel/entities/dataset#documentation-links-etc
-            # to implement creating an MCP for links
 
             doc_link = operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
             doc_link_descr = "documentation"
-            dataset_urn = make_dataset_urn(
-                platform="dbt", name="pagila.public.actor", env="PROD"
-            )
             now = int(time.time() * 1000)  # milliseconds since epoch
             current_timestamp = AuditStampClass(
                 time=now, actor="urn:li:corpuser:ingestion"
@@ -228,48 +223,13 @@ class OperationProcessor:
                 description=doc_link_descr,
                 createStamp=current_timestamp,
             )
-            # First we get the current owners
-            gms_endpoint = "http://localhost:8080"
-            graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
 
-            current_institutional_memory = graph.get_aspect(
-                entity_urn=dataset_urn, aspect_type=InstitutionalMemoryClass
+            # create a new institutional memory aspect
+            current_institutional_memory = InstitutionalMemoryClass(
+                elements=[institutional_memory_element]
             )
-            need_write = False
 
-            if current_institutional_memory:
-                if doc_link not in [
-                    x.url for x in current_institutional_memory.elements
-                ]:
-                    current_institutional_memory.elements.append(
-                        institutional_memory_element
-                    )
-                    need_write = True
-            else:
-                # create a brand new institutional memory aspect
-                current_institutional_memory = InstitutionalMemoryClass(
-                    elements=[institutional_memory_element]
-                )
-                need_write = True
-
-            if need_write:
-                # event = MetadataChangeProposalWrapper(
-                #     entityUrn=dataset_urn,
-                #     aspect=current_institutional_memory,
-                # )
-                # graph.emit(event)
-                # logger.info(f"Link {link_to_add} added to dataset {dataset_urn}")
-                aspect_map[
-                    Constants.ADD_DOC_LINK_OPERATION
-                ] = current_institutional_memory
-
-                logger.info("aspect_map institutional memory:")
-                logger.info(aspect_map[Constants.ADD_DOC_LINK_OPERATION])
-
-            else:
-                logger.info(
-                    f"Link {doc_link} already exists and is identical, omitting write"
-                )
+            aspect_map[Constants.ADD_DOC_LINK_OPERATION] = current_institutional_memory
 
         return aspect_map
 
