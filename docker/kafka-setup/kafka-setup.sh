@@ -50,7 +50,11 @@ if [[ -n "$KAFKA_PROPERTIES_SASL_CLIENT_CALLBACK_HANDLER_CLASS" ]]; then
 fi
 
 # cub kafka-ready -c $CONNECTION_PROPERTIES_PATH -b $KAFKA_BOOTSTRAP_SERVER 1 180
-. kafka-ready.sh
+java -cp "$CUB_CLASSPATH" \
+  -Dlog4j.configuration=file:/etc/cp-base-new/log4j.properties \
+  io.confluent.admin.utils.cli.KafkaReadyCommand 1 180000 \
+  --config $CONNECTION_PROPERTIES_PATH \
+  -b $KAFKA_BOOTSTRAP_SERVER
 
 ############################################################
 # Start Topic Creation Logic
