@@ -25,7 +25,7 @@ public class SearchableAnnotation {
   public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
   public static final String ANNOTATION_NAME = "Searchable";
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
-      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.URN, FieldType.URN_PARTIAL);
+      ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.WORD_GRAM, FieldType.URN, FieldType.URN_PARTIAL);
 
   // Name of the field in the search index. Defaults to the field name in the schema
   String fieldName;
@@ -65,7 +65,8 @@ public class SearchableAnnotation {
     COUNT,
     DATETIME,
     OBJECT,
-    BROWSE_PATH_V2
+    BROWSE_PATH_V2,
+    WORD_GRAM
   }
 
   @Nonnull

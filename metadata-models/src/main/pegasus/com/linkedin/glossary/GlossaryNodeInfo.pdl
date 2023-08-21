@@ -35,7 +35,7 @@ record GlossaryNodeInfo {
      */
     @Searchable = {
       "fieldName": "displayName",
-      "fieldType": "TEXT_PARTIAL",
+      "fieldType": "WORD_GRAM",
       "enableAutocomplete": true,
       "boostScore": 10.0,
       "fieldNameAliases": [ "_entityName" ]

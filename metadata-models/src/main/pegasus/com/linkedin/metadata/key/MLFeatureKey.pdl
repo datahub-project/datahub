@@ -20,7 +20,7 @@ record MLFeatureKey {
    * Name of the feature
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 8.0,
     "fieldNameAliases": [ "_entityName" ]

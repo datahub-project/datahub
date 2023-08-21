@@ -15,7 +15,7 @@ record ContainerProperties includes CustomProperties, ExternalReference {
    * Display name of the Asset Container
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldNameAliases": [ "_entityName" ]
@@ -26,7 +26,7 @@ record ContainerProperties includes CustomProperties, ExternalReference {
    * Fully-qualified name of the Container
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }

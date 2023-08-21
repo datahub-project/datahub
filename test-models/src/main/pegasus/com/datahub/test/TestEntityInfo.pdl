@@ -26,6 +26,11 @@ record TestEntityInfo includes CustomProperties {
   }
   textArrayField: optional array[string]
 
+  @Searchable = {
+    "fieldType": "WORD_GRAM"
+  }
+  wordGramField: optional string
+
   @Relationship = {
     "name": "foreignKey",
     "entityTypes": []
