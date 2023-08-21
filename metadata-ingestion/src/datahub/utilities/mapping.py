@@ -1,4 +1,7 @@
+### solution with docuemntation description and link
+
 import contextlib
+import time
 import logging
 import re
 from typing import Any, Dict, List, Match, Optional, Union
@@ -10,6 +13,20 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceClass,
     OwnershipTypeClass,
+)
+import datahub.metadata.schema_classes as models
+
+from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+
+# read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+
+# Imports for metadata model classes
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    InstitutionalMemoryClass,
+    InstitutionalMemoryMetadataClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,6 +54,7 @@ def _insert_match_value(original_value: str, match_value: str) -> str:
 
 
 class Constants:
+    ADD_DOC_LINK_OPERATION = "add_doc_link"
     ADD_TAG_OPERATION = "add_tag"
     ADD_TERM_OPERATION = "add_term"
     ADD_TERMS_OPERATION = "add_terms"
@@ -45,6 +63,7 @@ class Constants:
     OPERATION_CONFIG = "config"
     TAG = "tag"
     TERM = "term"
+    DOC_LINK = "doc_link"
     OWNER_TYPE = "owner_type"
     OWNER_CATEGORY = "owner_category"
     MATCH = "match"
@@ -150,8 +169,11 @@ class OperationProcessor:
                             )
                             operations_value_list.append(operation)  # type: ignore
                             operations_map[operation_type] = operations_value_list
-
+            # logger.info(operation_key)
+            # logger.info("operations_map")
+            # logger.info(operations_map)
             aspect_map = self.convert_to_aspects(operations_map)
+            # logger.info(aspect_map)
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
         return aspect_map
@@ -187,6 +209,68 @@ class OperationProcessor:
                 sorted(operation_map[Constants.ADD_TERM_OPERATION])
             )
             aspect_map[Constants.ADD_TERM_OPERATION] = term_aspect
+
+        if Constants.ADD_DOC_LINK_OPERATION in operation_map:
+            # use https://datahubproject.io/docs/generated/metamodel/entities/dataset#documentation-links-etc
+            # to implement creating an MCP for links
+
+            doc_link = operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
+            doc_link_descr = "documentation"
+            dataset_urn = make_dataset_urn(
+                platform="dbt", name="pagila.public.actor", env="PROD"
+            )
+            now = int(time.time() * 1000)  # milliseconds since epoch
+            current_timestamp = AuditStampClass(
+                time=now, actor="urn:li:corpuser:ingestion"
+            )
+            institutional_memory_element = InstitutionalMemoryMetadataClass(
+                url=doc_link,
+                description=doc_link_descr,
+                createStamp=current_timestamp,
+            )
+            # First we get the current owners
+            gms_endpoint = "http://localhost:8080"
+            graph = DataHubGraph(config=DatahubClientConfig(server=gms_endpoint))
+
+            current_institutional_memory = graph.get_aspect(
+                entity_urn=dataset_urn, aspect_type=InstitutionalMemoryClass
+            )
+            need_write = False
+
+            if current_institutional_memory:
+                if doc_link not in [
+                    x.url for x in current_institutional_memory.elements
+                ]:
+                    current_institutional_memory.elements.append(
+                        institutional_memory_element
+                    )
+                    need_write = True
+            else:
+                # create a brand new institutional memory aspect
+                current_institutional_memory = InstitutionalMemoryClass(
+                    elements=[institutional_memory_element]
+                )
+                need_write = True
+
+            if need_write:
+                # event = MetadataChangeProposalWrapper(
+                #     entityUrn=dataset_urn,
+                #     aspect=current_institutional_memory,
+                # )
+                # graph.emit(event)
+                # logger.info(f"Link {link_to_add} added to dataset {dataset_urn}")
+                aspect_map[
+                    Constants.ADD_DOC_LINK_OPERATION
+                ] = current_institutional_memory
+
+                logger.info("aspect_map institutional memory:")
+                logger.info(aspect_map[Constants.ADD_DOC_LINK_OPERATION])
+
+            else:
+                logger.info(
+                    f"Link {doc_link} already exists and is identical, omitting write"
+                )
+
         return aspect_map
 
     def get_operation_value(
@@ -235,6 +319,15 @@ class OperationProcessor:
             term = operation_config[Constants.TERM]
             term = _insert_match_value(term, _get_best_match(match, "term"))
             return mce_builder.make_term_urn(term)
+        elif (
+            operation_type == Constants.ADD_DOC_LINK_OPERATION
+            and operation_config[Constants.DOC_LINK]
+        ):
+            link = operation_config[Constants.DOC_LINK]
+            # get_best_match uses the regex func to either
+            link = _insert_match_value(link, _get_best_match(match, "link"))
+            return link
+
         elif operation_type == Constants.ADD_TERMS_OPERATION:
             separator = operation_config.get(Constants.SEPARATOR, ",")
             captured_terms = match.group(0)

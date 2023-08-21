@@ -1188,9 +1188,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         ):
             aspects.append(meta_aspects.get(Constants.ADD_TERM_OPERATION))
 
+        # add meta links aspect
+        meta_links_aspect = meta_aspects.get(Constants.ADD_DOC_LINK_OPERATION)
+        if meta_links_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_links_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
+        logger.info("in dbt common")
+        logger.info("schema metadata: {schema_metadata}")
+        logger.info(schema_metadata)
+
+        logger.info("aspects")
+        logger.info(aspects)
+        logger.info("about to return from dbt common")
         return aspects
 
     def get_schema_metadata(
@@ -1322,6 +1334,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for tag_association in meta_tag_aspect.tags
             ]
         return sorted(tags_list)
+
+    """
+    def _aggregate_links(self, node: DBTNode, meta_link_aspect: Any) -> List[str]:
+        links_list: List[str] = []
+        if node.tags:
+            tags_list = tags_list + node.tags
+        if meta_tag_aspect and self.config.enable_meta_mapping:
+            tags_list = tags_list + [
+                tag_association.tag[len("urn:li:tag:") :]
+                for tag_association in meta_tag_aspect.tags
+            ]
+        return sorted(tags_list)
+    """
 
     def _create_subType_wu(
         self, node: DBTNode, node_datahub_urn: str
