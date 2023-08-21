@@ -7,7 +7,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../shared/constants';
 import { IconStyleType } from '../../Entity';
 import { CustomAvatar } from '../../../shared/avatar';
-import SearchTextHighlighter from '../../../search/highlight/SearchTextHighlighter';
+import SearchTextHighlighter from '../../../search/matches/SearchTextHighlighter';
 
 const PreviewContainer = styled.div`
     display: flex;

@@ -34,7 +34,7 @@ import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
 import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
-import SearchTextHighlighter from '../search/highlight/SearchTextHighlighter';
+import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 
 const PreviewContainer = styled.div`

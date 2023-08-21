@@ -8,7 +8,7 @@ import { useEntityRegistry } from '../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../shared/constants';
 import { IconStyleType } from '../../Entity';
 import NoMarkdownViewer from '../../shared/components/styled/StripMarkdownText';
-import SearchTextHighlighter from '../../../search/highlight/SearchTextHighlighter';
+import SearchTextHighlighter from '../../../search/matches/SearchTextHighlighter';
 
 const PreviewContainer = styled.div`
     margin-bottom: 4px;

@@ -30,7 +30,7 @@ import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-import { matchedFieldPathsRenderer } from '../../search/matchedFieldPathsRenderer';
+import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 
 const SUBTYPES = {
     VIEW: 'view',

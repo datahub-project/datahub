@@ -7,8 +7,8 @@ import {
     shouldShowInMatchedFieldList,
     getMatchedFieldLabel,
     getMatchesPrioritized,
-} from './utils';
-import { MatchedFieldName } from './constants';
+} from '../matches/utils';
+import { MatchedFieldName } from '../matches/constants';
 
 type SearchResultContextValue = {
     searchResult: SearchResult;

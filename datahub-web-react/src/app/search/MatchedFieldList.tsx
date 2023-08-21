@@ -6,9 +6,9 @@ import { useMatchedFieldLabel, useMatchedFieldsForList } from './context/SearchR
 import { MatchedField } from '../../types.generated';
 import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { useSearchQuery } from './context/SearchContext';
-import { MatchesGroupedByFieldName } from './context/constants';
+import { MatchesGroupedByFieldName } from './matches/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './context/utils';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './matches/utils';
 
 const MatchesContainer = styled.div`
     display: flex;

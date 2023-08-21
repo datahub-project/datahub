@@ -19,7 +19,6 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import { InputFieldsTab } from '../shared/tabs/Entity/InputFieldsTab';
-import { matchedInputFieldRenderer } from '../../search/matchedInputFieldRenderer';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -27,6 +26,7 @@ import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/MatchedFieldList';
+import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 
 /**
  * Definition of the DataHub Chart entity.
