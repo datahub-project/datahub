@@ -16,7 +16,6 @@ import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './typ
 import { isListSubset } from '../../../utils';
 import { EntityAndType } from '../../../types';
 import { Message } from '../../../../../shared/Message';
-import { EntityActionProps } from '../../../../../recommendations/renderer/component/EntityNameList';
 import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
 import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
@@ -26,6 +25,8 @@ import {
     DownloadSearchResults,
 } from '../../../../../search/utils/types';
 import { useEntityContext } from '../../../EntityContext';
+import { EntityActionProps } from './EntitySearchResults';
+import { useUserContext } from '../../../../../context/useUserContext';
 
 const Container = styled.div`
     display: flex;
@@ -103,6 +104,7 @@ type Props = {
     };
     shouldRefetch?: boolean;
     resetShouldRefetch?: () => void;
+    applyView?: boolean;
 };
 
 export const EmbeddedListSearch = ({
@@ -130,6 +132,7 @@ export const EmbeddedListSearch = ({
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
     resetShouldRefetch,
+    applyView = false,
 }: Props) => {
     const { shouldRefetchEmbeddedListSearch, setShouldRefetchEmbeddedListSearch } = useEntityContext();
     // Adjust query based on props
@@ -165,12 +168,16 @@ export const EmbeddedListSearch = ({
         skip: true,
     });
 
+    const userContext = useUserContext();
+    const selectedViewUrn = userContext.localState?.selectedViewUrn;
+
     let searchInput: SearchAcrossEntitiesInput = {
         types: entityTypes || [],
         query: finalQuery,
         start: (page - 1) * numResultsPerPage,
         count: numResultsPerPage,
         orFilters: finalFilters,
+        viewUrn: applyView ? selectedViewUrn : undefined,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };
@@ -244,7 +251,7 @@ export const EmbeddedListSearch = ({
     }, [isSelectMode]);
 
     useEffect(() => {
-        if (defaultFilters) {
+        if (defaultFilters && filters.length === 0) {
             onChangeFilters(defaultFilters);
         }
         // only want to run once on page load
@@ -295,6 +302,7 @@ export const EmbeddedListSearch = ({
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
                 entityAction={entityAction}
+                applyView={applyView}
             />
         </Container>
     );

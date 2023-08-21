@@ -37,6 +37,7 @@ def test_generate_day_partitioned_partition_profiler_query():
         ordinal_position=1,
         data_type="TIMESTAMP",
         is_partition_column=True,
+        cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
@@ -79,6 +80,7 @@ def test_generate_day_partitioned_partition_profiler_query_with_set_partition_ti
         ordinal_position=1,
         data_type="TIMESTAMP",
         is_partition_column=True,
+        cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
@@ -120,6 +122,7 @@ def test_generate_hour_partitioned_partition_profiler_query():
         ordinal_position=1,
         data_type="TIMESTAMP",
         is_partition_column=True,
+        cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
