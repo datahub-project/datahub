@@ -33,6 +33,17 @@ const MenuButton = styled(MoreOutlined)`
     }
 `;
 
+const MenuStyled = styled(Menu)`
+    &&& {
+        .ant-dropdown-menu-item:not(:hover) {
+            background: none;
+        }
+        .ant-dropdown-menu-item:hover {
+            background: #f5f5f5;
+        }
+    }
+`;
+
 const DEFAULT_VIEW_BUILDER_STATE = {
     mode: ViewBuilderMode.EDITOR,
     visible: false,
@@ -233,7 +244,7 @@ export const ViewDropdownMenu = ({
         <>
             <Dropdown
                 overlay={
-                    <Menu>
+                    <MenuStyled>
                         {(canManageView && <EditViewItem key="0" onClick={onEditView} />) || (
                             <PreviewViewItem key="0" onClick={onPreviewView} />
                         )}
@@ -247,7 +258,7 @@ export const ViewDropdownMenu = ({
                             <SetGlobalDefaultItem key="2" onClick={() => setGlobalDefault(view.urn)} />
                         )}
                         {canManageView && <DeleteViewItem key="3" onClick={confirmDeleteView} />}
-                    </Menu>
+                    </MenuStyled>
                 }
                 trigger={[trigger]}
             >

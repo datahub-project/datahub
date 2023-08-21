@@ -154,6 +154,8 @@ export class ContainerEntity implements Entity<Container> {
                 externalUrl={data.properties?.externalUrl}
                 tags={data.tags}
                 glossaryTerms={data.glossaryTerms}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
