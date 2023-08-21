@@ -59,6 +59,8 @@ dependencies {
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.httpAsyncClient
   testRuntimeOnly externalDependency.logbackClassic
+  testRuntimeOnly externalDependency.logbackJackson
+  testRuntimeOnly externalDependency.logbackJsonClassic
 
   swaggerCodegen externalDependency.swaggerCli
 }

@@ -15,6 +15,8 @@ dependencies {
   implementation externalDependency.springContext
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.logbackClassic
+  implementation externalDependency.logbackJackson
+  implementation externalDependency.logbackJsonClassic
 
   annotationProcessor externalDependency.lombok
 }

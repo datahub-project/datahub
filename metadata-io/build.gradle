@@ -25,6 +25,8 @@ dependencies {
   api externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackJackson
+  runtimeOnly externalDependency.logbackJsonClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol

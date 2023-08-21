@@ -86,6 +86,8 @@ dependencies {
   implementation externalDependency.log4j2Api
 
   implementation externalDependency.logbackClassic
+  implementation externalDependency.logbackJackson
+  implementation externalDependency.logbackJsonClassic
 
   annotationProcessor externalDependency.lombok
 
