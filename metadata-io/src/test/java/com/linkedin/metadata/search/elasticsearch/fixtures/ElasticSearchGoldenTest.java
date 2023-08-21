@@ -116,15 +116,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(fourthResultMatchedFields.toString().contains("ReturnRate"));
     }
 
-    /**
-     *
-     * The test below should be added back in as improvements are made to search,
-     * via the linked tickets.
-     *
-     **/
-
-    // TODO: enable once PFP-481 is complete
-    @Test(enabled = false)
+    @Test
     public void testNameMatchPartiallyQualified() {
         /*
           Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
@@ -139,5 +131,10 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(firstResultUrn.toString().contains("snowflake,long_tail_companions.analytics.pet_details"));
         assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
     }
+
+    /*
+     * Tests that should pass but do not yet can be added below here, with the following annotation:
+     * @Test(enabled = false)
+     **/
 
 }
