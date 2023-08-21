@@ -808,6 +808,10 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
+      - name: Remove images
+        run: docker image prune -a -f || true
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Disable ES Disk Threshold
         run: |
           curl -XPUT "http://localhost:9200/_cluster/settings" \
