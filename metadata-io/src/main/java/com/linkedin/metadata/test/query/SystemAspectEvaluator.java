@@ -75,7 +75,11 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
 
         entityService.getEntitiesV2(entityType, urns, aspectSpecNames).forEach((urn, response) -> {
           result.putIfAbsent(urn, new HashMap<>());
-          result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
+          try {
+            result.get(urn).put(query, buildSystemQueryResponse(query, urn, response));
+          } catch (RuntimeException e) {
+            log.error("RuntimeException for urn: {} for query {}. Skipping running test for urn", urn, query, e);
+          }
         });
       } catch (URISyntaxException e) {
         log.error("Error while fetching aspects for urns {}", urns, e);
@@ -95,9 +99,7 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
       case LAST_SYNCHRONIZED_FIELD_NAME:
         final Long lastIngested = SystemMetadataUtils.getLastIngested(entityResponse.getAspects());
         if (lastIngested == null) {
-          String error = String.format("last ingested time is null %s", urn);
-          log.error(error);
-          throw new RuntimeException(error);
+          throw new RuntimeException(String.format("last ingested time is null %s", urn));
         }
         final String lastSynchronizedTime = lastIngested.toString();
         return new TestQueryResponse(Collections.singletonList(lastSynchronizedTime));
@@ -105,7 +107,6 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
         final String lastUpdatedTime = computeLastUpdated(urn, entityResponse);
         return new TestQueryResponse(Collections.singletonList(lastUpdatedTime));
       default:
-        log.error("Unknown query {}", queryName);
         throw new RuntimeException(String.format("Unknown query %s", queryName));
     }
   }
