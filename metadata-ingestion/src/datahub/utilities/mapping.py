@@ -1,6 +1,7 @@
 ### solution with docuemntation description and link
 
 import contextlib
+import ast
 import time
 import logging
 import re
@@ -169,11 +170,7 @@ class OperationProcessor:
                             )
                             operations_value_list.append(operation)  # type: ignore
                             operations_map[operation_type] = operations_value_list
-            # logger.info(operation_key)
-            # logger.info("operations_map")
-            # logger.info(operations_map)
             aspect_map = self.convert_to_aspects(operations_map)
-            # logger.info(aspect_map)
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
         return aspect_map
@@ -212,8 +209,12 @@ class OperationProcessor:
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
 
-            doc_link = operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
-            doc_link_descr = "documentation"
+            docs_dic = ast.literal_eval(
+                operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
+            )
+
+            doc_link = docs_dic["link"]
+            doc_link_descr = docs_dic["descr"]
             now = int(time.time() * 1000)  # milliseconds since epoch
             current_timestamp = AuditStampClass(
                 time=now, actor="urn:li:corpuser:ingestion"

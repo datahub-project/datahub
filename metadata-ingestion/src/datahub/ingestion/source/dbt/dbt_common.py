@@ -1196,13 +1196,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
-        logger.info("in dbt common")
-        logger.info("schema metadata: {schema_metadata}")
-        logger.info(schema_metadata)
 
-        logger.info("aspects")
-        logger.info(aspects)
-        logger.info("about to return from dbt common")
         return aspects
 
     def get_schema_metadata(
