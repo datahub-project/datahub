@@ -38,6 +38,12 @@ meta_mapping:
     operation: "add_terms"
     config:
       separator: ","
+  documentation_link:
+    match: ".*"
+    operation: "add_link"
+    config:
+      link: "https://en.wikipedia.org/wiki/Anchor_text"
+      description: "Wiki's Anchor Text Docs"
 column_meta_mapping:
   terms_list:
     match: ".*"
@@ -57,6 +63,7 @@ We support the following operations:
 2. add_term - Requires `term` property in config.
 3. add_terms - Accepts an optional `separator` property in config.
 4. add_owner - Requires `owner_type` property in config which can be either user or group. Optionally accepts the `owner_category` config property which you can set to one of `['TECHNICAL_OWNER', 'BUSINESS_OWNER', 'DATA_STEWARD', 'DATAOWNER'` (defaults to `DATAOWNER`).
+5. add_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link.
 
 Note:
 
