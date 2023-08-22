@@ -170,11 +170,13 @@ class OperationProcessor:
         self, operation_map: Dict[str, Union[set, list]]
     ) -> Dict[str, Any]:
         aspect_map: Dict[str, Any] = {}
+
         if Constants.ADD_TAG_OPERATION in operation_map:
             tag_aspect = mce_builder.make_global_tag_aspect_with_tag_list(
                 sorted(operation_map[Constants.ADD_TAG_OPERATION])
             )
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
+
         if Constants.ADD_OWNER_OPERATION in operation_map:
             owner_aspect = OwnershipClass(
                 owners=[
@@ -192,6 +194,7 @@ class OperationProcessor:
                 ]
             )
             aspect_map[Constants.ADD_OWNER_OPERATION] = owner_aspect
+
         if Constants.ADD_TERM_OPERATION in operation_map:
             term_aspect = mce_builder.make_glossary_terms_aspect_from_urn_list(
                 sorted(operation_map[Constants.ADD_TERM_OPERATION])
@@ -204,26 +207,23 @@ class OperationProcessor:
                     operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
                 )
 
-                doc_link = docs_dic["link"]
-                doc_link_descr = docs_dic["descr"]
                 now = int(time.time() * 1000)  # milliseconds since epoch
-                current_timestamp = AuditStampClass(
-                    time=now, actor="urn:li:corpuser:ingestion"
-                )
                 institutional_memory_element = InstitutionalMemoryMetadataClass(
-                    url=doc_link,
-                    description=doc_link_descr,
-                    createStamp=current_timestamp,
+                    url=docs_dic["link"],
+                    description=docs_dic["descr"],
+                    createStamp= AuditStampClass(
+                    time=now, actor="urn:li:corpuser:ingestion"
+                    )
                 )
 
                 # create a new institutional memory aspect
-                current_institutional_memory = InstitutionalMemoryClass(
+                institutional_memory_aspect = InstitutionalMemoryClass(
                     elements=[institutional_memory_element]
                 )
 
                 aspect_map[
                     Constants.ADD_DOC_LINK_OPERATION
-                ] = current_institutional_memory
+                ] = institutional_memory_aspect
             except Exception as e:
                 logger.error(
                     f"Error while constructing aspect for documentation link and description : {e}"
@@ -282,7 +282,6 @@ class OperationProcessor:
             and operation_config[Constants.DOC_LINK]
         ):
             link = operation_config[Constants.DOC_LINK]
-            # get_best_match uses the regex func to either
             link = _insert_match_value(link, _get_best_match(match, "link"))
             return link
 
