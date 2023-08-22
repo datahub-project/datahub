@@ -11,7 +11,7 @@ record TagKey {
   * The tag name, which serves as a unique id
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "fieldName": "id"

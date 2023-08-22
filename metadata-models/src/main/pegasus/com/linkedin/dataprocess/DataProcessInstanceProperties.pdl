@@ -19,7 +19,7 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
    * Process name
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
@@ -31,6 +31,7 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
+    "fieldName": "processType",
     "filterNameOverride": "Process Type"
   }
   type: optional enum DataProcessType {

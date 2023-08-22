@@ -435,6 +435,7 @@ class JsonSchemaTranslator:
             field_path._set_parent_type_if_not_exists(
                 DataHubType(type=MapTypeClass, nested_type=value_type)
             )
+            # FIXME: description not set. This is present in schema["description"].
             yield from JsonSchemaTranslator.get_fields(
                 JsonSchemaTranslator._get_type_from_schema(
                     schema["additionalProperties"]

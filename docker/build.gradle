@@ -87,6 +87,7 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
     dependsOn(debug_modules.collect { it + ':dockerTagDebug' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
+    environment "DATAHUB_PRECREATE_TOPICS", "true"
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
 

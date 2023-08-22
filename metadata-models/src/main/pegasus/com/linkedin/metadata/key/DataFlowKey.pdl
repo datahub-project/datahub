@@ -19,7 +19,7 @@ record DataFlowKey {
   * Unique Identifier of the data flow
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
   }
   flowId: string

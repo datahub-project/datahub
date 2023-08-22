@@ -42,6 +42,9 @@ public class MappingsBuilder {
   // Subfields
   public static final String DELIMITED = "delimited";
   public static final String LENGTH = "length";
+  public static final String WORD_GRAMS_LENGTH_2 = "wordGrams2";
+  public static final String WORD_GRAMS_LENGTH_3 = "wordGrams3";
+  public static final String WORD_GRAMS_LENGTH_4 = "wordGrams4";
 
   private MappingsBuilder() {
   }
@@ -94,16 +97,30 @@ public class MappingsBuilder {
       mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
       // Add keyword subfield without lowercase filter
       mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
-    } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
+    } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       mappingForField.put(TYPE, KEYWORD);
       mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
       Map<String, Object> subFields = new HashMap<>();
-      if (fieldType == FieldType.TEXT_PARTIAL) {
+      if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
         subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
                 ImmutableMap.of(
                         ANALYZER, PARTIAL_ANALYZER
                 )
         ));
+        if (fieldType == FieldType.WORD_GRAM) {
+          for (Map.Entry<String, String> entry : Map.of(
+              WORD_GRAMS_LENGTH_2, WORD_GRAM_2_ANALYZER,
+              WORD_GRAMS_LENGTH_3, WORD_GRAM_3_ANALYZER,
+              WORD_GRAMS_LENGTH_4, WORD_GRAM_4_ANALYZER).entrySet()) {
+            String fieldName = entry.getKey();
+            String analyzerName = entry.getValue();
+            subFields.put(fieldName, ImmutableMap.of(
+                TYPE, TEXT,
+                ANALYZER, analyzerName,
+                SEARCH_ANALYZER, analyzerName
+            ));
+          }
+        }
       }
       subFields.put(DELIMITED, ImmutableMap.of(
               TYPE, TEXT,
