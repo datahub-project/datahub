@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
@@ -105,7 +106,7 @@ class Measure:
     dataType: str = "measure"
     datahubDataType: Union[
         BooleanTypeClass, DateTypeClass, NullTypeClass, NumberTypeClass, StringTypeClass
-    ] = NullTypeClass()
+    ] = dataclasses.field(default_factory=NullTypeClass)
     description: Optional[str] = None
 
 
