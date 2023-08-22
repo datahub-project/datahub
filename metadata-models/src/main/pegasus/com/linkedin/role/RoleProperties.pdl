@@ -14,7 +14,7 @@ record RoleProperties {
    * Display name of the IAM Role in the external system
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
