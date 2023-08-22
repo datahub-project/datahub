@@ -7,7 +7,7 @@ const config: any = {
     //    token: 'fad1285da4e618b618973cacf6565e61',
     // },
     amplitude: {
-        apiKey: 'd624f9cc751933b0725858700bb1946e',
+        apiKey: process.env.AMPLITUDE_API_KEY,
     },
     logging: true,
     datahub: {
