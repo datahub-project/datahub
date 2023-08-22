@@ -14,7 +14,7 @@ record OwnershipTypeInfo {
    * Display name of the Ownership Type
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
