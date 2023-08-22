@@ -55,7 +55,6 @@ if sys.version_info >= (3, 8):
         sys.version_info < (3, 8), reason="requires python 3.8 or higher"
     )
 
-
     def with_iceberg_source() -> IcebergSource:
         catalog: IcebergCatalogConfig = IcebergCatalogConfig(
             name="test", type="rest", config={}
@@ -65,13 +64,11 @@ if sys.version_info >= (3, 8):
             config=IcebergSourceConfig(catalog=catalog),
         )
 
-
     def with_iceberg_profiler() -> IcebergProfiler:
         iceberg_source_instance = with_iceberg_source()
         return IcebergProfiler(
             iceberg_source_instance.report, iceberg_source_instance.config.profiling
         )
-
 
     def assert_field(
         schema_field: SchemaField,
@@ -89,14 +86,12 @@ if sys.version_info >= (3, 8):
             schema_field.type.type, expected_type
         ), f"Field type {schema_field.type.type} is different from expected type {expected_type}"
 
-
     def test_config_no_catalog():
         """
         Test when no Iceberg catalog is provided.
         """
         with pytest.raises(ValidationError, match="catalog"):
             IcebergSourceConfig()  # type: ignore
-
 
     def test_config_catalog_not_configured():
         """
@@ -111,13 +106,11 @@ if sys.version_info >= (3, 8):
         with pytest.raises(ValidationError, match="type"):
             IcebergCatalogConfig(conf={})  # type: ignore
 
-
     def test_config_for_tests():
         """
         Test valid iceberg source that will be used in unit tests.
         """
         with_iceberg_source()
-
 
     @pytest.mark.parametrize(
         "iceberg_type, expected_schema_field_type",
@@ -166,14 +159,18 @@ if sys.version_info >= (3, 8):
             ),
         ]:
             schema = Schema(column)
-            schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
+            schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+                schema
+            )
             assert (
                 len(schema_fields) == 1
             ), f"Expected 1 field, but got {len(schema_fields)}"
             assert_field(
-                schema_fields[0], column.doc, column.optional, expected_schema_field_type
+                schema_fields[0],
+                column.doc,
+                column.optional,
+                expected_schema_field_type,
             )
-
 
     @pytest.mark.parametrize(
         "iceberg_type, expected_array_nested_type",
@@ -244,7 +241,9 @@ if sys.version_info >= (3, 8):
         ]:
             iceberg_source_instance = with_iceberg_source()
             schema = Schema(list_column)
-            schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
+            schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+                schema
+            )
             assert (
                 len(schema_fields) == 1
             ), f"Expected 1 field, but got {len(schema_fields)}"
@@ -258,7 +257,6 @@ if sys.version_info >= (3, 8):
             assert arrayType.nestedType == [
                 expected_array_nested_type
             ], f"List Field nested type {arrayType.nestedType} was expected to be {expected_array_nested_type}"
-
 
     @pytest.mark.parametrize(
         "iceberg_type, expected_map_type",
@@ -329,7 +327,9 @@ if sys.version_info >= (3, 8):
         ]:
             iceberg_source_instance = with_iceberg_source()
             schema = Schema(map_column)
-            schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
+            schema_fields = iceberg_source_instance._get_schema_fields_for_schema(
+                schema
+            )
             # Converting an Iceberg Map type will be done by creating an array of struct(key, value) records.
             # The first field will be the array.
             assert (
@@ -349,7 +349,6 @@ if sys.version_info >= (3, 8):
                 not map_column.field_type.value_required,
                 expected_map_type,
             )
-
 
     @pytest.mark.parametrize(
         "iceberg_type, expected_schema_field_type",
@@ -395,14 +394,15 @@ if sys.version_info >= (3, 8):
         iceberg_source_instance = with_iceberg_source()
         schema = Schema(struct_column)
         schema_fields = iceberg_source_instance._get_schema_fields_for_schema(schema)
-        assert len(schema_fields) == 2, f"Expected 2 fields, but got {len(schema_fields)}"
+        assert (
+            len(schema_fields) == 2
+        ), f"Expected 2 fields, but got {len(schema_fields)}"
         assert_field(
             schema_fields[0], struct_column.doc, struct_column.optional, RecordTypeClass
         )
         assert_field(
             schema_fields[1], field1.doc, field1.optional, expected_schema_field_type
         )
-
 
     @pytest.mark.parametrize(
         "value_type, value, expected_value",
@@ -444,7 +444,6 @@ if sys.version_info >= (3, 8):
             == expected_value
         )
 
-
     def test_avro_decimal_bytes_nullable() -> None:
         """
         The following test exposes a problem with decimal (bytes) not preserving extra attributes like _nullable.  Decimal (fixed) and Boolean for example do.
@@ -458,7 +457,9 @@ if sys.version_info >= (3, 8):
         print(
             f"Original avro schema string:                         {decimal_avro_schema_string}"
         )
-        print(f"After avro parsing, _nullable attribute is missing:  {decimal_avro_schema}")
+        print(
+            f"After avro parsing, _nullable attribute is missing:  {decimal_avro_schema}"
+        )
 
         decimal_fixed_avro_schema_string = """{"type": "record", "name": "__struct_", "fields": [{"type": {"type": "fixed", "logicalType": "decimal", "precision": 3, "scale": 2, "native_data_type": "decimal(3, 2)", "_nullable": false, "name": "bogusName", "size": 16}, "name": "required_field", "doc": "required field documentation"}]}"""
         decimal_fixed_avro_schema = avro.schema.parse(decimal_fixed_avro_schema_string)
