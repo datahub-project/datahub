@@ -25,7 +25,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import BigQuerySchemaApi
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigQuerySchemaApi
 from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,

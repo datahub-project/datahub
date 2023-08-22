@@ -5,7 +5,7 @@ from freezegun import freeze_time
 from google.cloud.bigquery.table import TableListItem
 
 from datahub.ingestion.source.bigquery_v2.bigquery import BigqueryV2Source
-from datahub.ingestion.source.bigquery_v2.bigquery_schema_api import (
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryDataset,
     BigQuerySchemaApi,
     BigqueryTable,
