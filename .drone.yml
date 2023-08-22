@@ -29,10 +29,10 @@ anchors:
         - GITHUB_TOKEN
 
 steps:
-  - name: gradle_build_frontend
-    image: gradle:jdk11
-    commands:
-      - ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel 
+  # - name: gradle_build_frontend
+  #   image: gradle:jdk11
+  #   commands:
+  #     - ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel 
 
   - name: docker_build_frontend
     <<: *docker_build_config
