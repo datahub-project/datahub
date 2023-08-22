@@ -829,11 +829,11 @@ def sqlglot_lineage(
 
 def create_lineage_sql_parsed_result(
     query: str,
-    schema: Optional[str],
     database: Optional[str],
     platform: str,
     platform_instance: Optional[str],
     env: str,
+    schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> Optional["SqlParsingResult"]:
 
