@@ -5,6 +5,7 @@
 
 # pylint: skip-file
 # fmt: off
+from .....schema_classes import AccessClass
 from .....schema_classes import AccessLevelClass
 from .....schema_classes import AuditStampClass
 from .....schema_classes import BrowsePathEntryClass
@@ -40,6 +41,7 @@ from .....schema_classes import OwnershipClass
 from .....schema_classes import OwnershipSourceClass
 from .....schema_classes import OwnershipSourceTypeClass
 from .....schema_classes import OwnershipTypeClass
+from .....schema_classes import RoleAssociationClass
 from .....schema_classes import SiblingsClass
 from .....schema_classes import StatusClass
 from .....schema_classes import SubTypesClass
@@ -49,6 +51,7 @@ from .....schema_classes import VersionTagClass
 from .....schema_classes import WindowDurationClass
 
 
+Access = AccessClass
 AccessLevel = AccessLevelClass
 AuditStamp = AuditStampClass
 BrowsePathEntry = BrowsePathEntryClass
@@ -84,6 +87,7 @@ Ownership = OwnershipClass
 OwnershipSource = OwnershipSourceClass
 OwnershipSourceType = OwnershipSourceTypeClass
 OwnershipType = OwnershipTypeClass
+RoleAssociation = RoleAssociationClass
 Siblings = SiblingsClass
 Status = StatusClass
 SubTypes = SubTypesClass
