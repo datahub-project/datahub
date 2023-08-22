@@ -14,7 +14,6 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
-# Imports for metadata model classes
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     InstitutionalMemoryClass,
@@ -55,7 +54,8 @@ class Constants:
     OPERATION_CONFIG = "config"
     TAG = "tag"
     TERM = "term"
-    DOC_LINK = "doc_link"
+    DOC_LINK = "link"
+    DOC_DESCRIPTION = "description"
     OWNER_TYPE = "owner_type"
     OWNER_CATEGORY = "owner_category"
     MATCH = "match"
@@ -176,7 +176,6 @@ class OperationProcessor:
                 sorted(operation_map[Constants.ADD_TAG_OPERATION])
             )
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
-
         if Constants.ADD_OWNER_OPERATION in operation_map:
             owner_aspect = OwnershipClass(
                 owners=[
@@ -203,14 +202,12 @@ class OperationProcessor:
 
         if Constants.ADD_DOC_LINK_OPERATION in operation_map:
             try:
-                docs_dic = ast.literal_eval(
-                    operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
-                )
+                docs_dict = operation_map[Constants.ADD_DOC_LINK_OPERATION].pop()
 
                 now = int(time.time() * 1000)  # milliseconds since epoch
                 institutional_memory_element = InstitutionalMemoryMetadataClass(
-                    url=docs_dic["link"],
-                    description=docs_dic["descr"],
+                    url=docs_dict["link"],
+                    description=docs_dict["description"],
                     createStamp= AuditStampClass(
                     time=now, actor="urn:li:corpuser:ingestion"
                     )
@@ -280,10 +277,12 @@ class OperationProcessor:
         elif (
             operation_type == Constants.ADD_DOC_LINK_OPERATION
             and operation_config[Constants.DOC_LINK]
+            and operation_config[Constants.DOC_DESCRIPTION]
         ):
             link = operation_config[Constants.DOC_LINK]
             link = _insert_match_value(link, _get_best_match(match, "link"))
-            return link
+            description = operation_config[Constants.DOC_DESCRIPTION]
+            return { "link": link, "description": description }
 
         elif operation_type == Constants.ADD_TERMS_OPERATION:
             separator = operation_config.get(Constants.SEPARATOR, ",")
