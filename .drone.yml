@@ -43,5 +43,5 @@ steps:
       - "org.fundingcircle.image.manager=data-platform@fundingcircle.com"
       cache_from:
       - 131063299351.dkr.ecr.eu-west-1.amazonaws.com/datahub-frontend:${DRONE_BRANCH//\//-}
-    depends_on:
-      - gradle_build_frontend
+    # depends_on:
+      # - gradle_build_frontend
