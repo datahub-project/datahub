@@ -62,6 +62,7 @@ lazy_load_plugins = False
    | datahub.cluster                | prod                 | name of the airflow cluster                                                                                                                                                            |
    | datahub.capture_ownership_info | true                 | If true, the owners field of the DAG will be capture as a DataHub corpuser.                                                                                                            |
    | datahub.capture_tags_info      | true                 | If true, the tags field of the DAG will be captured as DataHub tags.                                                                                                                   |
+   | datahub.capture_executions     | true                 | If true, we'll capture task runs in DataHub in addition to DAG definitions.                                                                                                            |
    | datahub.graceful_exceptions    | true                 | If set to true, most runtime errors in the lineage backend will be suppressed and will not cause the overall task to fail. Note that configuration issues will still throw exceptions. |
 
 5. Configure `inlets` and `outlets` for your Airflow operators. For reference, look at the sample DAG in [`lineage_backend_demo.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_demo.py), or reference [`lineage_backend_taskflow_demo.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_backend_taskflow_demo.py) if you're using the [TaskFlow API](https://airflow.apache.org/docs/apache-airflow/stable/concepts/taskflow.html).
@@ -80,9 +81,7 @@ Emitting DataHub ...
 
 If you have created a custom Airflow operator [docs](https://airflow.apache.org/docs/apache-airflow/stable/howto/custom-operator.html) that inherits from the BaseOperator class,
 when overriding the `execute` function, set inlets and outlets via `context['ti'].task.inlets` and `context['ti'].task.outlets`.
-The DataHub Airflow plugin will then pick up those inlets and outlets after the task runs. 
-
-
+The DataHub Airflow plugin will then pick up those inlets and outlets after the task runs.
 
 ```python
 class DbtOperator(BaseOperator):
@@ -97,8 +96,8 @@ class DbtOperator(BaseOperator):
 
     def _get_lineage(self):
         # Do some processing to get inlets/outlets
-        
-        return inlets, outlets 
+
+        return inlets, outlets
 ```
 
 If you override the `pre_execute` and `post_execute` function, ensure they include the `@prepare_lineage` and `@apply_lineage` decorators respectively. [source](https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/lineage.html#lineage)
@@ -171,7 +170,6 @@ Take a look at this sample DAG:
 - [`lineage_emission_dag.py`](../../metadata-ingestion/src/datahub_provider/example_dags/lineage_emission_dag.py) - emits lineage using the DatahubEmitterOperator.
 
 In order to use this example, you must first configure the Datahub hook. Like in ingestion, we support a Datahub REST hook and a Kafka-based hook. See step 1 above for details.
-
 
 ## Debugging
 

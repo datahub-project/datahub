@@ -99,11 +99,25 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(fourthResultMatchedFields.toString().contains("ReturnRate"));
     }
 
+    @Test
+    public void testNameMatchPartiallyQualified() {
+        /*
+          Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
+          name as the first search results before any others
+         */
+        assertNotNull(searchService);
+        SearchResult searchResult = searchAcrossEntities(searchService, "analytics.pet_details", SEARCHABLE_LONGTAIL_ENTITIES);
+        assertTrue(searchResult.getEntities().size() >= 2);
+        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+        Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
+
+        assertTrue(firstResultUrn.toString().contains("snowflake,long_tail_companions.analytics.pet_details"));
+        assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
+    }
+
     /**
-     *
-     * The test below should be added back in as improvements are made to search,
-     * via the linked tickets.
-     *
+     * Tests that should pass but do not yet can be added below here, with the following annotation:
+     * @Test(enabled = false)
      **/
 
     // TODO: enable once PRD-505 is complete
@@ -150,23 +164,6 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
 
         // Checks that the scores aren't tied so that we are matching on table name more than column name
         assertTrue(firstResultScore > secondResultScore);
-    }
-
-    // TODO: enable once PFP-481 is complete
-    @Test(enabled = false)
-    public void testNameMatchPartiallyQualified() {
-        /*
-          Searching for "analytics.pet_details" (partially qualified) should return the fully qualified table
-          name as the first search results before any others
-         */
-        assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "analytics.pet_details", SEARCHABLE_LONGTAIL_ENTITIES);
-        assertTrue(searchResult.getEntities().size() >= 2);
-        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
-        Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
-
-        assertTrue(firstResultUrn.toString().contains("snowflake,long_tail_companions.analytics.pet_details"));
-        assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
     }
 
 }
