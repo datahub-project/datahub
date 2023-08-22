@@ -115,13 +115,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
     }
 
-    /**
-     * Tests that should pass but do not yet can be added below here, with the following annotation:
-     * @Test(enabled = false)
-     **/
-
-    // TODO: enable once PRD-505 is complete
-    @Test(enabled = false)
+    @Test()
     public void testNameMatchCollaborativeActionitems() {
         /*
           Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
@@ -137,15 +131,14 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(firstResultUrn.toString().contains("collaborative_actionitems,"));
         assertTrue(secondResultUrn.toString().contains("collaborative_actionitems_old"));
 
-        Double firstResultScore = searchResult.getEntities().get(1).getScore();
-        Double secondResultScore = searchResult.getEntities().get(0).getScore();
+        Double firstResultScore = searchResult.getEntities().get(0).getScore();
+        Double secondResultScore = searchResult.getEntities().get(1).getScore();
 
         // Checks that the scores aren't tied so that we are matching on table name more than column name
         assertTrue(firstResultScore > secondResultScore);
     }
 
-    // TODO: enable once PRD-505 is complete
-    @Test(enabled = false)
+    @Test()
     public void testNameMatchCustomerOrders() {
         /*
           Searching for "customer orders" should return "customer_orders" as the first search
@@ -159,11 +152,16 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         // Checks that the table name is not suffixed with anything
         assertTrue(firstResultUrn.toString().contains("customer_orders,"));
 
-        Double firstResultScore = searchResult.getEntities().get(1).getScore();
-        Double secondResultScore = searchResult.getEntities().get(0).getScore();
+        Double firstResultScore = searchResult.getEntities().get(0).getScore();
+        Double secondResultScore = searchResult.getEntities().get(1).getScore();
 
         // Checks that the scores aren't tied so that we are matching on table name more than column name
         assertTrue(firstResultScore > secondResultScore);
     }
+
+    /*
+      Tests that should pass but do not yet can be added below here, with the following annotation:
+      @Test(enabled = false)
+     */
 
 }
