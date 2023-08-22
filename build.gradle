@@ -7,6 +7,7 @@ buildscript {
   ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
+  ext.neo4jApocVersion = '4.4.0.9:all'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '7.10.2'
   // TODO: Change to final release version once it's out ETA Mid-April
@@ -156,6 +157,7 @@ project.ext.externalDependency = [
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
+    'neo4jApoc': 'org.neo4j.procedure:apoc:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
@@ -214,7 +216,7 @@ project.ext.externalDependency = [
     'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-    
+
 ]
 
 allprojects {

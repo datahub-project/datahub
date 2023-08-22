@@ -52,6 +52,9 @@ dependencies {
   testCompile externalDependency.h2
   testCompile externalDependency.mysqlConnector
   testCompile externalDependency.neo4jHarness
+  testCompile (externalDependency.neo4jApoc) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
   testCompile externalDependency.mockito
   testCompile externalDependency.mockitoInline
   testCompile externalDependency.iStackCommons
@@ -71,10 +74,10 @@ dependencies {
 
   constraints {
     implementation(externalDependency.log4jCore) {
-        because("previous versions are vulnerable to CVE-2021-45105")
+      because("previous versions are vulnerable to CVE-2021-45105")
     }
     implementation(externalDependency.log4jApi) {
-        because("previous versions are vulnerable to CVE-2021-45105")
+      because("previous versions are vulnerable to CVE-2021-45105")
     }
     implementation(externalDependency.commonsText) {
       because("previous versions are vulnerable to CVE-2022-42889")
@@ -96,13 +99,13 @@ dependencies {
 
 test {
   // https://docs.gradle.org/current/userguide/performance.html
-  maxParallelForks = Runtime.runtime.availableProcessors() - 1 ?: 1
+  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }
 
 tasks.withType(Test) {
-    enableAssertions = false
+  enableAssertions = false
 }
 
 project.compileJava {
