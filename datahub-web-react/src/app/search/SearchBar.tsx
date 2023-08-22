@@ -377,7 +377,15 @@ export const SearchBar = ({
                                     onKeyUp={handleStopPropagation}
                                     onKeyDown={handleStopPropagation}
                                 >
-                                    <ViewSelect />
+                                    <ViewSelect
+                                        dropdownStyle={
+                                            fixAutoComplete
+                                                ? {
+                                                      position: 'fixed',
+                                                  }
+                                                : {}
+                                        }
+                                    />
                                 </ViewSelectContainer>
                             )}
                             <SearchIcon
