@@ -508,7 +508,7 @@ public class Neo4jGraphService implements GraphService {
     // add dataset urn index to improve query performance
     log.debug("Creating Neo4j index for datasets on dataset's urn");
     runQuery(new Statement("CREATE INDEX index_dataset_urn IF NOT EXISTS FOR (n:dataset) ON n.urn",Map.of())).consume();
-    // add index on createOn and updateOn for rel r_Downstreamof
+    // add index on createOn and updateOn for rel r_DownstreamOf and r_UpstreamOf
     log.debug("Creating Neo4j index for r_DownstreamOf on createOn and updateOn");
     runQuery(new Statement("CREATE INDEX rel_index_upserton_downstream IF NOT EXISTS FOR ()-[r:r_DownstreamOf]-() ON (r.createOn,r.updatedOn)",Map.of())).consume();
     runQuery(new Statement("CREATE INDEX rel_index_upserton_upstream IF NOT EXISTS FOR ()-[r:r_UpstreamOf]-() ON (r.createOn,r.updatedOn)",Map.of())).consume();
