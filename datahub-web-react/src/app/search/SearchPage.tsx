@@ -236,6 +236,7 @@ export const SearchPage = () => {
                 error={error}
                 searchResponse={data?.searchAcrossEntities}
                 facets={data?.searchAcrossEntities?.facets}
+                suggestions={data?.searchAcrossEntities?.suggestions || []}
                 selectedFilters={filters}
                 loading={loading}
                 onChangeFilters={onChangeFilters}
