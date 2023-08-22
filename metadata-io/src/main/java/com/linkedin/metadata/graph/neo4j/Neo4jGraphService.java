@@ -233,6 +233,7 @@ public class Neo4jGraphService implements GraphService {
       GraphFilters graphFilters, int offset, int count, int maxHops, @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
+    this.configure();
 
     final var statementAndParams =
         generateLineageStatementAndParameters(entityUrn, direction, graphFilters, maxHops, startTimeMillis, endTimeMillis);
@@ -550,11 +551,20 @@ public class Neo4jGraphService implements GraphService {
 
   @Override
   public void configure() {
-    // Do nothing
+    // create index for dataset.urn , r_downstreamOf and r_upstreamOf to improve query performance
+    log.debug("Creating Neo4j index for dataset.urn,r_DownstreamOf and r_UpstreamOf");
+    runQuery(new Statement("CREATE TEXT INDEX index_dataset_urn IF NOT EXISTS FOR (n:dataset) on n.urn", Map.of())).consume();
+    runQuery(new Statement("CREATE INDEX index_r_createon_updateon_downstream IF NOT EXISTS FOR ()-[r:r_DownstreamOf]-() ON (r.createdOn,r.updatedOn)",Map.of())).consume();
+    runQuery(new Statement("CREATE INDEX index_r_createon_updateon_upstream IF NOT EXISTS FOR ()-[r:r_UpstreamOf]-() ON (r.createdOn,r.updatedOn)",Map.of())).consume();
+    runQuery(new Statement("CALL db.awaitIndexes",Map.of())).consume();
   }
 
   @Override
   public void clear() {
+    log.debug("Dropping Neo4j index for dataset.urn,r_DownstreamOf and r_UpstreamOf");
+    runQuery(new Statement("DROP INDEX index_dataset_urn IF EXISTS", Map.of())).consume();
+    runQuery(new Statement("DROP INDEX index_r_createon_updateon_downstream IF EXISTS",Map.of())).consume();
+    runQuery(new Statement("DROP INDEX index_r_createon_updateon_upstream IF EXISTS",Map.of())).consume();
     removeNodesMatchingLabel(".*");
   }
 
