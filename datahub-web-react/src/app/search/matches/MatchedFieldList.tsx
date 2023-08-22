@@ -2,13 +2,13 @@ import React from 'react';
 
 import { Tooltip, Typography } from 'antd';
 import styled from 'styled-components';
-import { useMatchedFieldLabel, useMatchedFieldsForList } from './context/SearchResultContext';
-import { MatchedField } from '../../types.generated';
-import { ANTD_GRAY_V2 } from '../entity/shared/constants';
-import { useSearchQuery } from './context/SearchContext';
-import { MatchesGroupedByFieldName } from './matches/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './matches/utils';
+import { useMatchedFieldLabel, useMatchedFieldsForList } from '../context/SearchResultContext';
+import { MatchedField } from '../../../types.generated';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
+import { useSearchQuery } from '../context/SearchContext';
+import { MatchesGroupedByFieldName } from './constants';
+import { useEntityRegistry } from '../../useEntityRegistry';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from './utils';
 
 const MatchesContainer = styled.div`
     display: flex;

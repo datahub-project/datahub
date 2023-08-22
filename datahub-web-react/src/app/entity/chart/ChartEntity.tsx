@@ -25,7 +25,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
-import { MatchedFieldList } from '../../search/MatchedFieldList';
+import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 
 /**
