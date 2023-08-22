@@ -10,7 +10,6 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -28,7 +27,6 @@ import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
-import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilder;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
@@ -226,7 +224,8 @@ public class SearchQueryBuilderTest {
       FunctionScoreQueryBuilder.FilterFunctionBuilder[] functionBuilders = result.filterFunctionBuilders();
       assertEquals(functionBuilders.length, 2);
       // Should not include Field Value functions for usage stats
-      assertFalse(Arrays.stream(functionBuilders).anyMatch(filterFunctionBuilder -> filterFunctionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder));
+      assertFalse(Arrays.stream(functionBuilders).anyMatch(
+          filterFunctionBuilder -> filterFunctionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder));
     }
   }
 
@@ -257,7 +256,8 @@ public class SearchQueryBuilderTest {
       FunctionScoreQueryBuilder.FilterFunctionBuilder[] functionBuilders = result.filterFunctionBuilders();
       assertEquals(functionBuilders.length, 2, "Expected no usage stats function scales for " + triggerQuery);
       // Should not include Field Value functions for usage stats
-      assertFalse(Arrays.stream(functionBuilders).anyMatch(filterFunctionBuilder -> filterFunctionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder));
+      assertFalse(Arrays.stream(functionBuilders).anyMatch(
+          filterFunctionBuilder -> filterFunctionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder));
     }
   }
 
