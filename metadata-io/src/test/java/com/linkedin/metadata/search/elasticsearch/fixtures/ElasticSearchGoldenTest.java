@@ -115,7 +115,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
     }
 
-    @Test()
+    @Test
     public void testNameMatchCollaborativeActionitems() {
         /*
           Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
@@ -138,7 +138,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(firstResultScore > secondResultScore);
     }
 
-    @Test()
+    @Test
     public void testNameMatchCustomerOrders() {
         /*
           Searching for "customer orders" should return "customer_orders" as the first search
