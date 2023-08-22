@@ -180,9 +180,6 @@ class RedundantRunSkipHandler(
         self.log(f"Last run start, end times:{last_run}")
         cur_run = TimeWindow(cur_start_time, cur_end_time)
 
-        # In case of usage, it is assumed that start_time_millis (cur_start_time_millis as well as last_run_start_time) always conincides
-        # with floored bucket start time. This should be taken care of outside this scope.
-
         if cur_run.starts_after(last_run) and cur_run.start_time != last_run.end_time:
             # scenario of time gap between past successful run window and current run window - maybe due to failed past run
             # Should we keep some configurable limits here to decide how much increase in time window is fine ?
@@ -207,6 +204,7 @@ class RedundantRunSkipHandler(
             suggested_start_time = get_time_bucket(
                 suggested_start_time, last_checkpoint.state.bucket_duration
             )
+
         self.log(
             "Suggested start, end times: "
             f"({suggested_start_time}, {suggested_end_time})"
