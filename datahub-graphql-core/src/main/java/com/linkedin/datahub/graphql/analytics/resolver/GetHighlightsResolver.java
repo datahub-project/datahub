@@ -110,6 +110,7 @@ public final class GetHighlightsResolver implements DataFetcher<List<Highlight>>
     getEntityMetadataStats("Pipelines", EntityType.DATA_FLOW).ifPresent(highlights::add);
     getEntityMetadataStats("Tasks", EntityType.DATA_JOB).ifPresent(highlights::add);
     getEntityMetadataStats("Domains", EntityType.DOMAIN).ifPresent(highlights::add);
+    getEntityMetadataStats("Data Products", EntityType.DATA_PRODUCT).ifPresent(highlights::add);
     return highlights;
   }
 
