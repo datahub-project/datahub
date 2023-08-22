@@ -37,6 +37,7 @@ from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -81,6 +82,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OperationClass,
@@ -562,6 +564,15 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config.platform_instance,
             self.source_config.env,
         )
+
+        if self.source_config.platform_instance:
+            data_platform_instance = DataPlatformInstanceClass(
+                platform=data_platform_urn,
+                instance=make_dataplatform_instance_urn(
+                    self.source_config.platform, self.source_config.platform_instance
+                ),
+            )
+            aspects.append(data_platform_instance)
 
         customProperties = {"schema_inferred_from": str(table_data.full_path)}
 
