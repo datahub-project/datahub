@@ -71,6 +71,38 @@ def urn_creator(
 
 
 class AbstractDataPlatformTableCreator(ABC):
+    """
+    Base class to share common functionalities among different dataplatform for M-Query parsing.
+
+    To create qualified table name we need to parse M-Query data-access-functions(https://learn.microsoft.com/en-us/powerquery-m/accessing-data-functions) and
+    the data-access-functions has some define pattern to access database-name, schema-name and table-name, for example see below M-Query.
+
+        let
+            Source = Sql.Database("localhost", "library"),
+            dbo_book_issue = Source{[Schema="dbo",Item="book_issue"]}[Data]
+        in
+            dbo_book_issue
+
+    It is MSSQL M-Query and Sql.Database is the data-access-function to access MSSQL. If this function is available in M-Query then database name is available in second argument
+    of first statement and schema-name and table-name is available in second statement. second statement can be repeated to access different tables from MSSQL.
+
+    DefaultTwoStepDataAccessSources extends the AbstractDataPlatformTableCreator and provides the common functionalities for data-platform which has above type of M-Query pattern
+
+    data-access-function varies as per data-platform for example for MySQL.Database for MySQL, PostgreSQL.Database for Postgres and Oracle.Database for Oracle and number of statement to
+    find out database-name , schema-name and table-name also varies as per dataplatform.
+
+    Value.NativeQuery is one of the function which is used to execute native query inside M-Query, for example see below M-Query
+
+        let
+            Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true])
+        in
+            Source
+
+    In this M-Query database-name is available in first argument and rest of the detail i.e database & schema is available in native query.
+
+    NativeQueryDataPlatformTableCreator extends AbstractDataPlatformTableCreator to support Redshift and Snowflake native query parsing.
+
+    """
 
     ctx: PipelineContext
     config: PowerBiDashboardSourceConfig
@@ -188,6 +220,19 @@ class AbstractDataAccessMQueryResolver(ABC):
 
 
 class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
+    """
+    This class parses the M-Query recursively to generate DataAccessFunctionDetail (see method create_data_access_functional_detail).
+
+    This class has generic code to process M-Query tokens and create instance of DataAccessFunctionDetail.
+
+    Once DataAccessFunctionDetail instance is initialized thereafter MQueryResolver generates the DataPlatformTable with the help of AbstractDataPlatformTableCreator
+    (see method resolve_to_data_platform_table_list).
+
+    Classes which extended from AbstractDataPlatformTableCreator knows how to convert generated DataAccessFunctionDetail instance
+    to respective DataPlatformTable instance as per dataplatform.
+
+    """
+
     def get_item_selector_tokens(
         self,
         expression_tree: Tree,
@@ -429,6 +474,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     ) -> List[DataPlatformTable]:
         data_platform_tables: List[DataPlatformTable] = []
 
+        # Find out output variable as we are doing backtracking in M-Query
         output_variable: Optional[str] = tree_function.get_output_variable(
             self.parse_tree
         )
@@ -440,12 +486,14 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             return data_platform_tables
 
+        # Parse M-Query and use output_variable as root of tree and create instance of DataAccessFunctionDetail
         table_links: List[
             DataAccessFunctionDetail
         ] = self.create_data_access_functional_detail(output_variable)
 
         # Each item is data-access function
         for f_detail in table_links:
+            # Get & Check if we support data-access-function available in M-Query
             supported_resolver = SupportedResolver.get_resolver(
                 f_detail.data_access_function_name
             )
@@ -459,6 +507,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 )
                 continue
 
+            # From supported_resolver enum get respective resolver like AmazonRedshift or Snowflake or Oracle or NativeQuery and create instance of it
+            # & also pass additional information that will be need to generate urn
             table_full_name_creator: AbstractDataPlatformTableCreator = (
                 supported_resolver.get_table_full_name_creator()(
                     ctx=ctx,
