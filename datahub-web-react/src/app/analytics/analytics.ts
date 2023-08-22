@@ -18,11 +18,12 @@ const { NODE_ENV } = process.env;
 
 export function getMergedTrackingOptions(options?: any) {
     const isThirdPartyLoggingEnabled = JSON.parse(localStorage.getItem(THIRD_PARTY_LOGGING_KEY) || 'false');
+
     return {
         ...options,
         plugins: {
             mixpanel: isThirdPartyLoggingEnabled,
-            amplitude: isThirdPartyLoggingEnabled,
+            amplitude: true, // Only want amplitude so hard-code true. We hard code the API keys too, so 🤷
             googleAnalytics: isThirdPartyLoggingEnabled,
         },
     };
