@@ -3,6 +3,7 @@ import { useGetMeLazyQuery } from '../../graphql/me.generated';
 import { useGetGlobalViewsSettingsLazyQuery } from '../../graphql/app.generated';
 import { CorpUser, PlatformPrivileges } from '../../types.generated';
 import { UserContext, LocalState, DEFAULT_STATE, State } from './userContext';
+import analytics from '../analytics';
 
 // TODO: Migrate all usage of useAuthenticatedUser to using this provider.
 
@@ -40,6 +41,27 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      */
     const [getMe, { data: meData, refetch }] = useGetMeLazyQuery({ fetchPolicy: 'cache-first' });
     useEffect(() => getMe(), [getMe]);
+
+    /**
+     * Identify the user in the analytics tool once on component mount.
+     *
+     * This lets Amplitude identify (and thus segment) the users on more attributes.
+     *
+     * There's likely a more optimal place in the app to do this (ideally immediately after
+     * the user logs in). However, the login flow (particular with SSO) is a bit hard for me to
+     * follow, and I don't think these calls are particularly expensive, so here should be fine.
+     */
+    useEffect(() => {
+        if (meData?.me?.corpUser) {
+            const corpUser = meData.me.corpUser as CorpUser;
+            const info = corpUser.info ?? {};
+            console.log('v1!');
+            console.log('Identifying user', corpUser.urn, info);
+            analytics.identify(corpUser.urn, {
+                ...info,
+            });
+        }
+    }, [meData]);
 
     /**
      * Retrieve the Global View settings once on component mount.
