@@ -10,7 +10,7 @@ from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -84,7 +84,7 @@ class BigQueryConnectionConfig(ConfigModel):
 class BigQueryV2Config(
     BigQueryConnectionConfig,
     BigQueryBaseConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,

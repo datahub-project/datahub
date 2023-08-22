@@ -30,6 +30,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 class BigqueryColumn(BaseColumn):
     field_path: str
     is_partition_column: bool
+    cluster_column_position: Optional[int]
 
 
 RANGE_PARTITION_NAME: str = "RANGE"
@@ -385,6 +386,7 @@ class BigQuerySchemaApi:
                             data_type=column.data_type,
                             comment=column.comment,
                             is_partition_column=column.is_partitioning_column == "YES",
+                            cluster_column_position=column.clustering_ordinal_position,
                         )
                     )
 
@@ -422,6 +424,7 @@ class BigQuerySchemaApi:
                         data_type=column.data_type,
                         comment=column.comment,
                         is_partition_column=column.is_partitioning_column == "YES",
+                        cluster_column_position=column.clustering_ordinal_position,
                     )
                 )
             last_seen_table = column.table_name

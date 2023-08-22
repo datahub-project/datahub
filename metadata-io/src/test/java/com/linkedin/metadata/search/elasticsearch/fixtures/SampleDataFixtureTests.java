@@ -82,6 +82,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     protected EntityClient entityClient;
 
     @Autowired
+    @Qualifier("entityRegistry")
     private EntityRegistry entityRegistry;
 
     @Test
@@ -355,6 +356,84 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     "Expected search results for: " + q);
             return result.getEntities().size();
         }).collect(Collectors.toList());
+    }
+
+    @Test
+    public void testNegateAnalysis() throws IOException {
+        String queryWithMinus = "logging_events -bckp";
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "query_word_delimited", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("logging_events -bckp", "logging_ev", "-bckp", "log", "event", "bckp"));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "word_gram_3", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("logging events -bckp"));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "word_gram_4", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of());
+
+    }
+
+    @Test
+    public void testWordGram() throws IOException {
+        String text = "hello.cat_cool_customer";
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat", "cat cool", "cool customer"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat cool", "cat cool customer"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat cool customer"));
+
+        String testMoreSeparators = "quick.brown:fox jumped-LAZY_Dog";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown", "brown fox", "fox jumped", "jumped lazy", "lazy dog"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown fox", "brown fox jumped", "fox jumped lazy", "jumped lazy dog"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown fox jumped", "brown fox jumped lazy", "fox jumped lazy dog"));
+
+        String textWithQuotesAndDuplicateWord = "\"my_db.my_exact_table\"";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db", "db my", "my exact", "exact table"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my", "db my exact", "my exact table"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my exact", "db my exact table"));
+
+        String textWithParens = "(hi) there";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithParens);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hi there"));
+
+        String oneWordText = "hello";
+        for (String analyzer : List.of("word_gram_2", "word_gram_3", "word_gram_4")) {
+            request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", analyzer, oneWordText);
+            assertEquals(getTokens(request)
+                .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of());
+        }
     }
 
     @Test
@@ -1265,6 +1344,53 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
                 String.format("%s - Expected search results to include matched fields", query));
         assertEquals(result.getEntities().size(), 2);
+    }
+    @Test
+    public void testGram() {
+        String query = "jaffle shop customers";
+        SearchResult result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+            "Expected exact match in 1st position");
+
+        query = "shop customers source";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "jaffle shop stg customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "jaffle shop transformers customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "shop raw customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+            "Expected ngram match in 1st position");
     }
 
     @Test
