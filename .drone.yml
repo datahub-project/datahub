@@ -1,0 +1,12 @@
+kind: pipeline
+name: default
+
+concurrency:
+  limit: 1
+
+
+steps:
+  - name: build-frontend
+    image: gradle:jdk11
+    commands:
+      - ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel 
