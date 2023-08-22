@@ -198,6 +198,147 @@
   {
     "type": "record",
     "Aspect": {
+      "name": "roleProperties"
+    },
+    "name": "RoleProperties",
+    "namespace": "com.linkedin.pegasus2avro.role",
+    "fields": [
+      {
+        "Searchable": {
+          "boostScore": 10.0,
+          "enableAutocomplete": true,
+          "fieldType": "TEXT_PARTIAL"
+        },
+        "type": "string",
+        "name": "name",
+        "doc": "Display name of the IAM Role in the external system"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "description",
+        "default": null,
+        "doc": "Description of the IAM Role"
+      },
+      {
+        "type": "string",
+        "name": "type",
+        "doc": "Can be READ, ADMIN, WRITE"
+      },
+      {
+        "type": [
+          "null",
+          "string"
+        ],
+        "name": "requestUrl",
+        "default": null,
+        "doc": "Link to access external access management"
+      },
+      {
+        "type": [
+          "null",
+          {
+            "type": "record",
+            "name": "AuditStamp",
+            "namespace": "com.linkedin.pegasus2avro.common",
+            "fields": [
+              {
+                "type": "long",
+                "name": "time",
+                "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+              },
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": "string",
+                "name": "actor",
+                "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+              },
+              {
+                "java": {
+                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                },
+                "Urn": "Urn",
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "impersonator",
+                "default": null,
+                "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor."
+              },
+              {
+                "type": [
+                  "null",
+                  "string"
+                ],
+                "name": "message",
+                "default": null,
+                "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
+              }
+            ],
+            "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
+          }
+        ],
+        "name": "created",
+        "default": null,
+        "doc": "Created Audit stamp"
+      }
+    ],
+    "doc": "Information about a ExternalRoleProperties"
+  },
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "actors"
+    },
+    "name": "Actors",
+    "namespace": "com.linkedin.pegasus2avro.role",
+    "fields": [
+      {
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "RoleUser",
+              "namespace": "com.linkedin.pegasus2avro.role",
+              "fields": [
+                {
+                  "Relationship": {
+                    "entityTypes": [
+                      "corpuser"
+                    ],
+                    "name": "Has"
+                  },
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "Urn": "Urn",
+                  "type": "string",
+                  "name": "user",
+                  "doc": "Link provisioned corp user for a role"
+                }
+              ],
+              "doc": "Provisioned users of a role"
+            }
+          }
+        ],
+        "name": "users",
+        "default": null,
+        "doc": "List of provisioned users of a role"
+      }
+    ],
+    "doc": "Provisioned users of a role"
+  },
+  {
+    "type": "record",
+    "Aspect": {
       "name": "postInfo"
     },
     "name": "PostInfo",
@@ -348,50 +489,7 @@
     "namespace": "com.linkedin.pegasus2avro.datajob",
     "fields": [
       {
-        "type": {
-          "type": "record",
-          "name": "AuditStamp",
-          "namespace": "com.linkedin.pegasus2avro.common",
-          "fields": [
-            {
-              "type": "long",
-              "name": "time",
-              "doc": "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
-            },
-            {
-              "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-              },
-              "Urn": "Urn",
-              "type": "string",
-              "name": "actor",
-              "doc": "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
-            },
-            {
-              "java": {
-                "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-              },
-              "Urn": "Urn",
-              "type": [
-                "null",
-                "string"
-              ],
-              "name": "impersonator",
-              "default": null,
-              "doc": "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor."
-            },
-            {
-              "type": [
-                "null",
-                "string"
-              ],
-              "name": "message",
-              "default": null,
-              "doc": "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually."
-            }
-          ],
-          "doc": "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage."
-        },
+        "type": "com.linkedin.pegasus2avro.common.AuditStamp",
         "name": "created",
         "default": {
           "actor": "urn:li:corpuser:unknown",
@@ -3717,7 +3815,8 @@
       },
       {
         "Searchable": {
-          "fieldType": "COUNT"
+          "fieldType": "COUNT",
+          "hasValuesFieldName": "hasRowCount"
         },
         "type": [
           "null",
@@ -3729,7 +3828,8 @@
       },
       {
         "Searchable": {
-          "fieldType": "COUNT"
+          "fieldType": "COUNT",
+          "hasValuesFieldName": "hasColumnCount"
         },
         "type": [
           "null",
@@ -3925,7 +4025,8 @@
       },
       {
         "Searchable": {
-          "fieldType": "COUNT"
+          "fieldType": "COUNT",
+          "hasValuesFieldName": "hasSizeInBytes"
         },
         "type": [
           "null",
@@ -5211,6 +5312,56 @@
                         }
                       ],
                       "doc": "The specific instance of the data platform that this entity belongs to"
+                    },
+                    {
+                      "type": "record",
+                      "Aspect": {
+                        "name": "browsePathsV2"
+                      },
+                      "name": "BrowsePathsV2",
+                      "namespace": "com.linkedin.pegasus2avro.common",
+                      "fields": [
+                        {
+                          "Searchable": {
+                            "/*/id": {
+                              "fieldName": "browsePathV2",
+                              "fieldType": "BROWSE_PATH_V2"
+                            }
+                          },
+                          "type": {
+                            "type": "array",
+                            "items": {
+                              "type": "record",
+                              "name": "BrowsePathEntry",
+                              "namespace": "com.linkedin.pegasus2avro.common",
+                              "fields": [
+                                {
+                                  "type": "string",
+                                  "name": "id",
+                                  "doc": "The ID of the browse path entry. This is what gets stored in the index.\nIf there's an urn associated with this entry, id and urn will be the same"
+                                },
+                                {
+                                  "java": {
+                                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                                  },
+                                  "Urn": "Urn",
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ],
+                                  "name": "urn",
+                                  "default": null,
+                                  "doc": "Optional urn pointing to some entity in DataHub"
+                                }
+                              ],
+                              "doc": "Represents a single level in an entity's browsePathV2"
+                            }
+                          },
+                          "name": "path",
+                          "doc": "A valid browse path for the entity. This field is provided by DataHub by default.\nThis aspect is a newer version of browsePaths where we can encode more information in the path.\nThis path is also based on containers for a given entity if it has containers.\n\nThis is stored in elasticsearch as unit-separator delimited strings and only includes platform specific folders or containers.\nThese paths should not include high level info captured elsewhere ie. Platform and Environment."
+                        }
+                      ],
+                      "doc": "Shared aspect containing a Browse Path to be indexed for an entity."
                     }
                   ]
                 },
@@ -5640,7 +5791,8 @@
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -5715,7 +5867,8 @@
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -5795,7 +5948,8 @@
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
                     "com.linkedin.pegasus2avro.common.InstitutionalMemory",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -6771,7 +6925,8 @@
                     "com.linkedin.pegasus2avro.common.GlossaryTerms",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance",
-                    "com.linkedin.pegasus2avro.dataset.ViewProperties"
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -7999,7 +8154,8 @@
                     },
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -8294,7 +8450,8 @@
                     "com.linkedin.pegasus2avro.common.Deprecation",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -8460,7 +8617,8 @@
                     "com.linkedin.pegasus2avro.common.Deprecation",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -8771,7 +8929,8 @@
                     "com.linkedin.pegasus2avro.common.Deprecation",
                     "com.linkedin.pegasus2avro.common.BrowsePaths",
                     "com.linkedin.pegasus2avro.common.GlobalTags",
-                    "com.linkedin.pegasus2avro.common.DataPlatformInstance"
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance",
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2"
                   ]
                 },
                 "name": "aspects",
@@ -9521,6 +9680,20 @@
                                 "name": "resourceOwners",
                                 "default": false,
                                 "doc": "Whether the filter should return true for owners of a particular resource.\nOnly applies to policies of type 'Metadata', which have a resource associated with them."
+                              },
+                              {
+                                "Urn": "Urn",
+                                "urn_is_array": true,
+                                "type": [
+                                  "null",
+                                  {
+                                    "type": "array",
+                                    "items": "string"
+                                  }
+                                ],
+                                "name": "resourceOwnersTypes",
+                                "default": null,
+                                "doc": "Define type of ownership for the policy"
                               },
                               {
                                 "type": "boolean",
@@ -11314,6 +11487,58 @@
   "com.linkedin.pegasus2avro.common.Ownership",
   "com.linkedin.pegasus2avro.common.Status",
   "com.linkedin.pegasus2avro.common.GlobalTags",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "access"
+    },
+    "name": "Access",
+    "namespace": "com.linkedin.pegasus2avro.common",
+    "fields": [
+      {
+        "type": [
+          "null",
+          {
+            "type": "array",
+            "items": {
+              "type": "record",
+              "name": "RoleAssociation",
+              "namespace": "com.linkedin.pegasus2avro.common",
+              "fields": [
+                {
+                  "Relationship": {
+                    "entityTypes": [
+                      "role"
+                    ],
+                    "name": "AssociatedWith"
+                  },
+                  "Searchable": {
+                    "addToFilters": true,
+                    "fieldName": "roles",
+                    "fieldType": "URN",
+                    "filterNameOverride": "Role",
+                    "hasValuesFieldName": "hasRoles"
+                  },
+                  "java": {
+                    "class": "com.linkedin.pegasus2avro.common.urn.Urn"
+                  },
+                  "Urn": "Urn",
+                  "type": "string",
+                  "name": "urn",
+                  "doc": "Urn of the External Role"
+                }
+              ],
+              "doc": "Properties of an applied Role. For now, just an Urn"
+            }
+          }
+        ],
+        "name": "roles",
+        "default": null,
+        "doc": "List of Roles which needs to be associated"
+      }
+    ],
+    "doc": "Aspect used for associating roles to a dataset or any asset"
+  },
   "com.linkedin.pegasus2avro.common.Deprecation",
   {
     "type": "record",
@@ -11342,56 +11567,7 @@
     ],
     "doc": "Sub Types. Use this aspect to specialize a generic Entity\ne.g. Making a Dataset also be a View or also be a LookerExplore"
   },
-  {
-    "type": "record",
-    "Aspect": {
-      "name": "browsePathsV2"
-    },
-    "name": "BrowsePathsV2",
-    "namespace": "com.linkedin.pegasus2avro.common",
-    "fields": [
-      {
-        "Searchable": {
-          "/*/id": {
-            "fieldName": "browsePathV2",
-            "fieldType": "BROWSE_PATH_V2"
-          }
-        },
-        "type": {
-          "type": "array",
-          "items": {
-            "type": "record",
-            "name": "BrowsePathEntry",
-            "namespace": "com.linkedin.pegasus2avro.common",
-            "fields": [
-              {
-                "type": "string",
-                "name": "id",
-                "doc": "The ID of the browse path entry. This is what gets stored in the index.\nIf there's an urn associated with this entry, id and urn will be the same"
-              },
-              {
-                "java": {
-                  "class": "com.linkedin.pegasus2avro.common.urn.Urn"
-                },
-                "Urn": "Urn",
-                "type": [
-                  "null",
-                  "string"
-                ],
-                "name": "urn",
-                "default": null,
-                "doc": "Optional urn pointing to some entity in DataHub"
-              }
-            ],
-            "doc": "Represents a single level in an entity's browsePathV2"
-          }
-        },
-        "name": "path",
-        "doc": "A valid browse path for the entity. This field is provided by DataHub by default.\nThis aspect is a newer version of browsePaths where we can encode more information in the path.\nThis path is also based on containers for a given entity if it has containers.\n\nThis is stored in elasticsearch as unit-separator delimited strings and only includes platform specific folders or containers.\nThese paths should not include high level info captured elsewhere ie. Platform and Environment."
-      }
-    ],
-    "doc": "Shared aspect containing a Browse Path to be indexed for an entity."
-  },
+  "com.linkedin.pegasus2avro.common.BrowsePathsV2",
   {
     "type": "record",
     "Aspect": {
@@ -13403,6 +13579,28 @@
   },
   "com.linkedin.pegasus2avro.metadata.key.CorpUserKey",
   "com.linkedin.pegasus2avro.metadata.key.DataHubRetentionKey",
+  {
+    "type": "record",
+    "Aspect": {
+      "name": "roleKey",
+      "keyForEntity": "role",
+      "entityCategory": "core",
+      "entityAspects": [
+        "roleProperties",
+        "actors"
+      ]
+    },
+    "name": "RoleKey",
+    "namespace": "com.linkedin.pegasus2avro.metadata.key",
+    "fields": [
+      {
+        "type": "string",
+        "name": "id",
+        "doc": "A unique id for the access management IAM."
+      }
+    ],
+    "doc": "Key for a External AccessManagement"
+  },
   {
     "type": "record",
     "Aspect": {

@@ -43,6 +43,7 @@ from ......schema_classes import NotebookKeyClass
 from ......schema_classes import OwnershipTypeKeyClass
 from ......schema_classes import PostKeyClass
 from ......schema_classes import QueryKeyClass
+from ......schema_classes import RoleKeyClass
 from ......schema_classes import SchemaFieldKeyClass
 from ......schema_classes import TagKeyClass
 from ......schema_classes import TelemetryKeyClass
@@ -87,6 +88,7 @@ NotebookKey = NotebookKeyClass
 OwnershipTypeKey = OwnershipTypeKeyClass
 PostKey = PostKeyClass
 QueryKey = QueryKeyClass
+RoleKey = RoleKeyClass
 SchemaFieldKey = SchemaFieldKeyClass
 TagKey = TagKeyClass
 TelemetryKey = TelemetryKeyClass
