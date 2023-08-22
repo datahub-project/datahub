@@ -236,14 +236,14 @@ def test_operation_processor_advanced_matching_tags():
 
 def test_operation_processor_institutional_memory():
     raw_props = {
-        "documentation_link": "{'descr': 'test', 'link': 'test.com'}",
+        "documentation_link": "test.com",
     }
     processor = OperationProcessor(
         operation_defs={
             "documentation_link": {
                 "match": ".*",
                 "operation": "add_doc_link",
-                "config": {"doc_link": "{{ $match }}"},
+                "config": {"link": "{{ $match }}", "description": "test"},
             },
         },
     )
@@ -256,19 +256,19 @@ def test_operation_processor_institutional_memory():
     assert doc_link_aspect.elements[0].description == "test"
 
 
-def test_operation_processor_institutional_memory_malformed():
+def test_operation_processor_institutional_memory_no_description():
     raw_props = {
-        "documentation_link": "'descr': 'test', 'link': 'test.com'}",
+        "documentation_link": "test.com",
     }
     processor = OperationProcessor(
         operation_defs={
             "documentation_link": {
                 "match": ".*",
                 "operation": "add_doc_link",
-                "config": {"doc_link": "{{ $match }}"},
+                "config": {"link": "{{ $match }}"},
             },
         },
     )
-    # exception should be caught and aspect_map should return empty
+    # we require a description, so this should stay empty
     aspect_map = processor.process(raw_props)
     assert aspect_map == {}
