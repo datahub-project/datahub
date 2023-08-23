@@ -13,7 +13,7 @@ type Props = {
 export default function PostItemMenu({ title, urn, onDelete }: Props) {
     const [deletePostMutation] = useDeletePostMutation();
 
-    const deleteDomain = () => {
+    const deletePost = () => {
         deletePostMutation({
             variables: {
                 urn,
@@ -36,7 +36,7 @@ export default function PostItemMenu({ title, urn, onDelete }: Props) {
             title: `Delete Post '${title}'`,
             content: `Are you sure you want to remove this Post?`,
             onOk() {
-                deleteDomain();
+                deletePost();
             },
             onCancel() {},
             okText: 'Yes',

@@ -15,6 +15,7 @@ import { Message } from '../../shared/Message';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { SearchBar } from '../../search/SearchBar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
+import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
 
 const PostsContainer = styled.div``;
 
@@ -98,7 +99,7 @@ export const PostList = () => {
             title: 'Type',
             dataIndex: '',
             key: 'type',
-            render: (record: PostEntry) => PostColumn(record.contentType),
+            render: (record: PostEntry) => PostColumn(POST_TYPE_TO_DISPLAY_TEXT[record.contentType]),
             style: { minWidth: 100 },
             width: '10%',
         },
