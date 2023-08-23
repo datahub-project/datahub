@@ -185,7 +185,9 @@ class RedundantRunSkipHandler(
             # Should we keep some configurable limits here to decide how much increase in time window is fine ?
             if allow_expand:
                 suggested_start_time = last_run.end_time
-                self.log("Expanding time window. Updating start time.")
+                self.log(
+                    f"Expanding time window. Updating start time to {suggested_start_time}."
+                )
             else:
                 self.log(
                     f"Observed gap in last run end time({last_run.end_time}) and current run start time({cur_start_time})."
@@ -193,11 +195,15 @@ class RedundantRunSkipHandler(
         elif allow_reduce and cur_run.left_intersects(last_run):
             # scenario of scheduled ingestions with default start, end times
             suggested_start_time = last_run.end_time
-            self.log("Reducing time window. Updating start time.")
+            self.log(
+                f"Reducing time window. Updating start time to {suggested_start_time}."
+            )
         elif allow_reduce and cur_run.right_intersects(last_run):
             # a manual backdated run
             suggested_end_time = last_run.start_time
-            self.log("Reducing time window. Updating end time.")
+            self.log(
+                f"Reducing time window. Updating end time to {suggested_end_time}."
+            )
 
         # make sure to consider complete time bucket for usage
         if last_checkpoint.state.bucket_duration:
