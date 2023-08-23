@@ -66,8 +66,8 @@ public class PoliciesConfig {
 
   public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
       "MANAGE_GLOBAL_ANNOUNCEMENTS",
-      "Manage Homepage Posts",
-      "Create and delete homepage posts");
+      "Manage Home Page Posts",
+      "Create and delete home page posts");
 
   public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
       "MANAGE_TESTS",

@@ -94,6 +94,7 @@ export const SettingsPage = () => {
     const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
+    const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements;
 
     return (
         <PageContainer>
@@ -146,10 +147,11 @@ export const SettingsPage = () => {
                                 <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
                             </Menu.Item>
                         )}
-                        {/* TODO: only show this if someone can create posts */}
-                        <Menu.Item key="posts">
-                            <PushpinOutlined /> <ItemTitle>Homepage Posts</ItemTitle>
-                        </Menu.Item>
+                        {showHomePagePosts && (
+                            <Menu.Item key="posts">
+                                <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
+                            </Menu.Item>
+                        )}
                     </Menu.ItemGroup>
 
                     <Menu.ItemGroup title="Preferences">

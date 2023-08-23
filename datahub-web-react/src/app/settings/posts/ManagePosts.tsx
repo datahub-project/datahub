@@ -27,7 +27,7 @@ export default function ManagePosts() {
     return (
         <PageContainer>
             <PageHeaderContainer>
-                <PageTitle level={3}>Homepage Posts</PageTitle>
+                <PageTitle level={3}>Home Page Posts</PageTitle>
                 <Typography.Paragraph type="secondary">View and manage your DataHub Posts.</Typography.Paragraph>
             </PageHeaderContainer>
             <ListContainer>

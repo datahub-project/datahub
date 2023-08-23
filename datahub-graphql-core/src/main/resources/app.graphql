@@ -125,6 +125,11 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
+  
+  """
+  Whether the user can create and delete posts pinned to the home page.
+  """
+  manageGlobalAnnouncements: Boolean!
 }
 
 """
