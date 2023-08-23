@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 import pydantic
 from snowflake.connector import SnowflakeConnection
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
@@ -171,7 +172,11 @@ class SnowflakeUsageExtractor(
         if self.config.include_usage_stats:
             yield from auto_empty_dataset_usage_statistics(
                 self._get_workunits_internal(discovered_datasets),
-                config=self.config,
+                config=BaseTimeWindowConfig(
+                    start_time=self.start_time,
+                    end_time=self.end_time,
+                    bucket_duration=self.config.bucket_duration,
+                ),
                 dataset_urns={
                     self.dataset_urn_builder(dataset_identifier)
                     for dataset_identifier in discovered_datasets

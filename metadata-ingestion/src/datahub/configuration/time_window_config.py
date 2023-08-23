@@ -65,7 +65,7 @@ class BaseTimeWindowConfig(ConfigModel):
                 assert delta < timedelta(
                     0
                 ), "Relative start time should start with minus sign (-) e.g. '-2 days'."
-                assert abs(delta) > get_bucket_duration_delta(
+                assert abs(delta) >= get_bucket_duration_delta(
                     values["bucket_duration"]
                 ), "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
                 return get_time_bucket(

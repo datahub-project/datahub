@@ -25,7 +25,10 @@ from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
 
-from datahub.configuration.time_window_config import get_time_bucket
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
@@ -463,7 +466,11 @@ class BigQueryUsageExtractor:
 
                 yield from auto_empty_dataset_usage_statistics(
                     self._generate_usage_workunits(usage_state),
-                    config=self.config,
+                    config=BaseTimeWindowConfig(
+                        start_time=self.start_time,
+                        end_time=self.end_time,
+                        bucket_duration=self.config.bucket_duration,
+                    ),
                     dataset_urns={
                         self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
                         for ref in table_refs

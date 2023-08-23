@@ -10,7 +10,10 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.time_window_config import get_time_bucket
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -222,7 +225,11 @@ class RedshiftUsageExtractor:
             return
         yield from auto_empty_dataset_usage_statistics(
             self._get_workunits_internal(all_tables),
-            config=self.config,
+            config=BaseTimeWindowConfig(
+                start_time=self.start_time,
+                end_time=self.end_time,
+                bucket_duration=self.config.bucket_duration,
+            ),
             dataset_urns={
                 self.dataset_urn_builder(f"{database}.{schema}.{table.name}")
                 for database in all_tables
