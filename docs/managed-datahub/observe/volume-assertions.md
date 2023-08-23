@@ -298,6 +298,7 @@ mutation createVolumeAssertion {
 
 To create an assertion that specifies that the row count total should always fall between 10 and 20. 
 
+The supported volume assertion types are `ROW_COUNT_TOTAL` and `ROW_COUNT_CHANGE`. Other (e.g. incrementing segment) types are not yet supported. 
 The supported operator types are `GREATER_THAN`, `GREATER_THAN_OR_EQUAL_TO`, `LESS_THAN`, `LESS_THAN_OR_EQUAL_TO`, and `BETWEEN` (requires minValue, maxValue).
 The supported parameter types are `NUMBER`. 
 
