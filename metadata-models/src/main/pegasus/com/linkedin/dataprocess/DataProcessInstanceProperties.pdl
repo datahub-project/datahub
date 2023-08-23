@@ -31,6 +31,7 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
   @Searchable = {
     "fieldType": "KEYWORD",
     "addToFilters": true,
+    "fieldName": "processType",
     "filterNameOverride": "Process Type"
   }
   type: optional enum DataProcessType {
