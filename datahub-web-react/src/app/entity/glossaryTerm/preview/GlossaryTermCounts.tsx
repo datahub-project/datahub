@@ -12,6 +12,7 @@ const CountsContainer = styled.div`
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    gap: 8px;
 `;
 
 const CountContainer = styled.div`
@@ -27,8 +28,6 @@ const CountText = styled(Typography.Text)`
 const Divider = styled.div`
     height: 12px;
     border-right: 1px solid ${ANTD_GRAY_V2[5]};
-    padding-left: 8px;
-    margin-right: 4px;
 `;
 
 const TableIcon = styled(TableOutlined)`
@@ -62,8 +61,8 @@ const GlossaryTermCounts = ({ term }: Props) => {
                     <CountText>related entities</CountText>
                 </Link>
             </CountContainer>
+            <Divider />
             <CountContainer>
-                <Divider />
                 {glossaryTermIcon}
                 <Link to={getRelatedEntitiesUrl}>
                     <CountText>related terms</CountText>
