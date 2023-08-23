@@ -207,9 +207,9 @@ class OperationProcessor:
                 institutional_memory_element = InstitutionalMemoryMetadataClass(
                     url=docs_dict["link"],
                     description=docs_dict["description"],
-                    createStamp= AuditStampClass(
-                    time=now, actor="urn:li:corpuser:ingestion"
-                    )
+                    createStamp=AuditStampClass(
+                        time=now, actor="urn:li:corpuser:ingestion"
+                    ),
                 )
 
                 # create a new institutional memory aspect
@@ -281,7 +281,7 @@ class OperationProcessor:
             link = operation_config[Constants.DOC_LINK]
             link = _insert_match_value(link, _get_best_match(match, "link"))
             description = operation_config[Constants.DOC_DESCRIPTION]
-            return { "link": link, "description": description }
+            return {"link": link, "description": description}
 
         elif operation_type == Constants.ADD_TERMS_OPERATION:
             separator = operation_config.get(Constants.SEPARATOR, ",")
