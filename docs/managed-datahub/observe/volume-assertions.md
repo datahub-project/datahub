@@ -273,19 +273,33 @@ To create a Volume Assertion Entity that checks whether a table has been updated
 ```json
 mutation createVolumeAssertion {
   createVolumeAssertion(
-    input: {
-      entityUrn: "<urn of the table to be monitored>"
-      type: DATASET_CHANGE
-      schedule: {
-        type: FIXED_INTERVAL
-        fixedInterval: { unit: HOUR, multiple: 8 }
+  input: {
+    entityUrn: "<urn of the table to be monitored>",
+    type: ROW_COUNT_TOTAL,
+    rowCountTotal: {
+      operator: BETWEEN,
+      parameters: {
+        minValue: {
+          "value": 10,
+          "type": NUMBER
+        },
+        maxValue: {
+          "value": 20,
+          "type": NUMBER
+        }
       }
     }
-  ) {
-    urn
   }
+  ) {
+  urn
+}
 }
 ```
+
+To create an assertion that specifies that the row count total should always fall between 10 and 20. 
+
+The supported operator types are `GREATER_THAN`, `GREATER_THAN_OR_EQUAL_TO`, `LESS_THAN`, `LESS_THAN_OR_EQUAL_TO`, and `BETWEEN` (requires minValue, maxValue).
+The supported parameter types are `NUMBER`. 
 
 To create an Assertion Monitor Entity that evaluates the volume assertion every 8 hours using the Information Schema:
 

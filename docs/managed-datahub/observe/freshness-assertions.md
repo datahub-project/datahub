@@ -291,10 +291,10 @@ To create a Freshness Assertion Entity that checks whether a table has been upda
 mutation createFreshnessAssertion {
   createFreshnessAssertion(
     input: {
-      entityUrn: "<urn of the table to be monitored>"
-      type: DATASET_CHANGE
+      entityUrn: "<urn of the table to be monitored>",
+      type: DATASET_CHANGE,
       schedule: {
-        type: FIXED_INTERVAL
+        type: FIXED_INTERVAL,
         fixedInterval: { unit: HOUR, multiple: 8 }
       }
     }
