@@ -2,7 +2,7 @@ import merge from 'deepmerge';
 import { unionBy, keyBy, values } from 'lodash';
 import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
-import { Dataset, Entity, MatchedField, Maybe, SiblingProperties } from '../../../types.generated';
+import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
 
 export function stripSiblingsFromEntity(entity: any) {
@@ -215,54 +215,48 @@ export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     return { [baseEntityKey]: combinedBaseEntity } as unknown as T;
 };
 
-export type CombinedSearchResult = {
+export type CombinedEntity = {
     entity: Entity;
-    matchedFields: MatchedField[];
-    matchedEntities?: Entity[];
+    matchedEntities?: Array<Entity>;
 };
 
-export function combineSiblingsInSearchResults(
-    results:
-        | {
-              entity: Entity;
-              matchedFields: MatchedField[];
-          }[]
-        | undefined,
-) {
-    const combinedResults: CombinedSearchResult[] | undefined = [];
-    const siblingsToPair: Record<string, CombinedSearchResult> = {};
+type CombinedEntityResult =
+    | {
+          skipped: true;
+      }
+    | {
+          skipped: false;
+          combinedEntity: CombinedEntity;
+      };
 
-    // set sibling associations
-    results?.forEach((result) => {
-        if (result.entity.urn in siblingsToPair) {
-            // filter from repeating
-            // const siblingsCombinedResult = siblingsToPair[result.entity.urn];
-            // siblingsCombinedResult.matchedEntities?.push(result.entity);
-            return;
-        }
+export function combineSiblingsForEntity(entity: Entity, visitedSiblingUrns: Set<string>): CombinedEntityResult {
+    if (visitedSiblingUrns.has(entity.urn)) return { skipped: true };
 
-        const combinedResult: CombinedSearchResult = result;
-        combinedResult.entity = combineEntityWithSiblings({ ...result.entity });
-        const { entity }: { entity: any } = result;
-        const siblingUrns = entity?.siblings?.siblings?.map((sibling) => sibling.urn) || [];
-        if (siblingUrns.length > 0) {
-            combinedResult.matchedEntities = entity.siblings.isPrimary
-                ? [stripSiblingsFromEntity(entity), ...entity.siblings.siblings]
-                : [...entity.siblings.siblings, stripSiblingsFromEntity(entity)];
+    const combinedEntity: CombinedEntity = { entity: combineEntityWithSiblings({ ...entity }) };
+    const siblings = (combinedEntity.entity as GenericEntityProperties).siblings?.siblings ?? [];
+    const isPrimary = (combinedEntity.entity as GenericEntityProperties).siblings?.isPrimary;
+    const siblingUrns = siblings.map((sibling) => sibling?.urn);
 
-            combinedResult.matchedEntities = combinedResult.matchedEntities.filter(
-                (resultToFilter) => (resultToFilter as Dataset).exists,
-            );
+    if (siblingUrns.length > 0) {
+        combinedEntity.matchedEntities = isPrimary
+            ? [stripSiblingsFromEntity(combinedEntity.entity), ...siblings]
+            : [...siblings, stripSiblingsFromEntity(combinedEntity.entity)];
 
-            siblingUrns.forEach((urn) => {
-                siblingsToPair[urn] = combinedResult;
-            });
-        }
-        combinedResults.push(combinedResult);
-    });
+        combinedEntity.matchedEntities = combinedEntity.matchedEntities.filter(
+            (resultToFilter) => (resultToFilter as Dataset).exists,
+        );
 
-    return combinedResults;
+        siblingUrns.forEach((urn) => urn && visitedSiblingUrns.add(urn));
+    }
+
+    return { combinedEntity, skipped: false };
 }
+
+export function createSiblingEntityCombiner() {
+    const visitedSiblingUrns: Set<string> = new Set();
+    return (entity: Entity) => combineSiblingsForEntity(entity, visitedSiblingUrns);
+}
+
 // used to determine whether sibling entities should be shown merged or not
 export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 

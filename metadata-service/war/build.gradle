@@ -72,6 +72,8 @@ docker {
     include 'docker/monitoring/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
+  }.exclude {
+    i -> i.file.isHidden() || i.file == buildDir
   }
   tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -84,7 +86,7 @@ tasks.getByName("docker").dependsOn([build, war])
 
 task cleanLocalDockerImages {
   doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}")
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

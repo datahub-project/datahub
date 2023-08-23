@@ -145,6 +145,27 @@ Please refer to [Change the default user datahub in quickstart](authentication/c
 
 We recommend deploying DataHub to production using Kubernetes. We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running. Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-by-step walkthrough.
 
+The `quickstart` method of running DataHub is intended for local development and a quick way to experience the features that DataHub has to offer. It is not
+intended for a production environment. This recommendation is based on the following points.
+
+#### Default Credentials
+
+`quickstart` uses docker-compose configuration which includes default credentials for both DataHub, and it's underlying
+prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
+design choice to make development easier and is not best practice for a production environment.
+
+#### Exposed Ports
+
+DataHub's services, and it's backend data stores use the docker default behavior of binding to all interface addresses.
+This makes it useful for development but is not recommended in a production environment.
+
+#### Performance & Management
+
+* `quickstart` is limited by the resources available on a single host, there is no ability to scale horizontally.
+* Rollout of new versions requires downtime.
+* The configuration is largely pre-determined and not easily managed.
+* `quickstart`, by default, follows the most recent builds forcing updates to the latest released and unreleased builds.
+
 ## Other Common Operations
 
 ### Stopping DataHub
