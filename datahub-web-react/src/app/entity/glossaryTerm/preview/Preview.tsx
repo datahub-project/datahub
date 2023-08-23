@@ -14,6 +14,7 @@ export const Preview = ({
     parentNodes,
     previewType,
     domain,
+    snippet,
 }: {
     urn: string;
     name: string;
@@ -23,6 +24,7 @@ export const Preview = ({
     parentNodes?: ParentNodesResult | null;
     previewType: PreviewType;
     domain?: Domain | undefined;
+    snippet?: React.ReactNode;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -37,6 +39,7 @@ export const Preview = ({
             type="Glossary Term"
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}
+            snippet={snippet}
             parentNodes={parentNodes}
             domain={domain}
         />
