@@ -36,7 +36,7 @@ class TimeWindow:
 
     def starts_after(self, other: "TimeWindow") -> bool:
         """Whether current window starts after other window ends"""
-        return other.start_time < other.end_time < self.start_time
+        return other.start_time <= other.end_time < self.start_time
 
     def ends_after(self, other: "TimeWindow") -> bool:
         """Whether current window ends after other window ends."""
