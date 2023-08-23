@@ -356,7 +356,6 @@ class SnowflakeUsageExtractor(
     def _get_operation_aspect_work_unit(
         self, event: SnowflakeJoinedAccessEvent, discovered_datasets: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-
         if event.query_start_time and event.query_type:
             start_time = event.query_start_time
             query_type = event.query_type
