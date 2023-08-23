@@ -1071,7 +1071,9 @@ class LookerView:
         file_path: str = absolute_file_path.split(base_folder_path, 1)[1]
         logger.debug(f"file_path={file_path}")
 
-        return file_path
+        return file_path.strip(
+            "/"
+        )  # strip / from path to make it equivalent to source_file attribute of LookerModelExplore API
 
     @classmethod
     def from_looker_dict(

@@ -7,10 +7,26 @@ import re
 from dataclasses import dataclass, field as dataclasses_field
 from enum import Enum
 from functools import lru_cache
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api40.models import LookmlModelExploreField, User, WriteQuery
+from looker_sdk.sdk.api40.models import (
+    LookmlModelExplore,
+    LookmlModelExploreField,
+    User,
+    WriteQuery,
+)
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
@@ -158,6 +174,62 @@ def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
             view_project_map[view_field.view_name] = view_field.project_name
 
     return view_project_map
+
+
+def get_view_file_path(
+    lkml_fields: List[LookmlModelExploreField], view_name: str
+) -> Optional[str]:
+    logger.debug("Entered")
+
+    for field in lkml_fields:
+        if field.view == view_name:
+            # This path is relative to git clone directory
+            logger.debug(f"Found view({view_name}) file-path {field.source_file}")
+            return field.source_file
+
+    logger.debug(f"Failed to find view({view_name}) file-path")
+
+    return None
+
+
+def create_upstream_views_file_path_map(
+    view_names: Set[str], lkml_fields: List[LookmlModelExploreField]
+) -> Dict[str, Optional[str]]:
+    logger.debug("Entered")
+
+    upstream_views_file_path: Dict[str, Optional[str]] = {}
+
+    for view_name in view_names:
+        file_path: Optional[str] = get_view_file_path(
+            lkml_fields=lkml_fields, view_name=view_name
+        )
+
+        upstream_views_file_path[view_name] = file_path
+
+    logger.debug("Exit")
+
+    return upstream_views_file_path
+
+
+def explore_field_set_to_lkml_fields(
+    explore: LookmlModelExplore,
+) -> List[LookmlModelExploreField]:
+    lkml_fields: List[LookmlModelExploreField] = []
+
+    if explore.fields is None:
+        logger.debug(f"Explore({explore.name}) doesn't have any field")
+        return lkml_fields
+
+    def empty_list(
+        fields: Optional[Sequence[LookmlModelExploreField]],
+    ) -> List[LookmlModelExploreField]:
+        return list(fields) if fields is not None else []
+
+    lkml_fields.extend(empty_list(explore.fields.dimensions))
+    lkml_fields.extend(empty_list(explore.fields.measures))
+    lkml_fields.extend(empty_list(explore.fields.parameters))
+
+    return lkml_fields
 
 
 class LookerUtil:
@@ -456,6 +528,9 @@ class LookerExplore:
     upstream_views: Optional[
         List[ProjectInclude]
     ] = None  # captures the view name(s) this explore is derived from
+    upstream_views_file_path: Dict[str, Optional[str]] = dataclasses_field(
+        default_factory=dict
+    )  # view_name is key and file_path is value. A single file may contains multiple views
     joins: Optional[List[str]] = None
     fields: Optional[List[ViewField]] = None  # the fields exposed in this explore
     source_file: Optional[str] = None
@@ -557,6 +632,9 @@ class LookerExplore:
             description=dict.get("description"),
             upstream_views=upstream_views,
             joins=joins,
+            # This method is getting called from lookml_source's get_internal_workunits method
+            # & upstream_views_file_path is not in use in that code flow
+            upstream_views_file_path={},
         )
 
     @classmethod  # noqa: C901
@@ -572,11 +650,13 @@ class LookerExplore:
 
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            
-            import pdb
-            pdb.set_trace()
-
+            # (view_name, file_path) is key and view-name is value
+            # a single view_file might contains multiple unique view-name
             views: Set[str] = set()
+            # Convert to field list to search for view file_path
+            lkml_fields: List[
+                LookmlModelExploreField
+            ] = explore_field_set_to_lkml_fields(explore)
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -688,6 +768,15 @@ class LookerExplore:
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
+            upstream_views_file_path: Dict[
+                str, Optional[str]
+            ] = create_upstream_views_file_path_map(
+                lkml_fields=lkml_fields,
+                view_names=views,
+            )
+            if upstream_views_file_path:
+                logger.debug(f"views and their file-paths: {upstream_views_file_path}")
+
             return cls(
                 name=explore_name,
                 model_name=model,
@@ -702,6 +791,7 @@ class LookerExplore:
                     )
                     for view_name in views
                 ),
+                upstream_views_file_path=upstream_views_file_path,
                 source_file=explore.source_file,
             )
         except SDKError as e:
@@ -728,7 +818,7 @@ class LookerExplore:
             model=self.model_name,
             name=self.name,
             env=config.env.lower(),
-            file_path=None, # This value is not applicable for explore
+            file_path=None,  # This value is not applicable for explore
         )
 
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
@@ -794,13 +884,19 @@ class LookerExplore:
             assert self.project_name is not None
             upstreams = []
             for view_ref in sorted(self.upstream_views):
+                # set file_path to "UNKNOWN" string if file_path is not available to keep backward compatibility
+                file_path: str = (
+                    cast(str, self.upstream_views_file_path[view_ref.include])
+                    if self.upstream_views_file_path[view_ref.include] is not None
+                    else "UNKNOWN"
+                )
                 view_urn = LookerViewId(
                     project_name=view_ref.project
                     if view_ref.project != _BASE_PROJECT_NAME
                     else self.project_name,
                     model_name=self.model_name,
                     view_name=view_ref.include,
-                    file_path="TODO: Check How to get file_path here",
+                    file_path=file_path,
                 ).get_urn(config)
 
                 upstreams.append(
