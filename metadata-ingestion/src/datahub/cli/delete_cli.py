@@ -14,7 +14,6 @@ from datahub.cli import cli_utils
 from datahub.configuration.datetimes import ClickDatetime
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.ingestion.graph.client import (
-    BROWSE_PATH_V2_URN_TYPES,
     DataHubGraph,
     RemovedStatusFilter,
     get_default_graph,
@@ -36,6 +35,11 @@ _DELETE_WITH_REFERENCES_TYPES = {
     "domain",
     "glossaryTerm",
     "glossaryNode",
+}
+
+_RECURSIVE_DELETE_TYPES = {
+    "container",
+    "dataPlatformInstance",
 }
 
 
@@ -346,13 +350,22 @@ def by_filter(
 
         if recursive:
             # Add children urns to the list.
-            urns += list(
-                graph.get_urns_by_filter(
-                    within=urn,
-                    status=soft_delete_filter,
-                    batch_size=batch_size,
+            if guess_entity_type(urn) == "dataPlatformInstance":
+                urns.extend(
+                    graph.get_urns_by_filter(
+                        platform_instance=urn,
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
+                    )
                 )
-            )
+            else:
+                urns.extend(
+                    graph.get_urns_by_filter(
+                        container=urn,
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
+                    )
+                )
         else:
             delete_by_urn = True
     else:
@@ -456,11 +469,11 @@ def _validate_user_urn_and_filters(
             raise click.UsageError(
                 "The --recursive flag can only be used with a single urn."
             )
-        elif guess_entity_type(urn) not in BROWSE_PATH_V2_URN_TYPES:
+        elif guess_entity_type(urn) not in _RECURSIVE_DELETE_TYPES:
             raise click.UsageError(
-                f"The --recursive flag can only be used with these entity types: {BROWSE_PATH_V2_URN_TYPES}."
+                f"The --recursive flag can only be used with these entity types: {_RECURSIVE_DELETE_TYPES}."
             )
-    elif urn and guess_entity_type(urn) in BROWSE_PATH_V2_URN_TYPES:
+    elif urn and guess_entity_type(urn) in _RECURSIVE_DELETE_TYPES:
         logger.warning(
             f"This will only delete {urn}. Use --recursive to delete all contained entities."
         )
