@@ -111,7 +111,7 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
     X: # name of the share
       database_name: db1
       platform_instance: instance1
-      consumers: # list of all databases created from share Xu
+      consumers: # list of all databases created from share X
         - database_name: db1_from_X
           platform_instance: instance2 
           
