@@ -156,7 +156,7 @@ def test_get_dataplatform_instance_default_no_instance():
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
     data_platform_instance = source.get_dataplatform_instance_aspect(
-        "urn:li:test", None
+        "urn:li:test", "project_id"
     )
     metadata = data_platform_instance.get_metadata()["metadata"]
 
