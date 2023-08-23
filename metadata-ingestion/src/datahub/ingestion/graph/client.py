@@ -959,7 +959,11 @@ class DataHubGraph(DatahubRestEmitter):
 
     @functools.lru_cache()
     def _make_schema_resolver(
-        self, platform: str, platform_instance: Optional[str], env: str
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        include_graph: bool = True,
     ) -> "SchemaResolver":
         from datahub.utilities.sqlglot_lineage import SchemaResolver
 
@@ -967,7 +971,7 @@ class DataHubGraph(DatahubRestEmitter):
             platform=platform,
             platform_instance=platform_instance,
             env=env,
-            graph=self,
+            graph=self if include_graph else None,
         )
 
     def initialize_schema_resolver_from_datahub(
@@ -990,9 +994,9 @@ class DataHubGraph(DatahubRestEmitter):
                 f"Fetched {len(urns)} urns in {timer.elapsed_seconds()} seconds"
             )
 
-        schema_resolver = self._make_schema_resolver(platform, platform_instance, env)
-        schema_resolver.set_include_urns(urns)
-
+        schema_resolver = self._make_schema_resolver(
+            platform, platform_instance, env, include_graph=False
+        )
         with PerfTimer() as timer:
             count = 0
             for i, urn in enumerate(urns):
@@ -1010,7 +1014,6 @@ class DataHubGraph(DatahubRestEmitter):
             )
 
         logger.info("Finished initializing schema resolver")
-
         return schema_resolver, urns
 
     def parse_sql_lineage(

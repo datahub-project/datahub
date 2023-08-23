@@ -33,6 +33,8 @@ Urn = str
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
 
+SQL_PARSE_RESULT_CACHE_SIZE = 1000
+
 
 class QueryType(enum.Enum):
     CREATE = "CREATE"
@@ -253,7 +255,6 @@ class SchemaResolver(Closeable):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
-        self.urns: Optional[Set[str]] = None
 
         self.graph = graph
 
@@ -264,9 +265,6 @@ class SchemaResolver(Closeable):
         self._schema_cache: FileBackedDict[Optional[SchemaInfo]] = FileBackedDict(
             shared_connection=shared_conn,
         )
-
-    def set_include_urns(self, include_urns: Set[str]) -> None:
-        self.urns = include_urns
 
     def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
@@ -295,13 +293,12 @@ class SchemaResolver(Closeable):
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
 
-        if not (self.urns and urn not in self.urns):
-            schema_info = self._resolve_schema_info(urn)
-            if schema_info:
-                return urn, schema_info
+        schema_info = self._resolve_schema_info(urn)
+        if schema_info:
+            return urn, schema_info
 
         urn_lower = self.get_urn_for_table(table, lower=True)
-        if not (self.urns and urn_lower not in self.urns) and urn_lower != urn:
+        if urn_lower != urn:
             schema_info = self._resolve_schema_info(urn_lower)
             if schema_info:
                 return urn_lower, schema_info
@@ -643,19 +640,21 @@ def _translate_internal_column_lineage(
     )
 
 
+def _get_dialect(platform: str):
+    # TODO: convert datahub platform names to sqlglot dialect
+    if platform == "presto-on-hive":
+        return "hive"
+    else:
+        return platform
+
+
 def _sqlglot_lineage_inner(
     sql: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
-    # TODO: convert datahub platform names to sqlglot dialect
-    # TODO: Pull the platform name from the schema resolver?
-    if schema_resolver.platform == "presto-on-hive":
-        dialect = "hive"
-    else:
-        dialect = schema_resolver.platform
-
+    dialect = _get_dialect(schema_resolver.platform)
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
@@ -778,7 +777,7 @@ def _sqlglot_lineage_inner(
     )
 
 
-@functools.lru_cache(maxsize=1000)
+@functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
 def sqlglot_lineage(
     sql: str,
     schema_resolver: SchemaResolver,

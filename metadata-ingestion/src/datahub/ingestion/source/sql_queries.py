@@ -40,7 +40,6 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     platform: str = Field(
         description="The platform for which to generate data, e.g. snowflake"
     )
-    dialect: str = Field(description="The SQL dialect of the queries, e.g. snowflake")
 
     usage: BaseUsageConfig = Field(
         description="The usage config to use when generating usage statistics",
