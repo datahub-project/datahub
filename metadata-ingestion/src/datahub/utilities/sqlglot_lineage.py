@@ -640,7 +640,7 @@ def _translate_internal_column_lineage(
     )
 
 
-def _get_dialect(platform: str):
+def _get_dialect(platform: str) -> str:
     # TODO: convert datahub platform names to sqlglot dialect
     if platform == "presto-on-hive":
         return "hive"
