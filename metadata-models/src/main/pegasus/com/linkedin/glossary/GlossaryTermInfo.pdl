@@ -23,7 +23,7 @@ record GlossaryTermInfo includes CustomProperties {
    * Display name of the term
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }

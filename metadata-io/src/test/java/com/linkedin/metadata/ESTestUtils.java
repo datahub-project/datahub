@@ -77,6 +77,11 @@ public class ESTestUtils {
             100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
     }
 
+    public static SearchResult searchAcrossCustomEntities(SearchService searchService, String query, List<String> searchableEntities) {
+        return searchService.searchAcrossEntities(searchableEntities, query, null, null, 0,
+                100, new SearchFlags().setFulltext(true).setSkipCache(true));
+    }
+
     public static SearchResult search(SearchService searchService, String query) {
         return search(searchService, SEARCHABLE_ENTITIES, query);
     }

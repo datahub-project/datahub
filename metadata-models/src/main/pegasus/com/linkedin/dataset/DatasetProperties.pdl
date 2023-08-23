@@ -17,7 +17,7 @@ record DatasetProperties includes CustomProperties, ExternalReference {
    * Display name of the Dataset
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }
@@ -27,7 +27,7 @@ record DatasetProperties includes CustomProperties, ExternalReference {
    * Fully-qualified name of the Dataset
    */
   @Searchable = {
-    "fieldType": "TEXT",
+    "fieldType": "WORD_GRAM",
     "addToFilters": false,
     "enableAutocomplete": true,
     "boostScore": 10.0
