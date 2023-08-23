@@ -13,7 +13,6 @@ const TextWrapper = styled.div`
 
 export const SuggestedText = styled.span`
     color: ${(props) => props.theme.styles['primary-color']};
-    color: ${(props) => props.theme.styles['primary-color']};
     text-decoration: underline ${(props) => props.theme.styles['primary-color']};
     cursor: pointer;
 `;
