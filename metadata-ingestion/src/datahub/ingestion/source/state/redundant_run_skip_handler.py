@@ -113,7 +113,7 @@ class RedundantRunSkipHandler(
         """
         self.status[step] = status
 
-    def is_current_run_succeessful(self) -> bool:
+    def is_current_run_successful(self) -> bool:
         return all(self.status.values())
 
     def get_current_checkpoint(
@@ -122,7 +122,7 @@ class RedundantRunSkipHandler(
         if (
             not self.is_checkpointing_enabled()
             or self._ignore_new_state()
-            or not self.is_current_run_succeessful()
+            or not self.is_current_run_successful()
         ):
             return None
         cur_checkpoint = self.state_provider.get_current_checkpoint(self.job_id)
@@ -176,11 +176,11 @@ class RedundantRunSkipHandler(
 
         suggested_start_time, suggested_end_time = cur_start_time, cur_end_time
 
-        last_run = self.get_last_run_time_window(last_checkpoint)
+        last_run = last_checkpoint.state.to_time_interval()
         self.log(f"Last run start, end times:{last_run}")
         cur_run = TimeWindow(cur_start_time, cur_end_time)
 
-        if cur_run.starts_after(last_run) and cur_run.start_time != last_run.end_time:
+        if cur_run.starts_after(last_run):
             # scenario of time gap between past successful run window and current run window - maybe due to failed past run
             # Should we keep some configurable limits here to decide how much increase in time window is fine ?
             if allow_expand:
@@ -206,21 +206,13 @@ class RedundantRunSkipHandler(
             )
 
         self.log(
-            "Suggested start, end times: "
+            "Adjusted start, end times: "
             f"({suggested_start_time}, {suggested_end_time})"
         )
         return (suggested_start_time, suggested_end_time)
 
     def log(self, msg: str) -> None:
         logger.info(f"{self.job_id} : {msg}")
-
-    def get_last_run_time_window(
-        self, last_checkpoint: Checkpoint[BaseTimeWindowCheckpointState]
-    ) -> TimeWindow:
-        return TimeWindow(
-            ts_millis_to_datetime(last_checkpoint.state.begin_timestamp_millis),
-            ts_millis_to_datetime(last_checkpoint.state.end_timestamp_millis),
-        )
 
 
 class RedundantLineageRunSkipHandler(RedundantRunSkipHandler):

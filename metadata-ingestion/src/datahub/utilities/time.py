@@ -24,7 +24,7 @@ class TimeWindow:
 
     def contains(self, other: "TimeWindow") -> bool:
         """Whether current window contains other window completely"""
-        return self.start_time <= other.start_time < other.end_time <= self.end_time
+        return self.start_time <= other.start_time <= other.end_time <= self.end_time
 
     def left_intersects(self, other: "TimeWindow") -> bool:
         """Whether only left part of current window overlaps other window."""
@@ -36,7 +36,7 @@ class TimeWindow:
 
     def starts_after(self, other: "TimeWindow") -> bool:
         """Whether current window starts after other window ends"""
-        return other.start_time < other.end_time <= self.start_time
+        return other.start_time < other.end_time < self.start_time
 
     def ends_after(self, other: "TimeWindow") -> bool:
         """Whether current window ends after other window ends."""

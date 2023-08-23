@@ -4,6 +4,7 @@ import pydantic
 
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.state.checkpoint import CheckpointStateBase
+from datahub.utilities.time import TimeWindow, ts_millis_to_datetime
 
 
 class BaseTimeWindowCheckpointState(CheckpointStateBase):
@@ -18,3 +19,9 @@ class BaseTimeWindowCheckpointState(CheckpointStateBase):
 
     # Required for time bucket based aggregations -  e.g. Usage
     bucket_duration: Optional[BucketDuration] = None
+
+    def to_time_interval(self) -> TimeWindow:
+        return TimeWindow(
+            ts_millis_to_datetime(self.begin_timestamp_millis),
+            ts_millis_to_datetime(self.end_timestamp_millis),
+        )
