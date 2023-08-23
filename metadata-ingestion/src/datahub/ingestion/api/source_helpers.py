@@ -64,9 +64,10 @@ def auto_status_aspect(
     """
     For all entities that don't have a status aspect, add one with removed set to false.
     """
-
+    skip_entities: Set[str] = {"dataProcessInstance"}
     all_urns: Set[str] = set()
     status_urns: Set[str] = set()
+    skip_urns: Set[str] = set()
     for wu in stream:
         urn = wu.get_urn()
         all_urns.add(urn)
@@ -90,9 +91,18 @@ def auto_status_aspect(
         else:
             raise ValueError(f"Unexpected type {type(wu.metadata)}")
 
+        if (
+            not isinstance(wu.metadata, MetadataChangeEventClass)
+            and wu.metadata.entityType in skip_entities
+        ):
+            # If any entity does not support aspect 'status' then skip that entity from adding status aspect.
+            # Example like dataProcessInstance doesn't suppport status aspect.
+            # If not skipped gives error: java.lang.RuntimeException: Unknown aspect status for entity dataProcessInstance
+            skip_urns.add(urn)
+
         yield wu
 
-    for urn in sorted(all_urns - status_urns):
+    for urn in sorted(all_urns - status_urns - skip_urns):
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
             aspect=StatusClass(removed=False),

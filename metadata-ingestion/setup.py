@@ -392,6 +392,7 @@ plugins: Dict[str, Set[str]] = {
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
+    "airbyte": {"requests"},
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -506,7 +507,8 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
+            "vertica",
+            "airbyte"
             # airflow is added below
         ]
         if plugin
@@ -608,6 +610,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
+        "airbyte = datahub.ingestion.source.airbyte:AirbyteSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

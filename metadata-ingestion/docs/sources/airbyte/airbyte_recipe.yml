@@ -1,0 +1,26 @@
+source:
+  type: airbyte
+  config:
+    # Enabe to fetch metadata from Airbyte Cloud else from Airbyte OSS
+    cloud_deploy: False
+
+    # Airbyte API hosted URL
+    api_url: "http://localhost:8000/api"
+
+    # Optional -- Your airbyte cloud API key. Need to provide only if cloud_deploy is enabled
+    api_key: "foo"
+    
+    # Optional -- Your Airbyte OSS username. Need to provide only if cloud_deploy is disabled
+    username: "airbyte"
+    # Optional -- Your Airbyte OSS passowrd. Need to provide only if cloud_deploy is disabled
+    password: "password"
+    
+    # Optional -- This mapping is optional and only required to configure platform-instance for source/destination
+    # A mapping of Airbyte source/destination connector's server i.e host or url to data platform instance.
+    server_to_platform_instance:
+        mahmud.db.elephantsql.com:
+            platform_instance: cloud_postgres_instance
+            env: DEV    
+
+sink:
+  # sink configs
