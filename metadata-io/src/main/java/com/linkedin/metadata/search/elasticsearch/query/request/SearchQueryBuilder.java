@@ -11,6 +11,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchScoreAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -279,23 +280,35 @@ public class SearchQueryBuilder {
     finalScoreFunctions.add(
             new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.weightFactorFunction(1.0f)));
 
-    entitySpecs.stream()
+    Map<String, List<SearchableAnnotation>> annotations = entitySpecs.stream()
         .map(EntitySpec::getSearchableFieldSpecs)
         .flatMap(List::stream)
         .map(SearchableFieldSpec::getSearchableAnnotation)
-        .flatMap(annotation -> annotation
-            .getWeightsPerFieldValue()
-            .entrySet()
-            .stream()
-            .map(entry -> buildWeightFactorFunction(annotation.getFieldName(), entry.getKey(),
-                entry.getValue())))
-        .forEach(finalScoreFunctions::add);
+        .collect(Collectors.groupingBy(SearchableAnnotation::getFieldName,
+        Collectors.mapping(annotation -> annotation,
+            Collectors.toList())));
 
-    entitySpecs.stream()
+    for (Map.Entry<String, List<SearchableAnnotation>> annotationEntry : annotations.entrySet()) {
+      SearchableAnnotation arbitrarilySelectedAnnotation = annotationEntry.getValue().get(0);
+      arbitrarilySelectedAnnotation
+          .getWeightsPerFieldValue()
+          .entrySet()
+          .stream()
+          .map(entry -> buildWeightFactorFunction(arbitrarilySelectedAnnotation.getFieldName(), entry.getKey(),
+              entry.getValue())).forEach(finalScoreFunctions::add);
+    }
+
+    Map<String, List<SearchScoreAnnotation>> searchScoreAnnotationMap = entitySpecs.stream()
         .map(EntitySpec::getSearchScoreFieldSpecs)
         .flatMap(List::stream)
-        .map(fieldSpec -> buildScoreFunctionFromSearchScoreAnnotation(fieldSpec.getSearchScoreAnnotation()))
-        .forEach(finalScoreFunctions::add);
+        .map(SearchScoreFieldSpec::getSearchScoreAnnotation)
+        .collect(Collectors.groupingBy(SearchScoreAnnotation::getFieldName,
+            Collectors.mapping(annotation -> annotation,
+                Collectors.toList())));
+    for (Map.Entry<String, List<SearchScoreAnnotation>> searchScoreAnnotationEntry : searchScoreAnnotationMap.entrySet()) {
+      SearchScoreAnnotation arbitrarilySelectedAnnotation = searchScoreAnnotationEntry.getValue().get(0);
+      finalScoreFunctions.add(buildScoreFunctionFromSearchScoreAnnotation(arbitrarilySelectedAnnotation));
+    }
 
     return finalScoreFunctions.toArray(new FunctionScoreQueryBuilder.FilterFunctionBuilder[0]);
   }
