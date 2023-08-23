@@ -44,7 +44,6 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
 
         logger.debug("Checking databases for inbound or outbound shares.")
         for db in databases:
-            db.name = db.name
             is_inbound = db.name in inbounds
             is_outbound = db.name in outbounds
 
