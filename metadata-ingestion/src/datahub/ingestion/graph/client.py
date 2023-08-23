@@ -84,6 +84,12 @@ class RemovedStatusFilter(enum.Enum):
     """Search only soft-deleted entities."""
 
 
+BROWSE_PATH_V2_URN_TYPES = {
+    "container",
+    "dataPlatformInstance",
+}
+
+
 @dataclass
 class RelatedEntity:
     urn: str
@@ -543,6 +549,7 @@ class DataHubGraph(DatahubRestEmitter):
         platform: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
+        within: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
@@ -556,14 +563,23 @@ class DataHubGraph(DatahubRestEmitter):
         :param entity_types: List of entity types to include. If None, all entity types will be returned.
         :param platform: Platform to filter on. If None, all platforms will be returned.
         :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param query: Query string to filter on. If None, all entities will be returned.
+        :param within: A container or data platform instance urn that entities must be within.
+            It works recursively, so it will include entities within sub-containers as well.
+            If None, all entities will be returned.
+            Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+
+        :return: An iterable of urns that match the filters.
         """
 
         types: Optional[List[str]] = None
         if entity_types is not None:
             if not entity_types:
-                raise ValueError("entity_types cannot be an empty list")
+                raise ValueError(
+                    "entity_types cannot be an empty list; use None for all entities"
+                )
 
             types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
 
@@ -579,6 +595,21 @@ class DataHubGraph(DatahubRestEmitter):
                     "field": "platform.keyword",
                     "values": [make_data_platform_urn(platform)],
                     "condition": "EQUAL",
+                }
+            ]
+
+        # Browse path v2 filter.
+        if within:
+            if guess_entity_type(within) not in BROWSE_PATH_V2_URN_TYPES:
+                # TODO: Should we have a first-class platform-instance kwarg instead?
+                raise ValueError(
+                    f"within must be a container or data platform instance urn, not {within}"
+                )
+            andFilters += [
+                {
+                    "field": "browsePathV2",
+                    "values": [within],
+                    "condition": "CONTAIN",
                 }
             ]
 
