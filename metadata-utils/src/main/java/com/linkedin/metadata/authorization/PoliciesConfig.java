@@ -64,6 +64,11 @@ public class PoliciesConfig {
       "Manage Domains",
       "Create and remove Asset Domains.");
 
+  public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOBAL_ANNOUNCEMENTS",
+      "Manage Homepage Posts",
+      "Create and delete homepage posts");
+
   public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
       "MANAGE_TESTS",
       "Manage Tests",
@@ -113,6 +118,7 @@ public class PoliciesConfig {
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
       MANAGE_DOMAINS_PRIVILEGE,
+      MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
