@@ -63,8 +63,8 @@ jobs:
         env:
           ENABLE_PUBLISH: ${{ secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' }}
         run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
-          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
+          echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
+          echo "publish=${{ env.ENABLE_PUBLISH }}" >> $GITHUB_OUTPUT
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
@@ -451,8 +451,6 @@ jobs:
           tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
-          build-args: |
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
@@ -481,7 +479,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Build and push Base-Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -493,16 +491,15 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
             APP_ENV=slim
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base-Slim) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_base_full_build:
     name: Build and Push DataHub Ingestion (Base-Full) Docker Image
     runs-on: ubuntu-latest
@@ -524,7 +521,7 @@ jobs:
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' &&  steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
       - name: Build and push Base-Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -532,20 +529,19 @@ jobs:
           target: full-install
           images: |
             ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-          tags: ${{ needs.setup.outputs.full_tag }}
+          tags: ${{ needs.setup.outputs.unique_full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           build-args: |
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
             APP_ENV=full
-            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.tag || 'head' }}
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_tag || 'head' }}
           publish: ${{ needs.setup.outputs.publish }}
           context: .
           file: ./docker/datahub-ingestion-base/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute DataHub Ingestion (Base-Full) Tag
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
 
 
   datahub_ingestion_slim_build:
@@ -553,6 +549,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_slim_build]
     steps:
       - name: Check out the repo
@@ -572,9 +569,9 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}
       - name: Build and push Slim Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -584,7 +581,7 @@ jobs:
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.slim_tag || 'head' }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}
             APP_ENV=slim
           tags: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -595,7 +592,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag
         id: tag
-        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.slim_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_slim_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_slim_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -609,15 +606,15 @@ jobs:
         uses: actions/checkout@v3
       - name: Download image Slim Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.slim_tag }}
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Slim Image
         uses: aquasecurity/trivy-action@0.8.0
         env:
           TRIVY_OFFLINE_SCAN: true
         with:
-          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.slim_tag }}
+          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
@@ -634,6 +631,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_full_build]
     steps:
       - name: Check out the repo
@@ -653,9 +651,9 @@ jobs:
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && steps.filter.outputs.datahub-ingestion-base == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}
+          image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}
       - name: Build and push Full Image
         if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
         uses: ./.github/actions/docker-custom-build-and-push
@@ -665,8 +663,8 @@ jobs:
             ${{ env.DATAHUB_INGESTION_IMAGE }}
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
-            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}
-          tags: ${{ needs.setup.outputs.full_tag }}
+            DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}
+          tags: ${{ needs.setup.outputs.unique_full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish }}
@@ -675,7 +673,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag (Full)
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.full_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_full_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -689,15 +687,15 @@ jobs:
         uses: actions/checkout@v3
       - name: Download image Full Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.datahub_ingestion_full_build.outputs.needs_artifact_download == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.full_tag }}
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Full Image
         uses: aquasecurity/trivy-action@0.8.0
         env:
           TRIVY_OFFLINE_SCAN: true
         with:
-          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.full_tag }}
+          image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
           format: "template"
           template: "@/contrib/sarif.tpl"
           output: "trivy-results.sarif"
@@ -750,6 +748,10 @@ jobs:
           ./gradlew :metadata-ingestion:install
       - name: Disk Check
         run: df -h . && docker images
+      - name: Remove images
+        run: docker image prune -a -f || true
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Download GMS image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ needs.setup.outputs.publish != 'true' }}
@@ -792,9 +794,9 @@ jobs:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download datahub-ingestion-slim image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
-          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Disk Check
         run: df -h . && docker images
       - name: run quickstart
@@ -812,6 +814,8 @@ jobs:
           # we are doing this because gms takes time to get ready
           # and we don't have a better readiness check when bootstrap is done
           sleep 60s
+      - name: Disk Check
+        run: df -h . && docker images
       - name: Disable ES Disk Threshold
         run: |
           curl -XPUT "http://localhost:9200/_cluster/settings" \
