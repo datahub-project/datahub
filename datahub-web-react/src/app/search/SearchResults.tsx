@@ -6,7 +6,6 @@ import { Entity, FacetFilterInput, FacetMetadata, MatchedField } from '../../typ
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
-import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
 import { SearchResultList } from './SearchResultList';
 import { isListSubset } from '../entity/shared/utils';
@@ -26,6 +25,7 @@ import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
 import SearchSortSelect from './sorting/SearchSortSelect';
+import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;

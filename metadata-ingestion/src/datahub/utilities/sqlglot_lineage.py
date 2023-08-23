@@ -848,3 +848,43 @@ def sqlglot_lineage(
                 table_error=e,
             ),
         )
+
+
+def create_lineage_sql_parsed_result(
+    query: str,
+    database: Optional[str],
+    platform: str,
+    platform_instance: Optional[str],
+    env: str,
+    schema: Optional[str] = None,
+    graph: Optional[DataHubGraph] = None,
+) -> Optional["SqlParsingResult"]:
+
+    parsed_result: Optional["SqlParsingResult"] = None
+    try:
+        schema_resolver = (
+            graph._make_schema_resolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+            )
+            if graph is not None
+            else SchemaResolver(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=None,
+            )
+        )
+
+        parsed_result = sqlglot_lineage(
+            query,
+            schema_resolver=schema_resolver,
+            default_db=database,
+            default_schema=schema,
+        )
+    except Exception as e:
+        logger.debug(f"Fail to prase query {query}", exc_info=e)
+        logger.warning("Fail to parse custom SQL")
+
+    return parsed_result
