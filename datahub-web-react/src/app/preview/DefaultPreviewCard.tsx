@@ -173,6 +173,7 @@ interface Props {
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
     externalUrl?: string | null;
+    entityTitleSuffix?: React.ReactNode;
     subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
@@ -225,6 +226,7 @@ export default function DefaultPreviewCard({
     titleSizePx,
     dataTestID,
     externalUrl,
+    entityTitleSuffix,
     onClick,
     degree,
     parentContainers,
@@ -305,6 +307,7 @@ export default function DefaultPreviewCard({
                                 entityType={type}
                             />
                         )}
+                        {entityTitleSuffix}
                     </EntityTitleContainer>
                     {degree !== undefined && degree !== null && (
                         <Tooltip

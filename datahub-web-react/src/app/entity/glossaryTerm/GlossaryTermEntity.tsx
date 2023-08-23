@@ -17,7 +17,6 @@ import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutS
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import GlossaryTermCounts from './preview/GlossaryTermCounts';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -128,19 +127,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
     };
 
     renderSearch = (result: SearchResult) => {
-        const data = result.entity as GlossaryTerm;
-        return (
-            <Preview
-                previewType={PreviewType.SEARCH}
-                urn={data?.urn}
-                parentNodes={data.parentNodes}
-                name={this.displayName(data)}
-                description={data?.properties?.description || ''}
-                owners={data?.ownership?.owners}
-                domain={data.domain?.domain}
-                snippet={<GlossaryTermCounts term={data} />}
-            />
-        );
+        return this.renderPreview(PreviewType.SEARCH, result.entity as GlossaryTerm);
     };
 
     renderPreview = (previewType: PreviewType, data: GlossaryTerm) => {
