@@ -104,36 +104,19 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
 
 #### Example
 - Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it. 
-- Now, `X` is shared with snowflake account `account2` (ingested as platform_instance `instance2`). A database `db1_from_X` is created from inbound share `X` in `account2`.
-- In this case, all tables and views included in share `X` will also be present in `instance2`.`db1_from_X`. You would need following configurations in snowflake recipe to setup Siblings and Lineage relationships correctly.
-- In snowflake recipe of `account1` :
-
+- Now, `X` is shared with snowflake account `account2` (ingested as platform_instance `instance2`). A database `db1_from_X` is created from inbound share `X` in `account2`. In this case, all tables and views included in share `X` will also be present in `instance2`.`db1_from_X`.
+- This can be represented in `shares` configuration section as
   ```yaml
-  account_id: account1
-  platform_instance: instance1
   shares:
-    X: 
-      platform_instance: instance1
+    X: # name of the share
       database_name: db1
-      consumers:
-        - platform_instance: instance2 # this is a list, as db1 can be shared with multiple snowflake accounts using X
-          database_name: db1_from_X
-  ```
-- In snowflake recipe of `account2` :
-
-  ```yaml
-  account_id: account2
-  platform_instance: instance2
-  shares:
-    X: 
       platform_instance: instance1
-      database_name: db1
-      consumers:
-        - platform_instance: instance2 # this is a list, as db1 can be shared with multiple snowflake accounts using X
-          database_name: db1_from_X
+      consumers: # list of all databases created from share Xu
+        - database_name: db1_from_X
+          platform_instance: instance2 
+          
   ```
-
-- If share X is shared with more snowflake accounts and database is created from share X in those, additional entries need to be added in `consumers` list for share X, one per snowflake account.
+- If share `X` is shared with more snowflake accounts and database is created from share `X` in those account then additional entries need to be added in `consumers` list for share `X`, one per snowflake account. The same `shares` config can then be copied across recipes of all accounts.
 ### Caveats
 
 - Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.

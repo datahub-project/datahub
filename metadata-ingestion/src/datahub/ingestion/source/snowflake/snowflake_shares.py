@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -45,16 +45,15 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         dataset_urn_builder: Callable[[str], str],
     ) -> None:
         self.config = config
+        self.shares = self.config.shares or {}
+        self.platform_instance = self.config.platform_instance or ""
         self.report = report
         self.logger = logger
         self.dataset_urn_builder = dataset_urn_builder
 
     def _get_shared_databases(
-        self, shares: Dict[str, SnowflakeShareConfig], platform_instance: Optional[str]
+        self, shares: Dict[str, SnowflakeShareConfig], platform_instance: str
     ) -> Dict[str, SharedDatabase]:
-        # this is ensured in config validators
-        assert platform_instance is not None
-
         shared_databases: Dict[str, SharedDatabase] = {}
 
         for share_name, share_details in shares.items():
@@ -90,7 +89,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self, databases: List[SnowflakeDatabase]
     ) -> Iterable[MetadataWorkUnit]:
         shared_databases = self._get_shared_databases(
-            self.config.shares or {}, self.config.platform_instance
+            self.shares, self.platform_instance
         )
 
         # None of the databases are shared
@@ -133,10 +132,9 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
         self.report_missing_databases(databases, shared_databases)
 
     def get_sibling_databases(self, db: SharedDatabase) -> List[DatabaseId]:
-        assert self.config.shares is not None
         sibling_dbs: List[DatabaseId] = []
         if db.created_from_share:
-            share_details = self.config.shares[db.shares[0]]
+            share_details = self.shares[db.shares[0]]
             logger.debug(
                 f"database {db.name} is created from inbound share {db.shares[0]}."
             )
@@ -151,7 +149,7 @@ class SnowflakeSharesHandler(SnowflakeCommonMixin):
             sibling_dbs = [
                 consumer
                 for share_name in db.shares
-                for consumer in self.config.shares[share_name].consumers
+                for consumer in self.shares[share_name].consumers
             ]
 
         return sibling_dbs

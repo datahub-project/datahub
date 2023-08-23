@@ -233,17 +233,17 @@ class SnowflakeV2Config(
     ) -> Optional[Dict[str, SnowflakeShareConfig]]:
         current_platform_instance = values.get("platform_instance")
 
-        # Check: platform_instance should be present
         if shares:
+            # Check: platform_instance should be present
             assert current_platform_instance is not None, (
-                "Did you forget to set `platform_instance` for current ingestion ?"
-                "It is advisable to use `platform_instance` when ingesting from multiple snowflake accounts."
+                "Did you forget to set `platform_instance` for current ingestion ? "
+                "It is required to use `platform_instance` when ingesting from multiple snowflake accounts."
             )
 
             databases_included_in_share: List[DatabaseId] = []
             databases_created_from_share: List[DatabaseId] = []
 
-            for _, share_details in shares.items():
+            for share_details in shares.values():
                 shared_db = DatabaseId(
                     share_details.database, share_details.platform_instance
                 )
