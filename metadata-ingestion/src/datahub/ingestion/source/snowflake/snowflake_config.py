@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional, Set, cast
@@ -62,6 +63,10 @@ class SnowflakeShareConfig(ConfigModel):
     consumers: Set[DatabaseId] = Field(
         description="List of databases created in consumer accounts."
     )
+
+    @property
+    def source_database(self) -> DatabaseId:
+        return DatabaseId(self.database, self.platform_instance)
 
 
 class SnowflakeV2Config(
@@ -264,3 +269,39 @@ class SnowflakeV2Config(
                 ), "Same database can not be present as consumer in more than one share."
 
         return shares
+
+    def outbounds(self) -> Dict[str, Set[DatabaseId]]:
+        """
+        Returns mapping of
+            database included in current account's outbound share -> all databases created from this share in other accounts
+        """
+        outbounds: Dict[str, Set[DatabaseId]] = defaultdict(set)
+        if self.shares:
+            for share_name, share_details in self.shares.items():
+                if share_details.platform_instance == self.platform_instance:
+                    logger.debug(
+                        f"database {share_details.database} is included in outbound share(s) {share_name}."
+                    )
+                    outbounds[share_details.database].update(share_details.consumers)
+        return outbounds
+
+    def inbounds(self) -> Dict[str, DatabaseId]:
+        """
+        Returns mapping of
+            database created from an current account's inbound share -> other-account database from which this share was created
+        """
+        inbounds: Dict[str, DatabaseId] = {}
+        if self.shares:
+            for share_name, share_details in self.shares.items():
+                for consumer in share_details.consumers:
+                    if consumer.platform_instance == self.platform_instance:
+                        logger.debug(
+                            f"database {consumer.database} is created from inbound share {share_name}."
+                        )
+                        inbounds[consumer.database] = share_details.source_database
+                        break
+                else:
+                    logger.info(
+                        f"Skipping Share {share_name}, as it does not include current platform instance {self.platform_instance}",
+                    )
+        return inbounds
