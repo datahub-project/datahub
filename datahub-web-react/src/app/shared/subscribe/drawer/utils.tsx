@@ -66,11 +66,11 @@ const assertionsNode: DataNode = {
     children: [
         {
             key: EntityChangeType.AssertionFailed,
-            title: <NotificationTypeText>Changes to failing</NotificationTypeText>,
+            title: <NotificationTypeText>An assertion changes to failing</NotificationTypeText>,
         },
         {
             key: EntityChangeType.AssertionPassed,
-            title: <NotificationTypeText>Changes to passing</NotificationTypeText>,
+            title: <NotificationTypeText>An assertion changes to passing</NotificationTypeText>,
         },
     ],
 };
