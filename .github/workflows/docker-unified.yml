@@ -549,6 +549,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_slim_build]
     steps:
       - name: Check out the repo
@@ -605,7 +606,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Download image Slim Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Slim Image
@@ -630,6 +631,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      needs_artifact_download: ${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.publish != 'true' }}
     needs: [setup, datahub_ingestion_base_full_build]
     steps:
       - name: Check out the repo
@@ -685,7 +687,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Download image Full Image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.datahub_ingestion_full_build.outputs.needs_artifact_download == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
       - name: Run Trivy vulnerability scanner Full Image
@@ -792,7 +794,7 @@ jobs:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download datahub-ingestion-slim image
         uses: ishworkh/docker-image-artifact-download@v1
-        if: ${{ needs.setup.outputs.publish != 'true' }}
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Disk Check
