@@ -28,6 +28,9 @@ const TextContainer = styled.div`
 const TitleText = styled(Typography.Title)`
     word-break: break-word;
     min-height: 20px;
+    &&& {
+        margin-top: 8px;
+    }
 `;
 
 const HeaderText = styled(Typography.Text)`
