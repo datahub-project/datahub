@@ -15,7 +15,7 @@ apache-airflow==2.6.1
 apache-airflow-providers-common-sql==1.5.1
 apache-airflow-providers-ftp==3.4.1
 apache-airflow-providers-http==4.4.1
-apache-airflow-providers-imap==3.2.1
+apache-airflow-providers-imap==3.3.0
 apache-airflow-providers-sqlite==3.4.1
 apispec==5.2.2
 appdirs==1.4.4
