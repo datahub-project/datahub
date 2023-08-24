@@ -195,6 +195,9 @@ def get_view_file_path(
 def create_upstream_views_file_path_map(
     view_names: Set[str], lkml_fields: List[LookmlModelExploreField]
 ) -> Dict[str, Optional[str]]:
+    """
+    Create a map of view-name v/s view file path, so that later we can fetch view's file path via view-name
+    """
     logger.debug("Entered")
 
     upstream_views_file_path: Dict[str, Optional[str]] = {}
@@ -214,6 +217,10 @@ def create_upstream_views_file_path_map(
 def explore_field_set_to_lkml_fields(
     explore: LookmlModelExplore,
 ) -> List[LookmlModelExploreField]:
+    """
+    explore.fields has three variables i.e. dimensions, measures, parameters of same type i.e. LookmlModelExploreField.
+    This method creating a list by adding all field instance to lkml_fields
+    """
     lkml_fields: List[LookmlModelExploreField] = []
 
     if explore.fields is None:
@@ -650,10 +657,8 @@ class LookerExplore:
 
         try:
             explore = client.lookml_model_explore(model, explore_name)
-            # (view_name, file_path) is key and view-name is value
-            # a single view_file might contains multiple unique view-name
             views: Set[str] = set()
-            # Convert to field list to search for view file_path
+
             lkml_fields: List[
                 LookmlModelExploreField
             ] = explore_field_set_to_lkml_fields(explore)
@@ -885,6 +890,7 @@ class LookerExplore:
             upstreams = []
             for view_ref in sorted(self.upstream_views):
                 # set file_path to "UNKNOWN" string if file_path is not available to keep backward compatibility
+                # if we raise error on file_path equal to None then existing test-cases will fail as mock data doesn't have required attributes.
                 file_path: str = (
                     cast(str, self.upstream_views_file_path[view_ref.include])
                     if self.upstream_views_file_path[view_ref.include] is not None
