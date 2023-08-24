@@ -127,7 +127,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModel;
-        return <Preview model={data} />;
+        return <Preview model={data} degree={(result as any).degree} paths={(result as any).paths} />;
     };
 
     getLineageVizConfig = (entity: MlModel) => {

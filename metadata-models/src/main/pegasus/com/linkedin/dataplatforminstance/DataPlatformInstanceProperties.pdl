@@ -16,9 +16,10 @@ record DataPlatformInstanceProperties includes CustomProperties, ExternalReferen
    * Display name of the Data Platform Instance
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: optional string
 

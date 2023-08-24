@@ -38,14 +38,16 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    downgrade_schema_from_v2,
     gen_database_container,
     gen_database_key,
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
+    schema_requires_v2,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -287,7 +289,15 @@ def get_schema_metadata(
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: Optional[List[SchemaField]] = None,
+    simplify_nested_field_paths: bool = False,
 ) -> SchemaMetadata:
+    if (
+        simplify_nested_field_paths
+        and canonical_schema is not None
+        and not schema_requires_v2(canonical_schema)
+    ):
+        canonical_schema = downgrade_schema_from_v2(canonical_schema)
+
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),
@@ -309,14 +319,24 @@ config_options_to_report = [
 ]
 
 
+@dataclass
+class ProfileMetadata:
+    """
+    A class to hold information about the table for profile enrichment
+    """
+
+    dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
-    def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext, platform: str):
+    def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super(SQLAlchemySource, self).__init__(config, ctx)
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
+        self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -325,7 +345,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         config_report = {
             **config_report,
-            "profiling_enabled": config.profiling.enabled,
+            "profiling_enabled": config.is_profiling_enabled(),
             "platform": platform,
         }
 
@@ -334,7 +354,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             config_report,
         )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
@@ -458,6 +478,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             parent_container_key=schema_container_key,
         )
 
+    def get_database_level_workunits(
+        self,
+        inspector: Inspector,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from self.gen_database_containers(database=database)
+
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from self.gen_schema_containers(schema=schema, database=database)
+
+        if self.config.include_tables:
+            yield from self.loop_tables(inspector, schema, self.config)
+
+        if self.config.include_views:
+            yield from self.loop_views(inspector, schema, self.config)
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -474,7 +515,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.profiling.enabled:
+        if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
@@ -482,30 +523,33 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.profiling.enabled:
+            if sql_config.is_profiling_enabled():
                 profiler = self.get_profiler_instance(inspector)
+                try:
+                    self.add_profile_metadata(inspector)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to get enrichment data for profiler", exc_info=True
+                    )
+                    self.report.report_warning(
+                        "profile_metadata",
+                        f"Failed to get enrichment data for profile {e}",
+                    )
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(
+            yield from self.get_database_level_workunits(
+                inspector=inspector,
                 database=db_name,
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(
-                    database=db_name,
+                yield from self.get_schema_level_workunits(
+                    inspector=inspector,
                     schema=schema,
-                    extra_properties=self.get_schema_properties(
-                        inspector=inspector, schema=schema, database=db_name
-                    ),
+                    database=db_name,
                 )
-
-                if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
-
-                if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
 
                 if profiler:
                     profile_requests += list(
@@ -569,7 +613,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         try:
@@ -617,7 +661,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         table: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -837,7 +881,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
@@ -874,7 +918,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         view: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             columns = inspector.get_columns(view, schema)
@@ -996,7 +1040,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
@@ -1012,7 +1056,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
@@ -1098,6 +1142,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 ),
             )
 
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        """
+        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
+        This is meant to change self.profile_metadata_info in the sub-class.
+        """
+        pass
+
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
@@ -1113,6 +1164,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if profile is None:
                 continue
             dataset_name = request.pretty_name
+            if (
+                dataset_name in self.profile_metadata_info.dataset_name_to_storage_bytes
+                and profile.sizeInBytes is None
+            ):
+                profile.sizeInBytes = (
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        dataset_name
+                    ]
+                )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,

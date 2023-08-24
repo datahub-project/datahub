@@ -15,6 +15,7 @@ dependencies {
   compile project(':metadata-io')
   compile project(':metadata-service:factories')
   compile project(':metadata-service:restli-client')
+  compile project(':metadata-service:configuration')
   implementation externalDependency.charle
 
   compile externalDependency.javaxInject
@@ -88,6 +89,8 @@ docker {
   files fileTree(rootProject.projectDir) {
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
+  }.exclude {
+    i -> i.file.isHidden() || i.file == buildDir
   }
   tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -100,7 +103,7 @@ tasks.getByName("docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
   doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

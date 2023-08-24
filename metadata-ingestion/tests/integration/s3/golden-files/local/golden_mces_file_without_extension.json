@@ -3,6 +3,22 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_without_extension.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/no_extension/small,DEV)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
@@ -211,7 +227,12 @@
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "path": []
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -311,6 +332,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -415,6 +440,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -523,6 +552,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -635,6 +668,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -751,6 +788,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -871,6 +912,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -995,6 +1040,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
@@ -1124,6 +1173,10 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
+                {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
                 },
@@ -1201,6 +1254,10 @@
     "aspect": {
         "json": {
             "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+                },
                 {
                     "id": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0",
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"

@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -15,7 +15,6 @@ from requests.models import HTTPError
 
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -39,6 +38,8 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
@@ -57,17 +58,14 @@ class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
     server: str = "http://localhost:8080"
-    token: Optional[str]
-    timeout_sec: Optional[int]
-    retry_status_codes: Optional[List[int]]
-    retry_max_times: Optional[int]
-    extra_headers: Optional[Dict[str, str]]
-    ca_certificate_path: Optional[str]
+    token: Optional[str] = None
+    timeout_sec: Optional[int] = None
+    retry_status_codes: Optional[List[int]] = None
+    retry_max_times: Optional[int] = None
+    extra_headers: Optional[Dict[str, str]] = None
+    ca_certificate_path: Optional[str] = None
+    client_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
-
-    _max_threads_moved_to_sink = pydantic_removed_field(
-        "max_threads", print_warning=False
-    )
 
 
 # Alias for backwards compatibility.
@@ -86,6 +84,12 @@ class RemovedStatusFilter(enum.Enum):
 
     ONLY_SOFT_DELETED = "ONLY_SOFT_DELETED"
     """Search only soft-deleted entities."""
+
+
+@dataclass
+class RelatedEntity:
+    urn: str
+    relationship_type: str
 
 
 def _graphql_entity_type(entity_type: str) -> str:
@@ -121,6 +125,7 @@ class DataHubGraph(DatahubRestEmitter):
             retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
+            client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         self.test_connection()
@@ -769,11 +774,6 @@ class DataHubGraph(DatahubRestEmitter):
         INCOMING = "INCOMING"
         OUTGOING = "OUTGOING"
 
-    @dataclass
-    class RelatedEntity:
-        urn: str
-        relationship_type: str
-
     def get_related_entities(
         self,
         entity_urn: str,
@@ -794,7 +794,7 @@ class DataHubGraph(DatahubRestEmitter):
                 },
             )
             for related_entity in response.get("entities", []):
-                yield DataHubGraph.RelatedEntity(
+                yield RelatedEntity(
                     urn=related_entity["urn"],
                     relationship_type=related_entity["relationshipType"],
                 )
@@ -959,7 +959,11 @@ class DataHubGraph(DatahubRestEmitter):
 
     @functools.lru_cache()
     def _make_schema_resolver(
-        self, platform: str, platform_instance: Optional[str], env: str
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        include_graph: bool = True,
     ) -> "SchemaResolver":
         from datahub.utilities.sqlglot_lineage import SchemaResolver
 
@@ -967,8 +971,50 @@ class DataHubGraph(DatahubRestEmitter):
             platform=platform,
             platform_instance=platform_instance,
             env=env,
-            graph=self,
+            graph=self if include_graph else None,
         )
+
+    def initialize_schema_resolver_from_datahub(
+        self, platform: str, platform_instance: Optional[str], env: str
+    ) -> Tuple["SchemaResolver", Set[str]]:
+        logger.info("Initializing schema resolver")
+
+        # TODO: Filter on platform instance?
+        logger.info(f"Fetching urns for platform {platform}, env {env}")
+        with PerfTimer() as timer:
+            urns = set(
+                self.get_urns_by_filter(
+                    entity_types=[DatasetUrn.ENTITY_TYPE],
+                    platform=platform,
+                    env=env,
+                    batch_size=3000,
+                )
+            )
+            logger.info(
+                f"Fetched {len(urns)} urns in {timer.elapsed_seconds()} seconds"
+            )
+
+        schema_resolver = self._make_schema_resolver(
+            platform, platform_instance, env, include_graph=False
+        )
+        with PerfTimer() as timer:
+            count = 0
+            for i, urn in enumerate(urns):
+                if i % 1000 == 0:
+                    logger.debug(f"Loaded {i} schema metadata")
+                try:
+                    schema_metadata = self.get_aspect(urn, SchemaMetadataClass)
+                    if schema_metadata:
+                        schema_resolver.add_schema_metadata(urn, schema_metadata)
+                        count += 1
+                except Exception:
+                    logger.warning("Failed to load schema metadata", exc_info=True)
+            logger.info(
+                f"Loaded {count} schema metadata in {timer.elapsed_seconds()} seconds"
+            )
+
+        logger.info("Finished initializing schema resolver")
+        return schema_resolver, urns
 
     def parse_sql_lineage(
         self,
@@ -984,9 +1030,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
+            platform=platform, platform_instance=platform_instance, env=env
         )
 
         return sqlglot_lineage(

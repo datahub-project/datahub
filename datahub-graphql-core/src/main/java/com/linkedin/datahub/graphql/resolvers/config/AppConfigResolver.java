@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
@@ -26,8 +27,8 @@ import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
-import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.version.GitVersion;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -143,6 +144,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         entityProfilesConfig.setDomain(profileConfig);
       }
       visualConfig.setEntityProfiles(entityProfilesConfig);
+    }
+    if (_visualConfiguration != null && _visualConfiguration.getSearchResult() != null) {
+      SearchResultsVisualConfig searchResultsVisualConfig = new SearchResultsVisualConfig();
+      if (_visualConfiguration.getSearchResult().getEnableNameHighlight() != null) {
+        searchResultsVisualConfig.setEnableNameHighlight(_visualConfiguration.getSearchResult().getEnableNameHighlight());
+      }
+      visualConfig.setSearchResult(searchResultsVisualConfig);
     }
     appConfig.setVisualConfig(visualConfig);
 

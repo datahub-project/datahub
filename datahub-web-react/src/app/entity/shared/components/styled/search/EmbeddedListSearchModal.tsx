@@ -5,6 +5,7 @@ import { FacetFilterInput } from '../../../../../../types.generated';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
 import { UnionType } from '../../../../../search/utils/constants';
 import { FilterSet } from './types';
+import { EntityActionProps } from './EntitySearchResults';
 
 const SearchContainer = styled.div`
     height: 500px;
@@ -18,6 +19,7 @@ const modalBodyStyle = {
 };
 
 type Props = {
+    title: React.ReactNode;
     emptySearchQuery?: string | null;
     fixedFilters?: FilterSet;
     fixedQuery?: string | null;
@@ -27,9 +29,12 @@ type Props = {
     onClose?: () => void;
     searchBarStyle?: any;
     searchBarInputStyle?: any;
+    entityAction?: React.FC<EntityActionProps>;
+    applyView?: boolean;
 };
 
 export const EmbeddedListSearchModal = ({
+    title,
     emptySearchQuery,
     fixedFilters,
     fixedQuery,
@@ -39,6 +44,8 @@ export const EmbeddedListSearchModal = ({
     onClose,
     searchBarStyle,
     searchBarInputStyle,
+    entityAction,
+    applyView,
 }: Props) => {
     // Component state
     const [query, setQuery] = useState<string>('');
@@ -64,7 +71,7 @@ export const EmbeddedListSearchModal = ({
             width={800}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
-            title="View Ingested Assets"
+            title={title}
             visible
             onCancel={onClose}
             footer={<Button onClick={onClose}>Close</Button>}
@@ -87,6 +94,8 @@ export const EmbeddedListSearchModal = ({
                     defaultFilters={defaultFilters}
                     searchBarStyle={searchBarStyle}
                     searchBarInputStyle={searchBarInputStyle}
+                    entityAction={entityAction}
+                    applyView={applyView}
                 />
             </SearchContainer>
         </Modal>

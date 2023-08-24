@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.fixtures;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.ESSearchLineageFixture;
+import com.linkedin.metadata.ESTestUtils;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchResult;
@@ -14,7 +15,6 @@ import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
 
-import static com.linkedin.metadata.ESTestUtils.search;
 import static com.linkedin.metadata.ESTestUtils.lineage;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -35,10 +35,10 @@ public class SearchLineageDataFixtureTests extends AbstractTestNGSpringContextTe
     @Test
     public void testFixtureInitialization() {
         assertNotNull(searchService);
-        SearchResult noResult = search(searchService, "no results");
+        SearchResult noResult = ESTestUtils.searchAcrossEntities(searchService, "no results");
         assertEquals(noResult.getEntities().size(), 0);
 
-        SearchResult result = search(searchService, "e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8");
+        SearchResult result = ESTestUtils.searchAcrossEntities(searchService, "e3859789eed1cef55288b44f016ee08290d9fd08973e565c112d8");
         assertEquals(result.getEntities().size(), 1);
 
         assertEquals(result.getEntities().get(0).getEntity().toString(),

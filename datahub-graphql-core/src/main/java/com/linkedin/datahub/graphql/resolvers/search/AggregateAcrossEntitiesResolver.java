@@ -72,6 +72,7 @@ public class AggregateAcrossEntitiesResolver implements DataFetcher<CompletableF
             0,
             0, // 0 entity count because we don't want resolved entities
             searchFlags,
+            null,
             ResolverUtils.getAuthentication(environment),
             facets));
       } catch (Exception e) {

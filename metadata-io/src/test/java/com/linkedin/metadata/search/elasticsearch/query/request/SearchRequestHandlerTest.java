@@ -1,9 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.linkedin.metadata.config.search.ExactMatchConfiguration;
+import com.linkedin.metadata.config.search.PartialConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -15,9 +19,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.linkedin.metadata.config.search.ExactMatchConfiguration;
-import com.linkedin.metadata.config.search.PartialConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -65,11 +66,17 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
     exactMatchConfiguration.setEnableStructured(true);
 
+    WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
+    wordGramConfiguration.setTwoGramFactor(1.2f);
+    wordGramConfiguration.setThreeGramFactor(1.5f);
+    wordGramConfiguration.setFourGramFactor(1.8f);
+
     PartialConfiguration partialConfiguration = new PartialConfiguration();
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
     testQueryConfig.setExactMatch(exactMatchConfiguration);
+    testQueryConfig.setWordGram(wordGramConfiguration);
     testQueryConfig.setPartial(partialConfiguration);
   }
 
@@ -113,10 +120,10 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     HighlightBuilder highlightBuilder = sourceBuilder.highlighter();
     List<String> fields =
         highlightBuilder.fields().stream().map(HighlightBuilder.Field::name).collect(Collectors.toList());
-    assertEquals(fields.size(), 20);
+    assertEquals(fields.size(), 22);
     List<String> highlightableFields =
         ImmutableList.of("keyPart1", "textArrayField", "textFieldOverride", "foreignKey", "nestedForeignKey",
-            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField");
+            "nestedArrayStringField", "nestedArrayArrayField", "customProperties", "esObjectField", "wordGramField");
     highlightableFields.forEach(field -> {
       assertTrue(fields.contains(field), "Missing: " + field);
       assertTrue(fields.contains(field + ".*"), "Missing: " + field + ".*");
@@ -139,9 +146,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     AggregationBuilder expectedTextFieldAggregationBuilder = AggregationBuilders.terms("textFieldOverride")
         .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize());
     AggregationBuilder expectedEntityTypeAggregationBuilder = AggregationBuilders.terms("_entityType")
-        .field("_index").size(testQueryConfig.getMaxTermBucketSize());
+        .field("_index").size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0);
     AggregationBuilder expectedNestedAggregationBuilder = AggregationBuilders.terms(nestedAggString).field("_index")
-        .size(testQueryConfig.getMaxTermBucketSize())
+        .size(testQueryConfig.getMaxTermBucketSize()).minDocCount(0)
         .subAggregation(AggregationBuilders.terms(nestedAggString)
             .field("textFieldOverride.keyword").size(testQueryConfig.getMaxTermBucketSize()));
 
