@@ -7,7 +7,8 @@ buildscript {
   ext.springBootVersion = '2.7.14'
   ext.openTelemetryVersion = '1.18.0'
   ext.neo4jVersion = '4.4.9'
-  ext.neo4jApocVersion = '4.4.0.9:all'
+  ext.neo4jTestVersion = '4.4.25'
+  ext.neo4jApocVersion = '4.4.0.20:all'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '7.10.2'
   // TODO: Change to final release version once it's out ETA Mid-April
@@ -155,8 +156,9 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
     'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
+    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
+    'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
     'neo4jApoc': 'org.neo4j.procedure:apoc:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
