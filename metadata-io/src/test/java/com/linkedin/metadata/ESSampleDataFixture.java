@@ -117,10 +117,10 @@ public class ESSampleDataFixture {
 
     @Bean(name = "longTailEntityIndexBuilders")
     protected EntityIndexBuilders longTailEntityIndexBuilders(
-            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
+            @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("longTailIndexConvention") IndexConvention indexConvention
     ) {
-        return entityIndexBuildersHelper(longTailEntityRegistry, indexConvention);
+        return entityIndexBuildersHelper(entityRegistry, indexConvention);
     }
 
     protected EntityIndexBuilders entityIndexBuildersHelper(
@@ -146,11 +146,11 @@ public class ESSampleDataFixture {
 
     @Bean(name = "longTailEntitySearchService")
     protected ElasticSearchService longTailEntitySearchService(
-            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
+            @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("longTailEntityIndexBuilders") EntityIndexBuilders longTailEndexBuilders,
             @Qualifier("longTailIndexConvention") IndexConvention longTailIndexConvention
     ) throws IOException {
-        return entitySearchServiceHelper(longTailEntityRegistry, longTailEndexBuilders, longTailIndexConvention);
+        return entitySearchServiceHelper(entityRegistry, longTailEndexBuilders, longTailIndexConvention);
     }
 
     protected ElasticSearchService entitySearchServiceHelper(
@@ -185,13 +185,13 @@ public class ESSampleDataFixture {
     @Bean(name = "longTailSearchService")
     @Nonnull
     protected SearchService longTailSearchService(
-            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry,
+            @Qualifier("entityRegistry") EntityRegistry entityRegistry,
             @Qualifier("longTailEntitySearchService") ElasticSearchService longTailEntitySearchService,
             @Qualifier("longTailEntityIndexBuilders") EntityIndexBuilders longTailIndexBuilders,
             @Qualifier("longTailPrefix") String longTailPrefix,
             @Qualifier("longTailFixtureName") String longTailFixtureName
     ) throws IOException {
-        return searchServiceHelper(longTailEntityRegistry, longTailEntitySearchService, longTailIndexBuilders, longTailPrefix, longTailFixtureName);
+        return searchServiceHelper(entityRegistry, longTailEntitySearchService, longTailIndexBuilders, longTailPrefix, longTailFixtureName);
     }
 
     public SearchService searchServiceHelper(
@@ -246,9 +246,9 @@ public class ESSampleDataFixture {
     protected EntityClient longTailEntityClient(
             @Qualifier("sampleDataSearchService") SearchService searchService,
             @Qualifier("sampleDataEntitySearchService") ElasticSearchService entitySearchService,
-            @Qualifier("longTailEntityRegistry") EntityRegistry longTailEntityRegistry
+            @Qualifier("entityRegistry") EntityRegistry entityRegistry
     ) {
-        return entityClientHelper(searchService, entitySearchService, longTailEntityRegistry);
+        return entityClientHelper(searchService, entitySearchService, entityRegistry);
     }
 
     private EntityClient entityClientHelper(

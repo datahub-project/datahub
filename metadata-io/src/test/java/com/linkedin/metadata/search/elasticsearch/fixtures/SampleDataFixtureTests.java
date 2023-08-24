@@ -82,7 +82,6 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     protected EntityClient entityClient;
 
     @Autowired
-    @Qualifier("entityRegistry")
     private EntityRegistry entityRegistry;
 
     @Test

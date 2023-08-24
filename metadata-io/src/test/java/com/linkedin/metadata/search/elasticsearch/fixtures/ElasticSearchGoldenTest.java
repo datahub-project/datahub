@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -44,8 +45,12 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     protected EntityClient entityClient;
 
     @Autowired
-    @Qualifier("longTailEntityRegistry")
     private EntityRegistry entityRegistry;
+
+    @BeforeTest
+    public void setupTest() {
+
+    }
 
     @Test
     public void testNameMatchPetProfiles() {
