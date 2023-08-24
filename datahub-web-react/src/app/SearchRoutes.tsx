@@ -21,11 +21,14 @@ import { ManageDomainsPage } from './domain/ManageDomainsPage';
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
+    const entities = isNestedDomainsEnabled
+        ? entityRegistry.getEntitiesForSearchRoutes()
+        : entityRegistry.getNonGlossaryEntities();
 
     return (
         <SearchablePage>
             <Switch>
-                {entityRegistry.getEntitiesForSearchRoutes().map((entity) => (
+                {entities.map((entity) => (
                     <Route
                         key={entity.getPathName()}
                         path={`/${entity.getPathName()}/:urn`}

@@ -49,6 +49,10 @@ export default class EntityRegistry {
         );
     }
 
+    getNonGlossaryEntities(): Array<Entity<any>> {
+        return this.entities.filter((entity) => !GLOSSARY_ENTITY_TYPES.includes(entity.type));
+    }
+
     getGlossaryEntities(): Array<Entity<any>> {
         return this.entities.filter((entity) => GLOSSARY_ENTITY_TYPES.includes(entity.type));
     }
