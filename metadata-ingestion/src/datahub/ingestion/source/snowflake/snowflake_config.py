@@ -1,10 +1,12 @@
 import logging
+from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional, Set, cast
 
 from pydantic import Field, SecretStr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
@@ -40,6 +42,31 @@ class TagOption(str, Enum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"
+
+
+@dataclass(frozen=True)
+class DatabaseId:
+    database: str = Field(
+        description="Database created from share in consumer account."
+    )
+    platform_instance: str = Field(
+        description="Platform instance of consumer snowflake account."
+    )
+
+
+class SnowflakeShareConfig(ConfigModel):
+    database: str = Field(description="Database from which share is created.")
+    platform_instance: str = Field(
+        description="Platform instance for snowflake account in which share is created."
+    )
+
+    consumers: Set[DatabaseId] = Field(
+        description="List of databases created in consumer accounts."
+    )
+
+    @property
+    def source_database(self) -> DatabaseId:
+        return DatabaseId(self.database, self.platform_instance)
 
 
 class SnowflakeV2Config(
@@ -113,6 +140,13 @@ class SnowflakeV2Config(
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
         "upstreams_deny_pattern", "temporary_tables_pattern"
+    )
+
+    shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
+        default=None,
+        description="Required if current account owns or consumes snowflake share."
+        " If specified, connector creates lineage and siblings relationship between current account's database tables and consumer/producer account's database tables."
+        " Map of share name -> details of share.",
     )
 
     email_as_user_identifier: bool = Field(
@@ -192,3 +226,77 @@ class SnowflakeV2Config(
     @property
     def parse_view_ddl(self) -> bool:
         return self.include_view_column_lineage
+
+    @validator("shares")
+    def validate_shares(
+        cls, shares: Optional[Dict[str, SnowflakeShareConfig]], values: Dict
+    ) -> Optional[Dict[str, SnowflakeShareConfig]]:
+        current_platform_instance = values.get("platform_instance")
+
+        if shares:
+            # Check: platform_instance should be present
+            assert current_platform_instance is not None, (
+                "Did you forget to set `platform_instance` for current ingestion ? "
+                "It is required to use `platform_instance` when ingesting from multiple snowflake accounts."
+            )
+
+            databases_included_in_share: List[DatabaseId] = []
+            databases_created_from_share: List[DatabaseId] = []
+
+            for share_details in shares.values():
+                shared_db = DatabaseId(
+                    share_details.database, share_details.platform_instance
+                )
+                assert all(
+                    consumer.platform_instance != share_details.platform_instance
+                    for consumer in share_details.consumers
+                ), "Share's platform_instance can not be same as consumer's platform instance. Self-sharing not supported in Snowflake."
+
+                databases_included_in_share.append(shared_db)
+                databases_created_from_share.extend(share_details.consumers)
+
+            for db_from_share in databases_created_from_share:
+                assert (
+                    db_from_share not in databases_included_in_share
+                ), "Database included in a share can not be present as consumer in any share."
+                assert (
+                    databases_created_from_share.count(db_from_share) == 1
+                ), "Same database can not be present as consumer in more than one share."
+
+        return shares
+
+    def outbounds(self) -> Dict[str, Set[DatabaseId]]:
+        """
+        Returns mapping of
+            database included in current account's outbound share -> all databases created from this share in other accounts
+        """
+        outbounds: Dict[str, Set[DatabaseId]] = defaultdict(set)
+        if self.shares:
+            for share_name, share_details in self.shares.items():
+                if share_details.platform_instance == self.platform_instance:
+                    logger.debug(
+                        f"database {share_details.database} is included in outbound share(s) {share_name}."
+                    )
+                    outbounds[share_details.database].update(share_details.consumers)
+        return outbounds
+
+    def inbounds(self) -> Dict[str, DatabaseId]:
+        """
+        Returns mapping of
+            database created from an current account's inbound share -> other-account database from which this share was created
+        """
+        inbounds: Dict[str, DatabaseId] = {}
+        if self.shares:
+            for share_name, share_details in self.shares.items():
+                for consumer in share_details.consumers:
+                    if consumer.platform_instance == self.platform_instance:
+                        logger.debug(
+                            f"database {consumer.database} is created from inbound share {share_name}."
+                        )
+                        inbounds[consumer.database] = share_details.source_database
+                        break
+                else:
+                    logger.info(
+                        f"Skipping Share {share_name}, as it does not include current platform instance {self.platform_instance}",
+                    )
+        return inbounds
