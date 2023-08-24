@@ -892,12 +892,12 @@ class LookerExplore:
             assert self.project_name is not None
             upstreams = []
             for view_ref in sorted(self.upstream_views):
-                # set file_path to "UNKNOWN" string if file_path is not available to keep backward compatibility
+                # set file_path to ViewFieldType.UNKNOWN if file_path is not available to keep backward compatibility
                 # if we raise error on file_path equal to None then existing test-cases will fail as mock data doesn't have required attributes.
                 file_path: str = (
                     cast(str, self.upstream_views_file_path[view_ref.include])
                     if self.upstream_views_file_path[view_ref.include] is not None
-                    else "UNKNOWN"
+                    else ViewFieldType.UNKNOWN.value
                 )
                 view_urn = LookerViewId(
                     project_name=view_ref.project
