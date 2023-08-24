@@ -181,7 +181,7 @@ pytest -m 'slow_integration'
 ../gradlew :metadata-ingestion:testFull
 ../gradlew :metadata-ingestion:check
 # Run all tests in a single file
-../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_airflow.py
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_bigquery_source.py
 # Run all tests under tests/unit
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit
 ```

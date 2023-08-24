@@ -31,16 +31,17 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
-        python-version: ["3.7", "3.10"]
-        command: ["testQuick"] # add "lint" here after datahub_provider code is moved to metadata-ingestion-modules/airflow-plugin.
-        extraPythonRequirement:
-          [
-            "apache-airflow~=2.0.0",
-            "apache-airflow~=2.2.0",
-            "apache-airflow~=2.4.0",
-            "apache-airflow~=2.6.0",
-            "apache-airflow>2.6.0",
-          ]
+        include:
+          - python-version: "3.7"
+            extraPythonRequirement: "apache-airflow~=2.0.0"
+          - python-version: "3.7"
+            extraPythonRequirement: "apache-airflow~=2.2.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow~=2.4.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow~=2.6.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow>2.6.0"
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -51,27 +52,26 @@ jobs:
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install airflow package and test  (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:airflow-plugin:${{ matrix.command }}
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:airflow-plugin:lint :metadata-ingestion-modules:airflow-plugin:testQuick
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && pip freeze
       - uses: actions/upload-artifact@v3
-        if: ${{ always() && matrix.command != 'lint' }}
         with:
-          name: Test Results (airflow plugin build & test ${{ matrix.python-version }})
+          name: Test Results (Airflow Plugin ${{ matrix.python-version }})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Upload coverage to Codecov
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.command != 'lint' }}
+        if: ${{ always() && matrix.python-version == '3.10' }}
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: .
           fail_ci_if_error: false
-          flags: pytest-${{ matrix.command }}
-          name: pytest-${{ matrix.command }}
+          flags: pytest-testQuick
+          name: pytest-testQuick
           verbose: true
 
   event-file:
