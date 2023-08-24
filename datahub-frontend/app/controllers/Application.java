@@ -198,6 +198,9 @@ public class Application extends Controller {
     // Insert properties for user profile operations
     config.set("userEntityProps", userEntityProps());
 
+    // Add analytics key
+    config.put("amplitudeApiKey", _config.getString("analytics.thirdParty.amplitudeApiKey")); 
+
     final ObjectNode response = Json.newObject();
     response.put("status", "ok");
     response.set("config", config);

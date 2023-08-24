@@ -25,13 +25,24 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
         refetch();
     };
 
+    console.log('in AppConfigProvider');
+    console.log('appConfigData before useEffect', appConfigData);
+
     useEffect(() => {
+        console.log('appConfigDaata', appConfigData);
         if (appConfigData && appConfigData.appConfig) {
+            console.log('appConfig', appConfigData.appConfig);
+            console.log('appConfig.analyticsConfig', appConfigData.appConfig.analyticsConfig);
             if (appConfigData.appConfig.telemetryConfig.enableThirdPartyLogging) {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'true');
+                // TODO: Should I still identify here???
                 checkAuthStatus(); // identify in analyitcs once we receive config response
             } else {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'false');
+            }
+            // Check if appConfigData.appConfig has property analyticsConfig, and that there is a value set
+            if (appConfigData.appConfig.analyticsConfig && appConfigData.appConfig.analyticsConfig.amplitudeApiKey) {
+                localStorage.setItem('amplitudeApiKey', appConfigData.appConfig.analyticsConfig.amplitudeApiKey);
             }
             changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
         }

@@ -18,14 +18,10 @@ const { NODE_ENV } = process.env;
 
 export function getMergedTrackingOptions(options?: any) {
     const isThirdPartyLoggingEnabled = JSON.parse(localStorage.getItem(THIRD_PARTY_LOGGING_KEY) || 'false');
-    /** If you trace back the code, this 'isThirdPartyLoggingEnabled' config option is ultimately
-     *  configured from the gms-backend (the frontend makes a GraphQL call to get the value, and
-     *  saves it in local storage).
-     *
-     *  Since I'd rather not have to build the entire gms-backend in our fork _just_ to change
-     *  this single value, I'm hard-coding it here for amplitude. If this is particularly
-     * offensive, we can do it the 'proper' way :D
-     */
+
+    const amplitudeApiKey = localStorage.getItem('amplitudeApiKey');
+    console.log('amplitudeApiKey', amplitudeApiKey);
+
     return {
         ...options,
         plugins: {

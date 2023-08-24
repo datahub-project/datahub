@@ -6,9 +6,9 @@ const config: any = {
     // mixpanel: {
     //    token: 'fad1285da4e618b618973cacf6565e61',
     // },
-    amplitude: {
-        apiKey: 'b46a366c22a2e7fb525ae99c14a693ec',
-    },
+    // amplitude: {
+    //     apiKey: process.env.REACT_APP_AMPLITUDE_API_KEY,
+    // },
     logging: true,
     datahub: {
         enabled: true,

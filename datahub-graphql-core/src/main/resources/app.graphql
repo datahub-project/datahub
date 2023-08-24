@@ -278,6 +278,11 @@ type AnalyticsConfig {
   Whether the Analytics feature is enabled and should be displayed
   """
   enabled: Boolean!
+
+  """
+  API key for Amplitude analytics
+  """
+  amplitudeApiKey: String
 }
 
 """

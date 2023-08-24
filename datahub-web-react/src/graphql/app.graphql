@@ -21,6 +21,7 @@ query appConfig {
         }
         analyticsConfig {
             enabled
+            amplitudeApiKey
         }
         authConfig {
             tokenAuthEnabled
