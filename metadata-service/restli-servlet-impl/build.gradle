@@ -51,6 +51,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
 
   testCompile project(':test-models')
+  testImplementation project(':mock-entity-registry')
   testCompile externalDependency.mockito
   testCompile externalDependency.testng
 

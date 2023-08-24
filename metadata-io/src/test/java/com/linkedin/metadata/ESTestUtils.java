@@ -14,6 +14,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import java.time.Duration;
@@ -67,13 +68,27 @@ public class ESTestUtils {
                 .collect(Collectors.toList());
     }
 
-    public static SearchResult search(SearchService searchService, String query) {
-        return search(searchService, query, null);
+    public static SearchResult searchAcrossEntities(SearchService searchService, String query) {
+        return searchAcrossEntities(searchService, query, null);
     }
 
-    public static SearchResult search(SearchService searchService, String query, @Nullable List<String> facets) {
+    public static SearchResult searchAcrossEntities(SearchService searchService, String query, @Nullable List<String> facets) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
             100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
+    }
+
+    public static SearchResult search(SearchService searchService, String query) {
+        return search(searchService, SEARCHABLE_ENTITIES, query);
+    }
+
+    public static SearchResult search(SearchService searchService, List<String> entities, String query) {
+        return searchService.search(entities, query, null, null, 0, 100,
+            new SearchFlags().setFulltext(true).setSkipCache(true));
+    }
+
+    public static ScrollResult scroll(SearchService searchService, String query, int batchSize, @Nullable String scrollId) {
+        return searchService.scrollAcrossEntities(SEARCHABLE_ENTITIES, query, null, null,
+            scrollId, "3m", batchSize, new SearchFlags().setFulltext(true).setSkipCache(true));
     }
 
     public static SearchResult searchStructured(SearchService searchService, String query) {

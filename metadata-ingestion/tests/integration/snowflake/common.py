@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timezone
 
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake import snowflake_query
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 
@@ -247,6 +248,18 @@ def default_query_results(query):  # noqa: C901
             }
             for op_idx in range(1, NUM_OPS + 1)
         ]
+    elif (
+        query
+        == snowflake_query.SnowflakeQuery.usage_per_object_per_time_bucket_for_time_window(
+            1654499820000,
+            1654586220000,
+            use_base_objects=False,
+            top_n_queries=10,
+            include_top_n_queries=True,
+            time_bucket_size=BucketDuration.DAY,
+        )
+    ):
+        return []
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
             1654499820000,

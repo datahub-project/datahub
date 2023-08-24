@@ -230,7 +230,7 @@ Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to app
 
 ### Elasticsearch Service
 
-Provision an elasticsearch domain running elasticsearch version 7.9 or above that shares the VPC with the kubernetes
+Provision an elasticsearch domain running elasticsearch version 7.10 or above that shares the VPC with the kubernetes
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 
@@ -322,7 +322,7 @@ and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/facto
 .
 
 A mapping between the property name used in the above two files and the name used in docker/env file can be
-found [here](../../metadata-service/factories/src/main/resources/application.yml).
+found [here](../../metadata-service/configuration/src/main/resources/application.yml).
 
 ### Managed Streaming for Apache Kafka (MSK)
 

@@ -1,9 +1,9 @@
 package com.linkedin.metadata.search.aggregator;
 
 import com.codahale.metrics.Timer;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -49,7 +49,6 @@ public class AllEntitiesSearchAggregator {
   private final SearchRanker _searchRanker;
   private final EntityDocCountCache _entityDocCountCache;
   private final CachingEntitySearchService _cachingEntitySearchService;
-  private final int _maxAggregationValueCount;
 
   public AllEntitiesSearchAggregator(
       EntityRegistry entityRegistry,
@@ -61,7 +60,6 @@ public class AllEntitiesSearchAggregator {
     _searchRanker = Objects.requireNonNull(searchRanker);
     _cachingEntitySearchService = Objects.requireNonNull(cachingEntitySearchService);
     _entityDocCountCache = new EntityDocCountCache(entityRegistry, entitySearchService, entityDocCountCacheConfiguration);
-    _maxAggregationValueCount = DEFAULT_MAX_AGGREGATION_VALUES; // TODO: Make this externally configurable
   }
 
   @Nonnull
@@ -122,8 +120,10 @@ public class AllEntitiesSearchAggregator {
       });
     }
 
+    int maxAggValues = searchFlags != null ? searchFlags.getMaxAggValues() : DEFAULT_MAX_AGGREGATION_VALUES;
+
     // Trim the aggregations / filters after merging.
-    Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations);
+    Map<String, AggregationMetadata> finalAggregations = trimMergedAggregations(aggregations, maxAggValues);
 
     // Finally, Add a custom Entity aggregation (appears as the first filter) -- this should never be truncated
     if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
@@ -171,7 +171,7 @@ public class AllEntitiesSearchAggregator {
     // Query the entity search service for all entities asynchronously
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "searchEntities").time()) {
       searchResults = ConcurrencyUtils.transformAndCollectAsync(entities, entity -> new Pair<>(entity,
-          _cachingEntitySearchService.search(entity, input, postFilters, sortCriterion, queryFrom, querySize, searchFlags, facets)))
+          _cachingEntitySearchService.search(List.of(entity), input, postFilters, sortCriterion, queryFrom, querySize, searchFlags, facets)))
           .stream()
           .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
     }
@@ -181,7 +181,7 @@ public class AllEntitiesSearchAggregator {
   /**
    * Simply trims the total aggregation values that are returned to the client based on the SearchFlags which are set
    */
-  private Map<String, AggregationMetadata> trimMergedAggregations(Map<String, AggregationMetadata> aggregations) {
+  private Map<String, AggregationMetadata> trimMergedAggregations(Map<String, AggregationMetadata> aggregations, int maxAggValues) {
     return aggregations.entrySet().stream().map(
         entry -> Pair.of(entry.getKey(), new AggregationMetadata()
             .setName(entry.getValue().getName())
@@ -189,7 +189,7 @@ public class AllEntitiesSearchAggregator {
             .setAggregations(
                 entry.getValue().getAggregations())
             .setFilterValues(
-                trimFilterValues(entry.getValue().getFilterValues()))
+                trimFilterValues(entry.getValue().getFilterValues(), maxAggValues))
         )
     ).collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
@@ -197,12 +197,12 @@ public class AllEntitiesSearchAggregator {
   /**
    * Selects the top N filter values AFTER they've been fully merged.
    */
-  private FilterValueArray trimFilterValues(FilterValueArray original) {
-    if (original.size() > _maxAggregationValueCount) {
+  private FilterValueArray trimFilterValues(FilterValueArray original, int maxAggValues) {
+    if (original.size() > maxAggValues) {
       // sort so that values that appear in the filter appear first
       original.sort(Comparator.comparingInt(val -> val.hasFiltered() && val.isFiltered() ? 0 : 1));
       return new FilterValueArray(
-          original.subList(0, _maxAggregationValueCount)
+          original.subList(0, maxAggValues)
       );
     }
     return original;

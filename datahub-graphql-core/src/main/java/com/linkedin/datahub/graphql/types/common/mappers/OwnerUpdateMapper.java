@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
+import com.linkedin.common.urn.UrnUtils;
 import javax.annotation.Nonnull;
 
 import com.linkedin.common.Owner;
@@ -34,7 +35,21 @@ public class OwnerUpdateMapper implements ModelMapper<OwnerUpdate, Owner> {
         } catch (URISyntaxException e) {
             e.printStackTrace();
         }
-        owner.setType(OwnershipType.valueOf(input.getType().toString()));
+        if (input.getOwnershipTypeUrn() != null) {
+            owner.setTypeUrn(UrnUtils.getUrn(input.getOwnershipTypeUrn()));
+        }
+        // For backwards compatibility we have to always set the deprecated type.
+        // If the type exists we assume it's an old ownership type that we can map to.
+        // Else if it's a net new custom ownership type set old type to CUSTOM.
+        OwnershipType type = input.getType() != null ? OwnershipType.valueOf(input.getType().toString())
+            : OwnershipType.CUSTOM;
+        owner.setType(type);
+
+        if (input.getOwnershipTypeUrn() != null) {
+            owner.setTypeUrn(UrnUtils.getUrn(input.getOwnershipTypeUrn()));
+            owner.setType(OwnershipType.CUSTOM);
+        }
+
         owner.setSource(new OwnershipSource().setType(OwnershipSourceType.SERVICE));
         return owner;
     }

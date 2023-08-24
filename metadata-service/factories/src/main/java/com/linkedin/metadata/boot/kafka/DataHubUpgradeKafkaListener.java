@@ -38,7 +38,7 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
 
   private static final String CONSUMER_GROUP = "${DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID:generic-duhe-consumer-job-client}";
   private static final String SUFFIX = "temp";
-  private static final String TOPIC_NAME = "${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME  + "}";
+  public static final String TOPIC_NAME = "${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME  + "}";
 
   private final DefaultKafkaConsumerFactory<String, GenericRecord> _defaultKafkaConsumerFactory;
 
@@ -108,6 +108,10 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
   }
 
   public void waitForUpdate() {
+    if (!_configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+      log.warn("Wait for system update is disabled. Proceeding with startup.");
+      IS_UPDATED.getAndSet(true);
+    }
     int maxBackOffs = Integer.parseInt(_configurationProvider.getSystemUpdate().getMaxBackOffs());
     long initialBackOffMs = Long.parseLong(_configurationProvider.getSystemUpdate().getInitialBackOffMs());
     int backOffFactor = Integer.parseInt(_configurationProvider.getSystemUpdate().getBackOffFactor());

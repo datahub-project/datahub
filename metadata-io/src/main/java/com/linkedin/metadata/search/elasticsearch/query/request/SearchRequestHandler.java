@@ -1,13 +1,13 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.util.Pair;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
@@ -67,7 +69,6 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.elasticsearch.search.fetch.subphase.highlight.HighlightField;
 
-import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_SUFFIX;
 import static com.linkedin.metadata.search.utils.ESUtils.toFacetField;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 import static com.linkedin.metadata.utils.SearchUtil.*;
@@ -81,11 +82,11 @@ public class SearchRequestHandler {
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(false);
-
   private static final Map<List<EntitySpec>, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
   private static final String REMOVED = "removed";
-
   private static final String URN_FILTER = "urn";
+  private static final String[] FIELDS_TO_FETCH = new String[]{"urn", "usageCountLast30Days"};
+  private static final String[] URN_FIELD = new String[]{"urn"};
 
   private final List<EntitySpec> _entitySpecs;
   private final Set<String> _defaultQueryFieldNames;
@@ -106,8 +107,8 @@ public class SearchRequestHandler {
     List<SearchableAnnotation> annotations = getSearchableAnnotations();
     _defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     _filtersToDisplayName = annotations.stream()
-        .filter(SearchableAnnotation::isAddToFilters)
-        .collect(Collectors.toMap(SearchableAnnotation::getFieldName, SearchableAnnotation::getFilterName, mapMerger()));
+        .flatMap(annotation -> getFacetFieldDisplayNameFromAnnotation(annotation).stream())
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond, mapMerger()));
     _filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     _highlights = getHighlights();
     _searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
@@ -135,13 +136,6 @@ public class SearchRequestHandler {
         .collect(Collectors.toList());
   }
 
-  private Set<String> getFacetFields(List<SearchableAnnotation> annotations) {
-    return annotations.stream()
-        .filter(SearchableAnnotation::isAddToFilters)
-        .map(SearchableAnnotation::getFieldName)
-        .collect(Collectors.toSet());
-  }
-
   @VisibleForTesting
   private Set<String> getDefaultQueryFieldNames(List<SearchableAnnotation> annotations) {
     return Stream.concat(annotations.stream()
@@ -164,18 +158,7 @@ public class SearchRequestHandler {
   public static BoolQueryBuilder getFilterQuery(@Nullable Filter filter) {
     BoolQueryBuilder filterQuery = ESUtils.buildFilterQuery(filter, false);
 
-    boolean removedInOrFilter = false;
-    if (filter != null) {
-      removedInOrFilter = filter.getOr().stream().anyMatch(
-              or -> or.getAnd().stream().anyMatch(criterion -> criterion.getField().equals(REMOVED) || criterion.getField().equals(REMOVED + KEYWORD_SUFFIX))
-      );
-    }
-    // Filter out entities that are marked "removed" if and only if filter does not contain a criterion referencing it.
-    if (!removedInOrFilter) {
-      filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
-    }
-
-    return filterQuery;
+    return filterSoftDeletedByDefault(filter, filterQuery);
   }
 
   /**
@@ -208,7 +191,7 @@ public class SearchRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
     searchSourceBuilder.query(QueryBuilders.boolQuery()
             .must(getQuery(input, finalSearchFlags.isFulltext()))
-            .must(filterQuery));
+            .filter(filterQuery));
     if (!finalSearchFlags.isSkipAggregates()) {
       _aggregationQueryBuilder.getAggregations(facets).forEach(searchSourceBuilder::aggregation);
     }
@@ -248,7 +231,7 @@ public class SearchRequestHandler {
     searchSourceBuilder.fetchSource("urn", null);
 
     BoolQueryBuilder filterQuery = getFilterQuery(filter);
-    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).must(filterQuery));
+    searchSourceBuilder.query(QueryBuilders.boolQuery().must(getQuery(input, finalSearchFlags.isFulltext())).filter(filterQuery));
     _aggregationQueryBuilder.getAggregations().forEach(searchSourceBuilder::aggregation);
     searchSourceBuilder.highlighter(getHighlights());
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriterion);
@@ -337,7 +320,7 @@ public class SearchRequestHandler {
     return searchRequest;
   }
 
-  private QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
+  public QueryBuilder getQuery(@Nonnull String query, boolean fulltext) {
     return _searchQueryBuilder.buildQuery(_entitySpecs, query, fulltext);
   }
 
@@ -695,4 +678,20 @@ public class SearchRequestHandler {
         .setFilterValues(filterValues);
   }
 
+  private List<Pair<String, String>> getFacetFieldDisplayNameFromAnnotation(
+      @Nonnull final SearchableAnnotation annotation
+  ) {
+    final List<Pair<String, String>> facetsFromAnnotation = new ArrayList<>();
+    // Case 1: Default Keyword field
+    if (annotation.isAddToFilters()) {
+      facetsFromAnnotation.add(Pair.of(annotation.getFieldName(), annotation.getFilterName()));
+    }
+    // Case 2: HasX boolean field
+    if (annotation.isAddHasValuesToFilters() && annotation.getHasValuesFieldName().isPresent()) {
+      facetsFromAnnotation.add(Pair.of(
+          annotation.getHasValuesFieldName().get(), annotation.getHasValuesFilterName()
+      ));
+    }
+    return facetsFromAnnotation;
+  }
 }

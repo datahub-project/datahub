@@ -68,6 +68,21 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
@@ -244,6 +259,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -429,6 +464,26 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-2020_04_14-07_00_00"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+                    "urn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+                }
+            ]
         }
     },
     "systemMetadata": {

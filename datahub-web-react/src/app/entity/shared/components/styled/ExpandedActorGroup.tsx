@@ -4,7 +4,9 @@ import styled from 'styled-components';
 import { CorpGroup, CorpUser } from '../../../../../types.generated';
 import { ExpandedActor } from './ExpandedActor';
 
-const PopoverActors = styled.div``;
+const PopoverActors = styled.div`
+    max-width: 600px;
+`;
 
 const ActorsContainer = styled.div`
     display: flex;

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
 
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureDataType;
 import com.linkedin.datahub.graphql.generated.MLFeatureEditableProperties;
+import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
@@ -67,7 +69,7 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
             mlFeature.setOwnership(OwnershipMapper.map(new Ownership(dataMap), entityUrn)));
         mappingHelper.mapToResult(ML_FEATURE_PROPERTIES_ASPECT_NAME, this::mapMLFeatureProperties);
         mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (mlFeature, dataMap) ->
-            mlFeature.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+            mlFeature.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
         mappingHelper.mapToResult(STATUS_ASPECT_NAME, (mlFeature, dataMap) ->
             mlFeature.setStatus(StatusMapper.map(new Status(dataMap))));
         mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (mlFeature, dataMap) ->
@@ -80,6 +82,8 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
         mappingHelper.mapToResult(ML_FEATURE_EDITABLE_PROPERTIES_ASPECT_NAME, this::mapEditableProperties);
         mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, (dataset, dataMap) ->
             dataset.setDataPlatformInstance(DataPlatformInstanceAspectMapper.map(new DataPlatformInstance(dataMap))));
+        mappingHelper.mapToResult(BROWSE_PATHS_V2_ASPECT_NAME, (entity, dataMap) ->
+            entity.setBrowsePathV2(BrowsePathsV2Mapper.map(new BrowsePathsV2(dataMap))));
 
         return mappingHelper.getResult();
     }

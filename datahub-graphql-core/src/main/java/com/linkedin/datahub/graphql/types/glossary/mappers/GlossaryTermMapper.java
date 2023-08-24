@@ -60,7 +60,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       mappingHelper.mapToResult(DEPRECATION_ASPECT_NAME, (glossaryTerm, dataMap) ->
         glossaryTerm.setDeprecation(DeprecationMapper.map(new Deprecation(dataMap))));
       mappingHelper.mapToResult(INSTITUTIONAL_MEMORY_ASPECT_NAME, (dataset, dataMap) ->
-          dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap))));
+          dataset.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(dataMap), entityUrn)));
 
       // If there's no name property, resort to the legacy name computation.
       if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {

@@ -24,7 +24,7 @@ services:
   datahub-actions:
     container_name: datahub-actions
     hostname: actions
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
     env_file: datahub-actions/env/docker.env
     depends_on:
       datahub-gms:
@@ -40,9 +40,9 @@ services:
         dockerfile: docker/datahub-gms/Dockerfile
     healthcheck:
       test: curl -sS --fail http://datahub-gms:${DATAHUB_MAPPED_GMS_PORT:-8080}/health
-      start_period: 20s
+      start_period: 90s
       interval: 1s
-      retries: 20
+      retries: 3
       timeout: 5s
     depends_on:
       datahub-upgrade:
@@ -119,9 +119,9 @@ services:
           memory: 1G
     healthcheck:
       test: curl -sS --fail http://elasticsearch:$${DATAHUB_MAPPED_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
-      start_period: 5s
+      start_period: 20s
       interval: 1s
-      retries: 5
+      retries: 3
       timeout: 5s
     volumes:
     - esdata:/usr/share/elasticsearch/data
@@ -144,15 +144,15 @@ services:
   schema-registry:
     container_name: schema-registry
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:7.2.5
+    image: confluentinc/cp-schema-registry:7.4.0
     ports:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
     env_file: schema-registry/env/docker.env
     healthcheck:
       test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
-      start_period: 5s
+      start_period: 30s
       interval: 1s
-      retries: 5
+      retries: 3
       timeout: 5s
     depends_on:
       broker:
@@ -160,13 +160,13 @@ services:
   broker:
     container_name: broker
     hostname: broker
-    image: confluentinc/cp-kafka:7.2.5
+    image: confluentinc/cp-kafka:7.4.0
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     env_file: broker/env/docker.env
     healthcheck:
       test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
-      start_period: 5s
+      start_period: 30s
       interval: 1s
       retries: 5
       timeout: 5s
@@ -178,15 +178,15 @@ services:
   zookeeper:
     container_name: zookeeper
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:7.2.5
+    image: confluentinc/cp-zookeeper:7.4.0
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     env_file: zookeeper/env/docker.env
     healthcheck:
       test: echo srvr | nc zookeeper $${DATAHUB_MAPPED_ZK_PORT:-2181}
-      start_period: 2s
+      start_period: 10s
       interval: 5s
-      retries: 5
+      retries: 3
       timeout: 5s
     volumes:
     - zkdata:/var/lib/zookeeper

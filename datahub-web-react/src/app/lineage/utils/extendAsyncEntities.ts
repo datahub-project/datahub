@@ -1,10 +1,11 @@
-import { SchemaFieldRef } from '../../../types.generated';
+import { EntityType, SchemaFieldRef } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
 import {
     decodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
     getSourceUrnFromSchemaFieldUrn,
+    isSameColumn,
 } from './columnLineageUtils';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
@@ -21,6 +22,17 @@ function updateFineGrainedMap(
     downstreamEntityUrn: string,
     downstreamField: string,
 ) {
+    // ignore self-referential CLL fields
+    if (
+        isSameColumn({
+            sourceUrn: upstreamEntityUrn,
+            targetUrn: downstreamEntityUrn,
+            sourceField: upstreamField,
+            targetField: downstreamField,
+        })
+    ) {
+        return;
+    }
     const mapForUrn = fineGrainedMap.forward[upstreamEntityUrn] || {};
     const mapForField = mapForUrn[upstreamField] || {};
     const listForDownstream = [...(mapForField[downstreamEntityUrn] || [])];
@@ -42,7 +54,7 @@ function updateFineGrainedMap(
     mapForFieldReverse[upstreamEntityUrn] = listForDownstreamReverse;
 }
 
-function extendColumnLineage(
+export function extendColumnLineage(
     lineageVizConfig: FetchedEntity,
     fineGrainedMap: any,
     fineGrainedMapForSiblings: any,
@@ -52,18 +64,42 @@ function extendColumnLineage(
         lineageVizConfig.fineGrainedLineages.forEach((fineGrainedLineage) => {
             fineGrainedLineage.upstreams?.forEach((upstream) => {
                 const [upstreamEntityUrn, upstreamField] = breakFieldUrn(upstream);
-                fineGrainedLineage.downstreams?.forEach((downstream) => {
-                    const downstreamField = breakFieldUrn(downstream)[1];
-                    // fineGrainedLineage always belongs on the downstream urn with upstreams pointing to another entity
-                    // pass in the visualized node's urn and not the urn from the schema field as the downstream urn,
-                    // as they will either be the same or if they are different, it belongs to a "hidden" sibling
+
+                if (lineageVizConfig.type === EntityType.DataJob) {
+                    // draw a line from upstream dataset field to datajob
                     updateFineGrainedMap(
                         fineGrainedMap,
                         upstreamEntityUrn,
                         upstreamField,
                         lineageVizConfig.urn,
-                        downstreamField,
+                        upstreamField,
                     );
+                }
+
+                fineGrainedLineage.downstreams?.forEach((downstream) => {
+                    const [downstreamEntityUrn, downstreamField] = breakFieldUrn(downstream);
+
+                    if (lineageVizConfig.type === EntityType.DataJob) {
+                        // draw line from datajob upstream field to downstream fields
+                        updateFineGrainedMap(
+                            fineGrainedMap,
+                            lineageVizConfig.urn,
+                            upstreamField,
+                            downstreamEntityUrn,
+                            downstreamField,
+                        );
+                    } else {
+                        // fineGrainedLineage always belongs on the downstream urn with upstreams pointing to another entity
+                        // pass in the visualized node's urn and not the urn from the schema field as the downstream urn,
+                        // as they will either be the same or if they are different, it belongs to a "hidden" sibling
+                        updateFineGrainedMap(
+                            fineGrainedMap,
+                            upstreamEntityUrn,
+                            upstreamField,
+                            lineageVizConfig.urn,
+                            downstreamField,
+                        );
+                    }
 
                     // upstreamEntityUrn could belong to a sibling we don't "render", so store its inputs to updateFineGrainedMap
                     // and update the fine grained map later when we see the entity with these siblings

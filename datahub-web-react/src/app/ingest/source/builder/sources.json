@@ -200,7 +200,7 @@
         "name": "vertica",
         "displayName": "Vertica",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertica/",
-        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Vmart\n        # Credentials\n        username: dbadmin\n    password:null\n    include_tables: true\n        include_views: true\n    include_projections: true\n    include_oauth: true\n   include_models: true\n        include_view_lineage: true\n      include_projection_lineage: true\n    profiling:\n            enabled: true\n        stateful_ingestion:\n            enabled: true  "
+        "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Database_Name\n        # Credentials\n        username: Vertica_User\n        password: Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  "
     },
     {
         "urn": "urn:li:dataPlatform:custom",
