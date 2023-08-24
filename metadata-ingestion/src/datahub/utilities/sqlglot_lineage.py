@@ -7,7 +7,6 @@ import pathlib
 from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-import pydantic
 import pydantic.dataclasses
 import sqlglot
 import sqlglot.errors
@@ -23,7 +22,7 @@ from datahub.emitter.mce_builder import (
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.metadata.schema_classes import SchemaMetadataClass
+from datahub.metadata.schema_classes import OperationTypeClass, SchemaMetadataClass
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -33,6 +32,8 @@ Urn = str
 
 # A lightweight table schema: column -> type mapping.
 SchemaInfo = Dict[str, str]
+
+SQL_PARSE_RESULT_CACHE_SIZE = 1000
 
 
 class QueryType(enum.Enum):
@@ -44,6 +45,22 @@ class QueryType(enum.Enum):
     MERGE = "MERGE"
 
     UNKNOWN = "UNKNOWN"
+
+    def to_operation_type(self) -> Optional[str]:
+        if self == QueryType.CREATE:
+            return OperationTypeClass.CREATE
+        elif self == QueryType.INSERT:
+            return OperationTypeClass.INSERT
+        elif self == QueryType.UPDATE:
+            return OperationTypeClass.UPDATE
+        elif self == QueryType.DELETE:
+            return OperationTypeClass.DELETE
+        elif self == QueryType.MERGE:
+            return OperationTypeClass.UPDATE
+        elif self == QueryType.SELECT:
+            return None
+        else:
+            return OperationTypeClass.UNKNOWN
 
 
 def get_query_type_of_sql(expression: sqlglot.exp.Expression) -> QueryType:
@@ -623,16 +640,21 @@ def _translate_internal_column_lineage(
     )
 
 
+def _get_dialect(platform: str) -> str:
+    # TODO: convert datahub platform names to sqlglot dialect
+    if platform == "presto-on-hive":
+        return "hive"
+    else:
+        return platform
+
+
 def _sqlglot_lineage_inner(
     sql: str,
     schema_resolver: SchemaResolver,
     default_db: Optional[str] = None,
     default_schema: Optional[str] = None,
 ) -> SqlParsingResult:
-    # TODO: convert datahub platform names to sqlglot dialect
-    # TODO: Pull the platform name from the schema resolver?
-    dialect = schema_resolver.platform
-
+    dialect = _get_dialect(schema_resolver.platform)
     if dialect == "snowflake":
         # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
         if default_db:
@@ -755,6 +777,7 @@ def _sqlglot_lineage_inner(
     )
 
 
+@functools.lru_cache(maxsize=SQL_PARSE_RESULT_CACHE_SIZE)
 def sqlglot_lineage(
     sql: str,
     schema_resolver: SchemaResolver,

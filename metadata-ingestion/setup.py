@@ -376,6 +376,7 @@ plugins: Dict[str, Set[str]] = {
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
+    "sql-queries": usage_common | sqlglot_lib,
     "superset": {
         "requests",
         "sqlalchemy",
@@ -608,6 +609,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
+        "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
