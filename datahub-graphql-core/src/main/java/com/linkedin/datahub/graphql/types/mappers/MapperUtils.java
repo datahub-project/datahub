@@ -8,7 +8,6 @@ import com.linkedin.datahub.graphql.generated.SearchSuggestion;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchSuggestionArray;
 
 import java.util.List;
 import java.util.Optional;
