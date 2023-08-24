@@ -17,6 +17,8 @@ import com.linkedin.pegasus2avro.subscription.SubscriptionType;
 import com.linkedin.subscription.EntityChangeType;
 import com.linkedin.subscription.SubscriptionInfo;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,29 +36,30 @@ public class NotificationUtils {
    */
   @Nonnull
   public static String generateEntityPath(final Urn entityUrn) {
+    final String encodedEntityUrn = URLEncoder.encode(entityUrn.toString(), StandardCharsets.UTF_8);
     switch (entityUrn.getEntityType()) {
       case Constants.DATASET_ENTITY_NAME:
-        return String.format("/dataset/%s", entityUrn);
+        return String.format("/dataset/%s", encodedEntityUrn);
       case Constants.CHART_ENTITY_NAME:
-        return String.format("/chart/%s", entityUrn);
+        return String.format("/chart/%s", encodedEntityUrn);
       case Constants.DASHBOARD_ENTITY_NAME:
-        return String.format("/dashboard/%s", entityUrn);
+        return String.format("/dashboard/%s", encodedEntityUrn);
       case Constants.DATA_FLOW_ENTITY_NAME:
-        return String.format("/pipeline/%s", entityUrn);
+        return String.format("/pipeline/%s", encodedEntityUrn);
       case Constants.DATA_JOB_ENTITY_NAME:
-        return String.format("/task/%s", entityUrn);
+        return String.format("/task/%s", encodedEntityUrn);
       case Constants.TAG_ENTITY_NAME:
-        return String.format("/tag/%s", entityUrn);
+        return String.format("/tag/%s", encodedEntityUrn);
       case Constants.GLOSSARY_TERM_ENTITY_NAME:
-        return String.format("/glossaryTerm/%s", entityUrn);
+        return String.format("/glossaryTerm/%s", encodedEntityUrn);
       case Constants.DOMAIN_ENTITY_NAME:
-        return String.format("/domain/%s", entityUrn);
+        return String.format("/domain/%s", encodedEntityUrn);
       case Constants.CONTAINER_ENTITY_NAME:
-        return String.format("/container/%s", entityUrn);
+        return String.format("/container/%s", encodedEntityUrn);
       case Constants.CORP_USER_ENTITY_NAME:
-        return String.format("/user/%s", entityUrn);
+        return String.format("/user/%s", encodedEntityUrn);
       case Constants.CORP_GROUP_ENTITY_NAME:
-        return String.format("/group/%s", entityUrn);
+        return String.format("/group/%s", encodedEntityUrn);
       default:
         return "";
     }
