@@ -280,34 +280,30 @@ public class SearchQueryBuilder {
     finalScoreFunctions.add(
             new FunctionScoreQueryBuilder.FilterFunctionBuilder(ScoreFunctionBuilders.weightFactorFunction(1.0f)));
 
-    Map<String, List<SearchableAnnotation>> annotations = entitySpecs.stream()
+    Map<String, SearchableAnnotation> annotations = entitySpecs.stream()
         .map(EntitySpec::getSearchableFieldSpecs)
         .flatMap(List::stream)
         .map(SearchableFieldSpec::getSearchableAnnotation)
-        .collect(Collectors.groupingBy(SearchableAnnotation::getFieldName,
-        Collectors.mapping(annotation -> annotation,
-            Collectors.toList())));
+        .collect(Collectors.toMap(SearchableAnnotation::getFieldName, annotation -> annotation, (annotation1, annotation2) -> annotation1));
 
-    for (Map.Entry<String, List<SearchableAnnotation>> annotationEntry : annotations.entrySet()) {
-      SearchableAnnotation arbitrarilySelectedAnnotation = annotationEntry.getValue().get(0);
-      arbitrarilySelectedAnnotation
+    for (Map.Entry<String, SearchableAnnotation> annotationEntry : annotations.entrySet()) {
+      SearchableAnnotation annotation = annotationEntry.getValue();
+      annotation
           .getWeightsPerFieldValue()
           .entrySet()
           .stream()
-          .map(entry -> buildWeightFactorFunction(arbitrarilySelectedAnnotation.getFieldName(), entry.getKey(),
+          .map(entry -> buildWeightFactorFunction(annotation.getFieldName(), entry.getKey(),
               entry.getValue())).forEach(finalScoreFunctions::add);
     }
 
-    Map<String, List<SearchScoreAnnotation>> searchScoreAnnotationMap = entitySpecs.stream()
+    Map<String, SearchScoreAnnotation> searchScoreAnnotationMap = entitySpecs.stream()
         .map(EntitySpec::getSearchScoreFieldSpecs)
         .flatMap(List::stream)
         .map(SearchScoreFieldSpec::getSearchScoreAnnotation)
-        .collect(Collectors.groupingBy(SearchScoreAnnotation::getFieldName,
-            Collectors.mapping(annotation -> annotation,
-                Collectors.toList())));
-    for (Map.Entry<String, List<SearchScoreAnnotation>> searchScoreAnnotationEntry : searchScoreAnnotationMap.entrySet()) {
-      SearchScoreAnnotation arbitrarilySelectedAnnotation = searchScoreAnnotationEntry.getValue().get(0);
-      finalScoreFunctions.add(buildScoreFunctionFromSearchScoreAnnotation(arbitrarilySelectedAnnotation));
+        .collect(Collectors.toMap(SearchScoreAnnotation::getFieldName, annotation -> annotation, (annotation1, annotation2) -> annotation1);
+    for (Map.Entry<String, SearchScoreAnnotation> searchScoreAnnotationEntry : searchScoreAnnotationMap.entrySet()) {
+      SearchScoreAnnotation annotation = searchScoreAnnotationEntry.getValue();
+      finalScoreFunctions.add(buildScoreFunctionFromSearchScoreAnnotation(annotation));
     }
 
     return finalScoreFunctions.toArray(new FunctionScoreQueryBuilder.FilterFunctionBuilder[0]);
