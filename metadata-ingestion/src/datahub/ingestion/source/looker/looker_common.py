@@ -179,6 +179,9 @@ def create_view_project_map(view_fields: List[ViewField]) -> Dict[str, str]:
 def get_view_file_path(
     lkml_fields: List[LookmlModelExploreField], view_name: str
 ) -> Optional[str]:
+    """
+    Search for the view file path on field, if found then return the file path
+    """
     logger.debug("Entered")
 
     for field in lkml_fields:
