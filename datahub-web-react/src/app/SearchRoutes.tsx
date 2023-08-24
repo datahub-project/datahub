@@ -25,7 +25,7 @@ export const SearchRoutes = (): JSX.Element => {
     return (
         <SearchablePage>
             <Switch>
-                {entityRegistry.getNonGlossaryEntities().map((entity) => (
+                {entityRegistry.getEntitiesForSearchRoutes().map((entity) => (
                     <Route
                         key={entity.getPathName()}
                         path={`/${entity.getPathName()}/:urn`}
@@ -42,7 +42,7 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.PERMISSIONS} render={() => <Redirect to="/settings/permissions" />} />
                 <Route path={PageRoutes.IDENTITIES} render={() => <Redirect to="/settings/identities" />} />
-                {isNestedDomainsEnabled && <Route path={`${PageRoutes.DOMAINS}*`} render={() => <DomainRoutes />} />}
+                {isNestedDomainsEnabled && <Route path={`${PageRoutes.DOMAIN}*`} render={() => <DomainRoutes />} />}
                 {!isNestedDomainsEnabled && <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPage />} />}
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />

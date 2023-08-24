@@ -43,8 +43,10 @@ export default class EntityRegistry {
         return this.entities;
     }
 
-    getNonGlossaryEntities(): Array<Entity<any>> {
-        return this.entities.filter((entity) => !GLOSSARY_ENTITY_TYPES.includes(entity.type));
+    getEntitiesForSearchRoutes(): Array<Entity<any>> {
+        return this.entities.filter(
+            (entity) => !GLOSSARY_ENTITY_TYPES.includes(entity.type) && entity.type !== EntityType.Domain,
+        );
     }
 
     getGlossaryEntities(): Array<Entity<any>> {
