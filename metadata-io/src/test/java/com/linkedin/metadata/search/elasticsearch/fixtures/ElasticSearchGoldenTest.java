@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -80,24 +79,6 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     }
 
     @Test
-    public void testNameMatchMemberInWorkspace() {
-        /*
-          Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
-          result, followed by "collaborative_actionitems_old"
-         */
-        assertNotNull(searchService);
-        SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
-        assertTrue(searchResult.getEntities().size() >= 2);
-        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
-        Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
-
-        // Checks that the table name is not suffixed with anything
-        assertTrue(firstResultUrn.toString().contains("collaborative_actionitems,"));
-        assertTrue(secondResultUrn.toString().contains("collaborative_actionitems_old"));
-    }
-
-    @Test
-    @Ignore("unstable")
     public void testGlossaryTerms() {
         /*
           Searching for "ReturnRate" should return all tables that have the glossary term applied before
@@ -134,9 +115,53 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
     }
 
+    @Test
+    public void testNameMatchCollaborativeActionitems() {
+        /*
+          Searching for "collaborative actionitems" should return "collaborative_actionitems" as the first search
+          result, followed by "collaborative_actionitems_old"
+         */
+        assertNotNull(searchService);
+        SearchResult searchResult = searchAcrossEntities(searchService, "collaborative actionitems", SEARCHABLE_LONGTAIL_ENTITIES);
+        assertTrue(searchResult.getEntities().size() >= 2);
+        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+        Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
+
+        // Checks that the table name is not suffixed with anything
+        assertTrue(firstResultUrn.toString().contains("collaborative_actionitems,"));
+        assertTrue(secondResultUrn.toString().contains("collaborative_actionitems_old"));
+
+        Double firstResultScore = searchResult.getEntities().get(0).getScore();
+        Double secondResultScore = searchResult.getEntities().get(1).getScore();
+
+        // Checks that the scores aren't tied so that we are matching on table name more than column name
+        assertTrue(firstResultScore > secondResultScore);
+    }
+
+    @Test
+    public void testNameMatchCustomerOrders() {
+        /*
+          Searching for "customer orders" should return "customer_orders" as the first search
+          result, not suffixed by anything
+         */
+        assertNotNull(searchService);
+        SearchResult searchResult = searchAcrossEntities(searchService, "customer orders", SEARCHABLE_LONGTAIL_ENTITIES);
+        assertTrue(searchResult.getEntities().size() >= 2);
+        Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
+
+        // Checks that the table name is not suffixed with anything
+        assertTrue(firstResultUrn.toString().contains("customer_orders,"));
+
+        Double firstResultScore = searchResult.getEntities().get(0).getScore();
+        Double secondResultScore = searchResult.getEntities().get(1).getScore();
+
+        // Checks that the scores aren't tied so that we are matching on table name more than column name
+        assertTrue(firstResultScore > secondResultScore);
+    }
+
     /*
-     * Tests that should pass but do not yet can be added below here, with the following annotation:
-     * @Test(enabled = false)
-     **/
+      Tests that should pass but do not yet can be added below here, with the following annotation:
+      @Test(enabled = false)
+     */
 
 }

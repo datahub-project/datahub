@@ -388,7 +388,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
@@ -454,7 +454,7 @@ base_dev_requirements = {
     "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.9.0",
+    "pydantic>=1.10.0",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
