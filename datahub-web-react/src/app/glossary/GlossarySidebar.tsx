@@ -4,7 +4,7 @@ import GlossarySearch from './GlossarySearch';
 import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
 import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 
-const BrowserWrapper = styled.div<{ width: number }>`
+export const BrowserWrapper = styled.div<{ width: number }>`
     max-height: 100%;
     width: ${(props) => props.width}px;
     min-width: ${(props) => props.width}px;
