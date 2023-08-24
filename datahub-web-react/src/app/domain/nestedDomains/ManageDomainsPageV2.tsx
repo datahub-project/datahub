@@ -10,6 +10,8 @@ import { OnboardingTour } from '../../onboarding/OnboardingTour';
 const PageWrapper = styled.div`
     background-color: #f8f9fa;
     flex: 1;
+    display: flex;
+    flex-direction: column;
 `;
 
 const Header = styled.div`
