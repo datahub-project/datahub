@@ -3,7 +3,7 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import styled from 'styled-components/macro';
 
-const ExternalUrlWrapper = styled.span`
+const UrlButtonContainer = styled.span`
     font-size: 12px;
 `;
 
@@ -28,10 +28,10 @@ const NOOP = () => {};
 
 export default function UrlButton({ href, children, onClick = NOOP }: Props) {
     return (
-        <ExternalUrlWrapper>
+        <UrlButtonContainer>
             <StyledButton type="link" href={href} target="_blank" rel="noreferrer noopener" onClick={onClick}>
                 {children} <ArrowRightOutlined style={{ fontSize: 12 }} />
             </StyledButton>
-        </ExternalUrlWrapper>
+        </UrlButtonContainer>
     );
 }
