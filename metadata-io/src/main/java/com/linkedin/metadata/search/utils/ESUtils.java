@@ -45,6 +45,7 @@ public class ESUtils {
   public static final int MAX_RESULT_SIZE = 10000;
   public static final String OPAQUE_ID_HEADER = "X-Opaque-Id";
   public static final String HEADER_VALUE_DELIMITER = "|";
+  public static final String KEYWORD_TYPE = "keyword";
 
   // we use this to make sure we filter for editable & non-editable fields. Also expands out top-level properties
   // to field level properties
@@ -174,6 +175,8 @@ public class ESUtils {
    * If no sort criterion is provided then the default sorting criterion is chosen which is descending order of score
    * Furthermore to resolve conflicts, the results are further sorted by ascending order of urn
    * If the input sort criterion is urn itself, then no additional sort criterion is applied as there will be no conflicts.
+   * When sorting, set the unmappedType param to arbitrary "keyword" so we essentially ignore sorting where indices do not
+   * have the field we are sorting on.
    * </p>
    *
    * @param searchSourceBuilder {@link SearchSourceBuilder} that needs to be populated with sort order
@@ -187,7 +190,7 @@ public class ESUtils {
       final SortOrder esSortOrder =
           (sortCriterion.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING) ? SortOrder.ASC
               : SortOrder.DESC;
-      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder));
+      searchSourceBuilder.sort(new FieldSortBuilder(sortCriterion.getField()).order(esSortOrder).unmappedType(KEYWORD_TYPE));
     }
     if (sortCriterion == null || !sortCriterion.getField().equals(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD)) {
       searchSourceBuilder.sort(new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
