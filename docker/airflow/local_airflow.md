@@ -139,39 +139,39 @@ Successfully added `conn_id`=datahub_rest_default : datahub_rest://:@http://data
 Navigate the Airflow UI to find the sample Airflow dag we just brought in
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/find_the_dag.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/find_the_dag.png"/>
 </p>
 
 By default, Airflow loads all DAG-s in paused status. Unpause the sample DAG to use it.
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/paused_dag.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/paused_dag.png"/>
 </p>
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/unpaused_dag.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/unpaused_dag.png"/>
 </p>
 
 Then trigger the DAG to run.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/trigger_dag.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/trigger_dag.png"/>
 </p>
 
 After the DAG runs successfully, go over to your DataHub instance to see the Pipeline and navigate its lineage.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/datahub_pipeline_view.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/datahub_pipeline_view.png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/datahub_pipeline_entity.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/datahub_pipeline_entity.png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/datahub_task_view.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/datahub_task_view.png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/datahub_lineage_view.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/datahub_lineage_view.png"/>
 </p>
 
 ## TroubleShooting
@@ -181,11 +181,11 @@ Most issues are related to connectivity between Airflow and DataHub.
 Here is how you can debug them.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/finding_failed_log.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/finding_failed_log.png"/>
 </p>
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/connection_error.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/connection_error.png"/>
 </p>
 
 In this case, clearly the connection `datahub-rest` has not been registered. Looks like we forgot to register the connection with Airflow!
@@ -196,5 +196,5 @@ In case the connection was registered successfully but you are still seeing `Fai
 After re-running the DAG, we see success!
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//docs/imgs/airflow/successful_run.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/docs/imgs/airflow/successful_run.png"/>
 </p>

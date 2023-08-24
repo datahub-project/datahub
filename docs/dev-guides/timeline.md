@@ -16,7 +16,7 @@ The Timeline API is available in server versions `0.8.28` and higher. The `cli` 
 For the visually inclined, here is a conceptual diagram that illustrates how to think about the entity timeline with categorical changes overlaid on it.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/timeline/timeline-conceptually.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/timeline/timeline-conceptually.png"/>
 </p>
 
 ## Change Event
@@ -242,10 +242,10 @@ The API is browse-able via the UI through through the dropdown.
 Here are a few screenshots showing how to navigate to it. You can try out the API and send example requests.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/timeline/dropdown-apis.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/timeline/dropdown-apis.png"/>
 </p>
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/timeline/swagger-ui.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/timeline/swagger-ui.png"/>
 </p>
 
 # Future Work

@@ -28,7 +28,7 @@ Conceptually, metadata is modeled using the following abstractions
 Here is an example graph consisting of 3 types of entity (CorpUser, Chart, Dashboard), 2 types of relationship (OwnedBy, Contains), and 3 types of metadata aspect (Ownership, ChartInfo, and DashboardInfo).
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-model-chart.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-chart.png"/>
 </p>
 
 ## The Core Entities
@@ -73,7 +73,7 @@ to the YAML configuration, instead of creating new Snapshot / Aspect files.
 To explore the current DataHub metadata model, you can inspect this high-level picture that shows the different entities and edges between them showing the relationships between them.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/datahub-metadata-model.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-metadata-model.png"/>
 </p>
 
 To navigate the aspect model for specific entities and explore relationships using the `foreign-key` concept, you can view them in our demo environment or navigate the auto-generated docs in the **Metadata Modeling/Entities** section on the left.

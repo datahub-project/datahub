@@ -43,5 +43,5 @@ To enable the OIDC integration, start by navigating to **Settings > Platform > S
 5. Click **Update** to save your settings.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/saas/image-(10).png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(10).png"/>
 </p>

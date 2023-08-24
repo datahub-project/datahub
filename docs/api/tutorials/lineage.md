@@ -113,7 +113,7 @@ Expected Response:
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/lineage-added.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/lineage-added.png"/>
 </p>
 
 ## Add Column-level Lineage
@@ -133,7 +133,7 @@ You can now see the lineage between `fct_users_deleted` and `logging_events`.
 You can now see the column-level lineage between datasets. Note that you have to enable `Show Columns` to be able to see the column-level lineage.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/apis/tutorials/column-level-lineage-added.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-level-lineage-added.png"/>
 </p>
 
 ## Read Lineage

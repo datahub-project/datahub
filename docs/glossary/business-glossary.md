@@ -32,13 +32,13 @@ In order to view a Business Glossary, users must have the Platform Privilege cal
 Once granted this privilege, you can access your Glossary by clicking the dropdown at the top of the page called **Govern** and then click **Glossary**:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/glossary-button.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/glossary-button.png"/>
 </p>
 
 You are now at the root of your Glossary and should see all Terms and Term Groups with no parents assigned to them. You should also notice a hierarchy navigator on the left where you can easily check out the structure of your Glossary!
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/root-glossary.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/root-glossary.png"/>
 </p>
 
 ## Creating a Term or Term Group
@@ -46,19 +46,19 @@ You are now at the root of your Glossary and should see all Terms and Term Group
 There are two ways to create Terms and Term Groups through the UI. First, you can create directly from the Glossary home page by clicking the menu dots on the top right and selecting your desired option:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/root-glossary-create.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/root-glossary-create.png"/>
 </p>
 
 You can also create Terms or Term Groups directly from a Term Group's page. In order to do that you need to click the menu dots on the top right and select what you want:
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/create-from-node.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/create-from-node.png"/>
 </p>
 
 Note that the modal that pops up will automatically set the current Term Group you are in as the **Parent**. You can easily change this by selecting the input and navigating through your Glossary to find your desired Term Group. In addition, you could start typing the name of a Term Group to see it appear by searching. You can also leave this input blank in order to create a Term or Term Group with no parent.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/create-modal.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/create-modal.png"/>
 </p>
 
 ## Editing a Term or Term Group
@@ -66,7 +66,7 @@ Note that the modal that pops up will automatically set the current Term Group y
 In order to edit a Term or Term Group, you first need to go the page of the Term or Term group you want to edit. Then simply click the edit icon right next to the name to open up an inline editor. Change the text and it will save when you click outside or hit Enter.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/edit-term.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/edit-term.png"/>
 </p>
 
 ## Moving a Term or Term Group
@@ -74,13 +74,13 @@ In order to edit a Term or Term Group, you first need to go the page of the Term
 Once a Term or Term Group has been created, you can always move it to be under a different Term Group parent. In order to do this, click the menu dots on the top right of either entity and select **Move**.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/move-term-button.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/move-term-button.png"/>
 </p>
 
 This will open a modal where you can navigate through your Glossary to find your desired Term Group.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/move-term-modal.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/move-term-modal.png"/>
 </p>
 
 ## Deleting a Term or Term Group
@@ -88,7 +88,7 @@ This will open a modal where you can navigate through your Glossary to find your
 In order to delete a Term or Term Group, you need to go to the entity page of what you want to delete then click the menu dots on the top right. From here you can select **Delete** followed by confirming through a separate modal. **Note**: at the moment we only support deleting Term Groups that do not have any children. Until cascade deleting is supported, you will have to delete all children first, then delete the Term Group.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/delete-button.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/delete-button.png"/>
 </p>
 
 ## Adding a Term to an Entity
@@ -96,7 +96,7 @@ In order to delete a Term or Term Group, you need to go to the entity page of wh
 Once you've defined your Glossary, you can begin attaching terms to data assets. To add a Glossary Term to an asset, go to the entity page of your asset and find the **Add Terms** button on the right sidebar.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/add-term-to-entity.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/add-term-to-entity.png"/>
 </p>
 
 In the modal that pops up you can select the Term you care about in one of two ways:
@@ -105,7 +105,7 @@ In the modal that pops up you can select the Term you care about in one of two w
 - Navigate through the Glossary dropdown that appears after clicking into the input
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/glossary/add-term-modal.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/glossary/add-term-modal.png"/>
 </p>
 
 ## Privileges

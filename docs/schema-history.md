@@ -26,7 +26,7 @@ Here's an example from DataHub's official Demo environment with the
 <a href="https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pets,PROD)/Schema?is_lineage_mode=false">Snowflake pets dataset</a>.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/schema-history-latest-version.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schema-history-latest-version.png"/>
 </p>
 
 If you click on an older version in the selector, you'll be able to see what the schema looked like back then. Notice
@@ -34,14 +34,14 @@ the changes here to the glossary terms for the `status` field, and to the descri
 fields.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/schema-history-older-version.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schema-history-older-version.png"/>
 </p>
 
 In addition to this, you can also toggle the Audit view that shows you when the most recent changes were made to each field.
 You can active this by clicking on the Audit icon you see above the top right of the table.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/schema-history-audit-activated.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schema-history-audit-activated.png"/>
 </p>
 
 You can see here that some of these fields were added at the oldest dataset version, while some were added only at this latest

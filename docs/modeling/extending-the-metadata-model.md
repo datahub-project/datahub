@@ -13,7 +13,7 @@ these two concepts prior to making changes.
 An important question that will arise once you've decided to extend the metadata model is whether you need to fork the main repo or not. Use the diagram below to understand how to make this decision.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main//imgs/metadata-model-to-fork-or-not-to.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-to-fork-or-not-to.png"/>
 </p>
 
 The green lines represent pathways that will lead to lesser friction for you to maintain your code long term. The red lines represent higher risk of conflicts in the future. We are working hard to move the majority of model extension use-cases to no-code / low-code pathways to ensure that you can extend the core metadata model without having to maintain a custom fork of DataHub.
@@ -336,27 +336,26 @@ It takes the following parameters:
   3. _TEXT_PARTIAL_ - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
      matching is expensive, so this field type should not be applied to fields with long values (like description)
 
-    4. *WORD_GRAM* - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND 
-       word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
-       matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is 
-       expensive, so should not be applied to fields with long values such as description.
+  4. _WORD_GRAM_ - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND
+     word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
+     matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is
+     expensive, so should not be applied to fields with long values such as description.
 
-    5. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+  5. _BROWSE_PATH_ - Field type for browse paths. Applies specific mappings for slash delimited paths.
 
-    6. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
-       "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
+  6. _URN_ - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+     "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
 
-    7. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+  7. _URN_PARTIAL_ - Urn fields where each sub-component inside the urn is indexed with partial matching support.
 
-    8. *BOOLEAN* - Boolean fields used for filtering.
+  8. _BOOLEAN_ - Boolean fields used for filtering.
 
-    9. *COUNT* - Count fields used for filtering.
-  
-    10. *DATETIME* - Datetime fields used to represent timestamps.
+  9. _COUNT_ - Count fields used for filtering.
+  10. _DATETIME_ - Datetime fields used to represent timestamps.
 
-    11. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
-    `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
-    mapping explosion in Elasticsearch.
+  11. _OBJECT_ - Each property in an object will become an extra column in Elasticsearch and can be referenced as
+      `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
+      mapping explosion in Elasticsearch.
 
 - **fieldName**: string (optional) - The name of the field in search index document. Defaults to the field name where
   the annotation resides.
