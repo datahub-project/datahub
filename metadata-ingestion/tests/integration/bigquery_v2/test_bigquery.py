@@ -61,6 +61,7 @@ def test_bigquery_v2_ingest(
         "project_ids": ["project-id-1"],
         "include_usage_statistics": False,
         "include_table_lineage": False,
+        "include_data_platform_instance": True,
     }
 
     pipeline_config_dict: Dict[str, Any] = {
