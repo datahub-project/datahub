@@ -214,5 +214,5 @@ config:
         tag: "pii"
 ```
 
-The underlying implementation is similar to [dbt meta mapping](../dbt/dbt.md#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+The underlying implementation is similar to [dbt meta mapping](https://datahubproject.io/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
 
