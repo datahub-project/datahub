@@ -347,6 +347,7 @@
       "doc" : "Title of the chart",
       "Searchable" : {
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1285,6 +1286,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1411,6 +1413,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1470,6 +1473,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1871,6 +1875,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -2067,6 +2072,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldName" : "displayName",
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -2103,6 +2109,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -2167,6 +2174,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true
       }
@@ -2346,6 +2354,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL",
         "queryByDefault" : true
       }
@@ -3223,6 +3232,7 @@
         "Searchable" : {
           "boostScore" : 8.0,
           "enableAutocomplete" : true,
+          "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "TEXT_PARTIAL"
         }
       } ],
@@ -3288,6 +3298,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
+          "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "TEXT_PARTIAL"
         }
       }, {
@@ -3873,6 +3884,7 @@
         "Searchable" : {
           "boostScore" : 10.0,
           "enableAutocomplete" : true,
+          "fieldNameAliases" : [ "_entityName" ],
           "fieldType" : "TEXT_PARTIAL"
         }
       }, {
