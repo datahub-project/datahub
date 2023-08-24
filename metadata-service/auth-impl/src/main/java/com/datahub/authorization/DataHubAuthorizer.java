@@ -250,11 +250,11 @@ public class DataHubAuthorizer implements Authorizer {
     private void addPolicyToCache(final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
       final List<String> privileges = policy.getPrivileges();
       for (String privilege : privileges) {
-        List<DataHubPolicyInfo> existingPolicies = cache.getOrDefault(privilege, new ArrayList<>());
+        List<DataHubPolicyInfo> existingPolicies = cache.containsKey(privilege) ? new ArrayList<>(cache.get(privilege)) : new ArrayList<>();
         existingPolicies.add(policy);
         cache.put(privilege, existingPolicies);
       }
-      List<DataHubPolicyInfo> existingPolicies = cache.getOrDefault(ALL, new ArrayList<>());
+      List<DataHubPolicyInfo> existingPolicies = cache.containsKey(ALL) ? new ArrayList<>(cache.get(ALL)) : new ArrayList<>();
       existingPolicies.add(policy);
       cache.put(ALL, existingPolicies);
     }

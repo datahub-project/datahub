@@ -16,7 +16,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 18);
+    assertEquals(properties.size(), 19);
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
             "fields",
             ImmutableMap.of("delimited",
@@ -65,6 +65,11 @@ public class MappingsBuilderTest {
     assertEquals(textFieldSubfields.size(), 2);
     assertTrue(textFieldSubfields.containsKey("delimited"));
     assertTrue(textFieldSubfields.containsKey("keyword"));
+
+    // TEXT with addToFilters aliased under "_entityName"
+    Map<String, Object> textFieldAlias = (Map<String, Object>) properties.get("_entityName");
+    assertEquals(textFieldAlias.get("type"), "alias");
+    assertEquals(textFieldAlias.get("path"), "textFieldOverride");
 
     // TEXT_PARTIAL
     Map<String, Object> textArrayField = (Map<String, Object>) properties.get("textArrayField");
