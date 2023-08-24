@@ -9668,6 +9668,11 @@ input ListDomainsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional parent domain
+  """
+  parentDomain: String
 }
 
 """
