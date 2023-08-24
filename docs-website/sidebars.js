@@ -143,7 +143,8 @@ module.exports = {
       link: {
         type: "generated-index",
         title: "Deployment Guides",
-        description: "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
+        description:
+          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
       },
       items: [
         // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
