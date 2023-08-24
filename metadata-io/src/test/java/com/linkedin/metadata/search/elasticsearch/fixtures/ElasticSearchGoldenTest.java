@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -98,9 +97,15 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         System.out.println("firstResultMatchedFields: " + firstResultMatchedFields);
         MatchedFieldArray secondResultMatchedFields = entities.get(1).getMatchedFields();
         System.out.println("secondResultMatchedFields: " + secondResultMatchedFields);
+        MatchedFieldArray thirdResultMatchedFields = entities.get(2).getMatchedFields();
+        System.out.println("thirdResultMatchedFields: " + thirdResultMatchedFields);
+        MatchedFieldArray fourthResultMatchedFields = entities.get(3).getMatchedFields();
+        System.out.println("fourthResultMatchedFields: " + fourthResultMatchedFields);
 
         assertTrue(firstResultMatchedFields.toString().contains("ReturnRate"));
         assertTrue(secondResultMatchedFields.toString().contains("ReturnRate"));
+        assertTrue(thirdResultMatchedFields.toString().contains("ReturnRate"));
+        assertTrue(fourthResultMatchedFields.toString().contains("ReturnRate"));
     }
 
     @Test
