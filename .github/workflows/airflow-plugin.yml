@@ -1,4 +1,4 @@
-name: airflow plugin build & test
+name: Airflow Plugin
 on:
   push:
     branches:
