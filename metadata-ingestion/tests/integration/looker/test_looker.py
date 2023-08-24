@@ -473,18 +473,20 @@ def setup_mock_explore_unaliased_with_joins(mocked_client):
     )
 
 
-def setup_mock_explore(mocked_client, additional_lkml_fields: List[LookmlModelExploreField] = []):
+def setup_mock_explore(
+    mocked_client: Any, additional_lkml_fields: List[LookmlModelExploreField] = []
+) -> None:
     mock_model = mock.MagicMock(project_name="lkml_samples")
     mocked_client.lookml_model.return_value = mock_model
 
     lkml_fields: List[LookmlModelExploreField] = [
-                LookmlModelExploreField(
-                    name="dim1",
-                    type="string",
-                    dimension_group=None,
-                    description="dimension one description",
-                    label_short="Dimensions One Label",
-                )
+        LookmlModelExploreField(
+            name="dim1",
+            type="string",
+            dimension_group=None,
+            description="dimension one description",
+            label_short="Dimensions One Label",
+        )
     ]
     lkml_fields.extend(additional_lkml_fields)
 
@@ -915,7 +917,9 @@ def test_file_path_in_view_naming_pattern(
 ):
     mocked_client = mock.MagicMock()
     new_recipe = get_default_recipe(output_file_path=f"{tmp_path}/looker_mces.json")
-    new_recipe["source"]["config"]["view_naming_pattern"] = "{project}.{file_path}.view.{name}"
+    new_recipe["source"]["config"][
+        "view_naming_pattern"
+    ] = "{project}.{file_path}.view.{name}"
 
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -926,18 +930,18 @@ def test_file_path_in_view_naming_pattern(
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore(
-            mocked_client, 
+            mocked_client,
             additional_lkml_fields=[
-            LookmlModelExploreField(
-                name="dim2",
-                type="string",
-                dimension_group=None,
-                description="dimension one description",
-                label_short="Dimensions One Label",
-                view="underlying_view",
-                source_file="views/underlying_view.view.lkml"
-            )
-        ]
+                LookmlModelExploreField(
+                    name="dim2",
+                    type="string",
+                    dimension_group=None,
+                    description="dimension one description",
+                    label_short="Dimensions One Label",
+                    view="underlying_view",
+                    source_file="views/underlying_view.view.lkml",
+                )
+            ],
         )
         setup_mock_look(mocked_client)
 
