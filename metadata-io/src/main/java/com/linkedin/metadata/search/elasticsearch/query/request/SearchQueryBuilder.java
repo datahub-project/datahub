@@ -300,7 +300,7 @@ public class SearchQueryBuilder {
         .map(EntitySpec::getSearchScoreFieldSpecs)
         .flatMap(List::stream)
         .map(SearchScoreFieldSpec::getSearchScoreAnnotation)
-        .collect(Collectors.toMap(SearchScoreAnnotation::getFieldName, annotation -> annotation, (annotation1, annotation2) -> annotation1);
+        .collect(Collectors.toMap(SearchScoreAnnotation::getFieldName, annotation -> annotation, (annotation1, annotation2) -> annotation1));
     for (Map.Entry<String, SearchScoreAnnotation> searchScoreAnnotationEntry : searchScoreAnnotationMap.entrySet()) {
       SearchScoreAnnotation annotation = searchScoreAnnotationEntry.getValue();
       finalScoreFunctions.add(buildScoreFunctionFromSearchScoreAnnotation(annotation));
