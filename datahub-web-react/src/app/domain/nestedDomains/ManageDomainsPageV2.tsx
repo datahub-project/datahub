@@ -3,6 +3,9 @@ import { PlusOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components/macro';
 import DomainsTitle from './DomainsTitle';
+import RootDomains from './RootDomains';
+import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
+import { OnboardingTour } from '../../onboarding/OnboardingTour';
 
 const PageWrapper = styled.div`
     background-color: #f8f9fa;
@@ -20,12 +23,15 @@ const Header = styled.div`
 export default function ManageDomainsPageV2() {
     return (
         <PageWrapper>
+            <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
                 <DomainsTitle />
-                <Button type="primary">
+                {/* TODO: Add functionality to this button */}
+                <Button type="primary" id={DOMAINS_CREATE_DOMAIN_ID}>
                     <PlusOutlined /> New Domain
                 </Button>
             </Header>
+            <RootDomains />
         </PageWrapper>
     );
 }
