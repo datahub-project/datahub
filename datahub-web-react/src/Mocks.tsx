@@ -3363,6 +3363,7 @@ export const mocks = [
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
                         manageOwnershipTypes: true,
+                        manageGlobalAnnouncements: true,
                     },
                 },
             },
@@ -3609,4 +3610,5 @@ export const platformPrivileges: PlatformPrivileges = {
     createDomains: true,
     manageGlobalViews: true,
     manageOwnershipTypes: true,
+    manageGlobalAnnouncements: true,
 };
