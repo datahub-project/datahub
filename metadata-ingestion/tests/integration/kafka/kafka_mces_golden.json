@@ -80,6 +80,13 @@
                         "name": "key_topic",
                         "tags": []
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka/key_topic"
+                        ]
+                    }
                 }
             ]
         }
@@ -239,6 +246,13 @@
                         "name": "key_value_topic",
                         "description": "Value schema for kafka topic",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka/key_value_topic"
+                        ]
                     }
                 }
             ]
@@ -404,6 +418,13 @@
                         "name": "value_topic",
                         "description": "Value schema for kafka topic",
                         "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka/value_topic"
+                        ]
                     }
                 }
             ]
