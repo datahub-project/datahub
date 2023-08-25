@@ -137,10 +137,7 @@ message MessageWithMap {
 Meta mapping is currently only available for Avro schemas
 :::
 
-Avro schemas are permitted to have additional attributes not defined by the
-specification as arbitrary metadata. A common pattern is to utilize this for
-business metadata. The Kafka source has the ability to transform this directly
-into DataHub Owners, Tags and Terms.
+Avro schemas are permitted to have additional attributes not defined by the specification as arbitrary metadata. A common pattern is to utilize this for business metadata. The Kafka source has the ability to transform this directly into DataHub Owners, Tags and Terms.
 
 #### Simple tags
 
