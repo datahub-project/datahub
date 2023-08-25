@@ -51,9 +51,6 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
-from datahub.ingestion.source.snowflake.snowflake_lineage_legacy import (
-    SnowflakeLineageExtractor as SnowflakeLineageLegacyExtractor,
-)
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
@@ -71,6 +68,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeTag,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_shares import SnowflakeSharesHandler
 from datahub.ingestion.source.snowflake.snowflake_tag import SnowflakeTagExtractor
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeUsageExtractor,
@@ -238,9 +236,7 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
-        self.lineage_extractor: Optional[
-            Union[SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor]
-        ] = None
+        self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
         if self.config.include_table_lineage:
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
@@ -252,21 +248,12 @@ class SnowflakeV2Source(
                     pipeline_name=self.ctx.pipeline_name,
                     run_id=self.ctx.run_id,
                 )
-            # For lineage
-            if self.config.use_legacy_lineage_method:
-                self.lineage_extractor = SnowflakeLineageLegacyExtractor(
-                    config,
-                    self.report,
-                    dataset_urn_builder=self.gen_dataset_urn,
-                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
-                )
-            else:
-                self.lineage_extractor = SnowflakeLineageExtractor(
-                    config,
-                    self.report,
-                    dataset_urn_builder=self.gen_dataset_urn,
-                    redundant_run_skip_handler=redundant_lineage_run_skip_handler,
-                )
+            self.lineage_extractor = SnowflakeLineageExtractor(
+                config,
+                self.report,
+                dataset_urn_builder=self.gen_dataset_urn,
+                redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+            )
 
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
@@ -531,9 +518,16 @@ class SnowflakeV2Source(
             return
 
         self.data_dictionary.set_connection(self.connection)
-        databases = self.get_databases()
+        databases: List[SnowflakeDatabase] = []
 
-        if databases is None or len(databases) == 0:
+        for database in self.get_databases() or []:
+            self.report.report_entity_scanned(database.name, "database")
+            if not self.config.database_pattern.allowed(database.name):
+                self.report.report_dropped(f"{database.name}.*")
+            else:
+                databases.append(database)
+
+        if len(databases) == 0:
             return
 
         for snowflake_db in databases:
@@ -561,25 +555,22 @@ class SnowflakeV2Source(
 
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
+        if self.config.shares:
+            yield from SnowflakeSharesHandler(
+                self.config, self.report, self.gen_dataset_urn
+            ).get_shares_workunits(databases)
+
         discovered_tables: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.tables
-            if self._is_dataset_pattern_allowed(
-                self.get_dataset_identifier(table_name, schema.name, db.name),
-                SnowflakeObjectDomain.TABLE,
-            )
         ]
         discovered_views: List[str] = [
             self.get_dataset_identifier(table_name, schema.name, db.name)
             for db in databases
             for schema in db.schemas
             for table_name in schema.views
-            if self._is_dataset_pattern_allowed(
-                self.get_dataset_identifier(table_name, schema.name, db.name),
-                SnowflakeObjectDomain.VIEW,
-            )
         ]
 
         if len(discovered_tables) == 0 and len(discovered_views) == 0:
@@ -666,11 +657,6 @@ class SnowflakeV2Source(
     def _process_database(
         self, snowflake_db: SnowflakeDatabase
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_entity_scanned(snowflake_db.name, "database")
-        if not self.config.database_pattern.allowed(snowflake_db.name):
-            self.report.report_dropped(f"{snowflake_db.name}.*")
-            return
-
         db_name = snowflake_db.name
 
         try:
@@ -717,11 +703,22 @@ class SnowflakeV2Source(
             self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
-    def fetch_schemas_for_database(self, snowflake_db, db_name):
+    def fetch_schemas_for_database(
+        self, snowflake_db: SnowflakeDatabase, db_name: str
+    ) -> None:
+        schemas: List[SnowflakeSchema] = []
         try:
-            snowflake_db.schemas = self.data_dictionary.get_schemas_for_database(
-                db_name
-            )
+            for schema in self.data_dictionary.get_schemas_for_database(db_name):
+                self.report.report_entity_scanned(schema.name, "schema")
+                if not is_schema_allowed(
+                    self.config.schema_pattern,
+                    schema.name,
+                    db_name,
+                    self.config.match_fully_qualified_names,
+                ):
+                    self.report.report_dropped(f"{db_name}.{schema.name}.*")
+                else:
+                    schemas.append(schema)
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = f"Failed to get schemas for database {db_name}. Please check permissions."
@@ -737,25 +734,17 @@ class SnowflakeV2Source(
                     db_name,
                 )
 
-        if not snowflake_db.schemas:
+        if not schemas:
             self.report_warning(
                 "No schemas found in database. If schemas exist, please grant USAGE permissions on them.",
                 db_name,
             )
+        else:
+            snowflake_db.schemas = schemas
 
     def _process_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_entity_scanned(snowflake_schema.name, "schema")
-        if not is_schema_allowed(
-            self.config.schema_pattern,
-            snowflake_schema.name,
-            db_name,
-            self.config.match_fully_qualified_names,
-        ):
-            self.report.report_dropped(f"{db_name}.{snowflake_schema.name}.*")
-            return
-
         schema_name = snowflake_schema.name
 
         if self.config.extract_tags != TagOption.skip:
@@ -797,9 +786,20 @@ class SnowflakeV2Source(
                 f"{db_name}.{schema_name}",
             )
 
-    def fetch_views_for_schema(self, snowflake_schema, db_name, schema_name):
+    def fetch_views_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeView]:
         try:
-            views = self.get_views_for_schema(schema_name, db_name)
+            views: List[SnowflakeView] = []
+            for view in self.get_views_for_schema(schema_name, db_name):
+                view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
+
+                self.report.report_entity_scanned(view_name, "view")
+
+                if not self.config.view_pattern.allowed(view_name):
+                    self.report.report_dropped(view_name)
+                else:
+                    views.append(view)
             snowflake_schema.views = [view.name for view in views]
             return views
         except Exception as e:
@@ -817,10 +817,22 @@ class SnowflakeV2Source(
                     "Failed to get views for schema",
                     f"{db_name}.{schema_name}",
                 )
+                return []
 
-    def fetch_tables_for_schema(self, snowflake_schema, db_name, schema_name):
+    def fetch_tables_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeTable]:
         try:
-            tables = self.get_tables_for_schema(schema_name, db_name)
+            tables: List[SnowflakeTable] = []
+            for table in self.get_tables_for_schema(schema_name, db_name):
+                table_identifier = self.get_dataset_identifier(
+                    table.name, schema_name, db_name
+                )
+                self.report.report_entity_scanned(table_identifier)
+                if not self.config.table_pattern.allowed(table_identifier):
+                    self.report.report_dropped(table_identifier)
+                else:
+                    tables.append(table)
             snowflake_schema.tables = [table.name for table in tables]
             return tables
         except Exception as e:
@@ -837,6 +849,7 @@ class SnowflakeV2Source(
                     "Failed to get tables for schema",
                     f"{db_name}.{schema_name}",
                 )
+                return []
 
     def _process_table(
         self,
@@ -845,12 +858,6 @@ class SnowflakeV2Source(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         table_identifier = self.get_dataset_identifier(table.name, schema_name, db_name)
-
-        self.report.report_entity_scanned(table_identifier)
-
-        if not self.config.table_pattern.allowed(table_identifier):
-            self.report.report_dropped(table_identifier)
-            return
 
         self.fetch_columns_for_table(table, schema_name, db_name, table_identifier)
 
@@ -962,12 +969,6 @@ class SnowflakeV2Source(
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         view_name = self.get_dataset_identifier(view.name, schema_name, db_name)
-
-        self.report.report_entity_scanned(view_name, "view")
-
-        if not self.config.view_pattern.allowed(view_name):
-            self.report.report_dropped(view_name)
-            return
 
         try:
             view.columns = self.get_columns_for_table(view.name, schema_name, db_name)
