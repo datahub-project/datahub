@@ -6,12 +6,15 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.openapi.util.ElasticsearchUtils;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.elasticsearch.client.tasks.GetTaskResponse;
 import org.json.JSONObject;
@@ -42,6 +45,9 @@ public class OperationsController {
   @Autowired
   @Qualifier("elasticSearchSystemMetadataService")
   private SystemMetadataService _systemMetadataService;
+  @Autowired
+  @Qualifier("timeseriesAspectService")
+  private TimeseriesAspectService _timeseriesAspectService;
 
   public OperationsController(AuthorizerChain authorizerChain) {
     _authorizerChain = authorizerChain;
@@ -78,6 +84,28 @@ public class OperationsController {
     j.put("taskId", res.get().getTaskInfo().getTaskId());
     j.put("status", res.get().getTaskInfo().getStatus());
     j.put("runTimeNanos", res.get().getTaskInfo().getRunningTimeNanos());
+    return ResponseEntity.ok(j.toString());
+  }
+
+  @GetMapping(path = "/getIndexSizes", produces=MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<String> getIndexSizes() {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
+    DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
+        ImmutableList.of(PoliciesConfig.GET_TIMESERIES_INDEX_SIZES_PRIVILEGE.getType())
+    )));
+    if (restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizerChain, actorUrnStr, List.of(java.util.Optional.empty()), orGroup)) {
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+          String.format(actorUrnStr + " is not authorized to get timeseries index sizes"));
+    }
+    List<TimeseriesIndexSizeResult> indexSizeResults = _timeseriesAspectService.getIndexSizes();
+    JSONObject j = new JSONObject();
+    j.put("sizes",
+        indexSizeResults.stream().map(timeseriesIndexSizeResult -> new JSONObject()
+            .put("aspectName", timeseriesIndexSizeResult.getAspectName())
+            .put("entityName", timeseriesIndexSizeResult.getEntityName())
+            .put("indexName", timeseriesIndexSizeResult.getIndexName())
+            .put("sizeMb", timeseriesIndexSizeResult.getSizeMb())).collect(Collectors.toList()));
     return ResponseEntity.ok(j.toString());
   }
 }
