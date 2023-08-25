@@ -880,6 +880,74 @@ class BigQuerySinkConnector:
 
 
 @dataclass
+class SnowflakeSinkConnector:
+    connector_manifest: ConnectorManifest
+    report: KafkaConnectSourceReport
+
+    def __init__(
+        self, connector_manifest: ConnectorManifest, report: KafkaConnectSourceReport
+    ) -> None:
+        self.connector_manifest = connector_manifest
+        self.report = report
+        self._extract_lineages()
+
+    @dataclass
+    class SnowflakeParser:
+        target_platform: str
+        database_name: Optional[str]
+        schema_name: Optional[str]
+        topics_to_tables: Optional[Dict[str, str]] = None
+
+    def report_warning(self, key: str, reason: str) -> None:
+        logger.warning(f"{key}: {reason}")
+        self.report.report_warning(key, reason)
+
+    def get_parser(
+        self,
+        connector_manifest: ConnectorManifest,
+    ) -> SnowflakeParser:
+        database_name = connector_manifest.config["snowflake.database.name"]
+        schema_name = connector_manifest.config["snowflake.schema.name"]
+        topics_to_tables = {
+            each.split(":")[0]: each.split(":")[1]
+            for each in connector_manifest.config["snowflake.topic2table.map"].split(
+                ","
+            )
+        }
+
+        return self.SnowflakeParser(
+            target_platform="snowflake",
+            database_name=database_name,
+            schema_name=schema_name,
+            topics_to_tables=topics_to_tables,
+        )
+
+    def _extract_lineages(self):
+        self.connector_manifest.flow_property_bag = self.connector_manifest.config
+        # remove private key from properties
+        del self.connector_manifest.flow_property_bag["snowflake.private.key"]
+
+        lineages: List[KafkaConnectLineage] = list()
+        parser = self.get_parser(self.connector_manifest)
+        if not parser:
+            return lineages
+
+        for topic, table in parser.topics_to_tables.items():
+            target_dataset = f"{parser.database_name}.{parser.schema_name}.{table}"
+            lineages.append(
+                KafkaConnectLineage(
+                    source_dataset=topic,
+                    source_platform="kafka",
+                    target_dataset=target_dataset,
+                    target_platform=parser.target_platform,
+                )
+            )
+
+        self.connector_manifest.lineages = lineages
+        return
+
+
+@dataclass
 class ConfluentS3SinkConnector:
     connector_manifest: ConnectorManifest
 
@@ -1104,6 +1172,12 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     "io.confluent.connect.s3.S3SinkConnector"
                 ):
                     connector_manifest = ConfluentS3SinkConnector(
+                        connector_manifest=connector_manifest, report=self.report
+                    ).connector_manifest
+                elif connector_manifest.config.get("connector.class").__eq__(
+                    "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+                ):
+                    connector_manifest = SnowflakeSinkConnector(
                         connector_manifest=connector_manifest, report=self.report
                     ).connector_manifest
                 else:
