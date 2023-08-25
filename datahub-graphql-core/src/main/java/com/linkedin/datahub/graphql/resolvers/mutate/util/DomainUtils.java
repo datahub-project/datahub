@@ -5,29 +5,53 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
 
 
 // TODO: Move to consuming from DomainService.
 @Slf4j
 public class DomainUtils {
+  public static final String PARENT_DOMAIN_INDEX_FIELD_NAME = "parentDomain.keyword";
+  public static final String NAME_INDEX_FIELD_NAME = "name.keyword";
+
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
   ));
@@ -84,5 +108,79 @@ public class DomainUtils {
     if (!entityService.exists(domainUrn)) {
       throw new IllegalArgumentException(String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
     }
+  }
+
+  private static Criterion buildParentDomainCriterion(@Nullable final Urn parentDomainUrn) {
+    return QueryUtils.newCriterion(
+        PARENT_DOMAIN_INDEX_FIELD_NAME,
+        parentDomainUrn == null ? "" : parentDomainUrn.toString(),
+        parentDomainUrn == null ? Condition.IS_NULL : Condition.EQUAL
+    );
+  }
+
+  private static Criterion buildNameCriterion(@Nonnull final String name) {
+    return QueryUtils.newCriterion(NAME_INDEX_FIELD_NAME, name, Condition.EQUAL);
+  }
+
+  public static Filter buildParentDomainFilter(@Nullable final Urn parentDomainUrn) {
+    return QueryUtils.newFilter(buildParentDomainCriterion(parentDomainUrn));
+  }
+
+  public static Filter buildNameAndParentDomainFilter(@Nonnull final String name, @Nullable final Urn parentDomainUrn) {
+    final Criterion parentDomainCriterion = buildParentDomainCriterion(parentDomainUrn);
+    final Criterion nameCriterion = buildNameCriterion(name);
+    return QueryUtils.getFilterFromCriteria(List.of(parentDomainCriterion, nameCriterion));
+  }
+
+  private static Map<Urn, EntityResponse> getDomainsByNameAndParent(
+      @Nonnull final String name,
+      @Nullable final Urn parentDomainUrn,
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityClient entityClient
+  ) {
+    try {
+      final Filter filter = buildNameAndParentDomainFilter(name, parentDomainUrn);
+
+      final SearchResult searchResult = entityClient.filter(
+          DOMAIN_ENTITY_NAME,
+          filter,
+          null,
+          0,
+          1000,
+          context.getAuthentication());
+
+      final Set<Urn> domainUrns = searchResult.getEntities()
+          .stream()
+          .map(SearchEntity::getEntity)
+          .collect(Collectors.toSet());
+
+      return entityClient.batchGetV2(
+          DOMAIN_ENTITY_NAME,
+          domainUrns,
+          Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME),
+          context.getAuthentication());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed fetching Domains by name and parent", e);
+    }
+  }
+
+  public static void validateDomainName(
+      @Nonnull final String name,
+      @Nullable final Urn parentDomainUrn,
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityClient entityClient
+  ) {
+    final Map<Urn, EntityResponse> entities = getDomainsByNameAndParent(name, parentDomainUrn, context, entityClient);
+
+    // Even though we searched by name, do one more pass to check the name is unique
+    entities.forEach((urn, entityResponse) -> {
+      if (entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
+        DataMap dataMap = entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data();
+        DomainProperties domainProperties = new DomainProperties(dataMap);
+        if (domainProperties.hasName() && domainProperties.getName().equals(name)) {
+          throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain");
+        }
+      }
+    });
   }
 }

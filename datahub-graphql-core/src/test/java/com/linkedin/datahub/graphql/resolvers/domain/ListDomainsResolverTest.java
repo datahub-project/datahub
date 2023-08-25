@@ -5,16 +5,15 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -22,7 +21,6 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver.PARENT_DOMAIN_INDEX_FIELD_NAME;
 import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
@@ -31,9 +29,10 @@ import static org.testng.Assert.assertThrows;
 public class ListDomainsResolverTest {
 
   private static final Urn TEST_DOMAIN_URN = Urn.createFromTuple("domain", "test-id");
+  private static final Urn TEST_PARENT_DOMAIN_URN = Urn.createFromTuple("domain", "test-parent-id");
 
   private static final ListDomainsInput TEST_INPUT = new ListDomainsInput(
-      0, 20, null, "urn:li:domain:test-id-parent"
+      0, 20, null, TEST_PARENT_DOMAIN_URN.toString()
   );
 
   private static final ListDomainsInput TEST_INPUT_NO_PARENT_DOMAIN = new ListDomainsInput(
@@ -48,7 +47,7 @@ public class ListDomainsResolverTest {
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
         Mockito.eq(""),
-        Mockito.eq(QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, "urn:li:domain:test-id-parent", Condition.EQUAL))),
+        Mockito.eq(DomainUtils.buildParentDomainFilter(TEST_PARENT_DOMAIN_URN)),
         Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
         Mockito.eq(0),
         Mockito.eq(20),
@@ -86,7 +85,7 @@ public class ListDomainsResolverTest {
     Mockito.when(mockClient.search(
         Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
         Mockito.eq(""),
-        Mockito.eq(QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, "", Condition.IS_NULL))),
+        Mockito.eq(DomainUtils.buildParentDomainFilter(null)),
         Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
         Mockito.eq(0),
         Mockito.eq(20),

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
@@ -24,6 +25,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,10 +54,11 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
     return CompletableFuture.supplyAsync(() -> {
       // todo - implement parentDomain permissions
-
       if (!AuthorizationUtils.canCreateDomains(context)) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
+
+      DomainUtils.validateDomainName(input.getName(), parentDomain, context, _entityClient);
 
       try {
         // Create the Domain Key
