@@ -198,8 +198,8 @@ public class PoliciesConfig {
 
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
-      "Edit All",
-      "The ability to edit any information about an entity. Super user privileges.");
+      "Edit Entity",
+      "The ability to edit any information about an entity. Super user privileges for the entity.");
 
   public static final Privilege DELETE_ENTITY_PRIVILEGE = Privilege.of(
       "DELETE_ENTITY",
