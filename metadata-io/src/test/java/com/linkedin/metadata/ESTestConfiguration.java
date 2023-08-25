@@ -129,6 +129,18 @@ public class ESTestConfiguration {
                 .build();
     }
 
+    @Bean(name = "longTailBulkProcessor")
+    @Nonnull
+    public ESBulkProcessor getLongTailBulkProcessor(@Qualifier("elasticSearchRestHighLevelClient") RestHighLevelClient searchClient) {
+        return ESBulkProcessor.builder(searchClient)
+                .async(true)
+                .bulkRequestsLimit(100000)
+                .bulkFlushPeriod(REFRESH_INTERVAL_SECONDS - 1)
+                .retryInterval(10L)
+                .numRetries(20)
+                .build();
+    }
+
     @Primary
     @Bean(name = "elasticSearchIndexBuilder")
     @Nonnull

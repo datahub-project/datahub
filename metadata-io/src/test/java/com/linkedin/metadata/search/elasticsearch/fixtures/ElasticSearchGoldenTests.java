@@ -4,35 +4,51 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.resolvers.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.ESSampleDataFixture;
+import com.linkedin.metadata.ESLongTailFixture;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.MatchedFieldArray;
-import com.linkedin.metadata.search.SearchEntityArray;
-import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.*;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import org.apache.lucene.search.DoubleValuesSource;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.linkedin.metadata.ESTestConfiguration.syncAfterWrite;
 import static com.linkedin.metadata.ESTestUtils.*;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+
+import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.*;
 
-@Import(ESSampleDataFixture.class)
-public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
+@Import(ESLongTailFixture.class)
+public class ElasticSearchGoldenTests extends AbstractTestNGSpringContextTests {
 
     private static final List<String> SEARCHABLE_LONGTAIL_ENTITIES = Stream.of(EntityType.CHART, EntityType.CONTAINER,
                     EntityType.DASHBOARD, EntityType.DATASET, EntityType.DOMAIN, EntityType.TAG
             ).map(EntityTypeMapper::getName)
             .collect(Collectors.toList());
+
+    private static final Map<String, Long> entityDocCount = Map.of(
+            EntityTypeMapper.getName(EntityType.CHART), 223L,
+            EntityTypeMapper.getName(EntityType.CONTAINER), 70L,
+            EntityTypeMapper.getName(EntityType.DASHBOARD), 43L,
+            EntityTypeMapper.getName(EntityType.DATASET), 1898L,
+            EntityTypeMapper.getName(EntityType.DOMAIN), 4L,
+            EntityTypeMapper.getName(EntityType.TAG), 23L
+    );
+
     @Autowired
     private RestHighLevelClient _searchClient;
 
@@ -47,9 +63,35 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
     @Autowired
     private EntityRegistry entityRegistry;
 
-    @BeforeTest
-    public void setupTest() {
+    @Autowired
+    private ESBulkProcessor _bulkProcessor;
 
+    @Autowired
+    @Qualifier("longTailEntitySearchService")
+    private EntitySearchService _entitySearchService;
+
+//    @BeforeMethod
+//    public void setupTest() {
+//        for (String entity : SEARCHABLE_LONGTAIL_ENTITIES) {
+//            Long docCount = _entitySearchService.docCount(entity);
+//            entityDocCount.putIfAbsent(entity, docCount);
+//        }
+//    }
+
+    @BeforeMethod
+    public void setupMethod() throws Exception {
+        syncAfterWrite(_bulkProcessor);
+
+        System.out.println("entityDocCount: " + entityDocCount);
+        for (String entity : SEARCHABLE_LONGTAIL_ENTITIES) {
+            Long docCount = _entitySearchService.docCount(entity);
+            assertEquals(entityDocCount.get(entity), docCount);
+        }
+    }
+
+    @BeforeMethod
+    public void sync() throws Exception {
+        syncAfterWrite(_bulkProcessor);
     }
 
     @Test
@@ -59,6 +101,7 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
          */
         assertNotNull(searchService);
         assertNotNull(entityRegistry);
+
         SearchResult searchResult = searchAcrossCustomEntities(searchService, "pet profiles", SEARCHABLE_LONGTAIL_ENTITIES);
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
@@ -127,8 +170,8 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         Urn secondResultUrn = searchResult.getEntities().get(1).getEntity();
         System.out.println("secondResultUrn: " + secondResultUrn);
 
-        assertTrue(firstResultUrn.toString().contains("snowflake,long_tail_companions.analytics.pet_details"));
-        assertTrue(secondResultUrn.toString().contains("dbt,long_tail_companions.analytics.pet_details"));
+        assertTrue(firstResultUrn.toString().contains("long_tail_companions.analytics.pet_details"));
+        assertTrue(secondResultUrn.toString().contains("long_tail_companions.analytics.pet_details"));
     }
 
     @Test
@@ -169,6 +212,8 @@ public class ElasticSearchGoldenTest extends AbstractTestNGSpringContextTests {
         assertTrue(searchResult.getEntities().size() >= 2);
         Urn firstResultUrn = searchResult.getEntities().get(0).getEntity();
         System.out.println("firstResultUrn: " + firstResultUrn);
+
+        // firstResultUrn: urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD)
 
         // Checks that the table name is not suffixed with anything
         assertTrue(firstResultUrn.toString().contains("customer_orders,"));
