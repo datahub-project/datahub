@@ -33,6 +33,7 @@ query listDomains($input: ListDomainsInput!) {
         total
         domains {
             urn
+            parentDomain
             properties {
                 name
                 description

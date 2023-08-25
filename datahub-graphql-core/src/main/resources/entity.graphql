@@ -9648,6 +9648,11 @@ input CreateDomainInput {
   Optional description for the Domain
   """
   description: String
+
+  """
+  Optional parent domain urn for the domain
+  """
+  parentDomain: String
 }
 
 """
