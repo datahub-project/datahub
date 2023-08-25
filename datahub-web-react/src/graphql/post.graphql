@@ -20,3 +20,11 @@ query listPosts($input: ListPostsInput!) {
         }
     }
 }
+
+mutation createPost($input: CreatePostInput!) {
+    createPost(input: $input)
+}
+
+mutation deletePost($urn: String!) {
+    deletePost(urn: $urn)
+}
