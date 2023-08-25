@@ -33,11 +33,53 @@ public class ListDomainsResolverTest {
   private static final Urn TEST_DOMAIN_URN = Urn.createFromTuple("domain", "test-id");
 
   private static final ListDomainsInput TEST_INPUT = new ListDomainsInput(
+      0, 20, null, "urn:li:domain:test-id-parent"
+  );
+
+  private static final ListDomainsInput TEST_INPUT_NO_PARENT_DOMAIN = new ListDomainsInput(
       0, 20, null, null
   );
 
   @Test
   public void testGetSuccess() throws Exception {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+
+    Mockito.when(mockClient.search(
+        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+        Mockito.eq(""),
+        Mockito.eq(QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, "urn:li:domain:test-id-parent", Condition.EQUAL))),
+        Mockito.eq(new SortCriterion().setField(DOMAIN_CREATED_TIME_INDEX_FIELD_NAME).setOrder(SortOrder.DESCENDING)),
+        Mockito.eq(0),
+        Mockito.eq(20),
+        Mockito.any(Authentication.class),
+        Mockito.eq(new SearchFlags().setFulltext(true))
+    )).thenReturn(
+        new SearchResult()
+            .setFrom(0)
+            .setPageSize(1)
+            .setNumEntities(1)
+            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_DOMAIN_URN))))
+    );
+
+    ListDomainsResolver resolver = new ListDomainsResolver(mockClient);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Data Assertions
+    assertEquals((int) resolver.get(mockEnv).get().getStart(), 0);
+    assertEquals((int) resolver.get(mockEnv).get().getCount(), 1);
+    assertEquals((int) resolver.get(mockEnv).get().getTotal(), 1);
+    assertEquals(resolver.get(mockEnv).get().getDomains().size(), 1);
+    assertEquals(resolver.get(mockEnv).get().getDomains().get(0).getUrn(), TEST_DOMAIN_URN.toString());
+  }
+
+  @Test
+  public void testGetSuccessNoParentDomain() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
@@ -63,7 +105,7 @@ public class ListDomainsResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_NO_PARENT_DOMAIN);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     // Data Assertions
