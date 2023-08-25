@@ -87,7 +87,7 @@ public class OperationsController {
     return ResponseEntity.ok(j.toString());
   }
 
-  @GetMapping(path = "/getIndexSizes", produces=MediaType.APPLICATION_JSON_VALUE)
+  @GetMapping(path = "/getIndexSizes", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<String> getIndexSizes() {
     Authentication authentication = AuthenticationContext.getAuthentication();
     String actorUrnStr = authentication.getActor().toUrnStr();
