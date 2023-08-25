@@ -107,6 +107,14 @@ class AwsConnectionConfig(ConfigModel):
         default=None,
         description="A set of proxy configs to use with AWS. See the [botocore.config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html) docs for details.",
     )
+    aws_retry_num: int = Field(
+        default=5,
+        description="Number of times to retry failed AWS requests. See the [botocore.retry](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html) docs for details.",
+    )
+    aws_retry_mode: Literal["legacy", "standard", "adaptive"] = Field(
+        default="standard",
+        description="Retry mode to use for failed AWS requests. See the [botocore.retry](https://boto3.amazonaws.com/v1/documentation/api/latest/guide/retries.html) docs for details.",
+    )
 
     read_timeout: float = Field(
         default=DEFAULT_TIMEOUT,
@@ -199,6 +207,10 @@ class AwsConnectionConfig(ConfigModel):
         return Config(
             proxies=self.aws_proxy,
             read_timeout=self.read_timeout,
+            retries={
+                "max_attempts": self.aws_retry_num,
+                "mode": self.aws_retry_mode,
+            },
             **self.aws_advanced_config,
         )
 
