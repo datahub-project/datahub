@@ -27,10 +27,8 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,7 +36,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import com.linkedin.r2.RemoteInvocationException;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
@@ -50,7 +47,7 @@ import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
 @Slf4j
 public class DomainUtils {
   public static final String PARENT_DOMAIN_INDEX_FIELD_NAME = "parentDomain.keyword";
-  public static final String NAME_INDEX_FIELD_NAME = "name.keyword";
+  public static final String NAME_INDEX_FIELD_NAME = "name";
 
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
       PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
@@ -164,7 +161,7 @@ public class DomainUtils {
     }
   }
 
-  public static void validateDomainName(
+  public static boolean hasNameConflict(
       @Nonnull final String name,
       @Nullable final Urn parentDomainUrn,
       @Nonnull final QueryContext context,
@@ -173,14 +170,13 @@ public class DomainUtils {
     final Map<Urn, EntityResponse> entities = getDomainsByNameAndParent(name, parentDomainUrn, context, entityClient);
 
     // Even though we searched by name, do one more pass to check the name is unique
-    entities.forEach((urn, entityResponse) -> {
+    return entities.values().stream().anyMatch(entityResponse -> {
       if (entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
         DataMap dataMap = entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data();
         DomainProperties domainProperties = new DomainProperties(dataMap);
-        if (domainProperties.hasName() && domainProperties.getName().equals(name)) {
-          throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain");
-        }
+        return (domainProperties.hasName() && domainProperties.getName().equals(name));
       }
+      return false;
     });
   }
 }

@@ -58,8 +58,6 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
 
-      DomainUtils.validateDomainName(input.getName(), parentDomain, context, _entityClient);
-
       try {
         // Create the Domain Key
         final DomainKey key = new DomainKey();
@@ -70,6 +68,15 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
         if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME), context.getAuthentication())) {
           throw new IllegalArgumentException("This Domain already exists!");
+        }
+
+        if (parentDomain != null && !_entityClient.exists(parentDomain, context.getAuthentication())) {
+          throw new IllegalArgumentException("Parent Domain does not exist!");
+        }
+
+        // todo - I'm unsure if we actually need this if we have the above check for globally unique domain urn...
+        if (DomainUtils.hasNameConflict(input.getName(), parentDomain, context, _entityClient)) {
+          throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain!");
         }
 
         // Create the MCP

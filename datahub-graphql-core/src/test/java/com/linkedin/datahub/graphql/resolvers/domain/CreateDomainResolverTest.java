@@ -1,11 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.datahub.authentication.Authentication;
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -18,9 +16,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DomainKey;
-import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -43,6 +38,7 @@ import static org.testng.Assert.*;
 
 public class CreateDomainResolverTest {
 
+  private static final Urn TEST_DOMAIN_URN = Urn.createFromTuple("domain", "test-id");
   private static final Urn TEST_PARENT_DOMAIN_URN = Urn.createFromTuple("domain", "test-parent-id");
 
   private static final CreateDomainInput TEST_INPUT = new CreateDomainInput(
@@ -68,6 +64,16 @@ public class CreateDomainResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
+
+    Mockito.when(mockClient.exists(
+        Mockito.eq(TEST_DOMAIN_URN),
+        Mockito.any(Authentication.class)
+    )).thenReturn(false);
+
+    Mockito.when(mockClient.exists(
+        Mockito.eq(TEST_PARENT_DOMAIN_URN),
+        Mockito.any(Authentication.class)
+    )).thenReturn(true);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -121,6 +127,11 @@ public class CreateDomainResolverTest {
     EntityService mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
+    Mockito.when(mockClient.exists(
+        Mockito.eq(TEST_DOMAIN_URN),
+        Mockito.any(Authentication.class)
+    )).thenReturn(false);
+
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT_NO_PARENT_DOMAIN);
@@ -158,10 +169,55 @@ public class CreateDomainResolverTest {
   }
 
   @Test
+  public void testGetInvalidParent() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService mockService = Mockito.mock(EntityService.class);
+    CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
+
+    Mockito.when(mockClient.exists(
+        Mockito.eq(UrnUtils.getUrn("urn:li:domain:test-id")),
+        Mockito.any(Authentication.class)
+    )).thenReturn(false);
+
+    Mockito.when(mockClient.exists(
+        Mockito.eq(TEST_PARENT_DOMAIN_URN),
+        Mockito.any(Authentication.class)
+    )).thenReturn(false);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    Mockito.when(mockClient.filter(
+        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
+        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
+        Mockito.eq(null),
+        Mockito.any(Integer.class),
+        Mockito.any(Integer.class),
+        Mockito.any(Authentication.class)
+    )).thenReturn(new SearchResult().setEntities(
+        new SearchEntityArray(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:domain:test-id")))
+    ));
+
+    Mockito.when(resolver.get(mockEnv)).thenThrow(new IllegalArgumentException("Parent Domain does not exist!"));
+  }
+
+  @Test
   public void testGetNameConflict() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService mockService = Mockito.mock(EntityService.class);
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
+
+    Mockito.when(mockClient.exists(
+        Mockito.eq(TEST_DOMAIN_URN),
+        Mockito.any(Authentication.class)
+    )).thenReturn(false);
+
+    Mockito.when(mockClient.exists(
+        Mockito.eq(TEST_PARENT_DOMAIN_URN),
+        Mockito.any(Authentication.class)
+    )).thenReturn(true);
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -200,7 +256,9 @@ public class CreateDomainResolverTest {
         Mockito.any(Authentication.class)
     )).thenReturn(entityResponseMap);
 
-    Mockito.when(resolver.get(mockEnv)).thenThrow(IllegalArgumentException.class);
+    Mockito.when(resolver.get(mockEnv)).thenThrow(
+        new IllegalArgumentException("Domain with this name already exists at this level of the Domain!")
+    );
   }
 
   @Test
