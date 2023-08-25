@@ -6,9 +6,10 @@ import DomainsTitle from './DomainsTitle';
 import RootDomains from './RootDomains';
 import { DOMAINS_CREATE_DOMAIN_ID, DOMAINS_INTRO_ID } from '../../onboarding/config/DomainsOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const PageWrapper = styled.div`
-    background-color: #f8f9fa;
+    background-color: ${ANTD_GRAY_V2[1]};
     flex: 1;
     display: flex;
     flex-direction: column;

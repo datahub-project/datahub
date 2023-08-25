@@ -26,6 +26,7 @@ import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
 import SearchSortSelect from './sorting/SearchSortSelect';
 import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
+import { ANTD_GRAY_V2 } from '../entity/shared/constants';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -54,7 +55,7 @@ const ResultContainer = styled.div<{ v2Styles: boolean }>`
             ? `
         display: flex;
         flex-direction: column;
-        background-color: #F8F9FA;
+        background-color: ${ANTD_GRAY_V2[1]};
     `
             : `
         max-width: calc(100% - 260px);
