@@ -94,6 +94,7 @@
       "doc" : "Title of the chart",
       "Searchable" : {
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1326,6 +1327,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1471,6 +1473,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1530,6 +1533,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1922,6 +1926,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : false,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       },
       "validate" : {
@@ -2111,6 +2116,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -2437,6 +2443,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2585,6 +2592,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -3704,6 +3712,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -4302,6 +4311,7 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4390,6 +4400,7 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4484,6 +4495,7 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4590,6 +4602,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -4696,6 +4709,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -4796,6 +4810,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -4879,6 +4894,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -5096,6 +5112,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -5710,6 +5727,12 @@
       "doc" : "Whether to skip aggregates/facets",
       "default" : false,
       "optional" : true
+    }, {
+      "name" : "getSuggestions",
+      "type" : "boolean",
+      "doc" : "Whether to request for search suggestions on the _entityName virtualized field",
+      "default" : false,
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6081,6 +6104,31 @@
           },
           "doc" : "A list of search result metadata such as aggregations",
           "default" : [ ]
+        }, {
+          "name" : "suggestions",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "SearchSuggestion",
+              "doc" : "The model for the search result",
+              "fields" : [ {
+                "name" : "text",
+                "type" : "string",
+                "doc" : "The suggestion text for this search query"
+              }, {
+                "name" : "score",
+                "type" : "float",
+                "doc" : "The score for how close this suggestion is to the original search query.\nThe closer to 1 means it is closer to the original query and 0 is further away."
+              }, {
+                "name" : "frequency",
+                "type" : "long",
+                "doc" : "How many matches there are with the suggested text for the given field"
+              } ]
+            }
+          },
+          "doc" : "A list of search query suggestions based on the given query",
+          "default" : [ ]
         } ]
       },
       "doc" : "Metadata specific to the browse result of the queried path"
@@ -6187,7 +6235,7 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataHubRetentionSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.search.SearchSuggestion", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataHubRetentionSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
     "type" : "record",
     "name" : "SystemMetadata",
     "namespace" : "com.linkedin.mxe",
