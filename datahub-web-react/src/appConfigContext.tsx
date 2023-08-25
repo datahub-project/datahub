@@ -45,7 +45,7 @@ export const DEFAULT_APP_CONFIG = {
         showSearchFiltersV2: true,
         showBrowseV2: true,
         showAcrylInfo: false,
-        nestedDomainsEnabled: false,
+        nestedDomainsEnabled: true,
     },
 };
 

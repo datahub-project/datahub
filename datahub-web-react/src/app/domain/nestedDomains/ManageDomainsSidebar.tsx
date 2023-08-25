@@ -1,20 +1,16 @@
 import React, { useState } from 'react';
-import GlossarySearch from './GlossarySearch';
-import GlossaryBrowser from './GlossaryBrowser/GlossaryBrowser';
-import { ProfileSidebarResizer } from '../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import { SidebarWrapper } from '../shared/sidebar/components';
+import { MAX_BROWSER_WIDTH, MIN_BROWSWER_WIDTH } from '../../glossary/BusinessGlossaryPage';
+import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import DomainsSidebarHeader from './DomainsSidebarHeader';
+import { SidebarWrapper } from '../../shared/sidebar/components';
 
-export const MAX_BROWSER_WIDTH = 500;
-export const MIN_BROWSWER_WIDTH = 200;
-
-export default function GlossarySidebar() {
+export default function ManageDomainsSidebar() {
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
 
     return (
         <>
             <SidebarWrapper width={browserWidth}>
-                <GlossarySearch />
-                <GlossaryBrowser openToEntity />
+                <DomainsSidebarHeader />
             </SidebarWrapper>
             <ProfileSidebarResizer
                 setSidePanelWidth={(width) =>
