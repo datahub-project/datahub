@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +63,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
         final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
         final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
         final Urn parentDomainUrn = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
-        final Filter filter = buildParentDomainFilter(parentDomainUrn);
+        final Filter filter = parentDomainUrn != null ? buildParentDomainFilter(parentDomainUrn) : buildNoParentDomainFilter();
 
         try {
           // First, get all domain Urns.
@@ -105,11 +106,11 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
     return results;
   }
 
-  private Filter buildParentDomainFilter(@Nullable final Urn parentDomainUrn) {
-    return parentDomainUrn != null ? (
-        QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, parentDomainUrn.toString(), Condition.EQUAL))
-    ) : (
-        QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, "", Condition.IS_NULL))
-    );
+  private Filter buildParentDomainFilter(@Nonnull final Urn parentDomainUrn) {
+    return QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, parentDomainUrn.toString(), Condition.EQUAL));
+  }
+
+  private Filter buildNoParentDomainFilter() {
+    return QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, "", Condition.IS_NULL));
   }
 }
