@@ -50,6 +50,7 @@ from datahub.ingestion.source.sql.sql_types import (
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
     FineGrainedLineageDownstreamType,
@@ -91,6 +92,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
+
+CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.looker.lookml_source import (
@@ -894,6 +897,7 @@ class LookerExplore:
         if self.upstream_views is not None:
             assert self.project_name is not None
             upstreams = []
+            observed_lineage_ts = datetime.datetime.now(tz=datetime.timezone.utc)
             for view_ref in sorted(self.upstream_views):
                 # set file_path to ViewFieldType.UNKNOWN if file_path is not available to keep backward compatibility
                 # if we raise error on file_path equal to None then existing test-cases will fail as mock data doesn't have required attributes.
@@ -915,6 +919,10 @@ class LookerExplore:
                     UpstreamClass(
                         dataset=view_urn,
                         type=DatasetLineageTypeClass.VIEW,
+                        auditStamp=AuditStamp(
+                            time=int(observed_lineage_ts.timestamp() * 1000),
+                            actor=CORPUSER_DATAHUB,
+                        ),
                     )
                 )
                 view_name_to_urn_map[view_ref.include] = view_urn
