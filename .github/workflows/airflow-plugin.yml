@@ -58,7 +58,7 @@ jobs:
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && pip freeze
       - uses: actions/upload-artifact@v3
         with:
-          name: Test Results (Airflow Plugin ${{ matrix.python-version }})
+          name: Test Results (Airflow Plugin ${{ matrix.python-version }} ${{ matrix.extraPythonRequirement }})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**

@@ -22,6 +22,8 @@ from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 assert AIRFLOW_PATCHED
 
+# TODO: Remove default_view="tree" arg. Figure out why is default_view being picked as "grid" and how to fix it ?
+
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
 
@@ -72,8 +74,7 @@ def test_airflow_provider_info():
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
-        pytestconfig.rootpath
-        / "../../metadata-ingestion/src/datahub_provider/example_dags"
+        pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.
@@ -231,7 +232,11 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         func = mock.Mock()
         func.__name__ = "foo"
 
-        dag = DAG(dag_id="test_lineage_is_sent_to_backend", start_date=DEFAULT_DATE)
+        dag = DAG(
+            dag_id="test_lineage_is_sent_to_backend",
+            start_date=DEFAULT_DATE,
+            default_view="tree",
+        )
 
         with dag:
             op1 = EmptyOperator(

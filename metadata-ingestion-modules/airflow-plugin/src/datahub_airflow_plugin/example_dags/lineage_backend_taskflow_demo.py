@@ -8,7 +8,7 @@ from datetime import timedelta
 from airflow.decorators import dag, task
 from airflow.utils.dates import days_ago
 
-from datahub_provider.entities import Dataset, Urn
+from datahub_airflow_plugin.entities import Dataset, Urn
 
 default_args = {
     "owner": "airflow",
@@ -26,6 +26,7 @@ default_args = {
     start_date=days_ago(2),
     tags=["example_tag"],
     catchup=False,
+    default_view="tree",
 )
 def datahub_lineage_backend_taskflow_demo():
     @task(
