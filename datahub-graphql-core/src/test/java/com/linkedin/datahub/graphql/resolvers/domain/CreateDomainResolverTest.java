@@ -29,7 +29,8 @@ public class CreateDomainResolverTest {
   private static final CreateDomainInput TEST_INPUT = new CreateDomainInput(
       "test-id",
       "test-name",
-      "test-description"
+      "test-description",
+      null
   );
   private static final Urn TEST_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:test");
   private static final String TEST_ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";

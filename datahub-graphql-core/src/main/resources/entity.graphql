@@ -9648,6 +9648,11 @@ input CreateDomainInput {
   Optional description for the Domain
   """
   description: String
+
+  """
+  Optional parent domain urn for the domain
+  """
+  parentDomain: String
 }
 
 """
@@ -9668,6 +9673,11 @@ input ListDomainsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional parent domain
+  """
+  parentDomain: String
 }
 
 """

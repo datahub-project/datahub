@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -19,6 +20,8 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +48,10 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
     final QueryContext context = environment.getContext();
     final CreateDomainInput input = bindArgument(environment.getArgument("input"), CreateDomainInput.class);
+    final Urn parentDomain = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
+      // todo - implement parentDomain permissions
 
       if (!AuthorizationUtils.canCreateDomains(context)) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
@@ -89,6 +94,13 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     result.setName(input.getName());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
     result.setCreated(new AuditStamp().setActor(UrnUtils.getUrn(context.getActorUrn())).setTime(System.currentTimeMillis()));
+    if (input.getParentDomain() != null) {
+      try {
+        result.setParentDomain(Urn.createFromString(input.getParentDomain()));
+      } catch (URISyntaxException e) {
+        throw new RuntimeException(String.format("Failed to create Domain Urn from string: %s", input.getParentDomain()), e);
+      }
+    }
     return result;
   }
 }
