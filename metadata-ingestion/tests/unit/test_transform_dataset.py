@@ -590,7 +590,6 @@ def test_mark_status_dataset(tmp_path):
 
 
 def test_extract_owners_from_tags():
-    # TODO Implement this
     dataset = make_generic_dataset(
         aspects=[models.GlobalTagsClass(tags=["urn:li:tag:owner:foo"])]
     )
@@ -604,11 +603,13 @@ def test_extract_owners_from_tags():
         transformer.transform(
             [
                 RecordEnvelope(dataset, metadata={}),
-                RecordEnvelope(EndOfStream(), metadata={}),
             ]
         )
     )
-    owners_aspect = transformed[1].record.aspect
+    for item in transformed:
+        print(item)
+    # TODO Implement this after figuring what is the correct approach currently
+    owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
     assert owners_aspect
     print(owners_aspect)
     assert owners_aspect is None
