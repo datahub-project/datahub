@@ -175,7 +175,7 @@ public class CreateDomainResolverTest {
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     Mockito.when(mockClient.exists(
-        Mockito.eq(UrnUtils.getUrn("urn:li:domain:test-id")),
+        Mockito.eq(TEST_DOMAIN_URN),
         Mockito.any(Authentication.class)
     )).thenReturn(false);
 
@@ -197,7 +197,7 @@ public class CreateDomainResolverTest {
         Mockito.any(Integer.class),
         Mockito.any(Authentication.class)
     )).thenReturn(new SearchResult().setEntities(
-        new SearchEntityArray(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:domain:test-id")))
+        new SearchEntityArray(new SearchEntity().setEntity(TEST_DOMAIN_URN))
     ));
 
     Mockito.when(resolver.get(mockEnv)).thenThrow(new IllegalArgumentException("Parent Domain does not exist!"));
@@ -232,7 +232,7 @@ public class CreateDomainResolverTest {
         Mockito.any(Integer.class),
         Mockito.any(Authentication.class)
     )).thenReturn(new SearchResult().setEntities(
-        new SearchEntityArray(new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:domain:test-id")))
+        new SearchEntityArray(new SearchEntity().setEntity(TEST_DOMAIN_URN))
     ));
 
     DomainProperties domainProperties = new DomainProperties();
@@ -247,7 +247,7 @@ public class CreateDomainResolverTest {
     entityResponse.setAspects(envelopedAspectMap);
 
     Map<Urn, EntityResponse> entityResponseMap = new HashMap<>();
-    entityResponseMap.put(UrnUtils.getUrn("urn:li:domain:test-id"), entityResponse);
+    entityResponseMap.put(TEST_DOMAIN_URN, entityResponse);
 
     Mockito.when(mockClient.batchGetV2(
         Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
