@@ -51,6 +51,7 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
     final Urn parentDomain = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
+      // todo - implement parentDomain permissions
 
       if (!AuthorizationUtils.canCreateDomains(context)) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");

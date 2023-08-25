@@ -55,6 +55,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(() -> {
+      // todo - implement parentDomain permissions
 
       if (AuthorizationUtils.canCreateDomains(context)) {
         final ListDomainsInput input = bindArgument(environment.getArgument("input"), ListDomainsInput.class);
