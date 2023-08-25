@@ -28,4 +28,9 @@ record SearchFlags {
    * Whether to skip aggregates/facets
    */
   skipAggregates:optional boolean = false
+
+  /**
+   * Whether to request for search suggestions on the _entityName virtualized field
+   */
+  getSuggestions:optional boolean = false
 }

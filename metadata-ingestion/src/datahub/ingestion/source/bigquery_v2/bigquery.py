@@ -429,7 +429,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     ) -> MetadataWorkUnit:
         aspect = DataPlatformInstanceClass(
             platform=make_data_platform_urn(self.platform),
-            instance=make_dataplatform_instance_urn(self.platform, project_id),
+            instance=make_dataplatform_instance_urn(self.platform, project_id)
+            if self.config.include_data_platform_instance
+            else None,
         )
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=aspect
