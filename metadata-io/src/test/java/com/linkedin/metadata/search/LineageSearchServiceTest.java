@@ -1,7 +1,5 @@
 package com.linkedin.metadata.search;
 
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -53,7 +51,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
