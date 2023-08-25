@@ -74,7 +74,6 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
           throw new IllegalArgumentException("Parent Domain does not exist!");
         }
 
-        // todo - I'm unsure if we actually need this if we have the above check for globally unique domain urn...
         if (DomainUtils.hasNameConflict(input.getName(), parentDomain, context, _entityClient)) {
           throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain!");
         }
