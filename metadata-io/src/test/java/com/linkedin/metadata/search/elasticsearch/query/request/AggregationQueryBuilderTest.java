@@ -31,7 +31,8 @@ public class AggregationQueryBuilderTest {
         1.0,
         Optional.of("hasTest"),
         Optional.empty(),
-        Collections.emptyMap()
+        Collections.emptyMap(),
+        Collections.emptyList()
     );
 
     SearchConfiguration config = new SearchConfiguration();
@@ -60,7 +61,8 @@ public class AggregationQueryBuilderTest {
         1.0,
         Optional.empty(),
         Optional.empty(),
-        Collections.emptyMap()
+        Collections.emptyMap(),
+        Collections.emptyList()
     );
 
     SearchConfiguration config = new SearchConfiguration();
@@ -89,7 +91,8 @@ public class AggregationQueryBuilderTest {
         1.0,
         Optional.of("hasTest1"),
         Optional.empty(),
-        Collections.emptyMap()
+        Collections.emptyMap(),
+        Collections.emptyList()
     );
 
     SearchableAnnotation annotation2 = new SearchableAnnotation(
@@ -104,7 +107,8 @@ public class AggregationQueryBuilderTest {
         1.0,
         Optional.empty(),
         Optional.empty(),
-        Collections.emptyMap()
+        Collections.emptyMap(),
+        Collections.emptyList()
     );
 
     SearchConfiguration config = new SearchConfiguration();
