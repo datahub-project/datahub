@@ -125,9 +125,12 @@ class LookerViewId:
         return v
 
     def get_urn(self, config: LookerCommonConfig) -> str:
-        dataset_name = config.view_naming_pattern.replace_variables(
-            self.get_mapping(config)
-        )
+        n_mapping: NamingPatternMapping = self.get_mapping(config)
+        # / is not urn friendly
+        if n_mapping.file_path is not None:  # to silent the lint
+            n_mapping.file_path = n_mapping.file_path.replace("/", "_")
+
+        dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,

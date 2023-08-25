@@ -1068,7 +1068,14 @@ class LookerView:
         cls, base_folder_path: str, absolute_file_path: str
     ) -> str:
 
-        file_path: str = absolute_file_path.split(base_folder_path, 1)[1]
+        splits: List[str] = absolute_file_path.split(base_folder_path, 1)
+        if len(splits) != 2:
+            logger.debug(
+                f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
+            )
+            return ViewFieldType.UNKNOWN.value
+
+        file_path: str = splits[1]
         logger.debug(f"file_path={file_path}")
 
         return file_path.strip(
