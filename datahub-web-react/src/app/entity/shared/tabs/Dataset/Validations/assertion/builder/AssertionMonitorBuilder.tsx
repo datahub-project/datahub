@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Form, Steps } from 'antd';
 import { AssertionMonitorBuilderState, StepProps, AssertionBuilderStep } from './types';
-import { AssertionBuilderStepTitles, AssertionsBuilderStepComponent } from './conf';
+import { AssertionBuilderStepTitles, getAssertionsBuilderStepComponent } from './conf';
 import { DEFAULT_BUILDER_STATE } from './constants';
-import { EntityType, Monitor, Assertion } from '../../../../../../../../types.generated';
+import { EntityType, Monitor, Assertion, AssertionType } from '../../../../../../../../types.generated';
 import { useCreateAssertionMonitor } from './useCreateAssertionMonitor';
 
 const Container = styled.div`
@@ -49,6 +49,7 @@ export const AssertionMonitorBuilder = ({
     onCancel,
 }: Props) => {
     const [form] = Form.useForm();
+    const [assertionType, setAssertionType] = useState(AssertionType.Freshness);
     const [stepStack, setStepStack] = useState<AssertionBuilderStep[]>([AssertionBuilderStep.SELECT_TYPE]);
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(
         initialState || { ...DEFAULT_BUILDER_STATE, entityUrn, entityType, platformUrn },
@@ -72,7 +73,7 @@ export const AssertionMonitorBuilder = ({
     /**
      * The current step component
      */
-    const StepComponent: React.FC<StepProps> = AssertionsBuilderStepComponent[currentStep];
+    const StepComponent: React.FC<StepProps> = getAssertionsBuilderStepComponent(currentStep, assertionType);
 
     const validateForm = async () => {
         try {
@@ -84,11 +85,12 @@ export const AssertionMonitorBuilder = ({
         }
     };
 
-    const goTo = async (step: AssertionBuilderStep, shouldValidate = true) => {
+    const goTo = async (step: AssertionBuilderStep, type?: AssertionType, shouldValidate = true) => {
         if (shouldValidate) {
             const isValid = await validateForm();
             if (!isValid) return;
         }
+        if (type) setAssertionType(type);
         setStepStack([...stepStack, step]);
     };
 

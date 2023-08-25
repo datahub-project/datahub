@@ -13,6 +13,19 @@ logger = logging.getLogger(__name__)
 # We allow Pydantic to handle most of the mapping for us.
 
 
+class AssertionStdOperator(Enum):
+    GREATER_THAN = "GREATER_THAN"
+    GREATER_THAN_OR_EQUAL_TO = "GREATER_THAN_OR_EQUAL_TO"
+    EQUAL_TO = "EQUAL_TO"
+    LESS_THAN = "LESS_THAN"
+    LESS_THAN_OR_EQUAL_TO = "LESS_THAN_OR_EQUAL_TO"
+    BETWEEN = "BETWEEN"
+
+
+class AssertionStdParameterType(Enum):
+    NUMBER = "NUMBER"
+
+
 class MonitorType(Enum):
     """Enumeration of monitor types."""
 
@@ -24,6 +37,7 @@ class AssertionType(Enum):
 
     DATASET = "DATASET"
     FRESHNESS = "FRESHNESS"
+    VOLUME = "VOLUME"
 
 
 class AssertionResultErrorType(Enum):
@@ -41,6 +55,15 @@ class FreshnessAssertionType(Enum):
     """Enumeration of freshness assertion types."""
 
     DATASET_CHANGE = "DATASET_CHANGE"
+
+
+class VolumeAssertionType(Enum):
+    """Enumeration of volume assertion types."""
+
+    ROW_COUNT_TOTAL = "ROW_COUNT_TOTAL"
+    ROW_COUNT_CHANGE = "ROW_COUNT_CHANGE"
+    INCREMENTING_SEGMENT_ROW_COUNT_TOTAL = "INCREMENTING_SEGMENT_ROW_COUNT_TOTAL"
+    INCREMENTING_SEGMENT_ROW_COUNT_CHANGE = "INCREMENTING_SEGMENT_ROW_COUNT_CHANGE"
 
 
 class FreshnessAssertionScheduleType(Enum):
@@ -103,6 +126,17 @@ class DatasetFreshnessSourceType(Enum):
     AUDIT_LOG = "AUDIT_LOG"
 
 
+class DatasetVolumeSourceType(Enum):
+    # Determine that a change has occurred by inspecting an information schema table, or other system metadata table.
+    INFORMATION_SCHEMA = "INFORMATION_SCHEMA"
+
+    # Determine the row count using a COUNT(*) query
+    QUERY = "QUERY"
+
+    # Determine the row count using the DataHub Dataset Profile aspect
+    DATAHUB_DATASET_PROFILE = "DATAHUB_DATASET_PROFILE"
+
+
 class EntityEventType(Enum):
     """Enumeration of Entity Events that we support retrieving using a particular connection"""
 
@@ -126,6 +160,7 @@ class AssertionEvaluationParametersType(Enum):
     """Enumeration of evaluation parameter types for an assertion"""
 
     DATASET_FRESHNESS = "DATASET_FRESHNESS"
+    DATASET_VOLUME = "DATASET_VOLUME"
 
 
 class FreshnessFieldKind(Enum):
@@ -136,6 +171,24 @@ class FreshnessFieldKind(Enum):
 class MonitorMode(Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+
+
+class AssertionValueChangeType(Enum):
+    ABSOLUTE = "ABSOLUTE"
+    PERCENTAGE = "PERCENTAGE"
+
+
+class IncrementingSegmentFieldTransformerType(Enum):
+    """The 'standard' transformer type. Note that not all source systems will support all operators."""
+
+    TIMESTAMP_MS_TO_MINUTE = "TIMESTAMP_MS_TO_MINUTE"
+    TIMESTAMP_MS_TO_HOUR = "TIMESTAMP_MS_TO_HOUR"
+    TIMESTAMP_MS_TO_DATE = "TIMESTAMP_MS_TO_DATE"
+    TIMESTAMP_MS_TO_MONTH = "TIMESTAMP_MS_TO_MONTH"
+    TIMESTAMP_MS_TO_YEAR = "TIMESTAMP_MS_TO_YEAR"
+    FLOOR = "FLOOR"
+    CEILING = "CEILING"
+    NATIVE = "NATIVE"
 
 
 class CronSchedule(PermissiveBaseModel):
@@ -218,12 +271,134 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
     audit_log: Optional[AuditLogSpec] = Field(alias="auditLog")
 
 
+class DatasetVolumeAssertionParameters(PermissiveBaseModel):
+    source_type: DatasetVolumeSourceType = Field(alias="sourceType")
+
+
 class FreshnessAssertion(PermissiveBaseModel):
     """The type of the FRESHNESS Assertion"""
 
     type: FreshnessAssertionType
 
     schedule: FreshnessAssertionSchedule
+
+    filter: Optional[DatasetFilter] = None
+
+
+class AssertionStdParameter(PermissiveBaseModel):
+    # The parameter value
+    value: str
+
+    # The type of the parameter
+    type: AssertionStdParameterType
+
+
+class AssertionStdParameters(PermissiveBaseModel):
+    # The value parameter of an assertion
+    value: Optional[AssertionStdParameter]
+
+    # The maxValue parameter of an assertion
+    max_value: Optional[AssertionStdParameter] = Field(alias="maxValue")
+
+    # The minValue parameter of an assertion
+    min_value: Optional[AssertionStdParameter] = Field(alias="minValue")
+
+
+class RowCountTotal(PermissiveBaseModel):
+    """Attributes defining an ROW_COUNT_TOTAL volume assertion."""
+
+    # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
+    operator: AssertionStdOperator
+
+    # The parameters provided as input to the operator.
+    parameters: AssertionStdParameters
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class RowCountChange(PermissiveBaseModel):
+    """Attributes defining an ROW_COUNT_CHANGE volume assertion."""
+
+    # The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+    type: AssertionValueChangeType
+
+    # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
+    operator: AssertionStdOperator
+
+    # The parameters provided as input to the operator.
+    parameters: AssertionStdParameters
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class IncrementingSegmentFieldTransformer(PermissiveBaseModel):
+    """
+    The definition of the transformer function that should be applied to a given field / column value in a dataset
+    in order to determine the segment or bucket that it belongs to, which in turn is used to evaluate
+    volume assertions.
+    """
+
+    # The 'standard' operator type. Note that not all source systems will support all operators.
+    type: IncrementingSegmentFieldTransformerType
+
+    # The 'native' transformer type, useful as a back door if a custom transformer is required.
+    native_type: Optional[str] = Field(alias="nativeType")
+
+
+class IncrementingSegmentSpec(PermissiveBaseModel):
+    """Core attributes required to identify an incrementing segment in a table."""
+
+    # The field to use to generate segments. It must be constantly incrementing as new rows are inserted.
+    field: SchemaFieldSpec
+
+    # Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
+    transformer: Optional[IncrementingSegmentFieldTransformer]
+
+
+class IncrementingSegmentRowCountTotal(PermissiveBaseModel):
+    segment: IncrementingSegmentSpec
+
+    # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
+    operator: AssertionStdOperator
+
+    # The parameters provided as input to the operator.
+    parameters: AssertionStdParameters
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class IncrementingSegmentRowCountChange(PermissiveBaseModel):
+    segment: IncrementingSegmentSpec
+
+    type: AssertionValueChangeType
+
+    # The operator GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, etc being applied to the assertion
+    operator: AssertionStdOperator
+
+    # The parameters provided as input to the operator.
+    parameters: AssertionStdParameters
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class VolumeAssertion(PermissiveBaseModel):
+    type: VolumeAssertionType
+
+    row_count_total: Optional[RowCountTotal] = Field(alias="rowCountTotal")
+
+    row_count_change: Optional[RowCountChange] = Field(alias="rowCountChange")
+
+    incrementing_row_count_total: Optional[IncrementingSegmentRowCountTotal] = Field(
+        alias="incrementingSegmentRowCountTotal"
+    )
+
+    incrementing_row_count_change: Optional[IncrementingSegmentRowCountChange] = Field(
+        alias="incrementingSegmentRowCountChange"
+    )
 
     filter: Optional[DatasetFilter] = None
 
@@ -340,6 +515,9 @@ class Assertion(PermissiveBaseModel):
         alias="freshnessAssertion"
     )
 
+    # Volume Assertion Object
+    volume_assertion: Optional[VolumeAssertion] = Field(alias="volumeAssertion")
+
     @root_validator(pre=True)
     def extract(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         # Attempt to extract the entity field from the "relationships"
@@ -379,14 +557,29 @@ class Assertion(PermissiveBaseModel):
                 "table_name": table_name,
                 "qualified_name": qualified_name,
             }
+
         if "connectionUrn" not in values:
             graphql_entity = values["relationships"]["relationships"][0]["entity"]
             platform_urn = graphql_entity["platform"]["urn"]
             values["connectionUrn"] = platform_urn
+
         if "info" in values and "type" in values["info"]:
             values["type"] = values["info"]["type"]
-        if "freshnessAssertion" not in values:
+
+        if (
+            "freshnessAssertion" not in values
+            and "info" in values
+            and "freshnessAssertion" in values["info"]
+        ):
             values["freshnessAssertion"] = values["info"]["freshnessAssertion"]
+
+        if (
+            "volumeAssertion" not in values
+            and "info" in values
+            and "volumeAssertion" in values["info"]
+        ):
+            values["volumeAssertion"] = values["info"]["volumeAssertion"]
+
         return values
 
 
@@ -397,6 +590,11 @@ class AssertionEvaluationParameters(PermissiveBaseModel):
     # Dataset FRESHNESS Parameters. Present if the type is DATASET_FRESHNESS
     dataset_freshness_parameters: Optional[DatasetFreshnessAssertionParameters] = Field(
         alias="datasetFreshnessParameters"
+    )
+
+    # Dataset VOLUME Parameters. Present if the type is DATASET_VOLUME
+    dataset_volume_parameters: Optional[DatasetVolumeAssertionParameters] = Field(
+        alias="datasetVolumeParameters"
     )
 
 

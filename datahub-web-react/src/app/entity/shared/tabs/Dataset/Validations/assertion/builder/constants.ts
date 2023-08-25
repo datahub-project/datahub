@@ -5,6 +5,7 @@ import {
     SchemaFieldDataType,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
+    VolumeAssertionType,
 } from '../../../../../../../../types.generated';
 
 // Every 6 hours.
@@ -38,6 +39,7 @@ export const DEFAULT_BUILDER_STATE = {
     assertion: {
         type: null,
         freshnessAssertion: null,
+        volumeAssertion: null,
         actions: null,
     },
     schedule: {
@@ -57,6 +59,11 @@ export const DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE = {
             multiple: 6,
         },
     },
+};
+
+// Default assertion definition used when the selected type is Volume.
+export const DEFAULT_DATASET_VOLUME_ASSERTION_STATE = {
+    type: VolumeAssertionType.RowCountTotal,
 };
 
 // Default state used to initialize the Assertion Actions Builder.

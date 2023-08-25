@@ -8,6 +8,9 @@ from datahub_monitors.assertion.engine.engine import AssertionEngine
 from datahub_monitors.assertion.engine.evaluator.freshness_evaluator import (
     FreshnessAssertionEvaluator,
 )
+from datahub_monitors.assertion.engine.evaluator.volume_evaluator import (
+    VolumeAssertionEvaluator,
+)
 from datahub_monitors.assertion.result.assertion_run_event_handler import (
     AssertionRunEventResultHandler,
 )
@@ -56,6 +59,11 @@ def start_async_monitors(config: MonitorFetcherConfig) -> None:
         # Create assertion evaluators
         evaluators = [
             FreshnessAssertionEvaluator(
+                DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
+                state_provider,
+                SourceProvider(),
+            ),
+            VolumeAssertionEvaluator(
                 DataHubIngestionSourceConnectionProvider(graph, [datahub_secret_store]),
                 state_provider,
                 SourceProvider(),

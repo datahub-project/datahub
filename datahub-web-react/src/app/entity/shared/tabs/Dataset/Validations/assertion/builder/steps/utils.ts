@@ -1,4 +1,4 @@
-import { AssertionActionType } from '../../../../../../../../../types.generated';
+import { AssertionActionType, AssertionType } from '../../../../../../../../../types.generated';
 import { AssertionMonitorBuilderState } from '../types';
 
 export const toggleRaiseIncidentState = (state: AssertionMonitorBuilderState, newValue: boolean) => {
@@ -52,4 +52,26 @@ export const updateExecutorIdState = (state: AssertionMonitorBuilderState, newVa
         ...state,
         executorId: newValue,
     };
+};
+
+export const getEvaluationScheduleTooltipDescription = (assertionType: AssertionType, platformName: string) => {
+    switch (assertionType) {
+        case AssertionType.Freshness:
+            return `At these times, we will determine the last time this dataset has changed. This may involve issuing a query to ${platformName}.`;
+        case AssertionType.Volume:
+            return `At these times, we will evaluate the row count for this dataset. This may involve issuing a query to ${platformName}.`;
+        default:
+            throw new Error(`Unknown assertion type: ${assertionType}`);
+    }
+};
+
+export const getEvaluationScheduleTitle = (assertionType: AssertionType) => {
+    switch (assertionType) {
+        case AssertionType.Freshness:
+            return 'Check for table changes';
+        case AssertionType.Volume:
+            return 'Check table volume';
+        default:
+            throw new Error(`Unknown assertion type: ${assertionType}`);
+    }
 };

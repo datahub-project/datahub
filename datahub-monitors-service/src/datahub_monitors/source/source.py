@@ -6,14 +6,20 @@ from datahub.utilities.urns.urn import Urn
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from datahub_monitors.assertion.engine.evaluator.filter_builder import FilterBuilder
+from datahub_monitors.assertion.types import AssertionDatabaseParams
 from datahub_monitors.connection.connection import Connection
 from datahub_monitors.exceptions import (
     InvalidParametersException,
     InvalidSourceTypeException,
 )
-from datahub_monitors.types import EntityEvent, EntityEventType
+from datahub_monitors.types import (
+    DatasetVolumeAssertionParameters,
+    DatasetVolumeSourceType,
+    EntityEvent,
+    EntityEventType,
+)
 
-from .types import SourceOperationParams
+from .types import DatabaseParams, SourceOperationParams
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +46,14 @@ class Source:
     def _get_field_last_updated_events(
         self, operation_params: SourceOperationParams, parameters: dict
     ) -> List[EntityEvent]:
+        raise NotImplementedError()
+
+    def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
+        raise NotImplementedError()
+
+    def _get_num_rows_via_count(
+        self, database_params: DatabaseParams, filter_sql: str
+    ) -> int:
         raise NotImplementedError()
 
     def _get_supported_high_watermark_column_types(self) -> List[str]:
@@ -109,12 +123,11 @@ class Source:
             parameters=parameters,
         )
 
-    def _get_operation_params(
-        self, entity_urn: str, window: List[int], parameters: dict
-    ) -> SourceOperationParams:
-        database_parameters = parameters.get("database", {})
-        if "qualified_name" in database_parameters:
-            dataset_name_parts = database_parameters["qualified_name"].split(".")
+    def _get_database_params(
+        self, entity_urn: str, database_parameters: AssertionDatabaseParams
+    ) -> DatabaseParams:
+        if database_parameters.qualified_name:
+            dataset_name_parts = database_parameters.qualified_name.split(".")
         else:
             urn_obj = Urn.create_from_string(entity_urn)
             dataset_name = urn_obj.get_entity_id()[1]
@@ -127,14 +140,24 @@ class Source:
         # we'll use table name if available since it will have the proper casing
         # with some data sources (snowflake) we have a bug where table_name has proper case
         # but the qualified name does not (currently all lower case) so we use table_name were we have it.
-        table_name = database_parameters.get("table_name", None)
+        return DatabaseParams(
+            dataset_part_0=dataset_name_parts[0],
+            dataset_part_1=dataset_name_parts[1],
+            dataset_part_2=database_parameters.table_name
+            if database_parameters.table_name
+            else dataset_name_parts[2],
+        )
 
+    def _get_operation_params(
+        self, entity_urn: str, window: List[int], parameters: dict
+    ) -> SourceOperationParams:
+        database_parameters = parameters.get(
+            "database", AssertionDatabaseParams(qualified_name=None, table_name=None)
+        )
         return SourceOperationParams(
             start_time_millis=window[0],
             end_time_millis=window[1],
-            dataset_part_0=dataset_name_parts[0],
-            dataset_part_1=dataset_name_parts[1],
-            dataset_part_2=table_name if table_name else dataset_name_parts[2],
+            database_params=self._get_database_params(entity_urn, database_parameters),
         )
 
     def _build_field_update_results(
@@ -230,3 +253,35 @@ class Source:
         return self._try_get_current_high_watermark_for_column(
             event_type, operation_params, parameters, previous_value
         )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=2, min=4, max=10),
+        reraise=True,
+    )
+    def _get_row_count(
+        self,
+        database_params: DatabaseParams,
+        volume_parameters: DatasetVolumeAssertionParameters,
+        filter_params: Optional[dict],
+    ) -> int:
+        if volume_parameters.source_type == DatasetVolumeSourceType.INFORMATION_SCHEMA:
+            return self._get_num_rows_via_stats_table(database_params)
+        elif volume_parameters.source_type == DatasetVolumeSourceType.QUERY:
+            filter_sql = FilterBuilder(filter_params).get_sql() if filter_params else ""
+            return self._get_num_rows_via_count(database_params, filter_sql)
+
+        raise InvalidParametersException(
+            message=f"Unsupported source type {volume_parameters.source_type} provided. {self.source_name} connector does not support retrieving these events.",
+            parameters=volume_parameters.__dict__,
+        )
+
+    def get_row_count(
+        self,
+        entity_urn: str,
+        database_parameters: AssertionDatabaseParams,
+        volume_parameters: DatasetVolumeAssertionParameters,
+        filter_params: Optional[dict],
+    ) -> int:
+        database_params = self._get_database_params(entity_urn, database_parameters)
+        return self._get_row_count(database_params, volume_parameters, filter_params)

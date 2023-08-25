@@ -22,6 +22,7 @@ from datahub_monitors.types import (
     AssertionEvaluationResult,
     AssertionEvaluationResultError,
     AssertionResultType,
+    AssertionType,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
     def __init__(self, graph: DataHubGraph):
         self.graph = graph
 
-    def _parameters_to_native_results(
+    def _freshness_parameters_to_native_results(
         self, parameters: dict
     ) -> Optional[Dict[str, str]]:
         results = {}
@@ -48,6 +49,14 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
                 ]
                 events_str = json.dumps(events_objs, separators=(",", ":"))
                 results["events"] = events_str
+        return results
+
+    def _volume_parameters_to_native_results(
+        self, parameters: dict
+    ) -> Optional[Dict[str, str]]:
+        results = {}
+        if "prev_row_count" in parameters and parameters["prev_row_count"] is not None:
+            results["Previous Row Count"] = parameters["prev_row_count"]
         return results
 
     def _extract_error(
@@ -70,8 +79,18 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
         parameters = result.parameters
         error = None
         native_results = None
+        row_count = None
         if parameters is not None:
-            native_results = self._parameters_to_native_results(parameters)
+            if assertion.type == AssertionType.FRESHNESS:
+                native_results = self._freshness_parameters_to_native_results(
+                    parameters
+                )
+            elif assertion.type == AssertionType.VOLUME:
+                native_results = self._volume_parameters_to_native_results(parameters)
+
+            if "row_count" in parameters:
+                row_count = parameters["row_count"]
+
         if result.error is not None:
             error = self._extract_error(result.error)
 
@@ -83,7 +102,7 @@ class AssertionRunEventResultHandler(AssertionResultHandler):
             else AssertionResultTypeClass.INIT
             if result.type == AssertionResultType.INIT
             else AssertionResultTypeClass.ERROR,
-            None,
+            row_count,
             None,
             None,
             None,

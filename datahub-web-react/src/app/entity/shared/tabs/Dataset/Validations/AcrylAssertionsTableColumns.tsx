@@ -13,6 +13,7 @@ import {
     Monitor,
     DatasetAssertionInfo,
     FreshnessAssertionInfo,
+    VolumeAssertionInfo,
 } from '../../../../../../types.generated';
 import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
 import { FreshnessAssertionDescription } from './FreshnessAssertionDescription';
@@ -21,6 +22,7 @@ import { InferredAssertionBadge } from './InferredAssertionBadge';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
 import { AssertionPlatformAvatar } from './AssertionPlatformAvatar';
 import { AssertionActionsMenu } from './AssertionActionsMenu';
+import { VolumeAssertionDescription } from './VolumeAssertionDescription';
 
 const DetailsContainer = styled.div`
     display: flex;
@@ -90,13 +92,17 @@ export function DetailsColumn({ assertion, monitor, lastEvaluationTimeMs, lastEv
                     <ResultTypeText style={{ color: lastResultColor }}>{lastResultText}</ResultTypeText>
                 </Tag>
             </Tooltip>
-            {(assertionType === AssertionType.Dataset && (
+            {assertionType === AssertionType.Dataset && (
                 <DatasetAssertionDescription assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo} />
-            )) || (
+            )}
+            {assertionType === AssertionType.Freshness && (
                 <FreshnessAssertionDescription
                     assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
                     monitorSchedule={monitor?.info?.assertionMonitor?.assertions[0]?.schedule}
                 />
+            )}
+            {assertionType === AssertionType.Volume && (
+                <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
             )}
             {isInferred && (
                 <InferredAssertionPopover>

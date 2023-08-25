@@ -6,7 +6,6 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionActionType;
 import com.linkedin.datahub.graphql.generated.AssertionSource;
@@ -18,8 +17,6 @@ import com.linkedin.datahub.graphql.generated.AssertionStdParameters;
 import com.linkedin.datahub.graphql.generated.AssertionType;
 import com.linkedin.datahub.graphql.generated.AssertionSourceType;
 import com.linkedin.datahub.graphql.generated.FreshnessAssertionInfo;
-import com.linkedin.datahub.graphql.generated.FreshnessAssertionSchedule;
-import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleType;
 import com.linkedin.datahub.graphql.generated.FixedIntervalSchedule;
 import com.linkedin.datahub.graphql.generated.DateInterval;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
@@ -27,10 +24,8 @@ import com.linkedin.datahub.graphql.generated.DatasetAssertionInfo;
 import com.linkedin.datahub.graphql.generated.DatasetAssertionScope;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldRef;
-import com.linkedin.datahub.graphql.generated.FreshnessAssertionType;
-import com.linkedin.datahub.graphql.generated.FreshnessCronSchedule;
+import com.linkedin.datahub.graphql.generated.VolumeAssertionInfo;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
-import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetFilterMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -85,8 +80,13 @@ public class AssertionMapper {
     }
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
-      FreshnessAssertionInfo freshnessAssertionInfo = mapFreshnessAssertionInfo(gmsAssertionInfo.getFreshnessAssertion());
+      FreshnessAssertionInfo freshnessAssertionInfo = FreshnessAssertionMapper.mapFreshnessAssertionInfo(gmsAssertionInfo.getFreshnessAssertion());
       assertionInfo.setFreshnessAssertion(freshnessAssertionInfo);
+    }
+    // VOLUME Assertions
+    if (gmsAssertionInfo.hasVolumeAssertion()) {
+      VolumeAssertionInfo volumeAssertionInfo = VolumeAssertionMapper.mapVolumeAssertionInfo(gmsAssertionInfo.getVolumeAssertion());
+      assertionInfo.setVolumeAssertion(volumeAssertionInfo);
     }
     // Source Type
     if (gmsAssertionInfo.hasSource()) {
@@ -173,7 +173,7 @@ public class AssertionMapper {
     return new SchemaFieldRef(schemaFieldUrn.toString(), schemaFieldUrn.getEntityKey().get(1));
   }
 
-  private static AssertionStdParameters mapParameters(final com.linkedin.assertion.AssertionStdParameters params) {
+  protected static AssertionStdParameters mapParameters(final com.linkedin.assertion.AssertionStdParameters params) {
     final AssertionStdParameters result = new AssertionStdParameters();
     if (params.hasValue()) {
       result.setValue(mapParameter(params.getValue()));
@@ -194,47 +194,11 @@ public class AssertionMapper {
     return result;
   }
 
-  private static FreshnessAssertionInfo mapFreshnessAssertionInfo(
-      final com.linkedin.assertion.FreshnessAssertionInfo gmsFreshnessAssertionInfo) {
-    FreshnessAssertionInfo freshnessAssertionInfo = new FreshnessAssertionInfo();
-    freshnessAssertionInfo.setEntityUrn(gmsFreshnessAssertionInfo.getEntity().toString());
-    freshnessAssertionInfo.setType(FreshnessAssertionType.valueOf(gmsFreshnessAssertionInfo.getType().name()));
-    if (gmsFreshnessAssertionInfo.hasSchedule()) {
-      freshnessAssertionInfo.setSchedule(mapFreshnessAssertionSchedule(gmsFreshnessAssertionInfo.getSchedule()));
-    }
-    if (gmsFreshnessAssertionInfo.hasFilter()) {
-      freshnessAssertionInfo.setFilter(DatasetFilterMapper.map(gmsFreshnessAssertionInfo.getFilter()));
-    }
-    return freshnessAssertionInfo;
-  }
-
-  private static FreshnessAssertionSchedule mapFreshnessAssertionSchedule(
-      final com.linkedin.assertion.FreshnessAssertionSchedule gmsFreshnessAssertionSchedule) {
-    FreshnessAssertionSchedule freshnessAssertionSchedule = new FreshnessAssertionSchedule();
-    freshnessAssertionSchedule.setType(FreshnessAssertionScheduleType.valueOf(gmsFreshnessAssertionSchedule.getType().name()));
-    if (gmsFreshnessAssertionSchedule.hasCron()) {
-      freshnessAssertionSchedule.setCron(mapCronSchedule(gmsFreshnessAssertionSchedule.getCron()));
-    }
-    if (gmsFreshnessAssertionSchedule.hasFixedInterval()) {
-      freshnessAssertionSchedule.setFixedInterval(mapFixedIntervalSchedule(gmsFreshnessAssertionSchedule.getFixedInterval()));
-    }
-    return freshnessAssertionSchedule;
-  }
-
-  private static FixedIntervalSchedule mapFixedIntervalSchedule(com.linkedin.assertion.FixedIntervalSchedule gmsFixedIntervalSchedule) {
+  protected static FixedIntervalSchedule mapFixedIntervalSchedule(com.linkedin.assertion.FixedIntervalSchedule gmsFixedIntervalSchedule) {
     FixedIntervalSchedule fixedIntervalSchedule = new FixedIntervalSchedule();
     fixedIntervalSchedule.setUnit(DateInterval.valueOf(gmsFixedIntervalSchedule.getUnit().name()));
     fixedIntervalSchedule.setMultiple(gmsFixedIntervalSchedule.getMultiple());
     return fixedIntervalSchedule;
-  }
-
-  private static FreshnessCronSchedule mapCronSchedule(
-      final com.linkedin.assertion.FreshnessCronSchedule gmsCronSchedule) {
-    FreshnessCronSchedule cronSchedule = new FreshnessCronSchedule();
-    cronSchedule.setCron(gmsCronSchedule.getCron());
-    cronSchedule.setTimezone(gmsCronSchedule.getTimezone());
-    cronSchedule.setWindowStartOffsetMs(gmsCronSchedule.getWindowStartOffsetMs(GetMode.NULL));
-    return cronSchedule;
   }
 
   private static AssertionSource mapSource(
@@ -244,6 +208,6 @@ public class AssertionMapper {
     return result;
   }
 
-  private AssertionMapper() {
+  protected AssertionMapper() {
   }
 }

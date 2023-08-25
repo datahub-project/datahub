@@ -50,8 +50,8 @@ public class UpdateFreshnessAssertionResolver implements DataFetcher<Completable
         // First update the existing assertion.
         _assertionService.updateFreshnessAssertion(
             assertionUrn,
-            AssertionUtils.createFreshnessAssertionSchedule(input.getSchedule()),
-            input.getFilter() != null ? AssertionUtils.createFreshnessAssertionFilter(input.getFilter()) : null,
+            FreshnessAssertionUtils.createFreshnessAssertionSchedule(input.getSchedule()),
+            input.getFilter() != null ? AssertionUtils.createAssertionFilter(input.getFilter()) : null,
             input.getActions() != null ? AssertionUtils.createAssertionActions(input.getActions()) : null,
             context.getAuthentication()
         );

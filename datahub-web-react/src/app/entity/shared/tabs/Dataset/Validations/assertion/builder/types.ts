@@ -10,6 +10,12 @@ import {
     FreshnessAssertionType,
     FreshnessFieldKind,
     DatasetFilterType,
+    VolumeAssertionType,
+    IncrementingSegmentFieldTransformerType,
+    AssertionStdOperator,
+    AssertionStdParameterType,
+    AssertionValueChangeType,
+    DatasetVolumeSourceType,
 } from '../../../../../../../../types.generated';
 
 /**
@@ -93,6 +99,162 @@ export interface AssertionMonitorBuilderState {
                      */
                     multiple?: number;
                 } | null;
+            } | null;
+
+            /**
+             * An optional filter used to further partition the dataset
+             */
+            filter?: {
+                /**
+                 * The filter type
+                 */
+                type?: DatasetFilterType | null;
+
+                /**
+                 * The raw query if using a SQL FilterType
+                 */
+                sql?: string | null;
+            } | null;
+        } | null;
+
+        /**
+         * Volume assertion configuration
+         */
+        volumeAssertion?: {
+            /**
+             * The type of the Volume assertion
+             */
+            type?: VolumeAssertionType | null;
+
+            segment?: {
+                field?: {
+                    /**
+                     * The path of the field
+                     */
+                    path?: string | null;
+
+                    /**
+                     * The DataHub type of the field
+                     */
+                    type?: string | null;
+
+                    /**
+                     * The native type of the field
+                     */
+                    nativeType?: string | null;
+                } | null;
+
+                transformer?: {
+                    /**
+                     * The type of the transformer
+                     */
+                    type?: IncrementingSegmentFieldTransformerType | null;
+
+                    /**
+                     * The native type of the transformer
+                     */
+                    nativeType?: string | null;
+                } | null;
+            } | null;
+
+            /**
+             * The parameters for the volume assertion
+             */
+            parameters?: {
+                /**
+                 * The value parameter of an assertion
+                 */
+                value?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+
+                /**
+                 * The maxValue parameter of an assertion
+                 */
+                maxValue?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+
+                /**
+                 * The minValue parameter of an assertion
+                 */
+                minValue?: {
+                    /**
+                     * The parameter value
+                     */
+                    value?: string | null;
+
+                    /**
+                     * The type of the parameter
+                     */
+                    type?: AssertionStdParameterType | null;
+                } | null;
+            } | null;
+
+            /**
+             * Required if type is 'ROW_COUNT_TOTAL'
+             */
+            rowCountTotal?: {
+                /**
+                 * A boolean operator that is applied on the input to an assertion
+                 */
+                operator?: AssertionStdOperator | null;
+            } | null;
+
+            /**
+             * Required if type is 'ROW_COUNT_CHANGE'
+             */
+            rowCountChange?: {
+                /**
+                 * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+                 */
+                type?: AssertionValueChangeType | null;
+
+                /**
+                 * A boolean operator that is applied on the input to an assertion
+                 */
+                operator?: AssertionStdOperator | null;
+            } | null;
+
+            /**
+             * Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'
+             */
+            incrementingSegmentRowCountTotal?: {
+                /**
+                 * A boolean operator that is applied on the input to an assertion
+                 */
+                operator?: AssertionStdOperator | null;
+            } | null;
+
+            /**
+             * Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'
+             */
+            incrementingSegmentRowCountChange?: {
+                /**
+                 * The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+                 */
+                type?: AssertionValueChangeType | null;
+
+                /**
+                 * A boolean operator that is applied on the input to an assertion
+                 */
+                operator?: AssertionStdOperator | null;
             } | null;
 
             /**
@@ -205,6 +367,16 @@ export interface AssertionMonitorBuilderState {
                 userName?: string | null;
             } | null;
         } | null;
+
+        /**
+         * Information required to execute a Volume assertion
+         */
+        datasetVolumeParameters?: {
+            /**
+             * The source type of the operation
+             */
+            sourceType?: DatasetVolumeSourceType | null;
+        } | null;
     } | null;
 
     /**
@@ -218,7 +390,7 @@ export interface AssertionMonitorBuilderState {
  */
 export enum AssertionBuilderStep {
     SELECT_TYPE = 'SELECT_TYPE',
-    CONFIGURE_DATASET_FRESHNESS_ASSERTION = 'CONFIGURE_DATASET_FRESHNESS_ASSERTION',
+    CONFIGURE_ASSERTION = 'CONFIGURE_ASSERTION',
     CONFIGURE_ACTIONS = 'CONFIGURE_ACTIONS',
 }
 
@@ -228,7 +400,7 @@ export enum AssertionBuilderStep {
 export type StepProps = {
     state: AssertionMonitorBuilderState;
     updateState: (newState: AssertionMonitorBuilderState) => void;
-    goTo: (step: AssertionBuilderStep) => void;
+    goTo: (step: AssertionBuilderStep, type?: AssertionType) => void;
     prev?: () => void;
     submit: () => Promise<void>;
     cancel: () => void;

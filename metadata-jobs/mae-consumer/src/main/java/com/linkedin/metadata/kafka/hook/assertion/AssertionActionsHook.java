@@ -692,6 +692,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
         return info.getDatasetAssertion().getDataset();
       case FRESHNESS:
         return info.getFreshnessAssertion().getEntity();
+      case VOLUME:
+        return info.getVolumeAssertion().getEntity();
       default:
         throw new IllegalArgumentException("Failed to extract assertee urn from assertionInfo aspect! Unrecognized assertion type provided.");
     }
@@ -706,6 +708,8 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
             : IncidentType.DATASET_ROWS;
       case FRESHNESS:
         return IncidentType.FRESHNESS;
+      case VOLUME:
+        return IncidentType.VOLUME;
       default:
         throw new IllegalArgumentException("Failed to map to an incident type! Unsupported Assertion type provided.");
     }

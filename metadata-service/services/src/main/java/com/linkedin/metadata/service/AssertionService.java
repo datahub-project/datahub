@@ -15,6 +15,8 @@ import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -209,6 +211,64 @@ public class AssertionService extends BaseService {
       return assertionUrn;
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to create new Freshness Assertion for entity with urn %s", entityUrn), e);
+    }
+  }
+
+  /**
+   * Creates a new Volume Assertion for native execution by DataHub.
+   * Assumes that the caller has already performed the required authorization.
+   */
+  @Nonnull
+  public Urn createVolumeAssertion(
+      @Nonnull final Urn entityUrn,
+      @Nonnull final VolumeAssertionType type,
+      @Nonnull final VolumeAssertionInfo info,
+      @Nullable final AssertionActions actions,
+      @Nonnull final Authentication authentication) {
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+    Objects.requireNonNull(type, "type must not be null");
+    Objects.requireNonNull(info, "info must not be null");
+    Objects.requireNonNull(authentication, "authentication must not be null");
+    
+    switch (type) {
+      case ROW_COUNT_TOTAL:
+        Objects.requireNonNull(info.getRowCountTotal(), "rowCountTotal must not be null");
+        break;
+      case ROW_COUNT_CHANGE:
+        Objects.requireNonNull(info.getRowCountChange(), "rowCountChange must not be null");
+        break;
+      case INCREMENTING_SEGMENT_ROW_COUNT_TOTAL:
+        Objects.requireNonNull(info.getIncrementingSegmentRowCountTotal(), "incrementingSegmentRowCountTotal must not be null");
+        break;
+      case INCREMENTING_SEGMENT_ROW_COUNT_CHANGE:
+        Objects.requireNonNull(info.getIncrementingSegmentRowCountChange(), "incrementingSegmentRowCountChange must not be null");
+        break;
+      default:
+        throw new IllegalArgumentException(String.format("Failed to create Volume Assertion. Unsupported VolumeAssertionType %s", type));
+    }
+
+    final Urn assertionUrn = generateAssertionUrn();
+
+    final AssertionInfo assertion = new AssertionInfo();
+    assertion.setVolumeAssertion(info);
+    assertion.setType(AssertionType.VOLUME);
+    assertion.setSource(getNativeAssertionSource());
+
+    final List<MetadataChangeProposal> aspects = new ArrayList<>();
+    aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_INFO_ASPECT_NAME, assertion));
+    if (actions != null) {
+      aspects.add(AspectUtils.buildMetadataChangeProposal(assertionUrn, Constants.ASSERTION_ACTIONS_ASPECT_NAME, actions));
+    }
+
+    try {
+      this.entityClient.batchIngestProposals(
+          aspects,
+          authentication,
+          false
+      );
+      return assertionUrn;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to create new Volume Assertion for entity with urn %s", entityUrn), e);
     }
   }
 

@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRe
 import com.linkedin.datahub.graphql.resolvers.anomaly.EntityAnomaliesResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertionResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateAssertionActionsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.UpdateDatasetAssertionResolver;
@@ -246,6 +247,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .dataFetcher("updateIncidentStatus", new UpdateIncidentStatusResolver(this.entityClient, this.entityService))
         .dataFetcher("createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
         .dataFetcher("createFreshnessAssertion", new CreateFreshnessAssertionResolver(assertionService))
+        .dataFetcher("createVolumeAssertion", new CreateVolumeAssertionResolver(assertionService))
         .dataFetcher("updateDatasetAssertion", new UpdateDatasetAssertionResolver(assertionService))
         .dataFetcher("updateFreshnessAssertion", new UpdateFreshnessAssertionResolver(assertionService))
         .dataFetcher("updateAssertionActions", new UpdateAssertionActionsResolver(assertionService))

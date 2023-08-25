@@ -4,6 +4,7 @@ import { Button, Collapse } from 'antd';
 import { AssertionBuilderStep, StepProps } from '../types';
 import {
     AssertionEvaluationParametersType,
+    AssertionType,
     CronSchedule,
     DatasetFilter,
     DatasetFreshnessAssertionParameters,
@@ -107,7 +108,11 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
     return (
         <Step>
             <Form>
-                <EvaluationScheduleBuilder value={state.schedule as CronSchedule} onChange={updateAssertionSchedule} />
+                <EvaluationScheduleBuilder
+                    value={state.schedule as CronSchedule}
+                    onChange={updateAssertionSchedule}
+                    assertionType={AssertionType.Freshness}
+                />
                 <DatasetFreshnessScheduleBuilder
                     value={freshnessSchedule as FreshnessAssertionSchedule}
                     onChange={updateFreshnessSchedule}

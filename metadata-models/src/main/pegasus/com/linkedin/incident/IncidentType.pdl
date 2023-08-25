@@ -11,6 +11,12 @@ enum IncidentType {
   FRESHNESS
 
   /**
+  * An Volume Assertion has failed, triggering the incident.
+  * Raised on entities where assertions are configured to generate incidents.
+  */
+  VOLUME
+
+  /**
   * An assertion on a particular column(s) of a Dataset has triggered the incident.
   * Raised on Datasets where assertions are configured to generate incidents.
   */

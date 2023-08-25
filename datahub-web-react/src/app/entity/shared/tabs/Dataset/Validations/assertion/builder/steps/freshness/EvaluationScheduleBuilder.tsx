@@ -4,7 +4,7 @@ import cronstrue from 'cronstrue';
 import { Tooltip, Typography } from 'antd';
 import { CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Cron } from 'react-js-cron';
-import { CronSchedule } from '../../../../../../../../../../types.generated';
+import { AssertionType, CronSchedule } from '../../../../../../../../../../types.generated';
 import { lowerFirstLetter } from '../../../../../../../../../shared/textUtil';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../../../../constants';
 import { TimezoneSelect } from '../../../../../../../../../ingest/source/builder/TimezoneSelect';
@@ -13,6 +13,7 @@ import { adjustCronText } from '../../utils';
 import { useEntityData } from '../../../../../../../EntityContext';
 import { getPlatformName } from '../../../../../../../utils';
 import { TruncatedTextWithTooltip } from '../../../../../../../../../shared/TruncatedTextWithTooltip';
+import { getEvaluationScheduleTitle, getEvaluationScheduleTooltipDescription } from '../utils';
 
 const TitleSection = styled.div`
     display: flex;
@@ -65,6 +66,7 @@ const Column = styled.div`
 type Props = {
     value?: CronSchedule | null;
     onChange: (newSchedule: CronSchedule) => void;
+    assertionType: AssertionType;
     showTimezone?: boolean;
     actionText?: string;
 };
@@ -72,11 +74,19 @@ type Props = {
 /**
  * Builder used to construct a Cron Schedule suitable for Assertion Evaluation.
  */
-export const EvaluationScheduleBuilder = ({ value, onChange, showTimezone = true, actionText = 'Runs at' }: Props) => {
+export const EvaluationScheduleBuilder = ({
+    value,
+    onChange,
+    assertionType,
+    showTimezone = true,
+    actionText = 'Runs at',
+}: Props) => {
     const { entityData } = useEntityData();
     const platformName = getPlatformName(entityData);
     const interval = value?.cron?.replaceAll(', ', '') || DEFAULT_ASSERTION_EVALUATION_SCHEDULE;
     const timezone = value?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const title = getEvaluationScheduleTitle(assertionType);
+    const tooltipDescription = getEvaluationScheduleTooltipDescription(assertionType, platformName as string);
 
     const updateInterval = (newInterval: string) => {
         onChange({
@@ -116,16 +126,13 @@ export const EvaluationScheduleBuilder = ({ value, onChange, showTimezone = true
         <Row>
             <Column>
                 <TitleSection>
-                    <Title level={5}>Check for table changes</Title>
+                    <Title level={5}>{title}</Title>
                     <Tooltip
                         color={ANTD_GRAY[9]}
                         placement="right"
                         title={
                             <TooltipContainer>
-                                <Typography.Paragraph>
-                                    At these times, we will determine the last time this dataset has changed. This may
-                                    involve issuing a query to {platformName}.
-                                </Typography.Paragraph>
+                                <Typography.Paragraph>{tooltipDescription}</Typography.Paragraph>
                                 <Typography.Text>
                                     <b>Pro-Tip!</b> Use the <b>Advanced</b> section to configure how checks are
                                     evaluated for this dataset.

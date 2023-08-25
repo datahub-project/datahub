@@ -7327,6 +7327,10 @@ enum AssertionType {
     A Freshness assertion
     """
     FRESHNESS
+    """
+    A Volume assertion
+    """
+    VOLUME
 }
 
 """

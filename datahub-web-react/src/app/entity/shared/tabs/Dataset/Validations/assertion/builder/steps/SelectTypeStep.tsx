@@ -5,8 +5,9 @@ import { AssertionTypeOption } from './AssertionTypeOption';
 import { AssertionBuilderStep, StepProps } from '../types';
 import { getAssertionTypesForEntityType } from '../../../acrylUtils';
 import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
-import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE } from '../constants';
+import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE, DEFAULT_DATASET_VOLUME_ASSERTION_STATE } from '../constants';
 import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
+import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
 
 const Step = styled.div`
     height: 100%;
@@ -54,6 +55,15 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                 },
                 parameters: getDefaultDatasetFreshnessAssertionParametersState(state.platformUrn as string),
             };
+        } else if (type === AssertionType.Volume) {
+            newState = {
+                ...newState,
+                assertion: {
+                    type,
+                    volumeAssertion: DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
+                },
+                parameters: getDefaultDatasetVolumeAssertionParametersState(state.platformUrn as string),
+            };
         }
 
         updateState({
@@ -62,7 +72,10 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
 
         switch (type) {
             case AssertionType.Freshness:
-                goTo(AssertionBuilderStep.CONFIGURE_DATASET_FRESHNESS_ASSERTION);
+                goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Freshness);
+                return;
+            case AssertionType.Volume:
+                goTo(AssertionBuilderStep.CONFIGURE_ASSERTION, AssertionType.Volume);
                 return;
             default:
                 // Do nothing.

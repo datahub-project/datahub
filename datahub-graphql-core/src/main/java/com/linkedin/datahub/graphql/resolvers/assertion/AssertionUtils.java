@@ -9,23 +9,20 @@ import com.linkedin.assertion.AssertionActionType;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionStdParameterType;
-import com.linkedin.assertion.FixedIntervalSchedule;
-import com.linkedin.assertion.FreshnessAssertionScheduleType;
-import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
+import com.linkedin.datahub.graphql.generated.AssertionStdOperator;
 import com.linkedin.datahub.graphql.generated.AssertionStdParameterInput;
 import com.linkedin.datahub.graphql.generated.AssertionStdParametersInput;
 import com.linkedin.datahub.graphql.generated.DatasetFilterInput;
-import com.linkedin.datahub.graphql.generated.FreshnessAssertionScheduleInput;
+import com.linkedin.datahub.graphql.generated.SchemaFieldSpecInput;
 import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.dataset.DatasetFilterType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
-import com.linkedin.timeseries.CalendarInterval;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
@@ -56,27 +53,21 @@ public class AssertionUtils {
   }
 
   @Nonnull
-  public static com.linkedin.assertion.FreshnessAssertionSchedule createFreshnessAssertionSchedule(@Nonnull final FreshnessAssertionScheduleInput schedule) {
-    final com.linkedin.assertion.FreshnessAssertionSchedule result = new com.linkedin.assertion.FreshnessAssertionSchedule();
-    result.setType(FreshnessAssertionScheduleType.valueOf(schedule.getType().toString()));
-    if (schedule.getCron() != null) {
-      result.setCron(new FreshnessCronSchedule()
-        .setCron(schedule.getCron().getCron())
-        .setTimezone(schedule.getCron().getTimezone())
-        .setWindowStartOffsetMs(schedule.getCron().getWindowStartOffsetMs(), SetMode.IGNORE_NULL)
-      );
-    }
-    if (schedule.getFixedInterval() != null) {
-      result.setFixedInterval(new FixedIntervalSchedule()
-          .setMultiple(schedule.getFixedInterval().getMultiple())
-          .setUnit(CalendarInterval.valueOf(schedule.getFixedInterval().getUnit().toString()))
-      );
-    }
+  public static com.linkedin.assertion.AssertionStdOperator createAssertionStdOperator(@Nonnull final AssertionStdOperator operator) {
+    return com.linkedin.assertion.AssertionStdOperator.valueOf(operator.toString());
+  }
+
+  @Nonnull
+  public static com.linkedin.schema.SchemaFieldSpec createSchemaFieldSpec(@Nonnull final SchemaFieldSpecInput input) {
+    final com.linkedin.schema.SchemaFieldSpec result = new com.linkedin.schema.SchemaFieldSpec();
+    result.setType(input.getType());
+    result.setNativeType(input.getNativeType());
+    result.setPath(input.getPath());
     return result;
   }
 
   @Nonnull
-  public static com.linkedin.dataset.DatasetFilter createFreshnessAssertionFilter(@Nonnull final DatasetFilterInput filter) {
+  public static com.linkedin.dataset.DatasetFilter createAssertionFilter(@Nonnull final DatasetFilterInput filter) {
     final com.linkedin.dataset.DatasetFilter result = new com.linkedin.dataset.DatasetFilter();
     result.setType(DatasetFilterType.valueOf(filter.getType().toString()));
 
@@ -85,7 +76,7 @@ public class AssertionUtils {
         result.setSql(filter.getSql());
       } else {
         throw new DataHubGraphQLException(
-            "Invalid input. SQL string is required if type Freshness filter type is SQL.",
+            "Invalid input. SQL string is required if type DatasetFilter type is SQL.",
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
     }
@@ -123,6 +114,8 @@ public class AssertionUtils {
         return info.getDatasetAssertion().getDataset();
       case FRESHNESS:
         return info.getFreshnessAssertion().getEntity();
+      case VOLUME:
+        return info.getVolumeAssertion().getEntity();
       default:
         throw new RuntimeException(String.format("Unsupported Assertion Type %s provided", info.getType()));
     }

@@ -44,3 +44,16 @@ def setup_high_watermark_row_count_query(
     """
     logger.debug(get_count_query)
     return get_count_query
+
+
+def setup_row_count_query(
+    database_string: str,
+    filter_sql: str,
+) -> str:
+    get_count_query = f"""
+        SELECT COUNT(*)
+        FROM {database_string}
+        {f"WHERE {filter_sql}" if filter_sql else ''}
+    """
+    logger.debug(get_count_query)
+    return get_count_query

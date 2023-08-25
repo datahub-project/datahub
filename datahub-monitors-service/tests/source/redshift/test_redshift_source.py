@@ -9,6 +9,7 @@ from datahub_monitors.exceptions import (
     InvalidSourceTypeException,
 )
 from datahub_monitors.source.redshift.redshift import RedshiftSource
+from datahub_monitors.source.types import DatabaseParams
 from datahub_monitors.types import (
     DatasetFilterType,
     EntityEventType,
@@ -98,6 +99,22 @@ TEST_HIGHWATERMARK_COUNT_QUERY = f"""
         FROM test_db.public.test_table
         WHERE timestamp = '{TEST_END}'
         AND foo = 'bar'
+    """
+TEST_NUM_ROWS_VIA_STATE_TABLE_QUERY = """
+            SELECT "tbl_rows"
+            FROM svv_table_info
+            WHERE database='test_db'
+            AND schema='public'
+            AND "table"='test_table';"""
+TEST_NUM_ROWS_VIA_COUNT_QUERY = """
+        SELECT COUNT(*)
+        FROM test_db.public.test_table
+        
+    """
+TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
+        SELECT COUNT(*)
+        FROM test_db.public.test_table
+        WHERE foo = 'bar'
     """
 
 
@@ -359,3 +376,45 @@ class TestRedshiftSource:
                 {},
                 None,
             )
+
+    @patch.object(RedshiftSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_stats_table(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [10]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.redshift_source._get_num_rows_via_stats_table(db_params)
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_STATE_TABLE_QUERY,
+        )
+        assert result == 10
+
+    @patch.object(RedshiftSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_count(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [10]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.redshift_source._get_num_rows_via_count(db_params, "")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_QUERY,
+        )
+        assert result == 10
+
+    @patch.object(RedshiftSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_count_with_filter(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [10]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.redshift_source._get_num_rows_via_count(db_params, "foo = 'bar'")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY,
+        )
+        assert result == 10

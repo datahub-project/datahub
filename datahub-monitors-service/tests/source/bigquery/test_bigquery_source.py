@@ -11,6 +11,7 @@ from datahub_monitors.exceptions import (
 )
 from datahub_monitors.source.bigquery.bigquery import BigQuerySource
 from datahub_monitors.source.bigquery.types import DEFAULT_OPERATION_TYPES_FILTER
+from datahub_monitors.source.types import DatabaseParams
 from datahub_monitors.types import (
     DatasetFilterType,
     EntityEventType,
@@ -64,6 +65,20 @@ TEST_HIGHWATERMARK_COUNT_QUERY = f"""
         FROM test_db.public.test_table
         WHERE timestamp = TIMESTAMP('{TEST_END}')
         AND foo = 'bar'
+    """
+TEST_GET_ROW_COUNT_QUERY = """
+            SELECT row_count
+            FROM test_db.public.__TABLES__
+            WHERE table_id='test_table';"""
+TEST_NUM_ROWS_VIA_COUNT_QUERY = """
+        SELECT COUNT(*)
+        FROM test_db.public.test_table
+        
+    """
+TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
+        SELECT COUNT(*)
+        FROM test_db.public.test_table
+        WHERE foo = 'bar'
     """
 
 
@@ -347,3 +362,45 @@ class TestBigQuerySource:
                 {},
                 None,
             )
+
+    @patch.object(BigQuerySource, "_execute_query")
+    def test_get_num_rows_via_stats_table(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [["10"]]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.bigquery_source._get_num_rows_via_stats_table(db_params)
+        execute_query_mock.assert_called_once_with(
+            TEST_GET_ROW_COUNT_QUERY,
+        )
+        assert result == 10
+
+    @patch.object(BigQuerySource, "_execute_query")
+    def test_get_num_rows_via_count(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [["10"]]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.bigquery_source._get_num_rows_via_count(db_params, "")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_QUERY,
+        )
+        assert result == 10
+
+    @patch.object(BigQuerySource, "_execute_query")
+    def test_get_num_rows_via_count_with_filter(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [["10"]]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.bigquery_source._get_num_rows_via_count(db_params, "foo = 'bar'")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY,
+        )
+        assert result == 10

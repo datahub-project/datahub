@@ -70,7 +70,12 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
     def list_ingestion_sources(self) -> List[Dict]:
         result = self.graph.execute_graphql(
             GRAPHQL_LIST_INGESTION_SOURCES_QUERY,
-            variables={"input": {"start": 0, "count": INGESTION_SOURCES_BATCH_SIZE}},
+            variables={
+                "input": {
+                    "start": 0,
+                    "count": INGESTION_SOURCES_BATCH_SIZE,
+                }
+            },
         )
 
         if "error" in result:
