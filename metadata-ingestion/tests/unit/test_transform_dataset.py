@@ -62,6 +62,9 @@ from datahub.ingestion.transformer.dataset_domain import (
 )
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
 from datahub.ingestion.transformer.extract_dataset_tags import ExtractDatasetTags
+from datahub.ingestion.transformer.extract_ownership_from_tags import (
+    ExtractOwnersFromTagsTransformer,
+)
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
@@ -584,6 +587,31 @@ def test_mark_status_dataset(tmp_path):
         )
         == 1
     )
+
+
+def test_extract_owners_from_tags():
+    # TODO Implement this
+    dataset = make_generic_dataset(
+        aspects=[models.GlobalTagsClass(tags=["urn:li:tag:owner:foo"])]
+    )
+    transformer = ExtractOwnersFromTagsTransformer.create(
+        {
+            "tag_prefix": "owner:",
+        },
+        PipelineContext(run_id="test"),
+    )
+    transformed = list(
+        transformer.transform(
+            [
+                RecordEnvelope(dataset, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+    owners_aspect = transformed[1].record.aspect
+    assert owners_aspect
+    print(owners_aspect)
+    assert owners_aspect is None
 
 
 def test_add_dataset_browse_paths():
