@@ -16,7 +16,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(TestEntitySpecBuilder.getSpec());
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 17);
+    assertEquals(properties.size(), 19);
     assertEquals(properties.get("urn"), ImmutableMap.of("type", "keyword",
             "fields",
             ImmutableMap.of("delimited",
@@ -66,6 +66,11 @@ public class MappingsBuilderTest {
     assertTrue(textFieldSubfields.containsKey("delimited"));
     assertTrue(textFieldSubfields.containsKey("keyword"));
 
+    // TEXT with addToFilters aliased under "_entityName"
+    Map<String, Object> textFieldAlias = (Map<String, Object>) properties.get("_entityName");
+    assertEquals(textFieldAlias.get("type"), "alias");
+    assertEquals(textFieldAlias.get("path"), "textFieldOverride");
+
     // TEXT_PARTIAL
     Map<String, Object> textArrayField = (Map<String, Object>) properties.get("textArrayField");
     assertEquals(textArrayField.get("type"), "keyword");
@@ -75,6 +80,19 @@ public class MappingsBuilderTest {
     assertTrue(textArrayFieldSubfields.containsKey("delimited"));
     assertTrue(textArrayFieldSubfields.containsKey("ngram"));
     assertTrue(textArrayFieldSubfields.containsKey("keyword"));
+
+    // WORD_GRAM
+    Map<String, Object> wordGramField = (Map<String, Object>) properties.get("wordGramField");
+    assertEquals(wordGramField.get("type"), "keyword");
+    assertEquals(wordGramField.get("normalizer"), "keyword_normalizer");
+    Map<String, Object> wordGramFieldSubfields = (Map<String, Object>) wordGramField.get("fields");
+    assertEquals(wordGramFieldSubfields.size(), 6);
+    assertTrue(wordGramFieldSubfields.containsKey("delimited"));
+    assertTrue(wordGramFieldSubfields.containsKey("ngram"));
+    assertTrue(wordGramFieldSubfields.containsKey("keyword"));
+    assertTrue(wordGramFieldSubfields.containsKey("wordGrams2"));
+    assertTrue(wordGramFieldSubfields.containsKey("wordGrams3"));
+    assertTrue(wordGramFieldSubfields.containsKey("wordGrams4"));
 
     // URN
     Map<String, Object> foreignKey = (Map<String, Object>) properties.get("foreignKey");

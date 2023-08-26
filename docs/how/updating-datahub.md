@@ -15,6 +15,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
   container db (None) -> container schema and now we have platform_instance -> container database.
 - #8300: Added `uri_opts` argument; now we can add any options for clickhouse client.
+- #8659: BigQuery ingestion no longer creates DataPlatformInstance aspects by default.
+  This will only affect users that were depending on this aspect for custom functionality,
+  and can be enabled via the `include_data_platform_instance` config option.
 
 ## 0.10.5
 

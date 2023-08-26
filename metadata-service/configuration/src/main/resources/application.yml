@@ -111,6 +111,8 @@ visualConfig:
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
+  searchResult:
+    enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
 
 # Storage Layer
 
@@ -198,6 +200,10 @@ elasticsearch:
       prefixFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR:1.6} # boost multiplier when exact prefix
       caseSensitivityFactor: ${ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR:0.7} # stacked boost multiplier when case mismatch
       enableStructured: ${ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED:true} # enable exact match on structured search
+    wordGram:
+      twoGramFactor: ${ELASTICSEARCH_QUERY_TWO_GRAM_FACTOR:1.2} # boost multiplier when match on 2-gram tokens
+      threeGramFactor: ${ELASTICSEARCH_QUERY_THREE_GRAM_FACTOR:1.5} # boost multiplier when match on 3-gram tokens
+      fourGramFactor: ${ELASTICSEARCH_QUERY_FOUR_GRAM_FACTOR:1.8} # boost multiplier when match on 4-gram tokens
     # Field weight annotations are typically calibrated for exact match, if partial match is possible on the field use these adjustments
     partial:
       urnFactor: ${ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR:0.5} # multiplier on Urn token match, a partial match on Urn > non-Urn is assumed
