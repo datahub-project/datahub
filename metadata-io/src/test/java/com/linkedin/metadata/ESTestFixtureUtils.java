@@ -15,6 +15,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Set;
 
+import static com.linkedin.metadata.ESTestConfiguration.REFRESH_INTERVAL_SECONDS;
 import static com.linkedin.metadata.ESTestUtils.environmentRestClientBuilder;
 
 @TestConfiguration
@@ -111,6 +112,7 @@ public class ESTestFixtureUtils {
         FixtureReader reader = FixtureReader.builder()
                 .bulkProcessor(bulkProcessor)
                 .fixtureName("long_tail")
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .build();
 
         reader.read();
