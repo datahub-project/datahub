@@ -17,8 +17,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -50,6 +48,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.ESTestConfiguration.REFRESH_INTERVAL_SECONDS;
 
 
 @TestConfiguration
@@ -156,6 +155,7 @@ public class ESSearchLineageFixture {
                 .bulkProcessor(_bulkProcessor)
                 .fixtureName(fixtureName)
                 .targetIndexPrefix(prefix)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .build()
                 .read();
 
@@ -181,23 +181,6 @@ public class ESSearchLineageFixture {
                 new CachingEntitySearchService(
                         cacheManager,
                         entitySearchService,
-                        batchSize,
-                        false
-                ),
-                new CachingAllEntitiesSearchAggregator(
-                        cacheManager,
-                        new AllEntitiesSearchAggregator(
-                                entityRegistry,
-                                entitySearchService,
-                                new CachingEntitySearchService(
-                                        cacheManager,
-                                        entitySearchService,
-                                        batchSize,
-                                        false
-                                ),
-                                ranker,
-                                entityDocCountCacheConfiguration
-                        ),
                         batchSize,
                         false
                 ),

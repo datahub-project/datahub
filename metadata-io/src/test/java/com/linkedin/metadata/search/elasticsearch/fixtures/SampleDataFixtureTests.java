@@ -82,6 +82,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
     protected EntityClient entityClient;
 
     @Autowired
+    @Qualifier("entityRegistry")
     private EntityRegistry entityRegistry;
 
     @Test
@@ -355,6 +356,84 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     "Expected search results for: " + q);
             return result.getEntities().size();
         }).collect(Collectors.toList());
+    }
+
+    @Test
+    public void testNegateAnalysis() throws IOException {
+        String queryWithMinus = "logging_events -bckp";
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "query_word_delimited", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("logging_events -bckp", "logging_ev", "-bckp", "log", "event", "bckp"));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "word_gram_3", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("logging events -bckp"));
+
+        request = AnalyzeRequest.withIndexAnalyzer(
+            "smpldat_datasetindex_v2",
+            "word_gram_4", queryWithMinus
+        );
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of());
+
+    }
+
+    @Test
+    public void testWordGram() throws IOException {
+        String text = "hello.cat_cool_customer";
+        AnalyzeRequest request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat", "cat cool", "cool customer"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat cool", "cat cool customer"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", text);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hello cat cool customer"));
+
+        String testMoreSeparators = "quick.brown:fox jumped-LAZY_Dog";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown", "brown fox", "fox jumped", "jumped lazy", "lazy dog"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown fox", "brown fox jumped", "fox jumped lazy", "jumped lazy dog"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", testMoreSeparators);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()),
+            List.of("quick brown fox jumped", "brown fox jumped lazy", "fox jumped lazy dog"));
+
+        String textWithQuotesAndDuplicateWord = "\"my_db.my_exact_table\"";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db", "db my", "my exact", "exact table"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_3", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my", "db my exact", "my exact table"));
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_4", textWithQuotesAndDuplicateWord);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("my db my exact", "db my exact table"));
+
+        String textWithParens = "(hi) there";
+        request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", "word_gram_2", textWithParens);
+        assertEquals(getTokens(request)
+            .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of("hi there"));
+
+        String oneWordText = "hello";
+        for (String analyzer : List.of("word_gram_2", "word_gram_3", "word_gram_4")) {
+            request = AnalyzeRequest.withIndexAnalyzer("smpldat_datasetindex_v2", analyzer, oneWordText);
+            assertEquals(getTokens(request)
+                .map(AnalyzeResponse.AnalyzeToken::getTerm).collect(Collectors.toList()), List.of());
+        }
     }
 
     @Test
@@ -699,6 +778,27 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                             testResult.getMetadata().getAggregations().stream()
                                     .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
+        AggregationMetadata entityAggMeta = testResult.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("entity")).findFirst().get();
+        Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+        expectedEntityTypeCounts.put("container", 0L);
+        expectedEntityTypeCounts.put("corpuser", 0L);
+        expectedEntityTypeCounts.put("corpgroup", 0L);
+        expectedEntityTypeCounts.put("mlmodel", 0L);
+        expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+        expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+        expectedEntityTypeCounts.put("dataflow", 1L);
+        expectedEntityTypeCounts.put("glossarynode", 1L);
+        expectedEntityTypeCounts.put("mlfeature", 0L);
+        expectedEntityTypeCounts.put("datajob", 2L);
+        expectedEntityTypeCounts.put("domain", 0L);
+        expectedEntityTypeCounts.put("tag", 0L);
+        expectedEntityTypeCounts.put("glossaryterm", 2L);
+        expectedEntityTypeCounts.put("mlprimarykey", 1L);
+        expectedEntityTypeCounts.put("dataset", 9L);
+        expectedEntityTypeCounts.put("chart", 0L);
+        expectedEntityTypeCounts.put("dashboard", 0L);
+        assertEquals(entityAggMeta.getAggregations(), expectedEntityTypeCounts);
     }
 
     @Test
@@ -722,10 +822,66 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     testResult2.getMetadata().getAggregations().stream()
                         .map(AggregationMetadata::getName).collect(Collectors.toList())));
         });
+        AggregationMetadata entityTypeAggMeta = testResult2.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("_entityType")).findFirst().get();
+        AggregationMetadata entityAggMeta = testResult2.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("entity")).findFirst().get();
+        assertEquals(entityTypeAggMeta.getAggregations(), entityAggMeta.getAggregations());
+        Map<String, Long> expectedEntityTypeCounts = new HashMap<>();
+        expectedEntityTypeCounts.put("container", 0L);
+        expectedEntityTypeCounts.put("corpuser", 0L);
+        expectedEntityTypeCounts.put("corpgroup", 0L);
+        expectedEntityTypeCounts.put("mlmodel", 0L);
+        expectedEntityTypeCounts.put("mlfeaturetable", 1L);
+        expectedEntityTypeCounts.put("mlmodelgroup", 1L);
+        expectedEntityTypeCounts.put("dataflow", 1L);
+        expectedEntityTypeCounts.put("glossarynode", 1L);
+        expectedEntityTypeCounts.put("mlfeature", 0L);
+        expectedEntityTypeCounts.put("datajob", 2L);
+        expectedEntityTypeCounts.put("domain", 0L);
+        expectedEntityTypeCounts.put("tag", 0L);
+        expectedEntityTypeCounts.put("glossaryterm", 2L);
+        expectedEntityTypeCounts.put("mlprimarykey", 1L);
+        expectedEntityTypeCounts.put("dataset", 9L);
+        expectedEntityTypeCounts.put("chart", 0L);
+        expectedEntityTypeCounts.put("dashboard", 0L);
+        assertEquals(entityTypeAggMeta.getAggregations(), expectedEntityTypeCounts);
+
+        expectedFacets = Set.of("platform", "typeNames", "entity");
+        SearchResult testResult3 = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
+        assertEquals(testResult3.getMetadata().getAggregations().size(), 4);
+        expectedFacets.forEach(facet -> {
+            assertTrue(testResult3.getMetadata().getAggregations().stream().anyMatch(agg -> agg.getName().equals(facet)),
+                String.format("Failed to find facet `%s` in %s", facet,
+                    testResult3.getMetadata().getAggregations().stream()
+                        .map(AggregationMetadata::getName).collect(Collectors.toList())));
+        });
+        AggregationMetadata entityTypeAggMeta3 = testResult3.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("_entityType")).findFirst().get();
+        AggregationMetadata entityAggMeta3 = testResult3.getMetadata().getAggregations().stream().filter(
+            aggMeta -> aggMeta.getName().equals("entity")).findFirst().get();
+        assertEquals(entityTypeAggMeta3.getAggregations(), entityAggMeta3.getAggregations());
+        assertEquals(entityTypeAggMeta3.getAggregations(), expectedEntityTypeCounts);
+
         String singleNestedFacet = String.format("_entityType%sowners", AGGREGATION_SEPARATOR_CHAR);
         expectedFacets = Set.of(singleNestedFacet);
         SearchResult testResultSingleNested = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
         assertEquals(testResultSingleNested.getMetadata().getAggregations().size(), 1);
+        Map<String, Long> expectedNestedFacetCounts = new HashMap<>();
+        expectedNestedFacetCounts.put("datajob␞urn:li:corpuser:datahub", 2L);
+        expectedNestedFacetCounts.put("glossarynode␞urn:li:corpuser:jdoe", 1L);
+        expectedNestedFacetCounts.put("dataflow␞urn:li:corpuser:datahub", 1L);
+        expectedNestedFacetCounts.put("mlfeaturetable", 1L);
+        expectedNestedFacetCounts.put("mlmodelgroup", 1L);
+        expectedNestedFacetCounts.put("glossarynode", 1L);
+        expectedNestedFacetCounts.put("dataflow", 1L);
+        expectedNestedFacetCounts.put("mlmodelgroup␞urn:li:corpuser:some-user", 1L);
+        expectedNestedFacetCounts.put("datajob", 2L);
+        expectedNestedFacetCounts.put("glossaryterm␞urn:li:corpuser:jdoe", 2L);
+        expectedNestedFacetCounts.put("glossaryterm", 2L);
+        expectedNestedFacetCounts.put("dataset", 9L);
+        expectedNestedFacetCounts.put("mlprimarykey", 1L);
+        assertEquals(testResultSingleNested.getMetadata().getAggregations().get(0).getAggregations(), expectedNestedFacetCounts);
 
         expectedFacets = Set.of("platform", singleNestedFacet, "typeNames", "origin");
         SearchResult testResultNested = searchAcrossEntities(searchService, "cypress", List.copyOf(expectedFacets));
@@ -1188,6 +1344,53 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
         assertTrue(result.getEntities().stream().noneMatch(e -> e.getMatchedFields().isEmpty()),
                 String.format("%s - Expected search results to include matched fields", query));
         assertEquals(result.getEntities().size(), 2);
+    }
+    @Test
+    public void testGram() {
+        String query = "jaffle shop customers";
+        SearchResult result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+            "Expected exact match in 1st position");
+
+        query = "shop customers source";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers_source,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "jaffle shop stg customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_customers,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "jaffle shop transformers customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.transformers_customers,PROD)",
+            "Expected ngram match in 1st position");
+
+        query = "shop raw customers";
+        result = searchAcrossEntities(searchService, query);
+        assertTrue(result.hasEntities() && !result.getEntities().isEmpty(),
+            String.format("%s - Expected search results", query));
+
+        assertEquals(result.getEntities().get(0).getEntity().toString(),
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.raw_customers,PROD)",
+            "Expected ngram match in 1st position");
     }
 
     @Test

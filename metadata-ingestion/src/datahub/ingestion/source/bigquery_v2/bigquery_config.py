@@ -8,7 +8,7 @@ from pydantic import Field, PositiveInt, PrivateAttr, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -37,7 +37,7 @@ class BigQueryUsageConfig(BaseUsageConfig):
 
 class BigQueryV2Config(
     BigQueryBaseConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -79,6 +79,13 @@ class BigQueryV2Config(
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate BigQuery Console url to Datasets/Tables",
+    )
+
+    include_data_platform_instance: bool = Field(
+        default=False,
+        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
+        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
+        " because the project id is represented as the top-level container.",
     )
 
     debug_include_full_payloads: bool = Field(

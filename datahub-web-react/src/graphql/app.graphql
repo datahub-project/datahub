@@ -45,6 +45,9 @@ query appConfig {
                     defaultTab
                 }
             }
+            searchResult {
+                enableNameHighlight
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging

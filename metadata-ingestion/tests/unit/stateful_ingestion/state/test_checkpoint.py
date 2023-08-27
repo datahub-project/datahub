@@ -27,7 +27,7 @@ def _assert_checkpoint_deserialization(
 ) -> Checkpoint:
     # Serialize a checkpoint aspect with the previous state.
     checkpoint_aspect = DatahubIngestionCheckpointClass(
-        timestampMillis=int(datetime.utcnow().timestamp() * 1000),
+        timestampMillis=int(datetime.now().timestamp() * 1000),
         pipelineName=test_pipeline_name,
         platformInstanceId="this-can-be-anything-and-will-be-ignored",
         config="this-is-also-ignored",

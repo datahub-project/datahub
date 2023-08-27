@@ -2,11 +2,10 @@ import React from 'react';
 import { Pagination, Typography } from 'antd';
 import styled from 'styled-components/macro';
 import { Message } from '../shared/Message';
-import { Entity, FacetFilterInput, FacetMetadata, MatchedField } from '../../types.generated';
+import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '../../types.generated';
 import { SearchCfg } from '../../conf';
 import { SearchResultsRecommendations } from './SearchResultsRecommendations';
 import SearchExtendedMenu from '../entity/shared/components/styled/search/SearchExtendedMenu';
-import { combineSiblingsInSearchResults } from '../entity/shared/siblingUtils';
 import { SearchSelectBar } from '../entity/shared/components/styled/search/SearchSelectBar';
 import { SearchResultList } from './SearchResultList';
 import { isListSubset } from '../entity/shared/utils';
@@ -25,6 +24,9 @@ import { SidebarProvider } from './sidebar/SidebarContext';
 import { BrowseProvider } from './sidebar/BrowseContext';
 import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
 import useToggleSidebar from './useToggleSidebar';
+import SearchSortSelect from './sorting/SearchSortSelect';
+import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
+import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -130,6 +132,7 @@ interface Props {
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
     selectedEntities: EntityAndType[];
+    suggestions: SearchSuggestion[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
     setIsSelectMode: (showSelectMode: boolean) => any;
     onChangeSelectAll: (selected: boolean) => void;
@@ -154,6 +157,7 @@ export const SearchResults = ({
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    suggestions,
     setIsSelectMode,
     setSelectedEntities,
     onChangeSelectAll,
@@ -209,6 +213,7 @@ export const SearchResults = ({
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
+                                <SearchSortSelect />
                                 <SearchExtendedMenu
                                     downloadSearchResults={downloadSearchResults}
                                     filters={generateOrFilters(unionType, selectedFilters)}
@@ -236,6 +241,7 @@ export const SearchResults = ({
                         {(error && <ErrorSection />) ||
                             (!loading && (
                                 <SearchResultListContainer v2Styles={showSearchFiltersV2}>
+                                    {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
                                     <SearchResultList
                                         query={query}
                                         searchResults={combinedSiblingSearchResults}
@@ -243,19 +249,22 @@ export const SearchResults = ({
                                         isSelectMode={isSelectMode}
                                         selectedEntities={selectedEntities}
                                         setSelectedEntities={setSelectedEntities}
+                                        suggestions={suggestions}
                                     />
-                                    <PaginationControlContainer id="search-pagination">
-                                        <Pagination
-                                            current={page}
-                                            pageSize={numResultsPerPage}
-                                            total={totalResults}
-                                            showLessItems
-                                            onChange={onChangePage}
-                                            showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                            onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                                            pageSizeOptions={['10', '20', '50', '100']}
-                                        />
-                                    </PaginationControlContainer>
+                                    {totalResults > 0 && (
+                                        <PaginationControlContainer id="search-pagination">
+                                            <Pagination
+                                                current={page}
+                                                pageSize={numResultsPerPage}
+                                                total={totalResults}
+                                                showLessItems
+                                                onChange={onChangePage}
+                                                showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                                                onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                                                pageSizeOptions={['10', '20', '50', '100']}
+                                            />
+                                        </PaginationControlContainer>
+                                    )}
                                     {authenticatedUserUrn && (
                                         <SearchResultsRecommendationsContainer>
                                             <SearchResultsRecommendations
