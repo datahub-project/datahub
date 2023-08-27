@@ -17,7 +17,9 @@
         "disabled-color": "fade(white, 25%)",
         "steps-nav-arrow-color": "fade(white, 25%)",
         "homepage-background-upper-fade": "#FFFFFF",
-        "homepage-background-lower-fade": "#333E4C"
+        "homepage-background-lower-fade": "#333E4C",
+        "highlight-color": "#E6F4FF",
+        "highlight-border-color": "#BAE0FF"
     },
     "assets": {
         "logoUrl": "/assets/logo.png"
