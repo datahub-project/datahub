@@ -18,6 +18,7 @@ import {
     EntityPath,
     DataProduct,
     Health,
+    Access,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -195,6 +196,7 @@ interface Props {
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
+    access?: Access | undefined | null;
 }
 
 export default function DefaultPreviewCard({
@@ -237,6 +239,7 @@ export default function DefaultPreviewCard({
     previewType,
     paths,
     health,
+    access,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -251,6 +254,7 @@ export default function DefaultPreviewCard({
     ];
     const hasGlossaryTerms = !!glossaryTerms?.terms?.length;
     const hasTags = !!tags?.tags?.length;
+    const hasAccess = !!access?.roles?.length;
     if (snippet) {
         insightViews.push(snippet);
     }
@@ -355,6 +359,8 @@ export default function DefaultPreviewCard({
                         {hasGlossaryTerms && <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />}
                         {((hasGlossaryTerms && hasTags) || ((dataProduct || domain) && hasTags)) && <TagSeparator />}
                         {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
+                        {hasAccess && <TagSeparator />}
+                        {hasAccess && <TagTermGroup uneditableAccess={access} maxShow={3} />}
                     </TagContainer>
                 )}
                 {subHeader}

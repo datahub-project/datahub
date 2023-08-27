@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Table } from 'antd';
+import { Button, Divider, Table } from 'antd';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetMeQuery } from '../../../../../../graphql/me.generated';
-import handleExternalRoles from './AccessRolesDetail';
+import { handleAccesslRoles } from './utils';
 import AccessManagerDescription from './AccessManagerDescription';
 
 export default function AccessManagement() {
@@ -27,6 +27,34 @@ export default function AccessManagement() {
             border: 1px solid #f0f0f0;
         }
     ` as typeof Table;
+    const Accessprovision = styled(Divider)`
+        background-color: #fff;
+        color: black;
+        width: 80px;
+        height: 30px;
+        border-radius: 3px;
+        border: none;
+        font-weight: bold;
+    `;
+
+    const AccessButton = styled(Button)`
+        background-color: #1890ff;
+        color: white;
+        width: 80px;
+        height: 30px;
+        border-radius: 3.5px;
+        border: none;
+        font-weight: bold;
+        &:hover {
+            background-color: #18baff;
+            color: white;
+            width: 80px;
+            height: 30px;
+            border-radius: 3.5px;
+            border: none;
+            font-weight: bold;
+        }
+    `;
 
     const { data: loggedInUser } = useGetMeQuery({ fetchPolicy: 'cache-first' });
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -37,7 +65,7 @@ export default function AccessManagement() {
 
     const columns = [
         {
-            title: 'RoleName',
+            title: 'Role Name',
             dataIndex: 'name',
             key: 'name',
         },
@@ -50,51 +78,27 @@ export default function AccessManagement() {
             },
         },
         {
-            title: 'AccessType',
-            dataIndex: 'accesstype',
-            key: 'accesstype',
+            title: 'Access Type',
+            dataIndex: 'accessType',
+            key: 'accessType',
         },
         {
             title: 'Access',
-            dataIndex: 'access',
-            key: 'access',
+            dataIndex: 'hasAccess',
+            key: 'hasAccess',
             render: (text, record) => {
                 if (text) {
-                    return (
-                        <div
-                            style={{
-                                backgroundColor: '#fff',
-                                color: 'black',
-                                width: '80px',
-                                height: '30px',
-                                borderRadius: '3px',
-                                border: 'none',
-                                fontWeight: 'bold',
-                            }}
-                        >
-                            Provisioned
-                        </div>
-                    );
+                    return <Accessprovision>Provisioned</Accessprovision>;
                 }
                 return (
-                    <button
-                        type="button"
-                        style={{
-                            backgroundColor: '#1890ff',
-                            color: 'white',
-                            width: '80px',
-                            height: '30px',
-                            borderRadius: '3.5px',
-                            border: 'none',
-                            fontWeight: 'bold',
-                        }}
+                    <AccessButton
                         onClick={(e) => {
                             e.preventDefault();
                             window.open(record.url);
                         }}
                     >
                         Request
-                    </button>
+                    </AccessButton>
                 );
             },
             hidden: true,
@@ -102,12 +106,10 @@ export default function AccessManagement() {
     ];
 
     return (
-        <div>
-            <StyledTable
-                dataSource={handleExternalRoles(externalRoles, loggedInUser)}
-                columns={columns}
-                pagination={false}
-            />
-        </div>
+        <StyledTable
+            dataSource={handleAccesslRoles(externalRoles, loggedInUser)}
+            columns={columns}
+            pagination={false}
+        />
     );
 }
