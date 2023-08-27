@@ -1,8 +1,0 @@
-query getExternalRole($urn: String!) {
-    role(urn: $urn) {
-        properties {
-            name
-            description
-        }
-    }
-}

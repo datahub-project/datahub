@@ -1,8 +1,8 @@
-import { handleAccesslRoles } from '../utils';
+import handleExternalRoles from '../AccessRolesDetail';
 import { GetExternalRolesQuery } from '../../../../../../../graphql/dataset.generated';
 import { GetMeQuery } from '../../../../../../../graphql/me.generated';
 
-describe('handleAccesslRoles', () => {
+describe('handleExternalRoles', () => {
     it('should properly map the externalroles and loggedin user', () => {
         const externalRolesQuery: GetExternalRolesQuery = {
             dataset: {
@@ -85,14 +85,14 @@ describe('handleAccesslRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleAccesslRoles(externalRolesQuery, GetMeQueryUser);
+        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQueryUser);
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
                 description:
                     'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
-                accessType: 'READ',
-                hasAccess: false,
+                accesstype: 'READ',
+                access: false,
                 url: 'https://www.google.com/',
             },
         ]);
@@ -160,7 +160,7 @@ describe('handleAccesslRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleAccesslRoles(externalRolesQuery, GetMeQueryUser);
+        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQueryUser);
         expect(externalRole).toMatchObject([]);
     });
     it('should properly map the externalroles and loggedin user and access true', () => {
@@ -251,15 +251,15 @@ describe('handleAccesslRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleAccesslRoles(externalRolesQuery, GetMeQueryUser);
+        const externalRole = handleExternalRoles(externalRolesQuery, GetMeQueryUser);
 
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
                 description:
                     'This role access is required by the developers to test and deploy the code also adding few more details to check the description length for the given data and hence check the condition of read more and read less ',
-                accessType: 'READ',
-                hasAccess: true,
+                accesstype: 'READ',
+                access: true,
                 url: 'https://www.google.com/',
             },
         ]);

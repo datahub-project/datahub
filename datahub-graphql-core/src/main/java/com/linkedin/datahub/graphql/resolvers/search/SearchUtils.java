@@ -68,7 +68,6 @@ public class SearchUtils {
           EntityType.GLOSSARY_TERM,
           EntityType.GLOSSARY_NODE,
           EntityType.TAG,
-          EntityType.ROLE,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
@@ -95,7 +94,6 @@ public class SearchUtils {
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
-          EntityType.ROLE,
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT);
 

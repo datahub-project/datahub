@@ -1,4 +1,4 @@
-export function handleAccesslRoles(externalRoles, loggedInUser) {
+export default function handleExternalRoles(externalRoles, loggedInUser) {
     const accessRoles = new Array<any>();
     if (
         externalRoles?.dataset?.access &&
@@ -6,11 +6,11 @@ export function handleAccesslRoles(externalRoles, loggedInUser) {
         externalRoles?.dataset?.access.roles.length > 0
     ) {
         externalRoles?.dataset?.access?.roles?.forEach((userRoles) => {
-            const role = {
+            const arr = {
                 name: userRoles?.role?.properties?.name || ' ',
                 description: userRoles?.role?.properties?.description || ' ',
-                accessType: userRoles?.role?.properties?.type || ' ',
-                hasAccess:
+                accesstype: userRoles?.role?.properties?.type || ' ',
+                access:
                     (userRoles?.role?.actors?.users &&
                         userRoles?.role?.actors?.users.length > 0 &&
                         userRoles?.role?.actors?.users?.some(
@@ -19,7 +19,7 @@ export function handleAccesslRoles(externalRoles, loggedInUser) {
                     false,
                 url: userRoles?.role?.properties?.requestUrl || window.location.href,
             };
-            accessRoles.push(role);
+            accessRoles.push(arr);
         });
     }
 

@@ -264,7 +264,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
-                access={this.isAccessManagementEnabled() ? data?.access : null}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
@@ -303,7 +302,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
-                access={this.isAccessManagementEnabled() ? data?.access : null}
                 parentContainers={data.parentContainers}
                 snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
                 insights={result.insights}

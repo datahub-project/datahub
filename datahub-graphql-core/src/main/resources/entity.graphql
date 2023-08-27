@@ -68,10 +68,6 @@ type Query {
     Fetch a Tag by primary key (urn)
     """
     tag(urn: String!): Tag
-    """
-    Fetch a Role by primary key (urn)
-    """
-    role(urn: String!): Role
 
     """
     Fetch a Glossary Term by primary key (urn)
@@ -1455,7 +1451,7 @@ type Role implements Entity {
     """
     Role properties to include Request Access Url
     """
-    properties: RoleProperties
+    properties: RoleProperties!
 
     """
     A standard Entity Type
