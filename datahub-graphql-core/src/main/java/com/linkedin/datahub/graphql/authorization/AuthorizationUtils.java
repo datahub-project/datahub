@@ -107,7 +107,31 @@ public class AuthorizationUtils {
   }
 
   public static boolean canCreateGlobalAnnouncements(@Nonnull QueryContext context) {
-    return isAuthorized(context, Optional.empty(), PoliciesConfig.CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE);
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(
+            new ConjunctivePrivilegeGroup(ImmutableList.of(
+                PoliciesConfig.CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE.getType())),
+            new ConjunctivePrivilegeGroup(ImmutableList.of(
+                PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE.getType()))
+        ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        orPrivilegeGroups);
+  }
+
+  public static boolean canManageGlobalAnnouncements(@Nonnull QueryContext context) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(
+        ImmutableList.of(
+            new ConjunctivePrivilegeGroup(ImmutableList.of(
+                PoliciesConfig.MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE.getType()))
+        ));
+
+    return AuthorizationUtils.isAuthorized(
+        context.getAuthorizer(),
+        context.getActorUrn(),
+        orPrivilegeGroups);
   }
 
   public static boolean canManageGlobalViews(@Nonnull QueryContext context) {
