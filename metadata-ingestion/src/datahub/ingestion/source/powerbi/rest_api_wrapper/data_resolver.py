@@ -130,7 +130,7 @@ class DataResolverBase(ABC):
         return {Constant.Authorization: self.get_access_token()}
 
     def get_access_token(self):
-        if self.__access_token is not None and self.__access_token_expiry_time > datetime.now():
+        if self.__access_token is not None and not self._is_access_token_expired():
             return self.__access_token
 
         logger.info("Generating PowerBi access token")
@@ -160,6 +160,9 @@ class DataResolverBase(ABC):
         logger.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
 
         return self.__access_token
+
+    def _is_access_token_expired(self) -> bool:
+        return self.__access_token_expiry_time < datetime.now()
 
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """
