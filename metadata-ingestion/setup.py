@@ -506,8 +506,8 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
-            # airflow is added below
+            "vertica",
+            "mode",
         ]
         if plugin
         for dependency in plugins[plugin]
