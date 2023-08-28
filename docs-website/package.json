@@ -26,6 +26,7 @@
     "@docusaurus/plugin-content-docs": "^2.1.0",
     "@docusaurus/plugin-ideal-image": "^2.1.0",
     "@docusaurus/preset-classic": "^2.1.0",
+    "@happyreact/react": "^0.2.2",
     "@markprompt/react": "^0.3.5",
     "@octokit/plugin-retry": "^3.0.9",
     "@octokit/plugin-throttling": "^3.5.1",

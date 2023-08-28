@@ -1,0 +1,36 @@
+.root {
+  margin: 15px 15px;
+  padding: 20px 20px;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 10px;
+}
+
+.title {
+  text-align: center;
+}
+
+.widget .grid {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  min-height: 50px;
+}
+
+.widget .cell {
+  width: 50px;
+}
+
+.widget .reaction {
+  width: 100%;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 5px;
+}
+
+.widget .reaction:hover {
+  border: black 1px solid;
+}
+
+.widget .footer {
+  margin-top: 10px;
+  margin-left: 0;
+}
