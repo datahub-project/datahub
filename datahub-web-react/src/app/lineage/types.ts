@@ -56,6 +56,7 @@ export type FetchedEntity = {
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
+    health?: Health[];
 };
 
 export type NodeData = {
