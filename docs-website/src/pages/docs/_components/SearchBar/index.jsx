@@ -303,11 +303,16 @@ function SearchBar() {
               strokeLinejoin="round"
             ></path>
           </svg>
-
-          {docsSearchVersionsHelpers.versioningEnabled && <SearchVersionSelectList docsSearchVersionsHelpers={docsSearchVersionsHelpers} />}
         </form>
-
-        <div className={styles.searchResultsColumn}>{!!searchResultState.totalResults && documentsFoundPlural(searchResultState.totalResults)}</div>
+        {docsSearchVersionsHelpers.versioningEnabled && (
+          <SearchVersionSelectList
+            docsSearchVersionsHelpers={docsSearchVersionsHelpers}
+          />
+        )}
+        <div className={styles.searchResultsColumn}>
+          {!!searchResultState.totalResults &&
+            documentsFoundPlural(searchResultState.totalResults)}
+        </div>
 
         {searchResultState.items.length > 0 ? (
           <main>
