@@ -302,7 +302,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     operation,
                     domain,
                     ownership,
-                    data_platform_instance,
+                    # Only ingest the DPI aspect if the flag is true
+                    data_platform_instance
+                    if self.config.ingest_data_platform_instance_aspect
+                    else None,
                     lineage,
                 ],
             )
