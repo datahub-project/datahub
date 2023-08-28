@@ -1973,6 +1973,7 @@ export const mocks = [
                     count: 10,
                     filters: [],
                     orFilters: [],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -2033,6 +2034,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    suggestions: [],
                 },
             } as GetSearchResultsQuery,
         },
@@ -2059,6 +2061,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -2112,6 +2115,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    suggestions: [],
                 },
             } as GetSearchResultsQuery,
         },
@@ -2230,6 +2234,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -2251,6 +2256,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             field: 'origin',
@@ -2772,6 +2778,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -2794,6 +2801,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             __typename: 'FacetMetadata',
@@ -2886,6 +2894,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -2908,6 +2917,7 @@ export const mocks = [
                         },
                     ],
                     facets: [],
+                    suggestions: [],
                 },
             } as GetSearchResultsForMultipleQuery,
         },
@@ -2934,6 +2944,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -2955,6 +2966,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             field: 'origin',
@@ -3007,6 +3019,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -3028,6 +3041,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             field: 'origin',
@@ -3084,6 +3098,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -3113,6 +3128,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             field: 'origin',
@@ -3175,6 +3191,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -3196,6 +3213,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             field: 'origin',
@@ -3258,6 +3276,7 @@ export const mocks = [
                             ],
                         },
                     ],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -3279,6 +3298,7 @@ export const mocks = [
                             insights: [],
                         },
                     ],
+                    suggestions: [],
                     facets: [
                         {
                             field: 'origin',
@@ -3363,6 +3383,7 @@ export const mocks = [
                         generatePersonalAccessTokens: true,
                         manageGlobalViews: true,
                         manageOwnershipTypes: true,
+                        manageGlobalAnnouncements: true,
                     },
                 },
             },
@@ -3450,6 +3471,7 @@ export const mocks = [
                     count: 10,
                     filters: [],
                     orFilters: [],
+                    searchFlags: { getSuggestions: true },
                 },
             },
         },
@@ -3461,6 +3483,7 @@ export const mocks = [
                     total: 0,
                     searchResults: [],
                     facets: [],
+                    suggestions: [],
                 },
             },
         },
@@ -3609,4 +3632,5 @@ export const platformPrivileges: PlatformPrivileges = {
     createDomains: true,
     manageGlobalViews: true,
     manageOwnershipTypes: true,
+    manageGlobalAnnouncements: true,
 };
