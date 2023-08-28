@@ -516,9 +516,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Extra requirements for Airflow.
-    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
