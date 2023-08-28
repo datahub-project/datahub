@@ -231,6 +231,23 @@ class BigqueryLineageExtractor:
         self.report.report_warning(key, reason)
         log.error(f"{key} => {reason}")
 
+    def _should_ingest_lineage(self) -> bool:
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "lineage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+
+        return True
+
     def get_lineage_workunits(
         self,
         projects: List[str],
@@ -239,6 +256,8 @@ class BigqueryLineageExtractor:
         view_definitions: FileBackedDict[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_lineage():
+            return
         views_skip_audit_log_lineage: Set[str] = set()
         if self.config.lineage_parse_view_ddl:
             view_lineage: Dict[str, Set[LineageEdge]] = {}
@@ -267,6 +286,12 @@ class BigqueryLineageExtractor:
                 sql_parser_schema_resolver,
                 views_skip_audit_log_lineage,
                 table_refs,
+            )
+
+        if self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time, self.config.end_time
             )
 
     def generate_lineage(

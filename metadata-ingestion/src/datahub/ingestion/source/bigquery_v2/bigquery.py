@@ -229,11 +229,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.report.schema_api_perf, self.config.get_bigquery_client()
         )
 
-        self.redundant_lineage_run_skip_handler: Optional[
+        redundant_lineage_run_skip_handler: Optional[
             RedundantLineageRunSkipHandler
         ] = None
         if self.config.enable_stateful_lineage_ingestion:
-            self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+            redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
                 config=self.config,
                 pipeline_name=self.ctx.pipeline_name,
@@ -245,7 +245,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             config,
             self.report,
             dataset_urn_builder=self.gen_dataset_urn_from_ref,
-            redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
+            redundant_run_skip_handler=redundant_lineage_run_skip_handler,
         )
 
         redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None
@@ -543,7 +543,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 [p.id for p in projects], self.table_refs
             )
 
-        if self._should_ingest_lineage():
+        if self.config.include_table_lineage:
             yield from self.lineage_extractor.get_lineage_workunits(
                 [p.id for p in projects],
                 self.sql_parser_schema_resolver,
@@ -551,32 +551,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.view_definitions,
                 self.table_refs,
             )
-
-            if self.redundant_lineage_run_skip_handler:
-                # Update the checkpoint state for this run.
-                self.redundant_lineage_run_skip_handler.update_state(
-                    self.config.start_time, self.config.end_time
-                )
-
-    def _should_ingest_lineage(self) -> bool:
-        if not self.config.include_table_lineage:
-            return False
-
-        if (
-            self.redundant_lineage_run_skip_handler
-            and self.redundant_lineage_run_skip_handler.should_skip_this_run(
-                cur_start_time=self.config.start_time,
-                cur_end_time=self.config.end_time,
-            )
-        ):
-            # Skip this run
-            self.report.report_warning(
-                "lineage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
-            )
-            return False
-
-        return True
 
     def _get_projects(self) -> List[BigqueryProject]:
         logger.info("Getting projects")
