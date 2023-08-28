@@ -1,6 +1,5 @@
-from datetime import timezone, datetime
-
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,

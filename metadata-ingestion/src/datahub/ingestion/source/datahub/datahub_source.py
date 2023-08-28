@@ -106,7 +106,7 @@ class DataHubSource(StatefulIngestionSourceBase):
         if self.config.kafka_connection is None:
             return
 
-        logger.info(f"Fetching timeseries aspects from kafka")
+        logger.info("Fetching timeseries aspects from kafka")
         with DataHubKafkaReader(
             self.config, self.config.kafka_connection, self.report, self.ctx
         ) as reader:

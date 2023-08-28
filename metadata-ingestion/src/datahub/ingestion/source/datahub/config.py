@@ -3,7 +3,6 @@ from typing import Optional
 from pydantic import Field
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
-from datahub.ingestion.source.sql.mysql import MySQLConnectionConfig
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
