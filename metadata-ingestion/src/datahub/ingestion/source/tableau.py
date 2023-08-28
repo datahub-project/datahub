@@ -31,6 +31,7 @@ from tableauserverclient import (
 from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
 
 import datahub.emitter.mce_builder as builder
+import datahub.utilities.sqlglot_lineage as sqlglot_l
 from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
@@ -136,12 +137,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
-from datahub.utilities.sqlglot_lineage import (
-    ColumnLineageInfo,
-    SchemaResolver,
-    SqlParsingResult,
-    sqlglot_lineage,
-)
+from datahub.utilities.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -1585,42 +1581,14 @@ class TableauSource(StatefulIngestionSourceBase):
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
-        parsed_result: Optional["SqlParsingResult"] = None
-        try:
-            schema_resolver = (
-                self.ctx.graph._make_schema_resolver(
-                    platform=platform,
-                    platform_instance=platform_instance,
-                    env=env,
-                )
-                if self.ctx.graph is not None
-                else SchemaResolver(
-                    platform=platform,
-                    platform_instance=platform_instance,
-                    env=env,
-                    graph=None,
-                )
-            )
-
-            if schema_resolver.graph is None:
-                logger.warning(
-                    "Column Level Lineage extraction would not work as DataHub graph client is None."
-                )
-
-            parsed_result = sqlglot_lineage(
-                query,
-                schema_resolver=schema_resolver,
-                default_db=upstream_db,
-            )
-        except Exception as e:
-            self.report.report_warning(
-                key="csql-lineage",
-                reason=f"Unable to retrieve lineage from query. "
-                f"Query: {query} "
-                f"Reason: {str(e)} ",
-            )
-
-        return parsed_result
+        return sqlglot_l.create_lineage_sql_parsed_result(
+            query=query,
+            database=upstream_db,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=self.ctx.graph,
+        )
 
     def _create_lineage_from_unsupported_csql(
         self, csql_urn: str, csql: dict

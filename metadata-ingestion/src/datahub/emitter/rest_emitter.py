@@ -31,13 +31,14 @@ _DEFAULT_READ_TIMEOUT_SEC = (
 )
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     429,
+    500,
     502,
     503,
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
 

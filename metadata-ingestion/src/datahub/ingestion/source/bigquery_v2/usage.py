@@ -25,7 +25,10 @@ from google.cloud.bigquery import Client as BigQueryClient
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from ratelimiter import RateLimiter
 
-from datahub.configuration.time_window_config import get_time_bucket
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
@@ -50,9 +53,17 @@ from datahub.ingestion.source.bigquery_v2.common import (
     _make_gcp_logging_client,
     get_bigquery_client,
 )
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
 from datahub.ingestion.source.usage.usage_common import (
     TOTAL_BUDGET_FOR_QUERY_LIST,
     make_usage_workunit,
+)
+from datahub.ingestion.source_report.ingestion_stage import (
+    USAGE_EXTRACTION_INGESTION,
+    USAGE_EXTRACTION_OPERATIONAL_STATS,
+    USAGE_EXTRACTION_USAGE_AGGREGATION,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
@@ -377,12 +388,27 @@ class BigQueryUsageExtractor:
         config: BigQueryV2Config,
         report: BigQueryV2Report,
         dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
         self.dataset_urn_builder = dataset_urn_builder
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
+
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.usage_start_time,
+            self.report.usage_end_time,
+        ) = self.get_time_window()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
@@ -391,11 +417,38 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
+    def _should_ingest_usage(self) -> bool:
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "usage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+
+        return True
+
     def get_usage_workunits(
         self, projects: Iterable[str], table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_usage():
+            return
         events = self._get_usage_events(projects)
         yield from self._get_workunits_internal(events, table_refs)
+
+        if self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time,
+                self.config.end_time,
+                self.config.bucket_duration,
+            )
 
     def _get_workunits_internal(
         self, events: Iterable[AuditEvent], table_refs: Collection[str]
@@ -413,7 +466,11 @@ class BigQueryUsageExtractor:
 
                 yield from auto_empty_dataset_usage_statistics(
                     self._generate_usage_workunits(usage_state),
-                    config=self.config,
+                    config=BaseTimeWindowConfig(
+                        start_time=self.start_time,
+                        end_time=self.end_time,
+                        bucket_duration=self.config.bucket_duration,
+                    ),
                     dataset_urns={
                         self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
                         for ref in table_refs
@@ -423,6 +480,7 @@ class BigQueryUsageExtractor:
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-ingestion", str(e))
+            self.report_status("usage-ingestion", False)
 
     def generate_read_events_from_query(
         self, query_event_on_view: QueryEvent
@@ -496,7 +554,7 @@ class BigQueryUsageExtractor:
     def _generate_operational_workunits(
         self, usage_state: BigQueryUsageState, table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage("*", "Usage Extraction Operational Stats")
+        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_OPERATIONAL_STATS)
         for audit_event in usage_state.standalone_events():
             try:
                 operational_wu = self._create_operation_workunit(
@@ -515,7 +573,7 @@ class BigQueryUsageExtractor:
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage("*", "Usage Extraction Usage Aggregation")
+        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_USAGE_AGGREGATION)
         top_n = (
             self.config.usage.top_n_queries
             if self.config.usage.include_top_n_queries
@@ -560,7 +618,7 @@ class BigQueryUsageExtractor:
             with PerfTimer() as timer:
                 try:
                     self.report.set_ingestion_stage(
-                        project_id, "Usage Extraction Ingestion"
+                        project_id, USAGE_EXTRACTION_INGESTION
                     )
                     yield from self._get_parsed_bigquery_log_events(project_id)
                 except Exception as e:
@@ -570,6 +628,7 @@ class BigQueryUsageExtractor:
                     )
                     self.report.usage_failed_extraction.append(project_id)
                     self.report.report_warning(f"usage-extraction-{project_id}", str(e))
+                    self.report_status(f"usage-extraction-{project_id}", False)
 
                 self.report.usage_extraction_sec[project_id] = round(
                     timer.elapsed_seconds(), 2
@@ -583,7 +642,7 @@ class BigQueryUsageExtractor:
     ) -> bool:
         """Stores a usage event in `usage_state` and returns if an event was successfully processed."""
         if event.read_event and (
-            self.config.start_time <= event.read_event.timestamp < self.config.end_time
+            self.start_time <= event.read_event.timestamp < self.end_time
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
@@ -623,14 +682,15 @@ class BigQueryUsageExtractor:
         limit: Optional[int] = None,
     ) -> Iterable[BigQueryAuditMetadata]:
         if self.config.bigquery_audit_metadata_datasets is None:
+            self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        corrected_start_time = self.start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
         end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time
@@ -664,7 +724,6 @@ class BigQueryUsageExtractor:
     def _get_bigquery_log_entries_via_gcp_logging(
         self, client: GCPLoggingClient, limit: Optional[int] = None
     ) -> Iterable[AuditLogEntry]:
-
         filter = self._generate_filter(BQ_AUDIT_V2)
         logger.debug(filter)
 
@@ -707,11 +766,11 @@ class BigQueryUsageExtractor:
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
 
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+        start_time = (self.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_start_time = start_time
-        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
+        end_time = (self.end_time + self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_end_time = end_time
@@ -1046,3 +1105,7 @@ class BigQueryUsageExtractor:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):
             logger.debug(f"Connection test got one {entry}")
             return
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

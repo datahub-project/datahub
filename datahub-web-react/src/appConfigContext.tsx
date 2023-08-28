@@ -30,6 +30,9 @@ export const DEFAULT_APP_CONFIG = {
         entityProfile: {
             domainDefaultTab: null,
         },
+        searchResult: {
+            enableNameHighlight: false,
+        },
     },
     authConfig: {
         tokenAuthEnabled: false,

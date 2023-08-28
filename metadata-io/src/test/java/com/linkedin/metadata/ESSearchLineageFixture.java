@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.ESTestConfiguration.REFRESH_INTERVAL_SECONDS;
 
 
 @TestConfiguration
@@ -154,6 +155,7 @@ public class ESSearchLineageFixture {
                 .bulkProcessor(_bulkProcessor)
                 .fixtureName(fixtureName)
                 .targetIndexPrefix(prefix)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .build()
                 .read();
 

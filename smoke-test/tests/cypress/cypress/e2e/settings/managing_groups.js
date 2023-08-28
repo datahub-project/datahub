@@ -64,8 +64,7 @@ describe("create and manage group", () => {
     });
 
     it("update group info", () => {
-        var expected_name = Cypress.env('ADMIN_USERNAME') == "datahub" ? "Data Hub" : Cypress.env('ADMIN_USERNAME');
-
+        var expected_name = Cypress.env('ADMIN_USERNAME');
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.clickOptionWithText(group_name);

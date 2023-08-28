@@ -213,19 +213,6 @@ class BaseUsageConfig(BaseTimeWindowConfig):
             )
         return v
 
-    @pydantic.validator("start_time")
-    def ensure_start_time_aligns_with_bucket_start_time(
-        cls, v: datetime, values: dict
-    ) -> datetime:
-        if get_time_bucket(v, values["bucket_duration"]) != v:
-            new_start_time = get_time_bucket(v, values["bucket_duration"])
-            logger.warning(
-                f"`start_time` will be changed to {new_start_time}, although the input `start_time` is {v}."
-                "This is necessary to record correct usage for the configured bucket duration."
-            )
-            return new_start_time
-        return v
-
 
 class UsageAggregator(Generic[ResourceType]):
     # TODO: Move over other connectors to use this class

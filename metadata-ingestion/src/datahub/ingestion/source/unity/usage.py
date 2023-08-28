@@ -176,10 +176,8 @@ class UnityCatalogUsageExtractor:
                     for table in runner.target_tables
                 ],
             )
-        except Exception:
-            logger.info(
-                f"Could not parse query via lineage runner, {query}", exc_info=True
-            )
+        except Exception as e:
+            logger.info(f"Could not parse query via lineage runner, {query}: {e!r}")
             return None
 
     @staticmethod
@@ -202,8 +200,8 @@ class UnityCatalogUsageExtractor:
             return GenericTableInfo(
                 source_tables=[t for t in tables if t], target_tables=[]
             )
-        except Exception:
-            logger.info(f"Could not parse query via spark plan, {query}", exc_info=True)
+        except Exception as e:
+            logger.info(f"Could not parse query via spark plan, {query}: {e!r}")
             return None
 
     @staticmethod

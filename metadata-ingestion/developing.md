@@ -74,7 +74,9 @@ The syntax for installing plugins is slightly different in development. For exam
 
 ## Architecture
 
-![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-metadata-ingestion-framework.png"/>
+</p>
 
 The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
 

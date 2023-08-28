@@ -26,23 +26,23 @@ def test_default_start_end_time_hour_bucket_duration():
 @freeze_time(FROZEN_TIME)
 def test_relative_start_time():
     config = BaseTimeWindowConfig.parse_obj({"start_time": "-2 days"})
-    assert config.start_time == datetime(2023, 8, 1, 9, tzinfo=timezone.utc)
+    assert config.start_time == datetime(2023, 8, 1, 0, tzinfo=timezone.utc)
     assert config.end_time == datetime(2023, 8, 3, 9, tzinfo=timezone.utc)
 
     config = BaseTimeWindowConfig.parse_obj({"start_time": "-2d"})
-    assert config.start_time == datetime(2023, 8, 1, 9, tzinfo=timezone.utc)
+    assert config.start_time == datetime(2023, 8, 1, 0, tzinfo=timezone.utc)
     assert config.end_time == datetime(2023, 8, 3, 9, tzinfo=timezone.utc)
 
     config = BaseTimeWindowConfig.parse_obj(
         {"start_time": "-2 days", "end_time": "2023-07-07T09:00:00Z"}
     )
-    assert config.start_time == datetime(2023, 7, 5, 9, tzinfo=timezone.utc)
+    assert config.start_time == datetime(2023, 7, 5, 0, tzinfo=timezone.utc)
     assert config.end_time == datetime(2023, 7, 7, 9, tzinfo=timezone.utc)
 
     config = BaseTimeWindowConfig.parse_obj(
         {"start_time": "-2 days", "end_time": "2023-07-07T09:00:00Z"}
     )
-    assert config.start_time == datetime(2023, 7, 5, 9, tzinfo=timezone.utc)
+    assert config.start_time == datetime(2023, 7, 5, 0, tzinfo=timezone.utc)
     assert config.end_time == datetime(2023, 7, 7, 9, tzinfo=timezone.utc)
 
 

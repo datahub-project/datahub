@@ -6,7 +6,7 @@ import pathlib
 import re
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     ClassVar,
@@ -50,6 +50,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
+    CORPUSER_DATAHUB,
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
@@ -83,6 +84,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -1615,11 +1617,16 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         # Generate the upstream + fine grained lineage objects.
         upstreams = []
+        observed_lineage_ts = datetime.now(tz=timezone.utc)
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         for upstream_dataset_urn in upstream_dataset_urns:
             upstream = UpstreamClass(
                 dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
+                auditStamp=AuditStampClass(
+                    time=int(observed_lineage_ts.timestamp() * 1000),
+                    actor=CORPUSER_DATAHUB,
+                ),
             )
             upstreams.append(upstream)
 

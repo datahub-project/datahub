@@ -478,6 +478,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             parent_container_key=schema_container_key,
         )
 
+    def get_database_level_workunits(
+        self,
+        inspector: Inspector,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from self.gen_database_containers(database=database)
+
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from self.gen_schema_containers(schema=schema, database=database)
+
+        if self.config.include_tables:
+            yield from self.loop_tables(inspector, schema, self.config)
+
+        if self.config.include_views:
+            yield from self.loop_views(inspector, schema, self.config)
+
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
@@ -516,26 +537,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     )
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(
+            yield from self.get_database_level_workunits(
+                inspector=inspector,
                 database=db_name,
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(
-                    database=db_name,
+                yield from self.get_schema_level_workunits(
+                    inspector=inspector,
                     schema=schema,
-                    extra_properties=self.get_schema_properties(
-                        inspector=inspector, schema=schema, database=db_name
-                    ),
+                    database=db_name,
                 )
-
-                if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
-
-                if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
 
                 if profiler:
                     profile_requests += list(

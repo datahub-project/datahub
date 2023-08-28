@@ -77,7 +77,9 @@ locust -f perf-test/locustfiles/ingest.py
 This will set up the web interface in http://localhost:8089 (unless the port is already taken). Once you click into it,
 you should see the following
 
-![Locust Example](../docs/imgs/locust-example.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/locust-example.png"/>
+</p>
 
 Input the number of users you would like to spawn and the spawn rate. Point the host to the deployed DataHub GMS.
 Locally, it should be http://localhost:8080. For a customer instance, it should be the base URL of the customer instance, e.g. https://acryl.acryl.io/. 

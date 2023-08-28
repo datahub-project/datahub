@@ -14,7 +14,8 @@ record TestEntityInfo includes CustomProperties {
   @Searchable = {
     "fieldName": "textFieldOverride",
     "fieldType": "TEXT",
-    "addToFilters": true
+    "addToFilters": true,
+    "fieldNameAliases": [ "_entityName" ]
   }
   textField: optional string
 

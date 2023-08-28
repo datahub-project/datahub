@@ -791,11 +791,9 @@ def test_tableau_unsupported_csql(mock_datahub_graph):
         database_override_map={"production database": "prod"}
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.tableau.sqlglot_lineage"
-    ) as sqlglot_lineage:
+    with mock.patch("datahub.ingestion.source.tableau.sqlglot_l") as sqlglot_lineage:
 
-        sqlglot_lineage.return_value = SqlParsingResult(  # type:ignore
+        sqlglot_lineage.create_lineage_sql_parsed_result.return_value = SqlParsingResult(  # type:ignore
             in_tables=[
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.userdetail,PROD)"
             ],

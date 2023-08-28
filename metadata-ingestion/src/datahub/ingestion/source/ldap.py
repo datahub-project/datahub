@@ -271,10 +271,11 @@ class LDAPSource(StatefulIngestionSourceBase):
                 if dn is None:
                     continue
 
-                if not attrs:
+                if not attrs or "objectClass" not in attrs:
                     self.report.report_warning(
                         "<general>",
-                        f"skipping {dn} because attrs is empty; check your permissions if this is unexpected",
+                        f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
+                        f"check your permissions if this is unexpected",
                     )
                     continue
 

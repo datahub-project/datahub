@@ -29,7 +29,8 @@ record CorpUserInfo includes CustomProperties {
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   displayName: optional string
 

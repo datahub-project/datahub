@@ -6,3 +6,7 @@ export function sortGlossaryTerms(entityRegistry: EntityRegistry, nodeA?: Entity
     const nodeBName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, nodeB) || '';
     return nodeAName.localeCompare(nodeBName);
 }
+
+export function getRelatedEntitiesUrl(entityRegistry: EntityRegistry, urn: string) {
+    return `${entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn)}/${encodeURIComponent('Related Entities')}`;
+}

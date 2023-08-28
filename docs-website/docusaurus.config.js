@@ -70,6 +70,11 @@ module.exports = {
           position: "right",
         },
         {
+          type: 'docsVersionDropdown',
+          position: 'right',
+          dropdownActiveClassDisabled: true,
+        },
+        {
           href: "https://slack.datahubproject.io",
           "aria-label": "Slack",
           position: "right",

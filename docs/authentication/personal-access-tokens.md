@@ -71,7 +71,11 @@ curl 'http://localhost:8080/entities/urn:li:corpuser:datahub' -H 'Authorization:
 
 Since authorization happens at the GMS level, this means that ingestion is also protected behind access tokens, to use them simply add a `token` to the sink config property as seen below:
 
-![](../imgs/ingestion-with-token.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-with-token.png"/>
+</p>
+
 
 :::note
 

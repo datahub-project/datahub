@@ -126,7 +126,9 @@ for functional configurability should reside.
         to render a view associated with a particular entity type (user, dataset, etc.).
   
     
-![entity-registry](./entity-registry.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity-registry.png"/>
+</p>
 
 **graphql** - The React App talks to the `dathub-frontend` server using GraphQL. This module is where the *queries* issued
 against the server are defined. Once defined, running `yarn run generate` will code-gen TypeScript objects to make invoking 

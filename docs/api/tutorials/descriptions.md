@@ -275,7 +275,11 @@ Expected Response:
 
 You can now see the description is added to `fct_users_deleted`.
 
-![dataset-description-added](../../imgs/apis/tutorials/dataset-description-added.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-description-added.png"/>
+</p>
+
 
 ## Add Description on Column
 
@@ -357,4 +361,8 @@ Expected Response:
 
 You can now see column description is added to `user_name` column of `fct_users_deleted`.
 
-![column-description-added](../../imgs/apis/tutorials/column-description-added.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-description-added.png"/>
+</p>
+

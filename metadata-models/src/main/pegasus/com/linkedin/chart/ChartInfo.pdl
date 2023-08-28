@@ -21,7 +21,8 @@ record ChartInfo includes CustomProperties, ExternalReference {
    */
   @Searchable = {
     "fieldType": "WORD_GRAM",
-    "enableAutocomplete": true
+    "enableAutocomplete": true,
+    "fieldNameAliases": [ "_entityName" ]
   }
   title: string
 

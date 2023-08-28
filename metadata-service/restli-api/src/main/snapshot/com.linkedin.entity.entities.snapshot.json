@@ -348,6 +348,7 @@
       "doc" : "Title of the chart",
       "Searchable" : {
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1550,6 +1551,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1695,6 +1697,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -1754,6 +1757,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -2146,6 +2150,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : false,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       },
       "validate" : {
@@ -2335,6 +2340,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
+        "fieldNameAliases" : [ "_entityName" ],
         "fieldType" : "TEXT_PARTIAL"
       }
     }, {
@@ -2698,6 +2704,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2846,6 +2853,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -3965,6 +3973,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -4563,6 +4572,7 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4651,6 +4661,7 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4745,6 +4756,7 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   } ],
@@ -4851,6 +4863,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -4957,6 +4970,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -5057,6 +5071,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -5140,6 +5155,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -5357,6 +5373,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL"
                     }
                   }, {
@@ -5971,6 +5988,12 @@
       "doc" : "Whether to skip aggregates/facets",
       "default" : false,
       "optional" : true
+    }, {
+      "name" : "getSuggestions",
+      "type" : "boolean",
+      "doc" : "Whether to request for search suggestions on the _entityName virtualized field",
+      "default" : false,
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6341,6 +6364,31 @@
             "items" : "AggregationMetadata"
           },
           "doc" : "A list of search result metadata such as aggregations",
+          "default" : [ ]
+        }, {
+          "name" : "suggestions",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "SearchSuggestion",
+              "doc" : "The model for the search result",
+              "fields" : [ {
+                "name" : "text",
+                "type" : "string",
+                "doc" : "The suggestion text for this search query"
+              }, {
+                "name" : "score",
+                "type" : "float",
+                "doc" : "The score for how close this suggestion is to the original search query.\nThe closer to 1 means it is closer to the original query and 0 is further away."
+              }, {
+                "name" : "frequency",
+                "type" : "long",
+                "doc" : "How many matches there are with the suggested text for the given field"
+              } ]
+            }
+          },
+          "doc" : "A list of search query suggestions based on the given query",
           "default" : [ ]
         } ]
       },

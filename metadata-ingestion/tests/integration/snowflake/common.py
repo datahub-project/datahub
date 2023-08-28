@@ -434,11 +434,6 @@ def default_query_results(  # noqa: C901
             }
             for op_idx in range(1, num_ops + 1)
         ]
-    elif query == snowflake_query.SnowflakeQuery.external_table_lineage_history(
-        1654473600000,
-        1654586220000,
-    ):
-        return []
     elif query in [
         snowflake_query.SnowflakeQuery.view_dependencies(),
     ]:
@@ -509,10 +504,6 @@ def default_query_results(  # noqa: C901
             }
         ]
     elif query in [
-        snowflake_query.SnowflakeQuery.external_table_lineage_history(
-            1654473600000,
-            1654586220000,
-        ),
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
         snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),

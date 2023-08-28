@@ -40,7 +40,11 @@ The Actions Framework consists of a few core concepts--
 
 Each of these will be described in detail below.
 
-![](imgs/actions.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/actions.png"/>
+</p>
+
 **In the Actions Framework, Events flow continuously from left-to-right.** 
 
 ### Pipelines

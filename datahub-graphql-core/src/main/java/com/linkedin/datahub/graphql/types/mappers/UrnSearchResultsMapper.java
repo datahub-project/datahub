@@ -27,6 +27,7 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     final SearchResultMetadata searchResultMetadata = input.getMetadata();
     result.setSearchResults(input.getEntities().stream().map(MapperUtils::mapResult).collect(Collectors.toList()));
     result.setFacets(searchResultMetadata.getAggregations().stream().map(MapperUtils::mapFacet).collect(Collectors.toList()));
+    result.setSuggestions(searchResultMetadata.getSuggestions().stream().map(MapperUtils::mapSearchSuggestion).collect(Collectors.toList()));
 
     return result;
   }

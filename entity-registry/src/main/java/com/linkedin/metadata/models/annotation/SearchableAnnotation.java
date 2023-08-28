@@ -4,7 +4,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.models.ModelValidationException;
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -19,6 +22,7 @@ import org.apache.commons.lang3.EnumUtils;
 @Value
 public class SearchableAnnotation {
 
+  public static final String FIELD_NAME_ALIASES = "fieldNameAliases";
   public static final String ANNOTATION_NAME = "Searchable";
   private static final Set<FieldType> DEFAULT_QUERY_FIELD_TYPES =
       ImmutableSet.of(FieldType.TEXT, FieldType.TEXT_PARTIAL, FieldType.WORD_GRAM, FieldType.URN, FieldType.URN_PARTIAL);
@@ -47,6 +51,8 @@ public class SearchableAnnotation {
   Optional<String> numValuesFieldName;
   // (Optional) Weights to apply to score for a given value
   Map<Object, Double> weightsPerFieldValue;
+  // (Optional) Aliases for this given field that can be used for sorting etc.
+  List<String> fieldNameAliases;
 
   public enum FieldType {
     KEYWORD,
@@ -94,6 +100,7 @@ public class SearchableAnnotation {
     final Optional<String> numValuesFieldName = AnnotationUtils.getField(map, "numValuesFieldName", String.class);
     final Optional<Map> weightsPerFieldValueMap =
         AnnotationUtils.getField(map, "weightsPerFieldValue", Map.class).map(m -> (Map<Object, Double>) m);
+    final List<String> fieldNameAliases = getFieldNameAliases(map);
 
     final FieldType resolvedFieldType = getFieldType(fieldType, schemaDataType);
     return new SearchableAnnotation(
@@ -108,7 +115,8 @@ public class SearchableAnnotation {
         boostScore.orElse(1.0),
         hasValuesFieldName,
         numValuesFieldName,
-        weightsPerFieldValueMap.orElse(ImmutableMap.of()));
+        weightsPerFieldValueMap.orElse(ImmutableMap.of()),
+        fieldNameAliases);
   }
 
   private static FieldType getFieldType(Optional<String> maybeFieldType, DataSchema.Type schemaDataType) {
@@ -155,5 +163,16 @@ public class SearchableAnnotation {
     } else {
       return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
+  }
+
+  private static List<String> getFieldNameAliases(Map map) {
+    final List<String> aliases = new ArrayList<>();
+    final Optional<List> fieldNameAliases = AnnotationUtils.getField(map, FIELD_NAME_ALIASES, List.class);
+    if (fieldNameAliases.isPresent()) {
+      for (Object alias : fieldNameAliases.get()) {
+        aliases.add((String) alias);
+      }
+    }
+    return aliases;
   }
 }

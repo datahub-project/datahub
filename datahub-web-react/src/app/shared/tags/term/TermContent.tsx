@@ -6,12 +6,21 @@ import styled from 'styled-components';
 import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
 const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
-const StyledTag = styled(Tag)<{ fontSize?: number }>`
+const StyledTag = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean }>`
+    &&& {
+        ${(props) =>
+            props.highlightTerm &&
+            `
+                background: ${props.theme.styles['highlight-color']};
+                border: 1px solid ${props.theme.styles['highlight-border-color']};
+            `}
+    }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
 `;
 
@@ -46,6 +55,7 @@ export default function TermContent({
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
+    const highlightTerm = useHasMatchedFieldByUrn(term.term.urn, 'glossaryTerms');
 
     const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();
@@ -93,6 +103,7 @@ export default function TermContent({
                 removeTerm(term);
             }}
             fontSize={fontSize}
+            highlightTerm={highlightTerm}
         >
             <BookOutlined style={{ marginRight: '4px' }} />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>

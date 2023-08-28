@@ -21,7 +21,8 @@ record CorpGroupInfo {
     "fieldType": "TEXT_PARTIAL"
     "queryByDefault": true,
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   displayName: optional string
 

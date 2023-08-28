@@ -1,18 +1,16 @@
-import React, { useCallback } from 'react';
-import { Button, Checkbox, Divider, Empty, List, ListProps } from 'antd';
+import React from 'react';
+import { Checkbox, Divider, List, ListProps } from 'antd';
 import styled from 'styled-components';
-import { useHistory } from 'react-router';
-import { RocketOutlined } from '@ant-design/icons';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { ANTD_GRAY } from '../entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM } from '../entity/shared/siblingUtils';
 import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
 import { useEntityRegistry } from '../useEntityRegistry';
-import { SearchResult } from '../../types.generated';
+import { SearchResult, SearchSuggestion } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { EntityAndType } from '../entity/shared/types';
 import { useIsSearchV2 } from './useSearchAndBrowseVersion';
 import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
+import EmptySearchResults from './EmptySearchResults';
 
 const ResultList = styled(List)`
     &&& {
@@ -26,13 +24,6 @@ const ResultList = styled(List)`
 
 const StyledCheckbox = styled(Checkbox)`
     margin-right: 12px;
-`;
-
-const NoDataContainer = styled.div`
-    > div {
-        margin-top: 28px;
-        margin-bottom: 28px;
-    }
 `;
 
 const ThinDivider = styled(Divider)`
@@ -70,6 +61,7 @@ type Props = {
     isSelectMode: boolean;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => any;
+    suggestions: SearchSuggestion[];
 };
 
 export const SearchResultList = ({
@@ -79,16 +71,11 @@ export const SearchResultList = ({
     isSelectMode,
     selectedEntities,
     setSelectedEntities,
+    suggestions,
 }: Props) => {
-    const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const showSearchFiltersV2 = useIsSearchV2();
-
-    const onClickExploreAll = useCallback(() => {
-        analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
-        navigateToSearchUrl({ query: '*', history });
-    }, [history]);
 
     const onClickResult = (result: SearchResult, index: number) => {
         analytics.event({
@@ -118,19 +105,7 @@ export const SearchResultList = ({
                 id="search-result-list"
                 dataSource={searchResults}
                 split={false}
-                locale={{
-                    emptyText: (
-                        <NoDataContainer>
-                            <Empty
-                                style={{ fontSize: 18, color: ANTD_GRAY[8] }}
-                                description={`No results found for "${query}"`}
-                            />
-                            <Button onClick={onClickExploreAll}>
-                                <RocketOutlined /> Explore all
-                            </Button>
-                        </NoDataContainer>
-                    ),
-                }}
+                locale={{ emptyText: <EmptySearchResults suggestions={suggestions} /> }}
                 renderItem={(item, index) => (
                     <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
                         <ListItem

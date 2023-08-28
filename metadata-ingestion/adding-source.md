@@ -44,7 +44,11 @@ class LookerAPIConfig(ConfigModel):
 ```
 
 generates the following documentation:
-![Generated Config Documentation](./docs/images/generated_config_docs.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-ingestion/generated_config_docs.png"/>
+</p>
+
 
 :::note
 Inline markdown or code snippets are not yet supported for field level documentation.

@@ -19,7 +19,8 @@ record DataFlowInfo includes CustomProperties, ExternalReference {
   @Searchable = {
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: string
 

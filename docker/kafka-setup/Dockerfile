@@ -15,9 +15,6 @@ FROM python:3-alpine
 ENV KAFKA_VERSION 3.4.1
 ENV SCALA_VERSION 2.13
 
-# Set the classpath for JARs required by `cub`
-ENV CUB_CLASSPATH='"/usr/share/java/cp-base-new/*"'
-
 LABEL name="kafka" version=${KAFKA_VERSION}
 
 RUN apk add --no-cache bash coreutils
@@ -31,10 +28,6 @@ RUN mkdir -p /opt \
   && mv /opt/kafka_${SCALA_VERSION}-${KAFKA_VERSION} /opt/kafka \
   && adduser -DH -s /sbin/nologin kafka \
   && chown -R kafka: /opt/kafka \
-  && echo "===> Installing python packages ..."  \
-  && pip install --no-cache-dir --upgrade pip wheel setuptools \
-  && pip install jinja2 requests \
-  && pip install "Cython<3.0" "PyYAML<6" --no-build-isolation \
   && rm -rf /tmp/* \
   && apk del --purge .build-deps
 
