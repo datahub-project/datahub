@@ -4,24 +4,25 @@ from pydantic import Field
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.source.sql.mysql import MySQLConnectionConfig
+from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfig,
     StatefulIngestionConfigBase,
 )
 
-DEFAULT_MYSQL_TABLE_NAME = "metadata_aspect_v2"
+DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
-DEFAULT_MYSQL_BATCH_SIZE = 10_000
+DEFAULT_DATABASE_BATCH_SIZE = 10_000
 
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
-    mysql_connection: MySQLConnectionConfig = Field(
-        default=MySQLConnectionConfig(),
-        description="MySQL connection config",
+    database_connection: Optional[SQLAlchemyConnectionConfig] = Field(
+        default=None,
+        description="Database connection config",
     )
 
-    kafka_connection: KafkaConsumerConnectionConfig = Field(
-        default=KafkaConsumerConnectionConfig(),
+    kafka_connection: Optional[KafkaConsumerConnectionConfig] = Field(
+        default=None,
         description="Kafka connection config",
     )
 
@@ -29,18 +30,19 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         default=False,
         description=(
             "If enabled, include all versions of each aspect. "
-            "Otherwise, only include the latest version of each aspect."
+            "Otherwise, only include the latest version of each aspect. "
+            "If only the latest version is included, "
         ),
     )
 
-    mysql_batch_size: int = Field(
-        default=DEFAULT_MYSQL_BATCH_SIZE,
-        description="Number of records to fetch from MySQL at a time",
+    database_query_batch_size: int = Field(
+        default=DEFAULT_DATABASE_BATCH_SIZE,
+        description="Number of records to fetch from the database at a time",
     )
 
-    mysql_table_name: str = Field(
-        default=DEFAULT_MYSQL_TABLE_NAME,
-        description="Name of MySQL table containing all versioned aspects",
+    database_table_name: str = Field(
+        default=DEFAULT_DATABASE_TABLE_NAME,
+        description="Name of database table containing all versioned aspects",
     )
 
     kafka_topic_name: str = Field(
