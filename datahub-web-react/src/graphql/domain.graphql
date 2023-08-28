@@ -44,13 +44,6 @@ query listDomains($input: ListDomainsInput!) {
             entities(input: { start: 0, count: 1 }) {
                 total
             }
-            parentDomains {
-                count
-                domains {
-                    urn
-                    type
-                }
-            }
             children: relationships(
                 input: {
                     types: ["IsPartOf"]
