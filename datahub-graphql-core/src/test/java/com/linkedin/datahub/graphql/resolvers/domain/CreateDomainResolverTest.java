@@ -90,13 +90,6 @@ public class CreateDomainResolverTest {
         Mockito.any(Authentication.class)
     )).thenReturn(new SearchResult().setEntities(new SearchEntityArray()));
 
-    Mockito.when(mockClient.batchGetV2(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.any(),
-        Mockito.any(),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new HashMap<>());
-
     resolver.get(mockEnv).get();
 
     final DomainKey key = new DomainKey();
