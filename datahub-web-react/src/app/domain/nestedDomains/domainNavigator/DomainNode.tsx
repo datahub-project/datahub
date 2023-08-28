@@ -20,12 +20,13 @@ const RowWrapper = styled.div`
     overflow: hidden;
 `;
 
-const NameWrapper = styled(Typography.Text)<{ isSelected: boolean }>`
+const NameWrapper = styled(Typography.Text)<{ isSelected: boolean; addLeftPadding: boolean }>`
     flex: 1;
     overflow: hidden;
     padding: 2px;
     ${(props) =>
         props.isSelected && `background-color: ${applyOpacity(props.theme.styles['primary-color'] || '', 10)};`}
+    ${(props) => props.addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
         ${(props) => !props.isSelected && `background-color: ${ANTD_GRAY_V2[1]};`}
@@ -39,6 +40,19 @@ const NameWrapper = styled(Typography.Text)<{ isSelected: boolean }>`
 
 const ButtonWrapper = styled.span`
     margin-right: 4px;
+    font-size: 16px;
+    height: 16px;
+    width: 16px;
+
+    svg {
+        height: 10px;
+        width: 10px;
+    }
+
+    .ant-btn {
+        height: 16px;
+        width: 16px;
+    }
 `;
 
 const StyledExpander = styled(BodyGridExpander)`
@@ -47,9 +61,10 @@ const StyledExpander = styled(BodyGridExpander)`
 
 interface Props {
     domain: Domain;
+    numDomainChildren: number;
 }
 
-export default function DomainNode({ domain }: Props) {
+export default function DomainNode({ domain, numDomainChildren }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
@@ -68,14 +83,16 @@ export default function DomainNode({ domain }: Props) {
     return (
         <>
             <RowWrapper>
-                {/* TODO: only show this triangle if we know there are child domains */}
-                <ButtonWrapper>
-                    <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
-                </ButtonWrapper>
+                {!!numDomainChildren && (
+                    <ButtonWrapper>
+                        <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
+                    </ButtonWrapper>
+                )}
                 <NameWrapper
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
                     isSelected={!!isOnEntityPage}
+                    addLeftPadding={!numDomainChildren}
                 >
                     <DomainIcon />
                     {displayName}
@@ -84,7 +101,11 @@ export default function DomainNode({ domain }: Props) {
             <StyledExpander isOpen={isOpen && !isClosing}>
                 <BodyContainer style={{ overflow: 'hidden' }}>
                     {data?.listDomains?.domains.map((childDomain) => (
-                        <DomainNode key={domain.urn} domain={childDomain as Domain} />
+                        <DomainNode
+                            key={domain.urn}
+                            domain={childDomain as Domain}
+                            numDomainChildren={childDomain.children?.total || 0}
+                        />
                     ))}
                 </BodyContainer>
             </StyledExpander>

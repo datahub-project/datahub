@@ -8,7 +8,7 @@ import { Domain } from '../../../../types.generated';
 const NavigatorWrapper = styled.div`
     font-size: 14px;
     max-height: calc(100% - 65px);
-    padding: 10px 10px 20px 20px;
+    padding: 8px 8px 16px 16px;
     overflow: auto;
 `;
 
@@ -19,7 +19,11 @@ export default function DomainNavigator() {
         <NavigatorWrapper>
             {error && <Alert message="Loading Domains failed." showIcon type="error" />}
             {data?.listDomains?.domains.map((domain) => (
-                <DomainNode key={domain.urn} domain={domain as Domain} />
+                <DomainNode
+                    key={domain.urn}
+                    domain={domain as Domain}
+                    numDomainChildren={domain.children?.total || 0}
+                />
             ))}
         </NavigatorWrapper>
     );
