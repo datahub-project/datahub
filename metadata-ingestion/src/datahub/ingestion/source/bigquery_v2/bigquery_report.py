@@ -1,12 +1,14 @@
 import collections
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Counter, Dict, List, Optional
 
 import pydantic
 
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
@@ -29,7 +31,7 @@ class BigQueryAuditLogApiPerfReport:
 
 
 @dataclass
-class BigQueryV2Report(ProfilingSqlReport):
+class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
     num_total_lineage_entries: TopKDict[str, int] = field(default_factory=TopKDict)
     num_skipped_lineage_entries_missing_data: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
@@ -76,7 +78,8 @@ class BigQueryV2Report(ProfilingSqlReport):
     use_date_sharded_audit_log_tables: Optional[bool] = None
     log_page_size: Optional[pydantic.PositiveInt] = None
     use_exported_bigquery_audit_metadata: Optional[bool] = None
-    end_time: Optional[datetime] = None
+    log_entry_start_time: Optional[datetime] = None
+    log_entry_end_time: Optional[datetime] = None
     audit_start_time: Optional[datetime] = None
     audit_end_time: Optional[datetime] = None
     upstream_lineage: LossyDict = field(default_factory=LossyDict)
@@ -107,28 +110,21 @@ class BigQueryV2Report(ProfilingSqlReport):
     operation_types_stat: Counter[str] = field(default_factory=collections.Counter)
 
     usage_state_size: Optional[str] = None
-    ingestion_stage: Optional[str] = None
-    ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
+
     schema_api_perf: BigQuerySchemaApiPerfReport = field(
         default_factory=BigQuerySchemaApiPerfReport
     )
     audit_log_api_perf: BigQueryAuditLogApiPerfReport = field(
         default_factory=BigQueryAuditLogApiPerfReport
     )
-    _timer: Optional[PerfTimer] = field(
-        default=None, init=False, repr=False, compare=False
-    )
 
-    def set_ingestion_stage(self, project: str, stage: str) -> None:
-        if self._timer:
-            elapsed = round(self._timer.elapsed_seconds(), 2)
-            logger.info(
-                f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds"
-            )
-            if self.ingestion_stage:
-                self.ingestion_stage_durations[self.ingestion_stage] = elapsed
-        else:
-            self._timer = PerfTimer()
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
+    stateful_lineage_ingestion_enabled: bool = False
 
-        self.ingestion_stage = f"{project}: {stage} at {datetime.now(timezone.utc)}"
-        self._timer.start()
+    usage_start_time: Optional[datetime] = None
+    usage_end_time: Optional[datetime] = None
+    stateful_usage_ingestion_enabled: bool = False
+
+    def set_ingestion_stage(self, project_id: str, stage: str) -> None:
+        self.report_ingestion_stage_start(f"{project_id}: {stage}")

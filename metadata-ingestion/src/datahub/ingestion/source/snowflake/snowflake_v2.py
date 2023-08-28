@@ -90,13 +90,19 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
-    RedundantRunSkipHandler,
+    RedundantLineageRunSkipHandler,
+    RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    PROFILING,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     GlobalTags,
@@ -130,7 +136,6 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlglot_lineage import SchemaResolver
-from datahub.utilities.time import datetime_to_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -222,13 +227,6 @@ class SnowflakeV2Source(
         self.snowsight_base_url: Optional[str] = None
         self.connection: Optional[SnowflakeConnection] = None
 
-        self.redundant_run_skip_handler = RedundantRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain:
             self.domain_registry = DomainRegistry(
@@ -238,14 +236,42 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
-        if config.include_table_lineage:
+        self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
+        if self.config.include_table_lineage:
+            redundant_lineage_run_skip_handler: Optional[
+                RedundantLineageRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_lineage_ingestion:
+                redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+                    source=self,
+                    config=self.config,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
+                )
             self.lineage_extractor = SnowflakeLineageExtractor(
-                config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                config,
+                self.report,
+                dataset_urn_builder=self.gen_dataset_urn,
+                redundant_run_skip_handler=redundant_lineage_run_skip_handler,
             )
 
-        if config.include_usage_stats or config.include_operational_stats:
+        self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
+        if self.config.include_usage_stats or self.config.include_operational_stats:
+            redundant_usage_run_skip_handler: Optional[
+                RedundantUsageRunSkipHandler
+            ] = None
+            if self.config.enable_stateful_usage_ingestion:
+                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                    source=self,
+                    config=self.config,
+                    pipeline_name=self.ctx.pipeline_name,
+                    run_id=self.ctx.run_id,
+                )
             self.usage_extractor = SnowflakeUsageExtractor(
-                config, self.report, dataset_urn_builder=self.gen_dataset_urn
+                config,
+                self.report,
+                dataset_urn_builder=self.gen_dataset_urn,
+                redundant_run_skip_handler=redundant_usage_run_skip_handler,
             )
 
         self.tag_extractor = SnowflakeTagExtractor(
@@ -253,7 +279,7 @@ class SnowflakeV2Source(
         )
 
         self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.store_last_profiling_timestamps:
+        if self.config.enable_stateful_profiling:
             self.profiling_state_handler = ProfilingHandler(
                 source=self,
                 config=self.config,
@@ -281,6 +307,7 @@ class SnowflakeV2Source(
             env=self.config.env,
         )
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
+        self.add_config_to_report()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
@@ -481,7 +508,6 @@ class SnowflakeV2Source(
         if self.connection is None:
             return
 
-        self.add_config_to_report()
         self.inspect_session_metadata()
 
         if self.config.include_external_url:
@@ -506,6 +532,7 @@ class SnowflakeV2Source(
 
         for snowflake_db in databases:
             try:
+                self.report.set_ingestion_stage(snowflake_db.name, METADATA_EXTRACTION)
                 yield from self._process_database(snowflake_db)
 
             except SnowflakePermissionError as e:
@@ -547,7 +574,8 @@ class SnowflakeV2Source(
 
         discovered_datasets = discovered_tables + discovered_views
 
-        if self.config.include_table_lineage:
+        if self.config.include_table_lineage and self.lineage_extractor:
+            self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
             yield from self.lineage_extractor.get_workunits(
                 discovered_tables=discovered_tables,
                 discovered_views=discovered_views,
@@ -555,27 +583,9 @@ class SnowflakeV2Source(
                 view_definitions=self.view_definitions,
             )
 
-        if self.config.include_usage_stats or self.config.include_operational_stats:
-            if (
-                self.config.store_last_usage_extraction_timestamp
-                and self.redundant_run_skip_handler.should_skip_this_run(
-                    cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-                )
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return
-
-            if self.config.store_last_usage_extraction_timestamp:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
-
+        if (
+            self.config.include_usage_stats or self.config.include_operational_stats
+        ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
 
     def report_cache_info(self):
@@ -693,6 +703,7 @@ class SnowflakeV2Source(
             yield from self._process_schema(snowflake_schema, db_name)
 
         if self.config.is_profiling_enabled() and self.db_tables:
+            self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(
@@ -1423,16 +1434,20 @@ class SnowflakeV2Source(
         self.report.cleaned_account_id = self.config.get_account()
         self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
         self.report.upstream_lineage_in_report = self.config.upstream_lineage_in_report
-        if not self.report.ignore_start_time_lineage:
-            self.report.lineage_start_time = self.config.start_time
-        self.report.lineage_end_time = self.config.end_time
         self.report.include_technical_schema = self.config.include_technical_schema
         self.report.include_usage_stats = self.config.include_usage_stats
         self.report.include_operational_stats = self.config.include_operational_stats
         self.report.include_column_lineage = self.config.include_column_lineage
-        if self.report.include_usage_stats or self.config.include_operational_stats:
-            self.report.window_start_time = self.config.start_time
-            self.report.window_end_time = self.config.end_time
+        self.report.stateful_lineage_ingestion_enabled = (
+            self.config.enable_stateful_lineage_ingestion
+        )
+        self.report.stateful_usage_ingestion_enabled = (
+            self.config.enable_stateful_usage_ingestion
+        )
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
+        )
 
     def inspect_session_metadata(self) -> None:
         try:
@@ -1614,7 +1629,7 @@ class SnowflakeV2Source(
         StatefulIngestionSourceBase.close(self)
         self.view_definitions.close()
         self.sql_parser_schema_resolver.close()
-        if hasattr(self, "lineage_extractor"):
+        if self.lineage_extractor:
             self.lineage_extractor.close()
-        if hasattr(self, "usage_extractor"):
+        if self.usage_extractor:
             self.usage_extractor.close()

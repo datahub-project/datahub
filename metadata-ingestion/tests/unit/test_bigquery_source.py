@@ -158,7 +158,8 @@ def test_get_dataplatform_instance_aspect_returns_project_id(get_bq_client_mock)
     assert metadata.aspect.instance == expected_instance
 
 
-def test_get_dataplatform_instance_default_no_instance():
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+def test_get_dataplatform_instance_default_no_instance(get_bq_client_mock):
     config = BigQueryV2Config.parse_obj({})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 

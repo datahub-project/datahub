@@ -3,7 +3,18 @@ import itertools
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import humanfriendly
 from google.cloud.datacatalog import lineage_v1
@@ -30,6 +41,9 @@ from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE,
     bigquery_audit_metadata_query_template_lineage,
+)
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -188,6 +202,7 @@ class BigqueryLineageExtractor:
         config: BigQueryV2Config,
         report: BigQueryV2Report,
         dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
         self.report = report
@@ -197,6 +212,20 @@ class BigqueryLineageExtractor:
             self.config.rate_limit,
             self.config.requests_per_min,
         )
+
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.lineage_start_time,
+            self.report.lineage_end_time,
+        ) = self.get_time_window()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -492,10 +521,10 @@ class BigqueryLineageExtractor:
         # between query events and read events is complete. For example, this helps us
         # handle the case where the read happens within our time range but the query
         # completion event is delayed and happens after the configured end time.
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
-        corrected_end_time = self.config.end_time + -self.config.max_query_duration
-        self.report.audit_start_time = corrected_start_time
-        self.report.audit_end_time = corrected_end_time
+        corrected_start_time = self.start_time - self.config.max_query_duration
+        corrected_end_time = self.end_time + -self.config.max_query_duration
+        self.report.log_entry_start_time = corrected_start_time
+        self.report.log_entry_end_time = corrected_end_time
 
         parse_fn: Callable[[Any], Optional[Union[ReadEvent, QueryEvent]]]
         if self.config.use_exported_bigquery_audit_metadata:
@@ -821,8 +850,8 @@ class BigqueryLineageExtractor:
     def test_capability(self, project_id: str) -> None:
         if self.config.use_exported_bigquery_audit_metadata:
             for entry in self.get_exported_log_entries(
-                self.config.start_time,
-                self.config.end_time,
+                self.start_time,
+                self.end_time,
                 limit=1,
             ):
                 logger.debug(
@@ -835,10 +864,14 @@ class BigqueryLineageExtractor:
             for entry in self.audit_log_api.get_bigquery_log_entries_via_gcp_logging(
                 gcp_logging_client,
                 filter=BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE.format(
-                    self.config.start_time.strftime(BQ_DATETIME_FORMAT),
-                    self.config.end_time.strftime(BQ_DATETIME_FORMAT),
+                    self.start_time.strftime(BQ_DATETIME_FORMAT),
+                    self.end_time.strftime(BQ_DATETIME_FORMAT),
                 ),
                 log_page_size=self.config.log_page_size,
                 limit=1,
             ):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)
