@@ -13,14 +13,16 @@ from datahub_monitors.source.redshift.time_utils import (
     convert_value_for_comparison,
 )
 from datahub_monitors.source.source import Source
-from datahub_monitors.source.types import SourceOperationParams
+from datahub_monitors.source.types import DatabaseParams, SourceOperationParams
 from datahub_monitors.types import EntityEvent, EntityEventType
 
 from ..utils.sql import (
     setup_high_watermark_field_value_query,
     setup_high_watermark_row_count_query,
+    setup_row_count_query,
 )
 from .types import (
+    HIGH_WATERMARK_DATE_AND_TIME_TYPES,
     SUPPORTED_HIGH_WATERMARK_COLUMN_TYPES,
     SUPPORTED_LAST_MODIFIED_COLUMN_TYPES,
 )
@@ -228,17 +230,7 @@ class RedshiftSource(Source):
         previous_value: Optional[str],
     ) -> Optional[str]:
         # if this is a date or timestamp we need to convert
-        if (
-            column_type
-            in [
-                "DATE",
-                "TIMESTAMP",
-                "TIMESTAMP WITHOUT TIME ZONE",
-                "TIMESTAMPTZ",
-                "TIMESTAMP WITH TIME ZONE",
-            ]
-            and previous_value
-        ):
+        if column_type in HIGH_WATERMARK_DATE_AND_TIME_TYPES and previous_value:
             previous_value = convert_value_for_comparison(previous_value, column_type)
 
         get_value_query = setup_high_watermark_field_value_query(
@@ -258,18 +250,7 @@ class RedshiftSource(Source):
         filter_sql: str,
         current_field_value: str,
     ) -> int:
-        # if this is a date or timestamp we need to convert
-        if (
-            column_type
-            in [
-                "DATE",
-                "TIMESTAMP",
-                "TIMESTAMP WITHOUT TIME ZONE",
-                "TIMESTAMPTZ",
-                "TIMESTAMP WITH TIME ZONE",
-            ]
-            and current_field_value
-        ):
+        if column_type in HIGH_WATERMARK_DATE_AND_TIME_TYPES and current_field_value:
             current_field_value = convert_value_for_comparison(
                 current_field_value, column_type
             )
@@ -281,4 +262,28 @@ class RedshiftSource(Source):
             current_field_value,
         )
         resp = self._execute_fetchone_query(get_count_query)
+        return resp[0] if resp else 0
+
+    def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
+        query = f"""
+            SELECT "tbl_rows"
+            FROM svv_table_info
+            WHERE database='{database_params.database}'
+            AND schema='{database_params.schema}'
+            AND "table"='{database_params.table}';"""
+
+        logger.debug(query)
+        resp = self._execute_fetchone_query(query)
+        return resp[0] if resp else 0
+
+    def _get_num_rows_via_count(
+        self, database_params: DatabaseParams, filter_sql: str
+    ) -> int:
+        query = setup_row_count_query(
+            f"{database_params.database}.{database_params.schema}.{database_params.table}",
+            filter_sql,
+        )
+
+        logger.debug(query)
+        resp = self._execute_fetchone_query(query)
         return resp[0] if resp else 0

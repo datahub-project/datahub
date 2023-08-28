@@ -136,8 +136,8 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                         {headerActionItems && (
                             <EntityActions urn={urn} actionItems={headerActionItems} refetchForEntity={refetch} />
                         )}
-                        <ShareButton entityType={entityType} subType={subType} urn={urn} name={entityName} />
                         {subscriptionsEnabled && <SubscribeButtons />}
+                        <ShareButton entityType={entityType} subType={subType} urn={urn} name={entityName} />
                         {headerDropdownItems && (
                             <EntityDropdown
                                 urn={urn}

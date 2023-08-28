@@ -105,9 +105,9 @@ export const ASSERTION_INFO = [
         name: 'Volume',
         description: 'Define & monitor your expectations about the size of this dataset',
         icon: <StyledTableOutlined />,
-        type: null, // TODO
+        type: AssertionType.Volume,
         entityTypes: [EntityType.Dataset],
-        enabled: false,
+        enabled: true,
         visible: true,
     },
     {

@@ -69,7 +69,7 @@ export const AcrylValidationsTab = () => {
                 </>
             ),
             path: TabPaths.ASSERTIONS,
-            disabled: totalAssertions === 0,
+            disabled: false, // Always keep the assertions tab clickable in saas.
             content: <AcrylAssertions />,
         },
         {

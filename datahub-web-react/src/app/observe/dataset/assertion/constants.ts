@@ -9,7 +9,11 @@ export const ASSERTION_TYPE_OPTIONS = [
         value: AssertionType.Freshness,
     },
     {
-        name: 'Other',
+        name: 'Volume',
+        value: AssertionType.Volume,
+    },
+    {
+        name: 'External',
         value: AssertionType.Dataset,
     },
 ];

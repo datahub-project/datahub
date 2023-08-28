@@ -45,6 +45,8 @@ import {
     LINEAGE_GRAPH_TIME_FILTER_ID,
 } from '../../../../onboarding/config/LineageGraphOnboardingConfig';
 import { useAppConfig } from '../../../../useAppConfig';
+import { useSubscriptionsEnabled } from '../../../../settings/personal/notifications/utils';
+import { ENTITY_PROFILE_SUBSCRIPTION_ID } from '../../../../onboarding/config/EntityProfileOnboardingConfig';
 
 type Props<T, U> = {
     urn: string;
@@ -169,6 +171,7 @@ export const EntityProfile = <T, U>({
     const isLineageMode = useIsLineageMode();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const entityRegistry = useEntityRegistry();
+    const subscriptionsEnabled = useSubscriptionsEnabled();
     const history = useHistory();
     const appConfig = useAppConfig();
     const isCompact = React.useContext(CompactContext);
@@ -184,6 +187,9 @@ export const EntityProfile = <T, U>({
     const entityStepIds: string[] = getOnboardingStepIdsForEntityType(entityType);
     const lineageGraphStepIds: string[] = [LINEAGE_GRAPH_INTRO_ID, LINEAGE_GRAPH_TIME_FILTER_ID];
     const stepIds = isLineageMode ? lineageGraphStepIds : entityStepIds;
+    const filteredStepIds = subscriptionsEnabled
+        ? stepIds
+        : stepIds.filter((id) => id !== ENTITY_PROFILE_SUBSCRIPTION_ID);
 
     const routeToTab = useCallback(
         ({
@@ -316,7 +322,7 @@ export const EntityProfile = <T, U>({
             }}
         >
             <>
-                <OnboardingTour stepIds={stepIds} />
+                <OnboardingTour stepIds={filteredStepIds} />
                 <EntityHead />
                 {showBrowseBar && <EntityProfileNavBar urn={urn} entityType={entityType} />}
                 {entityData?.status?.removed === true && (

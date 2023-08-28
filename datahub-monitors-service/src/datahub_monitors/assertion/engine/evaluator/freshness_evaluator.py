@@ -1,38 +1,26 @@
 import logging
 import time
-from typing import List, Optional, cast
+from typing import List, cast
 
-from datahub_monitors.assertion.engine.evaluator.error_utils import (
-    extract_assertion_evaluation_result_error,
-)
 from datahub_monitors.assertion.engine.evaluator.evaluator import AssertionEvaluator
-from datahub_monitors.assertion.engine.evaluator.freshness_utils import (
+from datahub_monitors.assertion.engine.evaluator.utils.freshness import (
     get_event_type_parameters_from_parameters,
 )
-from datahub_monitors.assertion.engine.evaluator.time_utils import (
+from datahub_monitors.assertion.engine.evaluator.utils.time import (
     get_fixed_interval_start,
     get_next_cron_schedule_time,
     get_prev_cron_schedule_time,
 )
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
 from datahub_monitors.connection.connection import Connection
-from datahub_monitors.connection.provider import ConnectionProvider
-from datahub_monitors.exceptions import (
-    AssertionResultException,
-    InvalidParametersException,
-    SourceConnectionErrorException,
-)
-from datahub_monitors.source.provider import SourceProvider
+from datahub_monitors.exceptions import InvalidParametersException
 from datahub_monitors.source.source import Source
-from datahub_monitors.state.assertion_state_provider import AssertionStateProvider
 from datahub_monitors.types import (
     Assertion,
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
     AssertionEvaluationResult,
-    AssertionEvaluationResultError,
-    AssertionResultErrorType,
     AssertionResultType,
     AssertionType,
     CronSchedule,
@@ -49,13 +37,6 @@ from datahub_monitors.types import (
 logger = logging.getLogger(__name__)
 
 
-DEFAULT_FRESHNESS_PARAMETERS = AssertionEvaluationParameters(
-    type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
-    dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
-        sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA
-    ),
-)
-
 STATEFUL_ASSERTION_EVALUATION_BUFFER = 5 * 60 * 1000
 
 
@@ -66,15 +47,14 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
     def type(self) -> AssertionType:
         return AssertionType.FRESHNESS
 
-    def __init__(
-        self,
-        connection_provider: ConnectionProvider,
-        state_provider: AssertionStateProvider,
-        source_provider: SourceProvider,
-    ):
-        self.connection_provider = connection_provider
-        self.state_provider = state_provider
-        self.source_provider = source_provider
+    @property
+    def default_parameters(self) -> AssertionEvaluationParameters:
+        return AssertionEvaluationParameters(
+            type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
+            dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+                sourceType=DatasetFreshnessSourceType.INFORMATION_SCHEMA
+            ),
+        )
 
     def _evaluate_internal_window_event(
         self,
@@ -410,50 +390,4 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             raise InvalidParametersException(
                 message=f"Failed to evaluate FRESHNESS Assertion. Unsupported FRESHNESS Schedule Type {assertion.freshness_assertion.schedule.type} provided.",
                 parameters=parameters.__dict__,
-            )
-
-    def evaluate(
-        self,
-        assertion: Assertion,
-        parameters: Optional[AssertionEvaluationParameters],
-        context: AssertionEvaluationContext,
-    ) -> AssertionEvaluationResult:
-        try:
-            assert assertion.connection_urn
-            connection = self.connection_provider.get_connection(
-                cast(str, assertion.connection_urn)
-            )
-
-            if connection is None:
-                raise SourceConnectionErrorException(
-                    message=f"Unable to retrieve valid connection for Data Platform with urn {assertion.connection_urn}",
-                    connection_urn=assertion.connection_urn,
-                )
-
-            return self._evaluate_internal(
-                assertion,
-                parameters if parameters is not None else DEFAULT_FRESHNESS_PARAMETERS,
-                connection,
-                context,
-            )
-        except AssertionResultException as e:
-            error = extract_assertion_evaluation_result_error(e)
-            result = AssertionEvaluationResult(
-                AssertionResultType.ERROR,
-                error=error,
-            )
-            logger.exception(
-                f"Caught error of type {error.type} when attempting to evaluate assertion with urn {assertion.urn} and properties {error.properties}. Caused by: {e}"
-            )
-            return result
-        except Exception as e:
-            logger.exception(
-                f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Caused by: {e}"
-            )
-            return AssertionEvaluationResult(
-                AssertionResultType.ERROR,
-                error=AssertionEvaluationResultError(
-                    type=AssertionResultErrorType.UNKNOWN_ERROR,
-                    properties={"assertion_urn": assertion.urn},
-                ),
             )

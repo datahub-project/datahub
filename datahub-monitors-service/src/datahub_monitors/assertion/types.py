@@ -19,3 +19,12 @@ class AssertionState:
         self.type = type
         self.timestamp = timestamp
         self.properties = properties
+
+
+class AssertionDatabaseParams:
+    qualified_name: Optional[str]
+    table_name: Optional[str]
+
+    def __init__(self, qualified_name: Optional[str], table_name: Optional[str]):
+        self.qualified_name = qualified_name
+        self.table_name = table_name

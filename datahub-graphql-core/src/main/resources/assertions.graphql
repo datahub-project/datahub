@@ -801,6 +801,11 @@ input CreateVolumeAssertionInput {
   If not provided, there is no filter, and the full table is under consideration.
   """
   filter: DatasetFilterInput
+
+  """
+  Optional actions to apply on success or failure of the assertion
+  """
+  actions: AssertionActionsInput
 }
 
 """

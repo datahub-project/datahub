@@ -3,6 +3,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from datahub_monitors.assertion.types import AssertionDatabaseParams
 from datahub_monitors.connection.snowflake.snowflake_connection import (
     SnowflakeConnection,
 )
@@ -12,6 +13,7 @@ from datahub_monitors.exceptions import (
 )
 from datahub_monitors.source.snowflake.snowflake import SnowflakeSource
 from datahub_monitors.source.snowflake.types import DEFAULT_OPERATION_TYPES_FILTER
+from datahub_monitors.source.types import DatabaseParams
 from datahub_monitors.types import (
     DatasetFilterType,
     EntityEventType,
@@ -177,6 +179,22 @@ TEST_HIGHWATERMARK_COUNT_QUERY = f"""
         FROM test_db.public."test_table"
         WHERE timestamp = TO_TIMESTAMP('{TEST_END}')
         AND foo = 'bar'
+    """
+TEST_GET_ROW_COUNT_QUERY = """
+            SELECT row_count
+            FROM TEST_DB.information_schema.tables
+            WHERE table_name = 'test_table'
+            AND table_schema = 'PUBLIC'
+            AND table_catalog = 'TEST_DB';"""
+TEST_NUM_ROWS_VIA_COUNT_QUERY = """
+        SELECT COUNT(*)
+        FROM test_db.public."test_table"
+        
+    """
+TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY = """
+        SELECT COUNT(*)
+        FROM test_db.public."test_table"
+        WHERE foo = 'bar'
     """
 
 
@@ -409,10 +427,9 @@ class TestSnowflakeSource:
                     "type": "STRING",
                     "native_type": "STRING",
                     "kind": FreshnessFieldKind.HIGH_WATERMARK,
-                    "database": {
-                        "qualified_name": TEST_QUALIFIED_NAME,
-                        "table_name": TEST_TABLE_NAME,
-                    },
+                    "database": AssertionDatabaseParams(
+                        qualified_name=TEST_QUALIFIED_NAME, table_name=TEST_TABLE_NAME
+                    ),
                 },
                 None,
             )
@@ -424,10 +441,9 @@ class TestSnowflakeSource:
                 EntityEventType.FIELD_UPDATE,
                 [TEST_START, TEST_END],
                 {
-                    "database": {
-                        "qualified_name": TEST_QUALIFIED_NAME,
-                        "table_name": TEST_TABLE_NAME,
-                    },
+                    "database": AssertionDatabaseParams(
+                        qualified_name=TEST_QUALIFIED_NAME, table_name=TEST_TABLE_NAME
+                    )
                 },
                 None,
             )
@@ -441,10 +457,9 @@ class TestSnowflakeSource:
                 EntityEventType.DATA_JOB_RUN_COMPLETED_SUCCESS,
                 [TEST_START, TEST_END],
                 {
-                    "database": {
-                        "qualified_name": TEST_QUALIFIED_NAME,
-                        "table_name": TEST_TABLE_NAME,
-                    },
+                    "database": AssertionDatabaseParams(
+                        qualified_name=TEST_QUALIFIED_NAME, table_name=TEST_TABLE_NAME
+                    )
                 },
                 None,
             )
@@ -504,7 +519,11 @@ class TestSnowflakeSource:
         operational_params = self.snowflake_source._get_operation_params(
             TEST_ENTITY_URN,
             [TEST_START, TEST_END],
-            {"database": {"qualified_name": "test_db.public.camelCasedTableName"}},
+            {
+                "database": AssertionDatabaseParams(
+                    qualified_name="test_db.public.camelCasedTableName", table_name=None
+                )
+            },
         )
         assert operational_params.start_time_millis == TEST_START
         assert operational_params.end_time_millis == TEST_END
@@ -517,10 +536,10 @@ class TestSnowflakeSource:
             TEST_ENTITY_URN,
             [TEST_START, TEST_END],
             {
-                "database": {
-                    "qualified_name": "test_db.public.camelCasedTableName",
-                    "table_name": "TitleCasedTableName",
-                }
+                "database": AssertionDatabaseParams(
+                    qualified_name="test_db.public.camelCasedTableName",
+                    table_name="TitleCasedTableName",
+                )
             },
         )
         assert operational_params.start_time_millis == TEST_START
@@ -556,3 +575,45 @@ class TestSnowflakeSource:
         assert len(results) == 1
         assert results[0].event_time == JAN_1_TIMESTAMP
         assert results[0].event_type == EntityEventType.FIELD_UPDATE
+
+    @patch.object(SnowflakeSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_stats_table(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [10]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2=TEST_TABLE_NAME,
+        )
+        result = self.snowflake_source._get_num_rows_via_stats_table(db_params)
+        execute_query_mock.assert_called_once_with(
+            TEST_GET_ROW_COUNT_QUERY,
+        )
+        assert result == 10
+
+    @patch.object(SnowflakeSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_count(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [10]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.snowflake_source._get_num_rows_via_count(db_params, "")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_QUERY,
+        )
+        assert result == 10
+
+    @patch.object(SnowflakeSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_count_with_filter(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = [10]
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.snowflake_source._get_num_rows_via_count(db_params, "foo = 'bar'")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_WITH_FILTER_QUERY,
+        )
+        assert result == 10

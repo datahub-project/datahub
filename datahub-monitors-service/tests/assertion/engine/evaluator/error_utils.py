@@ -1,4 +1,4 @@
-from datahub_monitors.assertion.engine.evaluator.error_utils import (
+from datahub_monitors.assertion.engine.evaluator.utils.errors import (
     extract_assertion_evaluation_result_error,
 )
 from datahub_monitors.constants import SNOWFLAKE_PLATFORM_URN

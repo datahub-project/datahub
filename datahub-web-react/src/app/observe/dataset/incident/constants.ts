@@ -13,6 +13,10 @@ export const INCIDENT_TYPE_OPTIONS = [
         value: IncidentType.Freshness,
     },
     {
+        name: 'Volume',
+        value: IncidentType.Volume,
+    },
+    {
         name: 'Other',
         value: IncidentType.Custom,
     },

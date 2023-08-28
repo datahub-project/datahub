@@ -64,6 +64,45 @@ fragment assertionDetails on Assertion {
                 sql
             }
         }
+        volumeAssertion {
+            type
+            filter {
+                type
+                sql
+            }
+            rowCountTotal {
+                operator
+                parameters {
+                    ...assertionStdParametersDetails
+                }
+            }
+            rowCountChange {
+                type
+                operator
+                parameters {
+                    ...assertionStdParametersDetails
+                }
+            }
+            incrementingSegmentRowCountTotal {
+                operator
+                parameters {
+                    ...assertionStdParametersDetails
+                }
+                segment {
+                    ...incrementingSegmentSpecDetails
+                }
+            }
+            incrementingSegmentRowCountChange {
+                type
+                operator
+                parameters {
+                    ...assertionStdParametersDetails
+                }
+                segment {
+                    ...incrementingSegmentSpecDetails
+                }
+            }
+        }
         source {
             type
         }
@@ -75,6 +114,33 @@ fragment assertionDetails on Assertion {
         onFailure {
             type
         }
+    }
+}
+
+fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
+    field {
+        path
+        type
+        nativeType
+    }
+    transformer {
+        type
+        nativeType
+    }
+}
+
+fragment assertionStdParametersDetails on AssertionStdParameters {
+    value {
+        value
+        type
+    }
+    minValue {
+        value
+        type
+    }
+    maxValue {
+        value
+        type
     }
 }
 
@@ -129,6 +195,12 @@ mutation deleteAssertion($urn: String!) {
 
 mutation createFreshnessAssertion($input: CreateFreshnessAssertionInput!) {
     createFreshnessAssertion(input: $input) {
+        ...assertionDetails
+    }
+}
+
+mutation createVolumeAssertion($input: CreateVolumeAssertionInput!) {
+    createVolumeAssertion(input: $input) {
         ...assertionDetails
     }
 }

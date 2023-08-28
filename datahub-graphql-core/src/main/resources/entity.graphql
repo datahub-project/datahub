@@ -222,11 +222,6 @@ type Query {
     listOwnershipTypes(
         "Input required for listing custom ownership types"
         input: ListOwnershipTypesInput!): ListOwnershipTypesResult!
-
-    """
-    Get whether or not not a data connection for an entity exists
-    """
-    connectionForEntityExists(urn: String!): Boolean
 }
 
 """
@@ -7332,6 +7327,10 @@ enum AssertionType {
     A Freshness assertion
     """
     FRESHNESS
+    """
+    A Volume assertion
+    """
+    VOLUME
 }
 
 """

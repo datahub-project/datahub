@@ -11,8 +11,11 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.linkedin.util.Pair;
@@ -24,6 +27,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
+import org.elasticsearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.testng.annotations.Test;
 
@@ -190,6 +194,7 @@ public class SearchQueryBuilderTest {
 
   @Test
   public void testCustomSelectAll() {
+    // "explore" query: empty or * query
     for (String triggerQuery : List.of("*", "")) {
       FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) TEST_CUSTOM_BUILDER
               .buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
@@ -197,12 +202,22 @@ public class SearchQueryBuilderTest {
       BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
       List<QueryBuilder> shouldQueries = mainQuery.should();
       assertEquals(shouldQueries.size(), 0);
+      FunctionScoreQueryBuilder.FilterFunctionBuilder[] functionBuilders = result.filterFunctionBuilders();
+      assertEquals(functionBuilders.length, 5);
+      Set<String> fieldsWeighted = new HashSet<>();
+      for (FunctionScoreQueryBuilder.FilterFunctionBuilder functionBuilder : functionBuilders) {
+        if (functionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder) {
+          fieldsWeighted.add(((FieldValueFactorFunctionBuilder) functionBuilder.getScoreFunction()).fieldName());
+        }
+      }
+      assertEquals(Set.of("uniqueUserCountLast30Days", "usageCountLast30Days", "viewCountLast30Days", "rowCount"), fieldsWeighted);
     }
   }
 
   @Test
   public void testCustomExactMatch() {
-    for (String triggerQuery : List.of("test_table", "'single quoted'", "\"double quoted\"")) {
+    // Exact match query (uses quotes)
+    for (String triggerQuery : List.of("'single quoted'", "\"double quoted\"")) {
       FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) TEST_CUSTOM_BUILDER
               .buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
 
@@ -227,6 +242,44 @@ public class SearchQueryBuilderTest {
       }).collect(Collectors.toList());
 
       assertFalse(queries.isEmpty(), "Expected queries with specific types");
+
+      FunctionScoreQueryBuilder.FilterFunctionBuilder[] functionBuilders = result.filterFunctionBuilders();
+      assertEquals(functionBuilders.length, 2);
+      // Should not include Field Value functions for usage stats
+      assertFalse(Arrays.stream(functionBuilders).anyMatch(
+          filterFunctionBuilder -> filterFunctionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder));
+    }
+  }
+
+  @Test
+  public void testHighIntentQuery() {
+    for (String triggerQuery : List.of("db.table", "table_name", "table-name", "db_name.table_name")) {
+      FunctionScoreQueryBuilder result = (FunctionScoreQueryBuilder) TEST_CUSTOM_BUILDER
+          .buildQuery(ImmutableList.of(TestEntitySpecBuilder.getSpec()), triggerQuery, true);
+
+      BoolQueryBuilder mainQuery = (BoolQueryBuilder) result.query();
+      List<QueryBuilder> shouldQueries = mainQuery.should();
+      assertEquals(shouldQueries.size(), 2, "should have two clauses for " + triggerQuery);
+
+      List<QueryBuilder> queries = mainQuery.should().stream().map(query -> {
+        if (query instanceof SimpleQueryStringBuilder) {
+          return (SimpleQueryStringBuilder) query;
+        } else if (query instanceof MatchAllQueryBuilder) {
+          // custom
+          return (MatchAllQueryBuilder) query;
+        } else {
+          // exact
+          return (BoolQueryBuilder) query;
+        }
+      }).collect(Collectors.toList());
+
+      assertEquals(queries.size(), 2, "Expected queries with specific types");
+
+      FunctionScoreQueryBuilder.FilterFunctionBuilder[] functionBuilders = result.filterFunctionBuilders();
+      assertEquals(functionBuilders.length, 2, "Expected no usage stats function scales for " + triggerQuery);
+      // Should not include Field Value functions for usage stats
+      assertFalse(Arrays.stream(functionBuilders).anyMatch(
+          filterFunctionBuilder -> filterFunctionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder));
     }
   }
 
@@ -261,6 +314,17 @@ public class SearchQueryBuilderTest {
 
       assertEquals(termQueryBuilder.fieldName(), "fieldName");
       assertEquals(termQueryBuilder.value().toString(), triggerQuery);
+
+      FunctionScoreQueryBuilder.FilterFunctionBuilder[] functionBuilders = result.filterFunctionBuilders();
+      assertEquals(functionBuilders.length, 6);
+      Set<String> fieldsWeighted = new HashSet<>();
+      for (FunctionScoreQueryBuilder.FilterFunctionBuilder functionBuilder : functionBuilders) {
+        if (functionBuilder.getScoreFunction() instanceof FieldValueFactorFunctionBuilder) {
+          fieldsWeighted.add(((FieldValueFactorFunctionBuilder) functionBuilder.getScoreFunction()).fieldName());
+        }
+      }
+      assertEquals(Set.of("uniqueUserCountLast30Days", "usageCountLast30Days", "viewCountLast30Days", "rowCount"), fieldsWeighted);
     }
+
   }
 }

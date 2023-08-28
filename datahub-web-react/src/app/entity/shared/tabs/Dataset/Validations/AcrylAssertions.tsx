@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
-import { useConnectionForEntityExistsQuery } from '../../../../../../graphql/connection.generated';
+import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
 import { getPlatformName } from '../../../utils';
 import { Assertion } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
@@ -35,7 +35,7 @@ export const AcrylAssertions = () => {
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
-    const { data: connectionExistsData } = useConnectionForEntityExistsQuery({
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
@@ -52,7 +52,7 @@ export const AcrylAssertions = () => {
                 <TabToolbar>
                     <Tooltip
                         title={
-                            !connectionExistsData?.connectionForEntityExists
+                            !ingestionSourceData?.ingestionSourceForEntity?.urn
                                 ? `A connection to ${platformName} is required to create & run assertions. Configure your connection inside Ingestion, or contact your DataHub admin for help.`
                                 : undefined
                         }
@@ -61,7 +61,7 @@ export const AcrylAssertions = () => {
                         <Button
                             type="text"
                             onClick={() => setShowAssertionBuilder(true)}
-                            disabled={!connectionExistsData?.connectionForEntityExists}
+                            disabled={!ingestionSourceData?.ingestionSourceForEntity?.urn}
                         >
                             <PlusOutlined /> Create Assertion
                         </Button>

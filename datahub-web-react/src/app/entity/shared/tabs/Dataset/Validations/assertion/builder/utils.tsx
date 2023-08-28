@@ -11,6 +11,11 @@ import {
     FreshnessAssertionType,
     AssertionActionType,
     AssertionEvaluationParametersType,
+    VolumeAssertionType,
+    AssertionStdOperator,
+    AssertionStdParameters,
+    AssertionValueChangeType,
+    IncrementingSegmentSpecInput,
 } from '../../../../../../../../types.generated';
 import { BIGQUERY_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '../../../../../../../ingest/source/builder/constants';
 import { AssertionMonitorBuilderState, AssertionActionsFormState, AssertionActionsBuilderState } from './types';
@@ -260,6 +265,73 @@ export const builderStateToUpdateFreshnessAssertionVariables = (builderState: As
     };
 };
 
+export const builderStateToVolumeTypeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    const volumeAssertionType = builderState.assertion?.volumeAssertion?.type as VolumeAssertionType;
+
+    switch (volumeAssertionType) {
+        case VolumeAssertionType.RowCountTotal:
+            return {
+                rowCountTotal: {
+                    operator: builderState.assertion?.volumeAssertion?.rowCountTotal?.operator as AssertionStdOperator,
+                    parameters: builderState.assertion?.volumeAssertion?.parameters as AssertionStdParameters,
+                },
+            };
+        case VolumeAssertionType.RowCountChange:
+            return {
+                rowCountChange: {
+                    type: builderState.assertion?.volumeAssertion?.rowCountChange?.type as AssertionValueChangeType,
+                    operator: builderState.assertion?.volumeAssertion?.rowCountChange?.operator as AssertionStdOperator,
+                    parameters: builderState.assertion?.volumeAssertion?.parameters as AssertionStdParameters,
+                },
+            };
+        case VolumeAssertionType.IncrementingSegmentRowCountTotal:
+            return {
+                incrementingSegmentRowCountTotal: {
+                    segment: builderState.assertion?.volumeAssertion?.segment as IncrementingSegmentSpecInput,
+                    operator: builderState.assertion?.volumeAssertion?.incrementingSegmentRowCountTotal
+                        ?.operator as AssertionStdOperator,
+                    parameters: builderState.assertion?.volumeAssertion?.parameters as AssertionStdParameters,
+                },
+            };
+        case VolumeAssertionType.IncrementingSegmentRowCountChange:
+            return {
+                incrementingSegmentRowCountChange: {
+                    segment: builderState.assertion?.volumeAssertion?.segment as IncrementingSegmentSpecInput,
+                    type: builderState.assertion?.volumeAssertion?.incrementingSegmentRowCountChange
+                        ?.type as AssertionValueChangeType,
+                    operator: builderState.assertion?.volumeAssertion?.incrementingSegmentRowCountChange
+                        ?.operator as AssertionStdOperator,
+                    parameters: builderState.assertion?.volumeAssertion?.parameters as AssertionStdParameters,
+                },
+            };
+        default:
+            return undefined;
+    }
+};
+
+export const builderStateToUpdateVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    const volumeTypeVariables = builderStateToVolumeTypeAssertionVariables(builderState);
+
+    return {
+        input: {
+            type: builderState.assertion?.volumeAssertion?.type as VolumeAssertionType,
+            filter: builderState.assertion?.volumeAssertion?.filter
+                ? {
+                      type: builderState.assertion?.volumeAssertion?.filter.type as DatasetFilterType,
+                      sql: builderState.assertion?.volumeAssertion?.filter.sql,
+                  }
+                : undefined,
+            actions: builderState.assertion?.actions
+                ? {
+                      onSuccess: builderState.assertion?.actions?.onSuccess || [],
+                      onFailure: builderState.assertion?.actions?.onFailure || [],
+                  }
+                : undefined,
+            ...volumeTypeVariables,
+        },
+    };
+};
+
 export const builderStateToCreateAssertionMonitorVariables = (
     assertionUrn: string,
     builderState: AssertionMonitorBuilderState,
@@ -280,6 +352,15 @@ export const builderStateToCreateFreshnessAssertionVariables = (builderState: As
         input: {
             entityUrn: builderState.entityUrn as string,
             ...builderStateToUpdateFreshnessAssertionVariables(builderState).input,
+        },
+    };
+};
+
+export const builderStateToCreateVolumeAssertionVariables = (builderState: AssertionMonitorBuilderState) => {
+    return {
+        input: {
+            entityUrn: builderState.entityUrn as string,
+            ...builderStateToUpdateVolumeAssertionVariables(builderState).input,
         },
     };
 };

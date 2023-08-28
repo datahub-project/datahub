@@ -21,6 +21,9 @@ import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionScheduleType;
 import com.linkedin.assertion.FreshnessAssertionType;
+import com.linkedin.assertion.RowCountTotal;
+import com.linkedin.assertion.VolumeAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -195,6 +198,70 @@ public class AssertionServiceTest {
 
     // Test method
     Urn result = service.createFreshnessAssertion(entityUrn, freshnessAssertionType, schedule, filter, actions, Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testCreateVolumeAssertionRequiredFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:1");
+    VolumeAssertionType volumeAssertionType = VolumeAssertionType.ROW_COUNT_TOTAL;
+    RowCountTotal rowCountTotal = new RowCountTotal()
+      .setOperator(AssertionStdOperator.EQUAL_TO)
+      .setParameters(new AssertionStdParameters());
+    VolumeAssertionInfo info = new VolumeAssertionInfo().setRowCountTotal(rowCountTotal);
+
+    Mockito.doAnswer(invocation -> {
+      List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+      Assert.assertEquals(aspects.size(), 1);
+      return null;
+    }).when(mockClient).batchIngestProposals(Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service = new AssertionService(
+        mockClient,
+        Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result = service.createVolumeAssertion(entityUrn, volumeAssertionType, info, null, Mockito.mock(Authentication.class));
+
+    // Assert result
+    Assert.assertEquals(result.getEntityType(), "assertion");
+  }
+
+  @Test
+  public void testCreateVolumeAssertionAllFields() throws Exception {
+    // Test data and mocks
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:1");
+    VolumeAssertionType volumeAssertionType = VolumeAssertionType.ROW_COUNT_TOTAL;
+    AssertionStdParameters parameters = new AssertionStdParameters()
+        .setValue(new AssertionStdParameter().setType(AssertionStdParameterType.NUMBER).setValue("1"));
+    RowCountTotal rowCountTotal = new RowCountTotal().setOperator(AssertionStdOperator.EQUAL_TO).setParameters(parameters);
+    DatasetFilter filter = new DatasetFilter()
+        .setType(DatasetFilterType.SQL)
+        .setSql("some_condition = True");
+    VolumeAssertionInfo info = new VolumeAssertionInfo()
+      .setRowCountTotal(rowCountTotal)
+      .setFilter(filter);
+    AssertionActions actions = new AssertionActions()
+        .setOnSuccess(new AssertionActionArray())
+        .setOnFailure(new AssertionActionArray());
+
+    Mockito.doAnswer(invocation -> {
+      List<MetadataChangeProposal> aspects = invocation.getArgument(0);
+      Assert.assertEquals(aspects.size(), 2);
+      return null;
+    }).when(mockClient).batchIngestProposals(Mockito.anyList(), Mockito.any(Authentication.class), Mockito.eq(false));
+
+    final AssertionService service = new AssertionService(
+        mockClient,
+        Mockito.mock(Authentication.class));
+
+    // Test method
+    Urn result = service.createVolumeAssertion(entityUrn, volumeAssertionType, info, actions, Mockito.mock(Authentication.class));
 
     // Assert result
     Assert.assertEquals(result.getEntityType(), "assertion");

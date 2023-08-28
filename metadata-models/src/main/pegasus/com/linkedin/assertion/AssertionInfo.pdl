@@ -27,6 +27,12 @@ record AssertionInfo includes CustomProperties, ExternalReference {
       FRESHNESS
 
       /**
+       * A volume assertion, or an assertion which indicates how much data should be available for a
+       * particular asset.
+       */
+      VOLUME
+
+      /**
        * A schema or structural assertion.
        *
        * Would have named this SCHEMA but the codegen for PDL does not allow this (reserved word).
@@ -40,9 +46,14 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     datasetAssertion: optional DatasetAssertionInfo
 
     /**
-    * An Freshness Assertion definition. This field is populated when the type is SLA.
+    * An Freshness Assertion definition. This field is populated when the type is FRESHNESS.
     */
     freshnessAssertion: optional FreshnessAssertionInfo
+
+    /**
+    * An Volume Assertion definition. This field is populated when the type is VOLUME.
+    */
+    volumeAssertion: optional VolumeAssertionInfo
 
     /**
     * An schema Assertion definition. This field is populated when the type is DATASET_SCHEMA

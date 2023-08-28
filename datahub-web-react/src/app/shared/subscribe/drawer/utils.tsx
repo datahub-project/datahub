@@ -66,11 +66,11 @@ const assertionsNode: DataNode = {
     children: [
         {
             key: EntityChangeType.AssertionFailed,
-            title: <NotificationTypeText>Changes to failing</NotificationTypeText>,
+            title: <NotificationTypeText>An assertion changes to failing</NotificationTypeText>,
         },
         {
             key: EntityChangeType.AssertionPassed,
-            title: <NotificationTypeText>Changes to passing</NotificationTypeText>,
+            title: <NotificationTypeText>An assertion changes to passing</NotificationTypeText>,
         },
     ],
 };
@@ -339,8 +339,8 @@ export const createSubscriptionFunction = ({
                 actorType: isPersonal ? ActorTypes.PERSONAL : ActorTypes.GROUP,
             });
             const description = isPersonal
-                ? 'You are now following changes on this entity.'
-                : 'Your group is now following changes on this entity.';
+                ? 'You are now subscribed to this entity.'
+                : 'Your group is now subcribed to this entity.';
             notification.success({
                 message: 'Success',
                 description,

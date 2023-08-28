@@ -1,18 +1,50 @@
 # Used for testing more real-world configurations
 
 queryConfigurations:
+  # Select *
+  - queryRegex: '[*]|'
+    simpleQuery: false
+    prefixMatchQuery: false
+    exactMatchQuery: false
+    functionScore:
+      functions:
+        - field_value_factor:
+            field: uniqueUserCountLast30Days
+            modifier: log1p
+            missing: 0.0
+          weight: 10
+        - field_value_factor:
+            field: usageCountLast30Days
+            modifier: log1p
+            missing: 0.0
+          weight: 5
+        - field_value_factor:
+            field: viewCountLast30Days
+            modifier: log1p
+            missing: 0.0
+          weight: 5
+        - field_value_factor:
+            field: rowCount
+            modifier: log1p
+            missing: 0.0
+          weight: 1
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+      score_mode: avg
+      boost_mode: replace
+
   # Criteria for exact-match only
-  # Contains `_`, `'`, `"` then use exact match query
+  # Contains double `'`, `"` then use exact match query
   - queryRegex: >-
-      ["'].+["']|\S+_\S+
+      ["'].+["']
     simpleQuery: false
     prefixMatchQuery: true
     exactMatchQuery: true
     functionScore:
       functions:
-        - filter:
-            match_all: {}
-          weight: 1
         - filter:
             term:
               materialized:
@@ -26,16 +58,15 @@ queryConfigurations:
       score_mode: avg
       boost_mode: multiply
 
-  # Select *
-  - queryRegex: '[*]|'
-    simpleQuery: false
-    prefixMatchQuery: false
-    exactMatchQuery: false
+  # Criteria for exact-match only
+  # Contains `_`, `'`, `"` then use exact match query
+  - queryRegex: >-
+      \S+_\S+|\S+-\S+|\S+\.\S+
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
     functionScore:
       functions:
-        - filter:
-            match_all: {}
-          weight: 1
         - filter:
             term:
               materialized:
@@ -63,12 +94,34 @@ queryConfigurations:
     functionScore:
       functions:
         - filter:
-            match_all: {}
-          weight: 1
-        - filter:
             term:
               materialized:
                 value: true
           weight: 0.5
+        - filter:
+            term:
+              deprecated:
+                value: true
+          weight: 0.5
+        - field_value_factor:
+            field: uniqueUserCountLast30Days
+            modifier: log1p
+            missing: 0.0
+          weight: 10
+        - field_value_factor:
+            field: usageCountLast30Days
+            modifier: log1p
+            missing: 0.0
+          weight: 5
+        - field_value_factor:
+            field: viewCountLast30Days
+            modifier: log1p
+            missing: 0.0
+          weight: 5
+        - field_value_factor:
+            field: rowCount
+            modifier: log1p
+            missing: 0.0
+          weight: 1
       score_mode: avg
       boost_mode: multiply

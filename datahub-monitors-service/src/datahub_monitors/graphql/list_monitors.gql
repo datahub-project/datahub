@@ -7,7 +7,7 @@ fragment AssertionDataset on Dataset {
   platform {
     urn
     properties {
-        displayName
+      displayName
     }
   }
   subTypes {
@@ -15,75 +15,136 @@ fragment AssertionDataset on Dataset {
   }
 }
 
+fragment AssertionStdParameterDetails on AssertionStdParameters {
+  value {
+    value
+    type
+  }
+  minValue {
+    value
+    type
+  }
+  maxValue {
+    value
+    type
+  }
+}
+
 fragment AssertionDetails on Assertion {
   urn
   type
   platform {
-      urn
-      properties {
-          displayName
-          logoUrl
-      }
-      info {
-          displayName
-          logoUrl
-      }
+    urn
+    properties {
+      displayName
+      logoUrl
+    }
+    info {
+      displayName
+      logoUrl
+    }
   }
   info {
+    type
+    datasetAssertion {
+      scope
+      aggregation
+      operator
+      parameters {
+        ...AssertionStdParameterDetails
+      }
+      fields {
+        urn
+        path
+      }
+      nativeType
+      nativeParameters {
+        key
+        value
+      }
+      logic
+    }
+    freshnessAssertion {
       type
-      datasetAssertion {
-          scope
-          aggregation
-          operator
-          parameters {
-              value {
-                  value
-                  type
-              }
-              minValue {
-                  value
-                  type
-              }
-              maxValue {
-                  value
-                  type
-              }
-          }
-          fields {
-              urn
-              path
-          }
-          nativeType
-          nativeParameters {
-              key
-              value
-          }
-          logic
+      schedule {
+        type
+        cron {
+          cron
+          timezone
+          windowStartOffsetMs
+        }
+        fixedInterval {
+          unit
+          multiple
+        }
       }
-      freshnessAssertion {
-          type
-          schedule {
-              type
-              cron {
-                  cron
-                  timezone
-                  windowStartOffsetMs
-              }
-              fixedInterval {
-                  unit
-                  multiple
-              }
-          }
-          filter {
+      filter {
+        type
+        sql
+      }
+    }
+    volumeAssertion {
+      type
+      rowCountTotal {
+        operator
+        parameters {
+          ...AssertionStdParameterDetails
+        }
+      }
+      rowCountChange {
+        type
+        operator
+        parameters {
+          ...AssertionStdParameterDetails
+        }
+      }
+      incrementingSegmentRowCountTotal {
+        segment {
+          field {
+            path
             type
-            sql
+            nativeType
           }
+          transformer {
+            type
+            nativeType
+          }
+        }
+        operator
+        parameters {
+          ...AssertionStdParameterDetails
+        }
       }
-      source {
-          type
+      incrementingSegmentRowCountChange {
+        type
+        segment {
+          field {
+            path
+            type
+            nativeType
+          }
+          transformer {
+            type
+            nativeType
+          }
+        }
+        operator
+        parameters {
+          ...AssertionStdParameterDetails
+        }
       }
+      filter {
+        type
+        sql
+      }
+    }
+    source {
+      type
+    }
   }
-  relationships(input: { types: "Asserts", direction: OUTGOING, start: 0, count: 1 }) {
+  relationships(
+    input: { types: "Asserts", direction: OUTGOING, start: 0, count: 1 }
+  ) {
     start
     count
     total
@@ -131,6 +192,9 @@ fragment MonitorSearchResults on SearchResults {
                     userName
                   }
                 }
+                datasetVolumeParameters {
+                  sourceType
+                }
               }
             }
           }
@@ -144,7 +208,7 @@ fragment MonitorSearchResults on SearchResults {
 }
 
 query searchAcrossEntities($input: SearchAcrossEntitiesInput!) {
-    searchAcrossEntities(input: $input) {
+  searchAcrossEntities(input: $input) {
     ...MonitorSearchResults
-    }
+  }
 }

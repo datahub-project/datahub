@@ -28,6 +28,11 @@ extend type Query {
   urn: The primary key associated with the execution request.
   """
   executionRequest(urn: String!): ExecutionRequest
+
+  """
+  Get whether or not not a data connection for an entity exists
+  """
+  ingestionSourceForEntity(urn: String!): IngestionSource
 }
 
 extend type Mutation {

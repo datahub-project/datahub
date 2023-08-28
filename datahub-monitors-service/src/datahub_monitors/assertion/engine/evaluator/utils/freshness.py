@@ -1,5 +1,6 @@
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
+from datahub_monitors.assertion.engine.evaluator.utils import get_database_parameters
 from datahub_monitors.exceptions import (
     InvalidParametersException,
     InvalidSourceTypeException,
@@ -22,14 +23,6 @@ def get_filter_parameters(assertion: Assertion) -> Optional[Dict]:
     return None
 
 
-def get_database_parameters(assertion: Assertion) -> Dict:
-    entity = assertion.entity
-    return {
-        "table_name": entity.table_name,
-        "qualified_name": entity.qualified_name,
-    }
-
-
 def get_event_type_parameters_from_parameters(
     assertion: Assertion,
     parameters: AssertionEvaluationParameters,
@@ -46,7 +39,7 @@ def get_event_type_parameters_from_parameters(
         dataset_freshness_parameters = parameters.dataset_freshness_parameters
         source_type = dataset_freshness_parameters.source_type
         database_params = get_database_parameters(assertion)
-        params = {"database": database_params}
+        params: Dict[Any, Any] = {"database": database_params}
 
         if source_type == DatasetFreshnessSourceType.FIELD_VALUE:
             entity_event_type = EntityEventType.FIELD_UPDATE

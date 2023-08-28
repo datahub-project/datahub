@@ -1,12 +1,14 @@
 package com.linkedin.metadata.kafka.hook.notification;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
@@ -45,6 +47,14 @@ public class NotificationUtilsTest {
     MetadataChangeLog log = createMCL(DEFAULT_RUN_ID, true);
     boolean isInitialIngestion = NotificationUtils.isFromInitialIngestionRun(log);
     assertFalse(isInitialIngestion);
+  }
+
+  @Test
+  public void testGenerateEntityPath() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,Test Name,PROD)");
+    Assert.assertEquals(
+        NotificationUtils.generateEntityPath(urn),
+        "/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2CTest+Name%2CPROD%29");
   }
 
   private MetadataChangeLog createMCL(String runId, boolean includePreviousAspect) {

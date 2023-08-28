@@ -8,6 +8,7 @@ import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
+import com.linkedin.assertion.VolumeAssertionInfo;
 import com.linkedin.common.AssertionSummaryDetails;
 import com.linkedin.common.AssertionSummaryDetailsArray;
 import com.linkedin.common.AssertionsSummary;
@@ -289,6 +290,12 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       FreshnessAssertionInfo freshnessAssertion = assertionInfo.getFreshnessAssertion();
       if (freshnessAssertion.hasEntity()) {
         return ImmutableList.of(freshnessAssertion.getEntity());
+      }
+    }
+    if (assertionInfo.hasVolumeAssertion()) {
+      VolumeAssertionInfo volumeAssertion = assertionInfo.getVolumeAssertion();
+      if (volumeAssertion.hasEntity()) {
+        return ImmutableList.of(volumeAssertion.getEntity());
       }
     }
     return Collections.emptyList();

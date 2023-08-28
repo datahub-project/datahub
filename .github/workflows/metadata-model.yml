@@ -8,6 +8,7 @@ on:
       - "**.md"
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -22,7 +23,7 @@ jobs:
       - name: Check whether upload to datahub is enabled
         id: publish
         env:
-          ENABLE_PUBLISH: ${{ secrets.DataHubToken }}
+          ENABLE_PUBLISH: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
@@ -41,6 +42,6 @@ jobs:
       - name: Upload metadata to DataHub
         if: ${{ needs.setup.outputs.publish == 'true' }}
         env:
-          DATAHUB_SERVER: ${{ secrets.DataHubServer }}
-          DATAHUB_TOKEN: ${{ secrets.DataHubToken }}
+          DATAHUB_SERVER: ${{ secrets.ACRYL_ACRYL_IO_GMS }}
+          DATAHUB_TOKEN: ${{ secrets.ACRYL_ACRYL_IO_GMS_TOKEN }}
         run: ./gradlew :metadata-ingestion:modelDocUpload
