@@ -29,7 +29,7 @@ like reporting dashboards or data-driven product features.
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
 issues _before_ anyone else? With Acryl DataHub **Volume Assertions**, you can.
 
-Acryl DataHub allows users to define expectations about the normal volume, or size, of a particular warehoues Table,
+Acryl DataHub allows users to define expectations about the normal volume, or size, of a particular warehouse Table,
 and then monitor those expectations over time as the table grows and changes.
 
 In this article, we'll cover the basics of monitoring Volume Assertions - what they are, how to configure them, and more - so that you and your team can
