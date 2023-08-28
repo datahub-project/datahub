@@ -33,7 +33,7 @@ jobs:
       matrix:
         include:
           - python-version: "3.7"
-            extraPythonRequirement: "apache-airflow~=2.0.2"
+            extraPythonRequirement: "apache-airflow~=2.1.0"
           - python-version: "3.7"
             extraPythonRequirement: "apache-airflow~=2.2.0"
           - python-version: "3.10"
@@ -57,14 +57,15 @@ jobs:
         if: always()
         run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && pip freeze
       - uses: actions/upload-artifact@v3
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.extraPythonRequirement == 'apache-airflow>2.6.0' }}
         with:
-          name: Test Results (Airflow Plugin ${{ matrix.python-version }} ${{ matrix.extraPythonRequirement }})
+          name: Test Results (Airflow Plugin ${{ matrix.python-version }})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Upload coverage to Codecov
-        if: ${{ always() && matrix.python-version == '3.10' }}
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.extraPythonRequirement == 'apache-airflow>2.6.0' }}
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

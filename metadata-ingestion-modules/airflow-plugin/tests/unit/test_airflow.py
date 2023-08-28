@@ -255,6 +255,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         # versions do not require it, but will attempt to find the associated
         # run_id in the database if execution_date is provided. As such, we
         # must fake the run_id parameter for newer Airflow versions.
+        # We need to add type:ignore in else to suppress mypy error in Airflow < 2.2
         if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
@@ -262,7 +263,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         else:
             from airflow.utils.state import DagRunState
 
-            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
+            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")  # type: ignore[call-arg]
             dag_run = DagRun(
                 state=DagRunState.SUCCESS,
                 run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",

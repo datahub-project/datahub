@@ -26,6 +26,16 @@ source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
 
+### (Optional) Set up your Python environment for developing on Airflow Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/airflow-plugin
+../../gradlew :metadata-ingestion-modules:airflow-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
 ### Common setup issues
 
 Common issues (click to expand):

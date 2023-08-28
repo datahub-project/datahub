@@ -325,8 +325,12 @@ class AirflowGenerator:
         property_bag["end_date"] = str(dag_run.end_date)
         property_bag["start_date"] = str(dag_run.start_date)
         property_bag["creating_job_id"] = str(dag_run.creating_job_id)
-        property_bag["data_interval_start"] = str(dag_run.data_interval_start)
-        property_bag["data_interval_end"] = str(dag_run.data_interval_end)
+        # These properties only exists in Airflow>=2.2.0
+        if hasattr(dag_run, "data_interval_start") and hasattr(
+            dag_run, "data_interval_end"
+        ):
+            property_bag["data_interval_start"] = str(dag_run.data_interval_start)
+            property_bag["data_interval_end"] = str(dag_run.data_interval_end)
         property_bag["external_trigger"] = str(dag_run.external_trigger)
         dpi.properties.update(property_bag)
 

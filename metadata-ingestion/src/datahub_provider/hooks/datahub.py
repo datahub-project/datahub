@@ -1,8 +1,8 @@
 from datahub_airflow_plugin.hooks.datahub import (
+    BaseHook,
     DatahubGenericHook,
     DatahubKafkaHook,
     DatahubRestHook,
-    BaseHook,
 )
 
 __all__ = ["DatahubRestHook", "DatahubKafkaHook", "DatahubGenericHook", "BaseHook"]
