@@ -6,6 +6,7 @@ import ClickOutside from '../../../shared/ClickOutside';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
+import { useDomainsContext } from '../../../domain/DomainsContext';
 
 interface Props {
     selectedParentUrn: string;
@@ -15,6 +16,7 @@ interface Props {
 export default function DomainParentSelect(props: Props) {
     const { selectedParentUrn, setSelectedParentUrn } = props;
     const entityRegistry = useEntityRegistry();
+    const { entityData } = useDomainsContext();
 
     const {
         searchResults,
@@ -28,6 +30,7 @@ export default function DomainParentSelect(props: Props) {
         setIsFocusedOnInput,
     } = useParentSelector({
         entityType: EntityType.Domain,
+        entityData,
         selectedParentUrn,
         setSelectedParentUrn,
     });

@@ -5,8 +5,8 @@ import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
-import { useEntityData } from '../entity/shared/EntityContext';
 import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
+import { useDomainsContext } from './DomainsContext';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 12px;
@@ -37,8 +37,8 @@ const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createDomainMutation] = useCreateDomainMutation();
-    const entityData = useEntityData();
-    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(entityData.urn);
+    const { entityData } = useDomainsContext();
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(entityData?.urn || '');
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 

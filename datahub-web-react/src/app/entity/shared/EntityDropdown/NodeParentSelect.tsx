@@ -40,6 +40,7 @@ function NodeParentSelect(props: Props) {
         setIsFocusedOnInput,
     } = useParentSelector({
         entityType: EntityType.GlossaryNode,
+        entityData,
         selectedParentUrn,
         setSelectedParentUrn,
     });

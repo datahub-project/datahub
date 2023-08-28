@@ -1,31 +1,31 @@
 import { useEffect, useState } from 'react';
-import { useEntityData } from '../EntityContext';
 import { useGetSearchResultsLazyQuery } from '../../../../graphql/search.generated';
 import { EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { GenericEntityProperties } from '../types';
 
 interface Props {
     entityType: EntityType;
+    entityData: GenericEntityProperties | null;
     selectedParentUrn: string;
     setSelectedParentUrn: (parent: string) => void;
 }
 
-export default function useParentSelector({ entityType, selectedParentUrn, setSelectedParentUrn }: Props) {
+export default function useParentSelector({ entityType, entityData, selectedParentUrn, setSelectedParentUrn }: Props) {
     const [selectedParentName, setSelectedParentName] = useState('');
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const entityRegistry = useEntityRegistry();
-    const { entityData, urn: entityDataUrn } = useEntityData();
 
     const [search, { data }] = useGetSearchResultsLazyQuery();
     const searchResults = data?.search?.searchResults || [];
 
     useEffect(() => {
-        if (entityData && selectedParentUrn === entityDataUrn) {
+        if (entityData && selectedParentUrn === entityData.urn) {
             const displayName = entityRegistry.getDisplayName(entityType, entityData);
             setSelectedParentName(displayName);
         }
-    }, [entityData, entityRegistry, selectedParentUrn, entityDataUrn, entityType]);
+    }, [entityData, entityRegistry, selectedParentUrn, entityData?.urn, entityType]);
 
     function handleSearch(text: string) {
         setSearchQuery(text);
