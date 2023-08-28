@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.BoolQueryConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
@@ -52,6 +53,9 @@ import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.search.SearchModule;
 
 import static com.linkedin.metadata.models.SearchableFieldSpecExtractor.PRIMARY_URN_SEARCH_PROPERTIES;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.*;
+
 
 @Slf4j
 public class SearchQueryBuilder {
@@ -70,6 +74,7 @@ public class SearchQueryBuilder {
   public static final String STRUCTURED_QUERY_PREFIX = "\\\\/q ";
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
+  private final WordGramConfiguration wordGramConfiguration;
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -77,6 +82,7 @@ public class SearchQueryBuilder {
                             @Nullable CustomSearchConfiguration customSearchConfiguration) {
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
+    this.wordGramConfiguration = searchConfiguration.getWordGram();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
   }
 
@@ -149,6 +155,36 @@ public class SearchQueryBuilder {
         fields.add(SearchFieldConfig.detectSubFieldType(searchFieldConfig.fieldName() + ".delimited",
                 searchFieldConfig.boost() * partialConfiguration.getFactor(),
                 searchableAnnotation.getFieldType(), searchableAnnotation.isQueryByDefault()));
+
+        if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasWordGramSubfields()) {
+          fields.add(SearchFieldConfig.builder()
+              .fieldName(searchFieldConfig.fieldName() + ".wordGrams2")
+              .boost(searchFieldConfig.boost() * wordGramConfiguration.getTwoGramFactor())
+              .analyzer(WORD_GRAM_2_ANALYZER)
+              .hasKeywordSubfield(true)
+              .hasDelimitedSubfield(true)
+              .hasWordGramSubfields(true)
+              .isQueryByDefault(true)
+              .build());
+          fields.add(SearchFieldConfig.builder()
+              .fieldName(searchFieldConfig.fieldName() + ".wordGrams3")
+              .boost(searchFieldConfig.boost() * wordGramConfiguration.getThreeGramFactor())
+              .analyzer(WORD_GRAM_3_ANALYZER)
+              .hasKeywordSubfield(true)
+              .hasDelimitedSubfield(true)
+              .hasWordGramSubfields(true)
+              .isQueryByDefault(true)
+              .build());
+          fields.add(SearchFieldConfig.builder()
+              .fieldName(searchFieldConfig.fieldName() + ".wordGrams4")
+              .boost(searchFieldConfig.boost() * wordGramConfiguration.getFourGramFactor())
+              .analyzer(WORD_GRAM_4_ANALYZER)
+              .hasKeywordSubfield(true)
+              .hasDelimitedSubfield(true)
+              .hasWordGramSubfields(true)
+              .isQueryByDefault(true)
+              .build());
+        }
       }
     }
 
@@ -189,7 +225,7 @@ public class SearchQueryBuilder {
               .filter(SearchFieldConfig::isQueryByDefault)
               .collect(Collectors.groupingBy(SearchFieldConfig::analyzer));
 
-      analyzerGroup.keySet().stream().sorted().forEach(analyzer -> {
+      analyzerGroup.keySet().stream().sorted().filter(str -> !str.contains("word_gram")).forEach(analyzer -> {
         List<SearchFieldConfig> fieldConfigs = analyzerGroup.get(analyzer);
         SimpleQueryStringBuilder simpleBuilder = QueryBuilders.simpleQueryStringQuery(sanitizedQuery);
         simpleBuilder.analyzer(analyzer);
@@ -253,6 +289,13 @@ public class SearchQueryBuilder {
                                 * exactMatchConfiguration.getExactFactor()
                                 * exactMatchConfiguration.getCaseSensitivityFactor())
                         .queryName(searchFieldConfig.fieldName()));
+              }
+
+              if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
+                finalQuery.should(QueryBuilders
+                    .matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+                    .boost(searchFieldConfig.boost() * getWordGramFactor(searchFieldConfig.fieldName()))
+                    .queryName(searchFieldConfig.shortName()));
               }
             });
 
@@ -385,5 +428,16 @@ public class SearchQueryBuilder {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public float getWordGramFactor(String fieldName) {
+    if (fieldName.endsWith("Grams2")) {
+      return wordGramConfiguration.getTwoGramFactor();
+    } else if (fieldName.endsWith("Grams3")) {
+      return wordGramConfiguration.getThreeGramFactor();
+    } else if (fieldName.endsWith("Grams4")) {
+      return wordGramConfiguration.getFourGramFactor();
+    }
+    throw new IllegalArgumentException(fieldName + " does not end with Grams[2-4]");
   }
 }

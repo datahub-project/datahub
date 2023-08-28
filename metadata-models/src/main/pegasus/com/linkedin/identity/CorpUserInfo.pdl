@@ -26,10 +26,11 @@ record CorpUserInfo includes CustomProperties {
    * displayName of this user ,  e.g.  Hang Zhang(DataHQ)
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "queryByDefault": true,
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   displayName: optional string
 
@@ -89,7 +90,7 @@ record CorpUserInfo includes CustomProperties {
    * Common name of this user, format is firstName + lastName (split by a whitespace)
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "queryByDefault": true,
     "enableAutocomplete": true,
     "boostScore": 10.0
