@@ -78,7 +78,7 @@ public class SearchUtils {
     return criterionArray.stream().collect(Collectors.toMap(Criterion::getField, Criterion::getValue));
   }
 
-  static boolean isUrn(@Nonnull String value) {
+  public static boolean isUrn(@Nonnull String value) {
     // TODO(https://github.com/datahub-project/datahub-gma/issues/51): This method is a bit of a hack to support searching for
     // URNs that have commas in them, while also using commas a delimiter for search. We should stop supporting commas
     // as delimiter, and then we can stop using this hack.

@@ -235,3 +235,7 @@ sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
 sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
 
 checkstyleMain.exclude '**/generated/**'
+
+clean {
+  project.delete("$projectDir/generated")
+}

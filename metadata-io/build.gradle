@@ -86,6 +86,9 @@ dependencies {
     implementation(externalDependency.jettison) {
       because("previous versions are vulnerable")
     }
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
   }
 }
 
