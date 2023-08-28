@@ -15,6 +15,7 @@ export default function useListDomains({ parentDomain, skip }: Props) {
                 parentDomain,
             },
         },
+        fetchPolicy: 'cache-first',
     });
 
     return { data, error, loading, refetch };

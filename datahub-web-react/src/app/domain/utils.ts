@@ -1,3 +1,4 @@
+import { ApolloClient } from '@apollo/client';
 import { useEffect } from 'react';
 import { isEqual } from 'lodash';
 import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
@@ -42,6 +43,31 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
             },
         },
     });
+};
+
+export const updateListDomainsCache = (
+    client: ApolloClient<any>,
+    urn: string,
+    id: string | undefined,
+    name: string,
+    description: string | undefined,
+) => {
+    addToListDomainsCache(
+        client,
+        {
+            urn,
+            id: id || null,
+            type: EntityType.Domain,
+            properties: {
+                name,
+                description: description || null,
+            },
+            ownership: null,
+            entities: null,
+            children: null,
+        },
+        1000,
+    );
 };
 
 /**

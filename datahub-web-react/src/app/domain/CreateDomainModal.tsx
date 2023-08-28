@@ -5,6 +5,8 @@ import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
+import { useEntityData } from '../entity/shared/EntityContext';
+import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 12px;
@@ -29,6 +31,8 @@ const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createDomainMutation] = useCreateDomainMutation();
+    const entityData = useEntityData();
+    const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -101,6 +105,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
                 }}
             >
+                <Form.Item label={<Typography.Text>Parent (optional)</Typography.Text>}>
+                    <DomainParentSelect
+                        selectedParentUrn={selectedParentUrn}
+                        setSelectedParentUrn={setSelectedParentUrn}
+                    />
+                </Form.Item>
                 <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
                     <Typography.Paragraph>Give your new Domain a name. </Typography.Paragraph>
                     <Form.Item
