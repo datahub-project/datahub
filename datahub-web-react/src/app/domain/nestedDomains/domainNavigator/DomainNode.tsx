@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { Domain } from '../../../../types.generated';
@@ -12,6 +12,7 @@ import { BodyContainer, BodyGridExpander } from '../../../shared/components';
 import { ANTD_GRAY_V2 } from '../../../entity/shared/constants';
 import { useDomainsContext } from '../../DomainsContext';
 import { applyOpacity } from '../../../shared/styleUtils';
+import { useGetDomainChildrenCountLazyQuery } from '../../../../graphql/domain.generated';
 
 const RowWrapper = styled.div`
     align-items: center;
@@ -68,15 +69,17 @@ interface Props {
 export default function DomainNode({ domain, numDomainChildren, selectDomainOverride }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
-    const { entityData } = useDomainsContext();
+    const { entityData, parentDomainsToUpate, setParentDomainsToUpdate } = useDomainsContext();
     const { isOpen, isClosing, toggle } = useToggle({
         initialValue: false,
         closeDelay: 250,
     });
     const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen });
+    const [getDomainChildrenCount, { data: childrenData }] = useGetDomainChildrenCountLazyQuery();
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
+    const hasDomainChildren = childrenData ? !!childrenData.domain?.children?.total : !!numDomainChildren;
 
     function handleSelectDomain() {
         if (selectDomainOverride) {
@@ -86,10 +89,20 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
         }
     }
 
+    useEffect(() => {
+        // fetch updated children count to determine if we show triangle toggle
+        if (parentDomainsToUpate.includes(domain.urn)) {
+            setTimeout(() => {
+                getDomainChildrenCount({ variables: { urn: domain.urn } });
+                setParentDomainsToUpdate(parentDomainsToUpate.filter((urn) => urn !== domain.urn));
+            }, 2000);
+        }
+    });
+
     return (
         <>
             <RowWrapper>
-                {!!numDomainChildren && (
+                {hasDomainChildren && (
                     <ButtonWrapper>
                         <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
                     </ButtonWrapper>
@@ -98,7 +111,7 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
                     isSelected={!!isOnEntityPage && !isInSelectMode}
-                    addLeftPadding={!numDomainChildren}
+                    addLeftPadding={!hasDomainChildren}
                 >
                     {!isInSelectMode && <DomainIcon />}
                     {displayName}
