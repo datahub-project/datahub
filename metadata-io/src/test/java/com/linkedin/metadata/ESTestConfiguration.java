@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -35,7 +36,7 @@ import java.util.Map;
 @TestConfiguration
 public class ESTestConfiguration {
     private static final int HTTP_PORT = 9200;
-    private static final int REFRESH_INTERVAL_SECONDS = 5;
+    public static final int REFRESH_INTERVAL_SECONDS = 5;
 
     public static void syncAfterWrite(ESBulkProcessor bulkProcessor) throws InterruptedException {
         bulkProcessor.flush();
@@ -55,11 +56,17 @@ public class ESTestConfiguration {
         exactMatchConfiguration.setCaseSensitivityFactor(0.7f);
         exactMatchConfiguration.setEnableStructured(true);
 
+        WordGramConfiguration wordGramConfiguration = new WordGramConfiguration();
+        wordGramConfiguration.setTwoGramFactor(1.2f);
+        wordGramConfiguration.setThreeGramFactor(1.5f);
+        wordGramConfiguration.setFourGramFactor(1.8f);
+
         PartialConfiguration partialConfiguration = new PartialConfiguration();
         partialConfiguration.setFactor(0.4f);
         partialConfiguration.setUrnFactor(0.5f);
 
         searchConfiguration.setExactMatch(exactMatchConfiguration);
+        searchConfiguration.setWordGram(wordGramConfiguration);
         searchConfiguration.setPartial(partialConfiguration);
         return searchConfiguration;
     }

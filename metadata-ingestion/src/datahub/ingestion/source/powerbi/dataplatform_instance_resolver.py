@@ -5,8 +5,8 @@ from typing import Union
 from datahub.ingestion.source.powerbi.config import (
     PlatformDetail,
     PowerBiDashboardSourceConfig,
+    PowerBIPlatformDetail,
 )
-from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class AbstractDataPlatformInstanceResolver(ABC):
     @abstractmethod
     def get_platform_instance(
-        self, dataplatform_table: DataPlatformTable
+        self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
         pass
 
@@ -32,10 +32,10 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
     BaseAbstractDataPlatformInstanceResolver
 ):
     def get_platform_instance(
-        self, dataplatform_table: DataPlatformTable
+        self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
         platform: Union[str, PlatformDetail] = self.config.dataset_type_mapping[
-            dataplatform_table.data_platform_pair.powerbi_data_platform_name
+            data_platform_detail.data_platform_pair.powerbi_data_platform_name
         ]
 
         if isinstance(platform, PlatformDetail):
@@ -48,13 +48,13 @@ class ResolvePlatformInstanceFromServerToPlatformInstance(
     BaseAbstractDataPlatformInstanceResolver
 ):
     def get_platform_instance(
-        self, dataplatform_table: DataPlatformTable
+        self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
         return (
             self.config.server_to_platform_instance[
-                dataplatform_table.datasource_server
+                data_platform_detail.data_platform_server
             ]
-            if dataplatform_table.datasource_server
+            if data_platform_detail.data_platform_server
             in self.config.server_to_platform_instance
             else PlatformDetail.parse_obj({})
         )

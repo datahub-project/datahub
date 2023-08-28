@@ -99,6 +99,24 @@ The steps slightly differ based on which you decide to use.
   including `client_id` and `client_secret`, plus your Okta user's `Username` and `Password`
   * Note: the `username` and `password` config options are not nested under `oauth_config`
 
+### Snowflake Shares
+If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/data-sharing-provider) to share data across different snowflake accounts, and you have set up DataHub recipes for ingesting metadata from all these accounts, you may end up having multiple similar dataset entities corresponding to virtual versions of same table in different snowflake accounts. DataHub Snowflake connector can automatically link such tables together through Siblings and Lineage relationship if user provides information necessary to establish the relationship using configuration `shares` in recipe. 
+
+#### Example
+- Snowflake account `account1` (ingested as platform_instance `instance1`) owns a database `db1`. A share `X` is created in `account1` that includes database `db1` along with schemas and tables inside it. 
+- Now, `X` is shared with snowflake account `account2` (ingested as platform_instance `instance2`). A database `db1_from_X` is created from inbound share `X` in `account2`. In this case, all tables and views included in share `X` will also be present in `instance2`.`db1_from_X`.
+- This can be represented in `shares` configuration section as
+  ```yaml
+  shares:
+    X: # name of the share
+      database_name: db1
+      platform_instance: instance1
+      consumers: # list of all databases created from share X
+        - database_name: db1_from_X
+          platform_instance: instance2 
+          
+  ```
+- If share `X` is shared with more snowflake accounts and database is created from share `X` in those account then additional entries need to be added in `consumers` list for share `X`, one per snowflake account. The same `shares` config can then be copied across recipes of all accounts.
 ### Caveats
 
 - Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.
