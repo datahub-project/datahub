@@ -31,7 +31,7 @@ you will re-ingest some data at the start of the new run.
 
 If any errors are encountered in the ingestion process, e.g. we are unable to emit an aspect
 due to network errors, the source will keep running, but will stop committing checkpoints,
-unless `commit_with_parse_errors` (default `false) is set. Thus, if you re-run the ingestion,
+unless `commit_with_parse_errors` (default `false`) is set. Thus, if you re-run the ingestion,
 you can re-ingest the data that was missed, but note it will all re-ingest all subsequent data.
 
 If you want to re-ingest all data, you can set a different `pipeline_name` in your recipe,

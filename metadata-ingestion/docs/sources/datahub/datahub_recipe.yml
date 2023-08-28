@@ -20,4 +20,11 @@ source:
       ignore_old_state: false
   extractor_config:
     set_system_metadata: false  # Replicate system metadata
-# sink config if necessary, e.g. to the output DataHub instance
+
+# Here, we write to a DataHub instance
+# You can also use a different sink, e.g. to write the data to a file instead
+sink:
+  type: datahub
+  config:
+    server: "<destination_gms_url>"
+    token: "<token>"

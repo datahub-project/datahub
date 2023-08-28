@@ -30,7 +30,6 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         description=(
             "If enabled, include all versions of each aspect. "
             "Otherwise, only include the latest version of each aspect. "
-            "If only the latest version is included, "
         ),
     )
 
