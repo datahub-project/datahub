@@ -7,8 +7,8 @@ import { Domain } from '../../../../types.generated';
 
 const NavigatorWrapper = styled.div`
     font-size: 14px;
-    max-height: calc(100% - 47px);
-    padding: 10px 20px 20px 20px;
+    max-height: calc(100% - 65px);
+    padding: 10px 10px 20px 20px;
     overflow: auto;
 `;
 

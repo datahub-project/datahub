@@ -1,4 +1,10 @@
+import { useEffect } from 'react';
+import { isEqual } from 'lodash';
 import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
+import { EntityType } from '../../types.generated';
+import { GenericEntityProperties } from '../entity/shared/types';
+import usePrevious from '../shared/usePrevious';
+import { useDomainsContext } from './DomainsContext';
 
 /**
  * Add an entry to the list domains cache.
@@ -75,3 +81,14 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
         },
     });
 };
+
+export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityProperties | null, entityType: EntityType) {
+    const { setEntityData } = useDomainsContext();
+    const previousEntityData = usePrevious(entityData);
+
+    useEffect(() => {
+        if (EntityType.Domain === entityType && !isEqual(entityData, previousEntityData)) {
+            setEntityData(entityData);
+        }
+    });
+}
