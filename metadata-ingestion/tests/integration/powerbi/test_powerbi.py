@@ -23,19 +23,25 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
+class MsalClient:
+    def __init__(self):
+        self.expiry_to_return = 3599
+        self.token_request_count = 0
+
+    def acquire_token_for_client(self, *args, **kwargs):
+        self.token_request_count += 1
+        return {
+            "access_token": "dummy",
+            "expires_in": self.expiry_to_return,
+        }
+
+
 def enable_logging():
     # set logging to console
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.getLogger().setLevel(logging.DEBUG)
 
-
 def mock_msal_cca(*args, **kwargs):
-    class MsalClient:
-        def acquire_token_for_client(self, *args, **kwargs):
-            return {
-                "access_token": "dummy",
-            }
-
     return MsalClient()
 
 
@@ -1059,6 +1065,43 @@ def test_workspace_container(
         output_path=tmp_path / "powerbi_container_mces.json",
         golden_path=f"{test_resources_dir}/{mce_out_file}",
     )
+
+
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_access_token_expiry(
+    mock_msal: MsalClient, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    enable_logging()
+
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                },
+            },
+        }
+    )
+
+    # for long expiry, the token should only be requested once.
+    mock_msal.expiry_to_return = 3600
+    pipeline.run()
+    assert mock_msal.token_request_count == 1
+
+    # for short expiry, the token should be requested when expires.
+    mock_msal.expiry_to_return = 0
+    pipeline.run()
+    assert mock_msal.token_request_count > 1
 
 
 def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
