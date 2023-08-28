@@ -302,10 +302,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     operation,
                     domain,
                     ownership,
-                    # Only ingest the DPI aspect if the flag is true
-                    data_platform_instance
-                    if self.config.ingest_data_platform_instance_aspect
-                    else None,
+                    data_platform_instance,
                     lineage,
                 ],
             )
@@ -567,13 +564,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _create_data_platform_instance_aspect(
         self, table: Table
-    ) -> DataPlatformInstanceClass:
-        return DataPlatformInstanceClass(
-            platform=make_data_platform_urn(self.platform),
-            instance=make_dataplatform_instance_urn(
-                self.platform, self.platform_instance_name
-            ),
-        )
+    ) -> Optional[DataPlatformInstanceClass]:
+        # Only ingest the DPI aspect if the flag is true
+        if self.config.ingest_data_platform_instance_aspect:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.platform_instance_name
+                ),
+            )
+        return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
         return SubTypesClass(
