@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
@@ -126,6 +127,9 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
             targetUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService, null);
         if (domainProperties == null) {
           throw new IllegalArgumentException("Domain does not exist");
+        }
+        if (DomainUtils.hasNameConflict(input.getName(), domainProperties.getParentDomain(), context, _entityClient)) {
+          throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain!");
         }
         domainProperties.setName(input.getName());
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
