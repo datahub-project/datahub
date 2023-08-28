@@ -41,7 +41,6 @@ export default function ManageDomainsPageV2() {
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
                 <DomainsTitle />
-                {/* TODO: Add functionality to this button */}
                 <Button type="primary" id={DOMAINS_CREATE_DOMAIN_ID} onClick={() => setIsCreatingDomain(true)}>
                     <PlusOutlined /> New Domain
                 </Button>
@@ -50,8 +49,8 @@ export default function ManageDomainsPageV2() {
             {isCreatingDomain && (
                 <CreateDomainModal
                     onClose={() => setIsCreatingDomain(false)}
-                    onCreate={(urn, id, name, description) =>
-                        updateListDomainsCache(client, urn, id, name, description)
+                    onCreate={(urn, id, name, description, parentDomain) =>
+                        updateListDomainsCache(client, urn, id, name, description, parentDomain)
                     }
                 />
             )}

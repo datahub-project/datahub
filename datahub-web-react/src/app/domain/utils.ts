@@ -10,7 +10,7 @@ import { useDomainsContext } from './DomainsContext';
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize) => {
+export const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -18,6 +18,7 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
             input: {
                 start: 0,
                 count: pageSize,
+                parentDomain,
             },
         },
     });
@@ -32,6 +33,7 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
             input: {
                 start: 0,
                 count: pageSize,
+                parentDomain,
             },
         },
         data: {
@@ -51,6 +53,7 @@ export const updateListDomainsCache = (
     id: string | undefined,
     name: string,
     description: string | undefined,
+    parentDomain?: string,
 ) => {
     addToListDomainsCache(
         client,
@@ -67,6 +70,7 @@ export const updateListDomainsCache = (
             children: null,
         },
         1000,
+        parentDomain,
     );
 };
 

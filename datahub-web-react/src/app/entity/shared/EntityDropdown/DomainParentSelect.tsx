@@ -32,9 +32,6 @@ export default function DomainParentSelect(props: Props) {
         setSelectedParentUrn,
     });
 
-    // TODO - select from modal
-    console.log(selectParentFromBrowser);
-
     const isShowingDomainNavigator = !searchQuery && isFocusedOnInput;
 
     return (
@@ -57,7 +54,7 @@ export default function DomainParentSelect(props: Props) {
                 ))}
             </Select>
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                <DomainNavigator />
+                <DomainNavigator selectDomainOverride={selectParentFromBrowser} />
             </BrowserWrapper>
         </ClickOutside>
     );

@@ -62,9 +62,10 @@ const StyledExpander = styled(BodyGridExpander)`
 interface Props {
     domain: Domain;
     numDomainChildren: number;
+    selectDomainOverride?: (urn: string, displayName: string) => void;
 }
 
-export default function DomainNode({ domain, numDomainChildren }: Props) {
+export default function DomainNode({ domain, numDomainChildren, selectDomainOverride }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
@@ -75,9 +76,14 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
     const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
+    const isInSelectMode = !!selectDomainOverride;
 
     function handleSelectDomain() {
-        history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
+        if (selectDomainOverride) {
+            selectDomainOverride(domain.urn, displayName);
+        } else {
+            history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
+        }
     }
 
     return (
@@ -91,10 +97,10 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
                 <NameWrapper
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
-                    isSelected={!!isOnEntityPage}
+                    isSelected={!!isOnEntityPage && !isInSelectMode}
                     addLeftPadding={!numDomainChildren}
                 >
-                    <DomainIcon />
+                    {!isInSelectMode && <DomainIcon />}
                     {displayName}
                 </NameWrapper>
             </RowWrapper>
@@ -105,6 +111,7 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
                             key={domain.urn}
                             domain={childDomain as Domain}
                             numDomainChildren={childDomain.children?.total || 0}
+                            selectDomainOverride={selectDomainOverride}
                         />
                     ))}
                 </BodyContainer>
