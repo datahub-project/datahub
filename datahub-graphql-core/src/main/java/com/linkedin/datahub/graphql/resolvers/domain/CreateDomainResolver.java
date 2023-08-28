@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.entity.client.EntityClient;
@@ -24,6 +25,7 @@ import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,7 +54,6 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
     return CompletableFuture.supplyAsync(() -> {
       // todo - implement parentDomain permissions
-
       if (!AuthorizationUtils.canCreateDomains(context)) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
@@ -67,6 +68,14 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
 
         if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, DOMAIN_ENTITY_NAME), context.getAuthentication())) {
           throw new IllegalArgumentException("This Domain already exists!");
+        }
+
+        if (parentDomain != null && !_entityClient.exists(parentDomain, context.getAuthentication())) {
+          throw new IllegalArgumentException("Parent Domain does not exist!");
+        }
+
+        if (DomainUtils.hasNameConflict(input.getName(), parentDomain, context, _entityClient)) {
+          throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain!");
         }
 
         // Create the MCP

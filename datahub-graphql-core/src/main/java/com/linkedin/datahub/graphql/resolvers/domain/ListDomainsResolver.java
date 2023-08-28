@@ -9,21 +9,18 @@ import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -37,9 +34,6 @@ import static com.linkedin.metadata.Constants.*;
  * Resolver used for listing all Domains defined within DataHub. Requires the MANAGE_DOMAINS platform privilege.
  */
 public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDomainsResult>> {
-
-  protected static final String PARENT_DOMAIN_INDEX_FIELD_NAME = "parentDomain.keyword";
-
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
@@ -63,7 +57,7 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
         final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
         final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
         final Urn parentDomainUrn = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
-        final Filter filter = parentDomainUrn != null ? buildParentDomainFilter(parentDomainUrn) : buildNoParentDomainFilter();
+        final Filter filter = DomainUtils.buildParentDomainFilter(parentDomainUrn);
 
         try {
           // First, get all domain Urns.
@@ -104,13 +98,5 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
       results.add(unresolvedDomain);
     }
     return results;
-  }
-
-  private Filter buildParentDomainFilter(@Nonnull final Urn parentDomainUrn) {
-    return QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, parentDomainUrn.toString(), Condition.EQUAL));
-  }
-
-  private Filter buildNoParentDomainFilter() {
-    return QueryUtils.newFilter(QueryUtils.newCriterion(PARENT_DOMAIN_INDEX_FIELD_NAME, "", Condition.IS_NULL));
   }
 }
