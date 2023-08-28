@@ -19,8 +19,8 @@ ones you may have to create yourself, with the statement:
 CREATE INDEX timeIndex ON metadata_aspect_v2 (createdon);
 ```
 
-**If you do not have this index, the source may run incredibly slowly and produce
-significant database load.**
+*If you do not have this index, the source may run incredibly slowly and produce
+significant database load.*
 
 #### Stateful Ingestion
 On first run, the source will read from the earliest data in the database and the earliest
