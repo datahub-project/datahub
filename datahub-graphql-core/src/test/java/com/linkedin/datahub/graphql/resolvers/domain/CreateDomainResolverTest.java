@@ -189,17 +189,6 @@ public class CreateDomainResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Mockito.when(mockClient.filter(
-        Mockito.eq(Constants.DOMAIN_ENTITY_NAME),
-        Mockito.eq(DomainUtils.buildNameAndParentDomainFilter(TEST_INPUT.getName(), TEST_PARENT_DOMAIN_URN)),
-        Mockito.eq(null),
-        Mockito.any(Integer.class),
-        Mockito.any(Integer.class),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new SearchResult().setEntities(
-        new SearchEntityArray(new SearchEntity().setEntity(TEST_DOMAIN_URN))
-    ));
-
     Mockito.when(resolver.get(mockEnv)).thenThrow(new IllegalArgumentException("Parent Domain does not exist!"));
   }
 
