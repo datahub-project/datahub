@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, root_validator
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
@@ -67,3 +67,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
             "Enable if you want to ignore the errors."
         ),
     )
+
+    @root_validator
+    def check_ingesting_data(cls, values):
+        if not values.get("database_connection") and not values.get("kafka_connection"):
+            raise ValueError(
+                "Your current config will not ingest any data."
+                " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
+            )
+        return values
