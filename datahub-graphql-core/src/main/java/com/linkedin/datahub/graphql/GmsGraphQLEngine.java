@@ -123,6 +123,7 @@ import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.ParentDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
@@ -1670,8 +1671,8 @@ public class GmsGraphQLEngine {
     private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Domain", typeWiring -> typeWiring
             .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)
-            )
+            .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
         builder.type("DomainAssociation", typeWiring -> typeWiring
             .dataFetcher("domain",

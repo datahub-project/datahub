@@ -9581,14 +9581,30 @@ type Domain implements Entity {
     entities(input: DomainEntitiesInput): SearchResults
 
     """
+    Recursively get the lineage of parent domains for this entity
+    """
+    parentDomains: ParentDomainsResult
+
+    """
     Edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
+"""
+All of the parent domains starting from a single Domain through all of its ancestors
+"""
+type ParentDomainsResult {
+    """
+    The number of parent domains bubbling up for this entity
+    """
+    count: Int!
 
-
-
+    """
+    A list of parent domains in order from direct parent, to parent's parent etc. If there are no parents, return an empty list
+    """
+    domains: [Domain!]!
+}
 
 """
 Properties about a domain

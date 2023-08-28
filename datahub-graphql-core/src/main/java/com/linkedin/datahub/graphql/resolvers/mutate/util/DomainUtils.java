@@ -10,7 +10,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.types.domain.DomainMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -39,8 +41,7 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
 // TODO: Move to consuming from DomainService.
@@ -178,5 +179,44 @@ public class DomainUtils {
       }
       return false;
     });
+  }
+
+  @Nullable
+  public static Domain getParentDomain(
+      @Nonnull final String urnStr,
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityClient entityClient
+  ) {
+    try {
+      Urn urn = Urn.createFromString(urnStr);
+      EntityResponse entityResponse = entityClient.getV2(
+          urn.getEntityType(),
+          urn,
+          Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME),
+          context.getAuthentication()
+      );
+
+      if (entityResponse != null && entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
+        DomainProperties properties = new DomainProperties(entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
+        if (properties.hasParentDomain()) {
+          Urn parentDomainUrn = properties.getParentDomain();
+          if (parentDomainUrn != null) {
+            EntityResponse parentResponse = entityClient.getV2(
+                parentDomainUrn.getEntityType(),
+                parentDomainUrn,
+                Collections.singleton(DOMAIN_KEY_ASPECT_NAME),
+                context.getAuthentication()
+            );
+            if (parentResponse != null) {
+              return DomainMapper.map(parentResponse);
+            }
+          }
+        }
+      }
+
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to retrieve parent domain for entity %s", urnStr), e);
+    }
   }
 }
