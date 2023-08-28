@@ -80,6 +80,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
@@ -1024,6 +1025,13 @@ public class GmsGraphQLEngine {
             .type("BrowseResults", typeWiring -> typeWiring
                 .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
                     (env) -> ((BrowseResults) env.getSource()).getEntities()))
+            )
+            .type("ParentDomainsResult", typeWiring -> typeWiring
+                .dataFetcher("domains", new EntityTypeBatchResolver(entityTypes,
+                    (env) -> {
+                        final ParentDomainsResult result = env.getSource();
+                        return result != null ? result.getDomains() : null;
+                    }))
             )
             .type("EntityRelationshipLegacy", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,

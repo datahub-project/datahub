@@ -12,7 +12,6 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.key.DomainKey;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.extern.slf4j.Slf4j;
 import org.mockito.Mockito;
@@ -55,16 +54,10 @@ public class ParentDomainsResolverTest {
     parentDomain1Aspects.put(DOMAIN_PROPERTIES_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(
         new DomainProperties().setName("domain parent 1").setParentDomain(parentDomain2.getParentDomain()).data()
     )));
-    parentDomain1Aspects.put(DOMAIN_KEY_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(
-        new DomainKey().setId("domain-parent-1-key").data()
-    )));
 
     Map<String, EnvelopedAspect> parentDomain2Aspects = new HashMap<>();
     parentDomain2Aspects.put(DOMAIN_PROPERTIES_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(
         new DomainProperties().setName("domain parent 2").data()
-    )));
-    parentDomain2Aspects.put(DOMAIN_KEY_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(
-        new DomainKey().setId("domain-parent-2-key").data()
     )));
 
     Mockito.when(mockClient.getV2(
@@ -77,7 +70,7 @@ public class ParentDomainsResolverTest {
     Mockito.when(mockClient.getV2(
         Mockito.eq(parentDomain1.getParentDomain().getEntityType()),
         Mockito.eq(parentDomain1.getParentDomain()),
-        Mockito.eq(Collections.singleton(DOMAIN_KEY_ASPECT_NAME)),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenReturn(new EntityResponse()
         .setEntityName(DOMAIN_ENTITY_NAME)
@@ -94,7 +87,7 @@ public class ParentDomainsResolverTest {
     Mockito.when(mockClient.getV2(
         Mockito.eq(parentDomain2.getParentDomain().getEntityType()),
         Mockito.eq(parentDomain2.getParentDomain()),
-        Mockito.eq(Collections.singleton(DOMAIN_KEY_ASPECT_NAME)),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenReturn(new EntityResponse()
         .setEntityName(DOMAIN_ENTITY_NAME)

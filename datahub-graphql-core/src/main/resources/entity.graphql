@@ -9603,7 +9603,7 @@ type ParentDomainsResult {
     """
     A list of parent domains in order from direct parent, to parent's parent etc. If there are no parents, return an empty list
     """
-    domains: [Domain!]!
+    domains: [Entity!]!
 }
 
 """

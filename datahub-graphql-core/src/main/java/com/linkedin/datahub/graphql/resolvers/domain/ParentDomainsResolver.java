@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
@@ -29,8 +28,7 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
     public CompletableFuture<ParentDomainsResult> get(DataFetchingEnvironment environment) {
         final QueryContext context = environment.getContext();
         final Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
-        final List<Domain> domains = new ArrayList<>();
-
+        final List<Entity> parentDomains = new ArrayList<>();
 
         if (!DOMAIN_ENTITY_NAME.equals(urn.getEntityType())) {
             throw new IllegalArgumentException(String.format("Failed to resolve parents for entity type %s", urn));
@@ -38,16 +36,16 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Domain parentDomain = DomainUtils.getParentDomain(urn.toString(), context, _entityClient);
+                Entity parentDomain = DomainUtils.getParentDomain(urn, context, _entityClient);
 
                 while (parentDomain != null) {
-                    domains.add(parentDomain);
-                    parentDomain = DomainUtils.getParentDomain(parentDomain.getUrn(), context, _entityClient);
+                    parentDomains.add(parentDomain);
+                    parentDomain = DomainUtils.getParentDomain(Urn.createFromString(parentDomain.getUrn()), context, _entityClient);
                 }
 
                 final ParentDomainsResult result = new ParentDomainsResult();
-                result.setCount(domains.size());
-                result.setDomains(domains);
+                result.setCount(parentDomains.size());
+                result.setDomains(parentDomains);
                 return result;
             } catch (Exception e) {
                 throw new RuntimeException(String.format("Failed to load parent domains for entity %s", urn), e);

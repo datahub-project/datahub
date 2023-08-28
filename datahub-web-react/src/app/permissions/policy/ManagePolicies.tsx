@@ -170,11 +170,12 @@ export const ManagePolicies = () => {
         variables: {
             input: {
                 start,
-                count: pageSize,
+                count: pageSize + 10,
                 query,
             },
         },
     });
+    console.log({ policiesData });
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
