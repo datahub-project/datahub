@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { useListDomainsQuery } from '../../../graphql/domain.generated';
 import { Message } from '../../shared/Message';
 import { ResultWrapper } from '../../search/SearchResultList';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType } from '../../../types.generated';
+import useListDomains from '../useListDomains';
 
 const RootDomainsHeader = styled.div`
     font-size: 20px;
@@ -19,14 +19,7 @@ const DomainsWrapper = styled.div`
 
 export default function RootDomains() {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useListDomainsQuery({
-        variables: {
-            input: {
-                start: 0,
-                count: 1000, // don't paginate the home page, get all root level domains
-            },
-        },
-    });
+    const { loading, error, data } = useListDomains({});
 
     return (
         <>
