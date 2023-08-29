@@ -1,0 +1,10 @@
+source:
+  type: file
+  config:
+    filename: snowflake_golden_test.json
+
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:9002/gms
+    token: "test"

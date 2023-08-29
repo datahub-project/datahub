@@ -2,9 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Domain, EntityType, RecommendationContent } from '../../../../types.generated';
-import { IconStyleType } from '../../../entity/Entity';
 import { LogoCountCard } from '../../../shared/LogoCountCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import DomainIcon from '../../../domain/DomainIcon';
 
 const DomainListContainer = styled.div`
     display: flex;
@@ -38,7 +38,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
                 >
                     <LogoCountCard
                         name={entityRegistry.getDisplayName(EntityType.Domain, domain.domain)}
-                        logoComponent={entityRegistry.getIcon(EntityType.Domain, 16, IconStyleType.ACCENT)}
+                        logoComponent={<DomainIcon />}
                         count={domain.count}
                     />
                 </Link>
