@@ -68,6 +68,11 @@ Cypress.Commands.add("goToGlossaryList", () => {
   cy.waitTextVisible("Glossary");
 });
 
+Cypress.Commands.add("goToTestsList", () => {
+  cy.visit("/tests");
+  cy.waitTextVisible("Metadata Tests");
+});
+
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
