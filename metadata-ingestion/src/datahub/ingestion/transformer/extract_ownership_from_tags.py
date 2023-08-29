@@ -1,20 +1,18 @@
 from typing import List, Optional, cast
 
-import pydantic
-
 from datahub.configuration.common import (
-    TransformerSemantics,
     TransformerSemanticsConfigModel,
 )
 from datahub.emitter.mce_builder import Aspect
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
-from datahub.metadata.schema_classes import OwnershipClass
+from datahub.metadata.schema_classes import OwnershipClass, GlobalTagsClass, OwnerClass, OwnershipTypeClass
+from datahub.utilities.urns.tag_urn import TagUrn
 
 
 class ExtractOwnersFromTagsConfig(TransformerSemanticsConfigModel):
     tag_prefix: str
+    # TODO Add type as an option here and use that instead of hard-coding type of owner
 
 
 class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
@@ -39,5 +37,18 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
 
-        owner_aspect = OwnershipClass(owners=[])
+        in_tags_aspect: Optional[GlobalTagsClass] = cast(GlobalTagsClass, aspect)
+        if in_tags_aspect is None:
+            return None
+        tags_str = in_tags_aspect.tags
+        owners: List[OwnerClass] = []
+        for tag in tags_str:
+            tag_urn = TagUrn.create_from_string(tag)
+            tag_str = tag_urn.get_entity_id()[0]
+            if tag_str.startswith(self.config.tag_prefix):
+
+                owner = OwnerClass(owner=tag_str[len(self.config.tag_prefix) :], type=OwnershipTypeClass.TECHNICAL_OWNER)
+                owners.append(owner)
+
+        owner_aspect = OwnershipClass(owners=owners)
         return cast(Aspect, owner_aspect)

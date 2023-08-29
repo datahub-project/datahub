@@ -606,11 +606,9 @@ def test_extract_owners_from_tags():
             ]
         )
     )
-    for item in transformed:
-        print(item)
-    # TODO Implement this after figuring what is the correct approach currently
     owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
     assert owners_aspect
+    # TODO implement this test properly
     print(owners_aspect)
     assert owners_aspect is None
 
