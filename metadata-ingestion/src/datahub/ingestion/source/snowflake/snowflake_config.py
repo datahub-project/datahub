@@ -91,13 +91,8 @@ class SnowflakeV2Config(
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
-    use_legacy_lineage_method: bool = Field(
-        default=False,
-        description=(
-            "Whether to use the legacy lineage computation method. "
-            "By default, uses new optimised lineage extraction method that requires less ingestion process memory. "
-            "Table-to-view and view-to-view column-level lineage are not supported with the legacy method."
-        ),
+    _use_legacy_lineage_method_removed = pydantic_removed_field(
+        "use_legacy_lineage_method"
     )
 
     validate_upstreams_against_patterns: bool = Field(
@@ -113,11 +108,16 @@ class SnowflakeV2Config(
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
         default=DEFAULT_TABLES_DENY_LIST,
-        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools. Not used if `use_legacy_lineage_method=True`",
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools.",
     )
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
         "upstreams_deny_pattern", "temporary_tables_pattern"
+    )
+
+    email_as_user_identifier: bool = Field(
+        default=True,
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
     )
 
     @validator("include_column_lineage")

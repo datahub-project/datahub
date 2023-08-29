@@ -678,6 +678,7 @@ fragment schemaFieldFields on SchemaField {
     nativeDataType
     recursive
     isPartOfKey
+    isPartitioningKey
     globalTags {
         ...globalTagsFields
     }
@@ -1111,5 +1112,8 @@ fragment entityDisplayNameFields on Entity {
         properties {
             name
         }
+    }
+    ... on DataPlatformInstance {
+        instanceId
     }
 }

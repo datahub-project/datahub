@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 
@@ -10,15 +11,13 @@ import javax.annotation.Nonnull;
 
 import java.util.Set;
 
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.BROWSE_PATH_V2_HIERARCHY_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.KEYWORD_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
-import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.*;
+
 
 @Builder
 @Getter
 @Accessors(fluent = true)
+@EqualsAndHashCode
 public class SearchFieldConfig {
     public static final float DEFAULT_BOOST = 1.0f;
 
@@ -31,7 +30,8 @@ public class SearchFieldConfig {
     private static final Set<SearchableAnnotation.FieldType> TYPES_WITH_DELIMITED_SUBFIELD =
             Set.of(
                     SearchableAnnotation.FieldType.TEXT,
-                    SearchableAnnotation.FieldType.TEXT_PARTIAL
+                    SearchableAnnotation.FieldType.TEXT_PARTIAL,
+                    SearchableAnnotation.FieldType.WORD_GRAM
                     // NOT URN_PARTIAL (urn field is special)
             );
     // NOT comprehensive
@@ -54,6 +54,7 @@ public class SearchFieldConfig {
                     SearchableAnnotation.FieldType.TEXT,
                     SearchableAnnotation.FieldType.TEXT_PARTIAL,
                     SearchableAnnotation.FieldType.KEYWORD,
+                    SearchableAnnotation.FieldType.WORD_GRAM,
                     // not analyzed
                     SearchableAnnotation.FieldType.BOOLEAN,
                     SearchableAnnotation.FieldType.COUNT,
@@ -67,6 +68,11 @@ public class SearchFieldConfig {
                     SearchableAnnotation.FieldType.URN_PARTIAL
             );
 
+    public static final Set<SearchableAnnotation.FieldType> TYPES_WITH_WORD_GRAM =
+        Set.of(
+            SearchableAnnotation.FieldType.WORD_GRAM
+        );
+
     @Nonnull
     private final String fieldName;
     @Nonnull
@@ -76,9 +82,11 @@ public class SearchFieldConfig {
     private final String analyzer;
     private boolean hasKeywordSubfield;
     private boolean hasDelimitedSubfield;
+    private boolean hasWordGramSubfields;
     private boolean isQueryByDefault;
     private boolean isDelimitedSubfield;
     private boolean isKeywordSubfield;
+    private boolean isWordGramSubfield;
 
     public static SearchFieldConfig detectSubFieldType(@Nonnull SearchableFieldSpec fieldSpec) {
         final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
@@ -104,6 +112,7 @@ public class SearchFieldConfig {
                 .analyzer(getAnalyzer(fieldName, fieldType))
                 .hasKeywordSubfield(hasKeywordSubfield(fieldName, fieldType))
                 .hasDelimitedSubfield(hasDelimitedSubfield(fieldName, fieldType))
+                .hasWordGramSubfields(hasWordGramSubfields(fieldName, fieldType))
                 .isQueryByDefault(isQueryByDefault)
                 .build();
     }
@@ -115,6 +124,11 @@ public class SearchFieldConfig {
     private static boolean hasDelimitedSubfield(String fieldName, SearchableAnnotation.FieldType fieldType) {
         return !fieldName.contains(".")
                 && ("urn".equals(fieldName) || TYPES_WITH_DELIMITED_SUBFIELD.contains(fieldType));
+    }
+
+    private static boolean hasWordGramSubfields(String fieldName, SearchableAnnotation.FieldType fieldType) {
+        return !fieldName.contains(".")
+            && (TYPES_WITH_WORD_GRAM.contains(fieldType));
     }
     private static boolean hasKeywordSubfield(String fieldName, SearchableAnnotation.FieldType fieldType) {
         return !"urn".equals(fieldName)
@@ -153,6 +167,7 @@ public class SearchFieldConfig {
             this.fieldName = fieldName;
             isDelimitedSubfield(fieldName.endsWith(".delimited"));
             isKeywordSubfield(fieldName.endsWith(".keyword"));
+            isWordGramSubfield(fieldName.contains("wordGrams"));
             shortName(fieldName.split("[.]")[0]);
             return this;
         }

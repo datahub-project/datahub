@@ -239,11 +239,6 @@ class Manifest(BaseModel):
     resources: List[Dict[str, List]] = Field(alias="Resources")
 
 
-class MobileReport(CatalogItem):
-    allow_caching: bool = Field(alias="AllowCaching")
-    manifest: Manifest = Field(alias="Manifest")
-
-
 class PowerBIReport(CatalogItem):
     has_data_sources: bool = Field(alias="HasDataSources")
 

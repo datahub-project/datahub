@@ -33,7 +33,6 @@ import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
-import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
 
 
 @Slf4j
@@ -90,6 +89,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
             : null,
         0,
         0,
+        null,
         null,
         authentication);
   }

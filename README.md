@@ -88,6 +88,9 @@ If you're looking to build & modify datahub please take a look at our [Developme
 - [acryldata/datahub-actions](https://github.com/acryldata/datahub-actions): DataHub Actions is a framework for responding to changes to your DataHub Metadata Graph in real time.
 - [acryldata/datahub-helm](https://github.com/acryldata/datahub-helm): Repository of helm charts for deploying DataHub on a Kubernetes cluster
 - [acryldata/meta-world](https://github.com/acryldata/meta-world): A repository to store recipes, custom sources, transformations and other things to make your DataHub experience magical
+- [dbt-impact-action](https://github.com/acryldata/dbt-impact-action) : This repository contains a github action for commenting on your PRs with a summary of the impact of changes within a dbt project
+- [datahub-tools](https://github.com/makenotion/datahub-tools) : Additional python tools to interact with the DataHub GraphQL endpoints, built by Notion
+- [business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action) : This repository contains a github action that opens PRs to update your business glossary yaml file.
 
 ## Releases
 

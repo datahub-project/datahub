@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional, Set, Tuple, Union
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -28,7 +28,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -96,15 +95,17 @@ class Mapper:
 
     def __init__(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ):
+        self.__ctx = ctx
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
-        self.workspace_key: PlatformKey
+        self.workspace_key: ContainerKey
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -172,43 +173,40 @@ class Mapper:
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
-        upstreams: List[UpstreamClass] = []
-        upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table, self.__reporter, parameters=parameters
+        upstream: List[UpstreamClass] = []
+
+        upstream_dpts: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
+            table=table,
+            reporter=self.__reporter,
+            platform_instance_resolver=self.__dataplatform_instance_resolver,
+            ctx=self.__ctx,
+            config=self.__config,
+            parameters=parameters,
         )
+
         logger.debug(
-            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_dpts}"
         )
-        for upstream_table in upstream_tables:
+
+        for upstream_dpt in upstream_dpts:
             if (
-                upstream_table.data_platform_pair.powerbi_data_platform_name
+                upstream_dpt.data_platform_pair.powerbi_data_platform_name
                 not in self.__config.dataset_type_mapping.keys()
             ):
                 logger.debug(
-                    f"Skipping upstream table for {ds_urn}. The platform {upstream_table.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                    f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
                 )
                 continue
 
-            platform_detail: PlatformDetail = (
-                self.__dataplatform_instance_resolver.get_platform_instance(
-                    upstream_table
-                )
-            )
-            upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=upstream_table.data_platform_pair.datahub_data_platform_name,
-                platform_instance=platform_detail.platform_instance,
-                env=platform_detail.env,
-                name=self.lineage_urn_to_lowercase(upstream_table.full_name),
-            )
-
             upstream_table_class = UpstreamClass(
-                upstream_urn,
+                upstream_dpt.urn,
                 DatasetLineageTypeClass.TRANSFORMED,
             )
-            upstreams.append(upstream_table_class)
 
-        if len(upstreams) > 0:
-            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+            upstream.append(upstream_table_class)
+
+        if len(upstream) > 0:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstream)
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,
@@ -256,7 +254,6 @@ class Mapper:
         self,
         table: powerbi_data_classes.Table,
     ) -> SchemaMetadataClass:
-
         fields = []
         table_fields = (
             [self.to_datahub_schema_field(column) for column in table.columns]
@@ -1108,7 +1105,9 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising
             # unwanted stacktrace on console
 
-        self.mapper = Mapper(config, self.reporter, self.dataplatform_instance_resolver)
+        self.mapper = Mapper(
+            ctx, config, self.reporter, self.dataplatform_instance_resolver
+        )
 
         # Create and register the stateful ingestion use-case handler.
         self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(

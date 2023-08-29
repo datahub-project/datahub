@@ -7,6 +7,7 @@ dependencies {
   compile project(':metadata-service:auth-impl')
   compile project(':metadata-service:auth-config')
   compile project(':metadata-service:plugin')
+  compile project(':metadata-service:configuration')
   compile project(':datahub-graphql-core')
   compile project(':metadata-service:restli-servlet-impl')
   compile project(':metadata-dao-impl:kafka-producer')
@@ -48,6 +49,12 @@ dependencies {
   testCompile externalDependency.hazelcastTest
   implementation externalDependency.jline
   implementation externalDependency.common
+
+  constraints {
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
+  }
 }
 
 configurations.all{

@@ -12,15 +12,17 @@ dependencies {
   compile project(':metadata-events:mxe-avro-1.7')
   compile project(':metadata-events:mxe-registration')
   compile project(':metadata-events:mxe-utils-avro-1.7')
-  compile project(path: ':metadata-models')
+  compile project(':metadata-models')
   compile project(':metadata-service:restli-client')
+  compile project(':metadata-service:configuration')
+  compile project(':metadata-service:services')
 
   compile spec.product.pegasus.data
   compile spec.product.pegasus.generator
 
   compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   implementation externalDependency.slf4jApi
-  testImplementation project(path: ':metadata-integration:java:datahub-client')
+  testImplementation project(':metadata-integration:java:datahub-client')
   runtime externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
@@ -86,6 +88,9 @@ dependencies {
     implementation(externalDependency.jettison) {
       because("previous versions are vulnerable")
     }
+    implementation(externalDependency.snappy) {
+      because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
+    }
   }
 }
 
@@ -134,3 +139,7 @@ sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
 sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
 
 checkstyleMain.exclude '**/generated/**'
+
+clean {
+  project.delete("$projectDir/generated")
+}

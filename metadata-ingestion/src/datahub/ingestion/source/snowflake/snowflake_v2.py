@@ -51,9 +51,6 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
-from datahub.ingestion.source.snowflake.snowflake_lineage_legacy import (
-    SnowflakeLineageExtractor as SnowflakeLineageLegacyExtractor,
-)
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
@@ -240,19 +237,10 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary()
 
-        self.lineage_extractor: Union[
-            SnowflakeLineageExtractor, SnowflakeLineageLegacyExtractor
-        ]
         if config.include_table_lineage:
-            # For lineage
-            if self.config.use_legacy_lineage_method:
-                self.lineage_extractor = SnowflakeLineageLegacyExtractor(
-                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
-                )
-            else:
-                self.lineage_extractor = SnowflakeLineageExtractor(
-                    config, self.report, dataset_urn_builder=self.gen_dataset_urn
-                )
+            self.lineage_extractor = SnowflakeLineageExtractor(
+                config, self.report, dataset_urn_builder=self.gen_dataset_urn
+            )
 
         if config.include_usage_stats or config.include_operational_stats:
             self.usage_extractor = SnowflakeUsageExtractor(
@@ -272,7 +260,7 @@ class SnowflakeV2Source(
                 run_id=self.ctx.run_id,
             )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             # For profiling
             self.profiler = SnowflakeProfiler(
                 config, self.report, self.profiling_state_handler
@@ -701,7 +689,7 @@ class SnowflakeV2Source(
         for snowflake_schema in snowflake_db.schemas:
             yield from self._process_schema(snowflake_schema, db_name)
 
-        if self.config.profiling.enabled and self.db_tables:
+        if self.config.is_profiling_enabled() and self.db_tables:
             yield from self.profiler.get_workunits(snowflake_db, self.db_tables)
 
     def fetch_schemas_for_database(self, snowflake_db, db_name):
@@ -872,8 +860,8 @@ class SnowflakeV2Source(
             self.gen_schema_metadata(table, schema_name, db_name)
 
     def fetch_sample_data_for_classification(
-        self, table, schema_name, db_name, dataset_name
-    ):
+        self, table: SnowflakeTable, schema_name: str, db_name: str, dataset_name: str
+    ) -> None:
         if (
             table.columns
             and self.config.classification.enabled
@@ -1029,9 +1017,7 @@ class SnowflakeV2Source(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
-        dataset_properties = self.get_dataset_properties(
-            table, schema_name, db_name, dataset_name
-        )
+        dataset_properties = self.get_dataset_properties(table, schema_name, db_name)
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=dataset_properties
@@ -1098,7 +1084,12 @@ class SnowflakeV2Source(
                 entityUrn=dataset_urn, aspect=view_properties_aspect
             ).as_workunit()
 
-    def get_dataset_properties(self, table, schema_name, db_name, dataset_name):
+    def get_dataset_properties(
+        self,
+        table: Union[SnowflakeTable, SnowflakeView],
+        schema_name: str,
+        db_name: str,
+    ) -> DatasetProperties:
         return DatasetProperties(
             name=table.name,
             created=TimeStamp(time=int(table.created.timestamp() * 1000))
@@ -1110,7 +1101,7 @@ class SnowflakeV2Source(
             if table.created is not None
             else None,
             description=table.comment,
-            qualifiedName=dataset_name,
+            qualifiedName=f"{db_name}.{schema_name}.{table.name}",
             customProperties={},
             externalUrl=self.get_external_url_for_table(
                 table.name,
@@ -1225,7 +1216,12 @@ class SnowflakeV2Source(
             )
         return foreign_keys
 
-    def classify_snowflake_table(self, table, dataset_name, schema_metadata):
+    def classify_snowflake_table(
+        self,
+        table: Union[SnowflakeTable, SnowflakeView],
+        dataset_name: str,
+        schema_metadata: SchemaMetadata,
+    ) -> None:
         if (
             isinstance(table, SnowflakeTable)
             and self.config.classification.enabled
@@ -1255,6 +1251,9 @@ class SnowflakeV2Source(
                     "Failed to classify table columns",
                     dataset_name,
                 )
+            finally:
+                # Cleaning up sample_data fetched for classification
+                table.sample_data = None
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -1470,7 +1469,7 @@ class SnowflakeV2Source(
             df = pd.DataFrame(dat, columns=[col.name for col in cur.description])
             time_taken = timer.elapsed_seconds()
             logger.debug(
-                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name}; took {time_taken:.3f} seconds"
+                f"Finished collecting sample values for table {db_name}.{schema_name}.{table_name};{df.shape[0]} rows; took {time_taken:.3f} seconds"
             )
 
         return df
