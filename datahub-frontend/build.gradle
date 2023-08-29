@@ -1,7 +1,7 @@
 plugins {
   id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
-  id 'com.palantir.docker'
   id 'scala'
+  id 'com.palantir.docker'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
