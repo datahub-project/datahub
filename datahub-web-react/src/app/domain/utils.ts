@@ -47,7 +47,7 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
 /**
  * Remove an entry from the list domains cache.
  */
-export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
+export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -55,6 +55,7 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
+                parentDomain,
             },
         },
     });
@@ -69,6 +70,7 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
+                parentDomain,
             },
         },
         data: {
