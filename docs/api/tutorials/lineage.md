@@ -146,7 +146,7 @@ You can now see the column-level lineage between datasets. Note that you have to
 <TabItem value="graphql" label="GraphQL" default>
 
 ```json
-mutation searchAcrossLineage {
+query searchAcrossLineage {
   searchAcrossLineage(
     input: {
       query: "*"
