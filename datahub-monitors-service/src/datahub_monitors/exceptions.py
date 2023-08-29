@@ -9,6 +9,13 @@ class AssertionResultException(Exception):
     pass
 
 
+class InsufficientDataException(AssertionResultException):
+    """Raised when there is insufficient data to evaluate an assertion"""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
 class InvalidParametersException(AssertionResultException):
     """Raised when assertion parameters are invalid"""
 

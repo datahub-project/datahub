@@ -7019,6 +7019,11 @@ enum AssertionResultErrorType {
     INVALID_PARAMETERS
 
     """
+    Insufficient data to evaluate assertion
+    """
+    INSUFFICIENT_DATA
+
+    """
     Event type not supported by the specified source
     """
     INVALID_SOURCE_TYPE
