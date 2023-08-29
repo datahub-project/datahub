@@ -247,8 +247,8 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1, <1.1",
-    "pyspark==3.0.3",
+    "pydeequ==1.1.0",
+    "pyspark~=3.3.0",
 }
 
 delta_lake = {
