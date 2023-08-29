@@ -212,7 +212,7 @@ function EntityDropdown(props: Props) {
                             >
                                 <Tooltip
                                     title={`Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                                        isGlossaryEntity ? 'child' : 'sub-domain'
+                                        isDomainEntity ? 'sub-domain' : 'child'
                                     } entities.`}
                                     overlayStyle={
                                         (isGlossaryEntity && canManageGlossaryEntity && entityHasChildren) ||
