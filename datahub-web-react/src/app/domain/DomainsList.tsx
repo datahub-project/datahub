@@ -18,7 +18,6 @@ import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID } from '../onboarding/config/DomainsOnboardingConfig';
 import { getElasticCappedTotalValueText } from '../entity/shared/constants';
 import { StyledTable } from '../entity/shared/components/styled/StyledTable';
-// import { IconStyleType } from '../entity/Entity';
 import { DomainOwnersColumn, DomainListMenuColumn, DomainNameColumn } from './DomainListColumns';
 import DomainIcon from './DomainIcon';
 

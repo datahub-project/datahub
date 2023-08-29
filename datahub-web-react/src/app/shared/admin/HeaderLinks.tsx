@@ -5,7 +5,6 @@ import {
     BarChartOutlined,
     BookOutlined,
     SettingOutlined,
-    // FolderOutlined,
     SolutionOutlined,
     DownOutlined,
 } from '@ant-design/icons';
@@ -125,7 +124,6 @@ export function HeaderLinks(props: Props) {
                             <MenuItem key="1">
                                 <Link to="/domains">
                                     <NavTitleContainer>
-                                        {/* <FolderOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} /> */}
                                         <DomainIcon />
                                         <NavTitleText>Domains</NavTitleText>
                                     </NavTitleContainer>
