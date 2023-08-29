@@ -21,15 +21,13 @@ import DomainIcon from '../../domain/DomainIcon';
 export class DomainEntity implements Entity<Domain> {
     type: EntityType = EntityType.Domain;
 
-    // icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
-    icon = (fontSize: number, styleType: IconStyleType) => {
+    icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
             return <DomainIcon />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <DomainIcon />;
-            // return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <DomainIcon style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
         if (styleType === IconStyleType.SVG) {
@@ -45,10 +43,10 @@ export class DomainEntity implements Entity<Domain> {
 
         return (
             <DomainIcon
-            // style={{
-            //     fontSize,
-            //     color: color || '#BFBFBF',
-            // }}
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
             />
         );
     };

@@ -41,7 +41,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
                         logoComponent={
                             <DomainIcon
                                 style={{
-                                    fontSize: 14,
+                                    fontSize: 16,
                                     color: '#BFBFBF',
                                 }}
                             />
