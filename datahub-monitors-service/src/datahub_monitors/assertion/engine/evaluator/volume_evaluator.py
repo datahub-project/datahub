@@ -2,19 +2,22 @@ import logging
 import time
 from typing import Optional, Union
 
+from datahub.metadata.schema_classes import DatasetProfileClass
+
 from datahub_monitors.assertion.engine.evaluator.evaluator import AssertionEvaluator
 from datahub_monitors.assertion.engine.evaluator.utils import get_database_parameters
 from datahub_monitors.assertion.engine.evaluator.utils.volume import (
     get_filter_parameters,
 )
-from datahub_monitors.assertion.types import (
-    AssertionDatabaseParams,
-    AssertionState,
-    AssertionStateType,
-)
+from datahub_monitors.assertion.types import AssertionState, AssertionStateType
 from datahub_monitors.connection.connection import Connection
-from datahub_monitors.exceptions import InvalidParametersException
-from datahub_monitors.source.source import Source
+from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
+    DataHubIngestionSourceConnectionProvider,
+)
+from datahub_monitors.exceptions import (
+    InsufficientDataException,
+    InvalidParametersException,
+)
 from datahub_monitors.types import (
     Assertion,
     AssertionEvaluationContext,
@@ -157,15 +160,9 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         self,
         entity_urn: str,
         volume_assertion: VolumeAssertion,
-        source: Source,
-        database_params: AssertionDatabaseParams,
-        volume_parameters: DatasetVolumeAssertionParameters,
-        filter_params: Optional[dict],
+        row_count: int,
     ) -> AssertionEvaluationResult:
         assert volume_assertion.row_count_total is not None
-        row_count = source.get_row_count(
-            entity_urn, database_params, volume_parameters, filter_params
-        )
         row_count_evaluation = self._evaluate_row_count_total(
             row_count,
             volume_assertion.row_count_total.operator,
@@ -184,10 +181,7 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         self,
         entity_urn: str,
         volume_assertion: VolumeAssertion,
-        source: Source,
-        database_params: AssertionDatabaseParams,
-        volume_parameters: DatasetVolumeAssertionParameters,
-        filter_params: Optional[dict],
+        row_count: int,
         context: AssertionEvaluationContext,
     ) -> AssertionEvaluationResult:
         assert volume_assertion.row_count_change is not None
@@ -195,14 +189,11 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         if not context.monitor_urn:
             raise InvalidParametersException(
                 message=f"_evaluate_row_count_change_assertion for {entity_urn} requires a monitor_urn",
-                parameters={"database_params": database_params, "context": context},
+                parameters={"context": context},
             )
 
         previous_state = self.state_provider.get_state(
             context.monitor_urn, AssertionStateType.MONITOR_TIMESERIES_STATE
-        )
-        row_count = source.get_row_count(
-            entity_urn, database_params, volume_parameters, filter_params
         )
 
         if previous_state:
@@ -253,6 +244,44 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
 
         return assertion_evaluation_result
 
+    def _evaluate_datahub_dataset_profile_assertion(
+        self,
+        entity_urn: str,
+        volume_assertion: VolumeAssertion,
+        context: AssertionEvaluationContext,
+    ) -> AssertionEvaluationResult:
+        assert isinstance(
+            self.connection_provider, DataHubIngestionSourceConnectionProvider
+        )
+        dataset_profile: Optional[
+            DatasetProfileClass
+        ] = self.connection_provider.graph.get_latest_timeseries_value(
+            entity_urn=entity_urn,
+            aspect_type=DatasetProfileClass,
+            filter_criteria_map={},
+        )
+
+        if dataset_profile is None or dataset_profile.rowCount is None:
+            raise InsufficientDataException(
+                message=f"Unable to find latest dataset profile for {entity_urn}"
+            )
+
+        row_count = dataset_profile.rowCount
+        if volume_assertion.type == VolumeAssertionType.ROW_COUNT_TOTAL:
+            return self._evaluate_row_count_total_assertion(
+                entity_urn,
+                volume_assertion,
+                row_count,
+            )
+        elif volume_assertion.type == VolumeAssertionType.ROW_COUNT_CHANGE:
+            return self._evaluate_row_count_change_assertion(
+                entity_urn, volume_assertion, row_count, context
+            )
+        raise InvalidParametersException(
+            message=f"Unsupported Volume Assertion Type {volume_assertion.type} provided.",
+            parameters=volume_assertion.__dict__,
+        )
+
     def _evaluate_internal(
         self,
         assertion: Assertion,
@@ -268,26 +297,31 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         dataset_volume_parameters = parameters.dataset_volume_parameters
         filter_params = get_filter_parameters(assertion)
 
+        if (
+            dataset_volume_parameters.source_type
+            == DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+        ):
+            return self._evaluate_datahub_dataset_profile_assertion(
+                entity_urn, volume_assertion, context
+            )
+
         source = self.source_provider.create_source_from_connection(connection)
         database_params = get_database_parameters(assertion)
+        row_count = source.get_row_count(
+            entity_urn, database_params, dataset_volume_parameters, filter_params
+        )
 
         if volume_assertion.type == VolumeAssertionType.ROW_COUNT_TOTAL:
             return self._evaluate_row_count_total_assertion(
                 entity_urn,
                 volume_assertion,
-                source,
-                database_params,
-                dataset_volume_parameters,
-                filter_params,
+                row_count,
             )
         elif volume_assertion.type == VolumeAssertionType.ROW_COUNT_CHANGE:
             return self._evaluate_row_count_change_assertion(
                 entity_urn,
                 volume_assertion,
-                source,
-                database_params,
-                dataset_volume_parameters,
-                filter_params,
+                row_count,
                 context,
             )
         else:

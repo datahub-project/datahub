@@ -17,6 +17,10 @@ record AssertionResultError {
     */
     SOURCE_QUERY_FAILED
     /**
+    *  Insufficient data to evaluate the assertion
+    */
+    INSUFFICIENT_DATA
+    /**
     *  Invalid parameters were detected
     */
     INVALID_PARAMETERS

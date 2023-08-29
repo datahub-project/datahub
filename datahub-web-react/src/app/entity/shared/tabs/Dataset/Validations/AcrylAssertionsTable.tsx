@@ -7,7 +7,7 @@ import { Assertion, AssertionRunStatus, MonitorMode } from '../../../../../../ty
 import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
 import { useEntityData } from '../../../EntityContext';
 import { AcrylAssertionDetails } from './AcrylAssertionDetails';
-import { getNextScheduleEvaluationTimeMs } from './acrylUtils';
+import { canManageAssertionMonitor, getNextScheduleEvaluationTimeMs } from './acrylUtils';
 import { ActionsColumn, DetailsColumn } from './AcrylAssertionsTableColumns';
 
 const AssertionContainer = styled.div`
@@ -58,6 +58,7 @@ export const AcrylAssertionsTable = ({
         fetchPolicy: 'cache-first',
         skip: !urn,
     });
+    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
 
     const assertionsTableData = assertions.map((assertion) => ({
         urn: assertion.urn,
@@ -105,7 +106,7 @@ export const AcrylAssertionsTable = ({
                     <ActionsColumn
                         platform={record.platform}
                         monitor={record.monitor}
-                        connectionForEntityExists={!!ingestionSourceData?.ingestionSourceForEntity?.urn}
+                        canManageAssertion={canManageAssertionMonitor(record.monitor, connectionForEntityExists)}
                         lastEvaluationUrl={record.lastEvaluationUrl}
                         onManageAssertion={() => onManageAssertion(record.urn)}
                         onDeleteAssertion={() => onDeleteAssertion(record.urn)}

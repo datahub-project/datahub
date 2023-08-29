@@ -71,7 +71,10 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                     type,
                     volumeAssertion: DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
                 },
-                parameters: getDefaultDatasetVolumeAssertionParametersState(state.platformUrn as string),
+                parameters: getDefaultDatasetVolumeAssertionParametersState(
+                    state.platformUrn as string,
+                    connectionForEntityExists,
+                ),
             };
         }
 

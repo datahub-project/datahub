@@ -146,6 +146,7 @@ export const ConfigureDatasetVolumeAssertionStep = ({ state, updateState, goTo, 
                     <Collapse>
                         <Collapse.Panel key="Advanced" header="Advanced">
                             <VolumeSourceTypeBuilder
+                                entityUrn={state.entityUrn as string}
                                 platformUrn={state.platformUrn as string}
                                 value={sourceType as DatasetVolumeSourceType}
                                 onChange={updateSourceType}
