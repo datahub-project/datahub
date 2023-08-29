@@ -102,11 +102,11 @@ export class DomainEntity implements Entity<Domain> {
     renderPreview = (_: PreviewType, data: Domain) => {
         return (
             <Preview
+                domain={data}
                 urn={data.urn}
                 name={this.displayName(data)}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
-                count={data.entities?.total}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
             />
         );
@@ -116,11 +116,11 @@ export class DomainEntity implements Entity<Domain> {
         const data = result.entity as Domain;
         return (
             <Preview
+                domain={data}
                 urn={data.urn}
                 name={this.displayName(data)}
                 description={data.properties?.description}
                 owners={data.ownership?.owners}
-                count={data.entities?.total}
                 logoComponent={this.icon(12, IconStyleType.ACCENT)}
             />
         );
