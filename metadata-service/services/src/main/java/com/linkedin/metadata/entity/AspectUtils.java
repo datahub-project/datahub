@@ -32,7 +32,7 @@ public class AspectUtils {
   private AspectUtils() {
   }
 
-  public static final Set<ChangeType> SUPPORTED_TYPES = Set.of(ChangeType.UPSERT, ChangeType.CREATE);
+  public static final Set<ChangeType> SUPPORTED_TYPES = Set.of(ChangeType.UPSERT, ChangeType.CREATE, ChangeType.PATCH);
 
   public static List<MetadataChangeProposal> getAdditionalChanges(
           @Nonnull MetadataChangeProposal metadataChangeProposal,
