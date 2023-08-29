@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { Domain, EntityType } from '../../../types.generated';
 import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../useEntityRegistry';
+import { ANTD_GRAY } from '../../entity/shared/constants';
 import DomainIcon from '../../domain/DomainIcon';
 
 const DomainLinkContainer = styled(Link)`
@@ -38,7 +39,12 @@ function DomainContent({ domain, name, closable, onClose, tagStyle, fontSize }: 
     return (
         <StyledTag style={tagStyle} closable={closable} onClose={onClose} fontSize={fontSize}>
             <span style={{ paddingRight: '4px' }}>
-                <DomainIcon />
+                <DomainIcon
+                    style={{
+                        fontSize: 10,
+                        color: ANTD_GRAY[9],
+                    }}
+                />
             </span>
             {displayName}
         </StyledTag>

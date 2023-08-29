@@ -90,7 +90,14 @@ export const DomainsList = () => {
             sorter: (sourceA, sourceB) => {
                 return sourceA.name.localeCompare(sourceB.name);
             },
-            render: DomainNameColumn(<DomainIcon />),
+            render: DomainNameColumn(
+                <DomainIcon
+                    style={{
+                        fontSize: 12,
+                        color: '#BFBFBF',
+                    }}
+                />,
+            ),
         },
         {
             title: 'Owners',

@@ -29,7 +29,14 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             type="Domain"
-            typeIcon={<DomainIcon />}
+            typeIcon={
+                <DomainIcon
+                    style={{
+                        fontSize: 14,
+                        color: '#BFBFBF',
+                    }}
+                />
+            }
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

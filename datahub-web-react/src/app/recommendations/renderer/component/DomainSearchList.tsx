@@ -38,7 +38,14 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
                 >
                     <LogoCountCard
                         name={entityRegistry.getDisplayName(EntityType.Domain, domain.domain)}
-                        logoComponent={<DomainIcon />}
+                        logoComponent={
+                            <DomainIcon
+                                style={{
+                                    fontSize: 14,
+                                    color: '#BFBFBF',
+                                }}
+                            />
+                        }
                         count={domain.count}
                     />
                 </Link>

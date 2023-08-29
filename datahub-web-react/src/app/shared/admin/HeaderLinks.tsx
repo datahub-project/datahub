@@ -124,7 +124,13 @@ export function HeaderLinks(props: Props) {
                             <MenuItem key="1">
                                 <Link to="/domains">
                                     <NavTitleContainer>
-                                        <DomainIcon />
+                                        <DomainIcon
+                                            style={{
+                                                fontSize: 14,
+                                                fontWeight: 'bold',
+                                                color: '#BFBFBF',
+                                            }}
+                                        />
                                         <NavTitleText>Domains</NavTitleText>
                                     </NavTitleContainer>
                                     <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
