@@ -124,7 +124,7 @@ Change Source types vary by the platform, but generally fall into these categori
 
   - **DataHub Operation**: A DataHub "Operation" aspect contains timeseries information used to describe changes made to an entity. Using this
     option avoids contacting your data platform, and instead uses the DataHub Operation metadata to evaluate Freshness Assertions.
-    This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#report-operation-via-api)).
+    This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#reporting-operations-via-api)).
     Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
 
   Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
@@ -182,7 +182,7 @@ _Check whether the table has changed in a specific window of time_
 
 
 7. (Optional) Click **Advanced** to customize the evaluation **source**. This is the mechanism that will be used to evaluate
-the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, and High Watermark Column.
+the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, High Watermark Column, and DataHub Operation.
    
 <p align="center">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
@@ -193,11 +193,12 @@ the check. Each Data Platform supports different options including Audit Log, In
 - **Last Modified Column**: Check for the presence of rows using a "Last Modified Time" column, which should reflect the time at which a given row was last changed in the table, to 
   determine whether the table changed within the evaluation period.
 - **High Watermark Column**: Monitor changes to a continuously-increasing "high watermark" column value to determine whether a table 
-  has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-strea) tables. It is not available
+  has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-stream) tables. It is not available
   when using a fixed lookback period. 
+- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period.
 
-8. Click **Next**
-9. Configure actions that should be taken when the Freshness Assertion passes or fails
+1. Click **Next**
+2. Configure actions that should be taken when the Freshness Assertion passes or fails
 
 <p align="left">
   <img width="55%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
@@ -341,23 +342,7 @@ After creating the monitor, the new assertion will start to be evaluated every 8
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 
-### Tips
-
-:::info
-**Authorization**
-
-Remember to always provide a DataHub Personal Access Token when calling the GraphQL API. To do so, just add the 'Authorization' header as follows:
-
-```
-Authorization: Bearer <personal-access-token>
-```
-
-**Exploring GraphQL API**
-
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
-:::
-
-## Report Operation via API
+### Reporting Operations via API
 
 DataHub Operations can be used to capture changes made to entities. This is useful for cases where the underlying data platform does not provide a mechanism
 to capture changes, or where the data platform's mechanism is not reliable. In order to report an operation, you can use the `reportOperation` GraphQL mutation.
@@ -378,3 +363,19 @@ mutation reportOperation {
 ```
 
 Use the `timestampMillis` field to specify the time at which the operation occurred. If no value is provided, the current time will be used.
+
+### Tips
+
+:::info
+**Authorization**
+
+Remember to always provide a DataHub Personal Access Token when calling the GraphQL API. To do so, just add the 'Authorization' header as follows:
+
+```
+Authorization: Bearer <personal-access-token>
+```
+
+**Exploring GraphQL API**
+
+Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+:::
