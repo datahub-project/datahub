@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 
+import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,6 +37,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import javax.management.Query;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
@@ -127,6 +129,31 @@ public class DomainUtils {
     final Criterion parentDomainCriterion = buildParentDomainCriterion(parentDomainUrn);
     final Criterion nameCriterion = buildNameCriterion(name);
     return QueryUtils.getFilterFromCriteria(List.of(parentDomainCriterion, nameCriterion));
+  }
+
+  /**
+   * Check if a domain has any child domains
+   * @param domainUrn the URN of the domain to check
+   * @param context query context (includes authorization context to authorize the request)
+   * @param entityClient client used to perform the check
+   * @return true if the domain has any child domains, false if it does not
+   */
+  public static boolean hasChildDomains(
+      @Nonnull final Urn domainUrn,
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityClient entityClient
+  ) throws RemoteInvocationException {
+    Filter parentDomainFilter = buildParentDomainFilter(domainUrn);
+    // Search for entities matching parent domain
+    // Limit count to 1 for existence check
+    final SearchResult searchResult = entityClient.filter(
+        DOMAIN_ENTITY_NAME,
+        parentDomainFilter,
+        null,
+        0,
+        1,
+        context.getAuthentication());
+    return (searchResult.getNumEntities() > 0);
   }
 
   private static Map<Urn, EntityResponse> getDomainsByNameAndParent(
