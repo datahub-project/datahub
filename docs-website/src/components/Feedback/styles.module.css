@@ -1,8 +1,9 @@
-.root {
+.feedbackWidget {
   margin: 15px 15px;
   padding: 20px 20px;
   border: var(--ifm-hr-border-color) 1px solid;
   border-radius: 10px;
+  text-align: center;
 }
 
 .title {
@@ -20,14 +21,13 @@
   width: 50px;
 }
 
-.widget .reaction {
-  width: 100%;
-  border: var(--ifm-hr-border-color) 1px solid;
-  border-radius: 5px;
+.reaction {
+  padding: 10px;
 }
 
-.widget .reaction:hover {
-  border: black 1px solid;
+.reaction:hover {
+  background-color: skyblue;
+  cursor: pointer;
 }
 
 .widget .footer {

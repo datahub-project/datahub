@@ -1,52 +1,46 @@
-import React, { useEffect, useState } from "react";
-import { Widget } from "@happyreact/react";
-
-import "@happyreact/react/theme.css";
-
-import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
+import React, { useState } from "react";
+import { supabase } from "./supabase"; // Import your Supabase configuratio
 import styles from "./styles.module.css";
 
-const VotedYes = () => {
-  return <span>Thanks for your feedback. We are glad you like it :)</span>;
-};
-
-const VotedNo = () => {
-  return <span>Thanks for your feedback. We will try to improve :(</span>;
-};
-
-export default function Feedback({ resource }) {
+const Feedback = ({ page }) => {
   const [reaction, setReaction] = useState(null);
 
-  const isReacted = reaction === "Yes" || reaction === "No";
-  const _resource = String(resource).replace(/\//g, "-");
+  const handleReaction = async (selectedReaction) => {
+    console.log("Button clicked:", selectedReaction);
+    try {
+      const { data, error } = await supabase.from("feedback").upsert([
+        {
+          page: window.location.href,
+          reaction: selectedReaction,
+        },
+      ]);
 
-  const handleReaction = (params) => {
-    setReaction(params.icon);
+      if (error) {
+        console.error("Error submitting feedback:", error);
+        return;
+      }
+
+      setReaction(selectedReaction);
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    }
   };
 
   return (
-    <div className={styles.root}>
-      <h3 className={styles.title}>Was this page helpful?</h3>
-      {!isReacted ? (
-        <div className="">
-          <Widget
-            token="00ce1e55-a9a2-4b59-b0d6-c3c64de7525e"
-            resource={_resource}
-            classes={{
-              root: styles.widget,
-              container: styles.container,
-              grid: styles.grid,
-              cell: styles.cell,
-              reaction: styles.reaction,
-            }}
-            onReaction={handleReaction}
-          />
+    <div className={styles.feedbackWidget}>
+      {reaction === null ? (
+        <div className={styles.reactionButtons}>
+          <h3>Is this page helpful?</h3>
+          <button className={styles.reaction} onClick={() => handleReaction("thumbs_up")}>👍</button>
+          <button className={styles.reaction} onClick={() => handleReaction("thumbs_down")}>👎</button>
         </div>
-      ) : reaction === "No" ? (
-        <VotedNo />
       ) : (
-        <VotedYes />
+        <div className={styles.feedbackMessage}>
+          Thanks for your feedback!
+        </div>
       )}
     </div>
   );
-}
+};
+
+export default Feedback;
