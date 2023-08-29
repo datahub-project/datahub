@@ -19,6 +19,7 @@ import {
     Entity,
     LineageRelationship,
     SiblingProperties,
+    Health,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -80,6 +81,7 @@ export type NodeData = {
     canEditLineage?: boolean;
     upstreamRelationships?: Array<LineageRelationship>;
     downstreamRelationships?: Array<LineageRelationship>;
+    health?: Health[];
 };
 
 export type VizNode = {

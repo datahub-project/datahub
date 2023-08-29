@@ -17,6 +17,7 @@ import LineageEntityColumns from './LineageEntityColumns';
 import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
 import ManageLineageMenu from './manage/ManageLineageMenu';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
+import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
