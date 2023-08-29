@@ -3,7 +3,7 @@ import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { AutoCompleteResultForEntity, Entity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
+import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
 import { ANTD_GRAY, ANTD_GRAY_V2 } from '../entity/shared/constants';
@@ -23,6 +23,7 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import { getQuickFilterDetails } from './autoComplete/quickFilters/utils';
 import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entity/view/select/ViewSelect';
+import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -88,15 +89,6 @@ const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
     ],
 };
 
-const renderItem = (query: string, entity: Entity) => {
-    return {
-        value: entity.urn,
-        label: <AutoCompleteItem query={query} entity={entity} />,
-        type: entity.type,
-        style: { padding: '12px 12px 12px 16px' },
-    };
-};
-
 const renderRecommendedQuery = (query: string) => {
     return {
         value: query,
@@ -123,6 +115,7 @@ interface Props {
     hideRecommendations?: boolean;
     showQuickFilters?: boolean;
     viewsEnabled?: boolean;
+    combineSiblings?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -149,6 +142,7 @@ export const SearchBar = ({
     hideRecommendations,
     showQuickFilters,
     viewsEnabled = false,
+    combineSiblings = false,
     setIsSearchBarFocused,
     onFocus,
     onBlur,
@@ -227,14 +221,26 @@ export const SearchBar = ({
         ];
     }, [showQuickFilters, suggestions.length, effectiveQuery, selectedQuickFilter, entityRegistry]);
 
-    const autoCompleteEntityOptions = useMemo(
-        () =>
-            suggestions.map((entity: AutoCompleteResultForEntity) => ({
-                label: <SectionHeader entityType={entity.type} />,
-                options: [...entity.entities.map((e: Entity) => renderItem(effectiveQuery, e))],
-            })),
-        [effectiveQuery, suggestions],
-    );
+    const autoCompleteEntityOptions = useMemo(() => {
+        return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
+            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combineSiblings });
+            return {
+                label: <SectionHeader entityType={combinedSuggestion.type} />,
+                options: combinedSuggestion.combinedEntities.map((combinedEntity) => ({
+                    value: combinedEntity.entity.urn,
+                    label: (
+                        <AutoCompleteItem
+                            query={effectiveQuery}
+                            entity={combinedEntity.entity}
+                            siblings={combineSiblings ? combinedEntity.matchedEntities : undefined}
+                        />
+                    ),
+                    type: combinedEntity.entity.type,
+                    style: { padding: '12px 12px 12px 16px' },
+                })),
+            };
+        });
+    }, [combineSiblings, effectiveQuery, suggestions]);
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {
@@ -371,7 +377,15 @@ export const SearchBar = ({
                                     onKeyUp={handleStopPropagation}
                                     onKeyDown={handleStopPropagation}
                                 >
-                                    <ViewSelect />
+                                    <ViewSelect
+                                        dropdownStyle={
+                                            fixAutoComplete
+                                                ? {
+                                                      position: 'fixed',
+                                                  }
+                                                : {}
+                                        }
+                                    />
                                 </ViewSelectContainer>
                             )}
                             <SearchIcon
