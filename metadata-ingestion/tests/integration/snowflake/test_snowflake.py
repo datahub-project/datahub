@@ -124,7 +124,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         validate_upstreams_against_patterns=False,
                         include_operational_stats=True,
                         email_as_user_identifier=True,
-                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
@@ -214,7 +214,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_view_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=False,
-                        start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                        start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
                         end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(
