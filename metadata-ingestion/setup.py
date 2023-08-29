@@ -269,6 +269,8 @@ databricks = {
     "requests",
 }
 
+mysql = sql_common | {"pymysql>=1.0.2"}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -288,6 +290,7 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
+    "datahub": mysql | kafka_common,
     "great-expectations": sql_common | sqllineage_lib,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
@@ -342,7 +345,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "json-schema": set(),
-    "kafka": {*kafka_common, *kafka_protobuf},
+    "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
@@ -352,10 +355,10 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "mysql": mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
-    "okta": {"okta~=1.7.0"},
+    "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
     "presto": sql_common | pyhive_common | trino,
@@ -373,6 +376,7 @@ plugins: Dict[str, Set[str]] = {
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
+    "sql-queries": usage_common | sqlglot_lib,
     "superset": {
         "requests",
         "sqlalchemy",
@@ -385,7 +389,7 @@ plugins: Dict[str, Set[str]] = {
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
@@ -451,7 +455,7 @@ base_dev_requirements = {
     "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.9.0",
+    "pydantic>=1.10.0",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -548,6 +552,7 @@ entry_points = {
     "datahub.ingestion.source.plugins": [
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
+        "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
@@ -604,6 +609,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
+        "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",

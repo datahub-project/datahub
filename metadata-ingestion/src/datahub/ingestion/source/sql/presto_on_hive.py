@@ -38,7 +38,7 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -453,7 +453,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         # In mysql we get tables for all databases and we should filter out the non metastore one
         if (
@@ -718,7 +718,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         assert isinstance(sql_config, PrestoOnHiveConfig)
 
@@ -904,7 +904,7 @@ class PrestoOnHiveSource(SQLAlchemySource):
 
 
 class SQLAlchemyClient:
-    def __init__(self, config: SQLAlchemyConfig):
+    def __init__(self, config: SQLCommonConfig):
         self.config = config
         self.connection = self._get_connection()
 
