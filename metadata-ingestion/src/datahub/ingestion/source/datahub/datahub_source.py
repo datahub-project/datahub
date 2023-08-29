@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from functools import partial
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -11,10 +12,13 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
+from datahub.ingestion.source.datahub.datahub_database_reader import (
+    DataHubDatabaseReader,
+)
 from datahub.ingestion.source.datahub.datahub_kafka_reader import DataHubKafkaReader
-from datahub.ingestion.source.datahub.datahub_mysql_reader import DataHubMySQLReader
 from datahub.ingestion.source.datahub.report import DataHubSourceReport
 from datahub.ingestion.source.datahub.state import StatefulDataHubIngestionHandler
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -46,30 +50,50 @@ class DataHubSource(StatefulIngestionSourceBase):
         return self.report
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return []  # Exactly replicate data from DataHub source
+        # Exactly replicate data from DataHub source
+        return [partial(auto_workunit_reporter, self.get_report())]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        stop_time = datetime.now(tz=timezone.utc)
-        logger.info(f"Ingesting DataHub metadata up until roughly {stop_time}")
+        self.report.stop_time = datetime.now(tz=timezone.utc)
+        logger.info(f"Ingesting DataHub metadata up until {self.report.stop_time}")
         state = self.stateful_ingestion_handler.get_last_run_state()
-        yield from self._get_mysql_workunits(state.mysql_createdon_datetime, stop_time)
-        self._commit_progress()
-        yield from self._get_kafka_workunits(state.kafka_offsets, stop_time)
-        self._commit_progress()
 
-    def _get_mysql_workunits(
-        self, from_createdon: datetime, stop_time: datetime
+        if self.config.database_connection is not None:
+            yield from self._get_database_workunits(
+                from_createdon=state.database_createdon_datetime
+            )
+            self._commit_progress()
+        else:
+            logger.info(
+                "Skipping ingestion of versioned aspects as no database_connection provided"
+            )
+
+        if self.config.kafka_connection is not None:
+            yield from self._get_kafka_workunits(from_offsets=state.kafka_offsets)
+            self._commit_progress()
+        else:
+            logger.info(
+                "Skipping ingestion of timeseries aspects as no kafka_connection provided"
+            )
+
+    def _get_database_workunits(
+        self, from_createdon: datetime
     ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Fetching MySQL aspects from {from_createdon}")
-        reader = DataHubMySQLReader(self.config, self.report)
-        mcps = reader.get_aspects(from_createdon, stop_time)
+        if self.config.database_connection is None:
+            return
+
+        logger.info(f"Fetching database aspects starting from {from_createdon}")
+        reader = DataHubDatabaseReader(
+            self.config, self.config.database_connection, self.report
+        )
+        mcps = reader.get_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
             yield mcp.as_workunit()
-            self.report.num_mysql_aspects_ingested += 1
+            self.report.num_database_aspects_ingested += 1
 
             if (
                 self.config.commit_with_parse_errors
-                or not self.report.num_mysql_parse_errors
+                or not self.report.num_database_parse_errors
             ):
                 self.stateful_ingestion_handler.update_checkpoint(
                     last_createdon=createdon
@@ -77,12 +101,18 @@ class DataHubSource(StatefulIngestionSourceBase):
             self._commit_progress(i)
 
     def _get_kafka_workunits(
-        self, from_offsets: Dict[int, int], stop_time: datetime
+        self, from_offsets: Dict[int, int]
     ) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Fetching timeseries aspects from kafka until {stop_time}")
+        if self.config.kafka_connection is None:
+            return
 
-        with DataHubKafkaReader(self.config, self.report, self.ctx) as reader:
-            mcls = reader.get_mcls(from_offsets=from_offsets, stop_time=stop_time)
+        logger.info("Fetching timeseries aspects from kafka")
+        with DataHubKafkaReader(
+            self.config, self.config.kafka_connection, self.report, self.ctx
+        ) as reader:
+            mcls = reader.get_mcls(
+                from_offsets=from_offsets, stop_time=self.report.stop_time
+            )
             for i, (mcl, offset) in enumerate(mcls):
                 mcp = MetadataChangeProposalWrapper.try_from_mcl(mcl)
                 if mcp.changeType == ChangeTypeClass.DELETE:

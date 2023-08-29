@@ -55,7 +55,7 @@ def snowflake_pipeline_config(tmp_path):
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_view_lineage=False,
                 include_usage_stats=False,
-                start_time=datetime(2022, 6, 6, 7, 17, 0, 0).replace(
+                start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
                 ),
                 end_time=datetime(2022, 6, 7, 7, 17, 0, 0).replace(tzinfo=timezone.utc),
