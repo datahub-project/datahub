@@ -18,6 +18,7 @@ import {
     getDefaultFreshnessSourceOption,
 } from '../../utils';
 import { useChangeSourceOptionIf } from '../../hooks';
+import { useIngestionSourceForEntityQuery } from '../../../../../../../../../../graphql/ingestion.generated';
 
 const Form = styled.div``;
 
@@ -84,7 +85,12 @@ type Props = {
  * For applicable sources
  */
 export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, scheduleType, value, onChange }: Props) => {
-    const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn);
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: entityUrn },
+        fetchPolicy: 'cache-first',
+    });
+    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+    const defaultSourceType = getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists);
     const sourceType = value?.sourceType || defaultSourceType;
     const field = value?.field;
     const fieldKind = field?.kind;
@@ -96,7 +102,7 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
         fetchPolicy: 'cache-first',
     });
 
-    const sourceOptions = getFreshnessSourceOptions(platformUrn);
+    const sourceOptions = getFreshnessSourceOptions(platformUrn, connectionForEntityExists);
     const selectedSourceOption = getFreshnessSourceOption(sourceType, fieldKind);
     const platformDescription = getFreshnessSourceOptionPlatformDescription(platformUrn, sourceType);
 
@@ -169,10 +175,12 @@ export const DatasetFreshnessSourceBuilder = ({ entityUrn, platformUrn, schedule
                     );
                 })}
             </StyledSelect>
-            <SourceDescription>
-                <StyledInfoCircleOutlined />
-                <PlatformDescription>{platformDescription}</PlatformDescription>
-            </SourceDescription>
+            {platformDescription && (
+                <SourceDescription>
+                    <StyledInfoCircleOutlined />
+                    <PlatformDescription>{platformDescription}</PlatformDescription>
+                </SourceDescription>
+            )}
             {selectedSourceOption.secondaryDescription && (
                 <>
                     <Typography.Title level={5}>Select Column</Typography.Title>

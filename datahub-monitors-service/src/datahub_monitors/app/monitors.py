@@ -1,7 +1,7 @@
 import logging
 import os
 
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.secret.datahub_secret_store import DataHubSecretStore
 
 from datahub_monitors.assertion.engine.engine import AssertionEngine
@@ -20,6 +20,7 @@ from datahub_monitors.connection.datahub_ingestion_source_connection_provider im
 )
 from datahub_monitors.fetcher.fetcher import MonitorFetcher
 from datahub_monitors.fetcher.types import MonitorFetcherConfig
+from datahub_monitors.graph import DataHubAssertionGraph
 from datahub_monitors.manager.manager import MonitorManager
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.state.datahub_monitor_state_provider import (
@@ -35,7 +36,7 @@ def start_async_monitors(config: MonitorFetcherConfig) -> None:
     try:
         # Create DataHub Client
         DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}:{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
-        graph = DataHubGraph(
+        graph = DataHubAssertionGraph(
             DatahubClientConfig(
                 server=DATAHUB_SERVER,
                 # When token is not set, the client will automatically try to use

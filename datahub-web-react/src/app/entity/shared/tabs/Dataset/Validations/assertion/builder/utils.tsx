@@ -43,6 +43,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
                 DatasetFreshnessSourceType.FieldValue,
+                DatasetFreshnessSourceType.DatahubOperation,
             ],
             sourceTypeDetails: {
                 [DatasetFreshnessSourceType.AuditLog]: {
@@ -100,6 +101,7 @@ const PLATFORM_ASSERTION_CONFIGS = {
                 DatasetFreshnessSourceType.AuditLog,
                 DatasetFreshnessSourceType.InformationSchema,
                 DatasetFreshnessSourceType.FieldValue,
+                DatasetFreshnessSourceType.DatahubOperation,
             ],
             sourceTypeDetails: {
                 [DatasetFreshnessSourceType.AuditLog]: {
@@ -146,7 +148,11 @@ const PLATFORM_ASSERTION_CONFIGS = {
     [REDSHIFT_URN]: {
         freshness: {
             defaultSourceType: DatasetFreshnessSourceType.AuditLog,
-            sourceTypes: [DatasetFreshnessSourceType.AuditLog, DatasetFreshnessSourceType.FieldValue],
+            sourceTypes: [
+                DatasetFreshnessSourceType.AuditLog,
+                DatasetFreshnessSourceType.FieldValue,
+                DatasetFreshnessSourceType.DatahubOperation,
+            ],
             sourceTypeDetails: {
                 [DatasetFreshnessSourceType.AuditLog]: {
                     description: (
@@ -222,6 +228,13 @@ const allSourceOptions: SourceOption[] = [
             dataTypes: HIGH_WATERMARK_FIELD_TYPES,
         },
         allowedScheduleTypes: [FreshnessAssertionScheduleType.Cron],
+    },
+    {
+        type: DatasetFreshnessSourceType.DatahubOperation,
+        name: 'DataHub Operation',
+        description:
+            'Use the DataHub "Operation" Aspect to determine whether the table has changed. This avoids the requirement to contact your data platform to determine evaluate Freshness Assertions. Note that this relies on operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (reportOperation).',
+        allowedScheduleTypes: [FreshnessAssertionScheduleType.FixedInterval, FreshnessAssertionScheduleType.Cron],
     },
 ];
 
@@ -369,22 +382,30 @@ export const getAssertionTypesForEntityType = (entityType: EntityType) => {
     return ASSERTION_TYPES.filter((type) => type.entityTypes.includes(entityType));
 };
 
-export const getDefaultFreshnessSourceOption = (platformUrn: string) => {
+export const getDefaultFreshnessSourceOption = (platformUrn: string, connectionForEntityExists: boolean) => {
+    if (!connectionForEntityExists) {
+        return DatasetFreshnessSourceType.DatahubOperation;
+    }
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
 };
 
-export const getDefaultDatasetFreshnessAssertionParametersState = (platformUrn: string) => {
+export const getDefaultDatasetFreshnessAssertionParametersState = (
+    platformUrn: string,
+    connectionForEntityExists: boolean,
+) => {
     return {
         type: AssertionEvaluationParametersType.DatasetFreshness,
         datasetFreshnessParameters: {
-            sourceType: getDefaultFreshnessSourceOption(platformUrn),
+            sourceType: getDefaultFreshnessSourceOption(platformUrn, connectionForEntityExists),
             auditLog: {},
         },
     };
 };
 
-export const getFreshnessSourceOptions = (platformUrn: string) => {
-    const allowedSourceTypes = PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.sourceTypes || [];
+export const getFreshnessSourceOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
+    const allowedSourceTypes = connectionForEntityExists
+        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].freshness.sourceTypes
+        : [DatasetFreshnessSourceType.DatahubOperation];
     return allSourceOptions.filter((option) => allowedSourceTypes.includes(option.type));
 };
 

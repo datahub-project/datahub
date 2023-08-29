@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -314,3 +314,29 @@ class TestFreshnessEvaluator:
             self.context,
         )
         assert eval_result.type == AssertionResultType.SUCCESS
+
+    @patch.object(
+        FreshnessAssertionEvaluator,
+        "_evaluate_datahub_operation_assertion",
+        return_value=None,
+    )
+    def test_evaluate_datahub_operation_assertion(
+        self, mock_eval_datahub_op_assertion: Mock
+    ) -> None:
+        operation_params = AssertionEvaluationParameters(
+            type=AssertionEvaluationParametersType.DATASET_FRESHNESS,
+            dataset_freshness_parameters=DatasetFreshnessAssertionParameters(
+                sourceType=DatasetFreshnessSourceType.DATAHUB_OPERATION,
+            ),
+        )
+        self.evaluator._evaluate_internal_window_event(
+            [TEST_START, TEST_END],
+            self.assertion,
+            operation_params,
+            self.connection,
+            self.context,
+        )
+
+        mock_eval_datahub_op_assertion.assert_called_once_with(
+            "urn:li:dataset:test", [TEST_START, TEST_END], ANY
+        )

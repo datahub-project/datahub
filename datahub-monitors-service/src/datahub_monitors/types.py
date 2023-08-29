@@ -125,6 +125,9 @@ class DatasetFreshnessSourceType(Enum):
     # The freshness signal from the audit log.
     AUDIT_LOG = "AUDIT_LOG"
 
+    # Determine whether the table has changed using an Operation aspect
+    DATAHUB_OPERATION = "DATAHUB_OPERATION"
+
 
 class DatasetVolumeSourceType(Enum):
     # Determine that a change has occurred by inspecting an information schema table, or other system metadata table.
@@ -148,6 +151,9 @@ class EntityEventType(Enum):
 
     # An update has been performed on a particular entity, as per an audit log.
     AUDIT_LOG_OPERATION = "AUDIT_LOG_OPERATION"
+
+    # An update has been performed on a particular entity, as per an Operation aspect.
+    DATAHUB_OPERATION = "DATAHUB_OPERATION"
 
     # A data job has completed successfully
     DATA_JOB_RUN_COMPLETED_SUCCESS = "DATA_JOB_RUN_COMPLETED_SUCCESS"
@@ -259,6 +265,16 @@ class AuditLogSpec(PermissiveBaseModel):
     user_name: Optional[str] = Field(alias="userName")
 
 
+class DataHubOperationSpec(PermissiveBaseModel):
+    """Information about the DataHub Operation aspect used to evaluate an assertion"""
+
+    # The list of operation types that should be monitored. If not provided, a default set will be used.
+    operation_types: Optional[List[str]] = Field(alias="operationTypes")
+
+    # The list of custom operation types that should be monitored. If not provided, no custom operation types will be used.
+    custom_operation_types: Optional[List[str]] = Field(alias="customOperationTypes")
+
+
 class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
     """The type of the freshness signal"""
 
@@ -269,6 +285,9 @@ class DatasetFreshnessAssertionParameters(PermissiveBaseModel):
 
     # A descriptor for a Dataset Column to use. Present when source_type is AUDIT_LOG_OPERATION
     audit_log: Optional[AuditLogSpec] = Field(alias="auditLog")
+
+    # A descriptor for a DataHub operation to use. Present when source_type is DATAHUB_OPERATION
+    datahub_operation: Optional[DataHubOperationSpec] = Field(alias="dataHubOperation")
 
 
 class DatasetVolumeAssertionParameters(PermissiveBaseModel):

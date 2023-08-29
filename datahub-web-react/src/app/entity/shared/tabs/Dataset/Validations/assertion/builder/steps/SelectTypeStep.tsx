@@ -8,6 +8,7 @@ import { AssertionType, EntityType } from '../../../../../../../../../types.gene
 import { DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE, DEFAULT_DATASET_VOLUME_ASSERTION_STATE } from '../constants';
 import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
 import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
+import { useIngestionSourceForEntityQuery } from '../../../../../../../../../graphql/ingestion.generated';
 
 const Step = styled.div`
     height: 100%;
@@ -41,6 +42,11 @@ const CancelButton = styled(Button)`
  */
 export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) => {
     const filteredTypes = getAssertionTypesForEntityType(state.entityType as EntityType).filter((type) => type.visible);
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: state.entityUrn as string },
+        fetchPolicy: 'cache-first',
+    });
+    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
 
     const selectAssertionType = (type: AssertionType) => {
         let newState = { ...state };
@@ -53,7 +59,10 @@ export const SelectTypeStep = ({ state, updateState, goTo, cancel }: StepProps) 
                     type,
                     freshnessAssertion: DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
                 },
-                parameters: getDefaultDatasetFreshnessAssertionParametersState(state.platformUrn as string),
+                parameters: getDefaultDatasetFreshnessAssertionParametersState(
+                    state.platformUrn as string,
+                    connectionForEntityExists,
+                ),
             };
         } else if (type === AssertionType.Volume) {
             newState = {

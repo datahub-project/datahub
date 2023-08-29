@@ -2,6 +2,8 @@ import logging
 import time
 from typing import List, cast
 
+from datahub.metadata.schema_classes import OperationClass
+
 from datahub_monitors.assertion.engine.evaluator.evaluator import AssertionEvaluator
 from datahub_monitors.assertion.engine.evaluator.utils.freshness import (
     get_event_type_parameters_from_parameters,
@@ -13,7 +15,11 @@ from datahub_monitors.assertion.engine.evaluator.utils.time import (
 )
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
 from datahub_monitors.connection.connection import Connection
+from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
+    DataHubIngestionSourceConnectionProvider,
+)
 from datahub_monitors.exceptions import InvalidParametersException
+from datahub_monitors.graph import DataHubAssertionGraph
 from datahub_monitors.source.source import Source
 from datahub_monitors.types import (
     Assertion,
@@ -26,6 +32,7 @@ from datahub_monitors.types import (
     CronSchedule,
     DatasetFreshnessAssertionParameters,
     DatasetFreshnessSourceType,
+    EntityEvent,
     EntityEventType,
     FixedIntervalSchedule,
     FreshnessAssertion,
@@ -70,6 +77,14 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         event_type, source_params = get_event_type_parameters_from_parameters(
             assertion, parameters
         )
+
+        if event_type == EntityEventType.DATAHUB_OPERATION:
+            return self._evaluate_datahub_operation_assertion(
+                entity_urn,
+                window,
+                source_params,
+            )
+
         # This is where we drop into system-specific bits --> Need a way to do this for Snowflake first.
         # TODO: Consider what it would take to batch queries. Maybe the client aggregates?
         source = self.source_provider.create_source_from_connection(connection)
@@ -244,7 +259,7 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             INIT - we return init if we don't have the data to decide on SUCCESS or FAILURE
                 this is either because we have no previous state or the previous state is too old
                 ie. previous_state.timestamp < start_time (above)
-            
+
             SUCCESS - we return success if we evaluate the prev/curr state to be fresh
                 OR if we have a state change that falls within our evaluation window.
                 eg. if the assertion says "dataset is updated every 10 mins" but our cron checks every minute
@@ -294,6 +309,54 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
         )
 
         return assertion_evaluation_result
+
+    def _evaluate_datahub_operation_assertion(
+        self,
+        entity_urn: str,
+        window: List[int],
+        source_params: dict,
+    ) -> AssertionEvaluationResult:
+        assert isinstance(
+            self.connection_provider, DataHubIngestionSourceConnectionProvider
+        )
+        assert isinstance(self.connection_provider.graph, DataHubAssertionGraph)
+
+        [start_timestamp, end_timestamp] = window
+        operation_aspects = self.connection_provider.graph.get_timeseries_values(
+            entity_urn=entity_urn,
+            aspect_type=OperationClass,
+            filter={
+                "or": [
+                    {
+                        "and": [
+                            {
+                                "field": "lastUpdatedTimestamp",
+                                "condition": "GREATER_THAN_OR_EQUAL_TO",
+                                "value": str(start_timestamp),
+                            },
+                            {
+                                "field": "lastUpdatedTimestamp",
+                                "condition": "LESS_THAN_OR_EQUAL_TO",
+                                "value": str(end_timestamp),
+                            },
+                        ]
+                    }
+                ]
+            },
+        )
+
+        if operation_aspects is not None and len(operation_aspects) > 0:
+            entity_events = [
+                EntityEvent(
+                    EntityEventType.DATAHUB_OPERATION, operation.timestampMillis
+                )
+                for operation in operation_aspects
+            ]
+            return AssertionEvaluationResult(
+                AssertionResultType.SUCCESS, {"events": entity_events}
+            )
+
+        return AssertionEvaluationResult(AssertionResultType.FAILURE, parameters=None)
 
     def _evaluate_internal_cron(
         self,
