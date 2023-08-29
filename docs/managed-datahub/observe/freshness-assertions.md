@@ -122,8 +122,12 @@ Change Source types vary by the platform, but generally fall into these categori
     is higher than the previously observed value, in order to determine whether the Table has been changed within a given period of time. 
     Note that this approach is only supported if the Change Window does not use a fixed interval.
 
-  Using the final 2 approaches - column value queries - to determine whether a Table has changed useful because it can be customized to determine whether 
-  specific types of important changes have been made to a given Table.
+  - **DataHub Operation**: A DataHub "Operation" aspect contains timeseries information used to describe changes made to an entity. Using this
+    option avoids contacting your data platform, and instead uses the DataHub Operation metadata to evaluate Freshness Assertions.
+    This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#report-operation-via-api)).
+    Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
+
+  Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
   Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
 
 Freshness Assertions also have an off switch: they can be started or stopped at any time with the click of button.
@@ -280,7 +284,7 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 In order to create a Freshness Assertion that is being monitored on a specific **Evaluation Schedule**, you'll need to use 2
 GraphQL mutation queries to  create a Freshness Assertion entity and create an Assertion Monitor entity responsible for evaluating it.
 
-Start by creating the Freshness Assertion entity using the `createFreshnessAssertion` query and hang on to the 'urn' field of the Assertion entit y
+Start by creating the Freshness Assertion entity using the `createFreshnessAssertion` query and hang on to the 'urn' field of the Assertion entity
 you get back. Then continue by creating a Monitor entity using the `createAssertionMonitor`.
 
 ##### Examples
@@ -352,3 +356,25 @@ Authorization: Bearer <personal-access-token>
 
 Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::
+
+## Report Operation via API
+
+DataHub Operations can be used to capture changes made to entities. This is useful for cases where the underlying data platform does not provide a mechanism
+to capture changes, or where the data platform's mechanism is not reliable. In order to report an operation, you can use the `reportOperation` GraphQL mutation.
+
+
+##### Examples
+```json
+mutation reportOperation {
+  reportOperation(
+    input: {
+      urn: "<urn of the dataset being reported>",
+      operationType: INSERT,
+      sourceType: DATA_PLATFORM,
+      timestampMillis: 1693252366489
+    }
+  )
+}
+```
+
+Use the `timestampMillis` field to specify the time at which the operation occurred. If no value is provided, the current time will be used.
