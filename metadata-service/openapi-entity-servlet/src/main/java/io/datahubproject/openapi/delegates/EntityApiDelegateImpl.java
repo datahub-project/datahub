@@ -2,6 +2,8 @@ package io.datahubproject.openapi.delegates;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.entity.EntityService;
+import com.datahub.authentication.Authentication;
+import com.datahub.authentication.AuthenticationContext;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -11,6 +13,7 @@ import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.entities.EntitiesController;
+import com.datahub.authorization.AuthorizerChain;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectRequestV2;
 import io.datahubproject.openapi.generated.BrowsePathsV2AspectResponseV2;
 import io.datahubproject.openapi.generated.DeprecationAspectRequestV2;
@@ -26,7 +29,15 @@ import io.datahubproject.openapi.generated.OwnershipAspectResponseV2;
 import io.datahubproject.openapi.generated.SortOrder;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.metadata.models.EntitySpec;
+import com.datahub.authorization.ResourceSpec;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.google.common.collect.ImmutableList;
+import com.datahub.authorization.AuthUtil;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +59,9 @@ public class EntityApiDelegateImpl<I, O, S> {
     final private EntityService _entityService;
     final private SearchService _searchService;
     final private EntitiesController _v1Controller;
+    final private AuthorizerChain _authorizationChain;
+
+    final private boolean _restApiAuthorizationEnabled;
     final private Class<I> _reqClazz;
     final private Class<O> _respClazz;
     final private Class<S> _scrollRespClazz;
@@ -55,11 +69,14 @@ public class EntityApiDelegateImpl<I, O, S> {
     final private StackWalker walker = StackWalker.getInstance();
 
     public EntityApiDelegateImpl(EntityService entityService, SearchService searchService, EntitiesController entitiesController,
+                                 boolean restApiAuthorizationEnabled, AuthorizerChain authorizationChain,
                                  Class<I> reqClazz, Class<O> respClazz, Class<S> scrollRespClazz) {
         this._entityService = entityService;
         this._searchService = searchService;
         this._entityRegistry = entityService.getEntityRegistry();
         this._v1Controller = entitiesController;
+        this._authorizationChain = authorizationChain;
+        this._restApiAuthorizationEnabled = restApiAuthorizationEnabled;
         this._reqClazz = reqClazz;
         this._respClazz = respClazz;
         this._scrollRespClazz = scrollRespClazz;
@@ -346,6 +363,11 @@ public class EntityApiDelegateImpl<I, O, S> {
 
     public ResponseEntity<S> scroll(@Valid Boolean systemMetadata, @Valid List<String> aspects, @Min(1) @Valid Integer count,
                                     @Valid String scrollId, @Valid List<String> sort, @Valid SortOrder sortOrder, @Valid String query) {
+
+        Authentication authentication = AuthenticationContext.getAuthentication();
+        EntitySpec entitySpec = OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
+        checkScrollAuthorized(authentication, entitySpec);
+
         // TODO multi-field sort
         SortCriterion sortCriterion = new SortCriterion();
         sortCriterion.setField(Optional.ofNullable(sort).map(s -> s.get(0)).orElse("urn"));
@@ -358,7 +380,7 @@ public class EntityApiDelegateImpl<I, O, S> {
                 .setSkipHighlighting(true);
 
         ScrollResult result = _searchService.scrollAcrossEntities(
-                List.of(OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz).getName()),
+                List.of(entitySpec.getName()),
                 query, null, sortCriterion, scrollId, null, count, searchFlags);
 
         String[] urns = result.getEntities().stream()
@@ -374,5 +396,16 @@ public class EntityApiDelegateImpl<I, O, S> {
                 .orElse(List.of());
 
         return ResponseEntity.of(OpenApiEntitiesUtil.convertToScrollResponse(_scrollRespClazz, result.getScrollId(), entities));
+    }
+
+    private void checkScrollAuthorized(Authentication authentication, EntitySpec entitySpec) {
+        String actorUrnStr = authentication.getActor().toUrnStr();
+        DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
+                ImmutableList.of(PoliciesConfig.GET_ENTITY_PRIVILEGE.getType()))));
+
+        List<Optional<ResourceSpec>> resourceSpecs = List.of(Optional.of(new ResourceSpec(entitySpec.getName(), "")));
+        if (_restApiAuthorizationEnabled && !AuthUtil.isAuthorizedForResources(_authorizationChain, actorUrnStr, resourceSpecs, orGroup)) {
+            throw new UnauthorizedException(actorUrnStr + " is unauthorized to get entities.");
+        }
     }
 }

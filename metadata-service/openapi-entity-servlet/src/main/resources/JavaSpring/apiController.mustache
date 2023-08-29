@@ -4,9 +4,11 @@ import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.openapi.entities.EntitiesController;
+import com.datahub.authorization.AuthorizerChain;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
 
 {{#imports}}import {{import}};
 {{/imports}}
@@ -90,11 +92,12 @@ public class {{classname}}Controller implements {{classname}} {
 
     @org.springframework.beans.factory.annotation.Autowired
     public {{classname}}Controller(ObjectMapper objectMapper, HttpServletRequest request, EntityService entityService,
-    SearchService searchService, EntitiesController v1Controller) {
+    SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain,
+    @Value("${authorization.restApiAuthorization:false}") boolean restApiAuthorizationEnabled) {
         this.objectMapper = objectMapper;
         this.request = request;
         this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(entityService, searchService, v1Controller,
-        {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
+        restApiAuthorizationEnabled, authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
     }
     {{#isJava8or11}}
 
