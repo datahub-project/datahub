@@ -329,7 +329,7 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
           // Split groups that are delimited by /
           for (String groupName: groupNames) {
             Collection<String> splitGroups = Arrays.stream(groupName.split("/"))
-                                                   .filter(name -> name.length() > 0)
+                                                   .filter(name -> name.trim().length() > 0)
                                                    .collect(Collectors.toList());
             splitGroupNames.addAll(splitGroups);
           }
