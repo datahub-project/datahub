@@ -138,7 +138,15 @@ module.exports = {
       ],
     },
     {
-      Deployment: [
+      type: "category",
+      label: "Deployment",
+      link: {
+        type: "generated-index",
+        title: "Deployment Guides",
+        description:
+          "Learn how to deploy DataHub to your environment, set up authentication, manage upgrades, and more.",
+      },
+      items: [
         // The purpose of this section is to provide the minimum steps required to deploy DataHub to the vendor of your choosing
         "docs/deploy/aws",
         "docs/deploy/gcp",
@@ -395,7 +403,14 @@ module.exports = {
       ],
     },
     {
-      Features: [
+      type: "category",
+      label: "Features",
+      link: {
+        type: "generated-index",
+        title: "Feature Guides",
+        description: "Learn about the features of DataHub.",
+      },
+      items: [
         "docs/ui-ingestion",
         "docs/how/search",
         "docs/schema-history",
