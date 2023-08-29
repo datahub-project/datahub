@@ -14,6 +14,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
 )
@@ -72,6 +73,7 @@ class SnowflakeShareConfig(ConfigModel):
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
+    StatefulLineageConfigMixin,
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,

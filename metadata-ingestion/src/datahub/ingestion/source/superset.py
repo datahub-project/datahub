@@ -200,6 +200,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             f"{self.config.connect_uri}/api/v1/database/{database_id}"
         ).json()
         sqlalchemy_uri = database_response.get("result", {}).get("sqlalchemy_uri")
+        if sqlalchemy_uri is None:
+            return database_response.get("result", {}).get("backend", "external")
         return sql_common.get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
 
     @lru_cache(maxsize=None)
