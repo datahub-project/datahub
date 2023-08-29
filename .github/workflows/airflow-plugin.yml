@@ -71,7 +71,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: .
           fail_ci_if_error: false
-          flags: pytest-testQuick
+          flags: pytest-testQuick,{{ matrix.python-version }},{{ matrix.extraPythonRequirement }}
           name: pytest-testQuick
           verbose: true
 
