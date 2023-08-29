@@ -175,7 +175,6 @@ export const ManagePolicies = () => {
             },
         },
     });
-    console.log({ policiesData });
 
     // Any time a policy is removed, edited, or created, refetch the list.
     const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
