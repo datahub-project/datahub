@@ -128,7 +128,6 @@ export function HeaderLinks(props: Props) {
                                             style={{
                                                 fontSize: 14,
                                                 fontWeight: 'bold',
-                                                color: '#BFBFBF',
                                             }}
                                         />
                                         <NavTitleText>Domains</NavTitleText>
