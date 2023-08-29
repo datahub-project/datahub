@@ -11,5 +11,10 @@ export function isDeleteDisabled(entityType: EntityType, entityData: GenericEnti
     if (entityType === EntityType.DataProduct) {
         return false; // TODO: update with permissions
     }
+    if (entityType === EntityType.Domain) {
+        const entityHasChildren = !!entityData?.children?.total;
+        const canDeleteDomainEntity = !entityHasChildren;
+        return !canDeleteDomainEntity;
+    }
     return false;
 }
