@@ -509,7 +509,7 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "dagster"
+            "dagster",
             "vertica"
             # airflow is added below
         ]
