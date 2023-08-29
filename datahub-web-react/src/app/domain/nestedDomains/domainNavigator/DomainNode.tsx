@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { Domain } from '../../../../types.generated';
@@ -68,13 +68,22 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, isClosing, toggle, toggleOpen } = useToggle({
         initialValue: false,
         closeDelay: 250,
     });
     const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
+    // TODO - only auto-open if in select mode - this var is made on a different branch when we intro selectDomainOverride
+    const shouldAutoOpen = useMemo(
+        () => entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
+        [entityData, domain.urn],
+    );
+
+    useEffect(() => {
+        if (shouldAutoOpen) toggleOpen();
+    }, [shouldAutoOpen, toggleOpen]);
 
     function handleSelectDomain() {
         history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
