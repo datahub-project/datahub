@@ -80,6 +80,7 @@ import com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.Owner;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.ParentDomainsResult;
 import com.linkedin.datahub.graphql.generated.PolicyMatchCriterionValue;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
@@ -123,6 +124,7 @@ import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.ParentDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
@@ -1024,6 +1026,13 @@ public class GmsGraphQLEngine {
                 .dataFetcher("entities", new EntityTypeBatchResolver(entityTypes,
                     (env) -> ((BrowseResults) env.getSource()).getEntities()))
             )
+            .type("ParentDomainsResult", typeWiring -> typeWiring
+                .dataFetcher("domains", new EntityTypeBatchResolver(entityTypes,
+                    (env) -> {
+                        final ParentDomainsResult result = env.getSource();
+                        return result != null ? result.getDomains() : null;
+                    }))
+            )
             .type("EntityRelationshipLegacy", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((EntityRelationshipLegacy) env.getSource()).getEntity()))
@@ -1670,8 +1679,8 @@ public class GmsGraphQLEngine {
     private void configureDomainResolvers(final RuntimeWiring.Builder builder) {
         builder.type("Domain", typeWiring -> typeWiring
             .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
-            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)
-            )
+            .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
         builder.type("DomainAssociation", typeWiring -> typeWiring
             .dataFetcher("domain",

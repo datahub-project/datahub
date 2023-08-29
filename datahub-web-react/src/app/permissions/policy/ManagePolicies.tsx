@@ -170,7 +170,7 @@ export const ManagePolicies = () => {
         variables: {
             input: {
                 start,
-                count: pageSize,
+                count: pageSize + 10,
                 query,
             },
         },
