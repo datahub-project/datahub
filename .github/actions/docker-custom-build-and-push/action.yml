@@ -30,6 +30,9 @@ inputs:
     # e.g. latest,head,sha12345
     description: "List of tags to use for the Docker image"
     required: true
+  target:
+    description: "Sets the target stage to build"
+    required: false
 outputs:
   image_tag:
     description: "Docker image tags"
@@ -62,6 +65,7 @@ runs:
         platforms: linux/amd64
         build-args: ${{ inputs.build-args }}
         tags: ${{ steps.docker_meta.outputs.tags }}
+        target: ${{ inputs.target }}
         load: true
         push: false
         cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
@@ -94,6 +98,7 @@ runs:
         platforms: ${{ inputs.platforms }}
         build-args: ${{ inputs.build-args }}
         tags: ${{ steps.docker_meta.outputs.tags }}
+        target: ${{ inputs.target }}
         push: true
         cache-from: type=registry,ref=${{ steps.docker_meta.outputs.tags }}
         cache-to: type=inline

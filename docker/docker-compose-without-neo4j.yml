@@ -27,6 +27,9 @@ services:
     hostname: actions
     image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
     env_file: datahub-actions/env/docker.env
+    environment:
+    - ACTIONS_EXTRA_PACKAGES=${ACTIONS_EXTRA_PACKAGES:-}
+    - ACTIONS_CONFIG=${ACTIONS_CONFIG:-}
     depends_on:
       datahub-gms:
         condition: service_healthy

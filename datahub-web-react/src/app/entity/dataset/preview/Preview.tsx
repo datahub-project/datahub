@@ -14,6 +14,7 @@ import {
     DatasetStatsSummary,
     DataProduct,
     Health,
+    EntityPath,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -49,6 +50,8 @@ export const Preview = ({
     statsSummary,
     lastUpdatedMs,
     health,
+    degree,
+    paths,
 }: {
     urn: string;
     name: string;
@@ -77,6 +80,8 @@ export const Preview = ({
     statsSummary?: DatasetStatsSummary | null;
     lastUpdatedMs?: number | null;
     health?: Health[] | null;
+    degree?: number;
+    paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -114,6 +119,8 @@ export const Preview = ({
                 />
             }
             health={health || undefined}
+            degree={degree}
+            paths={paths}
         />
     );
 };
