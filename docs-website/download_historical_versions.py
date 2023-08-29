@@ -17,7 +17,7 @@ def download_file(url, destination):
 
 
 def fetch_urls(repo_url: str, folder_path: str, file_format: str):
-    api_url = f"{repo_url}/contents/{folder_path}?ref=versioned_sidebar"
+    api_url = f"{repo_url}/contents/{folder_path}"
     response = urllib.request.urlopen(api_url)
     data = response.read().decode("utf-8")
     urls = [
