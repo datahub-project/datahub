@@ -38,14 +38,15 @@ class DataHubDatabaseReader:
     def query(self) -> str:
         # May repeat rows for the same date
         # Offset is generally 0, unless we repeat the same createdon twice
+
+        # Ensures stable order, chronological per (urn, aspect)
+        # Version 0 last, only when createdon is the same. Otherwise relies on createdon order
         return f"""
             SELECT urn, aspect, metadata, systemmetadata, createdon
-            FROM `{self.config.database_table_name}`
+            FROM "{self.config.database_table_name}"
             WHERE createdon >= %(since_createdon)s
             {"" if self.config.include_all_versions else "AND version = 0"}
-            ORDER BY createdon, urn, aspect,  # Ensure stable order, chronological per (urn, aspect)
-                CASE WHEN version = 0 THEN 1 ELSE 0 END, version
-                # Version 0 last, only when createdon is the same. Otherwise relies on createdon order
+            ORDER BY createdon, urn, aspect, CASE WHEN version = 0 THEN 1 ELSE 0 END, version
             LIMIT %(limit)s
             OFFSET %(offset)s
         """
