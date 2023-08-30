@@ -198,6 +198,12 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 path
             }
         }
+        health {
+            type
+            status
+            message
+            causes
+        }
     }
     ... on MLModelGroup {
         urn
