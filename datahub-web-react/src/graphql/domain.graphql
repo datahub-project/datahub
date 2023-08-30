@@ -62,6 +62,8 @@ query listDomains($input: ListDomainsInput!) {
             dataProducts: entities(
                 input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
             ) {
+                total
+            }
             children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
                 total
             }
