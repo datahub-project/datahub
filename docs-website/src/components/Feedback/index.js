@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "./supabase"; // Import your Supabase configuratio
+import { supabase } from "./supabase";
 import styles from "./styles.module.css";
 
 const Feedback = ({ page }) => {
@@ -8,7 +8,7 @@ const Feedback = ({ page }) => {
   const handleReaction = async (selectedReaction) => {
     console.log("Button clicked:", selectedReaction);
     try {
-      const { data, error } = await supabase.from("feedback").upsert([
+      const { data, error } = await supabase.from("feedback").insert([
         {
           page: window.location.href,
           reaction: selectedReaction,
