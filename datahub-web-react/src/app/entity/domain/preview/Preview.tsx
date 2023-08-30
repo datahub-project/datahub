@@ -1,23 +1,24 @@
 import React from 'react';
-import { EntityType, Owner, SearchInsight } from '../../../../types.generated';
+import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import DomainEntitiesSnippet from './DomainEntitiesSnippet';
 import DomainIcon from '../../../domain/DomainIcon';
 
 export const Preview = ({
+    domain,
     urn,
     name,
     description,
     owners,
-    count,
     insights,
     logoComponent,
 }: {
+    domain: Domain;
     urn: string;
     name: string;
     description?: string | null;
     owners?: Array<Owner> | null;
-    count?: number | null;
     insights?: Array<SearchInsight> | null;
     logoComponent?: JSX.Element;
 }): JSX.Element => {
@@ -40,7 +41,7 @@ export const Preview = ({
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}
-            entityCount={count || undefined}
+            snippet={<DomainEntitiesSnippet domain={domain} />}
         />
     );
 };
