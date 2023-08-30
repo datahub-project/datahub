@@ -42,11 +42,11 @@ describe("view select", () => {
     cy.log("Ensure the View filter has been applied correctly.");
     cy.contains("SampleCypressHdfsDataset");
     cy.contains("cypress_logging_events");
-    cy.contains("of 2 results");
+    cy.contains("of 3 results");
 
     cy.log("Clear the selected view");
     cy.clearView(viewName);
-    cy.ensureTextNotPresent("of 2 results");
+    cy.ensureTextNotPresent("of 3 results");
 
     cy.log("Now edit the view");
     openViewEditDropDownAndClickId("view-dropdown-edit");
