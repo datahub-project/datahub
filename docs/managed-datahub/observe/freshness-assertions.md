@@ -59,7 +59,7 @@ Tables.
 For example, imagine that we work for a company with a Snowflake Table that stores user clicks collected from our e-commerce website. 
 This table is updated with new data on a specific cadence: once per hour (In practice, daily or even weekly are also common).
 In turn, there is a downstream Business Analytics Dashboard in Looker that shows important metrics like
-the number of people clicking our "Daily Sale" banners, and this dashboard pulls is generated from data stored in our "clicks" table. 
+the number of people clicking our "Daily Sale" banners, and this dashboard is generated from data stored in our "clicks" table. 
 It is important that our clicks Table continues to be updated each hour because if it stops being updated, it could mean 
 that our downstream metrics dashboard becomes incorrect. And the risk of this situation is obvious: our organization
 may make bad decisions based on incomplete information. 
@@ -291,10 +291,10 @@ To create a Freshness Assertion Entity that checks whether a table has been upda
 mutation createFreshnessAssertion {
   createFreshnessAssertion(
     input: {
-      entityUrn: "<urn of the table to be monitored>"
-      type: DATASET_CHANGE
+      entityUrn: "<urn of the table to be monitored>",
+      type: DATASET_CHANGE,
       schedule: {
-        type: FIXED_INTERVAL
+        type: FIXED_INTERVAL,
         fixedInterval: { unit: HOUR, multiple: 8 }
       }
     }

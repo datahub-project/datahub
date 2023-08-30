@@ -598,7 +598,9 @@ public class LineageSearchService {
     List<LineageRelationship> lineageRelationships =
         filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
 
-    return getScrollResultInBatches(lineageRelationships, input != null ? input : "*", inputFilters, sortCriterion,
+    Filter reducedFilters =
+        SearchUtils.removeCriteria(inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER_INPUT));
+    return getScrollResultInBatches(lineageRelationships, input != null ? input : "*", reducedFilters, sortCriterion,
         scrollId, keepAlive, size, searchFlags);
   }
 
