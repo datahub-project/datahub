@@ -72,7 +72,7 @@ jobs:
           directory: .
           fail_ci_if_error: false
           flags: airflow-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
-          name: pytest-testQuick
+          name: pytest-airflow
           verbose: true
 
   event-file:
