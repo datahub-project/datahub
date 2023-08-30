@@ -43,7 +43,7 @@ class DataHubDatabaseReader:
         # Version 0 last, only when createdon is the same. Otherwise relies on createdon order
         return f"""
             SELECT urn, aspect, metadata, systemmetadata, createdon
-            FROM "{self.config.database_table_name}"
+            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)}
             WHERE createdon >= %(since_createdon)s
             {"" if self.config.include_all_versions else "AND version = 0"}
             ORDER BY createdon, urn, aspect, CASE WHEN version = 0 THEN 1 ELSE 0 END, version
