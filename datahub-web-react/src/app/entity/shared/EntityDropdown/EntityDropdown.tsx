@@ -131,6 +131,7 @@ function EntityDropdown(props: Props) {
 
     const pageUrl = window.location.href;
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
+    const isDomainEntity = entityType === EntityType.Domain;
     const entityHasChildren = !!entityData?.children?.total;
     const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
@@ -210,11 +211,12 @@ function EntityDropdown(props: Props) {
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
-                                    title={`Can't delete ${entityRegistry.getEntityName(
-                                        entityType,
-                                    )} with child entities.`}
+                                    title={`Can't delete ${entityRegistry.getEntityName(entityType)} with ${
+                                        isDomainEntity ? 'sub-domain' : 'child'
+                                    } entities.`}
                                     overlayStyle={
-                                        isGlossaryEntity && canManageGlossaryEntity && entityHasChildren
+                                        (isGlossaryEntity && canManageGlossaryEntity && entityHasChildren) ||
+                                        (isDomainEntity && entityHasChildren)
                                             ? {}
                                             : { display: 'none' }
                                     }
