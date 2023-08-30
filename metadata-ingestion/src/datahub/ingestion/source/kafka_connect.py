@@ -896,7 +896,7 @@ class SnowflakeSinkConnector:
         target_platform: str
         database_name: Optional[str]
         schema_name: Optional[str]
-        topics_to_tables: Optional[Dict[str, str]] = None
+        topics_to_tables: Optional[Dict[str, str]]
 
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
@@ -908,12 +908,12 @@ class SnowflakeSinkConnector:
     ) -> SnowflakeParser:
         database_name = connector_manifest.config["snowflake.database.name"]
         schema_name = connector_manifest.config["snowflake.schema.name"]
-        topics_to_tables = {
-            each.split(":")[0]: each.split(":")[1]
-            for each in connector_manifest.config["snowflake.topic2table.map"].split(
-                ","
-            )
-        }
+        topics_to_tables: Dict[str, str] = {}
+        # Extract lineage for only those topics whose data ingestion started
+        for each in connector_manifest.config["snowflake.topic2table.map"].split(","):
+            topic = each.split(":")[0]
+            if topic in connector_manifest.topic_names:
+                topics_to_tables[topic] = each.split(":")[1]
 
         return self.SnowflakeParser(
             target_platform="snowflake",
