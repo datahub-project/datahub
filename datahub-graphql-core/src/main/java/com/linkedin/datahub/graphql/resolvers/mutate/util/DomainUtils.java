@@ -10,7 +10,9 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -27,6 +29,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 
+import com.linkedin.r2.RemoteInvocationException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,11 +39,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import javax.management.Query;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 
 // TODO: Move to consuming from DomainService.
@@ -129,6 +132,31 @@ public class DomainUtils {
     return QueryUtils.getFilterFromCriteria(List.of(parentDomainCriterion, nameCriterion));
   }
 
+  /**
+   * Check if a domain has any child domains
+   * @param domainUrn the URN of the domain to check
+   * @param context query context (includes authorization context to authorize the request)
+   * @param entityClient client used to perform the check
+   * @return true if the domain has any child domains, false if it does not
+   */
+  public static boolean hasChildDomains(
+      @Nonnull final Urn domainUrn,
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityClient entityClient
+  ) throws RemoteInvocationException {
+    Filter parentDomainFilter = buildParentDomainFilter(domainUrn);
+    // Search for entities matching parent domain
+    // Limit count to 1 for existence check
+    final SearchResult searchResult = entityClient.filter(
+        DOMAIN_ENTITY_NAME,
+        parentDomainFilter,
+        null,
+        0,
+        1,
+        context.getAuthentication());
+    return (searchResult.getNumEntities() > 0);
+  }
+
   private static Map<Urn, EntityResponse> getDomainsByNameAndParent(
       @Nonnull final String name,
       @Nullable final Urn parentDomainUrn,
@@ -178,5 +206,43 @@ public class DomainUtils {
       }
       return false;
     });
+  }
+
+  @Nullable
+  public static Entity getParentDomain(
+      @Nonnull final Urn urn,
+      @Nonnull final QueryContext context,
+      @Nonnull final EntityClient entityClient
+  ) {
+    try {
+      final EntityResponse entityResponse = entityClient.getV2(
+          urn.getEntityType(),
+          urn,
+          Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME),
+          context.getAuthentication()
+      );
+
+      if (entityResponse != null && entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
+        final DomainProperties properties = new DomainProperties(entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
+        if (properties.hasParentDomain()) {
+          final Urn parentDomainUrn = properties.getParentDomain();
+          if (parentDomainUrn != null) {
+            final EntityResponse parentResponse = entityClient.getV2(
+                parentDomainUrn.getEntityType(),
+                parentDomainUrn,
+                null,
+                context.getAuthentication()
+            );
+            if (parentResponse != null) {
+              return UrnToEntityMapper.map(parentResponse.getUrn());
+            }
+          }
+        }
+      }
+
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to retrieve parent domain for entity %s", urn), e);
+    }
   }
 }

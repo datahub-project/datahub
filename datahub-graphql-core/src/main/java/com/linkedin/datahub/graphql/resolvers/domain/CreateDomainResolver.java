@@ -7,6 +7,8 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDomainInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
@@ -75,7 +77,10 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         }
 
         if (DomainUtils.hasNameConflict(input.getName(), parentDomain, context, _entityClient)) {
-          throw new IllegalArgumentException("Domain with this name already exists at this level of the Domain!");
+          throw new DataHubGraphQLException(
+              String.format("\"%s\" already exists in this domain. Please pick a unique name.", input.getName()),
+              DataHubGraphQLErrorCode.CONFLICT
+          );
         }
 
         // Create the MCP
@@ -91,6 +96,8 @@ public class CreateDomainResolver implements DataFetcher<CompletableFuture<Strin
         }
         OwnerUtils.addCreatorAsOwner(context, domainUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
         return domainUrn;
+      } catch (DataHubGraphQLException e) {
+        throw e;
       } catch (Exception e) {
         log.error("Failed to create Domain with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());
         throw new RuntimeException(String.format("Failed to create Domain with id: %s, name: %s", input.getId(), input.getName()), e);

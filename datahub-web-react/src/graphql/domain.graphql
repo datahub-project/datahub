@@ -2,9 +2,23 @@ query getDomain($urn: String!) {
     domain(urn: $urn) {
         urn
         id
+        type
         properties {
             name
             description
+        }
+        parentDomains {
+            count
+            domains {
+                urn
+                type
+                ... on Domain {
+                    properties {
+                        name
+                        description
+                    }
+                }
+            }
         }
         ownership {
             ...ownershipFields
@@ -42,19 +56,27 @@ query listDomains($input: ListDomainsInput!) {
             ownership {
                 ...ownershipFields
             }
-            entities(input: { start: 0, count: 1 }) {
+            entities(input: { start: 0, count: 0 }) {
                 total
             }
-            children: relationships(
-                input: {
-                    types: ["IsPartOf"]
-                    direction: INCOMING
-                    start: 0
-                    count: 0
-                }
+            dataProducts: entities(
+                input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
             ) {
                 total
             }
+            children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
+                total
+            }
+        }
+    }
+}
+
+query getDomainChildrenCount($urn: String!) {
+    domain(urn: $urn) {
+        urn
+        type
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
+            total
         }
     }
 }

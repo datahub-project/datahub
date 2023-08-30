@@ -12,7 +12,11 @@ const NavigatorWrapper = styled.div`
     overflow: auto;
 `;
 
-export default function DomainNavigator() {
+interface Props {
+    selectDomainOverride?: (urn: string, displayName: string) => void;
+}
+
+export default function DomainNavigator({ selectDomainOverride }: Props) {
     const { data, error } = useListDomains({});
 
     return (
@@ -23,6 +27,7 @@ export default function DomainNavigator() {
                     key={domain.urn}
                     domain={domain as Domain}
                     numDomainChildren={domain.children?.total || 0}
+                    selectDomainOverride={selectDomainOverride}
                 />
             ))}
         </NavigatorWrapper>

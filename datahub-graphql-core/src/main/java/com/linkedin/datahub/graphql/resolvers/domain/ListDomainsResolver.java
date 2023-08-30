@@ -3,8 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.domain;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListDomainsInput;
@@ -51,7 +49,6 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
 
     return CompletableFuture.supplyAsync(() -> {
 
-      if (AuthorizationUtils.canCreateDomains(context)) {
         final ListDomainsInput input = bindArgument(environment.getArgument("input"), ListDomainsInput.class);
         final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
         final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
@@ -83,8 +80,6 @@ public class ListDomainsResolver implements DataFetcher<CompletableFuture<ListDo
         } catch (Exception e) {
           throw new RuntimeException("Failed to list domains", e);
         }
-      }
-      throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
     });
   }
 

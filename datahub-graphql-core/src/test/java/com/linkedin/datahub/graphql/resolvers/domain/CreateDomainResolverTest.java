@@ -182,7 +182,7 @@ public class CreateDomainResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Mockito.when(resolver.get(mockEnv)).thenThrow(new IllegalArgumentException("Parent Domain does not exist!"));
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
   @Test
@@ -238,9 +238,7 @@ public class CreateDomainResolverTest {
         Mockito.any(Authentication.class)
     )).thenReturn(entityResponseMap);
 
-    Mockito.when(resolver.get(mockEnv)).thenThrow(
-        new IllegalArgumentException("Domain with this name already exists at this level of the Domain!")
-    );
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
   }
 
   @Test
