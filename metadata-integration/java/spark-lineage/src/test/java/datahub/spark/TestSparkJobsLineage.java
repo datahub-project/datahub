@@ -76,7 +76,7 @@ public class TestSparkJobsLineage {
 
   private static final String MASTER = "local";
 
-  private static final int N = 3; // num of GMS requests per spark job
+  private static final int N = 4; // num of GMS requests per spark job
 
   private static final int MOCK_PORT = PortFactory.findFreePort();
   private static final int GMS_PORT = MOCK_GMS ? MOCK_PORT : 8080;

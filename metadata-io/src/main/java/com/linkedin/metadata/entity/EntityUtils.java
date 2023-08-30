@@ -167,4 +167,27 @@ public class EntityUtils {
       return false;
     }
   }
+
+  /**
+   * Check if entity is not existed ('exists' is false or not exist in database)
+   */
+  public static boolean checkIfNotExists(EntityService entityService, Urn entityUrn) {
+    try {
+
+      if (!entityService.exists(entityUrn)) {
+        return true;
+      }
+
+      EnvelopedAspect statusAspect =
+          entityService.getLatestEnvelopedAspect(entityUrn.getEntityType(), entityUrn, "exists");
+      if (statusAspect == null) {
+        return false;
+      } else {
+        return statusAspect.getValue().data().containsValue("false");
+      }
+    } catch (Exception e) {
+      log.error("Error while checking if {} is not existed", entityUrn, e);
+      return true;
+    }
+  }
 }
