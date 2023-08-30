@@ -53,7 +53,7 @@ function DomainSearch() {
     const { data } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: [EntityType.Domain], // TODO: add sub-domain here?
+                types: [EntityType.Domain],
                 query,
                 start: 0,
                 count: 50,
@@ -69,7 +69,7 @@ function DomainSearch() {
             <ClickOutside onClickOutside={() => setIsSearchBarFocused(false)}>
                 <SearchBar
                     initialQuery={query || ''}
-                    placeholderText="Search Domain"
+                    placeholderText="Search Domains"
                     suggestions={[]}
                     hideRecommendations
                     style={{
