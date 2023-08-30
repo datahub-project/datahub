@@ -2,8 +2,8 @@ import React from 'react';
 import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
 import DomainEntitiesSnippet from './DomainEntitiesSnippet';
+import DomainIcon from '../../../domain/DomainIcon';
 
 export const Preview = ({
     domain,
@@ -30,7 +30,14 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             type="Domain"
-            typeIcon={entityRegistry.getIcon(EntityType.Domain, 14, IconStyleType.ACCENT)}
+            typeIcon={
+                <DomainIcon
+                    style={{
+                        fontSize: 14,
+                        color: '#BFBFBF',
+                    }}
+                />
+            }
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}

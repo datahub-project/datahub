@@ -5,6 +5,8 @@ import { useCreateDomainMutation } from '../../graphql/domain.generated';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
+import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
+import { useDomainsContext } from './DomainsContext';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 12px;
@@ -18,7 +20,13 @@ const ClickableTag = styled(Tag)`
 
 type Props = {
     onClose: () => void;
-    onCreate: (urn: string, id: string | undefined, name: string, description: string | undefined) => void;
+    onCreate: (
+        urn: string,
+        id: string | undefined,
+        name: string,
+        description: string | undefined,
+        parentDomain?: string,
+    ) => void;
 };
 
 const SUGGESTED_DOMAIN_NAMES = ['Engineering', 'Marketing', 'Sales', 'Product'];
@@ -29,6 +37,8 @@ const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const [createDomainMutation] = useCreateDomainMutation();
+    const { entityData } = useDomainsContext();
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(entityData?.urn || '');
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -39,6 +49,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     id: form.getFieldValue(ID_FIELD_NAME),
                     name: form.getFieldValue(NAME_FIELD_NAME),
                     description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                    parentDomain: selectedParentUrn || undefined,
                 },
             },
         })
@@ -56,6 +67,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         form.getFieldValue(ID_FIELD_NAME),
                         form.getFieldValue(NAME_FIELD_NAME),
                         form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                        selectedParentUrn || undefined,
                     );
                     form.resetFields();
                 }
@@ -101,6 +113,12 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
                 }}
             >
+                <Form.Item label={<Typography.Text>Parent (optional)</Typography.Text>}>
+                    <DomainParentSelect
+                        selectedParentUrn={selectedParentUrn}
+                        setSelectedParentUrn={setSelectedParentUrn}
+                    />
+                </Form.Item>
                 <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
                     <Typography.Paragraph>Give your new Domain a name. </Typography.Paragraph>
                     <Form.Item

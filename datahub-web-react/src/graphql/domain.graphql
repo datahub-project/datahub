@@ -59,6 +59,16 @@ query listDomains($input: ListDomainsInput!) {
     }
 }
 
+query getDomainChildrenCount($urn: String!) {
+    domain(urn: $urn) {
+        urn
+        type
+        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
+            total
+        }
+    }
+}
+
 mutation createDomain($input: CreateDomainInput!) {
     createDomain(input: $input)
 }
