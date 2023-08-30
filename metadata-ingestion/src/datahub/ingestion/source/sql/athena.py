@@ -192,15 +192,12 @@ class AthenaSource(SQLAlchemySource):
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        database_container_key = gen_database_key(
-            database,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+        database_container_key = self.get_database_container_key(
+            db_name=database, schema=schema
         )
 
         yield from gen_database_container(
-            database=database,
+            database=database_container_key.database,
             database_container_key=database_container_key,
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
