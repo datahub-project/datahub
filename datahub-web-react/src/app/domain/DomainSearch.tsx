@@ -96,11 +96,10 @@ function DomainSearch() {
                                     <IconWrapper>
                                         {result.entity.type === EntityType.Domain ? (
                                             <DomainIcon
-                                            // TODO: add after PRD-559
-                                            // style={{
-                                            //     fontSize: 16,
-                                            //     color: '#BFBFBF',
-                                            // }}
+                                                style={{
+                                                    fontSize: 16,
+                                                    color: '#BFBFBF',
+                                                }}
                                             />
                                         ) : (
                                             entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)
