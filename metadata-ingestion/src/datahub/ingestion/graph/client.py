@@ -607,7 +607,12 @@ class DataHubGraph(DatahubRestEmitter):
                     platform, platform_instance
                 )
 
-            # TODO: Warn if platform_instance is not a fully qualified urn.
+            # Warn if platform_instance is not a fully qualified urn.
+            # TODO: Change this once we have a first-class data platform instance urn type.
+            if guess_entity_type(platform_instance) != "dataPlatformInstance":
+                raise ValueError(
+                    f"Invalid data platform instance urn: {platform_instance}"
+                )
 
             andFilters += [
                 {
@@ -619,7 +624,10 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Browse path v2 filter.
         if container:
-            # TODO: Warn if container is not a fully qualified urn.
+            # Warn if container is not a fully qualified urn.
+            # TODO: Change this once we have a first-class container urn type.
+            if guess_entity_type(container) != "container":
+                raise ValueError(f"Invalid container urn: {container}")
 
             andFilters += [
                 {

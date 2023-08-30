@@ -344,7 +344,7 @@ def by_filter(
     logger.info(f"Using {graph}")
 
     # Determine which urns to delete.
-    delete_by_urn = False
+    delete_by_urn = bool(urn) and not recursive
     if urn:
         urns = [urn]
 
@@ -366,8 +366,6 @@ def by_filter(
                         batch_size=batch_size,
                     )
                 )
-        else:
-            delete_by_urn = True
     else:
         urns = list(
             graph.get_urns_by_filter(

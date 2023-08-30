@@ -44,7 +44,7 @@ datahub delete --platform snowflake
 datahub delete --platform looker --entity-type chart
 datahub delete --platform bigquery --env PROD
 
-# You can also do recursive deletes for some entity types.
+# You can also do recursive deletes for container and dataPlatformInstance entities.
 datahub delete --urn "urn:li:container:f76..." --recursive
 ```
 
