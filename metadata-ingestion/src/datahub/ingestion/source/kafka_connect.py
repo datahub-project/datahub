@@ -894,9 +894,9 @@ class SnowflakeSinkConnector:
     @dataclass
     class SnowflakeParser:
         target_platform: str
-        database_name: Optional[str]
-        schema_name: Optional[str]
-        topics_to_tables: Optional[Dict[str, str]]
+        database_name: str
+        schema_name: str
+        topics_to_tables: Dict[str, str]
 
     def report_warning(self, key: str, reason: str) -> None:
         logger.warning(f"{key}: {reason}")
