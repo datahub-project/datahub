@@ -9,12 +9,11 @@ from unittest.mock import Mock
 
 import airflow.configuration
 import airflow.version
+import datahub.emitter.mce_builder as builder
 import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
-
-import datahub.emitter.mce_builder as builder
 from datahub_provider import get_provider_info
 from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_provider.entities import Dataset, Urn
@@ -23,7 +22,7 @@ from datahub_provider.operators.datahub import DatahubEmitterOperator
 
 assert AIRFLOW_PATCHED
 
-pytestmark = pytest.mark.airflow
+# TODO: Remove default_view="tree" arg. Figure out why is default_view being picked as "grid" and how to fix it ?
 
 # Approach suggested by https://stackoverflow.com/a/11887885/5004662.
 AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
@@ -75,7 +74,7 @@ def test_airflow_provider_info():
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
     airflow_examples_folder = (
-        pytestconfig.rootpath / "src/datahub_provider/example_dags"
+        pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
 
     # Note: the .airflowignore file skips the snowflake DAG.
@@ -233,7 +232,11 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         func = mock.Mock()
         func.__name__ = "foo"
 
-        dag = DAG(dag_id="test_lineage_is_sent_to_backend", start_date=DEFAULT_DATE)
+        dag = DAG(
+            dag_id="test_lineage_is_sent_to_backend",
+            start_date=DEFAULT_DATE,
+            default_view="tree",
+        )
 
         with dag:
             op1 = EmptyOperator(
@@ -252,6 +255,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         # versions do not require it, but will attempt to find the associated
         # run_id in the database if execution_date is provided. As such, we
         # must fake the run_id parameter for newer Airflow versions.
+        # We need to add type:ignore in else to suppress mypy error in Airflow < 2.2
         if AIRFLOW_VERSION < packaging.version.parse("2.2.0"):
             ti = TaskInstance(task=op2, execution_date=DEFAULT_DATE)
             # Ignoring type here because DagRun state is just a sring at Airflow 1
@@ -259,7 +263,7 @@ def test_lineage_backend(mock_emit, inlets, outlets, capture_executions):
         else:
             from airflow.utils.state import DagRunState
 
-            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")
+            ti = TaskInstance(task=op2, run_id=f"test_airflow-{DEFAULT_DATE}")  # type: ignore[call-arg]
             dag_run = DagRun(
                 state=DagRunState.SUCCESS,
                 run_id=f"scheduled_{DEFAULT_DATE.isoformat()}",

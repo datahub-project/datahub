@@ -1,10 +1,11 @@
-name: metadata ingestion
+name: Airflow Plugin
 on:
   push:
     branches:
       - master
     paths:
-      - ".github/workflows/metadata-ingestion.yml"
+      - ".github/workflows/airflow-plugin.yml"
+      - "metadata-ingestion-modules/airflow-plugin/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   pull_request:
@@ -12,6 +13,7 @@ on:
       - master
     paths:
       - ".github/**"
+      - "metadata-ingestion-modules/airflow-plugin/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   release:
@@ -22,27 +24,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  metadata-ingestion:
+  airflow-plugin:
     runs-on: ubuntu-latest
     env:
-      SPARK_VERSION: 3.3.2
+      SPARK_VERSION: 3.0.3
       DATAHUB_TELEMETRY_ENABLED: false
-      # TODO: Enable this once the test is fixed.
-      # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.7", "3.10"]
-        command:
-          [
-            "lint",
-            "testQuick",
-            "testIntegration",
-            "testIntegrationBatch1",
-            "testSlowIntegration",
-          ]
         include:
           - python-version: "3.7"
+            extraPythonRequirement: "apache-airflow~=2.1.0"
+          - python-version: "3.7"
+            extraPythonRequirement: "apache-airflow~=2.2.0"
           - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow~=2.4.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow~=2.6.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow>2.6.0"
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -52,30 +51,28 @@ jobs:
           cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
-      - name: Install package
-        run: ./gradlew :metadata-ingestion:installPackageOnly
-      - name: Run metadata-ingestion tests
-        run: ./gradlew :metadata-ingestion:${{ matrix.command }}
+      - name: Install airflow package and test  (extras ${{ matrix.extraPythonRequirement }})
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:airflow-plugin:lint :metadata-ingestion-modules:airflow-plugin:testQuick
       - name: pip freeze show list installed
         if: always()
-        run: source metadata-ingestion/venv/bin/activate && pip freeze
+        run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && pip freeze
       - uses: actions/upload-artifact@v3
-        if: ${{ always() && matrix.command != 'lint' }}
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.extraPythonRequirement == 'apache-airflow>2.6.0' }}
         with:
-          name: Test Results (metadata ingestion ${{ matrix.python-version }})
+          name: Test Results (Airflow Plugin ${{ matrix.python-version}})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
       - name: Upload coverage to Codecov
-        if: ${{ always() && matrix.python-version == '3.10' && matrix.command != 'lint' }}
+        if: always()
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: .
           fail_ci_if_error: false
-          flags: pytest-${{ matrix.command }}
-          name: pytest-${{ matrix.command }}
+          flags: airflow-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          name: pytest-airflow
           verbose: true
 
   event-file:
