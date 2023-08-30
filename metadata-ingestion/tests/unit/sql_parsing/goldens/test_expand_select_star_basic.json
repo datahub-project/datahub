@@ -8,7 +8,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_AGG"
+                "column": "total_agg"
             },
             "upstreams": [
                 {
@@ -20,7 +20,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERKEY"
+                "column": "orderkey"
             },
             "upstreams": [
                 {
@@ -32,7 +32,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "CUSTKEY"
+                "column": "custkey"
             },
             "upstreams": [
                 {
@@ -44,7 +44,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERSTATUS"
+                "column": "orderstatus"
             },
             "upstreams": [
                 {
@@ -56,7 +56,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTALPRICE"
+                "column": "totalprice"
             },
             "upstreams": [
                 {
@@ -68,7 +68,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERDATE"
+                "column": "orderdate"
             },
             "upstreams": [
                 {
@@ -80,7 +80,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "ORDERPRIORITY"
+                "column": "orderpriority"
             },
             "upstreams": [
                 {
@@ -92,7 +92,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "CLERK"
+                "column": "clerk"
             },
             "upstreams": [
                 {
@@ -104,7 +104,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "SHIPPRIORITY"
+                "column": "shippriority"
             },
             "upstreams": [
                 {
@@ -116,7 +116,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "COMMENT"
+                "column": "comment"
             },
             "upstreams": [
                 {
