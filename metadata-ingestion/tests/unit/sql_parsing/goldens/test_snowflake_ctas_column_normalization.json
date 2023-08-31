@@ -1,14 +1,16 @@
 {
-    "query_type": "SELECT",
+    "query_type": "CREATE",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
-    "out_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)"
+    ],
     "column_lineage": [
         {
             "downstream": {
-                "table": null,
-                "column": "total_agg"
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
+                "column": "Total_Agg"
             },
             "upstreams": [
                 {
@@ -19,7 +21,7 @@
         },
         {
             "downstream": {
-                "table": null,
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
                 "column": "total_avg"
             },
             "upstreams": [
@@ -31,8 +33,8 @@
         },
         {
             "downstream": {
-                "table": null,
-                "column": "total_min"
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
+                "column": "TOTAL_MIN"
             },
             "upstreams": [
                 {
@@ -43,7 +45,7 @@
         },
         {
             "downstream": {
-                "table": null,
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)",
                 "column": "total_max"
             },
             "upstreams": [
