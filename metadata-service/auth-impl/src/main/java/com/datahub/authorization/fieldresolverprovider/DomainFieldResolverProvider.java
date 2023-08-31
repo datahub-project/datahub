@@ -79,7 +79,6 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
   }
 
   private FieldResolver.FieldValue getDomains(ResourceSpec resourceSpec) {
-    System.out.println("DOMAIN LOG: getDomains");
     Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
     // In the case that the entity is a domain, the associated domain is the domain itself
     if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
@@ -92,9 +91,7 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
     try {
       EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
           Collections.singleton(DOMAINS_ASPECT_NAME), _systemAuthentication);
-      System.out.println("DOMAIN LOG: response");
       if (response == null || !response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
-        System.out.println("DOMAIN LOG: bail");
         return FieldResolver.emptyFieldValue();
       }
       domainsAspect = response.getAspects().get(DOMAINS_ASPECT_NAME);
@@ -104,12 +101,9 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
     }
 
     Set<Urn> domainUrns = new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
-    System.out.println("DOMAIN LOG: domainUrns=" + domainUrns.size());
     Set<Urn> batchedParentUrns = getBatchedParentDomains(domainUrns);
-    System.out.println("DOMAIN LOG: batched=" + batchedParentUrns.size());
 
     while (!batchedParentUrns.isEmpty()) {
-      System.out.println("DOMAIN LOG: add stuff");
       domainUrns.addAll(batchedParentUrns);
       batchedParentUrns = getBatchedParentDomains(batchedParentUrns);
     }
