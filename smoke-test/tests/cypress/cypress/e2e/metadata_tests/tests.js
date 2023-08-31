@@ -1,3 +1,4 @@
+import { aliasQuery, hasOperationName } from "../utils";
 const urn = "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
 const datasetName = "SampleCypressHdfsDataset";
 const testName = "Cypress Tag Test";
@@ -6,9 +7,24 @@ const testDescription = "Cyprress test description";
 describe("create, edit and remove metadata test", () => {
     beforeEach(() => {
         cy.on('uncaught:exception', (err, runnable) => { return false; });
-    });
-
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+          aliasQuery(req, "appConfig");
+        });
+      });
+  
+      const setTestsConfigFlag = (isOn) => {
+        cy.intercept("POST", "/api/v2/graphql", (req) => {
+          if (hasOperationName(req, "appConfig")) {
+            req.reply((res) => {
+              // Modify the response body directly
+              res.body.data.appConfig.testsConfig.enabled = isOn;
+            });
+          }
+        });
+      };
+  
     it("create new test at governance > tests, test conditions and save the test", () => {
+        setTestsConfigFlag(true);
         cy.loginWithCredentials();
         cy.goToTestsList();
         cy.clickOptionWithText("New Test");
@@ -57,6 +73,7 @@ describe("create, edit and remove metadata test", () => {
     });
 
     it("edit the test to make it fail, verify the result, save test", () => {
+        setTestsConfigFlag(true);
         cy.loginWithCredentials();
         cy.goToTestsList();
         cy.contains(testName).click();
@@ -81,6 +98,7 @@ describe("create, edit and remove metadata test", () => {
     });
 
     it("delete test", () => {
+        setTestsConfigFlag(true);
         cy.loginWithCredentials();
         cy.goToTestsList();
         cy.get('[data-testid="test-more-button-0"]').click();
