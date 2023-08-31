@@ -81,7 +81,7 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
         return UrnSearchResultsMapper.map(_entityClient.searchAcrossEntities(
             SEARCHABLE_ENTITY_TYPES.stream().map(EntityTypeMapper::getName).collect(Collectors.toList()),
             query,
-            new Filter().setOr(new ConjunctiveCriterionArray( new ConjunctiveCriterion().setAnd(criteria))),
+            new Filter().setOr(new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criteria))),
             start,
             count,
             null,
