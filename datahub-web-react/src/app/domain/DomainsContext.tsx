@@ -4,18 +4,18 @@ import { GenericEntityProperties } from '../entity/shared/types';
 export interface DomainsContextType {
     entityData: GenericEntityProperties | null;
     setEntityData: (entityData: GenericEntityProperties | null) => void;
-    parentDomainsToUpate: string[];
+    parentDomainsToUpdate: string[];
     setParentDomainsToUpdate: (values: string[]) => void;
 }
 
 export const DomainsContext = React.createContext<DomainsContextType>({
     entityData: null,
     setEntityData: () => {},
-    parentDomainsToUpate: [], // used to tell domains to refetch their children count after updates (create, move, delete)
+    parentDomainsToUpdate: [], // used to tell domains to refetch their children count after updates (create, move, delete)
     setParentDomainsToUpdate: () => {},
 });
 
 export const useDomainsContext = () => {
-    const { entityData, setEntityData, parentDomainsToUpate, setParentDomainsToUpdate } = useContext(DomainsContext);
-    return { entityData, setEntityData, parentDomainsToUpate, setParentDomainsToUpdate };
+    const { entityData, setEntityData, parentDomainsToUpdate, setParentDomainsToUpdate } = useContext(DomainsContext);
+    return { entityData, setEntityData, parentDomainsToUpdate, setParentDomainsToUpdate };
 };
