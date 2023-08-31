@@ -36,7 +36,7 @@ import java.util.Map;
 @TestConfiguration
 public class ESTestConfiguration {
     private static final int HTTP_PORT = 9200;
-    private static final int REFRESH_INTERVAL_SECONDS = 5;
+    public static final int REFRESH_INTERVAL_SECONDS = 5;
 
     public static void syncAfterWrite(ESBulkProcessor bulkProcessor) throws InterruptedException {
         bulkProcessor.flush();

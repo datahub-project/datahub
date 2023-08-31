@@ -9,8 +9,7 @@ buildscript {
   ext.neo4jVersion = '4.4.9'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '7.10.2'
-  // TODO: Change to final release version once it's out ETA Mid-April
-  ext.jacksonVersion = '2.15.0-rc2'
+  ext.jacksonVersion = '2.15.2'
   ext.jettyVersion = '9.4.46.v20220331'
   ext.playVersion = '2.8.18'
   ext.log4jVersion = '2.19.0'

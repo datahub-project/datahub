@@ -59,7 +59,7 @@ Tables.
 For example, imagine that we work for a company with a Snowflake Table that stores user clicks collected from our e-commerce website. 
 This table is updated with new data on a specific cadence: once per hour (In practice, daily or even weekly are also common).
 In turn, there is a downstream Business Analytics Dashboard in Looker that shows important metrics like
-the number of people clicking our "Daily Sale" banners, and this dashboard pulls is generated from data stored in our "clicks" table. 
+the number of people clicking our "Daily Sale" banners, and this dashboard is generated from data stored in our "clicks" table. 
 It is important that our clicks Table continues to be updated each hour because if it stops being updated, it could mean 
 that our downstream metrics dashboard becomes incorrect. And the risk of this situation is obvious: our organization
 may make bad decisions based on incomplete information. 
@@ -122,8 +122,12 @@ Change Source types vary by the platform, but generally fall into these categori
     is higher than the previously observed value, in order to determine whether the Table has been changed within a given period of time. 
     Note that this approach is only supported if the Change Window does not use a fixed interval.
 
-  Using the final 2 approaches - column value queries - to determine whether a Table has changed useful because it can be customized to determine whether 
-  specific types of important changes have been made to a given Table.
+  - **DataHub Operation**: A DataHub "Operation" aspect contains timeseries information used to describe changes made to an entity. Using this
+    option avoids contacting your data platform, and instead uses the DataHub Operation metadata to evaluate Freshness Assertions.
+    This relies on Operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (see [Report Operation via API](#reporting-operations-via-api)).
+    Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
+
+  Using either of the column value approaches (**Last Modified Column** or **High Watermark Column**) to determine whether a Table has changed can be useful because it can be customized to determine whether specific types of important changes have been made to a given Table.
   Because it does not involve system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. 
 
 Freshness Assertions also have an off switch: they can be started or stopped at any time with the click of button.
@@ -178,7 +182,7 @@ _Check whether the table has changed in a specific window of time_
 
 
 7. (Optional) Click **Advanced** to customize the evaluation **source**. This is the mechanism that will be used to evaluate
-the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, and High Watermark Column.
+the check. Each Data Platform supports different options including Audit Log, Information Schema, Last Modified Column, High Watermark Column, and DataHub Operation.
    
 <p align="center">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-freshness-source-type.png"/>
@@ -189,11 +193,12 @@ the check. Each Data Platform supports different options including Audit Log, In
 - **Last Modified Column**: Check for the presence of rows using a "Last Modified Time" column, which should reflect the time at which a given row was last changed in the table, to 
   determine whether the table changed within the evaluation period.
 - **High Watermark Column**: Monitor changes to a continuously-increasing "high watermark" column value to determine whether a table 
-  has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-strea) tables. It is not available
+  has been changed. This option is particularly useful for tables that grow consistently with time, for example fact or event (e.g. click-stream) tables. It is not available
   when using a fixed lookback period. 
+- **DataHub Operation**: Use DataHub Operations to determine whether the table changed within the evaluation period.
 
-8. Click **Next**
-9. Configure actions that should be taken when the Freshness Assertion passes or fails
+1. Click **Next**
+2. Configure actions that should be taken when the Freshness Assertion passes or fails
 
 <p align="left">
   <img width="55%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
@@ -280,7 +285,7 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 In order to create a Freshness Assertion that is being monitored on a specific **Evaluation Schedule**, you'll need to use 2
 GraphQL mutation queries to  create a Freshness Assertion entity and create an Assertion Monitor entity responsible for evaluating it.
 
-Start by creating the Freshness Assertion entity using the `createFreshnessAssertion` query and hang on to the 'urn' field of the Assertion entit y
+Start by creating the Freshness Assertion entity using the `createFreshnessAssertion` query and hang on to the 'urn' field of the Assertion entity
 you get back. Then continue by creating a Monitor entity using the `createAssertionMonitor`.
 
 ##### Examples
@@ -291,10 +296,10 @@ To create a Freshness Assertion Entity that checks whether a table has been upda
 mutation createFreshnessAssertion {
   createFreshnessAssertion(
     input: {
-      entityUrn: "<urn of the table to be monitored>"
-      type: DATASET_CHANGE
+      entityUrn: "<urn of the table to be monitored>",
+      type: DATASET_CHANGE,
       schedule: {
-        type: FIXED_INTERVAL
+        type: FIXED_INTERVAL,
         fixedInterval: { unit: HOUR, multiple: 8 }
       }
     }
@@ -336,6 +341,28 @@ This entity defines _when_ to run the check (Using CRON format - every 8th hour)
 After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone. 
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
+
+### Reporting Operations via API
+
+DataHub Operations can be used to capture changes made to entities. This is useful for cases where the underlying data platform does not provide a mechanism
+to capture changes, or where the data platform's mechanism is not reliable. In order to report an operation, you can use the `reportOperation` GraphQL mutation.
+
+
+##### Examples
+```json
+mutation reportOperation {
+  reportOperation(
+    input: {
+      urn: "<urn of the dataset being reported>",
+      operationType: INSERT,
+      sourceType: DATA_PLATFORM,
+      timestampMillis: 1693252366489
+    }
+  )
+}
+```
+
+Use the `timestampMillis` field to specify the time at which the operation occurred. If no value is provided, the current time will be used.
 
 ### Tips
 

@@ -70,6 +70,11 @@ module.exports = {
           position: "right",
         },
         {
+          type: 'docsVersionDropdown',
+          position: 'right',
+          dropdownActiveClassDisabled: true,
+        },
+        {
           href: "https://slack.datahubproject.io",
           "aria-label": "Slack",
           position: "right",
@@ -173,8 +178,8 @@ module.exports = {
       appId: "RK0UG797F3",
       apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
-      // contextualSearch: true,
-      // searchParameters: {},
+      insights: true,
+      contextualSearch: true,
       // debug: true,
     },
   },
