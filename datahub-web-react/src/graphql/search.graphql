@@ -145,6 +145,9 @@ fragment autoCompleteFields on Entity {
         properties {
             name
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
     }
     ... on DataProduct {
         properties {
@@ -632,17 +635,10 @@ fragment searchResultFields on Entity {
         ownership {
             ...ownershipFields
         }
-        entities(input: { start: 0, count: 0 }) {
-            total
+        parentDomains {
+            ...parentDomainsFields
         }
-        dataProducts: entities(
-            input: { start: 0, count: 0, filters: [{ field: "_entityType", value: "DATA_PRODUCT" }] }
-        ) {
-            total
-        }
-        children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
-            total
-        }
+        ...domainEntitiesFields
     }
     ... on Container {
         properties {
@@ -796,6 +792,9 @@ fragment facetFields on FacetMetadata {
             ... on Domain {
                 properties {
                     name
+                }
+                parentDomains {
+                    ...parentDomainsFields
                 }
             }
             ... on Container {
