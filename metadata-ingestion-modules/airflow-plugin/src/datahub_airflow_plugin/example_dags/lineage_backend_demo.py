@@ -9,7 +9,7 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.utils.dates import days_ago
 
-from datahub_provider.entities import Dataset, Urn
+from datahub_airflow_plugin.entities import Dataset, Urn
 
 default_args = {
     "owner": "airflow",
@@ -28,6 +28,7 @@ with DAG(
     start_date=days_ago(2),
     tags=["example_tag"],
     catchup=False,
+    default_view="tree",
 ) as dag:
     task1 = BashOperator(
         task_id="run_data_task",

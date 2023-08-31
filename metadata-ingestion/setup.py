@@ -283,8 +283,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        "apache-airflow >= 2.0.2",
-        *rest_common,
+        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -508,8 +507,8 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
-            # airflow is added below
+            "vertica",
+            "mode",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -518,9 +517,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Extra requirements for Airflow.
-    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
