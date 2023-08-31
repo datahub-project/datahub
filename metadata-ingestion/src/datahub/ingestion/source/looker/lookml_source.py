@@ -58,6 +58,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ProjectInclude,
     ViewField,
     ViewFieldType,
+    ViewFieldValue,
 )
 from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPI,
@@ -1075,7 +1076,7 @@ class LookerView:
             logger.debug(
                 f"base_folder_path({base_folder_path}) and absolute_file_path({absolute_file_path}) not matching"
             )
-            return ViewFieldType.UNKNOWN.value
+            return ViewFieldValue.NOT_AVAILABLE.value
 
         file_path: str = splits[1]
         logger.debug(f"file_path={file_path}")

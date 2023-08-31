@@ -180,7 +180,7 @@
                 {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
-                            "/prod/looker/lkml_samples/explores"
+                            "/prod/looker/looker_hub/explores"
                         ]
                     }
                 },
@@ -206,10 +206,10 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.views/underlying_view.view.lkml.view.underlying_view,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,datahub-demo.views_datahub-demo_datasets_faa_flights.view.faa_flights,PROD)",
                                 "type": "VIEW"
                             }
                         ]
@@ -237,27 +237,6 @@
                         "fields": [
                             {
                                 "fieldPath": "dim1",
-                                "nullable": false,
-                                "description": "dimension one description",
-                                "label": "Dimensions One Label",
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "globalTags": {
-                                    "tags": [
-                                        {
-                                            "tag": "urn:li:tag:Dimension"
-                                        }
-                                    ]
-                                },
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "dim2",
                                 "nullable": false,
                                 "description": "dimension one description",
                                 "label": "Dimensions One Label",
@@ -330,7 +309,7 @@
         "json": {
             "path": [
                 {
-                    "id": "lkml_samples"
+                    "id": "looker_hub"
                 },
                 {
                     "id": "explores"

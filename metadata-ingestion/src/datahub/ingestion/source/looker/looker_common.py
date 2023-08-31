@@ -39,6 +39,7 @@ from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
     LookerDashboardSourceConfig,
     NamingPatternMapping,
+    ViewNamingPatternMapping,
 )
 from datahub.ingestion.source.looker.looker_constant import IMPORTED_PROJECTS
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -111,8 +112,8 @@ class LookerViewId:
     view_name: str
     file_path: str
 
-    def get_mapping(self, config: LookerCommonConfig) -> NamingPatternMapping:
-        return NamingPatternMapping(
+    def get_mapping(self, config: LookerCommonConfig) -> ViewNamingPatternMapping:
+        return ViewNamingPatternMapping(
             platform=config.platform_name,
             env=config.env.lower(),
             project=self.project_name,
@@ -127,11 +128,33 @@ class LookerViewId:
         v = v.replace('"', "").replace("`", "")
         return v
 
+    def preprocess_file_path(self, file_path: str) -> str:
+        new_file_path: str = str(file_path)
+
+        str_to_remove: List[str] = [
+            ".view.lkml",
+        ]
+
+        str_to_replace: Dict[str, str] = {
+            f"imported_projects/{self.project_name}/": "",
+            "/": "_",  # / is not urn friendly
+        }
+
+        for remove in str_to_remove:
+            new_file_path = new_file_path.rstrip(remove)
+
+        for replace in str_to_replace:
+            new_file_path = new_file_path.replace(replace, str_to_replace[replace])
+
+        logger.debug(f"Original file path {file_path}")
+        logger.debug(f"After preprocessing file path {new_file_path}")
+
+        return new_file_path
+
     def get_urn(self, config: LookerCommonConfig) -> str:
-        n_mapping: NamingPatternMapping = self.get_mapping(config)
-        # / is not urn friendly
-        if n_mapping.file_path is not None:  # to silent the lint
-            n_mapping.file_path = n_mapping.file_path.replace("/", "_")
+        n_mapping: ViewNamingPatternMapping = self.get_mapping(config)
+
+        n_mapping.file_path = self.preprocess_file_path(n_mapping.file_path)
 
         dataset_name = config.view_naming_pattern.replace_variables(n_mapping)
 
@@ -154,6 +177,10 @@ class ViewFieldType(Enum):
     DIMENSION_GROUP = "Dimension Group"
     MEASURE = "Measure"
     UNKNOWN = "Unknown"
+
+
+class ViewFieldValue(Enum):
+    NOT_AVAILABLE = "NotAvailable"
 
 
 @dataclass
@@ -832,7 +859,6 @@ class LookerExplore:
             model=self.model_name,
             name=self.name,
             env=config.env.lower(),
-            file_path=None,  # This value is not applicable for explore
         )
 
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
@@ -904,7 +930,7 @@ class LookerExplore:
                 file_path: str = (
                     cast(str, self.upstream_views_file_path[view_ref.include])
                     if self.upstream_views_file_path[view_ref.include] is not None
-                    else ViewFieldType.UNKNOWN.value
+                    else ViewFieldValue.NOT_AVAILABLE.value
                 )
                 view_urn = LookerViewId(
                     project_name=view_ref.project
