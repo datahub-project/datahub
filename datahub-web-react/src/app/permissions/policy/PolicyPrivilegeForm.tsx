@@ -344,7 +344,8 @@ export default function PolicyPrivilegeForm({
             {showResourceFilterInput && (
                 <Form.Item label={<Typography.Text strong>Domain</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for domains the policy should apply to. If <b>none</b> is selected, policy is applied to{' '}
+                        Search for domains the policy should apply to. If <b>selected</b>, policy applies to the domain
+                        and <b>all</b> domains nested below it. If <b>none</b> is selected, policy is applied to{' '}
                         <b>all</b> resources in all domains.
                     </Typography.Paragraph>
                     <Select
