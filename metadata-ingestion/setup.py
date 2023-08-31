@@ -229,8 +229,8 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0",
+    "pyiceberg",
+    "pyarrow>=9.0.0, <13.0.0",
 }
 
 s3_base = {
@@ -477,7 +477,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
@@ -530,7 +530,7 @@ full_test_dev_requirements = {
             "druid",
             "hana",
             "hive",
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -540,6 +540,7 @@ full_test_dev_requirements = {
             "redash",
             "vertica",
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
