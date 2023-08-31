@@ -338,7 +338,7 @@ def loaded_kafka_connect(kafka_connect_runner):
 
     # Give time for connectors to process the table data
     kafka_connect_runner.wait_until_responsive(
-        timeout=40,
+        timeout=30,
         pause=1,
         check=lambda: have_connectors_processed("test_connect"),
     )
