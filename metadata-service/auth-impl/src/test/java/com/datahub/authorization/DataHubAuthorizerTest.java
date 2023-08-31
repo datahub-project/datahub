@@ -12,6 +12,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.domain.DomainProperties;
 import com.linkedin.domain.Domains;
@@ -57,6 +58,9 @@ public class DataHubAuthorizerTest {
 
   public static final String DATAHUB_SYSTEM_CLIENT_ID = "__datahub_system";
 
+  private static final Urn PARENT_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:parent");
+  private static final Urn CHILD_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:child");
+
   private EntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
 
@@ -75,11 +79,15 @@ public class DataHubAuthorizerTest {
     final EnvelopedAspectMap inactiveAspectMap = new EnvelopedAspectMap();
     inactiveAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(inactivePolicy.data())));
 
-    final Urn domainPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:2");
-    final Urn parentDomainUrn = Urn.createFromString("urn:li:domain:parent");
-    final DataHubPolicyInfo domainPolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_DOCS"), parentDomainUrn);
-    final EnvelopedAspectMap domainPolicyAspectMap = new EnvelopedAspectMap();
-    domainPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(domainPolicy.data())));
+    final Urn parentDomainPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:2");
+    final DataHubPolicyInfo parentDomainPolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_DOCS"), PARENT_DOMAIN_URN);
+    final EnvelopedAspectMap parentDomainPolicyAspectMap = new EnvelopedAspectMap();
+    parentDomainPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(parentDomainPolicy.data())));
+
+    final Urn childDomainPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:3");
+    final DataHubPolicyInfo childDomainPolicy = createDataHubPolicyInfo(true, ImmutableList.of("EDIT_ENTITY_STATUS"), CHILD_DOMAIN_URN);
+    final EnvelopedAspectMap childDomainPolicyAspectMap = new EnvelopedAspectMap();
+    childDomainPolicyAspectMap.put(DATAHUB_POLICY_INFO_ASPECT_NAME, new EnvelopedAspect().setValue(new Aspect(childDomainPolicy.data())));
 
     final SearchResult policySearchResult = new SearchResult();
     policySearchResult.setNumEntities(3);
@@ -88,7 +96,8 @@ public class DataHubAuthorizerTest {
             ImmutableList.of(
                 new SearchEntity().setEntity(activePolicyUrn),
                 new SearchEntity().setEntity(inactivePolicyUrn),
-                new SearchEntity().setEntity(domainPolicyUrn)
+                new SearchEntity().setEntity(parentDomainPolicyUrn),
+                new SearchEntity().setEntity(childDomainPolicyUrn)
             )
         )
     );
@@ -96,11 +105,12 @@ public class DataHubAuthorizerTest {
     when(_entityClient.search(eq("dataHubPolicy"), eq(""), isNull(), any(), anyInt(), anyInt(), any(),
         eq(new SearchFlags().setFulltext(true)))).thenReturn(policySearchResult);
     when(_entityClient.batchGetV2(eq(POLICY_ENTITY_NAME),
-        eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn, domainPolicyUrn)), eq(null), any())).thenReturn(
+        eq(ImmutableSet.of(activePolicyUrn, inactivePolicyUrn, parentDomainPolicyUrn, childDomainPolicyUrn)), eq(null), any())).thenReturn(
         ImmutableMap.of(
             activePolicyUrn, new EntityResponse().setUrn(activePolicyUrn).setAspects(activeAspectMap),
             inactivePolicyUrn, new EntityResponse().setUrn(inactivePolicyUrn).setAspects(inactiveAspectMap),
-            domainPolicyUrn, new EntityResponse().setUrn(domainPolicyUrn).setAspects(domainPolicyAspectMap)
+            parentDomainPolicyUrn, new EntityResponse().setUrn(parentDomainPolicyUrn).setAspects(parentDomainPolicyAspectMap),
+            childDomainPolicyUrn, new EntityResponse().setUrn(childDomainPolicyUrn).setAspects(childDomainPolicyAspectMap)
         )
     );
 
@@ -115,30 +125,16 @@ public class DataHubAuthorizerTest {
         .thenReturn(ownershipResponse);
 
     // Mocks to get domains on a resource
-    final Urn childDomainUrn = Urn.createFromString("urn:li:domain:child");
-    final List<Urn> domainUrns = ImmutableList.of(childDomainUrn);
-    final EntityResponse domainsResponse = new EntityResponse();
-    EnvelopedAspectMap domainsAspectMap = new EnvelopedAspectMap();
-    domainsAspectMap.put(DOMAINS_ASPECT_NAME, new EnvelopedAspect()
-        .setValue(new com.linkedin.entity.Aspect(createDomainsAspect(domainUrns).data())));
-    domainsResponse.setAspects(domainsAspectMap);
     when(_entityClient.getV2(any(), any(), eq(Collections.singleton(DOMAINS_ASPECT_NAME)), any()))
-        .thenReturn(domainsResponse);
+        .thenReturn(createDomainsResponse(CHILD_DOMAIN_URN));
 
     // Mocks to get parent domains on a domain
-    final Map<Urn, EntityResponse> parentDomainsBatchResponse = new HashMap<>();
-    final EntityResponse parentDomainsResponse = new EntityResponse();
-    EnvelopedAspectMap parentDomainsAspectMap = new EnvelopedAspectMap();
-    parentDomainsAspectMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, new EnvelopedAspect()
-        .setValue(new com.linkedin.entity.Aspect(createDomainPropertiesAspect(parentDomainUrn).data())));
-    parentDomainsResponse.setAspects(parentDomainsAspectMap);
-    parentDomainsBatchResponse.put(parentDomainUrn, parentDomainsResponse);
-    when(_entityClient.batchGetV2(eq(DOMAIN_ENTITY_NAME), eq(Collections.singleton(childDomainUrn)), eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)), any()))
-        .thenReturn(parentDomainsBatchResponse);
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(CHILD_DOMAIN_URN)), eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)), any()))
+        .thenReturn(createDomainPropertiesBatchResponse(PARENT_DOMAIN_URN));
 
     // Mocks to reach the stopping point on domain parents
-    when(_entityClient.batchGetV2(eq(DOMAIN_ENTITY_NAME), eq(Collections.singleton(parentDomainUrn)), eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)), any()))
-        .thenReturn(new HashMap<>());
+    when(_entityClient.batchGetV2(any(), eq(Collections.singleton(PARENT_DOMAIN_URN)), eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)), any()))
+        .thenReturn(createDomainPropertiesBatchResponse(null));
 
     final Authentication systemAuthentication = new Authentication(
         new Actor(ActorType.USER, DATAHUB_SYSTEM_CLIENT_ID),
@@ -275,7 +271,20 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
-  public void testGrantedPrivilegesInheritsParentDomain() {
+  public void testAuthorizationOnDomainWithPrivilegeIsAllowed() {
+    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        "urn:li:corpuser:test",
+        "EDIT_ENTITY_STATUS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testAuthorizationOnDomainWithParentPrivilegeIsAllowed() {
     ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
 
     AuthorizationRequest request = new AuthorizationRequest(
@@ -285,6 +294,19 @@ public class DataHubAuthorizerTest {
     );
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testAuthorizationOnDomainWithoutPrivilegeIsDenied() {
+    ResourceSpec resourceSpec = new ResourceSpec("dataset", "urn:li:dataset:test");
+
+    AuthorizationRequest request = new AuthorizationRequest(
+        "urn:li:corpuser:test",
+        "EDIT_ENTITY_DOC_LINKS",
+        Optional.of(resourceSpec)
+    );
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
 
   private DataHubPolicyInfo createDataHubPolicyInfo(boolean active, List<String> privileges, @Nullable final Urn domain) throws Exception {
@@ -348,16 +370,31 @@ public class DataHubAuthorizerTest {
     return ownershipAspect;
   }
 
-  private Domains createDomainsAspect(final List<Urn> domainUrns) {
+  private EntityResponse createDomainsResponse(final Urn domainUrn) {
+    final List<Urn> domainUrns = ImmutableList.of(domainUrn);
+    final EntityResponse domainsResponse = new EntityResponse();
+    EnvelopedAspectMap domainsAspectMap = new EnvelopedAspectMap();
     final Domains domains = new Domains();
     domains.setDomains(new UrnArray(domainUrns));
-    return domains;
+    domainsAspectMap.put(DOMAINS_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(domains.data())));
+    domainsResponse.setAspects(domainsAspectMap);
+    return domainsResponse;
   }
 
-  private DomainProperties createDomainPropertiesAspect(final Urn domainUrn) {
+  private Map<Urn, EntityResponse> createDomainPropertiesBatchResponse(@Nullable final Urn parentDomainUrn) {
+    final Map<Urn, EntityResponse> batchResponse = new HashMap<>();
+    final EntityResponse response = new EntityResponse();
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     final DomainProperties properties = new DomainProperties();
-    properties.setParentDomain(domainUrn);
-    return properties;
+    if (parentDomainUrn != null) {
+      properties.setParentDomain(parentDomainUrn);
+    }
+    aspectMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, new EnvelopedAspect()
+        .setValue(new com.linkedin.entity.Aspect(properties.data())));
+    response.setAspects(aspectMap);
+    batchResponse.put(parentDomainUrn, response);
+    return batchResponse;
   }
 
   private AuthorizerContext createAuthorizerContext(final Authentication systemAuthentication, final EntityClient entityClient) {

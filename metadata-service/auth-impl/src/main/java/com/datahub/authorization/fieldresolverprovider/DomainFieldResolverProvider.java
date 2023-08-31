@@ -47,7 +47,7 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
   }
 
   private Set<Urn> getBatchedParentDomains(@Nonnull final Set<Urn> urns) {
-    Set<Urn> parentUrns = new HashSet<>();
+    final Set<Urn> parentUrns = new HashSet<>();
 
     try {
       final Map<Urn, EntityResponse> batchResponse = _entityClient.batchGetV2(
@@ -79,7 +79,7 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
   }
 
   private FieldResolver.FieldValue getDomains(ResourceSpec resourceSpec) {
-    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
+    final Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
     // In the case that the entity is a domain, the associated domain is the domain itself
     if (entityUrn.getEntityType().equals(DOMAIN_ENTITY_NAME)) {
       return FieldResolver.FieldValue.builder()
@@ -87,7 +87,7 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
           .build();
     }
 
-    EnvelopedAspect domainsAspect;
+    final EnvelopedAspect domainsAspect;
     try {
       EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
           Collections.singleton(DOMAINS_ASPECT_NAME), _systemAuthentication);
@@ -100,7 +100,7 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
       return FieldResolver.emptyFieldValue();
     }
 
-    Set<Urn> domainUrns = new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
+    final Set<Urn> domainUrns = new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
     Set<Urn> batchedParentUrns = getBatchedParentDomains(domainUrns);
 
     while (!batchedParentUrns.isEmpty()) {
