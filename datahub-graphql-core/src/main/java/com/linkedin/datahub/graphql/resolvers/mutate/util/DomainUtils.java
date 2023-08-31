@@ -39,7 +39,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import javax.management.Query;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
@@ -216,7 +215,7 @@ public class DomainUtils {
   ) {
     try {
       final EntityResponse entityResponse = entityClient.getV2(
-          urn.getEntityType(),
+          DOMAIN_ENTITY_NAME,
           urn,
           Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME),
           context.getAuthentication()
@@ -225,24 +224,13 @@ public class DomainUtils {
       if (entityResponse != null && entityResponse.getAspects().containsKey(DOMAIN_PROPERTIES_ASPECT_NAME)) {
         final DomainProperties properties = new DomainProperties(entityResponse.getAspects().get(DOMAIN_PROPERTIES_ASPECT_NAME).getValue().data());
         if (properties.hasParentDomain()) {
-          final Urn parentDomainUrn = properties.getParentDomain();
-          if (parentDomainUrn != null) {
-            final EntityResponse parentResponse = entityClient.getV2(
-                parentDomainUrn.getEntityType(),
-                parentDomainUrn,
-                null,
-                context.getAuthentication()
-            );
-            if (parentResponse != null) {
-              return UrnToEntityMapper.map(parentResponse.getUrn());
-            }
-          }
+          return properties.getParentDomain() != null ? UrnToEntityMapper.map(properties.getParentDomain()) : null;
         }
       }
-
-      return null;
     } catch (Exception e) {
       throw new RuntimeException(String.format("Failed to retrieve parent domain for entity %s", urn), e);
     }
+
+    return null;
   }
 }
