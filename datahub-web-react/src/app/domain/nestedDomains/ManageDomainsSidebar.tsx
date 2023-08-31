@@ -4,6 +4,7 @@ import { ProfileSidebarResizer } from '../../entity/shared/containers/profile/si
 import DomainsSidebarHeader from './DomainsSidebarHeader';
 import { SidebarWrapper } from '../../shared/sidebar/components';
 import DomainNavigator from './domainNavigator/DomainNavigator';
+import DomainSearch from '../DomainSearch';
 
 export default function ManageDomainsSidebar() {
     const [browserWidth, setBrowserWith] = useState(window.innerWidth * 0.2);
@@ -12,6 +13,7 @@ export default function ManageDomainsSidebar() {
         <>
             <SidebarWrapper width={browserWidth}>
                 <DomainsSidebarHeader />
+                <DomainSearch />
                 <DomainNavigator />
             </SidebarWrapper>
             <ProfileSidebarResizer
