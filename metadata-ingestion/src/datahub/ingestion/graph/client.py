@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Type
 
 from avro.schema import RecordSchema
 from deprecated import deprecated
@@ -16,7 +16,12 @@ from requests.models import HTTPError
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_data_platform_urn
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    Aspect,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -38,6 +43,8 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
@@ -541,8 +548,10 @@ class DataHubGraph(DatahubRestEmitter):
         *,
         entity_types: Optional[List[str]] = None,
         platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
+        container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
@@ -555,15 +564,25 @@ class DataHubGraph(DatahubRestEmitter):
 
         :param entity_types: List of entity types to include. If None, all entity types will be returned.
         :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param platform_instance: Platform instance to filter on. If None, all platform instances will be returned.
         :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param query: Query string to filter on. If None, all entities will be returned.
+        :param container: A container urn that entities must be within.
+            This works recursively, so it will include entities within sub-containers as well.
+            If None, all entities will be returned.
+            Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+
+        :return: An iterable of urns that match the filters.
         """
 
         types: Optional[List[str]] = None
         if entity_types is not None:
             if not entity_types:
-                raise ValueError("entity_types cannot be an empty list")
+                raise ValueError(
+                    "entity_types cannot be an empty list; use None for all entities"
+                )
 
             types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
 
@@ -579,6 +598,44 @@ class DataHubGraph(DatahubRestEmitter):
                     "field": "platform.keyword",
                     "values": [make_data_platform_urn(platform)],
                     "condition": "EQUAL",
+                }
+            ]
+
+        # Platform instance filter.
+        if platform_instance:
+            if platform:
+                # Massage the platform instance into a fully qualified urn, if necessary.
+                platform_instance = make_dataplatform_instance_urn(
+                    platform, platform_instance
+                )
+
+            # Warn if platform_instance is not a fully qualified urn.
+            # TODO: Change this once we have a first-class data platform instance urn type.
+            if guess_entity_type(platform_instance) != "dataPlatformInstance":
+                raise ValueError(
+                    f"Invalid data platform instance urn: {platform_instance}"
+                )
+
+            andFilters += [
+                {
+                    "field": "platformInstance",
+                    "values": [platform_instance],
+                    "condition": "EQUAL",
+                }
+            ]
+
+        # Browse path v2 filter.
+        if container:
+            # Warn if container is not a fully qualified urn.
+            # TODO: Change this once we have a first-class container urn type.
+            if guess_entity_type(container) != "container":
+                raise ValueError(f"Invalid container urn: {container}")
+
+            andFilters += [
+                {
+                    "field": "browsePathV2",
+                    "values": [container],
+                    "condition": "CONTAIN",
                 }
             ]
 
@@ -957,7 +1014,11 @@ class DataHubGraph(DatahubRestEmitter):
 
     @functools.lru_cache()
     def _make_schema_resolver(
-        self, platform: str, platform_instance: Optional[str], env: str
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        include_graph: bool = True,
     ) -> "SchemaResolver":
         from datahub.utilities.sqlglot_lineage import SchemaResolver
 
@@ -965,8 +1026,50 @@ class DataHubGraph(DatahubRestEmitter):
             platform=platform,
             platform_instance=platform_instance,
             env=env,
-            graph=self,
+            graph=self if include_graph else None,
         )
+
+    def initialize_schema_resolver_from_datahub(
+        self, platform: str, platform_instance: Optional[str], env: str
+    ) -> Tuple["SchemaResolver", Set[str]]:
+        logger.info("Initializing schema resolver")
+
+        # TODO: Filter on platform instance?
+        logger.info(f"Fetching urns for platform {platform}, env {env}")
+        with PerfTimer() as timer:
+            urns = set(
+                self.get_urns_by_filter(
+                    entity_types=[DatasetUrn.ENTITY_TYPE],
+                    platform=platform,
+                    env=env,
+                    batch_size=3000,
+                )
+            )
+            logger.info(
+                f"Fetched {len(urns)} urns in {timer.elapsed_seconds()} seconds"
+            )
+
+        schema_resolver = self._make_schema_resolver(
+            platform, platform_instance, env, include_graph=False
+        )
+        with PerfTimer() as timer:
+            count = 0
+            for i, urn in enumerate(urns):
+                if i % 1000 == 0:
+                    logger.debug(f"Loaded {i} schema metadata")
+                try:
+                    schema_metadata = self.get_aspect(urn, SchemaMetadataClass)
+                    if schema_metadata:
+                        schema_resolver.add_schema_metadata(urn, schema_metadata)
+                        count += 1
+                except Exception:
+                    logger.warning("Failed to load schema metadata", exc_info=True)
+            logger.info(
+                f"Loaded {count} schema metadata in {timer.elapsed_seconds()} seconds"
+            )
+
+        logger.info("Finished initializing schema resolver")
+        return schema_resolver, urns
 
     def parse_sql_lineage(
         self,
@@ -982,9 +1085,7 @@ class DataHubGraph(DatahubRestEmitter):
 
         # Cache the schema resolver to make bulk parsing faster.
         schema_resolver = self._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
+            platform=platform, platform_instance=platform_instance, env=env
         )
 
         return sqlglot_lineage(
