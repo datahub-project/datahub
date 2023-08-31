@@ -85,7 +85,7 @@ describe("search", () => {
     // has the term in non-editable metadata
     cy.contains("cypress_logging_events");
 
-    cy.contains("of 2 results");
+    cy.contains("of 3 results");
   });
 
   it("can search by AND-ing two concepts using advanced search", () => {
