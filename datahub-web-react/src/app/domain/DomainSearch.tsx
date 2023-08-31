@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
@@ -63,6 +63,13 @@ function DomainSearch() {
     });
 
     const searchResults = data?.searchAcrossEntities?.searchResults;
+    const timerRef = useRef(-1);
+    const handleQueryChange = (q: string) => {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = window.setTimeout(() => {
+            setQuery(q);
+        }, 250);
+    };
 
     return (
         <DomainSearchWrapper>
@@ -81,7 +88,7 @@ function DomainSearch() {
                         fontSize: 12,
                     }}
                     onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q)}
+                    onQueryChange={(q) => handleQueryChange(q)}
                     entityRegistry={entityRegistry}
                     onFocus={() => setIsSearchBarFocused(true)}
                 />
