@@ -247,8 +247,8 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1, <1.1",
-    "pyspark==3.0.3",
+    "pydeequ==1.1.0",
+    "pyspark~=3.3.0",
 }
 
 delta_lake = {
@@ -283,8 +283,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        "apache-airflow >= 2.0.2",
-        *rest_common,
+        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -421,6 +420,7 @@ mypy_stubs = {
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
     "boto3-stubs[s3,glue,sagemaker,sts]==1.28.15",
+    "mypy-boto3-sagemaker==1.28.15",  # For some reason, above pin only restricts `mypy-boto3-sagemaker<1.29.0,>=1.28.0`
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
@@ -507,8 +507,8 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
-            # airflow is added below
+            "vertica",
+            "mode",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -517,9 +517,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Extra requirements for Airflow.
-    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {

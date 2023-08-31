@@ -16,7 +16,12 @@ from requests.models import HTTPError
 from datahub.cli.cli_utils import get_url_and_token
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_data_platform_urn
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    Aspect,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
@@ -543,8 +548,10 @@ class DataHubGraph(DatahubRestEmitter):
         *,
         entity_types: Optional[List[str]] = None,
         platform: Optional[str] = None,
+        platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         query: Optional[str] = None,
+        container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
         batch_size: int = 10000,
         extraFilters: Optional[List[SearchFilterRule]] = None,
@@ -557,15 +564,25 @@ class DataHubGraph(DatahubRestEmitter):
 
         :param entity_types: List of entity types to include. If None, all entity types will be returned.
         :param platform: Platform to filter on. If None, all platforms will be returned.
+        :param platform_instance: Platform instance to filter on. If None, all platform instances will be returned.
         :param env: Environment (e.g. PROD, DEV) to filter on. If None, all environments will be returned.
+        :param query: Query string to filter on. If None, all entities will be returned.
+        :param container: A container urn that entities must be within.
+            This works recursively, so it will include entities within sub-containers as well.
+            If None, all entities will be returned.
+            Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+
+        :return: An iterable of urns that match the filters.
         """
 
         types: Optional[List[str]] = None
         if entity_types is not None:
             if not entity_types:
-                raise ValueError("entity_types cannot be an empty list")
+                raise ValueError(
+                    "entity_types cannot be an empty list; use None for all entities"
+                )
 
             types = [_graphql_entity_type(entity_type) for entity_type in entity_types]
 
@@ -581,6 +598,44 @@ class DataHubGraph(DatahubRestEmitter):
                     "field": "platform.keyword",
                     "values": [make_data_platform_urn(platform)],
                     "condition": "EQUAL",
+                }
+            ]
+
+        # Platform instance filter.
+        if platform_instance:
+            if platform:
+                # Massage the platform instance into a fully qualified urn, if necessary.
+                platform_instance = make_dataplatform_instance_urn(
+                    platform, platform_instance
+                )
+
+            # Warn if platform_instance is not a fully qualified urn.
+            # TODO: Change this once we have a first-class data platform instance urn type.
+            if guess_entity_type(platform_instance) != "dataPlatformInstance":
+                raise ValueError(
+                    f"Invalid data platform instance urn: {platform_instance}"
+                )
+
+            andFilters += [
+                {
+                    "field": "platformInstance",
+                    "values": [platform_instance],
+                    "condition": "EQUAL",
+                }
+            ]
+
+        # Browse path v2 filter.
+        if container:
+            # Warn if container is not a fully qualified urn.
+            # TODO: Change this once we have a first-class container urn type.
+            if guess_entity_type(container) != "container":
+                raise ValueError(f"Invalid container urn: {container}")
+
+            andFilters += [
+                {
+                    "field": "browsePathV2",
+                    "values": [container],
+                    "condition": "CONTAIN",
                 }
             ]
 

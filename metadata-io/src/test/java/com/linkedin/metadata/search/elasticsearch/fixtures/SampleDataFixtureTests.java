@@ -161,6 +161,7 @@ public class SampleDataFixtureTests extends AbstractTestNGSpringContextTests {
                     // this is a subfield therefore cannot have a subfield
                     assertFalse(test.hasKeywordSubfield());
                     assertFalse(test.hasDelimitedSubfield());
+                    assertFalse(test.hasWordGramSubfields());
 
                     String[] fieldAndSubfield = test.fieldName().split("[.]", 2);
 
