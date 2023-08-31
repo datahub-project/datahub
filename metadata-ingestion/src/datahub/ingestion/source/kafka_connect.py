@@ -893,7 +893,6 @@ class SnowflakeSinkConnector:
 
     @dataclass
     class SnowflakeParser:
-        target_platform: str
         database_name: str
         schema_name: str
         topics_to_tables: Dict[str, str]
@@ -909,14 +908,22 @@ class SnowflakeSinkConnector:
         database_name = connector_manifest.config["snowflake.database.name"]
         schema_name = connector_manifest.config["snowflake.schema.name"]
         topics_to_tables: Dict[str, str] = {}
-        # Extract lineage for only those topics whose data ingestion started
-        for each in connector_manifest.config["snowflake.topic2table.map"].split(","):
-            topic = each.split(":")[0]
-            if topic in connector_manifest.topic_names:
-                topics_to_tables[topic] = each.split(":")[1]
+
+        # If config contains topic to table map, take target table from config
+        # Else kafka connect create target table with same name as source topic
+        if "snowflake.topic2table.map" in connector_manifest.config:
+            for each in connector_manifest.config["snowflake.topic2table.map"].split(
+                ","
+            ):
+                topic, table = each.split(":")
+                # Extract lineage for only those topics whose data ingestion started
+                if topic in connector_manifest.topic_names:
+                    topics_to_tables[topic] = table
+        else:
+            for topic in connector_manifest.topic_names:
+                topics_to_tables[topic] = topic
 
         return self.SnowflakeParser(
-            target_platform="snowflake",
             database_name=database_name,
             schema_name=schema_name,
             topics_to_tables=topics_to_tables,
@@ -929,17 +936,15 @@ class SnowflakeSinkConnector:
 
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
-        if not parser:
-            return lineages
 
         for topic, table in parser.topics_to_tables.items():
             target_dataset = f"{parser.database_name}.{parser.schema_name}.{table}"
             lineages.append(
                 KafkaConnectLineage(
                     source_dataset=topic,
-                    source_platform="kafka",
+                    source_platform=KAFKA,
                     target_dataset=target_dataset,
-                    target_platform=parser.target_platform,
+                    target_platform="snowflake",
                 )
             )
 
