@@ -42,15 +42,15 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
 
     // parent nodes/domains are returned with direct parent first
     const orderedParentEntities = [...parentEntities].reverse();
-    const visibleNodes = orderedParentEntities.slice(orderedParentEntities.length - numVisible);
-    const numHiddenNodes = orderedParentEntities.length - numVisible;
-    const hasHiddenNodes = numHiddenNodes > 0;
+    const numHiddenEntities = orderedParentEntities.length - numVisible;
+    const hasHiddenEntities = numHiddenEntities > 0;
+    const visibleNodes = hasHiddenEntities ? orderedParentEntities.slice(numHiddenEntities) : orderedParentEntities;
 
     if (!parentEntities.length) return null;
 
     return (
         <StyledTooltip
-            overlayStyle={hasHiddenNodes ? { maxWidth: 450 } : { display: 'none' }}
+            overlayStyle={hasHiddenEntities ? { maxWidth: 450 } : { display: 'none' }}
             placement="top"
             title={
                 <>
@@ -67,8 +67,8 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
             }
         >
             <ParentNodesWrapper>
-                {hasHiddenNodes &&
-                    [...Array(numHiddenNodes)].map(() => (
+                {hasHiddenEntities &&
+                    [...Array(numHiddenEntities)].map(() => (
                         <>
                             <FolderOpenOutlined />
                             <ArrowWrapper>{'>'}</ArrowWrapper>
@@ -79,7 +79,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                     return (
                         <>
                             <FolderOpenOutlined />
-                            <ParentNode ellipsis={!hasHiddenNodes ? { tooltip: displayName } : true}>
+                            <ParentNode ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}>
                                 {displayName}
                             </ParentNode>
                             {index !== visibleNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
