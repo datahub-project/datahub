@@ -30,21 +30,24 @@ public class ESGraphQueryDAOTest {
     URL url = Resources.getResource(TEST_QUERY_FILE);
     String expectedQuery = Resources.toString(url, StandardCharsets.UTF_8);
 
-    List<Urn> urns = new ArrayList<>();
+    List<Urn> urns = List.of(Urn.createFromString("urn:li:dataset:test-urn"));
     List<LineageRegistry.EdgeInfo> edgeInfos = new ArrayList<>(ImmutableList.of(
         new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, Constants.DATASET_ENTITY_NAME)
     ));
+    String entityType = "testEntityType";
+    Map<String, List<Urn>> urnsPerEntityType = Map.of(entityType, urns);
+    Map<String, List<LineageRegistry.EdgeInfo>> edgesPerEntityType = Map.of(entityType, edgeInfos);
     GraphFilters graphFilters = new GraphFilters(ImmutableList.of(Constants.DATASET_ENTITY_NAME));
     Long startTime = 0L;
     Long endTime = 1L;
 
-    QueryBuilder builder = ESGraphQueryDAO.getQueryForLineage(
+    QueryBuilder builder = ESGraphQueryDAO.getLineageQueryForEntityType(
         urns,
         edgeInfos,
-        graphFilters,
-        startTime,
-        endTime
+        graphFilters
     );
+
+    QueryBuilder fullBuilder = ESGraphQueryDAO.getLineageQuery(urnsPerEntityType, edgesPerEntityType, graphFilters, startTime, endTime);
 
     Assert.assertEquals(builder.toString(), expectedQuery);
   }
