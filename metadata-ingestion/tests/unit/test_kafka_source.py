@@ -227,7 +227,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             RegisteredSchema(
                 schema_id="schema_id_2",
                 schema=Schema(
-                    schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
+                    schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string","doc": "field1 description", "tags": ["tag1", "tag2"],"has_tag3": True,"has_term1": True,}]}',
                     schema_type="AVRO",
                 ),
                 subject="topic1-key",
@@ -236,7 +236,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             RegisteredSchema(
                 schema_id="schema_id_1",
                 schema=Schema(
-                    schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
+                    schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string","doc": "field1 description", "tags": ["tag1", "tag2"],"has_tag3": True,"has_term1": True,}]}',
                     schema_type="AVRO",
                 ),
                 subject="topic1-value",
@@ -248,7 +248,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             RegisteredSchema(
                 schema_id="schema_id_3",
                 schema=Schema(
-                    schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
+                    schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string","doc": "field1 description", "tags": ["tag1", "tag2"],"has_tag3": True,"has_term1": True,}]}',
                     schema_type="AVRO",
                 ),
                 subject="test.acryl.Topic2Key",
@@ -257,7 +257,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             RegisteredSchema(
                 schema_id="schema_id_4",
                 schema=Schema(
-                    schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
+                    schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string","doc": "field1 description", "tags": ["tag1", "tag2"],"has_tag3": True,"has_term1": True,}]}',
                     schema_type="AVRO",
                 ),
                 subject="test.acryl.Topic2Value",
@@ -269,7 +269,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             RegisteredSchema(
                 schema_id="schema_id_4",
                 schema=Schema(
-                    schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
+                    schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string","doc": "field1 description", "tags": ["tag1", "tag2"],"has_tag3": True,"has_term1": True,}]}',
                     schema_type="AVRO",
                 ),
                 subject="topic3-test.acryl.Topic3Key-key",
@@ -278,7 +278,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             RegisteredSchema(
                 schema_id="schema_id_5",
                 schema=Schema(
-                    schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
+                    schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string","doc": "field1 description", "tags": ["tag1", "tag2"],"has_tag3": True,"has_term1": True,}]}',
                     schema_type="AVRO",
                 ),
                 subject="topic3-test.acryl.Topic3Value-value",

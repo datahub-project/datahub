@@ -2,18 +2,17 @@ import json
 import logging
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 import avro.schema
-import confluent_kafka
 import jsonref
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
     SchemaReference,
+    SchemaRegistryClient,
 )
 
-from datahub.emitter import mce_builder
 from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
@@ -24,8 +23,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import DatasetPropertiesClass
-from datahub.utilities.mapping import Constants, OperationProcessor
+from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +47,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     ) -> None:
         self.source_config: KafkaSourceConfig = source_config
         self.report: KafkaSourceReport = report
-        # Use the fully qualified name for SchemaRegistryClient to make it mock patchable for testing.
-        self.schema_registry_client = (
-            confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient(
-                {
-                    "url": source_config.connection.schema_registry_url,
-                    **source_config.connection.schema_registry_config,
-                }
-            )
+        self.schema_registry_client = SchemaRegistryClient(
+            {
+                "url": source_config.connection.schema_registry_url,
+                **source_config.connection.schema_registry_config,
+            }
         )
         self.known_schema_registry_subjects: List[str] = []
         try:
@@ -66,12 +61,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         except Exception as e:
             logger.warning(f"Failed to get subjects from schema registry: {e}")
 
-        self.meta_processor = OperationProcessor(
-            self.source_config.meta_mapping,
-            self.source_config.tag_prefix,
-            "SOURCE_CONTROL",
-            self.source_config.strip_user_ids_from_email,
-        )
         self.field_meta_processor = OperationProcessor(
             self.source_config.field_meta_mapping,
             self.source_config.tag_prefix,
@@ -407,46 +396,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         key_schema, key_fields = self._get_schema_and_fields(
             topic=topic, is_key_schema=True
         )  # type:Tuple[Optional[Schema], List[SchemaField]]
-
-        meta_aspects: Dict[str, Any] = {}
-        description = None
-        all_tags: List[str] = []
-
-        if schema is not None:
-            if schema.schema_type == "AVRO":
-                cleaned_str: str = self.get_schema_str_replace_confluent_ref_avro(
-                    schema
-                )
-                avro_schema = avro.schema.parse(cleaned_str)
-                meta_aspects = self.meta_processor.process(avro_schema.other_props)
-                description = avro_schema.doc
-                for tag in avro_schema.other_props.get(
-                    self.source_config.schema_tags_field, []
-                ):
-                    all_tags.append(self.source_config.tag_prefix + tag)
-            elif schema.schema_type == "PROTOBUF":
-                pass  # not implemented
-
-        aspects: List[Any] = []
-        aspects.append(DatasetPropertiesClass(description=description))
-
-        meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
-        if meta_owners_aspects:
-            aspects.append(meta_owners_aspects)
-
-        meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-        if meta_terms_aspect:
-            aspects.append(meta_terms_aspect)
-
-        # Create the tags aspect
-        meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
-        if meta_tags_aspect:
-            all_tags += [
-                tag_association.tag[len("urn:li:tag:") :]
-                for tag_association in meta_tags_aspect.tags
-            ]
-        if all_tags:
-            aspects.append(mce_builder.make_global_tag_aspect_with_tag_list(all_tags))
 
         # Create the schemaMetadata aspect.
         if schema is not None or key_schema is not None:

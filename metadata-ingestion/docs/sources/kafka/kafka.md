@@ -131,7 +131,7 @@ message MessageWithMap {
 }
 ```
 
-### Embedding DataHub metadata in schemas with meta mapping
+### Enriching DataHub metadata with automated meta mapping
 
 :::note
 Meta mapping is currently only available for Avro schemas

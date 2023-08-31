@@ -22,7 +22,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.utilities.mapping import Constants, OperationProcessor
 
 """A helper file for Avro schema -> MCE schema transformations"""
@@ -341,7 +340,7 @@ class AvroToMceSchemaConverter:
                 if self._meta_mapping_processor:
                     meta_aspects = self._meta_mapping_processor.process(merged_props)
 
-                tags = []
+                tags: List[Any] = []
                 if self._schema_tags_field:
                     for tag in merged_props.get(self._schema_tags_field, []):
                         tags.append(self._tag_prefix + tag)
@@ -360,11 +359,7 @@ class AvroToMceSchemaConverter:
                         if description
                         else ""
                     )
-                    tags += [
-                        GlobalTagsClass(
-                            tags=[TagAssociationClass(tag="urn:li:tag:Deprecated")]
-                        )
-                    ]
+                    tags.append("Deprecated")
 
                 tags_aspect = None
                 if tags:

@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Type
 
+import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
 import pydantic
@@ -18,6 +19,7 @@ from confluent_kafka.admin import (
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -58,6 +60,7 @@ from datahub.metadata.schema_classes import (
     KafkaSchemaClass,
     SubTypesClass,
 )
+from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
@@ -190,6 +193,13 @@ class KafkaSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
 
+        self.meta_processor = OperationProcessor(
+            self.source_config.meta_mapping,
+            self.source_config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.source_config.strip_user_ids_from_email,
+        )
+
     def init_kafka_admin_client(self) -> None:
         try:
             # TODO: Do we require separate config than existing consumer_config ?
@@ -286,6 +296,8 @@ class KafkaSource(StatefulIngestionSourceBase):
 
         # 4. Set dataset's description as top level doc, if topic schema type is avro
         description = None
+        meta_aspects: Dict[str, Any] = {}
+        all_tags: List[str] = []
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -297,6 +309,35 @@ class KafkaSource(StatefulIngestionSourceBase):
             schema = json.loads(schema_metadata.platformSchema.documentSchema)
             if isinstance(schema, dict):
                 description = schema.get(DOC_KEY)
+
+            # set the tags
+            avro_schema = avro.schema.parse(schema)
+            meta_aspects = self.meta_processor.process(avro_schema.other_props)
+            description = avro_schema.doc
+            for tag in avro_schema.other_props.get(
+                self.source_config.schema_tags_field, []
+            ):
+                all_tags.append(self.source_config.tag_prefix + tag)
+        meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+        if meta_owners_aspects:
+            dataset_snapshot.aspects.append(meta_owners_aspects)
+
+        meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
+        if meta_terms_aspect:
+            dataset_snapshot.aspects.append(meta_terms_aspect)
+
+        # Create the tags aspect
+        meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+        if meta_tags_aspect:
+            all_tags += [
+                tag_association.tag[len("urn:li:tag:") :]
+                for tag_association in meta_tags_aspect.tags
+            ]
+
+        if all_tags:
+            dataset_snapshot.aspects.append(
+                mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
+            )
 
         dataset_properties = DatasetPropertiesClass(
             name=topic, customProperties=custom_props, description=description

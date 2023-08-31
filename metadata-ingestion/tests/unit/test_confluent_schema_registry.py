@@ -178,7 +178,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
                 assert aspects == schema_metadata_aspect
 
     @patch(
-        "datahub.ingestion.source.confluent_schema_registry.confluent_kafka.schema_registry.schema_registry_client.SchemaRegistryClient",
+        "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
         autospec=True,
     )
     def test_get_aspects_from_schema_avro(self, mock_schema_registry_client):
@@ -307,6 +307,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             kafka_source_config, KafkaSourceReport()
         )
 
+        aspects: Optional[SchemaMetadataClass]
         aspects = confluent_schema_registry.get_schema_metadata(
             topic="topic1", platform_urn="urn:li:platform:test"
         )
@@ -354,16 +355,16 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
             assert len(schema_metadata_aspect.fields) == 2
             field = schema_metadata_aspect.fields[1]  # the value field
 
-        assert isinstance(field.globalTags, GlobalTagsClass)
-        fieldTags = {tag_assoc.tag for tag_assoc in field.globalTags.tags}
-        assert fieldTags == {
-            "urn:li:tag:kafka:tag1",
-            "urn:li:tag:kafka:tag2",
-            "urn:li:tag:kafka:tag3",
-        }
-        assert isinstance(field.glossaryTerms, GlossaryTermsClass)
-        fieldTerms = {term_assoc.urn for term_assoc in field.glossaryTerms.terms}
-        assert fieldTerms == {"urn:li:glossaryTerm:term1"}
+            assert isinstance(field.globalTags, GlobalTagsClass)
+            fieldTags = {tag_assoc.tag for tag_assoc in field.globalTags.tags}
+            assert fieldTags == {
+                "urn:li:tag:kafka:tag1",
+                "urn:li:tag:kafka:tag2",
+                "urn:li:tag:kafka:tag3",
+            }
+            assert isinstance(field.glossaryTerms, GlossaryTermsClass)
+            fieldTerms = {term_assoc.urn for term_assoc in field.glossaryTerms.terms}
+            assert fieldTerms == {"urn:li:glossaryTerm:term1"}
 
 
 if __name__ == "__main__":
