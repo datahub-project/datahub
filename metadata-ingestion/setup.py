@@ -647,6 +647,7 @@ entry_points = {
         "datahub = datahub.ingestion.reporting.datahub_ingestion_run_summary_provider:DatahubIngestionRunSummaryProvider",
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
+    "datahub.custom_packages": [],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
 }
 
