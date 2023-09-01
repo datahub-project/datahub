@@ -139,7 +139,7 @@ public class MostPopularSource implements RecommendationSource {
 
   private Optional<RecommendationContent> buildContent(@Nonnull String entityUrn) {
     Urn entity = UrnUtils.getUrn(entityUrn);
-    if (EntityUtils.checkIfRemoved(_entityService, entity) || !RecommendationUtils.isSupportedEntityType(entity, SUPPORTED_ENTITY_TYPES)) {
+    if (EntityUtils.checkIfNotExists(_entityService,entity) || EntityUtils.checkIfRemoved(_entityService, entity) || !RecommendationUtils.isSupportedEntityType(entity, SUPPORTED_ENTITY_TYPES)) {
       return Optional.empty();
     }
 
