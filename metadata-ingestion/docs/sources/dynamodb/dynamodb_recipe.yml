@@ -10,8 +10,8 @@ source:
     # We'll enforce the the primary keys list size not to exceed 100
     # The total items we'll try to retrieve in these two scenarios:
     # 1. If user don't specify include_table_item: we'll retrieve up to 100 items
-    # 2. If user specify include_table_item: we'll retireve up to 100 items plus user specified items in
-    # the table, with total not more than 200 items
+    # 2. If user specifies include_table_item: we'll retrieve up to 100 items plus user specified items in
+    # the table, with a total not more than 200 items
     # include_table_item:
     #   table_name:
     #     [
