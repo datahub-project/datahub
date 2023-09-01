@@ -342,7 +342,7 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Select Domains to Apply Policy</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Select Domains</Typography.Text>}>
                     <Typography.Paragraph>
                         The policy will apply to any chosen domains and all their nested subdomains. If no domains are
                         selected, the policy will be applied globally to all entities in all domains.
