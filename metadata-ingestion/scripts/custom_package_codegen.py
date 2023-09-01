@@ -76,7 +76,7 @@ setup(
     name=_package_name,
     version=_package_version,
     install_requires=[
-        "avro-gen3==0.7.10",
+        "avro-gen3==0.7.11",
         "acryl-datahub",
     ],
     entry_points={{
@@ -94,8 +94,14 @@ setup(
 
     click.echo()
     click.secho(f"Generated package at {package_path}", fg="green")
-    click.echo(f"Install it locally with `pip install {package_path}`")
-    click.echo(f"or publish it to PyPI with `twine upload {package_path}/dist/*`")
+    click.echo()
+    click.echo(f"Install the custom package locally with `pip install {package_path}`")
+    click.echo(
+        f"To enable others to use it, share the file at {package_path}/dist/*.whl and have them install it with `pip install <wheel file>.whl`"
+    )
+    click.echo(
+        f"Alternatively, publish it to PyPI with `twine upload {package_path}/dist/*`"
+    )
 
 
 if __name__ == "__main__":
