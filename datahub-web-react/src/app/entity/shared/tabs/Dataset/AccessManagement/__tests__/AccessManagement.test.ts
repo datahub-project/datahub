@@ -1,8 +1,8 @@
-import { handleAccesslRoles } from '../utils';
+import { handleAccessRoles } from '../utils';
 import { GetExternalRolesQuery } from '../../../../../../../graphql/dataset.generated';
 import { GetMeQuery } from '../../../../../../../graphql/me.generated';
 
-describe('handleAccesslRoles', () => {
+describe('handleAccessRoles', () => {
     it('should properly map the externalroles and loggedin user', () => {
         const externalRolesQuery: GetExternalRolesQuery = {
             dataset: {
@@ -85,7 +85,7 @@ describe('handleAccesslRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleAccesslRoles(externalRolesQuery, GetMeQueryUser);
+        const externalRole = handleAccessRoles(externalRolesQuery, GetMeQueryUser);
         expect(externalRole).toMatchObject([
             {
                 name: 'accessRole',
@@ -160,7 +160,7 @@ describe('handleAccesslRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleAccesslRoles(externalRolesQuery, GetMeQueryUser);
+        const externalRole = handleAccessRoles(externalRolesQuery, GetMeQueryUser);
         expect(externalRole).toMatchObject([]);
     });
     it('should properly map the externalroles and loggedin user and access true', () => {
@@ -251,7 +251,7 @@ describe('handleAccesslRoles', () => {
                 __typename: 'AuthenticatedUser',
             },
         };
-        const externalRole = handleAccesslRoles(externalRolesQuery, GetMeQueryUser);
+        const externalRole = handleAccessRoles(externalRolesQuery, GetMeQueryUser);
 
         expect(externalRole).toMatchObject([
             {

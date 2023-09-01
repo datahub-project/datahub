@@ -1,28 +1,16 @@
 import { Typography, Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 import { PlusOutlined } from '@ant-design/icons';
 import Highlight from 'react-highlighter';
 
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { Access, Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
+import { Domain, EntityType, GlobalTags, GlossaryTerms, SubResourceType } from '../../../types.generated';
 import { EMPTY_MESSAGES, ANTD_GRAY } from '../../entity/shared/constants';
 import { DomainLink } from './DomainLink';
 import EditTagTermsModal from './AddTagsTermsModal';
 import StyledTerm from './term/StyledTerm';
 import Tag from './tag/Tag';
-import AccessTermstyle from './Access/accessTerm';
-
-const AccessWrapper = styled.span`
-    display: inline-block;
-    margin-bottom: 8px;
-`;
-const AccessLink = styled(Link)`
-    display: inline-block;
-    margin-bottom: 8px;
-`;
 
 type Props = {
     uneditableTags?: GlobalTags | null;
@@ -37,7 +25,6 @@ type Props = {
     buttonProps?: Record<string, unknown>;
     onOpenModal?: () => void;
     maxShow?: number;
-    uneditableAccess?: Access | null;
     entityUrn?: string;
     entityType?: EntityType;
     entitySubresource?: string;
@@ -70,7 +57,6 @@ export default function TagTermGroup({
     buttonProps,
     onOpenModal,
     maxShow,
-    uneditableAccess,
     uneditableGlossaryTerms,
     editableGlossaryTerms,
     domain,
@@ -95,38 +81,6 @@ export default function TagTermGroup({
             {domain && (
                 <DomainLink domain={domain} name={entityRegistry.getDisplayName(EntityType.Domain, domain) || ''} />
             )}
-            {uneditableAccess?.roles?.map((role) => {
-                console.log(role);
-                renderedTags += 1;
-                if (maxShow && renderedTags === maxShow + 1)
-                    return (
-                        <TagText>
-                            <Highlight matchStyle={highlightMatchStyle} search={highlightText}>
-                                {uneditableAccess?.roles ? `+${uneditableAccess?.roles?.length - maxShow}` : null}
-                            </Highlight>
-                        </TagText>
-                    );
-                if (maxShow && renderedTags > maxShow) return null;
-                return (
-                    <div>
-                        {console.log(role?.role)}
-                        <HoverEntityTooltip entity={role?.role}>
-                            <AccessLink
-                                to={entityRegistry.getEntityUrl(EntityType.Role, role?.role?.urn)}
-                                key={role?.role?.urn}
-                            >
-                                <AccessWrapper>
-                                    <AccessTermstyle
-                                        fontSize={fontSize}
-                                        highlightText={highlightText}
-                                        data={role?.role?.id}
-                                    />
-                                </AccessWrapper>
-                            </AccessLink>
-                        </HoverEntityTooltip>
-                    </div>
-                );
-            })}
             {uneditableGlossaryTerms?.terms?.map((term) => {
                 renderedTags += 1;
                 if (maxShow && renderedTags === maxShow + 1)

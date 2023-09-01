@@ -2,7 +2,7 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { useIsShowAccessManagementEnabled } from '../../useAppConfig';
+import { useAppConfig } from '../../useAppConfig';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
@@ -71,7 +71,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     isSearchEnabled = () => true;
 
-    isAccessManagementEnabled = useIsShowAccessManagementEnabled;
+    appconfig = useAppConfig;
 
     isBrowseEnabled = () => true;
 
@@ -184,7 +184,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Access Management',
                     component: AccessManagement,
                     display: {
-                        visible: (_, _1) => this.isAccessManagementEnabled(),
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
                         enabled: (_, _2) => true,
                     },
                 },
@@ -264,7 +264,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformLogo={data.platform.properties?.logoUrl}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
-                access={this.isAccessManagementEnabled() ? data?.access : null}
                 globalTags={data.globalTags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
@@ -303,7 +302,6 @@ export class DatasetEntity implements Entity<Dataset> {
                 glossaryTerms={data.glossaryTerms}
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
-                access={this.isAccessManagementEnabled() ? data?.access : null}
                 parentContainers={data.parentContainers}
                 snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
                 insights={result.insights}

@@ -15,7 +15,6 @@ import {
     DataProduct,
     Health,
     EntityPath,
-    Access,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -53,7 +52,6 @@ export const Preview = ({
     health,
     degree,
     paths,
-    access,
 }: {
     urn: string;
     name: string;
@@ -84,7 +82,6 @@ export const Preview = ({
     health?: Health[] | null;
     degree?: number;
     paths?: EntityPath[];
-    access?: Access | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -104,7 +101,6 @@ export const Preview = ({
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
-            access={access}
             dataProduct={dataProduct}
             container={container || undefined}
             deprecation={deprecation}

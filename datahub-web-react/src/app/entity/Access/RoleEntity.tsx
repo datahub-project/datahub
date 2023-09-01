@@ -6,9 +6,7 @@ import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { urlEncodeUrn } from '../shared/utils';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import RoleEntityProfile from './RoleEntityProfile';
 
 const PreviewTagIcon = styled(TagOutlined)`
     font-size: 20px;
@@ -52,20 +50,7 @@ export class RoleEntity implements Entity<Role> {
 
     getEntityName: () => string = () => 'Role';
 
-    renderProfile = (urn: string) => (
-        <EntityProfile
-            urn={urn}
-            entityType={EntityType.Role}
-            useEntityQuery={useGetExternalRoleQuery}
-            getOverrideProperties={this.getOverridePropertiesFromEntity}
-            tabs={[]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-            ]}
-        />
-    );
+    renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
 
     renderPreview = (_: PreviewType, data: Role) => (
         <DefaultPreviewCard

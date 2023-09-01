@@ -35,7 +35,7 @@ import GlossaryNodeEntity from './app/entity/glossaryNode/GlossaryNodeEntity';
 import { DataPlatformEntity } from './app/entity/dataPlatform/DataPlatformEntity';
 import { DataProductEntity } from './app/entity/dataProduct/DataProductEntity';
 import { DataPlatformInstanceEntity } from './app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
-import { RoleEntity } from './app/entity/Access/Access';
+import { RoleEntity } from './app/entity/Access/RoleEntity';
 
 /*
     Construct Apollo Client

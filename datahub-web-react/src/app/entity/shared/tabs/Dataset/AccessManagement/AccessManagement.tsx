@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Table } from 'antd';
+import { Button, Table } from 'antd';
 import { useBaseEntity } from '../../../EntityContext';
 import { GetDatasetQuery, useGetExternalRolesQuery } from '../../../../../../graphql/dataset.generated';
 import { useGetMeQuery } from '../../../../../../graphql/me.generated';
-import { handleAccesslRoles } from './utils';
+import { handleAccessRoles } from './utils';
 import AccessManagerDescription from './AccessManagerDescription';
 
 const StyledTable = styled(Table)`
@@ -26,11 +26,12 @@ const StyledTable = styled(Table)`
         border: 1px solid #f0f0f0;
     }
 ` as typeof Table;
-const Accessprovision = styled(Divider)`
+
+const StyledSection = styled.section`
     background-color: #fff;
     color: black;
-    width: 80px;
-    height: 30px;
+    width: 83px;
+    text-align: center;
     border-radius: 3px;
     border: none;
     font-weight: bold;
@@ -88,7 +89,7 @@ export default function AccessManagement() {
             key: 'hasAccess',
             render: (text, record) => {
                 if (text) {
-                    return <Accessprovision>Provisioned</Accessprovision>;
+                    return <StyledSection>Provisioned</StyledSection>;
                 }
                 return (
                     <AccessButton
@@ -106,10 +107,6 @@ export default function AccessManagement() {
     ];
 
     return (
-        <StyledTable
-            dataSource={handleAccesslRoles(externalRoles, loggedInUser)}
-            columns={columns}
-            pagination={false}
-        />
+        <StyledTable dataSource={handleAccessRoles(externalRoles, loggedInUser)} columns={columns} pagination={false} />
     );
 }
