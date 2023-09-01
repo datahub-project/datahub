@@ -396,6 +396,10 @@ cache:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
+      maxSize: ${CACHE_SEARCH_LINEAGE_MAX_SIZE:10000}
+      evictionPolicy: ${CACHE_SEARCH_LINEAGE_EXPIRATION_POLICY:SIZE_AND_TTL} # One of NEVER, TTL, MAX_SIZE, SIZE_AND_TTL ->
+        # NEVER will ignore max size and ttl configurations, TTL will only apply TTL and ignore size,
+        # MAX_SIZE will ignore TTL and apply size, SIZE_AND_TTL will apply both ttl and size
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}

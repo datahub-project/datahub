@@ -20,6 +20,8 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class LineageSearchServiceFactory {
 
+  public static final String LINEAGE_SEARCH_SERVICE_CACHE_NAME = "relationshipSearchService";
+
   @Bean(name = "relationshipSearchService")
   @Primary
   @Nonnull
@@ -27,7 +29,7 @@ public class LineageSearchServiceFactory {
        SearchService searchService, ConfigurationProvider configurationProvider) {
     boolean cacheEnabled = configurationProvider.getFeatureFlags().isLineageSearchCacheEnabled();
     return new LineageSearchService(searchService, graphService,
-        cacheEnabled ? cacheManager.getCache("relationshipSearchService") : null, cacheEnabled,
+        cacheEnabled ? cacheManager.getCache(LINEAGE_SEARCH_SERVICE_CACHE_NAME) : null, cacheEnabled,
             configurationProvider.getCache().getSearch().getLineage());
   }
 }
