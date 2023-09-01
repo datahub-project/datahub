@@ -36,7 +36,8 @@ framework_common = {
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
-    "entrypoints",
+    # In Python 3.10+, importlib_metadata is included in the standard library.
+    "importlib_metadata>=4.0.0; python_version < '3.10'",
     "docker",
     "expandvars>=0.6.5",
     "avro-gen3==0.7.10",
