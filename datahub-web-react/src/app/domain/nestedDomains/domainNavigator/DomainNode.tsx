@@ -1,5 +1,5 @@
 import { Typography } from 'antd';
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { Domain } from '../../../../types.generated';
@@ -70,7 +70,7 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, isClosing, toggle, toggleOpen } = useToggle({
         initialValue: false,
         closeDelay: 250,
     });
@@ -79,6 +79,15 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
     const hasDomainChildren = useHasDomainChildren({ domainUrn: domain.urn, numDomainChildren });
+
+    const shouldAutoOpen = useMemo(
+        () => !isInSelectMode && entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
+        [isInSelectMode, entityData, domain.urn],
+    );
+
+    useEffect(() => {
+        if (shouldAutoOpen) toggleOpen();
+    }, [shouldAutoOpen, toggleOpen]);
 
     function handleSelectDomain() {
         if (selectDomainOverride) {
