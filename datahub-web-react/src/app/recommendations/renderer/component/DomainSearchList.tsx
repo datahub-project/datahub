@@ -38,7 +38,7 @@ export const DomainSearchList = ({ content, onClick }: Props) => {
 
     const domainsWithCounts: Array<{ domain: Domain; count?: number }> = content
         .map((cnt) => ({ domain: cnt.entity, count: cnt.params?.contentParams?.count }))
-        .filter((domainWithCount) => domainWithCount.domain !== null && domainWithCount !== undefined)
+        .filter((domainWithCount) => domainWithCount?.domain !== null)
         .slice(0, NUM_DOMAIN_CARDS) as Array<{
         domain: Domain;
         count?: number;
