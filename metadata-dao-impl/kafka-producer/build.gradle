@@ -1,20 +1,23 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-events:mxe-registration')
-  compile project(':metadata-events:mxe-utils-avro-1.7')
-  compile project(':entity-registry')
-  compile project(':metadata-io')
+  implementation project(':metadata-events:mxe-avro-1.7')
+  implementation project(':metadata-events:mxe-registration')
+  implementation project(':metadata-events:mxe-utils-avro-1.7')
+  implementation project(':entity-registry')
+  implementation project(':metadata-io')
 
-  compile externalDependency.kafkaClients
+  implementation externalDependency.kafkaClients
+  implementation externalDependency.springBeans
+  implementation externalDependency.springContext
+  implementation externalDependency.opentelemetryAnnotations
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
 
-  testCompile externalDependency.mockito
+  testImplementation externalDependency.mockito
 
   constraints {
     implementation(externalDependency.log4jCore) {

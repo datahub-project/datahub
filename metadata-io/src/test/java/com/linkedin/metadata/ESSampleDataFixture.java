@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.ESTestConfiguration.REFRESH_INTERVAL_SECONDS;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -225,6 +226,7 @@ public class ESSampleDataFixture {
                 .bulkProcessor(_bulkProcessor)
                 .fixtureName(fixtureName)
                 .targetIndexPrefix(prefix)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .build()
                 .read();
 

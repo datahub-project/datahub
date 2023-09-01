@@ -25,7 +25,7 @@ jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
     env:
-      SPARK_VERSION: 3.0.3
+      SPARK_VERSION: 3.3.2
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
@@ -42,9 +42,7 @@ jobs:
           ]
         include:
           - python-version: "3.7"
-            extraPythonRequirement: "sqlalchemy==1.3.24 apache-airflow~=2.2.0"
           - python-version: "3.10"
-            extraPythonRequirement: "sqlalchemy~=1.4.0 apache-airflow>=2.4.0"
       fail-fast: false
     steps:
       - uses: actions/checkout@v3
@@ -56,8 +54,8 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
         run: ./gradlew :metadata-ingestion:installPackageOnly
-      - name: Run metadata-ingestion tests (extras ${{ matrix.extraPythonRequirement }})
-        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion:${{ matrix.command }}
+      - name: Run metadata-ingestion tests
+        run: ./gradlew :metadata-ingestion:${{ matrix.command }}
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion/venv/bin/activate && pip freeze
@@ -79,7 +77,6 @@ jobs:
           flags: pytest-${{ matrix.command }}
           name: pytest-${{ matrix.command }}
           verbose: true
-
 
   event-file:
     runs-on: ubuntu-latest

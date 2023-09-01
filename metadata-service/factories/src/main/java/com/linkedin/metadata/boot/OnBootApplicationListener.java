@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -48,12 +49,17 @@ public class OnBootApplicationListener {
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     log.warn("OnBootApplicationListener context refreshed! {} event: {}",
         ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()), event);
+    String schemaRegistryType = provider.getKafka().getSchemaRegistry().getType();
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
-      executorService.submit(isSchemaRegistryAPIServeletReady());
+      if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
+        executorService.submit(isSchemaRegistryAPIServletReady());
+      } else {
+        _bootstrapManager.start();
+      }
     }
   }
 
-  public Runnable isSchemaRegistryAPIServeletReady() {
+  public Runnable isSchemaRegistryAPIServletReady() {
     return () -> {
         final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
         int timeouts = 30;

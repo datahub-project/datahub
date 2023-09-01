@@ -1,6 +1,6 @@
 import io.datahubproject.GenerateJsonSchemaTask
 
-
+apply plugin: 'java-library'
 apply plugin: 'pegasus'
 
 tasks.withType(JavaCompile).configureEach {
@@ -15,16 +15,16 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-  compile spec.product.pegasus.data 
+  api spec.product.pegasus.data
     constraints {
       implementation('org.apache.commons:commons-text:1.10.0') {
         because 'Vulnerability Issue'
       }
     }
-  compile project(':li-utils')
+  api project(':li-utils')
   dataModel project(':li-utils')
 
-  testCompile externalDependency.guava
+  testImplementation externalDependency.guava
 }
 
 mainAvroSchemaJar.dependsOn generateAvroSchema

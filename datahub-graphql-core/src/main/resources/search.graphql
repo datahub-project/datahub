@@ -138,6 +138,11 @@ input  SearchFlags {
   Whether to skip aggregates/facets
   """
   skipAggregates: Boolean
+
+  """
+  Whether to request for search suggestions on the _entityName virtualized field
+  """
+  getSuggestions: Boolean
 }
 
 """
@@ -483,6 +488,11 @@ type SearchResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+
+  """
+  Search suggestions based on the query provided for alternate query texts
+  """
+  suggestions: [SearchSuggestion!]
 }
 
 """
@@ -665,6 +675,11 @@ type MatchedField {
   Value of the field that matched
   """
   value: String!
+
+  """
+  Entity if the value is an urn
+  """
+  entity: Entity
 }
 
 """
@@ -721,6 +736,31 @@ type AggregationMetadata {
   """
   entity: Entity
 }
+
+"""
+A suggestion for an alternate search query given an original query compared to all
+of the entity names in our search index.
+"""
+type SearchSuggestion {
+  """
+  The suggested text based on the provided query text compared to
+  the entity name field in the search index.
+  """
+  text: String!
+
+  """
+  The "edit distance" for this suggestion. The closer this number is to 1, the
+  closer the suggested text is to the original text. The closer it is to 0, the
+  further from the original text it is.
+  """
+  score: Float
+
+  """
+  The number of entities that would match on the name field given the suggested text
+  """
+  frequency: Int
+}
+
 
 """
 Input for performing an auto completion query against a single Metadata Entity
