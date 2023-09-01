@@ -8,22 +8,22 @@ interface Props {
 }
 
 export default function useHasDomainChildren({ domainUrn, numDomainChildren }: Props) {
-    const { parentDomainsToUpate, setParentDomainsToUpdate } = useDomainsContext();
+    const { parentDomainsToUpdate, setParentDomainsToUpdate } = useDomainsContext();
     const [getDomainChildrenCount, { data: childrenData }] = useGetDomainChildrenCountLazyQuery();
 
     useEffect(() => {
         let timer;
         // fetch updated children count to determine if we show triangle toggle
-        if (parentDomainsToUpate.includes(domainUrn)) {
+        if (parentDomainsToUpdate.includes(domainUrn)) {
             timer = setTimeout(() => {
                 getDomainChildrenCount({ variables: { urn: domainUrn } });
-                setParentDomainsToUpdate(parentDomainsToUpate.filter((urn) => urn !== domainUrn));
+                setParentDomainsToUpdate(parentDomainsToUpdate.filter((urn) => urn !== domainUrn));
             }, 2000);
         }
         return () => {
             if (timer) window.clearTimeout(timer);
         };
-    }, [domainUrn, getDomainChildrenCount, parentDomainsToUpate, setParentDomainsToUpdate]);
+    }, [domainUrn, getDomainChildrenCount, parentDomainsToUpdate, setParentDomainsToUpdate]);
 
     return childrenData ? !!childrenData.domain?.children?.total : !!numDomainChildren;
 }

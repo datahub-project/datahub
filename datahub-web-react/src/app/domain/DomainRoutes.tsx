@@ -19,10 +19,10 @@ const ContentWrapper = styled.div`
 export default function DomainRoutes() {
     const entityRegistry = useEntityRegistry();
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
-    const [parentDomainsToUpate, setParentDomainsToUpdate] = useState<string[]>([]);
+    const [parentDomainsToUpdate, setParentDomainsToUpdate] = useState<string[]>([]);
 
     return (
-        <DomainsContext.Provider value={{ entityData, setEntityData, parentDomainsToUpate, setParentDomainsToUpdate }}>
+        <DomainsContext.Provider value={{ entityData, setEntityData, parentDomainsToUpdate, setParentDomainsToUpdate }}>
             <ContentWrapper>
                 <ManageDomainsSidebar />
                 <Switch>
