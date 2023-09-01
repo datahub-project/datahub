@@ -17,19 +17,19 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 1. When adding a Tag or Glossary Term to a column or entity, you will see a propose button.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//propose_term_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_term_on_dataset.png"/>
 </p>
 
 2. After proposing the Glossary Term, you will see it appear in a proposed state.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//propsed_term_on_dataset.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propsed_term_on_dataset.png"/>
 </p>
 
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//proposed_term_to_dataset_in_inbox.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/proposed_term_to_dataset_in_inbox.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
@@ -47,7 +47,7 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 3. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//inbox_with_new_glossary_proposal.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/inbox_with_new_glossary_proposal.png"/>
 </p>
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
@@ -57,13 +57,13 @@ Approval workflows also cover the Business Glossary itself. This allows you to s
 1. When updating the description of a Glossary Term, click propse after making your change.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//propose_glossary_description_change.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/propose_glossary_description_change.png"/>
 </p>
 
 2. This proposal will be sent to the inbox of Admins with proposal permissions and data owners.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//inbox_with_description_proposal.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/inbox_with_description_proposal.png"/>
 </p>
 
 3. From there, they can choose to either accept or reject the proposal.
@@ -102,7 +102,7 @@ Glossary Term URNs have the following format:
 These full identifiers can be copied from the entity pages of the Tag or Glossary Term.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs//copy_urn_from_entity.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/copy_urn_from_entity.png"/>
 </p>
 
 #### Issuing a GraphQL Query
