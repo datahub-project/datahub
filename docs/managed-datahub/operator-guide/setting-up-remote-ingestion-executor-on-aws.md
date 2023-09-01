@@ -17,11 +17,19 @@ Acryl DataHub comes packaged with an Acryl-managed ingestion executor, which is 
 
 For example, if an ingestion source is not publicly accessible via the internet, e.g. hosted privately within a specific AWS account, then the Acryl executor will be unable to extract metadata from it.
 
-![Option 1: Acryl-hosted ingestion runner](../imgs/saas/image-(12).png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(12).png"/>
+</p>
+
 
 To accommodate these cases, Acryl supports configuring a remote ingestion executor which can be deployed inside of your AWS account. This setup allows you to continue leveraging the Acryl DataHub console to create, schedule, and run metadata ingestion, all while retaining network and credential isolation.
 
-![Option 2: Customer-hosted ingestion runner](../imgs/saas/image-(6).png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(6).png"/>
+</p>
+
 
 ## Deploying a Remote Ingestion Executor
 1. **Provide AWS Account Id**: Provide Acryl Team with the id of the AWS in which the remote executor will be hosted. This will be used to grant access to private Acryl containers and create a unique SQS queue which your remote agent will subscribe to. The account id can be provided to your Acryl representative via Email or [One Time Secret](https://onetimesecret.com/). 
@@ -40,23 +48,39 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
        
        Note that the only external secret provider that is currently supported is AWS Secrets Manager.
 
-![](../imgs/saas/Screen-Shot-2023-01-19-at-5.12.47-PM.png)
 
-![](../imgs/saas/Screen-Shot-2023-01-19-at-5.12.56-PM.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-5.12.47-PM.png"/>
+</p>
+
+
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-5.12.56-PM.png"/>
+</p>
+
 
 3.  **Test the Executor:** To test your remote executor:
 
     1. Create a new Ingestion Source by clicking '**Create new Source**' the '**Ingestion**' tab of the DataHub console. Configure your Ingestion Recipe as though you were running it from inside of your environment.
     2.  When working with "secret" fields (passwords, keys, etc), you can refer to any "self-managed" secrets by name: `${SECRET_NAME}:`
 
-        ![Using a secret called BQ_DEPLOY_KEY which is managed in AWS secrets manager](../imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png)
+        
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.16.52-PM.png"/>
+</p>
+
     3. In the 'Finish Up' step, click '**Advanced'**.
     4. Update the '**Executor Id**' form field to be  '**remote**'. This indicates that you'd like to use the remote executor.
     5. Click '**Done**'.
 
     Now, simple click '**Execute**' to test out the remote executor. If your remote executor is configured properly, you should promptly see the ingestion task state change to 'Running'.
 
-![](../imgs/saas/Screen-Shot-2022-03-07-at-10.23.31-AM.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2022-03-07-at-10.23.31-AM.png"/>
+</p>
+
 ## Updating a Remote Ingestion Executor
 In order to update the executor, ie. to deploy a new container version, you'll need to update the CloudFormation Stack to re-deploy the CloudFormation template with a new set of parameters.
 ### Steps - AWS Console
@@ -66,7 +90,11 @@ In order to update the executor, ie. to deploy a new container version, you'll n
 4. Select **Replace Current Template**
 5. Select **Upload a template file**
 6. Upload a copy of the Acryl Remote Executor [CloudFormation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/Ingestion/templates/python.ecs.template.yaml)
-![](../imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-4.23.32-PM.png"/>
+</p>
+
 7. Click **Next**
 8. Change parameters based on your modifications (e.g. ImageTag, etc)
 9. Click **Next**

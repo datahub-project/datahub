@@ -15,6 +15,11 @@ record SystemMetadata {
   runId: optional string = "no-run-id-provided"
 
   /**
+   * The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.
+   */
+  pipelineName: optional string
+
+  /**
   * The model registry name that was used to process this event
   */
   registryName: optional string

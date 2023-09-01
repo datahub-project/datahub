@@ -282,6 +282,7 @@ class TrinoUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> SourceReport:

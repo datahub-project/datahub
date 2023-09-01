@@ -1,20 +1,10 @@
 import { Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 import { CorpUser, EntityType } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
 import { CustomAvatar } from '../../shared/avatar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { getAutoCompleteEntityText } from './utils';
-
-export const SuggestionText = styled.div`
-    margin-left: 12px;
-    margin-top: 2px;
-    margin-bottom: 2px;
-    color: ${ANTD_GRAY[9]};
-    font-size: 16px;
-    overflow: hidden;
-`;
+import { SuggestionText } from './styledComponents';
 
 interface Props {
     query: string;

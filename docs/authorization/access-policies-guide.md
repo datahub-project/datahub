@@ -110,9 +110,12 @@ In the second step, we can simply select the Privileges that this Platform Polic
 | Manage Tags                         | Allow the actor to create and remove any Tags                                                                                  |
 | Manage Public Views                 | Allow the actor to create, edit, and remove any public (shared) Views.                                                         |
 | Manage Ownership Types              | Allow the actor to create, edit, and remove any Ownership Types.                                                               |
+| Manage Platform Settings            | (Acryl DataHub only) Allow the actor to manage global integrations and notification settings                                   |
+| Manage Monitors                     | (Acryl DataHub only) Allow the actor to create, remove, start, or stop any entity assertion monitors                           |
 | Restore Indices API[^1]             | Allow the actor to restore indices for a set of entities via API                                                               |
 | Enable/Disable Writeability API[^1] | Allow the actor to enable or disable GMS writeability for use in data migrations                                               |
 | Apply Retention API[^1]             | Allow the actor to apply aspect retention via API                                                                              |
+
 
 [^1]: Only active if REST_API_AUTHORIZATION_ENABLED environment flag is enabled
 
@@ -204,8 +207,15 @@ The common Metadata Privileges, which span across entity types, include:
 | Edit Status                      | Allow actor to edit the status of an entity (soft deleted or not).                                                                                           |
 | Edit Domain                      | Allow actor to edit the Domain of an entity.                                                                                                                 |
 | Edit Deprecation                 | Allow actor to edit the Deprecation status of an entity.                                                                                                     |
-| Edit Assertions                  | Allow actor to add and remove assertions from an entity.                                                                                                     |
-| Edit All                         | Allow actor to edit any information about an entity. Super user privileges. Controls the ability to ingest using API when REST API Authorization is enabled. |
+| Edit Lineage                     | Allow actor to edit custom lineage edges for the entity.                                                                                                     |
+| Edit Data Product                | Allow actor to edit the data product that an entity is part of                                                                                               |
+| Propose Tags                     | (Acryl DataHub only) Allow actor to propose new Tags for the entity.                                                                                         |
+| Propose Glossary Terms           | (Acryl DataHub only) Allow actor to propose new Glossary Terms for the entity.                                                                               |
+| Propose Documentation            | (Acryl DataHub only) Allow actor to propose new Documentation for the entity.                                                                                |
+| Manage Tag Proposals             | (Acryl DataHub only) Allow actor to accept or reject proposed Tags for the entity.                                                                           |
+| Manage Glossary Terms Proposals  | (Acryl DataHub only) Allow actor to accept or reject proposed Glossary Terms for the entity.                                                                 |
+| Manage Documentation Proposals   | (Acryl DataHub only) Allow actor to accept or reject proposed Documentation for the entity                                                                   |
+| Edit Entity                      | Allow actor to edit any information about an entity. Super user privileges. Controls the ability to ingest using API when REST API Authorization is enabled. |
 | Get Timeline API[^1]             | Allow actor to get the timeline of an entity via API.                                                                                                        |
 | Get Entity API[^1]               | Allow actor to get an entity via API.                                                                                                                        |
 | Get Timeseries Aspect API[^1]    | Allow actor to get a timeseries aspect via API.                                                                                                              |
@@ -225,10 +235,19 @@ The common Metadata Privileges, which span across entity types, include:
 | Dataset      | Edit Dataset Queries               | Allow actor to edit the Highlighted Queries on the Queries tab of the dataset.                                                                                                                                       |
 | Dataset      | View Dataset Usage                 | Allow actor to access usage metadata about a dataset both in the UI and in the GraphQL API. This includes example queries, number of queries, etc. Also applies to REST APIs when REST API Authorization is enabled. |
 | Dataset      | View Dataset Profile               | Allow actor to access a dataset's profile both in the UI and in the GraphQL API. This includes snapshot statistics like #rows, #columns, null percentage per field, etc.                                             |
+| Dataset      | Edit Assertions                    | Allow actor to change the assertions associated with a dataset.                                                                                                                                                      |
+| Dataset      | Edit Incidents                     | (Acryl DataHub only) Allow actor to change the incidents associated with a dataset.                                                                                                                                  |
+| Dataset      | Edit Monitors                      | (Acryl DataHub only) Allow actor to change the assertion monitors associated with a dataset.                                                                                                                         |
 | Tag          | Edit Tag Color                     | Allow actor to change the color of a Tag.                                                                                                                                                                            |
 | Group        | Edit Group Members                 | Allow actor to add and remove members to a group.                                                                                                                                                                    |
+| Group        | Edit Contact Information           | Allow actor to change email, slack handle associated with the group.                                                                                                                                                 |
+| Group        | Manage Group Subscriptions         | (Acryl DataHub only) Allow actor to subscribe the group to entities.                                                                                                                                                 |
+| Group        | Manage Group Notifications         | (Acryl DataHub only) Allow actor to change notification settings for the group.                                                                                                                                      |
 | User         | Edit User Profile                  | Allow actor to change the user's profile including display name, bio, title, profile image, etc.                                                                                                                     |
 | User + Group | Edit Contact Information           | Allow actor to change the contact information such as email & chat handles.                                                                                                                                          |
+| Term Group   | Manage Direct Glossary Children    | Allow actor to change the direct child Term Groups or Terms of the group.                                                                                                                                            |
+| Term Group   | Manage All Glossary Children       | Allow actor to change any direct or indirect child Term Groups or Terms of the group.                                                                                                                                |
+
 
 > **Still have questions about Privileges?** Let us know in [Slack](https://slack.datahubproject.io)!
 

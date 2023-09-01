@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from time import sleep
 from typing import Dict, Iterable, List, Optional, Union
 
+import nest_asyncio
 from okta.client import Client as OktaClient
 from okta.exceptions import OktaAPIException
 from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
@@ -51,6 +52,7 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+nest_asyncio.apply()
 
 
 class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
@@ -301,11 +303,13 @@ class OktaSource(StatefulIngestionSourceBase):
         # This method can be called on the main thread or an async thread, so we must create a new loop if one doesn't exist
         # See https://docs.python.org/3/library/asyncio-eventloop.html for more info.
 
+        created_event_loop = False
         try:
             event_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         except RuntimeError:
             event_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(event_loop)
+            created_event_loop = True
 
         # Step 1: Produce MetadataWorkUnits for CorpGroups.
         okta_groups: Optional[Iterable[Group]] = None
@@ -406,7 +410,8 @@ class OktaSource(StatefulIngestionSourceBase):
                 ).as_workunit()
 
         # Step 4: Close the event loop
-        event_loop.close()
+        if created_event_loop:
+            event_loop.close()
 
     def get_report(self):
         return self.report

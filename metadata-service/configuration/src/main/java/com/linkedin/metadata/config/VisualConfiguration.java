@@ -22,4 +22,9 @@ public class VisualConfiguration {
    * Queries tab related configurations
    */
   public EntityProfileConfig entityProfile;
+
+  /**
+   * Search result related configurations
+   */
+  public SearchResultVisualConfig searchResult;
 }
