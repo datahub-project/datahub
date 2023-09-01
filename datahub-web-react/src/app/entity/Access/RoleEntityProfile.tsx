@@ -65,7 +65,7 @@ export default function RoleEntityProfile() {
             <TitleLabel>Role</TitleLabel>
             <TitleText>{data?.role?.properties?.name}</TitleText>
             <Divider />
-            {/* Tag Description */}
+            {/* Role Description */}
             <DescriptionLabel>About</DescriptionLabel>
             <Paragraph style={{ fontSize: '12px', lineHeight: '15px', padding: '5px 0px' }}>
                 {data?.role?.properties?.description}
