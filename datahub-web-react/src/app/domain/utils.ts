@@ -68,6 +68,8 @@ export const updateListDomainsCache = (
             ownership: null,
             entities: null,
             children: null,
+            dataProducts: null,
+            parentDomains: null,
         },
         1000,
         parentDomain,
