@@ -17,7 +17,7 @@ const LoadingMessage = styled(Message)`
     margin-top: 10%;
 `;
 
-type TagPageParams = {
+type RolePageParams = {
     urn: string;
 };
 
@@ -55,7 +55,7 @@ const TitleText = styled(Typography.Text)`
 const { Paragraph } = Typography;
 
 export default function RoleEntityProfile() {
-    const { urn: encodedUrn } = useParams<TagPageParams>();
+    const { urn: encodedUrn } = useParams<RolePageParams>();
     const urn = decodeUrn(encodedUrn);
     const { data, loading } = useGetExternalRoleQuery({ variables: { urn } });
 
