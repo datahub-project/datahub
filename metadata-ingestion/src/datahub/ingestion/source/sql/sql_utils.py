@@ -35,7 +35,7 @@ def gen_schema_key(
     platform: str,
     platform_instance: Optional[str],
     env: Optional[str],
-) -> ContainerKey:
+) -> SchemaKey:
     return SchemaKey(
         database=db_name,
         schema=schema,
@@ -48,7 +48,7 @@ def gen_schema_key(
 
 def gen_database_key(
     database: str, platform: str, platform_instance: Optional[str], env: Optional[str]
-) -> ContainerKey:
+) -> DatabaseKey:
     return DatabaseKey(
         database=database,
         platform=platform,

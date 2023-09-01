@@ -406,7 +406,7 @@ These notifications are also able to tag the immediate asset's owners, along wit
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/Screen-Shot-2022-03-22-at-6.46.41-PM.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png"/>
 </p>
 
 
