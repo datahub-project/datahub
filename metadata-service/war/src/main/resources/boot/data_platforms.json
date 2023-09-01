@@ -544,5 +544,15 @@
       "type": "FILE_SYSTEM",
       "logoUrl": "/assets/platforms/gcslogo.svg"
     }
+  },
+  {
+    "urn": "urn:li:dataPlatform:dynamodb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "dynamodb",
+      "displayName": "DynamoDB",
+      "type": "OTHERS",
+      "logoUrl": "/assets/platforms/dynamodblogo.png"
+    }
   }
 ]
