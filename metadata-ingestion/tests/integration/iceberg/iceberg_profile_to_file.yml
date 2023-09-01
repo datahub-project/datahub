@@ -1,25 +1,25 @@
+run_id: iceberg-test
+
 source:
-  type: "iceberg"
+  type: iceberg
   config:
-    env: PROD
     catalog:
-      name: my_iceberg_catalog
+      name: default
       type: rest
-      # Catalog configuration follows pyiceberg's documentation (https://py.iceberg.apache.org/configuration)
       config:
         uri: http://localhost:8181
         s3.access-key-id: admin
         s3.secret-access-key: password
         s3.region: us-east-1
         warehouse: s3a://warehouse/wh/
+        py-io-impl: pyiceberg.io.pyarrow.PyArrowFileIO
         s3.endpoint: http://localhost:9000
-    platform_instance: my_iceberg_catalog
-    table_pattern:
-      allow:
-        - marketing.*
+    user_ownership_property: owner
+    group_ownership_property: owner
     profiling:
       enabled: true
 
 sink:
-  # sink configs
-
+  type: file
+  config:
+    filename: "./iceberg_mces.json"
