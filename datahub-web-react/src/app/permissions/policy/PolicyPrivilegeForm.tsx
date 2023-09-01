@@ -342,11 +342,10 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>Domain</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>Select Domains to Apply Policy</Typography.Text>}>
                     <Typography.Paragraph>
-                        Search for domains the policy should apply to. If <b>selected</b>, policy applies to the domain
-                        and <b>all</b> domains nested below it. If <b>none</b> is selected, policy is applied to{' '}
-                        <b>all</b> resources in all domains.
+                        The policy will apply to any chosen domains and all their nested subdomains. If no domains are
+                        selected, the policy will be applied globally to all entities in all domains.
                     </Typography.Paragraph>
                     <Select
                         notFoundContent="No search results found"
