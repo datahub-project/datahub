@@ -168,6 +168,7 @@ module.exports = {
                     "docs/authentication/guides/sso/configure-oidc-react-google",
                     "docs/authentication/guides/sso/configure-oidc-react-okta",
                     "docs/authentication/guides/sso/configure-oidc-react-azure",
+                    "docs/authentication/guides/sso/configure-oidc-behind-proxy",
                   ],
                 },
               ],
