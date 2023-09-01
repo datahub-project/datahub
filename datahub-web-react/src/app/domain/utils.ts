@@ -1,3 +1,4 @@
+import { ApolloClient } from '@apollo/client';
 import { useEffect } from 'react';
 import { isEqual } from 'lodash';
 import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
@@ -9,7 +10,7 @@ import { useDomainsContext } from './DomainsContext';
 /**
  * Add an entry to the list domains cache.
  */
-export const addToListDomainsCache = (client, newDomain, pageSize) => {
+export const addToListDomainsCache = (client, newDomain, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -17,6 +18,7 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
             input: {
                 start: 0,
                 count: pageSize,
+                parentDomain,
             },
         },
     });
@@ -31,6 +33,7 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
             input: {
                 start: 0,
                 count: pageSize,
+                parentDomain,
             },
         },
         data: {
@@ -44,10 +47,37 @@ export const addToListDomainsCache = (client, newDomain, pageSize) => {
     });
 };
 
+export const updateListDomainsCache = (
+    client: ApolloClient<any>,
+    urn: string,
+    id: string | undefined,
+    name: string,
+    description: string | undefined,
+    parentDomain?: string,
+) => {
+    addToListDomainsCache(
+        client,
+        {
+            urn,
+            id: id || null,
+            type: EntityType.Domain,
+            properties: {
+                name,
+                description: description || null,
+            },
+            ownership: null,
+            entities: null,
+            children: null,
+        },
+        1000,
+        parentDomain,
+    );
+};
+
 /**
  * Remove an entry from the list domains cache.
  */
-export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
+export const removeFromListDomainsCache = (client, urn, page, pageSize, parentDomain?: string) => {
     // Read the data from our cache for this query.
     const currData: ListDomainsQuery | null = client.readQuery({
         query: ListDomainsDocument,
@@ -55,6 +85,7 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
+                parentDomain,
             },
         },
     });
@@ -69,6 +100,7 @@ export const removeFromListDomainsCache = (client, urn, page, pageSize) => {
             input: {
                 start: (page - 1) * pageSize,
                 count: pageSize,
+                parentDomain,
             },
         },
         data: {

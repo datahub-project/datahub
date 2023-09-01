@@ -12,6 +12,7 @@ import { BodyContainer, BodyGridExpander } from '../../../shared/components';
 import { ANTD_GRAY_V2 } from '../../../entity/shared/constants';
 import { useDomainsContext } from '../../DomainsContext';
 import { applyOpacity } from '../../../shared/styleUtils';
+import useHasDomainChildren from './useHasDomainChildren';
 
 const RowWrapper = styled.div`
     align-items: center;
@@ -62,9 +63,10 @@ const StyledExpander = styled(BodyGridExpander)`
 interface Props {
     domain: Domain;
     numDomainChildren: number;
+    selectDomainOverride?: (urn: string, displayName: string) => void;
 }
 
-export default function DomainNode({ domain, numDomainChildren }: Props) {
+export default function DomainNode({ domain, numDomainChildren, selectDomainOverride }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
@@ -75,10 +77,12 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
     const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
-    // TODO - only auto-open if in select mode - this var is made on a different branch when we intro selectDomainOverride
+    const isInSelectMode = !!selectDomainOverride;
+    const hasDomainChildren = useHasDomainChildren({ domainUrn: domain.urn, numDomainChildren });
+
     const shouldAutoOpen = useMemo(
-        () => entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
-        [entityData, domain.urn],
+        () => !isInSelectMode && entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
+        [isInSelectMode, entityData, domain.urn],
     );
 
     useEffect(() => {
@@ -86,13 +90,17 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
     }, [shouldAutoOpen, toggleOpen]);
 
     function handleSelectDomain() {
-        history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
+        if (selectDomainOverride) {
+            selectDomainOverride(domain.urn, displayName);
+        } else {
+            history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
+        }
     }
 
     return (
         <>
             <RowWrapper>
-                {!!numDomainChildren && (
+                {hasDomainChildren && (
                     <ButtonWrapper>
                         <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
                     </ButtonWrapper>
@@ -100,10 +108,10 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
                 <NameWrapper
                     ellipsis={{ tooltip: displayName }}
                     onClick={handleSelectDomain}
-                    isSelected={!!isOnEntityPage}
-                    addLeftPadding={!numDomainChildren}
+                    isSelected={!!isOnEntityPage && !isInSelectMode}
+                    addLeftPadding={!hasDomainChildren}
                 >
-                    <DomainIcon />
+                    {!isInSelectMode && <DomainIcon />}
                     {displayName}
                 </NameWrapper>
             </RowWrapper>
@@ -114,6 +122,7 @@ export default function DomainNode({ domain, numDomainChildren }: Props) {
                             key={domain.urn}
                             domain={childDomain as Domain}
                             numDomainChildren={childDomain.children?.total || 0}
+                            selectDomainOverride={selectDomainOverride}
                         />
                     ))}
                 </BodyContainer>

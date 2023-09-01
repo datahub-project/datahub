@@ -15,6 +15,8 @@ export default function useListDomains({ parentDomain, skip }: Props) {
                 parentDomain,
             },
         },
+        fetchPolicy: 'network-only', // always use network request first to populate cache
+        nextFetchPolicy: 'cache-first', // then use cache after that so we can manipulate it
     });
 
     return { data, error, loading, refetch };
