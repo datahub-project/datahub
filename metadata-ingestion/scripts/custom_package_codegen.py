@@ -94,6 +94,9 @@ setup(
 
     click.echo()
     click.secho(f"Generated package at {package_path}", fg="green")
+    click.echo(
+        "This package should be installed alongside the main acryl-datahub package."
+    )
     click.echo()
     click.echo(f"Install the custom package locally with `pip install {package_path}`")
     click.echo(

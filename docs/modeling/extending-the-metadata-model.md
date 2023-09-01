@@ -268,7 +268,9 @@ After following the developing guide, you should be able to emit your new event 
 </TabItem>
 <TabItem value="packaged" label="Custom Models Package">
 
-If you want to use your custom models beyond your local machine, then you can generate a custom model package that can be installed from other places.
+If you want to use your custom models beyond your local machine without forking DataHub, then you can generate a custom model package that can be installed from other places.
+
+This package should be installed alongside the base `acryl-datahub` package, and its metadata models will take precedence over the default ones.
 
 ```bash
 cd metadata-ingestion
