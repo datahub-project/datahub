@@ -208,7 +208,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       try {
         final AspectsBatch batch;
         if (asyncBool) {
-          // if async we'll expand the additional changes later, no need to do this early
+          // if async we'll expand the getAdditionalChanges later, no need to do this early
           batch = AspectsBatchImpl.builder()
                   .mcps(List.of(metadataChangeProposal), _entityService.getEntityRegistry())
                   .build();

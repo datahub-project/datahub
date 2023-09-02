@@ -47,19 +47,25 @@ public class AspectUtils {
     final Urn urn = EntityKeyUtils.getUrnFromProposal(metadataChangeProposal,
             entityService.getKeyAspectSpec(metadataChangeProposal.getEntityType()));
 
-    RecordTemplate aspectRecord = GenericRecordUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
-            metadataChangeProposal.getAspect().getContentType(), entityService.getEntityRegistry()
-                    .getEntitySpec(urn.getEntityType()).getAspectSpec(metadataChangeProposal.getAspectName()));
+    final Map<String, RecordTemplate> includedAspects;
+    if (metadataChangeProposal.getChangeType() != ChangeType.PATCH) {
+      RecordTemplate aspectRecord = GenericRecordUtils.deserializeAspect(metadataChangeProposal.getAspect().getValue(),
+              metadataChangeProposal.getAspect().getContentType(), entityService.getEntityRegistry()
+                      .getEntitySpec(urn.getEntityType()).getAspectSpec(metadataChangeProposal.getAspectName()));
+      includedAspects = ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord);
+    } else {
+      includedAspects = ImmutableMap.of();
+    }
 
     if (onPrimaryKeyInsertOnly) {
-      return entityService.generateDefaultAspectsOnFirstWrite(urn, ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord))
+      return entityService.generateDefaultAspectsOnFirstWrite(urn, includedAspects)
               .getValue()
               .stream()
               .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
               .filter(Objects::nonNull)
               .collect(Collectors.toList());
     } else {
-      return entityService.generateDefaultAspectsIfMissing(urn, ImmutableMap.of(metadataChangeProposal.getAspectName(), aspectRecord))
+      return entityService.generateDefaultAspectsIfMissing(urn, includedAspects)
               .stream()
               .map(entry -> getProposalFromAspect(entry.getKey(), entry.getValue(), metadataChangeProposal))
               .filter(Objects::nonNull)
