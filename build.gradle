@@ -1,7 +1,7 @@
 buildscript {
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.22.16'
+  ext.pegasusVersion = '29.45.0'
   ext.mavenVersion = '3.6.3'
   ext.springVersion = '5.3.29'
   ext.springBootVersion = '2.7.14'
@@ -30,16 +30,16 @@ buildscript {
     classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.8.1'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
-    classpath "com.palantir.gradle.gitversion:gradle-git-version:0.12.3"
-    classpath "org.gradle.playframework:gradle-playframework:0.12"
-    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.18.1"
+    classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
+    classpath "org.gradle.playframework:gradle-playframework:0.14"
+    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.1"
   }
 }
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
   id 'com.github.johnrengelman.shadow' version '6.1.0'
-  id "com.palantir.docker" version "0.35.0"
+  id 'com.palantir.docker' version '0.35.0'
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -97,7 +97,7 @@ project.ext.externalDependency = [
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
     'gson': 'com.google.code.gson:gson:2.8.9',
     'guice': 'com.google.inject:guice:4.2.3',
-    'guava': 'com.google.guava:guava:27.0.1-jre',
+    'guava': 'com.google.guava:guava:32.1.2-jre',
     'h2': 'com.h2database:h2:2.1.214',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -241,7 +241,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
 subprojects {
 
-  apply plugin: 'maven'
+  apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
 
   gitProperties {
@@ -255,7 +255,7 @@ subprojects {
 
   plugins.withType(JavaPlugin) {
     dependencies {
-      testCompile externalDependency.testng
+      testImplementation externalDependency.testng
       constraints {
         implementation('io.netty:netty-all:4.1.86.Final')
         implementation('org.apache.commons:commons-compress:1.21')
