@@ -10,7 +10,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 In order to use the Acryl DataHub Chrome extension, you need to download it onto your browser from the Chrome web store [here](https://chrome.google.com/webstore/detail/datahub-chrome-extension/aoenebhmfokhglijmoacfjcnebdpchfj).
 
-![](imgs/saas/chrome-store-extension-screenshot.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/chrome-store-extension-screenshot.png"/>
+</p>
+
 
 Simply click "Add to Chrome" then "Add extension" on the ensuing popup.
 
@@ -20,11 +24,19 @@ Once you have your extension installed, you'll need to configure it to work with
 
 1. Click the extension button on the right of your browser's address bar to view all of your installed extensions. Click on the newly installed DataHub extension.
 
-![](imgs/saas/extension_open_popup.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_open_popup.png"/>
+</p>
+
 
 2. Fill in your DataHub domain and click "Continue" in the extension popup that appears.
 
-![](imgs/saas/extension_enter_domain.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_enter_domain.png"/>
+</p>
+
 
 If your organization uses standard SaaS domains for Looker, you should be ready to go!
 
@@ -34,11 +46,19 @@ Some organizations have custom SaaS domains for Looker and some Acryl DataHub de
 
 1. Click on the extension button and select your DataHub extension to open the popup again. Now click the settings icon in order to open the configurations page.
 
-![](imgs/saas/extension_open_options_page.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_open_options_page.png"/>
+</p>
+
 
 2. Fill out any and save custom configurations you have in the **TOOL CONFIGURATIONS** section. Here you can configure a custom domain, a Platform Instance associated with that domain, and the Environment set on your DataHub assets. If you don't have a custom domain but do have a custom Platform Instance or Environment, feel free to leave the field domain empty.
 
-![](imgs/saas/extension_custom_configs.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_custom_configs.png"/>
+</p>
+
 
 ## Using the Extension
 
@@ -52,7 +72,11 @@ Once you have everything configured on your extension, it's time to use it!
 
 4. Click the Acryl DataHub extension button on the bottom right of your page to open a drawer where you can now see additional information about this asset right from your DataHub instance.
 
-![](imgs/saas/extension_view_in_looker.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_view_in_looker.png"/>
+</p>
+
 
 ## Advanced: Self-Hosted DataHub
 

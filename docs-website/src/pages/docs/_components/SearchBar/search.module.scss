@@ -21,13 +21,21 @@
   height: 1.5rem;
 }
 
+.searchQueryInput {
+  padding: 0.8rem 0.8rem 0.8rem 3rem;
+}
+
+.searchVersionInput {
+  padding: 0.8rem 2rem 0.8rem 2rem;
+  text-align: center;
+}
+
 .searchQueryInput,
 .searchVersionInput {
   border-radius: 1000em;
   border-style: solid;
   border-color: transparent;
   font: var(--ifm-font-size-base) var(--ifm-font-family-base);
-  padding: 0.8rem 0.8rem 0.8rem 3rem;
   width: 100%;
   background: var(--docsearch-searchbox-background);
   color: var(--docsearch-text-color);
@@ -93,6 +101,7 @@
 @media only screen and (max-width: 996px) {
   .searchVersionColumn {
     max-width: 40% !important;
+    margin: auto;
   }
 
   .searchResultsColumn {
@@ -113,8 +122,14 @@
   .searchVersionColumn {
     max-width: 100% !important;
     padding-left: var(--ifm-spacing-horizontal) !important;
+    margin: auto;
   }
 }
+
+.searchVersionColumn {
+  margin: auto;
+}
+
 
 .loadingSpinner {
   width: 3rem;
