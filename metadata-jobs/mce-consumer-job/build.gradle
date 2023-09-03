@@ -69,7 +69,7 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByName("docker").dependsOn([bootJar])
+tasks.getByPath(":metadata-jobs:mce-consumer-job:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
     doLast {
