@@ -19,7 +19,7 @@ dependencies {
 docker {
     name "${docker_registry}/${docker_repo}:v${version}-slim"
     version "v${version}-slim"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
+    dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile-slim-only")
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
         include "metadata-ingestion/**"
@@ -29,8 +29,7 @@ docker {
                 i.file == project(':metadata-ingestion').buildDir
     }
     buildArgs([DOCKER_VERSION: version,
-               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', ''),
-               APP_ENV: 'slim'])
+               RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', '')])
 }
 tasks.getByName('docker').dependsOn(['build',
                                      ':docker:datahub-ingestion-base:docker',
