@@ -442,10 +442,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select(
-                            sa.text(f"approx_quantiles(`{column}`, 100) [OFFSET (50)]")
-                        ).select_from(  # type:ignore
-                            self.dataset._table
-                        )
+                            sa.text(f"approx_quantiles(`{column}`, 2) [OFFSET (1)]")
+                        ).select_from(self.dataset._table)
                     ).scalar()
                 )
             else:
