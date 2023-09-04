@@ -75,6 +75,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnershipClass,
+    OwnershipTypeClass,
     StatusClass,
     TagAssociationClass,
 )
@@ -590,27 +591,75 @@ def test_mark_status_dataset(tmp_path):
 
 
 def test_extract_owners_from_tags():
-    dataset = make_generic_dataset(
-        aspects=[models.GlobalTagsClass(tags=["urn:li:tag:owner:foo"])]
-    )
-    transformer = ExtractOwnersFromTagsTransformer.create(
-        {
+    def _test_owner(
+        tag: str,
+        config: Dict,
+        expected_owner: str,
+        expected_owner_type: Optional[OwnershipTypeClass] = None,
+    ) -> None:
+        dataset = make_generic_dataset(aspects=[models.GlobalTagsClass(tags=[tag])])
+        transformer = ExtractOwnersFromTagsTransformer.create(
+            config,
+            PipelineContext(run_id="test"),
+        )
+        transformed = list(
+            transformer.transform(
+                [
+                    RecordEnvelope(dataset, metadata={}),
+                ]
+            )
+        )
+        owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
+        owners = owners_aspect.owners
+        owner = owners[0]
+        if expected_owner_type is not None:
+            assert owner.type == expected_owner_type
+        assert owner.owner == expected_owner
+
+    _test_owner(
+        tag="urn:li:tag:owner:foo",
+        config={
             "tag_prefix": "owner:",
         },
-        PipelineContext(run_id="test"),
+        expected_owner="urn:li:corpuser:foo",
     )
-    transformed = list(
-        transformer.transform(
-            [
-                RecordEnvelope(dataset, metadata={}),
-            ]
-        )
+    _test_owner(
+        tag="urn:li:tag:owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "is_user": False,
+        },
+        expected_owner="urn:li:corpGroup:foo",
     )
-    owners_aspect = transformed[0].record.proposedSnapshot.aspects[0]
-    assert owners_aspect
-    # TODO implement this test properly
-    print(owners_aspect)
-    assert owners_aspect is None
+    _test_owner(
+        tag="urn:li:tag:owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "email_domain": "example.com",
+        },
+        expected_owner="urn:li:corpuser:foo@example.com",
+    )
+    _test_owner(
+        tag="urn:li:tag:owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "email_domain": "example.com",
+            "owner_type": "TECHNICAL_OWNER",
+        },
+        expected_owner="urn:li:corpuser:foo@example.com",
+        expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
+    )
+    _test_owner(
+        tag="urn:li:tag:owner:foo",
+        config={
+            "tag_prefix": "owner:",
+            "email_domain": "example.com",
+            "owner_type": "AUTHOR",
+            "owner_type_urn": "urn:li:ownershipType:ad8557d6-dcb9-4d2a-83fc-b7d0d54f3e0f",
+        },
+        expected_owner="urn:li:corpuser:foo@example.com",
+        expected_owner_type=OwnershipTypeClass.CUSTOM,
+    )
 
 
 def test_add_dataset_browse_paths():
