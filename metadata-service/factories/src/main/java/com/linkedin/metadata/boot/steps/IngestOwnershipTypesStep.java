@@ -9,6 +9,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -18,6 +19,8 @@ import com.linkedin.ownership.OwnershipTypeInfo;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
+
+import java.util.List;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -96,8 +99,6 @@ public class IngestOwnershipTypesStep extends UpgradeStep {
     keyAspectProposal.setChangeType(ChangeType.UPSERT);
     keyAspectProposal.setEntityUrn(ownershipTypeUrn);
 
-    _entityService.ingestProposal(keyAspectProposal, auditStamp, false);
-
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(ownershipTypeUrn);
     proposal.setEntityType(OWNERSHIP_TYPE_ENTITY_NAME);
@@ -107,7 +108,9 @@ public class IngestOwnershipTypesStep extends UpgradeStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(proposal, auditStamp, false);
+    _entityService.ingestProposal(AspectsBatchImpl.builder()
+            .mcps(List.of(keyAspectProposal, proposal), _entityService.getEntityRegistry()).build(), auditStamp,
+            false);
   }
 
   @Nonnull

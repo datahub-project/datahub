@@ -25,7 +25,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.usage.usage_common import TOTAL_BUDGET_FOR_QUERY_LIST
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_OPERATIONAL_STATS,
     USAGE_EXTRACTION_USAGE_AGGREGATION,
@@ -280,7 +279,7 @@ class SnowflakeUsageExtractor(
 
     def _map_top_sql_queries(self, top_sql_queries: Dict) -> List[str]:
         budget_per_query: int = int(
-            TOTAL_BUDGET_FOR_QUERY_LIST / self.config.top_n_queries
+            self.config.queries_character_limit / self.config.top_n_queries
         )
         return sorted(
             [
