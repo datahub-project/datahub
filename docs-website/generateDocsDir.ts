@@ -220,7 +220,8 @@ function markdown_guess_title(
   if (filepath in hardcoded_titles) {
     title = hardcoded_titles[filepath as keyof typeof hardcoded_titles];
     if (filepath in hardcoded_descriptions) {
-      contents.data.description = hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
+      contents.data.description =
+        hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
     }
     if (hardcoded_hide_title.includes(filepath)) {
       contents.data.hide_title = true;
