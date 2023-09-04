@@ -28,7 +28,7 @@ class ExtractOwnersFromTagsConfig(TransformerSemanticsConfigModel):
 def get_owner_type(owner_type_str: str) -> Optional[OwnershipTypeClass]:
     for item in dir(OwnershipTypeClass):
         if str(item) == owner_type_str:
-            return item
+            return getattr(OwnershipTypeClass, item)
     return OwnershipTypeClass.CUSTOM
 
 
@@ -46,7 +46,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
-    ) -> "ExtractOwnersFromTagsConfig":
+    ) -> "ExtractOwnersFromTagsTransformer":
         config = ExtractOwnersFromTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
