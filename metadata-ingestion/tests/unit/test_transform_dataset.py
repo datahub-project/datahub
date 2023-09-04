@@ -597,7 +597,13 @@ def test_extract_owners_from_tags():
         expected_owner: str,
         expected_owner_type: Optional[OwnershipTypeClass] = None,
     ) -> None:
-        dataset = make_generic_dataset(aspects=[models.GlobalTagsClass(tags=[tag])])
+        dataset = make_generic_dataset(
+            aspects=[
+                models.GlobalTagsClass(
+                    tags=[TagAssociationClass(tag=builder.make_tag_urn(tag))]
+                )
+            ]
+        )
         transformer = ExtractOwnersFromTagsTransformer.create(
             config,
             PipelineContext(run_id="test"),
@@ -617,14 +623,14 @@ def test_extract_owners_from_tags():
         assert owner.owner == expected_owner
 
     _test_owner(
-        tag="urn:li:tag:owner:foo",
+        tag="owner:foo",
         config={
             "tag_prefix": "owner:",
         },
         expected_owner="urn:li:corpuser:foo",
     )
     _test_owner(
-        tag="urn:li:tag:owner:foo",
+        tag="owner:foo",
         config={
             "tag_prefix": "owner:",
             "is_user": False,
@@ -632,7 +638,7 @@ def test_extract_owners_from_tags():
         expected_owner="urn:li:corpGroup:foo",
     )
     _test_owner(
-        tag="urn:li:tag:owner:foo",
+        tag="owner:foo",
         config={
             "tag_prefix": "owner:",
             "email_domain": "example.com",
@@ -640,7 +646,7 @@ def test_extract_owners_from_tags():
         expected_owner="urn:li:corpuser:foo@example.com",
     )
     _test_owner(
-        tag="urn:li:tag:owner:foo",
+        tag="owner:foo",
         config={
             "tag_prefix": "owner:",
             "email_domain": "example.com",
@@ -650,7 +656,7 @@ def test_extract_owners_from_tags():
         expected_owner_type=OwnershipTypeClass.TECHNICAL_OWNER,
     )
     _test_owner(
-        tag="urn:li:tag:owner:foo",
+        tag="owner:foo",
         config={
             "tag_prefix": "owner:",
             "email_domain": "example.com",

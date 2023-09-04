@@ -50,23 +50,25 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         config = ExtractOwnersFromTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
+    def get_owner_urn(self, owner_str: str):
+        if self.config.email_domain is not None:
+            return owner_str + "@" + self.config.email_domain
+        return owner_str
+
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
         in_tags_aspect: Optional[GlobalTagsClass] = cast(GlobalTagsClass, aspect)
         if in_tags_aspect is None:
             return None
-        tags_str = in_tags_aspect.tags
+        tags = in_tags_aspect.tags
         owners: List[OwnerClass] = []
-        for tag in tags_str:
-            tag_urn = TagUrn.create_from_string(tag)
+        for tag_class in tags:
+            tag_urn = TagUrn.create_from_string(tag_class.tag)
             tag_str = tag_urn.get_entity_id()[0]
             if tag_str.startswith(self.config.tag_prefix):
                 owner_str = tag_str[len(self.config.tag_prefix) :]
-                if self.config.email_domain is not None:
-                    owner_urn_str = owner_str + "@" + self.config.email_domain
-                else:
-                    owner_urn_str = owner_str
+                owner_urn_str = self.get_owner_urn(owner_str)
                 if self.config.is_user:
                     owner_urn = CorpuserUrn.create_from_id(owner_urn_str)
                 else:
