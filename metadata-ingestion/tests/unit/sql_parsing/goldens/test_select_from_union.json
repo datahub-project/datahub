@@ -9,14 +9,14 @@
         {
             "downstream": {
                 "table": null,
-                "column": "LABEL"
+                "column": "label"
             },
             "upstreams": []
         },
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_AGG"
+                "column": "total_agg"
             },
             "upstreams": [
                 {
