@@ -94,7 +94,7 @@ The screenshot shows an example configuration for IntelliJ using the default GMS
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/development/intellij-remote-debug.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/development/intellij-remote-dgfgfgfebug.png"/>
 </p>
 
 
