@@ -229,8 +229,8 @@ microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0",
+    "pyiceberg",
+    "pyarrow>=9.0.0, <13.0.0",
 }
 
 s3_base = {
@@ -283,8 +283,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        "apache-airflow >= 2.0.2",
-        *rest_common,
+        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -478,7 +477,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
@@ -508,8 +507,8 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "vertica"
-            # airflow is added below
+            "vertica",
+            "mode",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -518,9 +517,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Extra requirements for Airflow.
-    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
@@ -534,7 +530,7 @@ full_test_dev_requirements = {
             "druid",
             "hana",
             "hive",
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -544,6 +540,7 @@ full_test_dev_requirements = {
             "redash",
             "vertica",
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }

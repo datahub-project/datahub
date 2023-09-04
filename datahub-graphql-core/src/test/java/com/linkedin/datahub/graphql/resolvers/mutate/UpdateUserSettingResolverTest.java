@@ -21,7 +21,7 @@ public class UpdateUserSettingResolverTest {
   private static final String TEST_USER_URN = "urn:li:corpuser:test";
   @Test
   public void testWriteCorpUserSettings() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_USER_URN))).thenReturn(true);
 
     UpdateUserSettingResolver resolver = new UpdateUserSettingResolver(mockService);
@@ -40,6 +40,6 @@ public class UpdateUserSettingResolverTest {
     final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_USER_URN),
         CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
 
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 }

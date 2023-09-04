@@ -459,6 +459,19 @@ def _column_level_lineage(  # noqa: C901
         #     statement.sql(pretty=True, dialect=dialect),
         # )
 
+    def _schema_aware_fuzzy_column_resolve(
+        table: Optional[_TableName], sqlglot_column: str
+    ) -> str:
+        default_col_name = (
+            sqlglot_column.lower() if use_case_insensitive_cols else sqlglot_column
+        )
+        if table:
+            return table_schema_normalized_mapping[table].get(
+                sqlglot_column, default_col_name
+            )
+        else:
+            return default_col_name
+
     # Optimize the statement + qualify column references.
     logger.debug(
         "Prior to qualification sql %s", statement.sql(pretty=True, dialect=dialect)
@@ -540,10 +553,8 @@ def _column_level_lineage(  # noqa: C901
                     normalized_col = sqlglot.parse_one(node.name).this.name
                     if node.subfield:
                         normalized_col = f"{normalized_col}.{node.subfield}"
-                    col = table_schema_normalized_mapping[table_ref].get(
-                        normalized_col, normalized_col
-                    )
 
+                    col = _schema_aware_fuzzy_column_resolve(table_ref, normalized_col)
                     direct_col_upstreams.add(_ColumnRef(table=table_ref, column=col))
                 else:
                     # This branch doesn't matter. For example, a count(*) column would go here, and
@@ -557,6 +568,9 @@ def _column_level_lineage(  # noqa: C901
                 # This is a bit jank since we're relying on sqlglot internals, but it seems to be
                 # the best way to do it.
                 output_col = original_col_expression.this.sql(dialect=dialect)
+
+            output_col = _schema_aware_fuzzy_column_resolve(output_table, output_col)
+
             if not direct_col_upstreams:
                 logger.debug(f'  "{output_col}" has no upstreams')
             column_lineage.append(
@@ -699,10 +713,7 @@ def _sqlglot_lineage_inner(
     # Fetch schema info for the relevant tables.
     table_name_urn_mapping: Dict[_TableName, str] = {}
     table_name_schema_mapping: Dict[_TableName, SchemaInfo] = {}
-    for table, is_input in itertools.chain(
-        [(table, True) for table in tables],
-        [(table, False) for table in modified],
-    ):
+    for table in itertools.chain(tables, modified):
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
@@ -712,19 +723,21 @@ def _sqlglot_lineage_inner(
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
 
         table_name_urn_mapping[qualified_table] = urn
-        if is_input and schema_info:
+        if schema_info:
             table_name_schema_mapping[qualified_table] = schema_info
 
         # Also include the original, non-qualified table name in the urn mapping.
         table_name_urn_mapping[table] = urn
 
+    total_tables_discovered = len(tables) + len(modified)
+    total_schemas_resolved = len(table_name_schema_mapping)
     debug_info = SqlParsingDebugInfo(
-        confidence=0.9 if len(tables) == len(table_name_schema_mapping)
+        confidence=0.9 if total_tables_discovered == total_schemas_resolved
         # If we're missing any schema info, our confidence will be in the 0.2-0.5 range depending
         # on how many tables we were able to resolve.
-        else 0.2 + 0.3 * len(table_name_schema_mapping) / len(tables),
-        tables_discovered=len(tables),
-        table_schemas_resolved=len(table_name_schema_mapping),
+        else 0.2 + 0.3 * total_schemas_resolved / total_tables_discovered,
+        tables_discovered=total_tables_discovered,
+        table_schemas_resolved=total_schemas_resolved,
     )
     logger.debug(
         f"Resolved {len(table_name_schema_mapping)} of {len(tables)} table schemas"
@@ -789,7 +802,8 @@ def sqlglot_lineage(
     This is a schema-aware lineage generator, meaning that it will use the
     schema information for the tables involved to generate lineage information
     for the columns involved. The schema_resolver is responsible for providing
-    the table schema information.
+    the table schema information. In most cases, the DataHubGraph can be used
+    to construct a schema_resolver that will fetch schemas from DataHub.
 
     The parser supports most types of DML statements (SELECT, INSERT, UPDATE,
     DELETE, MERGE) as well as CREATE TABLE AS SELECT (CTAS) statements. It
@@ -859,7 +873,6 @@ def create_lineage_sql_parsed_result(
     schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
 ) -> Optional["SqlParsingResult"]:
-
     parsed_result: Optional["SqlParsingResult"] = None
     try:
         schema_resolver = (

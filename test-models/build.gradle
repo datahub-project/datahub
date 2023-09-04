@@ -1,5 +1,5 @@
 apply plugin: 'pegasus'
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 tasks.withType(JavaCompile).configureEach {
   javaCompiler = javaToolchains.compilerFor {
@@ -13,8 +13,8 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-  compile spec.product.pegasus.data
-  compile externalDependency.commonsIo
+  implementation spec.product.pegasus.data
+  implementation externalDependency.commonsIo
   dataModel project(':metadata-models')
   dataModel project(':li-utils')
 }

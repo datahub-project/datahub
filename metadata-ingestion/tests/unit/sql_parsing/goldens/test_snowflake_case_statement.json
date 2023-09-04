@@ -8,7 +8,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_PRICE_CATEGORY"
+                "column": "total_price_category"
             },
             "upstreams": [
                 {
@@ -20,7 +20,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_PRICE_SUCCESS"
+                "column": "total_price_success"
             },
             "upstreams": [
                 {
