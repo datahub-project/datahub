@@ -53,8 +53,8 @@ describe("glossaryTerm", () => {
     cy.selectOptionInTagTermModal("Cypress2");
 
     cy.contains("SampleCypressHdfsDataset");
-    // Only 1 result.
-    cy.contains("of 1");
+    // Only 2 results.
+    cy.contains("of 2");
   });
 
   it("can search related entities by AND-ing two concepts using advanced search", () => {

@@ -290,6 +290,11 @@ enum DatasetFreshnessSourceType {
   Determine that a change has occurred by inspecting an audit log API
   """
   AUDIT_LOG
+
+  """
+  Determine whether the table has changed using an Operation aspect
+  """
+  DATAHUB_OPERATION
 }
 
 """

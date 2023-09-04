@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { Link } from 'react-router-dom';
 import { Health } from '../../../../../../types.generated';
-import { getHealthSummaryIcon, isUnhealthy } from '../../../../../shared/health/healthUtils';
+import { getHealthSummaryIcon, HealthSummaryIconType, isUnhealthy } from '../../../../../shared/health/healthUtils';
 import { EntityHealthPopover } from './EntityHealthPopover';
 
 const Container = styled.div`
@@ -14,17 +14,19 @@ const Container = styled.div`
 type Props = {
     health: Health[];
     baseUrl: string;
+    fontSize?: number;
+    tooltipPlacement?: any;
 };
 
-export const EntityHealth = ({ health, baseUrl }: Props) => {
+export const EntityHealth = ({ health, baseUrl, fontSize, tooltipPlacement }: Props) => {
     const unhealthy = isUnhealthy(health);
-    const icon = getHealthSummaryIcon(health);
+    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.FILLED, fontSize);
     return (
         <>
             {(unhealthy && (
                 <Link to={`${baseUrl}/Validation`}>
                     <Container>
-                        <EntityHealthPopover health={health} baseUrl={baseUrl}>
+                        <EntityHealthPopover health={health} baseUrl={baseUrl} placement={tooltipPlacement}>
                             {icon}
                         </EntityHealthPopover>
                     </Container>

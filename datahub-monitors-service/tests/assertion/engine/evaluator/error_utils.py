@@ -4,6 +4,7 @@ from datahub_monitors.assertion.engine.evaluator.utils.errors import (
 from datahub_monitors.constants import SNOWFLAKE_PLATFORM_URN
 from datahub_monitors.exceptions import (
     AssertionResultException,
+    InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
     SourceConnectionErrorException,
@@ -11,6 +12,15 @@ from datahub_monitors.exceptions import (
     UnsupportedPlatformException,
 )
 from datahub_monitors.types import AssertionResultErrorType, DatasetFreshnessSourceType
+
+
+def test_extract_assertion_evaluation_result_error_with_insufficient_data_exception() -> (
+    None
+):
+    error = InsufficientDataException(message="Error")
+    result = extract_assertion_evaluation_result_error(error)
+    assert result.type == AssertionResultErrorType.INSUFFICIENT_DATA
+    assert result.properties == {}
 
 
 def test_extract_assertion_evaluation_result_error_with_invalid_parameters_exception() -> (

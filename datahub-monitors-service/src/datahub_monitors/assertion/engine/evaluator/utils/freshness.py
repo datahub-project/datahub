@@ -57,6 +57,11 @@ def get_event_type_parameters_from_parameters(
             if dataset_freshness_parameters.audit_log:
                 params.update(dataset_freshness_parameters.audit_log.__dict__)
             return (entity_event_type, params)
+        elif source_type == DatasetFreshnessSourceType.DATAHUB_OPERATION:
+            entity_event_type = EntityEventType.DATAHUB_OPERATION
+            if dataset_freshness_parameters.datahub_operation:
+                params.update(dataset_freshness_parameters.datahub_operation.__dict__)
+            return (entity_event_type, params)
         else:
             raise InvalidSourceTypeException(
                 message=f"Failed to extract EntityEntityEventType & Parameters from Dataset FRESHNESS Assertion. Unsupported source type found {source_type}",

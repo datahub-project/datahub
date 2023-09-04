@@ -116,7 +116,7 @@ export function DetailsColumn({ assertion, monitor, lastEvaluationTimeMs, lastEv
 interface ActionsColumnProps {
     platform?: DataPlatform;
     monitor?: Monitor;
-    connectionForEntityExists: boolean;
+    canManageAssertion: boolean;
     lastEvaluationUrl?: string;
     onManageAssertion: () => void;
     onDeleteAssertion: () => void;
@@ -127,7 +127,7 @@ interface ActionsColumnProps {
 export function ActionsColumn({
     platform,
     monitor,
-    connectionForEntityExists,
+    canManageAssertion,
     lastEvaluationUrl,
     onManageAssertion,
     onDeleteAssertion,
@@ -140,12 +140,12 @@ export function ActionsColumn({
             {isStopped && (
                 <Tooltip
                     title={
-                        !connectionForEntityExists
+                        !canManageAssertion
                             ? 'A connection is required to run assertions. Configure your connection inside Ingestion, or contact your DataHub admin for help.'
                             : undefined
                     }
                 >
-                    <StartMonitorButton type="primary" onClick={onStartMonitor} disabled={!connectionForEntityExists}>
+                    <StartMonitorButton type="primary" onClick={onStartMonitor} disabled={!canManageAssertion}>
                         TURN ON
                     </StartMonitorButton>
                 </Tooltip>
@@ -157,7 +157,7 @@ export function ActionsColumn({
                 overlay={
                     <AssertionActionsMenu
                         monitor={monitor}
-                        connectionForEntityExists={connectionForEntityExists}
+                        canManageAssertion={canManageAssertion}
                         onManageAssertion={onManageAssertion}
                         onDeleteAssertion={onDeleteAssertion}
                         onStartMonitor={onStartMonitor}

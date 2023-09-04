@@ -45,6 +45,13 @@ const DEFAULT_SETTINGS: OidcSettings = {
     discoveryUri: '',
 };
 
+const isConfigAbsent = (field: any): boolean => {
+    if (field === null || field === undefined) {
+        return true;
+    }
+    return false;
+};
+
 export const OidcIntegration = () => {
     const [oidcSettings, setOidcSettings] = useState<OidcSettings>(DEFAULT_SETTINGS);
     const baseUrl = `${window.location.origin}`;
@@ -169,8 +176,8 @@ export const OidcIntegration = () => {
                                         <SettingValueContainer>
                                             <Switch
                                                 checked={
-                                                    oidcSettings?.jitProvisioningEnabled
-                                                        ? oidcSettings?.jitProvisioningEnabled
+                                                    !isConfigAbsent(oidcSettings.jitProvisioningEnabled)
+                                                        ? (oidcSettings.jitProvisioningEnabled as boolean)
                                                         : true
                                                 }
                                                 onChange={(checked) =>
@@ -192,8 +199,8 @@ export const OidcIntegration = () => {
                                         <SettingValueContainer>
                                             <Switch
                                                 checked={
-                                                    oidcSettings.preProvisioningRequired
-                                                        ? oidcSettings.preProvisioningRequired
+                                                    !isConfigAbsent(oidcSettings.preProvisioningRequired)
+                                                        ? (oidcSettings.preProvisioningRequired as boolean)
                                                         : false
                                                 }
                                                 onChange={(checked) =>
@@ -214,8 +221,8 @@ export const OidcIntegration = () => {
                                         <SettingValueContainer>
                                             <Switch
                                                 checked={
-                                                    oidcSettings.extractGroupsEnabled
-                                                        ? oidcSettings.extractGroupsEnabled
+                                                    !isConfigAbsent(oidcSettings.extractGroupsEnabled)
+                                                        ? (oidcSettings.extractGroupsEnabled as boolean)
                                                         : false
                                                 }
                                                 onChange={(checked) =>

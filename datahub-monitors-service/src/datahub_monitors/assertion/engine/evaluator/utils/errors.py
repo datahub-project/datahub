@@ -1,5 +1,6 @@
 from datahub_monitors.exceptions import (
     AssertionResultException,
+    InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
     SourceConnectionErrorException,
@@ -19,7 +20,12 @@ def extract_assertion_evaluation_result_error(
     Converts an AssertionResultException into a dictionary of properties that can be serialized into JSON.
     """
 
-    if isinstance(error, InvalidParametersException):
+    if isinstance(error, InsufficientDataException):
+        return AssertionEvaluationResultError(
+            type=AssertionResultErrorType.INSUFFICIENT_DATA,
+            properties={},
+        )
+    elif isinstance(error, InvalidParametersException):
         return AssertionEvaluationResultError(
             type=AssertionResultErrorType.INVALID_PARAMETERS,
             properties={"parameters": error.parameters},

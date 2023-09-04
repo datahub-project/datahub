@@ -15,13 +15,17 @@ import { FAILURE_COLOR_HEX } from '../../entity/shared/tabs/Incident/incidentUti
 
 const HEALTH_INDICATOR_COLOR = '#d48806';
 
-const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)`
-    font-size: 16px;
+const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
+    && {
+        font-size: ${(props) => props.fontSize}px;
+    }
 `;
 
-const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)`
+const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
     color: ${HEALTH_INDICATOR_COLOR};
-    font-size: 16px;
+    && {
+        font-size: ${(props) => props.fontSize}px;
+    }
 `;
 
 export enum HealthSummaryIconType {
@@ -40,12 +44,16 @@ export const isUnhealthy = (healths: Health[]) => {
     return isFailingAssertions || hasActiveIncidents;
 };
 
-export const getHealthSummaryIcon = (healths: Health[], type: HealthSummaryIconType = HealthSummaryIconType.FILLED) => {
+export const getHealthSummaryIcon = (
+    healths: Health[],
+    type: HealthSummaryIconType = HealthSummaryIconType.FILLED,
+    fontSize = 16,
+) => {
     const unhealthy = isUnhealthy(healths);
     return unhealthy
-        ? (type === HealthSummaryIconType.FILLED && <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} />) || (
-              <UnhealthyIconOutlined />
-          )
+        ? (type === HealthSummaryIconType.FILLED && (
+              <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} fontSize={fontSize} />
+          )) || <UnhealthyIconOutlined fontSize={fontSize} />
         : undefined;
 };
 

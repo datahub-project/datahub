@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
 import { useGetDatasetAssertionsWithMonitorsQuery } from '../../../../../../graphql/monitor.generated';
-import { useIngestionSourceForEntityQuery } from '../../../../../../graphql/ingestion.generated';
-import { getPlatformName } from '../../../utils';
 import { Assertion } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
 import { DatasetAssertionsSummary } from './DatasetAssertionsSummary';
@@ -35,37 +33,19 @@ export const AcrylAssertions = () => {
         variables: { urn },
         fetchPolicy: 'cache-first',
     });
-    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
-        variables: { urn },
-        fetchPolicy: 'cache-first',
-    });
 
     const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
     const assertions = combinedData?.dataset?.assertions?.assertions?.map((assertion) => assertion as Assertion) || [];
     const assertionGroups = createAssertionGroups(assertions);
-    const platformName = getPlatformName(entityData);
 
     const assertionMonitorsEnabled = config?.featureFlags?.assertionMonitorsEnabled || false;
     return (
         <>
             {assertionMonitorsEnabled && isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn) && (
                 <TabToolbar>
-                    <Tooltip
-                        title={
-                            !ingestionSourceData?.ingestionSourceForEntity?.urn
-                                ? `A connection to ${platformName} is required to create & run assertions. Configure your connection inside Ingestion, or contact your DataHub admin for help.`
-                                : undefined
-                        }
-                        placement="right"
-                    >
-                        <Button
-                            type="text"
-                            onClick={() => setShowAssertionBuilder(true)}
-                            disabled={!ingestionSourceData?.ingestionSourceForEntity?.urn}
-                        >
-                            <PlusOutlined /> Create Assertion
-                        </Button>
-                    </Tooltip>
+                    <Button type="text" onClick={() => setShowAssertionBuilder(true)}>
+                        <PlusOutlined /> Create Assertion
+                    </Button>
                 </TabToolbar>
             )}
             <DatasetAssertionsSummary summary={getAssertionGroupSummary(assertions)} />

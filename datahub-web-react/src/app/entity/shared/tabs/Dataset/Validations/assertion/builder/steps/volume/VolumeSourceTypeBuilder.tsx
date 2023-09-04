@@ -3,8 +3,9 @@ import { Select, Typography } from 'antd';
 import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { DatasetVolumeSourceType } from '../../../../../../../../../../types.generated';
-import { PLATFORM_ASSERTION_CONFIGS, VOLUME_SOURCE_TYPES } from './utils';
+import { VOLUME_SOURCE_TYPES, getVolumeSourceTypeDetails, getVolumeSourceTypeOptions } from './utils';
 import { ANTD_GRAY } from '../../../../../../../constants';
+import { useIngestionSourceForEntityQuery } from '../../../../../../../../../../graphql/ingestion.generated';
 
 const StyledSelect = styled(Select)`
     width: 300px;
@@ -44,14 +45,20 @@ const StyledInfoCircleOutlined = styled(InfoCircleOutlined)`
 `;
 
 type Props = {
+    entityUrn: string;
     platformUrn: string;
     value: DatasetVolumeSourceType;
     onChange: (newParams: DatasetVolumeSourceType) => void;
 };
 
-export const VolumeSourceTypeBuilder = ({ platformUrn, value, onChange }: Props) => {
-    const platformConfig = PLATFORM_ASSERTION_CONFIGS[platformUrn];
-    const platformDetails = platformConfig.sourceTypeDetails[value];
+export const VolumeSourceTypeBuilder = ({ entityUrn, platformUrn, value, onChange }: Props) => {
+    const { data: ingestionSourceData } = useIngestionSourceForEntityQuery({
+        variables: { urn: entityUrn },
+        fetchPolicy: 'cache-first',
+    });
+    const connectionForEntityExists = !!ingestionSourceData?.ingestionSourceForEntity?.urn;
+    const sourceOptions = getVolumeSourceTypeOptions(platformUrn, connectionForEntityExists);
+    const sourceDetails = getVolumeSourceTypeDetails(platformUrn, value);
 
     return (
         <Section>
@@ -60,7 +67,7 @@ export const VolumeSourceTypeBuilder = ({ platformUrn, value, onChange }: Props)
                 Select the mechanism used to determine the table&apos;s row count
             </Typography.Paragraph>
             <StyledSelect value={value} onChange={(newValue) => onChange(newValue as DatasetVolumeSourceType)}>
-                {platformConfig.sourceTypes.map((sourceType) => {
+                {sourceOptions.map((sourceType) => {
                     const { label, description } = VOLUME_SOURCE_TYPES[sourceType];
 
                     return (
@@ -71,10 +78,12 @@ export const VolumeSourceTypeBuilder = ({ platformUrn, value, onChange }: Props)
                     );
                 })}
             </StyledSelect>
-            <SourceDescription>
-                <StyledInfoCircleOutlined />
-                <PlatformDescription>{platformDetails.description}</PlatformDescription>
-            </SourceDescription>
+            {sourceDetails && (
+                <SourceDescription>
+                    <StyledInfoCircleOutlined />
+                    <PlatformDescription>{sourceDetails.description}</PlatformDescription>
+                </SourceDescription>
+            )}
         </Section>
     );
 };

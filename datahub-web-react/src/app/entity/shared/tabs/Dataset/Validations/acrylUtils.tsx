@@ -17,6 +17,8 @@ import {
     AssertionResultType,
     AssertionType,
     CronSchedule,
+    DatasetFreshnessSourceType,
+    DatasetVolumeSourceType,
     EntityType,
     Monitor,
     MonitorMode,
@@ -291,4 +293,14 @@ export const getCronAsText = (interval: string) => {
         text: undefined,
         error: false,
     };
+};
+
+export const canManageAssertionMonitor = (monitor: Monitor, connectionForEntityExists: boolean) => {
+    if (connectionForEntityExists) return true;
+
+    const assertionParameters = monitor.info?.assertionMonitor?.assertions?.[0]?.parameters;
+    return (
+        assertionParameters?.datasetFreshnessParameters?.sourceType === DatasetFreshnessSourceType.DatahubOperation ||
+        assertionParameters?.datasetVolumeParameters?.sourceType === DatasetVolumeSourceType.DatahubDatasetProfile
+    );
 };

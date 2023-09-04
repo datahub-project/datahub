@@ -1,13 +1,17 @@
 from unittest.mock import Mock
 
 import pytest
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import DatasetProfileClass
 
 from datahub_monitors.assertion.engine.evaluator.volume_evaluator import (
     VolumeAssertionEvaluator,
 )
 from datahub_monitors.assertion.types import AssertionState, AssertionStateType
 from datahub_monitors.connection.connection import Connection
-from datahub_monitors.connection.provider import ConnectionProvider
+from datahub_monitors.connection.datahub_ingestion_source_connection_provider import (
+    DataHubIngestionSourceConnectionProvider,
+)
 from datahub_monitors.exceptions import InvalidParametersException
 from datahub_monitors.source.provider import SourceProvider
 from datahub_monitors.source.source import Source
@@ -43,7 +47,7 @@ TEST_ENTITY_URN = (
 
 class TestVolumeEvaluator:
     def setup_method(self) -> None:
-        self.connection_provider = Mock(spec=ConnectionProvider)
+        self.connection_provider = Mock(spec=DataHubIngestionSourceConnectionProvider)
         self.state_provider = Mock(spec=DataHubMonitorStateProvider)
         self.source_provider = Mock(spec=SourceProvider)
         self.evaluator = VolumeAssertionEvaluator(
@@ -483,3 +487,100 @@ class TestVolumeEvaluator:
             self.evaluator._evaluate_internal(
                 self.assertion, self.params, self.connection, self.context
             )
+
+    def test_evaluate_row_count_total_dataset_profile_success(self) -> None:
+        evaluation_params = AssertionEvaluationParameters(
+            type=AssertionEvaluationParametersType.DATASET_VOLUME,
+            dataset_volume_parameters=DatasetVolumeAssertionParameters(
+                sourceType=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+            ),
+        )
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_TOTAL,
+            row_count_total=RowCountTotal(
+                operator=AssertionStdOperator.EQUAL_TO,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(value="999", type="NUMBER"),
+                ),
+            ),
+        )
+        self.assertion.volume_assertion = volume_assertion
+        self.connection_provider.graph = Mock(spec=DataHubGraph)
+        self.connection_provider.graph.get_latest_timeseries_value.return_value = (
+            DatasetProfileClass(timestampMillis=TEST_START, rowCount=999)
+        )
+
+        result = self.evaluator._evaluate_internal(
+            self.assertion, evaluation_params, self.connection, self.context
+        )
+        assert result.type == AssertionResultType.SUCCESS
+        assert result.parameters == {
+            "row_count": 999,
+        }
+
+    def test_evaluate_row_count_change_dataset_profile_no_previous_state(self) -> None:
+        evaluation_params = AssertionEvaluationParameters(
+            type=AssertionEvaluationParametersType.DATASET_VOLUME,
+            dataset_volume_parameters=DatasetVolumeAssertionParameters(
+                sourceType=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+            ),
+        )
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_CHANGE,
+            row_count_change=RowCountChange(
+                type=AssertionValueChangeType.ABSOLUTE,
+                operator=AssertionStdOperator.EQUAL_TO,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(value="10", type="NUMBER"),
+                ),
+            ),
+        )
+        self.assertion.volume_assertion = volume_assertion
+        self.connection_provider.graph = Mock(spec=DataHubGraph)
+        self.connection_provider.graph.get_latest_timeseries_value.return_value = (
+            DatasetProfileClass(timestampMillis=TEST_START, rowCount=999)
+        )
+
+        self.state_provider.get_state.return_value = None
+
+        result = self.evaluator._evaluate_internal(
+            self.assertion, evaluation_params, self.connection, self.context
+        )
+        assert result.type == AssertionResultType.INIT
+
+    def test_evaluate_row_count_change_dataset_profile_success(self) -> None:
+        evaluation_params = AssertionEvaluationParameters(
+            type=AssertionEvaluationParametersType.DATASET_VOLUME,
+            dataset_volume_parameters=DatasetVolumeAssertionParameters(
+                sourceType=DatasetVolumeSourceType.DATAHUB_DATASET_PROFILE
+            ),
+        )
+        volume_assertion = VolumeAssertion(
+            type=VolumeAssertionType.ROW_COUNT_CHANGE,
+            row_count_change=RowCountChange(
+                type=AssertionValueChangeType.ABSOLUTE,
+                operator=AssertionStdOperator.EQUAL_TO,
+                parameters=AssertionStdParameters(
+                    value=AssertionStdParameter(value="100", type="NUMBER"),
+                ),
+            ),
+        )
+        self.assertion.volume_assertion = volume_assertion
+        self.connection_provider.graph = Mock(spec=DataHubGraph)
+        self.connection_provider.graph.get_latest_timeseries_value.return_value = (
+            DatasetProfileClass(timestampMillis=TEST_START, rowCount=999)
+        )
+
+        self.state_provider.get_state.return_value = AssertionState(
+            type=AssertionStateType.MONITOR_TIMESERIES_STATE,
+            timestamp=TEST_START,
+            properties={
+                "row_count": "899",
+            },
+        )
+
+        result = self.evaluator._evaluate_internal(
+            self.assertion, evaluation_params, self.connection, self.context
+        )
+        assert result.type == AssertionResultType.SUCCESS
+        assert result.parameters == {"row_count": 999, "prev_row_count": "899"}

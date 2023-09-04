@@ -34,7 +34,11 @@ export const VOLUME_SOURCE_TYPES: Record<DatasetVolumeSourceType, VolumeSourceTy
 export const PLATFORM_ASSERTION_CONFIGS = {
     [SNOWFLAKE_URN]: {
         defaultSourceType: DatasetVolumeSourceType.InformationSchema,
-        sourceTypes: [DatasetVolumeSourceType.InformationSchema, DatasetVolumeSourceType.Query],
+        sourceTypes: [
+            DatasetVolumeSourceType.InformationSchema,
+            DatasetVolumeSourceType.Query,
+            DatasetVolumeSourceType.DatahubDatasetProfile,
+        ],
         sourceTypeDetails: {
             [DatasetVolumeSourceType.InformationSchema]: {
                 description: (
@@ -65,7 +69,11 @@ export const PLATFORM_ASSERTION_CONFIGS = {
     },
     [BIGQUERY_URN]: {
         defaultSourceType: DatasetVolumeSourceType.InformationSchema,
-        sourceTypes: [DatasetVolumeSourceType.InformationSchema, DatasetVolumeSourceType.Query],
+        sourceTypes: [
+            DatasetVolumeSourceType.InformationSchema,
+            DatasetVolumeSourceType.Query,
+            DatasetVolumeSourceType.DatahubDatasetProfile,
+        ],
         sourceTypeDetails: {
             [DatasetVolumeSourceType.InformationSchema]: {
                 description: (
@@ -89,7 +97,11 @@ export const PLATFORM_ASSERTION_CONFIGS = {
     },
     [REDSHIFT_URN]: {
         defaultSourceType: DatasetVolumeSourceType.InformationSchema,
-        sourceTypes: [DatasetVolumeSourceType.InformationSchema, DatasetVolumeSourceType.Query],
+        sourceTypes: [
+            DatasetVolumeSourceType.InformationSchema,
+            DatasetVolumeSourceType.Query,
+            DatasetVolumeSourceType.DatahubDatasetProfile,
+        ],
         sourceTypeDetails: {
             [DatasetVolumeSourceType.InformationSchema]: {
                 description: (
@@ -312,11 +324,30 @@ export const getDefaultVolumeParameters = (operator: AssertionStdOperator) => {
     }
 };
 
-export const getDefaultDatasetVolumeAssertionParametersState = (platformUrn: string) => {
+export const getVolumeSourceTypeOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
+    return connectionForEntityExists
+        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].sourceTypes
+        : [DatasetVolumeSourceType.DatahubDatasetProfile];
+};
+
+export const getVolumeSourceTypeDetails = (platformUrn: string, sourceType: DatasetVolumeSourceType) => {
+    return PLATFORM_ASSERTION_CONFIGS[platformUrn].sourceTypeDetails[sourceType];
+};
+
+export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEntityExists: boolean) => {
+    return connectionForEntityExists
+        ? PLATFORM_ASSERTION_CONFIGS[platformUrn].defaultSourceType
+        : DatasetVolumeSourceType.DatahubDatasetProfile;
+};
+
+export const getDefaultDatasetVolumeAssertionParametersState = (
+    platformUrn: string,
+    connectionForEntityExists: boolean,
+) => {
     return {
         type: AssertionEvaluationParametersType.DatasetVolume,
         datasetVolumeParameters: {
-            sourceType: PLATFORM_ASSERTION_CONFIGS[platformUrn].defaultSourceType,
+            sourceType: getDefaultVolumeSourceType(platformUrn, connectionForEntityExists),
         },
     };
 };

@@ -93,6 +93,8 @@ export const getResultErrorMessage = (result: AssertionResult) => {
             return 'Unable to connect to dataset. Please check the dataset connection.';
         case AssertionResultErrorType.SourceQueryFailed:
             return 'Unable to evaluate assertion. Please check the assertion configuration.';
+        case AssertionResultErrorType.InsufficientData:
+            return 'Not enough data to evaluate assertion.';
         case AssertionResultErrorType.InvalidParameters:
             return 'Invalid parameters. Please check the assertion configuration.';
         case AssertionResultErrorType.InvalidSourceType:

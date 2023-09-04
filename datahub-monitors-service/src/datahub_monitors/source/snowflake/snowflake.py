@@ -45,8 +45,8 @@ class SnowflakeSource(Source):
         try:
             # Set our default timezone to UTC so that comparisons with
             # timezone columns are always peformed in UTC.
-            cur = self.connection.get_client().cursor()
             query = "ALTER SESSION SET TIMEZONE = 'UTC';"
+            cur = self.connection.get_client().cursor()
             cur.execute(query)
         except Exception as e:
             raise SourceQueryFailedException(
