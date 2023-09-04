@@ -127,6 +127,11 @@
                 "default" : "no-run-id-provided",
                 "optional" : true
               }, {
+                "name" : "pipelineName",
+                "type" : "string",
+                "doc" : "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.",
+                "optional" : true
+              }, {
                 "name" : "registryName",
                 "type" : "string",
                 "doc" : "The model registry name that was used to process this event",

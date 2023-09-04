@@ -19,7 +19,7 @@ DataHub works.
 
 | Variable                           | Default | Unit/Type | Components              | Description                                                                                                                                                                       |
 |------------------------------------|---------|-----------|-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ASYNC_INGESTION_DEFAULT`          | `false` | boolean   | [`GMS`]                 | Asynchronously process ingestProposals by writing the ingestion MCP to Kafka. Typically enabled with standalone consumers.                                                        |
+| `ASYNC_INGEST_DEFAULT`          | `false` | boolean   | [`GMS`]                 | Asynchronously process ingestProposals by writing the ingestion MCP to Kafka. Typically enabled with standalone consumers.                                                        |
 | `MCP_CONSUMER_ENABLED`             | `true`  | boolean   | [`GMS`, `MCE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MCE Consumer`.                                                                                        |
 | `MCL_CONSUMER_ENABLED`             | `true`  | boolean   | [`GMS`, `MAE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MAE Consumer`.                                                                                        |
 | `PE_CONSUMER_ENABLED`              | `true`  | boolean   | [`GMS`, `MAE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MAE Consumer`.                                                                                        |
@@ -76,3 +76,11 @@ Simply replace the dot, `.`, with an underscore, `_`, and convert to uppercase.
 | `AWS_GLUE_SCHEMA_REGISTRY_REGION`                   | `us-east-1`                                  | string    | [`GMS`, `MCE Consumer`, `MAE Consumer`] | If using `AWS_GLUE` in the `SCHEMA_REGISTRY_TYPE` variable for the schema registry implementation.                                                                               |
 | `AWS_GLUE_SCHEMA_REGISTRY_NAME`                     | ``                                           | string    | [`GMS`, `MCE Consumer`, `MAE Consumer`] | If using `AWS_GLUE` in the `SCHEMA_REGISTRY_TYPE` variable for the schema registry.                                                                                              |
 | `USE_CONFLUENT_SCHEMA_REGISTRY`                     | `true`                                       | boolean   | [`kafka-setup`]                         | Enable Confluent schema registry configuration.                                                                                                                                  |
+
+## Frontend
+
+| Variable                           | Default  | Unit/Type | Components   | Description                                                                                                                         |
+|------------------------------------|----------|-----------|--------------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `AUTH_VERBOSE_LOGGING`             | `false`  | boolean   | [`Frontend`] | Enable verbose authentication logging. Enabling this will leak sensisitve information in the logs. Disable when finished debugging. |
+| `AUTH_OIDC_GROUPS_CLAIM`           | `groups` | string    | [`Frontend`] | Claim to use as the user's group.                                                                                                   |
+| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED` | `false`  | boolean   | [`Frontend`] | Auto-provision the group from the user's group claim.                                                                               |

@@ -126,12 +126,11 @@ sql_common = {
 }
 
 sqllineage_lib = {
-    "sqllineage==1.3.6",
+    "sqllineage==1.3.8",
     # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # As per https://github.com/reata/sqllineage/issues/361
-    # and https://github.com/reata/sqllineage/pull/360
-    # sqllineage has compat issues with sqlparse 0.4.4.
-    "sqlparse==0.4.3",
+    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
+    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
+    "sqlparse==0.4.4",
 }
 
 sqlglot_lib = {
@@ -212,12 +211,26 @@ trino = {
     "trino[sqlalchemy]>=0.308, !=0.317",
 }
 
+pyhive_common = {
+    # Acryl Data maintains a fork of PyHive
+    # - 0.6.11 adds support for table comments and column comments,
+    #   and also releases HTTP and HTTPS transport schemes
+    # - 0.6.12 adds support for Spark Thrift Server
+    # - 0.6.13 adds a small fix for Databricks
+    # - 0.6.14 uses pure-sasl instead of sasl so it builds on Python 3.11
+    "acryl-pyhive[hive_pure_sasl]==0.6.14",
+    # As per https://github.com/datahub-project/datahub/issues/8405
+    # and https://github.com/dropbox/PyHive/issues/417, new versions
+    # of thrift break PyHive's hive+http transport.
+    "thrift<0.14.0",
+}
+
 microsoft_common = {"msal==1.22.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "acryl-iceberg-legacy==0.0.4",
-    "azure-identity==1.10.0",
+    "pyiceberg",
+    "pyarrow>=9.0.0, <13.0.0",
 }
 
 s3_base = {
@@ -234,8 +247,8 @@ s3_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ>=1.0.1, <1.1",
-    "pyspark==3.0.3",
+    "pydeequ==1.1.0",
+    "pyspark~=3.3.0",
 }
 
 delta_lake = {
@@ -256,6 +269,8 @@ databricks = {
     "requests",
 }
 
+mysql = sql_common | {"pymysql>=1.0.2"}
+
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Sink plugins.
@@ -268,13 +283,13 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        "apache-airflow >= 2.0.2",
-        *rest_common,
+        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
     },
     "circuit-breaker": {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
+    "datahub": mysql | kafka_common,
     "great-expectations": sql_common | sqllineage_lib,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
@@ -292,14 +307,6 @@ plugins: Dict[str, Set[str]] = {
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
-    "bigquery-beta": sql_common
-    | bigquery_common
-    | {
-        *sqllineage_lib,
-        *sqlglot_lib,
-        "sql_metadata",
-        "sqlalchemy-bigquery>=1.4.1",
-    },  # deprecated, but keeping the extra for backwards compatibility
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
     "datahub-lineage-file": set(),
@@ -327,12 +334,8 @@ plugins: Dict[str, Set[str]] = {
         "hdbcli>=2.11.20; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     },
     "hive": sql_common
+    | pyhive_common
     | {
-        # Acryl Data maintains a fork of PyHive
-        # - 0.6.11 adds support for table comments and column comments,
-        #   and also releases HTTP and HTTPS transport schemes
-        # - 0.6.12 adds support for Spark Thrift Server
-        "acryl-pyhive[hive]>=0.6.13",
         "databricks-dbapi",
         # Due to https://github.com/great-expectations/great_expectations/issues/6146,
         # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
@@ -341,7 +344,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "json-schema": set(),
-    "kafka": {*kafka_common, *kafka_protobuf},
+    "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
     "looker": looker_common,
@@ -351,15 +354,16 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | {"sqlalchemy-pytds>=0.3"},
     "mssql-odbc": sql_common | {"pyodbc"},
-    "mysql": sql_common | {"pymysql>=1.0.2"},
+    "mysql": mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | {"pymysql>=1.0.2"},
-    "okta": {"okta~=1.7.0"},
+    "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"cx_Oracle"},
     "postgres": sql_common | {"psycopg2-binary", "GeoAlchemy2"},
-    "presto": sql_common | trino | {"acryl-pyhive[hive]>=0.6.12"},
+    "presto": sql_common | pyhive_common | trino,
     "presto-on-hive": sql_common
-    | {"psycopg2-binary", "acryl-pyhive[hive]>=0.6.12", "pymysql>=1.0.2"},
+    | pyhive_common
+    | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
     "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
     "redshift": sql_common | redshift_common | usage_common | {"redshift-connector"},
@@ -370,23 +374,23 @@ plugins: Dict[str, Set[str]] = {
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce"},
     "snowflake": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-beta": (
-        snowflake_common | usage_common | sqlglot_lib
-    ),  # deprecated, but keeping the extra for backwards compatibility
     "sqlalchemy": sql_common,
+    "sql-queries": usage_common | sqlglot_lib,
     "superset": {
         "requests",
         "sqlalchemy",
         "great_expectations",
         "greenlet",
     },
-    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib,
+    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
+    # to remove that dependency.
+    "tableau": {"tableauserverclient>=0.17.0"} | sqllineage_lib | sqlglot_lib,
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"},
+    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.1"},
+    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
 }
 
@@ -413,7 +417,10 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker,sts]>=1.28.4",
+    # The boto3-stubs package seems to have regularly breaking minor releases,
+    # we pin to a specific version to avoid this.
+    "boto3-stubs[s3,glue,sagemaker,sts]==1.28.15",
+    "mypy-boto3-sagemaker==1.28.15",  # For some reason, above pin only restricts `mypy-boto3-sagemaker<1.29.0,>=1.28.0`
     "types-tabulate",
     # avrogen package requires this
     "types-pytz",
@@ -423,6 +430,7 @@ mypy_stubs = {
     "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
+    "types-tzlocal",
 }
 
 
@@ -447,7 +455,7 @@ base_dev_requirements = {
     "mypy==1.0.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.9.0",
+    "pydantic>=1.10.0",
     *test_api_requirements,
     pytest_dep,
     "pytest-asyncio>=0.16.0",
@@ -469,7 +477,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast" if sys.version_info >= (3, 8) else None,
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "json-schema",
             "ldap",
             "looker",
@@ -498,8 +506,9 @@ base_dev_requirements = {
             "powerbi-report-server",
             "salesforce",
             "unity-catalog",
-            "nifi"
-            # airflow is added below
+            "nifi",
+            "vertica",
+            "mode",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -508,9 +517,6 @@ base_dev_requirements = {
 
 dev_requirements = {
     *base_dev_requirements,
-    # Extra requirements for Airflow.
-    "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
-    "virtualenv",  # needed by PythonVirtualenvOperator
 }
 
 full_test_dev_requirements = {
@@ -524,7 +530,7 @@ full_test_dev_requirements = {
             "druid",
             "hana",
             "hive",
-            "iceberg",
+            "iceberg" if sys.version_info >= (3, 8) else None,
             "kafka-connect",
             "ldap",
             "mongodb",
@@ -532,8 +538,9 @@ full_test_dev_requirements = {
             "mysql",
             "mariadb",
             "redash",
-            # "vertica",
+            "vertica",
         ]
+        if plugin
         for dependency in plugins[plugin]
     ),
 }
@@ -543,6 +550,7 @@ entry_points = {
     "datahub.ingestion.source.plugins": [
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
+        "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
         "sqlalchemy = datahub.ingestion.source.sql.sql_generic:SQLAlchemyGenericSource",
         "athena = datahub.ingestion.source.sql.athena:AthenaSource",
         "azure-ad = datahub.ingestion.source.identity.azure_ad:AzureADSource",
@@ -599,6 +607,7 @@ entry_points = {
         "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
+        "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "simple_remove_dataset_ownership = datahub.ingestion.transformer.remove_dataset_ownership:SimpleRemoveDatasetOwnership",
@@ -613,6 +622,7 @@ entry_points = {
         "add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags",
         "simple_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags",
         "pattern_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags",
+        "extract_dataset_tags = datahub.ingestion.transformer.extract_dataset_tags:ExtractDatasetTags",
         "add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:AddDatasetTerms",
         "simple_add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:SimpleAddDatasetTerms",
         "pattern_add_dataset_terms = datahub.ingestion.transformer.add_dataset_terms:PatternAddDatasetTerms",
