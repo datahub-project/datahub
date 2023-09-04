@@ -1,5 +1,5 @@
 import { execSync } from "child_process";
-import * as matter from "gray-matter";
+import matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import { Octokit } from "@octokit/rest";
@@ -26,7 +26,7 @@ const sidebars_text = fs.readFileSync(SIDEBARS_DEF_PATH).toString();
 const MyOctokit = Octokit.plugin(retry).plugin(throttling);
 const octokit = new MyOctokit({
   throttle: {
-    onRateLimit: (retryAfter, options) => {
+    onRateLimit: (retryAfter: number, options: any) => {
       // Retry twice after rate limit is hit.
       if (options.request.retryCount <= 2) {
         return true;
@@ -157,7 +157,7 @@ function get_slug(filepath: string): string {
   // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
 
   if (filepath in hardcoded_slugs) {
-    return hardcoded_slugs[filepath];
+    return hardcoded_slugs[filepath as keyof typeof hardcoded_slugs];
   }
 
   let slug = get_id(filepath);
@@ -218,9 +218,10 @@ function markdown_guess_title(
 
   let title: string;
   if (filepath in hardcoded_titles) {
-    title = hardcoded_titles[filepath];
+    title = hardcoded_titles[filepath as keyof typeof hardcoded_titles];
     if (filepath in hardcoded_descriptions) {
-      contents.data.description = hardcoded_descriptions[filepath];
+      contents.data.description =
+        hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
     }
     if (hardcoded_hide_title.includes(filepath)) {
       contents.data.hide_title = true;
