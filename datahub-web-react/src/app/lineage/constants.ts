@@ -20,3 +20,5 @@ export const iconY = -iconHeight / 2;
 export const centerX = -width / 2;
 export const centerY = -height / 2;
 export const textX = iconX + iconWidth + 8;
+export const healthX = -width / 2 + 14;
+export const healthY = -iconHeight / 2 - 8;
