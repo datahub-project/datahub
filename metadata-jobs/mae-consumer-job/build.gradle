@@ -11,22 +11,27 @@ ext {
 }
 
 dependencies {
+    implementation project(':metadata-service:factories')
     implementation project(':metadata-jobs:mae-consumer')
     // TODO: Extract PE consumer into separate pod.
     implementation project(':metadata-jobs:pe-consumer')
+
     implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
     implementation externalDependency.springBootStarterJetty
     implementation externalDependency.springKafka
+    implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.springActuator
     implementation externalDependency.slf4jApi
     implementation externalDependency.log4j2Api
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
 
+    testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation externalDependency.springBootTest
-    testCompile externalDependency.mockito
-    testCompile externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
 }
 
 bootJar {
@@ -53,7 +58,7 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByName("docker").dependsOn([bootJar])
+tasks.getByPath(":metadata-jobs:mae-consumer-job:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
     doLast {

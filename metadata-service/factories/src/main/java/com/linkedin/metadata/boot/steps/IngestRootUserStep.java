@@ -16,7 +16,9 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.List;
 
+import com.linkedin.util.Pair;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -67,8 +69,11 @@ public class IngestRootUserStep implements BootstrapStep {
     final CorpUserKey key = (CorpUserKey) EntityKeyUtils.convertUrnToEntityKey(urn, getUserKeyAspectSpec());
     final AuditStamp aspectAuditStamp =
         new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    _entityService.ingestAspect(urn, CORP_USER_KEY_ASPECT_NAME, key, aspectAuditStamp, null);
-    _entityService.ingestAspect(urn, USER_INFO_ASPECT_NAME, info, aspectAuditStamp, null);
+
+    _entityService.ingestAspects(urn, List.of(
+            Pair.of(CORP_USER_KEY_ASPECT_NAME, key),
+            Pair.of(USER_INFO_ASPECT_NAME, info)
+    ), aspectAuditStamp, null);
   }
 
   private AspectSpec getUserKeyAspectSpec() {

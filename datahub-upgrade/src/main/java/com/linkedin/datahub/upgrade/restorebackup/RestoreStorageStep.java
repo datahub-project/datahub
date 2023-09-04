@@ -20,6 +20,8 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.util.Pair;
+
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -181,8 +183,7 @@ public class RestoreStorageStep implements UpgradeStep {
       final long version = aspect.getKey().getVersion();
       final AuditStamp auditStamp = toAuditStamp(aspect);
       futureList.add(_gmsThreadPool.submit(() ->
-          _entityService.updateAspect(urn, entityName, aspectName, aspectSpec, aspectRecord, auditStamp,
-              version, version == 0L)));
+          _entityService.ingestAspects(urn, List.of(Pair.of(aspectName, aspectRecord)), auditStamp, null).get(0).getNewValue()));
       if (numRows % REPORT_BATCH_SIZE == 0) {
         for (Future<?> future : futureList) {
           try {
