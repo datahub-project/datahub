@@ -18,7 +18,8 @@ import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
 import { usePluralForm, useEvent } from "@docusaurus/theme-common";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import { useAllDocsData } from "@docusaurus/plugin-content-docs/client";
-import { useSearchPage } from "@docusaurus/theme-common/internal";
+import { useSearchQueryString } from '@docusaurus/theme-common';
+import {useTitleFormatter} from '@docusaurus/theme-common/internal';
 import Translate, { translate } from "@docusaurus/Translate";
 import styles from "./search.module.scss";
 
@@ -103,7 +104,7 @@ function SearchBar() {
   const documentsFoundPlural = useDocumentsFoundPlural();
 
   const docsSearchVersionsHelpers = useDocsSearchVersionsHelpers();
-  const { searchQuery, setSearchQuery } = useSearchPage()
+  const [searchQuery, setSearchQuery] = useSearchQueryString();
   const initialSearchResultState = {
     items: [],
     query: null,

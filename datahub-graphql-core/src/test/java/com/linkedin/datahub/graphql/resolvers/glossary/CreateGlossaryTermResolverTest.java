@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.concurrent.CompletionException;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockEntityService;
 import static org.testng.Assert.assertThrows;
 import static com.linkedin.metadata.Constants.*;
 
@@ -86,7 +87,7 @@ public class CreateGlossaryTermResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = initMockClient();
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT, "test-description", parentNodeUrn);
 
@@ -103,7 +104,7 @@ public class CreateGlossaryTermResolverTest {
   @Test
   public void testGetSuccessNoDescription() throws Exception {
     EntityClient mockClient = initMockClient();
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT_NO_DESCRIPTION, "", parentNodeUrn);
 
@@ -120,7 +121,7 @@ public class CreateGlossaryTermResolverTest {
   @Test
   public void testGetSuccessNoParentNode() throws Exception {
     EntityClient mockClient = initMockClient();
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final MetadataChangeProposal proposal = setupTest(mockEnv, TEST_INPUT_NO_PARENT_NODE, "test-description", null);
 
@@ -166,7 +167,7 @@ public class CreateGlossaryTermResolverTest {
         )
     ).thenReturn(result);
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
 
     CreateGlossaryEntityInput input = new CreateGlossaryEntityInput(

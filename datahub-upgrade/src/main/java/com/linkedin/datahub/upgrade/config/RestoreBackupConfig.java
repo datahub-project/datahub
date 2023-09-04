@@ -7,7 +7,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -26,7 +26,7 @@ public class RestoreBackupConfig {
       "searchService", "entityRegistry"})
   @Nonnull
   public RestoreBackup createInstance() {
-    final EbeanServer ebeanServer = applicationContext.getBean(EbeanServer.class);
+    final Database ebeanServer = applicationContext.getBean(Database.class);
     final EntityService entityService = applicationContext.getBean(EntityService.class);
     final Authentication systemAuthentication = applicationContext.getBean(Authentication.class);
     final RestliEntityClient entityClient = applicationContext.getBean(RestliEntityClient.class);
