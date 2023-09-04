@@ -595,7 +595,7 @@ def test_extract_owners_from_tags():
         tag: str,
         config: Dict,
         expected_owner: str,
-        expected_owner_type: Optional[OwnershipTypeClass] = None,
+        expected_owner_type: Optional[str] = None,
     ) -> None:
         dataset = make_generic_dataset(
             aspects=[

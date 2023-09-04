@@ -25,10 +25,10 @@ class ExtractOwnersFromTagsConfig(TransformerSemanticsConfigModel):
 
 
 @lru_cache(maxsize=10)
-def get_owner_type(owner_type_str: str) -> Optional[OwnershipTypeClass]:
+def get_owner_type(owner_type_str: str) -> str:
     for item in dir(OwnershipTypeClass):
         if str(item) == owner_type_str:
-            return getattr(OwnershipTypeClass, item)
+            return item
     return OwnershipTypeClass.CUSTOM
 
 
@@ -50,7 +50,7 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
         config = ExtractOwnersFromTagsConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_owner_urn(self, owner_str: str):
+    def get_owner_urn(self, owner_str: str) -> str:
         if self.config.email_domain is not None:
             return owner_str + "@" + self.config.email_domain
         return owner_str
@@ -70,16 +70,16 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                 owner_str = tag_str[len(self.config.tag_prefix) :]
                 owner_urn_str = self.get_owner_urn(owner_str)
                 if self.config.is_user:
-                    owner_urn = CorpuserUrn.create_from_id(owner_urn_str)
+                    owner_urn = str(CorpuserUrn.create_from_id(owner_urn_str))
                 else:
-                    owner_urn = CorpGroupUrn.create_from_id(owner_urn_str)
+                    owner_urn = str(CorpGroupUrn.create_from_id(owner_urn_str))
                 owner_type = get_owner_type(self.config.owner_type)
                 if owner_type == OwnershipTypeClass.CUSTOM:
                     assert (
                         self.config.owner_type_urn is not None
                     ), "owner_type_urn must be set if owner_type is CUSTOM"
                 owner = OwnerClass(
-                    owner=str(owner_urn),
+                    owner=owner_urn,
                     type=owner_type,
                     typeUrn=self.config.owner_type_urn,
                 )
