@@ -123,6 +123,10 @@ source types vary by the platform, but generally fall into these categories:
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform). 
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve 
   system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers.
+
+- **DataHub Dataset Profile**: The DataHub Dataset Profile aspect is used to retrieve the latest row count information for a table.
+  Using this option avoids contacting your data platform, and instead uses the DataHub Dataset Profile metadata to evaluate Volume Assertions.
+  Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
   
 Volume Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
@@ -166,7 +170,7 @@ Once these are in place, you're ready to create your Volume Assertions!
 </p>
 
 7. (Optional) Click **Advanced** to customize the volume **source**. This is the mechanism that will be used to obtain the table
-   row count metric. Each Data Platform supports different options including Information Schema and Query.
+   row count metric. Each Data Platform supports different options including Information Schema, Query, and DataHub Dataset Profile.
 
 <p align="center">
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/assertion-builder-volume-select-source-type.png"/>
@@ -174,6 +178,7 @@ Once these are in place, you're ready to create your Volume Assertions!
 
 - **Information Schema**: Check the Data Platform system metadata tables to determine the table row count. 
 - **Query**: Issue a `COUNT(*)` query to the table to determine the row count. 
+- **DataHub Dataset Profile**: Use the DataHub Dataset Profile metadata to determine the row count.
 
 8. Click **Next**
 9. Configure actions that should be taken when the Volume Assertion passes or fails
