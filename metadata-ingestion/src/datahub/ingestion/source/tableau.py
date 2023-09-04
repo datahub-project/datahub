@@ -975,7 +975,7 @@ class TableauSource(StatefulIngestionSourceBase):
         datasource_name: Optional[str],
         browse_path: Optional[str],
         is_custom_sql: bool,
-    ) -> tuple[List[Upstream], Dict[str, str]]:
+    ) -> Tuple[List[Upstream], Dict[str, str]]:
         upstream_tables = []
         # Same table urn can be used when setting fine grained lineage,
         table_id_to_urn: Dict[str, str] = {}
