@@ -27,6 +27,7 @@ const ResultsWrapper = styled.div`
     width: calc(100% - 24px);
     left: 12px;
     top: 45px;
+    z-index: 1;
 `;
 
 const SearchResult = styled(Link)`
