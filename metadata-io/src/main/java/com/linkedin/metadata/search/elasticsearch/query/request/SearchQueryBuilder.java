@@ -256,48 +256,61 @@ public class SearchQueryBuilder {
     String unquotedQuery = unquote(query);
 
     entitySpecs.stream()
-            .map(this::getStandardFields)
-            .flatMap(Set::stream)
-            .filter(SearchFieldConfig::isQueryByDefault)
-            .forEach(searchFieldConfig -> {
+        .map(this::getStandardFields)
+        .flatMap(Set::stream)
+        .filter(SearchFieldConfig::isQueryByDefault)
+        .collect(Collectors.groupingBy(SearchFieldConfig::fieldName,
+            Collectors.mapping(config -> config, Collectors.toList())))
+        .forEach((key, value) -> {
+          // Construct aggregate SearchFieldConfig out of all the ones in the list
+          SearchFieldConfig searchFieldConfig = new SearchFieldConfig(
+              key,
+              value.get(0).shortName(),
+              (float) value.stream().mapToDouble(SearchFieldConfig::boost).average().getAsDouble(),
+              value.get(0).analyzer(),
+              value.stream().anyMatch(SearchFieldConfig::hasKeywordSubfield),
+              value.stream().anyMatch(SearchFieldConfig::hasDelimitedSubfield),
+              value.stream().anyMatch(SearchFieldConfig::hasWordGramSubfields),
+              true,
+              value.stream().anyMatch(SearchFieldConfig::isDelimitedSubfield),
+              value.stream().anyMatch(SearchFieldConfig::isKeywordSubfield),
+              value.stream().anyMatch(SearchFieldConfig::hasWordGramSubfields)
+          );
+          if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
+            finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
+                .boost(searchFieldConfig.boost() * exactMatchConfiguration.getPrefixFactor()
+                    * exactMatchConfiguration.getCaseSensitivityFactor())
+                .queryName(searchFieldConfig.shortName())); // less than exact
+          }
 
-              if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
-                finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
-                        .boost(searchFieldConfig.boost()
-                                * exactMatchConfiguration.getPrefixFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
-                        .queryName(searchFieldConfig.shortName())); // less than exact
-              }
+          if (searchFieldConfig.isKeyword() && isExactQuery) {
+            // It is important to use the subfield .keyword (it uses a different normalizer)
+            // The non-.keyword field removes case information
 
-              if (searchFieldConfig.isKeyword() && isExactQuery) {
-                // It is important to use the subfield .keyword (it uses a different normalizer)
-                // The non-.keyword field removes case information
+            // Exact match case-sensitive
+            finalQuery.should(
+                QueryBuilders.termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+                    .caseInsensitive(false)
+                    .boost(searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor())
+                    .queryName(searchFieldConfig.shortName()));
 
-                // Exact match case-sensitive
-                finalQuery.should(QueryBuilders
-                        .termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
-                        .caseInsensitive(false)
-                        .boost(searchFieldConfig.boost()
-                                * exactMatchConfiguration.getExactFactor())
-                        .queryName(searchFieldConfig.shortName()));
+            // Exact match case-insensitive
+            finalQuery.should(
+                QueryBuilders.termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+                    .caseInsensitive(true)
+                    .boost(searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor()
+                        * exactMatchConfiguration.getCaseSensitivityFactor())
+                    .queryName(searchFieldConfig.fieldName()));
+          }
 
-                // Exact match case-insensitive
-                finalQuery.should(QueryBuilders
-                        .termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
-                        .caseInsensitive(true)
-                        .boost(searchFieldConfig.boost()
-                                * exactMatchConfiguration.getExactFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
-                        .queryName(searchFieldConfig.fieldName()));
-              }
-
-              if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
-                finalQuery.should(QueryBuilders
-                    .matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+          if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
+            finalQuery.should(
+                QueryBuilders.matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                        unquotedQuery)
                     .boost(searchFieldConfig.boost() * getWordGramFactor(searchFieldConfig.fieldName()))
                     .queryName(searchFieldConfig.shortName()));
-              }
-            });
+          }
+        });
 
     return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
   }
