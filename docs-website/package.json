@@ -22,10 +22,10 @@
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
-    "@docusaurus/core": "^2.1.0",
-    "@docusaurus/plugin-content-docs": "^2.1.0",
-    "@docusaurus/plugin-ideal-image": "^2.1.0",
-    "@docusaurus/preset-classic": "^2.1.0",
+    "@docusaurus/core": "^2.4.1",
+    "@docusaurus/plugin-content-docs": "2.4.1",
+    "@docusaurus/plugin-ideal-image": "^2.4.1",
+    "@docusaurus/preset-classic": "^2.4.1",
     "@markprompt/react": "^0.3.5",
     "@octokit/plugin-retry": "^3.0.9",
     "@octokit/plugin-throttling": "^3.5.1",
@@ -55,7 +55,7 @@
   },
   "devDependencies": {
     "prettier": "^2.3.0",
-    "ts-node": "^9.1.1",
+    "ts-node": "^10.9.1",
     "typescript": "^4.1.5"
   }
 }

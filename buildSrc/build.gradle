@@ -5,12 +5,12 @@ buildscript {
 }
 
 dependencies {
-  compile('io.acryl:json-schema-avro:0.1.5') {
+  implementation('io.acryl:json-schema-avro:0.1.5') {
     exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     exclude group: 'com.google.guava', module: 'guava'
   }
-  compile 'com.google.guava:guava:27.0.1-jre'
-  compile 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
-  compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.5'
-  compile 'commons-io:commons-io:2.11.0'
+  implementation 'com.google.guava:guava:32.1.2-jre'
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.5'
+  implementation 'commons-io:commons-io:2.11.0'
 }

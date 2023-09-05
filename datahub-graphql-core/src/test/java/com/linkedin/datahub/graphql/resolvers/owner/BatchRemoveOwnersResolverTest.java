@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveOwnersResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -32,7 +33,7 @@ public class BatchRemoveOwnersResolverTest {
 
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -66,12 +67,12 @@ public class BatchRemoveOwnersResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    verifyIngestProposal(mockService, 2);
+    verifyIngestProposal(mockService, 1);
   }
 
   @Test
   public void testGetSuccessExistingOwners() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     final Ownership oldOwners1 = new Ownership().setOwners(new OwnerArray(ImmutableList.of(
         new Owner().setOwner(Urn.createFromString(TEST_OWNER_URN_1)).setType(OwnershipType.TECHNICAL_OWNER)
@@ -112,12 +113,12 @@ public class BatchRemoveOwnersResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    verifyIngestProposal(mockService, 2);
+    verifyIngestProposal(mockService, 1);
   }
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -152,7 +153,7 @@ public class BatchRemoveOwnersResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);
 
@@ -172,10 +173,10 @@ public class BatchRemoveOwnersResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchRemoveOwnersResolver resolver = new BatchRemoveOwnersResolver(mockService);

@@ -1,5 +1,4 @@
 import atexit
-import hashlib
 import logging
 import os
 import re
@@ -136,10 +135,6 @@ def cleanup(config: BigQueryV2Config) -> None:
             f"Deleting temporary credential file at {config._credentials_path}"
         )
         os.unlink(config._credentials_path)
-
-
-def _generate_sql_id(sql: str) -> str:
-    return hashlib.md5(sql.encode("utf-8")).hexdigest()
 
 
 @platform_name("BigQuery", doc_order=1)
@@ -285,10 +280,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
 
-        # We do this so that the SQL is stored in a file-backed dict, but the sql IDs are stored in memory.
-        # Maps project -> view_ref -> sql ID (will be used when generating lineage)
-        self.view_definition_ids: Dict[str, Dict[str, str]] = defaultdict(dict)
-        # Maps sql ID -> actual sql
+        # Maps project -> view_ref, so we can find all views in a project
+        self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
+        # Maps view ref -> actual sql
         self.view_definitions: FileBackedDict[str] = FileBackedDict()
 
         self.sql_parser_schema_resolver = SchemaResolver(
@@ -810,10 +804,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
             self.table_refs.add(table_ref)
-            if self.config.lineage_parse_view_ddl:
-                view_definition_id = _generate_sql_id(view.view_definition)
-                self.view_definition_ids[project_id][table_ref] = view_definition_id
-                self.view_definitions[view_definition_id] = view.view_definition
+            if self.config.lineage_parse_view_ddl and view.view_definition:
+                self.view_refs_by_project[project_id].add(table_ref)
+                self.view_definitions[table_ref] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -903,7 +896,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view_properties_aspect = ViewProperties(
             materialized=view.materialized,
             viewLanguage="SQL",
-            viewLogic=view_definition_string,
+            viewLogic=view_definition_string or "",
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=self.gen_dataset_urn(
