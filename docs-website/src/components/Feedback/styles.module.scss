@@ -1,0 +1,55 @@
+.feedbackWrapper {
+  display: flex;
+}
+
+.feedbackWidget {
+  min-height: 64px;
+  margin: 15px auto;
+  padding: 10px 20px;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 1000em;
+  text-align: center;
+  display: flex;
+  align-items: center;
+}
+
+.feedbackButtons {
+  strong {
+    margin-right: 4px;
+  }
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  button {
+    width: 2rem;
+    height: 2rem;
+    text-align: center;
+    font-size: 1.25rem;
+    padding: 0.25rem;
+    border-radius: 1000em;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    svg {
+      fill: var(--ifm-link-color);
+    }
+
+    &:hover {
+      background: var(--ifm-link-color);
+      svg {
+        fill: var(--ifm-background-color);
+      }
+    }
+  }
+}
+
+.feedbackMessage {
+  display: flex;
+  align-items: center;
+  svg {
+    font-size: larger;
+    margin-right: 6px;
+    fill: var(--ifm-color-success);
+  }
+}
