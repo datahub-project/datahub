@@ -274,7 +274,7 @@ public class SearchQueryBuilder {
               true,
               value.stream().anyMatch(SearchFieldConfig::isDelimitedSubfield),
               value.stream().anyMatch(SearchFieldConfig::isKeywordSubfield),
-              value.stream().anyMatch(SearchFieldConfig::hasWordGramSubfields)
+              value.stream().anyMatch(SearchFieldConfig::isWordGramSubfield)
           );
           if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
             finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
