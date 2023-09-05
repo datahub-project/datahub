@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Button, Form, message, Modal, Select } from 'antd';
 
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { Entity, EntityType } from '../../../../../../../types.generated';
+import { Domain, Entity, EntityType } from '../../../../../../../types.generated';
 import { useBatchSetDomainMutation } from '../../../../../../../graphql/mutations.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
@@ -98,12 +98,12 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         }
     };
 
-    function selectDomainFromBrowser(urn: string, displayName: string) {
+    function selectDomainFromBrowser(domain: Domain) {
         setIsFocusedOnInput(false);
         setSelectedDomain({
-            displayName,
+            displayName: entityRegistry.getDisplayName(EntityType.Domain, domain),
             type: EntityType.Domain,
-            urn,
+            urn: domain.urn,
         });
     }
 

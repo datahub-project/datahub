@@ -63,7 +63,7 @@ const StyledExpander = styled(BodyGridExpander)`
 interface Props {
     domain: Domain;
     numDomainChildren: number;
-    selectDomainOverride?: (urn: string, displayName: string) => void;
+    selectDomainOverride?: (domain: Domain) => void;
 }
 
 export default function DomainNode({ domain, numDomainChildren, selectDomainOverride }: Props) {
@@ -91,7 +91,7 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
 
     function handleSelectDomain() {
         if (selectDomainOverride) {
-            selectDomainOverride(domain.urn, displayName);
+            selectDomainOverride(domain);
         } else {
             history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
         }
