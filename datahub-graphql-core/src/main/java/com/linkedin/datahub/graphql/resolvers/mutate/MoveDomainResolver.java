@@ -39,7 +39,7 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
     final Urn newParentDomainUrn = input.getParentDomain() != null ? UrnUtils.getUrn(input.getParentDomain()) : null;
 
     return CompletableFuture.supplyAsync(() -> {
-      if (!AuthorizationUtils.canCreateDomains(context)) {
+      if (!AuthorizationUtils.canManageDomains(context)) {
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
 

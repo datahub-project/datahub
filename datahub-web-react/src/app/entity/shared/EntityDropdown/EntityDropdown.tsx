@@ -20,7 +20,8 @@ import { ANTD_GRAY } from '../constants';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
-import { isDeleteDisabled } from './utils';
+import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
+import { useUserContext } from '../../../context/useUserContext';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -89,6 +90,7 @@ function EntityDropdown(props: Props) {
         options,
     } = props;
 
+    const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [updateDeprecation] = useUpdateDeprecationMutation();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
@@ -132,8 +134,6 @@ function EntityDropdown(props: Props) {
     const pageUrl = window.location.href;
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const isDomainEntity = entityType === EntityType.Domain;
-    const entityHasChildren = !!entityData?.children?.total;
-    const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
     /**
@@ -196,7 +196,7 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 key="4"
-                                disabled={!canManageGlossaryEntity}
+                                disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={() => setIsMoveModalVisible(true)}
                             >
                                 <MenuItem>
@@ -207,18 +207,16 @@ function EntityDropdown(props: Props) {
                         {menuItems.has(EntityMenuItems.DELETE) && (
                             <StyledMenuItem
                                 key="5"
-                                disabled={isDeleteDisabled(entityType, entityData)}
+                                disabled={isDeleteDisabled(entityType, entityData, me.platformPrivileges)}
                                 onClick={onDeleteEntity}
                             >
                                 <Tooltip
-                                    title={`Can't delete ${entityRegistry.getEntityName(entityType)} with ${
-                                        isDomainEntity ? 'sub-domain' : 'child'
-                                    } entities.`}
-                                    overlayStyle={
-                                        (isGlossaryEntity && canManageGlossaryEntity && entityHasChildren) ||
-                                        (isDomainEntity && entityHasChildren)
-                                            ? {}
-                                            : { display: 'none' }
+                                    title={
+                                        shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)
+                                            ? `Can't delete ${entityRegistry.getEntityName(entityType)} with ${
+                                                  isDomainEntity ? 'sub-domain' : 'child'
+                                              } entities.`
+                                            : undefined
                                     }
                                 >
                                     <MenuItem>
@@ -254,7 +252,10 @@ function EntityDropdown(props: Props) {
                     refetch={refetchForEntity}
                 />
             )}
-            {isMoveModalVisible && <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />}
+            {isMoveModalVisible && isGlossaryEntity && (
+                <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />
+            )}
+            {isMoveModalVisible && isDomainEntity && <div>domain move modal goes here</div>}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </>
     );
