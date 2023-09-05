@@ -13,7 +13,7 @@ const NavigatorWrapper = styled.div`
 `;
 
 interface Props {
-    selectDomainOverride?: (urn: string, displayName: string) => void;
+    selectDomainOverride?: (domain: Domain) => void;
 }
 
 export default function DomainNavigator({ selectDomainOverride }: Props) {

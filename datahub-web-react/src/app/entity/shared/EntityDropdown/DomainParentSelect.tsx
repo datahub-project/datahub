@@ -1,6 +1,6 @@
 import React from 'react';
 import { Select } from 'antd';
-import { EntityType } from '../../../../types.generated';
+import { Domain, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ClickOutside from '../../../shared/ClickOutside';
 import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
@@ -35,6 +35,10 @@ export default function DomainParentSelect(props: Props) {
         setSelectedParentUrn,
     });
 
+    function selectDomain(domain: Domain) {
+        selectParentFromBrowser(domain.urn, entityRegistry.getDisplayName(EntityType.Domain, domain));
+    }
+
     const isShowingDomainNavigator = !searchQuery && isFocusedOnInput;
 
     return (
@@ -57,7 +61,7 @@ export default function DomainParentSelect(props: Props) {
                 ))}
             </Select>
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                <DomainNavigator selectDomainOverride={selectParentFromBrowser} />
+                <DomainNavigator selectDomainOverride={selectDomain} />
             </BrowserWrapper>
         </ClickOutside>
     );
