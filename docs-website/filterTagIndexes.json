@@ -90,9 +90,9 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/datahub",
-      "imgPath": "img/datahub-logo-color-mark.svg",
+      "imgPath": "img/acryl-logo-white-mark.svg",
       "Title": "DataHub",
-      "Description": "Pulls DataHub metadata from one instance to another.",
+      "Description": "Integrate your open source DataHub instance with Acryl Cloud or other on-prem DataHub instances",
       "tags": {
         "Platform Type": "Metadata",
         "Connection Type": "Pull",
