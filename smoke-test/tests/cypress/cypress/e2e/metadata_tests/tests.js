@@ -23,7 +23,8 @@ describe("create, edit and remove metadata test", () => {
         });
       };
   
-    it("create new test at governance > tests, test conditions and save the test", () => {
+    it("create new test at governance > tests, edit a test to make if fail, remove test", () => {
+        //create new test at governance > tests, test conditions and save the test
         setTestsConfigFlag(true);
         cy.loginWithCredentials();
         cy.goToTestsList();
@@ -70,11 +71,7 @@ describe("create, edit and remove metadata test", () => {
         cy.waitTextVisible(testName);
         cy.waitTextVisible(testDescription);
         cy.waitTextVisible("No results found");
-    });
-
-    it("edit the test to make it fail, verify the result, save test", () => {
-        setTestsConfigFlag(true);
-        cy.loginWithCredentials();
+        //edit the test to make it fail, verify the result, save test
         cy.goToTestsList();
         cy.contains(testName).click();
         cy.waitTextVisible("Edit Metadata Test");
@@ -95,11 +92,7 @@ describe("create, edit and remove metadata test", () => {
         cy.waitTextVisible("Successfully updated Test!");
         cy.waitTextVisible(testName);
         cy.waitTextVisible("No results found");
-    });
-
-    it("delete test", () => {
-        setTestsConfigFlag(true);
-        cy.loginWithCredentials();
+        //delete a test
         cy.goToTestsList();
         cy.get('[data-testid="test-more-button-0"]').click();
         cy.clickOptionWithText("Delete");
