@@ -48,7 +48,11 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
           throw new IllegalArgumentException("Resource is not a domain.");
         }
 
-        DomainProperties properties = (DomainProperties) EntityUtils.getAspectFromEntity(resourceUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService, null);
+        DomainProperties properties = (DomainProperties) EntityUtils.getAspectFromEntity(
+            resourceUrn.toString(),
+            Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService,
+            null
+        );
 
         if (properties == null) {
           throw new IllegalArgumentException("Domain properties do not exist.");
