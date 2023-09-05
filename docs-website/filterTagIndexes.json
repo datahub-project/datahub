@@ -89,6 +89,17 @@
       }
     },
     {
+      "Path": "docs/generated/ingestion/sources/datahub",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Title": "DataHub",
+      "Description": "Pulls DataHub metadata from one instance to another.",
+      "tags": {
+        "Platform Type": "Metadata",
+        "Connection Type": "Pull",
+        "Features": "Stateful Ingestion"
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/dbt",
       "imgPath": "img/logos/platforms/dbt.svg",
       "Title": "dbt",
