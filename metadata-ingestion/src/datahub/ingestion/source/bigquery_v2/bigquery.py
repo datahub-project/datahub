@@ -541,7 +541,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             yield from self.lineage_extractor.get_lineage_workunits(
                 [p.id for p in projects],
                 self.sql_parser_schema_resolver,
-                self.view_definition_ids,
+                self.view_refs_by_project,
                 self.view_definitions,
                 self.table_refs,
             )

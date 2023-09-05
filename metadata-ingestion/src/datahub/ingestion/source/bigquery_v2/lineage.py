@@ -253,7 +253,7 @@ class BigqueryLineageExtractor:
         self,
         projects: List[str],
         sql_parser_schema_resolver: SchemaResolver,
-        view_definition_ids: Dict[str, Dict[str, str]],
+        view_refs_by_project: Dict[str, Set[str]],
         view_definitions: FileBackedDict[str],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
@@ -265,7 +265,7 @@ class BigqueryLineageExtractor:
             for project in projects:
                 self.populate_view_lineage_with_sql_parsing(
                     view_lineage,
-                    view_definition_ids[project],
+                    view_refs_by_project[project],
                     view_definitions,
                     sql_parser_schema_resolver,
                     project,
@@ -348,13 +348,13 @@ class BigqueryLineageExtractor:
     def populate_view_lineage_with_sql_parsing(
         self,
         view_lineage: Dict[str, Set[LineageEdge]],
-        view_definition_ids: Dict[str, str],
+        view_refs: Set[str],
         view_definitions: FileBackedDict[str],
         sql_parser_schema_resolver: SchemaResolver,
         default_project: str,
     ) -> None:
-        for view, view_definition_id in view_definition_ids.items():
-            view_definition = view_definitions[view_definition_id]
+        for view in view_refs:
+            view_definition = view_definitions[view]
             raw_view_lineage = sqlglot_lineage(
                 view_definition,
                 schema_resolver=sql_parser_schema_resolver,
