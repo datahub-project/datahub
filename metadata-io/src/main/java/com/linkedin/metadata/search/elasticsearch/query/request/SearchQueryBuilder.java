@@ -120,7 +120,8 @@ public class SearchQueryBuilder {
           .map(this::getStandardFields)
           .flatMap(Set::stream)
           .distinct()
-          .forEach(cfg -> queryBuilder.field(cfg.fieldName(), cfg.boost()));
+          .collect(Collectors.groupingBy(SearchFieldConfig::fieldName))
+          .forEach((name, cfgList) -> queryBuilder.field(name, (float)cfgList.stream().mapToDouble(SearchFieldConfig::boost).average().getAsDouble()));
       finalQuery.should(queryBuilder);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(null, entitySpecs, withoutQueryPrefix).ifPresent(finalQuery::should);
