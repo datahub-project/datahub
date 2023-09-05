@@ -28,6 +28,7 @@ dependencies {
 
     implementation externalDependency.elasticSearchRest
     implementation externalDependency.kafkaAvroSerde
+    implementation externalDependency.javaxInject
     implementation externalDependency.protobuf
     implementation externalDependency.neo4jJavaDriver
 
