@@ -21,6 +21,8 @@ dependencies {
     }
     implementation externalDependency.springBootStarterJetty
     implementation externalDependency.springKafka
+    implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.springActuator
     implementation spec.product.pegasus.restliDocgen
     implementation spec.product.pegasus.restliSpringBridge
     implementation externalDependency.slf4jApi
@@ -28,15 +30,16 @@ dependencies {
     compileOnly externalDependency.lombok
     implementation externalDependency.logbackClassic
 
-    runtime externalDependency.mariadbConnector
-    runtime externalDependency.mysqlConnector
-    runtime externalDependency.postgresql
+    runtimeOnly externalDependency.mariadbConnector
+    runtimeOnly externalDependency.mysqlConnector
+    runtimeOnly externalDependency.postgresql
 
     annotationProcessor externalDependency.lombok
 
+    testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation externalDependency.springBootTest
-    testCompile externalDependency.mockito
-    testCompile externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
 }
 
 bootJar {
@@ -66,7 +69,7 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByName("docker").dependsOn([bootJar])
+tasks.getByPath(":metadata-jobs:mce-consumer-job:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
     doLast {
