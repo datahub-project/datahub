@@ -1505,3 +1505,52 @@ def test_independent_datasets_extraction(
         output_path=tmp_path / "powerbi_independent_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_cll_extraction(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    register_mock_api(
+        request_mock=requests_mock,
+    )
+
+    default_conf: dict = default_source_config()
+
+    del default_conf[
+        "dataset_type_mapping"
+    ]  # delete this key so that connector set it to default (all dataplatform)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_conf,
+                    "extract_lineage": True,
+                    "extract_column_level_lineage": True,
+                    "enable_advance_lineage_sql_construct": True,
+                    "extract_independent_datasets": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_cll_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_cll.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "powerbi_cll_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )

@@ -397,6 +397,13 @@ class PowerBiDashboardSourceConfig(
         "as this option generates the upstream datasets URN in lowercase.",
     )
 
+    # Enable CLL extraction
+    extract_column_level_lineage: bool = pydantic.Field(
+        default=False,
+        description="Enabled to extract column level lineage. "
+        "It works for M-Query where native SQL is used for transformation.",
+    )
+
     @validator("dataset_type_mapping")
     @classmethod
     def map_data_platform(cls, value):
