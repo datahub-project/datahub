@@ -7732,6 +7732,21 @@ input UpdateParentNodeInput {
 }
 
 """
+Input for updating the parent domain of a domain.
+"""
+input MoveDomainInput {
+    """
+    The new parent domain urn. If parentDomain is null, this will remove the parent from this entity
+    """
+    parentDomain: String
+
+    """
+    The primary key of the resource to update the parent domain for
+    """
+    resourceUrn: String!
+}
+
+"""
 Input for updating the name of an entity
 """
 input UpdateNameInput {

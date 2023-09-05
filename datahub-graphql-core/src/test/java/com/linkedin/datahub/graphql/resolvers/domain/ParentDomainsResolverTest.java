@@ -70,29 +70,9 @@ public class ParentDomainsResolverTest {
     Mockito.when(mockClient.getV2(
         Mockito.eq(parentDomain1.getParentDomain().getEntityType()),
         Mockito.eq(parentDomain1.getParentDomain()),
-        Mockito.eq(null),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-        .setEntityName(DOMAIN_ENTITY_NAME)
-        .setUrn(parentDomain1.getParentDomain())
-        .setAspects(new EnvelopedAspectMap(parentDomain1Aspects)));
-
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(parentDomain1.getParentDomain().getEntityType()),
-        Mockito.eq(parentDomain1.getParentDomain()),
         Mockito.eq(Collections.singleton(DOMAIN_PROPERTIES_ASPECT_NAME)),
         Mockito.any(Authentication.class)
     )).thenReturn(new EntityResponse().setAspects(new EnvelopedAspectMap(parentDomain1Aspects)));
-
-    Mockito.when(mockClient.getV2(
-        Mockito.eq(parentDomain2.getParentDomain().getEntityType()),
-        Mockito.eq(parentDomain2.getParentDomain()),
-        Mockito.eq(null),
-        Mockito.any(Authentication.class)
-    )).thenReturn(new EntityResponse()
-        .setEntityName(DOMAIN_ENTITY_NAME)
-        .setUrn(parentDomain2.getParentDomain())
-        .setAspects(new EnvelopedAspectMap(parentDomain2Aspects)));
 
     Mockito.when(mockClient.getV2(
         Mockito.eq(parentDomain2.getParentDomain().getEntityType()),
@@ -104,7 +84,7 @@ public class ParentDomainsResolverTest {
     ParentDomainsResolver resolver = new ParentDomainsResolver(mockClient);
     ParentDomainsResult result = resolver.get(mockEnv).get();
 
-    Mockito.verify(mockClient, Mockito.times(5)).getV2(
+    Mockito.verify(mockClient, Mockito.times(3)).getV2(
         Mockito.any(),
         Mockito.any(),
         Mockito.any(),
