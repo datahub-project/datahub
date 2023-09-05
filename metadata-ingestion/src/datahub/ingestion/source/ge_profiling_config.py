@@ -145,10 +145,20 @@ class GEProfilingConfig(ConfigModel):
     # Hidden option - used for debugging purposes.
     catch_exceptions: bool = Field(default=True, description="")
 
-    partition_profiling_enabled: bool = Field(default=True, description="")
+    partition_profiling_enabled: bool = Field(
+        default=True,
+        description="Whether to profile partitioned tables. Only BigQuery supports this. "
+        "If enabled, latest partition data is used for profiling.",
+    )
     partition_datetime: Optional[datetime.datetime] = Field(
         default=None,
-        description="For partitioned datasets profile only the partition which matches the datetime or profile the latest one if not set. Only Bigquery supports this.",
+        description="If specified, profile only the partition which matches this datetime. "
+        "If not specified, profile the latest partition. Only Bigquery supports this.",
+    )
+    use_sampling: bool = Field(
+        default=True,
+        description="Whether to profile column level stats on sample of table. Only BigQuery supports this. "
+        "If enabled, profiling is done on around 1000 rows sampled from table. Sampling is not done for smaller tables. ",
     )
 
     @pydantic.root_validator(pre=True)
