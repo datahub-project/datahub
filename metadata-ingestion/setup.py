@@ -400,8 +400,7 @@ plugins: Dict[str, Set[str]] = {
     "fivetran": snowflake_common | bigquery_common,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "dagster": {
-        "dagster>=1.3.3",
-        *rest_common,
+        f"acryl-datahub-dagster-plugin == {package_metadata['__version__']}",
     },
 }
 

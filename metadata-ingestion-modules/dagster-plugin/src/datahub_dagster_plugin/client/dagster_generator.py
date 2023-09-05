@@ -10,7 +10,6 @@ from dagster._core.storage.dagster_run import (
     DagsterRunStatsSnapshot,
     DagsterRunStatus,
 )
-
 from datahub.api.entities.datajob import DataFlow, DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,

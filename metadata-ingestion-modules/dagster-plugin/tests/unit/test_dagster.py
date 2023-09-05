@@ -10,17 +10,21 @@ from dagster import (
     job,
     op,
 )
-
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstanceKey,
     InstanceRunResult,
 )
 from datahub.configuration.source_common import DEFAULT_ENV
-from datahub_provider.entities import Dataset
-from datahub_provider.sensors.datahub_sensors import DatahubSensors, datahub_sensor
+
+from datahub_dagster_plugin.sensors.datahub_sensors import (
+    DatahubSensors,
+    datahub_sensor,
+)
 
 
-@patch("datahub_provider.sensors.datahub_sensors.DatahubRestEmitter", autospec=True)
+@patch(
+    "datahub_dagster_plugin.sensors.datahub_sensors.DatahubRestEmitter", autospec=True
+)
 def test_datahub_sensor(mock_emit):
     instance = DagsterInstance.ephemeral()
     context = build_sensor_context(instance=instance)
@@ -28,7 +32,9 @@ def test_datahub_sensor(mock_emit):
     assert isinstance(skip_reason, SkipReason)
 
 
-@patch("datahub_provider.sensors.datahub_sensors.DatahubRestEmitter", autospec=True)
+@patch(
+    "datahub_dagster_plugin.sensors.datahub_sensors.DatahubRestEmitter", autospec=True
+)
 def test_emit_metadata(mock_emit):
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
@@ -36,7 +42,11 @@ def test_emit_metadata(mock_emit):
     @op(
         out={
             "result": Out(
-                metadata={"datahub.outputs": [Dataset("snowflake", "tableB").urn]}
+                metadata={
+                    "datahub.outputs": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableB,PROD)"
+                    ]
+                }
             )
         }
     )
@@ -47,7 +57,11 @@ def test_emit_metadata(mock_emit):
     @op(
         ins={
             "data": In(
-                metadata={"datahub.inputs": [Dataset("snowflake", "tableA").urn]}
+                metadata={
+                    "datahub.inputs": [
+                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,tableA,PROD)"
+                    ]
+                }
             )
         }
     )

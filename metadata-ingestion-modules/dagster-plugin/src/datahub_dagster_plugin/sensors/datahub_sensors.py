@@ -12,9 +12,9 @@ from dagster._core.definitions.sensor_definition import (
     RawSensorEvaluationFunctionReturn,
 )
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
-
 from datahub.emitter.rest_emitter import DatahubRestEmitter
-from datahub_provider.client.dagster_generator import (
+
+from datahub_dagster_plugin.client.dagster_generator import (
     DagsterGenerator,
     DagsterSourceConfig,
 )
