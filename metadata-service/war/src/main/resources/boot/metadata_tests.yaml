@@ -362,7 +362,7 @@
                     - Table
     rules:
       or:
-        - property: assertionsSummary.failingAssertions
+        - property: assertionsSummary.failingAssertionDetails
           operator: exists
 
 -
@@ -388,5 +388,5 @@
                     - Table
     rules:
       or:
-        - property: incidentsSummary.activeIncidents
+        - property: incidentsSummary.activeIncidentDetails
           operator: exists
