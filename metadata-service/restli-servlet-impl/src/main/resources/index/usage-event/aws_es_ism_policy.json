@@ -3,13 +3,14 @@
     "policy_id": "PREFIXdatahub_usage_event_policy",
     "description": "Datahub Usage Event Policy",
     "default_state": "Rollover",
-    "schema_version": 1,
+    "schema_version": 3,
     "states": [
       {
         "name": "Rollover",
         "actions": [
           {
             "rollover": {
+              "min_size": "5gb",
               "min_index_age": "1d"
             }
           }
@@ -28,22 +29,6 @@
         "actions": [
           {
             "read_only": {}
-          }
-        ],
-        "transitions": [
-          {
-            "state_name": "Delete",
-            "conditions": {
-              "min_index_age": "60d"
-            }
-          }
-        ]
-      },
-      {
-        "name": "Delete",
-        "actions": [
-          {
-            "delete": {}
           }
         ],
         "transitions": []

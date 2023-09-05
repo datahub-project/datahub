@@ -12,7 +12,8 @@ For more information about lineage, refer to [About DataHub Lineage](/docs/linea
 
 This guide will show you how to
 
-- Add lineage between two hive datasets.
+- Add lineage between datasets.
+- Add column-level lineage between datasets.
 
 ## Prerequisites
 
@@ -111,4 +112,93 @@ Expected Response:
 
 You can now see the lineage between `fct_users_deleted` and `logging_events`.
 
-![lineage-added](../../imgs/apis/tutorials/lineage-added.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/lineage-added.png"/>
+</p>
+
+
+## Add Column-level Lineage
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained_sample.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+### Expected Outcome of Adding Column Level Lineage
+
+You can now see the column-level lineage between datasets. Note that you have to enable `Show Columns` to be able to see the column-level lineage.
+
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/column-level-lineage-added.png"/>
+</p>
+
+
+## Read Lineage
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+query searchAcrossLineage {
+  searchAcrossLineage(
+    input: {
+      query: "*"
+      urn: "urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD)"
+      start: 0
+      count: 10
+      direction: DOWNSTREAM
+      orFilters: [
+        {
+          and: [
+            {
+              condition: EQUAL
+              negated: false
+              field: "degree"
+              values: ["1", "2", "3+"]
+            }
+          ]
+        }
+      ]
+    }
+  ) {
+    searchResults {
+      degree
+      entity {
+        urn
+        type
+      }
+    }
+  }
+}
+```
+
+This example shows using lineage degrees as a filter, but additional search filters can be included here as well. 
+
+</TabItem>
+<TabItem value="curl" label="Curl">
+
+```shell
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json'  --data-raw '{ { "query": "mutation searchAcrossLineage { searchAcrossLineage( input: { query: \"*\" urn: \"urn:li:dataset:(urn:li:dataPlatform:dbt,long_tail_companions.adoption.human_profiles,PROD)\" start: 0 count: 10 direction: DOWNSTREAM orFilters: [ { and: [ { condition: EQUAL negated: false field: \"degree\" values: [\"1\", \"2\", \"3+\"] } ] } ] } ) { searchResults { degree entity { urn type } } }}"
+}}'
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/read_lineage_rest.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+This will perform a multi-hop lineage search on the urn specified. For more information about the `searchAcrossLineage` mutation, please refer to [searchAcrossLineage](https://datahubproject.io/docs/graphql/queries/#searchacrosslineage).

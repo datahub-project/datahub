@@ -20,6 +20,14 @@ export const ANTD_GRAY = {
     9: '#434343',
 };
 
+export const ANTD_GRAY_V2 = {
+    2: '#F3F5F6',
+    5: '#DDE0E4',
+    6: '#B2B8BD',
+    8: '#5E666E',
+    10: '#1B1E22',
+};
+
 export const EMPTY_MESSAGES = {
     documentation: {
         title: 'No documentation yet',
@@ -48,6 +56,10 @@ export const EMPTY_MESSAGES = {
     domain: {
         title: 'No domain set',
         description: 'Group related entities based on your organizational structure using by adding them to a Domain.',
+    },
+    dataProduct: {
+        title: 'No data product set',
+        description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
     },
     contains: {
         title: 'Contains no Terms',
@@ -89,3 +101,10 @@ export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.Glossa
 export const DEFAULT_SYSTEM_ACTOR_URNS = ['urn:li:corpuser:__datahub_system', 'urn:li:corpuser:unknown'];
 
 export const VIEW_ENTITY_PAGE = 'VIEW_ENTITY_PAGE';
+
+// only values for Domain Entity for custom configurable default tab
+export enum EntityProfileTab {
+    DOMAIN_ENTITIES_TAB = 'DOMAIN_ENTITIES_TAB',
+    DOCUMENTATION_TAB = 'DOCUMENTATION_TAB',
+    DATA_PRODUCTS_TAB = 'DATA_PRODUCTS_TAB',
+}

@@ -21,8 +21,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.public.book,PROD)",
                                 "type": "VIEW"
@@ -257,6 +257,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_refinement_sample1"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.extend_book,PROD)",
@@ -278,8 +303,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.public.book,PROD)",
                                 "type": "VIEW"
@@ -339,6 +364,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.extend_book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_refinement_sample1"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.order,PROD)",
@@ -360,8 +410,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.public.order,PROD)",
                                 "type": "VIEW"
@@ -511,6 +561,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_1.view.order,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_refinement_sample1"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD)",
@@ -532,8 +607,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.public.issue_history,PROD)",
                                 "type": "VIEW"
@@ -696,6 +771,61 @@
             "materialized": false,
             "viewLogic": "include: \"book.view\"\n\nview: issue_history {\n  sql_table_name: public.issue_history ;;\n\n  dimension: book_name {\n    type: string\n    sql: ${TABLE}.\"book_name\" ;;\n  }\n\n  dimension: user_name {\n    type: string\n    sql: ${TABLE}.\"user_name\" ;;\n  }\n\n  measure: count {\n    type: count\n    drill_fields: [book_name, user_name]\n  }\n}\n\n\nview: +book {\n  dimension: issue_date_2 {\n    type: string\n    sql: ${TABLE}.\"date\" ;;\n  }\n}\n\nview: +book {\n  dimension: issue_date_4 {\n    type: string\n    sql: ${TABLE}.\"date\" ;;\n  }\n}\n",
             "viewLanguage": "lookml"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_refinement_sample1.model_2.view.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "looker"
+                },
+                {
+                    "id": "lkml_refinement_sample1"
+                },
+                {
+                    "id": "views"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Dimension",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measure",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measure"
         }
     },
     "systemMetadata": {

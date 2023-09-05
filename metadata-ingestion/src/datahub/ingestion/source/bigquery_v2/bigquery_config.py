@@ -3,11 +3,12 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
+import pydantic
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -28,10 +29,15 @@ class BigQueryUsageConfig(BaseUsageConfig):
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
     )
 
+    apply_view_usage_to_tables: bool = Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies usage to views / tables mentioned in the query. If set to True, usage is applied to base tables only.",
+    )
+
 
 class BigQueryV2Config(
     BigQueryBaseConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -73,6 +79,13 @@ class BigQueryV2Config(
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate BigQuery Console url to Datasets/Tables",
+    )
+
+    include_data_platform_instance: bool = Field(
+        default=False,
+        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
+        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
+        " because the project id is represented as the top-level container.",
     )
 
     debug_include_full_payloads: bool = Field(
@@ -118,7 +131,7 @@ class BigQueryV2Config(
 
     lineage_use_sql_parser: bool = Field(
         default=True,
-        description="Use sql parser to resolve view/table lineage. Only invoked on tables with both upstream tables and views. Used to distinguish between direct/base objects accessed, to only emit upstream lineage for directly accessed objects.",
+        description="Use sql parser to resolve view/table lineage.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -129,6 +142,22 @@ class BigQueryV2Config(
         default=False,
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
     )
+
+    extract_column_lineage: bool = Field(
+        # TODO: Flip this default to True once we support patching column-level lineage.
+        default=False,
+        description="If enabled, generate column level lineage. "
+        "Requires lineage_use_sql_parser to be enabled. "
+        "This and `incremental_lineage` cannot both be enabled.",
+    )
+
+    @pydantic.validator("extract_column_lineage")
+    def validate_column_lineage(cls, v: bool, values: Dict[str, Any]) -> bool:
+        if v and values.get("incremental_lineage"):
+            raise ValueError(
+                "Cannot enable `extract_column_lineage` and `incremental_lineage` at the same time."
+            )
+        return v
 
     extract_lineage_from_catalog: bool = Field(
         default=False,
@@ -268,10 +297,9 @@ class BigQueryV2Config(
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
-        return "|".join(pattern) if self.table_pattern else ""
+        return "|".join(pattern) if pattern else ""
 
-    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
-    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+    def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:
             return f"bigquery://{self.project_on_behalf}"
         # When project_id is not set, we will attempt to detect the project ID

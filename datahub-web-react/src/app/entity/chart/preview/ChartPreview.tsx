@@ -11,6 +11,8 @@ import {
     ParentContainersResult,
     Deprecation,
     ChartStatsSummary,
+    DataProduct,
+    EntityPath,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -28,6 +30,7 @@ export const ChartPreview = ({
     tags,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     insights,
     logoUrl,
@@ -38,6 +41,8 @@ export const ChartPreview = ({
     externalUrl,
     parentContainers,
     snippet,
+    degree,
+    paths,
 }: {
     urn: string;
     platform?: string;
@@ -49,6 +54,7 @@ export const ChartPreview = ({
     tags?: GlobalTags;
     glossaryTerms?: GlossaryTerms | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     container?: Container | null;
     insights?: Array<SearchInsight> | null;
     logoUrl?: string | null;
@@ -59,6 +65,8 @@ export const ChartPreview = ({
     externalUrl?: string | null;
     parentContainers?: ParentContainersResult | null;
     snippet?: React.ReactNode | null;
+    degree?: number;
+    paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -78,6 +86,7 @@ export const ChartPreview = ({
             owners={owners}
             glossaryTerms={glossaryTerms || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             container={container || undefined}
             insights={insights}
             parentContainers={parentContainers}
@@ -92,6 +101,8 @@ export const ChartPreview = ({
                     createdMs={createdMs}
                 />
             }
+            degree={degree}
+            paths={paths}
         />
     );
 };

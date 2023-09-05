@@ -33,6 +33,8 @@ dmypy.json
 MANIFEST
 *.pyc
 
+# Generated files
+**/bin
 # Added by mp-maker
 **/build
 /config
@@ -67,6 +69,8 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
+docs-website/versioned_docs/
+docs-website/versioned_sidebars/
 tmp*
 temp/**
 
@@ -80,3 +84,44 @@ metadata-service/plugin/src/test/resources/sample-plugins/**
 smoke-test/rollback-reports
 coverage*.xml
 .vercel
+
+# A long series of binary directories we should ignore
+datahub-frontend/bin/main/
+datahub-frontend/bin/test/
+datahub-graphql-core/bin/
+datahub-upgrade/bin/
+entity-registry/bin/
+ingestion-scheduler/bin/
+li-utils/bin/
+metadata-auth/auth-api/bin/
+metadata-dao-impl/kafka-producer/bin/
+metadata-events/mxe-registration/bin/
+metadata-events/mxe-schemas/bin/
+metadata-events/mxe-utils-avro-1.7/bin/
+metadata-integration/java/datahub-client/bin/
+metadata-integration/java/datahub-protobuf/bin/
+metadata-io/bin/
+metadata-jobs/mae-consumer-job/bin/
+metadata-jobs/mae-consumer/bin/
+metadata-jobs/mce-consumer-job/bin/
+metadata-jobs/mce-consumer/bin/
+metadata-jobs/pe-consumer/bin/
+metadata-models-validator/bin/
+metadata-models/bin/
+metadata-service/auth-config/bin/
+metadata-service/auth-filter/bin/
+metadata-service/auth-impl/bin/
+metadata-service/auth-servlet-impl/bin/
+metadata-service/factories/bin/
+metadata-service/graphql-servlet-impl/bin/
+metadata-service/openapi-servlet/bin/
+metadata-service/plugin/bin/
+metadata-service/plugin/src/test/sample-test-plugins/bin/
+metadata-service/restli-api/bin/
+metadata-service/restli-client/bin/
+metadata-service/restli-servlet-impl/bin/
+metadata-service/servlet/bin/
+metadata-service/war/bin/
+metadata-utils/bin/
+test-models/bin/
+

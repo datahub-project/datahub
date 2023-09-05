@@ -121,6 +121,12 @@ class DataPlatformPair:
     powerbi_data_platform_name: str
 
 
+@dataclass
+class PowerBIPlatformDetail:
+    data_platform_pair: DataPlatformPair
+    data_platform_server: str
+
+
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = DataPlatformPair(
         powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
@@ -191,7 +197,7 @@ class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-        "with platform instance name used in ingestion"
+        "with platform instance name used in ingestion "
         "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
@@ -234,7 +240,7 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
 
-    # Organisation Identifier
+    # Organization Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
     workspace_id: Optional[str] = pydantic.Field(
@@ -371,10 +377,24 @@ class PowerBiDashboardSourceConfig(
         description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
         "be extracted. Admin API access is required if this setting is enabled",
     )
+    # Extract independent datasets
+    extract_independent_datasets: bool = pydantic.Field(
+        default=False,
+        description="Whether to extract datasets not used in any PowerBI visualization",
+    )
 
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+
+    # Enable advance sql construct
+    enable_advance_lineage_sql_construct: bool = pydantic.Field(
+        default=False,
+        description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
+        "along this flag , the native_query_parsing should be enabled. "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "as this option generates the upstream datasets URN in lowercase.",
     )
 
     @validator("dataset_type_mapping")

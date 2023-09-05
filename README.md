@@ -80,7 +80,11 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 
 If you're looking to build & modify datahub please take a look at our [Development Guide](https://datahubproject.io/docs/developers).
 
-[![DataHub Demo GIF](docs/imgs/entity.png)](https://demo.datahubproject.io/)
+<p align="center">
+<a href="https://demo.datahubproject.io/">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity.png"/>
+</a>
+</p>
 
 ## Source Code and Repositories
 
@@ -88,6 +92,9 @@ If you're looking to build & modify datahub please take a look at our [Developme
 - [acryldata/datahub-actions](https://github.com/acryldata/datahub-actions): DataHub Actions is a framework for responding to changes to your DataHub Metadata Graph in real time.
 - [acryldata/datahub-helm](https://github.com/acryldata/datahub-helm): Repository of helm charts for deploying DataHub on a Kubernetes cluster
 - [acryldata/meta-world](https://github.com/acryldata/meta-world): A repository to store recipes, custom sources, transformations and other things to make your DataHub experience magical
+- [dbt-impact-action](https://github.com/acryldata/dbt-impact-action) : This repository contains a github action for commenting on your PRs with a summary of the impact of changes within a dbt project
+- [datahub-tools](https://github.com/makenotion/datahub-tools) : Additional python tools to interact with the DataHub GraphQL endpoints, built by Notion
+- [business-glossary-sync-action](https://github.com/acryldata/business-glossary-sync-action) : This repository contains a github action that opens PRs to update your business glossary yaml file.
 
 ## Releases
 
@@ -128,6 +135,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 - [N26](https://n26brasil.com/)
 - [Optum](https://www.optum.com/)
 - [Peloton](https://www.onepeloton.com)
+- [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net/)
 - [Razer](https://www.razer.com)
 - [Saxo Bank](https://www.home.saxo)
 - [Showroomprive](https://www.showroomprive.com/)

@@ -1,14 +1,72 @@
 from dataclasses import dataclass, field
-from typing import Dict, MutableSet, Optional
+from datetime import datetime
+from typing import Dict, List, MutableSet, Optional
 
+from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
-from datahub.ingestion.source_report.sql.snowflake import SnowflakeReport
-from datahub.ingestion.source_report.usage.snowflake_usage import SnowflakeUsageReport
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionReport,
+)
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 
 
 @dataclass
-class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlReport):
+class SnowflakeUsageReport:
+    min_access_history_time: Optional[datetime] = None
+    max_access_history_time: Optional[datetime] = None
+    access_history_range_query_secs: float = -1
+    access_history_query_secs: float = -1
+
+    rows_processed: int = 0
+    rows_missing_query_text: int = 0
+    rows_zero_base_objects_accessed: int = 0
+    rows_zero_direct_objects_accessed: int = 0
+    rows_missing_email: int = 0
+    rows_parsing_error: int = 0
+
+    usage_start_time: Optional[datetime] = None
+    usage_end_time: Optional[datetime] = None
+    stateful_usage_ingestion_enabled: bool = False
+
+
+@dataclass
+class SnowflakeReport(ProfilingSqlReport, BaseTimeWindowReport):
+    num_table_to_table_edges_scanned: int = 0
+    num_table_to_view_edges_scanned: int = 0
+    num_view_to_table_edges_scanned: int = 0
+    num_external_table_edges_scanned: int = 0
+    ignore_start_time_lineage: Optional[bool] = None
+    upstream_lineage_in_report: Optional[bool] = None
+    upstream_lineage: Dict[str, List[str]] = field(default_factory=dict)
+
+    lineage_start_time: Optional[datetime] = None
+    lineage_end_time: Optional[datetime] = None
+    stateful_lineage_ingestion_enabled: bool = False
+
+    cleaned_account_id: str = ""
+    run_ingestion: bool = False
+
+    # https://community.snowflake.com/s/topic/0TO0Z000000Unu5WAC/releases
+    saas_version: Optional[str] = None
+    default_warehouse: Optional[str] = None
+    default_db: Optional[str] = None
+    default_schema: Optional[str] = None
+    role: str = ""
+
+    profile_if_updated_since: Optional[datetime] = None
+    profile_candidates: Dict[str, List[str]] = field(default_factory=dict)
+
+
+@dataclass
+class SnowflakeV2Report(
+    SnowflakeReport,
+    SnowflakeUsageReport,
+    StatefulIngestionReport,
+    ClassificationReportMixin,
+    IngestionStageReport,
+):
     account_locator: Optional[str] = None
     region: Optional[str] = None
 
@@ -23,6 +81,7 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     usage_aggregation_query_secs: float = -1
     table_lineage_query_secs: float = -1
+    view_lineage_parse_secs: float = -1
     view_upstream_lineage_query_secs: float = -1
     view_downstream_lineage_query_secs: float = -1
     external_lineage_queries_secs: float = -1
@@ -56,6 +115,10 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
     num_tables_with_upstreams: int = 0
     num_views_with_upstreams: int = 0
 
+    num_view_definitions_parsed: int = 0
+    num_view_definitions_failed_parsing: int = 0
+    num_view_definitions_failed_column_parsing: int = 0
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database
@@ -86,3 +149,6 @@ class SnowflakeV2Report(SnowflakeReport, SnowflakeUsageReport, ProfilingSqlRepor
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
+
+    def set_ingestion_stage(self, database: str, stage: str) -> None:
+        self.report_ingestion_stage_start(f"{database}: {stage}")

@@ -8,17 +8,20 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchUpdateSoftDeletedInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchUpdateSoftDeletedResolver;
-import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
+
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
 
@@ -29,7 +32,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetSuccessNoExistingStatus() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -59,30 +62,19 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     final Status newStatus = new Status().setRemoved(true);
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        STATUS_ASPECT_NAME, newStatus);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        STATUS_ASPECT_NAME, newStatus);
 
-    verifyIngestProposal(mockService, 1, proposal1);
-
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal2.setChangeType(ChangeType.UPSERT);
-
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetSuccessExistingStatus() throws Exception {
     final Status originalStatus = new Status().setRemoved(true);
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -111,28 +103,17 @@ public class BatchUpdateSoftDeletedResolverTest {
 
     final Status newStatus = new Status().setRemoved(false);
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        STATUS_ASPECT_NAME, newStatus);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        STATUS_ASPECT_NAME, newStatus);
 
-    verifyIngestProposal(mockService, 1, proposal1);
-
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.STATUS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(newStatus));
-    proposal2.setChangeType(ChangeType.UPSERT);
-
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -164,7 +145,7 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);
 
@@ -182,10 +163,10 @@ public class BatchUpdateSoftDeletedResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchUpdateSoftDeletedResolver resolver = new BatchUpdateSoftDeletedResolver(mockService);

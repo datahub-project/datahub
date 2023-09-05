@@ -110,7 +110,7 @@ class ClickHouseUsageSource(Source):
         config = ClickHouseUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets ClickHouse usage stats as work units"""
         access_events = self._get_clickhouse_history()
         # If the query results is empty, we don't want to proceed
@@ -122,9 +122,7 @@ class ClickHouseUsageSource(Source):
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
 
     def _make_usage_query(self) -> str:
         return clickhouse_usage_sql_comment.format(
@@ -250,6 +248,7 @@ class ClickHouseUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> SourceReport:

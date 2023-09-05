@@ -16,12 +16,14 @@ import { EntityType, FacetFilterInput } from '../../types.generated';
 import analytics, { EventType } from '../analytics';
 import { HeaderLinks } from '../shared/admin/HeaderLinks';
 import { ANTD_GRAY } from '../entity/shared/constants';
-import { useAppConfig } from '../useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '../useAppConfig';
 import { DEFAULT_APP_CONFIG } from '../../appConfigContext';
 import { HOME_PAGE_SEARCH_BAR_ID } from '../onboarding/config/HomePageOnboardingConfig';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { getAutoCompleteInputFromQuickFilter } from '../search/utils/filterUtils';
 import { useUserContext } from '../context/useUserContext';
+import AcrylDemoBanner from './AcrylDemoBanner';
+import DemoButton from '../entity/shared/components/styled/DemoButton';
 
 const Background = styled.div`
     width: 100%;
@@ -147,8 +149,10 @@ export const HomePageHeader = () => {
     const appConfig = useAppConfig();
     const [newSuggestionData, setNewSuggestionData] = useState<GetAutoCompleteMultipleResultsQuery | undefined>();
     const { selectedQuickFilter } = useQuickFiltersContext();
+    const showAcrylInfo = useIsShowAcrylInfoEnabled();
     const { user } = userContext;
     const viewUrn = userContext.localState?.selectedViewUrn;
+    const viewsEnabled = appConfig.config?.viewsConfig?.enabled || false;
 
     useEffect(() => {
         if (suggestionsData !== undefined) {
@@ -157,9 +161,6 @@ export const HomePageHeader = () => {
     }, [suggestionsData]);
 
     const onSearch = (query: string, type?: EntityType, filters?: FacetFilterInput[]) => {
-        if (!query || query.trim().length === 0) {
-            return;
-        }
         analytics.event({
             type: EventType.HomePageSearchEvent,
             query,
@@ -246,9 +247,11 @@ export const HomePageHeader = () => {
                         pictureLink={user?.editableProperties?.pictureLink || ''}
                         name={(user && entityRegistry.getDisplayName(EntityType.CorpUser, user)) || undefined}
                     />
+                    {showAcrylInfo && <DemoButton />}
                 </NavGroup>
             </Row>
             <HeaderContainer>
+                {showAcrylInfo && <AcrylDemoBanner />}
                 <Image
                     src={
                         appConfig.config !== DEFAULT_APP_CONFIG
@@ -269,6 +272,8 @@ export const HomePageHeader = () => {
                         onQueryChange={onAutoComplete}
                         autoCompleteStyle={styles.searchBox}
                         entityRegistry={entityRegistry}
+                        viewsEnabled={viewsEnabled}
+                        combineSiblings
                         showQuickFilters
                     />
                     {searchResultsToShow && searchResultsToShow.length > 0 && (

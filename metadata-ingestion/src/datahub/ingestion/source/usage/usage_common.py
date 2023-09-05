@@ -12,9 +12,11 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    Union,
 )
 
 import pydantic
+from deprecated import deprecated
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -26,20 +28,26 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from datahub.metadata.schema_classes import (
+    CalendarIntervalClass,
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
+    UsageAggregationClass,
+    WindowDurationClass,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
 ResourceType = TypeVar("ResourceType")
 
 # The total number of characters allowed across all queries in a single workunit.
-TOTAL_BUDGET_FOR_QUERY_LIST = 24000
+DEFAULT_QUERIES_CHARACTER_LIMIT = 24000
 
 
 def default_user_urn_builder(email: str) -> str:
@@ -57,8 +65,8 @@ def make_usage_workunit(
     resource_urn_builder: Callable[[ResourceType], str],
     top_n_queries: int,
     format_sql_queries: bool,
+    queries_character_limit: int,
     user_urn_builder: Optional[Callable[[str], str]] = None,
-    total_budget_for_query_list: int = TOTAL_BUDGET_FOR_QUERY_LIST,
     query_trimmer_string: str = " ...",
 ) -> MetadataWorkUnit:
     if user_urn_builder is None:
@@ -66,7 +74,7 @@ def make_usage_workunit(
 
     top_sql_queries: Optional[List[str]] = None
     if query_freq is not None:
-        budget_per_query: int = int(total_budget_for_query_list / top_n_queries)
+        budget_per_query: int = int(queries_character_limit / top_n_queries)
         top_sql_queries = [
             trim_query(
                 format_sql_query(query, keyword_case="upper", reindent_aligned=True)
@@ -121,16 +129,17 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
     def add_read_entry(
         self,
-        user_email: str,
+        user_email: Optional[str],
         query: Optional[str],
         fields: List[str],
         user_email_pattern: AllowDenyPattern = AllowDenyPattern.allow_all(),
     ) -> None:
-        if not user_email_pattern.allowed(user_email):
+        if user_email and not user_email_pattern.allowed(user_email):
             return
 
         self.readCount += 1
-        self.userFreq[user_email] += 1
+        if user_email is not None:
+            self.userFreq[user_email] += 1
 
         if query:
             self.queryCount += 1
@@ -145,8 +154,8 @@ class GenericAggregatedDataset(Generic[ResourceType]):
         top_n_queries: int,
         format_sql_queries: bool,
         include_top_n_queries: bool,
+        queries_character_limit: int,
         user_urn_builder: Optional[Callable[[str], str]] = None,
-        total_budget_for_query_list: int = TOTAL_BUDGET_FOR_QUERY_LIST,
         query_trimmer_string: str = " ...",
     ) -> MetadataWorkUnit:
         query_freq = (
@@ -164,12 +173,21 @@ class GenericAggregatedDataset(Generic[ResourceType]):
             user_urn_builder=user_urn_builder,
             top_n_queries=top_n_queries,
             format_sql_queries=format_sql_queries,
-            total_budget_for_query_list=total_budget_for_query_list,
+            queries_character_limit=queries_character_limit,
             query_trimmer_string=query_trimmer_string,
         )
 
 
 class BaseUsageConfig(BaseTimeWindowConfig):
+    queries_character_limit: int = Field(
+        default=DEFAULT_QUERIES_CHARACTER_LIMIT,
+        description=(
+            "Total character limit for all queries in a single usage aspect."
+            " Queries will be truncated to length `queries_character_limit / top_n_queries`."
+        ),
+        hidden_from_docs=True,  # Don't want to encourage people to break elasticsearch
+    )
+
     top_n_queries: pydantic.PositiveInt = Field(
         default=10, description="Number of top queries to save to each table."
     )
@@ -194,10 +212,10 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     )
 
     @pydantic.validator("top_n_queries")
-    def ensure_top_n_queries_is_not_too_big(cls, v: int) -> int:
+    def ensure_top_n_queries_is_not_too_big(cls, v: int, values: dict) -> int:
         minimum_query_size = 20
 
-        max_queries = int(TOTAL_BUDGET_FOR_QUERY_LIST / minimum_query_size)
+        max_queries = int(values["queries_character_limit"] / minimum_query_size)
         if v > max_queries:
             raise ValueError(
                 f"top_n_queries is set to {v} but it can be maximum {max_queries}"
@@ -220,7 +238,7 @@ class UsageAggregator(Generic[ResourceType]):
         resource: ResourceType,
         start_time: datetime,
         query: Optional[str],
-        user: str,
+        user: Optional[str],
         fields: List[str],
     ) -> None:
         floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
@@ -250,4 +268,58 @@ class UsageAggregator(Generic[ResourceType]):
                     include_top_n_queries=self.config.include_top_n_queries,
                     resource_urn_builder=resource_urn_builder,
                     user_urn_builder=user_urn_builder,
+                    queries_character_limit=self.config.queries_character_limit,
                 )
+
+
+@deprecated
+def convert_usage_aggregation_class(
+    obj: UsageAggregationClass,
+) -> MetadataChangeProposalWrapper:
+    # Legacy usage aggregation only supported dataset usage stats
+    if guess_entity_type(obj.resource) == DatasetUrn.ENTITY_TYPE:
+        aspect = DatasetUsageStatistics(
+            timestampMillis=obj.bucket,
+            eventGranularity=TimeWindowSizeClass(
+                unit=convert_window_to_interval(obj.duration)
+            ),
+            uniqueUserCount=obj.metrics.uniqueUserCount,
+            totalSqlQueries=obj.metrics.totalSqlQueries,
+            topSqlQueries=obj.metrics.topSqlQueries,
+            userCounts=[
+                DatasetUserUsageCountsClass(
+                    user=u.user, count=u.count, userEmail=u.userEmail
+                )
+                for u in obj.metrics.users
+                if u.user is not None
+            ]
+            if obj.metrics.users
+            else None,
+            fieldCounts=[
+                DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
+                for f in obj.metrics.fields
+            ]
+            if obj.metrics.fields
+            else None,
+        )
+        return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
+    else:
+        raise Exception(
+            f"Skipping unsupported usage aggregation - invalid entity type: {obj}"
+        )
+
+
+@deprecated
+def convert_window_to_interval(window: Union[str, WindowDurationClass]) -> str:
+    if window == WindowDurationClass.YEAR:
+        return CalendarIntervalClass.YEAR
+    elif window == WindowDurationClass.MONTH:
+        return CalendarIntervalClass.MONTH
+    elif window == WindowDurationClass.WEEK:
+        return CalendarIntervalClass.WEEK
+    elif window == WindowDurationClass.DAY:
+        return CalendarIntervalClass.DAY
+    elif window == WindowDurationClass.HOUR:
+        return CalendarIntervalClass.HOUR
+    else:
+        raise Exception(f"Unsupported window duration: {window}")

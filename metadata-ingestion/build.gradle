@@ -21,31 +21,39 @@ task checkPythonVersion(type: Exec) {
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+  def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
-  commandLine 'bash', '-c', "${python_executable} -m venv ${venv_name} && ${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0'"
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    "${python_executable} -m venv ${venv_name} && " +
+    "${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0' && " +
+    "touch ${sentinel_file}"
 }
 
 task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
   def sentinel_file = ".preflight_sentinel"
   outputs.file(sentinel_file)
-  commandLine "scripts/datahub_preflight.sh"
-  commandLine 'bash', '-c', "touch ${sentinel_file}"
+  commandLine 'bash', '-c',
+    "scripts/datahub_preflight.sh && " +
+    "touch ${sentinel_file}"
 }
 
 task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
   def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
   inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
-  commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e ."
-  commandLine 'bash', '-c', "touch ${sentinel_file}"
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e . &&" +
+    "touch ${sentinel_file}"
 }
 
 task installPackage(type: Exec, dependsOn: installPackageOnly) {
+  def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
-  commandLine 'bash', '-x', '-c', "${venv_name}/bin/pip install -e . ${extra_pip_requirements}"
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-x', '-c',
+    "${venv_name}/bin/pip install -e . ${extra_pip_requirements} && " +
+    "touch ${sentinel_file}"
 }
 
 task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
@@ -59,7 +67,6 @@ task install(dependsOn: [installPackage, codegen])
 task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
@@ -71,7 +78,6 @@ task installDev(type: Exec, dependsOn: [install]) {
 task installAll(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_all_sentinel"
   inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
@@ -176,7 +182,10 @@ task testSlowIntegration(type: Exec, dependsOn: [installDevTest]) {
     "source ${venv_name}/bin/activate && pytest ${cvg_arg} --durations=20 -m 'slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.slow.integration.xml"
 }
 
-task docGen(type: Exec, dependsOn: [codegen, installDevTest]) {
+task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/specgen.sh"
+}
+task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
 }
 task buildWheel(type: Exec, dependsOn: [install, codegen]) {

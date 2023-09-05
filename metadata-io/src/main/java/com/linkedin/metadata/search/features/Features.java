@@ -55,7 +55,10 @@ public class Features {
 
   @Nonnull
   public static List<Features> merge(@Nonnull List<Features> featureList1, @Nonnull List<Features> featureList2) {
-    assert (featureList1.size() == featureList2.size());
+    if (featureList1.size() != featureList2.size()) {
+      throw new IllegalArgumentException(String.format("Expected both lists to have the same number of elements. %s != %s",
+              featureList1.size(), featureList2.size()));
+    }
     return Streams.zip(featureList1.stream(), featureList2.stream(), Features::merge).collect(Collectors.toList());
   }
 }

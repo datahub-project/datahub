@@ -7,13 +7,14 @@ import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { GenericEntityProperties } from '../shared/types';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { useGetMlModelGroupQuery } from '../../../graphql/mlModelGroup.generated';
 import ModelGroupModels from './profile/ModelGroupModels';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -81,6 +82,12 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
@@ -88,13 +95,10 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                     },
                 },
                 {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
+                    component: SidebarDomainSection,
                 },
                 {
-                    component: SidebarDomainSection,
+                    component: DataProductSection,
                 },
             ]}
         />
@@ -106,7 +110,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModelGroup;
-        return <Preview group={data} />;
+        return <Preview group={data} degree={(result as any).degree} paths={(result as any).paths} />;
     };
 
     getLineageVizConfig = (entity: MlModelGroup) => {
@@ -139,6 +143,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 }

@@ -18,10 +18,12 @@ JSON_RESPONSE_MAP = {
     "http://localhost:3000/api/dashboard/1": "dashboard_1.json",
     "http://localhost:3000/api/user/1": "user.json",
     "http://localhost:3000/api/card": "card.json",
-    "http://localhost:3000/api/database/2": "database.json",
+    "http://localhost:3000/api/database/1": "bigquery_database.json",
+    "http://localhost:3000/api/database/2": "postgres_database.json",
     "http://localhost:3000/api/card/1": "card_1.json",
     "http://localhost:3000/api/card/2": "card_2.json",
     "http://localhost:3000/api/table/21": "table_21.json",
+    "http://localhost:3000/api/card/3": "card_3.json",
 }
 
 RESPONSE_ERROR_LIST = ["http://localhost:3000/api/dashboard"]

@@ -11,7 +11,7 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     JobId,
 )
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass, StatusClass
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,9 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
         elif config_dict is None:
             raise ConfigurationError("Missing provider configuration.")
         else:
-            provider_config = DatahubIngestionStateProviderConfig.parse_obj(config_dict)
+            provider_config = (
+                DatahubIngestionStateProviderConfig.parse_obj_allow_extras(config_dict)
+            )
             if provider_config.datahub_api:
                 graph = DataHubGraph(provider_config.datahub_api)
                 return cls(graph, name)
@@ -102,7 +104,7 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
 
         for job_name, checkpoint in self.state_to_commit.items():
             # Emit the ingestion state for each job
-            logger.info(
+            logger.debug(
                 f"Committing ingestion checkpoint for pipeline:'{checkpoint.pipelineName}', "
                 f"job:'{job_name}'"
             )
@@ -115,14 +117,11 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
                 job_name,
             )
 
-            self.graph.emit_mcp(
-                # We don't want the state payloads to show up in search. As such, we emit the
-                # dataJob aspects as soft-deleted. This doesn't affect the ability to query
-                # them using the timeseries API.
-                MetadataChangeProposalWrapper(
-                    entityUrn=datajob_urn,
-                    aspect=StatusClass(removed=True),
-                )
+            # We don't want the state payloads to show up in search. As such, we emit the
+            # dataJob aspects as soft-deleted. This doesn't affect the ability to query
+            # them using the timeseries API.
+            self.graph.soft_delete_entity(
+                urn=datajob_urn,
             )
             self.graph.emit_mcp(
                 MetadataChangeProposalWrapper(

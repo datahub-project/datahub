@@ -40,6 +40,7 @@ export default function TableOfMlFeatures({ features }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
+    const [expandedRows, setExpandedRows] = useState({});
 
     const onTagTermCell = (record: any, rowIndex: number | undefined) => ({
         onMouseEnter: () => {
@@ -66,8 +67,12 @@ export default function TableOfMlFeatures({ features }: Props) {
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
-        render: (_, feature: MlFeature | MlPrimaryKey) => (
+        render: (_, feature: MlFeature | MlPrimaryKey, index: number) => (
             <SchemaDescriptionField
+                onExpanded={(expanded) => {
+                    setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
+                }}
+                expanded={!!expandedRows[index]}
                 description={feature?.editableProperties?.description || feature?.properties?.description || ''}
                 original={feature?.properties?.description}
                 isEdited={!!feature?.editableProperties?.description}

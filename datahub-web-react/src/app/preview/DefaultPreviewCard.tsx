@@ -16,6 +16,8 @@ import {
     Domain,
     ParentNodesResult,
     EntityPath,
+    DataProduct,
+    Health,
 } from '../../types.generated';
 import TagTermGroup from '../shared/tags/TagTermGroup';
 import { ANTD_GRAY } from '../entity/shared/constants';
@@ -30,6 +32,10 @@ import { DeprecationPill } from '../entity/shared/components/styled/DeprecationP
 import { PreviewType } from '../entity/Entity';
 import ExternalUrlButton from '../entity/shared/ExternalUrlButton';
 import EntityPaths from './EntityPaths/EntityPaths';
+import { DataProductLink } from '../shared/tags/DataProductLink';
+import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
+import { getUniqueOwners } from './utils';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -168,13 +174,16 @@ interface Props {
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
     externalUrl?: string | null;
+    entityTitleSuffix?: React.ReactNode;
     subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
     glossaryTerms?: GlossaryTerms;
     container?: Container;
     domain?: Domain | undefined | null;
+    dataProduct?: DataProduct | undefined | null;
     entityCount?: number;
+    displayAssetCount?: boolean;
     dataTestID?: string;
     titleSizePx?: number;
     onClick?: () => void;
@@ -185,6 +194,7 @@ interface Props {
     parentNodes?: ParentNodesResult | null;
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
+    health?: Health[];
 }
 
 export default function DefaultPreviewCard({
@@ -209,12 +219,15 @@ export default function DefaultPreviewCard({
     insights,
     glossaryTerms,
     domain,
+    dataProduct,
     container,
     deprecation,
     entityCount,
+    displayAssetCount,
     titleSizePx,
     dataTestID,
     externalUrl,
+    entityTitleSuffix,
     onClick,
     degree,
     parentContainers,
@@ -223,6 +236,7 @@ export default function DefaultPreviewCard({
     logoUrls,
     previewType,
     paths,
+    health,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -250,6 +264,7 @@ export default function DefaultPreviewCard({
     };
 
     const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+    const uniqueOwners = getUniqueOwners(owners);
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
@@ -277,13 +292,14 @@ export default function DefaultPreviewCard({
                                 </CardEntityTitle>
                             ) : (
                                 <EntityTitle onClick={onClick} $titleSizePx={titleSizePx}>
-                                    {name || ' '}
+                                    <SearchTextHighlighter field="name" text={name || ''} />
                                 </EntityTitle>
                             )}
                         </Link>
                         {deprecation?.deprecated && (
-                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} preview />
+                            <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
+                        {health && health.length > 0 ? <EntityHealth baseUrl={url} health={health} /> : null}
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}
@@ -292,8 +308,8 @@ export default function DefaultPreviewCard({
                                 entityType={type}
                             />
                         )}
+                        {entityTitleSuffix}
                     </EntityTitleContainer>
-
                     {degree !== undefined && degree !== null && (
                         <Tooltip
                             title={`This entity is a ${getNumberWithOrdinal(degree)} degree connection to ${
@@ -304,7 +320,7 @@ export default function DefaultPreviewCard({
                         </Tooltip>
                     )}
                     {!!degree && entityCount && <PlatformDivider />}
-                    <EntityCount entityCount={entityCount} />
+                    <EntityCount entityCount={entityCount} displayAssetsText={displayAssetCount} />
                 </TitleContainer>
                 {paths && paths.length > 0 && <EntityPaths paths={paths} resultEntityUrn={urn || ''} />}
                 {description && description.length > 0 && (
@@ -324,17 +340,20 @@ export default function DefaultPreviewCard({
                                     </Typography.Link>
                                 ) : undefined
                             }
+                            customRender={(text) => <SearchTextHighlighter field="description" text={text} />}
                         >
                             {description}
                         </NoMarkdownViewer>
                     </DescriptionContainer>
                 )}
-                {(domain || hasGlossaryTerms || hasTags) && (
+                {(dataProduct || domain || hasGlossaryTerms || hasTags) && (
                     <TagContainer>
-                        {domain && <TagTermGroup domain={domain} maxShow={3} />}
-                        {domain && hasGlossaryTerms && <TagSeparator />}
+                        {/* if there's a domain and dataProduct, show dataProduct */}
+                        {dataProduct && <DataProductLink dataProduct={dataProduct} />}
+                        {!dataProduct && domain && <TagTermGroup domain={domain} maxShow={3} />}
+                        {(dataProduct || domain) && hasGlossaryTerms && <TagSeparator />}
                         {hasGlossaryTerms && <TagTermGroup uneditableGlossaryTerms={glossaryTerms} maxShow={3} />}
-                        {((hasGlossaryTerms && hasTags) || (domain && hasTags)) && <TagSeparator />}
+                        {((hasGlossaryTerms && hasTags) || ((dataProduct || domain) && hasTags)) && <TagSeparator />}
                         {hasTags && <TagTermGroup uneditableTags={tags} maxShow={3} />}
                     </TagContainer>
                 )}
@@ -362,12 +381,14 @@ export default function DefaultPreviewCard({
                             </UserListContainer>
                         </>
                     )}
-                    {(topUsers?.length || 0) > 0 && (owners?.length || 0) > 0 && <UserListDivider type="vertical" />}
-                    {owners && owners?.length > 0 && (
+                    {(topUsers?.length || 0) > 0 && (uniqueOwners?.length || 0) > 0 && (
+                        <UserListDivider type="vertical" />
+                    )}
+                    {uniqueOwners && uniqueOwners?.length > 0 && (
                         <UserListContainer>
                             <UserListTitle strong>Owners</UserListTitle>
                             <div>
-                                <ExpandedActorGroup actors={owners.map((owner) => owner.owner)} max={2} />
+                                <ExpandedActorGroup actors={uniqueOwners.map((owner) => owner.owner)} max={2} />
                             </div>
                         </UserListContainer>
                     )}

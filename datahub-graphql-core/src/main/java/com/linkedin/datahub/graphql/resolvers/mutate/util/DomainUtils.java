@@ -14,6 +14,7 @@ import com.linkedin.domain.Domains;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +58,7 @@ public class DomainUtils {
     for (ResourceRefInput resource : resources) {
       changes.add(buildSetDomainProposal(domainUrn, resource, actor, entityService));
     }
-    ingestChangeProposals(changes, entityService, actor);
+    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
   }
 
   private static MetadataChangeProposal buildSetDomainProposal(
@@ -66,7 +67,7 @@ public class DomainUtils {
       Urn actor,
       EntityService entityService
   ) {
-    Domains domains = (Domains) getAspectFromEntity(
+    Domains domains = (Domains) EntityUtils.getAspectFromEntity(
         resource.getResourceUrn(),
         Constants.DOMAINS_ASPECT_NAME,
         entityService,
@@ -76,19 +77,12 @@ public class DomainUtils {
       newDomains.add(domainUrn);
     }
     domains.setDomains(newDomains);
-    return buildMetadataChangeProposal(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains, actor, entityService);
+    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.DOMAINS_ASPECT_NAME, domains);
   }
 
   public static void validateDomain(Urn domainUrn, EntityService entityService) {
     if (!entityService.exists(domainUrn)) {
       throw new IllegalArgumentException(String.format("Failed to validate Domain with urn %s. Urn does not exist.", domainUrn));
-    }
-  }
-
-  private static void ingestChangeProposals(List<MetadataChangeProposal> changes, EntityService entityService, Urn actor) {
-    // TODO: Replace this with a batch ingest proposals endpoint.
-    for (MetadataChangeProposal change : changes) {
-      entityService.ingestProposal(change, getAuditStamp(actor), false);
     }
   }
 }

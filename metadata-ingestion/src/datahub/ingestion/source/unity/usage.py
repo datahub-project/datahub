@@ -6,16 +6,17 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
 
 import pyspark
+from databricks.sdk.service.sql import QueryStatementType
 from sqllineage.runner import LineageRunner
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     OPERATION_STATEMENT_TYPES,
     Query,
-    StatementType,
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -62,20 +63,24 @@ class UnityCatalogUsageExtractor:
             )
         return self._spark_sql_parser
 
-    def run(self, table_refs: Set[TableReference]) -> Iterable[MetadataWorkUnit]:
+    def get_usage_workunits(
+        self, table_refs: Set[TableReference]
+    ) -> Iterable[MetadataWorkUnit]:
         try:
-            table_map = defaultdict(list)
-            for ref in table_refs:
-                table_map[ref.table].append(ref)
-                table_map[f"{ref.schema}.{ref.table}"].append(ref)
-                table_map[ref.qualified_table_name].append(ref)
-
-            yield from self._generate_workunits(table_map)
+            yield from self._get_workunits_internal(table_refs)
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-extraction", str(e))
 
-    def _generate_workunits(self, table_map: TableMap) -> Iterable[MetadataWorkUnit]:
+    def _get_workunits_internal(
+        self, table_refs: Set[TableReference]
+    ) -> Iterable[MetadataWorkUnit]:
+        table_map = defaultdict(list)
+        for ref in table_refs:
+            table_map[ref.table].append(ref)
+            table_map[f"{ref.schema}.{ref.table}"].append(ref)
+            table_map[ref.qualified_table_name].append(ref)
+
         for query in self._get_queries():
             self.report.num_queries += 1
             table_info = self._parse_query(query, table_map)
@@ -91,12 +96,23 @@ class UnityCatalogUsageExtractor:
                         fields=[],
                     )
 
-        for wu in self.usage_aggregator.generate_workunits(
-            resource_urn_builder=self.table_urn_builder,
-            user_urn_builder=self.user_urn_builder,
-        ):
-            self.report.num_usage_workunits_emitted += 1
-            yield wu
+        if not self.report.num_queries:
+            logger.warning("No queries found in the given time range.")
+            self.report.report_warning(
+                "usage",
+                f"No queries found: "
+                f"are you missing the CAN_MANAGE permission on SQL warehouse {self.proxy.warehouse_id}?",
+            )
+            return
+
+        yield from auto_empty_dataset_usage_statistics(
+            self.usage_aggregator.generate_workunits(
+                resource_urn_builder=self.table_urn_builder,
+                user_urn_builder=self.user_urn_builder,
+            ),
+            dataset_urns={self.table_urn_builder(ref) for ref in table_refs},
+            config=self.config,
+        )
 
     def _generate_operation_workunit(
         self, query: Query, table_info: QueryTableInfo
@@ -109,7 +125,9 @@ class UnityCatalogUsageExtractor:
             operation_aspect = OperationClass(
                 timestampMillis=int(time.time() * 1000),
                 lastUpdatedTimestamp=int(query.end_time.timestamp() * 1000),
-                actor=self.user_urn_builder(query.user_name),
+                actor=self.user_urn_builder(query.user_name)
+                if query.user_name
+                else None,
                 operationType=OPERATION_STATEMENT_TYPES[query.statement_type],
                 affectedDatasets=[
                     self.table_urn_builder(table) for table in table_info.source_tables
@@ -133,7 +151,7 @@ class UnityCatalogUsageExtractor:
         self, query: Query, table_map: TableMap
     ) -> Optional[QueryTableInfo]:
         table_info = self._parse_query_via_lineage_runner(query.query_text)
-        if table_info is None and query.statement_type == StatementType.SELECT:
+        if table_info is None and query.statement_type == QueryStatementType.SELECT:
             table_info = self._parse_query_via_spark_sql_plan(query.query_text)
 
         if table_info is None:
@@ -158,10 +176,8 @@ class UnityCatalogUsageExtractor:
                     for table in runner.target_tables
                 ],
             )
-        except Exception:
-            logger.info(
-                f"Could not parse query via lineage runner, {query}", exc_info=True
-            )
+        except Exception as e:
+            logger.info(f"Could not parse query via lineage runner, {query}: {e!r}")
             return None
 
     @staticmethod
@@ -184,8 +200,8 @@ class UnityCatalogUsageExtractor:
             return GenericTableInfo(
                 source_tables=[t for t in tables if t], target_tables=[]
             )
-        except Exception:
-            logger.info(f"Could not parse query via spark plan, {query}", exc_info=True)
+        except Exception as e:
+            logger.info(f"Could not parse query via spark plan, {query}: {e!r}")
             return None
 
     @staticmethod

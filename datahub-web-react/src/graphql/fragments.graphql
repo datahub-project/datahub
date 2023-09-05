@@ -166,6 +166,17 @@ fragment ownershipFields on Ownership {
             }
         }
         type
+        ownershipType {
+            urn
+            type
+            info {
+                name
+                description
+            }
+            status {
+                removed
+            }
+        }
         associatedUrn
     }
     lastModified {
@@ -189,6 +200,7 @@ fragment institutionalMemoryFields on InstitutionalMemory {
             actor
             time
         }
+        associatedUrn
     }
 }
 
@@ -236,6 +248,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     container {
         ...entityContainer
     }
@@ -244,6 +257,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     }
     embed {
         ...embedFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -275,6 +291,7 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     deprecation {
         ...deprecationFields
     }
@@ -297,6 +314,7 @@ fragment nonRecursiveDataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     deprecation {
         ...deprecationFields
     }
@@ -338,6 +356,7 @@ fragment dataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     deprecation {
         ...deprecationFields
     }
@@ -349,6 +368,9 @@ fragment dataJobFields on DataJob {
     }
     privileges {
         canEditLineage
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -397,6 +419,7 @@ fragment dashboardFields on Dashboard {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     parentContainers {
         ...parentContainersFields
     }
@@ -411,6 +434,9 @@ fragment dashboardFields on Dashboard {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
     statsSummary {
         viewCount
@@ -486,6 +512,7 @@ fragment nonRecursiveMLFeature on MLFeature {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     tags {
         ...globalTagsFields
     }
@@ -497,6 +524,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     dataPlatformInstance {
         ...dataPlatformInstanceFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
     featureTables: relationships(input: { types: ["Contains"], direction: INCOMING, start: 0, count: 100 }) {
         relationships {
@@ -555,6 +585,7 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     tags {
         ...globalTagsFields
     }
@@ -622,6 +653,7 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     tags {
         ...globalTagsFields
     }
@@ -630,6 +662,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     deprecation {
         ...deprecationFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -643,6 +678,7 @@ fragment schemaFieldFields on SchemaField {
     nativeDataType
     recursive
     isPartOfKey
+    isPartitioningKey
     globalTags {
         ...globalTagsFields
     }
@@ -763,6 +799,7 @@ fragment nonRecursiveMLModel on MLModel {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     tags {
         ...globalTagsFields
     }
@@ -774,6 +811,9 @@ fragment nonRecursiveMLModel on MLModel {
     }
     institutionalMemory {
         ...institutionalMemoryFields
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -803,6 +843,7 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     tags {
         ...globalTagsFields
     }
@@ -814,6 +855,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     properties {
         description
+    }
+    browsePathV2 {
+        ...browsePathV2Fields
     }
 }
 
@@ -899,11 +943,177 @@ fragment entityDomain on DomainAssociation {
     associatedUrn
 }
 
+fragment entityDataProduct on Entity {
+    dataProduct: relationships(input: { types: ["DataProductContains"], direction: INCOMING, start: 0, count: 1 }) {
+        relationships {
+            type
+            entity {
+                urn
+                type
+                ... on DataProduct {
+                    properties {
+                        name
+                        description
+                    }
+                    domain {
+                        ...entityDomain
+                    }
+                }
+            }
+        }
+    }
+}
+
 fragment inputFieldsFields on InputFields {
     fields {
         schemaFieldUrn
         schemaField {
             ...schemaFieldFields
         }
+    }
+}
+
+fragment browsePathV2Fields on BrowsePathV2 {
+    path {
+        name
+        entity {
+            urn
+            type
+            ... on Container {
+                properties {
+                    name
+                }
+            }
+            ... on DataFlow {
+                properties {
+                    name
+                }
+            }
+            ... on DataPlatformInstance {
+                platform {
+                    name
+                    properties {
+                        displayName
+                    }
+                }
+                instanceId
+            }
+        }
+    }
+}
+
+fragment entityDisplayNameFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        name
+        properties {
+            name
+            qualifiedName
+        }
+    }
+    ... on CorpUser {
+        username
+        properties {
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+        info {
+            active
+            displayName
+            title
+            firstName
+            lastName
+            fullName
+            email
+        }
+    }
+    ... on CorpGroup {
+        name
+        info {
+            displayName
+        }
+    }
+    ... on Dashboard {
+        dashboardId
+        properties {
+            name
+        }
+    }
+    ... on Chart {
+        chartId
+        properties {
+            name
+        }
+    }
+    ... on DataFlow {
+        properties {
+            name
+        }
+    }
+    ... on DataJob {
+        jobId
+        properties {
+            name
+        }
+    }
+    ... on GlossaryTerm {
+        name
+        hierarchicalName
+        properties {
+            name
+        }
+    }
+    ... on GlossaryNode {
+        properties {
+            name
+        }
+    }
+    ... on Domain {
+        properties {
+            name
+        }
+    }
+    ... on Container {
+        properties {
+            name
+        }
+    }
+    ... on MLFeatureTable {
+        name
+    }
+    ... on MLFeature {
+        name
+    }
+    ... on MLPrimaryKey {
+        name
+    }
+    ... on MLModel {
+        name
+    }
+    ... on MLModelGroup {
+        name
+    }
+    ... on Tag {
+        name
+        properties {
+            name
+            colorHex
+        }
+    }
+    ... on DataPlatform {
+        ...nonConflictingPlatformFields
+    }
+    ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on DataPlatformInstance {
+        instanceId
     }
 }

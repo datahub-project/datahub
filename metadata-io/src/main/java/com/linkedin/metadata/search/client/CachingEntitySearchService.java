@@ -48,18 +48,20 @@ public class CachingEntitySearchService {
    * @param from the start offset
    * @param size the count
    * @param flags additional search flags
+   * @param facets list of facets we want aggregations for
    *
    * @return a {@link SearchResult} containing the requested batch of search results
    */
   public SearchResult search(
-      @Nonnull String entityName,
+      @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nullable SearchFlags flags) {
-    return getCachedSearchResults(entityName, query, filters, sortCriterion, from, size, flags);
+      @Nullable SearchFlags flags,
+      @Nullable List<String> facets) {
+    return getCachedSearchResults(entityNames, query, filters, sortCriterion, from, size, flags, facets);
   }
 
   /**
@@ -139,20 +141,21 @@ public class CachingEntitySearchService {
    * This lets us have batches that return a variable number of results (we have no idea which batch the "from" "size" page corresponds to)
    */
   public SearchResult getCachedSearchResults(
-      @Nonnull String entityName,
+      @Nonnull List<String> entityNames,
       @Nonnull String query,
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       int from,
       int size,
-      @Nullable SearchFlags flags) {
+      @Nullable SearchFlags flags,
+      @Nullable List<String> facets) {
     return new CacheableSearcher<>(
         cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
         batchSize,
-        querySize -> getRawSearchResults(entityName, query, filters, sortCriterion, querySize.getFrom(),
-                querySize.getSize(), flags),
-        querySize -> Quintet.with(entityName, query, filters != null ? toJsonString(filters) : null,
-            sortCriterion != null ? toJsonString(sortCriterion) : null, querySize), flags, enableCache).getSearchResults(from, size);
+        querySize -> getRawSearchResults(entityNames, query, filters, sortCriterion, querySize.getFrom(),
+                querySize.getSize(), flags, facets),
+        querySize -> Sextet.with(entityNames, query, filters != null ? toJsonString(filters) : null,
+            sortCriterion != null ? toJsonString(sortCriterion) : null, facets, querySize), flags, enableCache).getSearchResults(from, size);
   }
 
 
@@ -248,12 +251,13 @@ public class CachingEntitySearchService {
             filters != null ? toJsonString(filters) : null,
             sortCriterion != null ? toJsonString(sortCriterion) : null,
             scrollId, size);
-        result = cache.get(cacheKey, ScrollResult.class);
+        String json = cache.get(cacheKey, String.class);
+        result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
         cacheAccess.stop();
         if (result == null) {
           Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
           result = getRawScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, isFullText);
-          cache.put(cacheKey, result);
+          cache.put(cacheKey, toJsonString(result));
           cacheMiss.stop();
           MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
         }
@@ -268,14 +272,15 @@ public class CachingEntitySearchService {
    * Executes the expensive search query using the {@link EntitySearchService}
    */
   private SearchResult getRawSearchResults(
-      final String entityName,
+      final List<String> entityNames,
       final String input,
       final Filter filters,
       final SortCriterion sortCriterion,
       final int start,
       final int count,
-      @Nullable final SearchFlags searchFlags) {
-    return entitySearchService.search(entityName, input, filters, sortCriterion, start, count, searchFlags);
+      @Nullable final SearchFlags searchFlags,
+      @Nullable final List<String> facets) {
+    return entitySearchService.search(entityNames, input, filters, sortCriterion, start, count, searchFlags, facets);
   }
 
   /**

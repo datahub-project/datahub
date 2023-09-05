@@ -1,114 +1,32 @@
 import datetime
 from typing import Dict, List, Set
 
+import pytest
+
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
     QueryEvent,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryView
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
     LineageEdge,
 )
+from datahub.utilities.sqlglot_lineage import SchemaResolver
 
 
-def test_parse_view_lineage():
-    config = BigQueryV2Config()
-    report = BigQueryV2Report()
-    extractor = BigqueryLineageExtractor(config, report)
-
-    # ddl = "select * from some_dataset.sometable as a"
-    ddl = """CREATE VIEW `my-project.my-dataset.test_table`
-AS SELECT
-  * REPLACE(
-    myrandom(something) AS something)
-FROM
-  `my-project2.my-dataset2.test_physical_table`;
-"""
-    view = BigqueryView(
-        name="test",
-        created=datetime.datetime.now(tz=datetime.timezone.utc),
-        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
-        comment="",
-        view_definition=ddl,
-    )
-    tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
-    assert tables is not None
-    assert 1 == len(tables)
-    assert "my-project2.my-dataset2.test_physical_table" == tables[0].get_table_name()
-
-
-def test_parse_view_lineage_with_two_part_table_name():
-    config = BigQueryV2Config()
-    report = BigQueryV2Report()
-    extractor = BigqueryLineageExtractor(config, report)
-
-    ddl = "CREATE VIEW my_view as select * from some_dataset.sometable as a"
-    view = BigqueryView(
-        name="test",
-        created=datetime.datetime.now(tz=datetime.timezone.utc),
-        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
-        comment="",
-        view_definition=ddl,
-    )
-    tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
-    assert tables is not None
-    assert 1 == len(tables)
-    assert "my_project.some_dataset.sometable" == tables[0].get_table_name()
-
-
-def test_one_part_table():
-    config = BigQueryV2Config()
-    report = BigQueryV2Report()
-    extractor = BigqueryLineageExtractor(config, report)
-
-    ddl = "CREATE VIEW my_view as select * from sometable as a"
-    view = BigqueryView(
-        name="test",
-        created=datetime.datetime.now(tz=datetime.timezone.utc),
-        last_altered=datetime.datetime.now(tz=datetime.timezone.utc),
-        comment="",
-        view_definition=ddl,
-    )
-    tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
-    assert tables is not None
-    assert 1 == len(tables)
-    assert "my_project.my_dataset.sometable" == tables[0].get_table_name()
-
-
-def test_create_statement_with_multiple_table():
-    config = BigQueryV2Config()
-    report = BigQueryV2Report()
-    extractor = BigqueryLineageExtractor(config, report)
-
-    ddl = "CREATE VIEW my_view as select * from my_project_2.my_dataset_2.sometable union select * from my_project_2.my_dataset_2.sometable2 as a"
-    view = BigqueryView(
-        name="test",
-        created=datetime.datetime.now(),
-        last_altered=datetime.datetime.now(),
-        comment="",
-        view_definition=ddl,
-    )
-    tables = extractor.parse_view_lineage("my_project", "my_dataset", view)
-    assert tables is not None
-
-    tables.sort(key=lambda e: e.get_table_name())
-    assert 2 == len(tables)
-    assert "my_project_2.my_dataset_2.sometable" == tables[0].get_table_name()
-    assert "my_project_2.my_dataset_2.sometable2" == tables[1].get_table_name()
-
-
-def test_lineage_with_timestamps():
-    config = BigQueryV2Config()
-    report = BigQueryV2Report()
-    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(config, report)
-    lineage_entries: List[QueryEvent] = [
+@pytest.fixture
+def lineage_entries() -> List[QueryEvent]:
+    return [
         QueryEvent(
             timestamp=datetime.datetime.now(tz=datetime.timezone.utc),
             actor_email="bla@bla.com",
-            query="testQuery",
+            query="""
+                INSERT INTO `my_project.my_dataset.my_table`
+                SELECT first.a, second.b FROM `my_project.my_dataset.my_source_table1` first
+                LEFT JOIN `my_project.my_dataset.my_source_table2` second ON first.id = second.id
+            """,
             statementType="SELECT",
             project_id="proj_12344",
             end_time=None,
@@ -159,18 +77,54 @@ def test_lineage_with_timestamps():
         ),
     ]
 
+
+def test_lineage_with_timestamps(lineage_entries: List[QueryEvent]) -> None:
+    config = BigQueryV2Config()
+    report = BigQueryV2Report()
+    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(config, report)
+
     bq_table = BigQueryTableRef.from_string_name(
         "projects/my_project/datasets/my_dataset/tables/my_table"
     )
 
     lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
-        iter(lineage_entries)
+        iter(lineage_entries),
+        sql_parser_schema_resolver=SchemaResolver(platform="bigquery"),
     )
 
     upstream_lineage = extractor.get_lineage_for_table(
         bq_table=bq_table,
+        bq_table_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
         lineage_metadata=lineage_map,
         platform="bigquery",
     )
     assert upstream_lineage
-    assert len(upstream_lineage[0].upstreams) == 4
+    assert len(upstream_lineage.upstreams) == 4
+
+
+def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
+    config = BigQueryV2Config(extract_column_lineage=True, incremental_lineage=False)
+    report = BigQueryV2Report()
+    extractor: BigqueryLineageExtractor = BigqueryLineageExtractor(config, report)
+
+    bq_table = BigQueryTableRef.from_string_name(
+        "projects/my_project/datasets/my_dataset/tables/my_table"
+    )
+
+    lineage_map: Dict[str, Set[LineageEdge]] = extractor._create_lineage_map(
+        lineage_entries[:1],
+        sql_parser_schema_resolver=SchemaResolver(platform="bigquery"),
+    )
+
+    upstream_lineage = extractor.get_lineage_for_table(
+        bq_table=bq_table,
+        bq_table_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,my_project.my_dataset.my_table,PROD)",
+        lineage_metadata=lineage_map,
+        platform="bigquery",
+    )
+    assert upstream_lineage
+    assert len(upstream_lineage.upstreams) == 2
+    assert (
+        upstream_lineage.fineGrainedLineages
+        and len(upstream_lineage.fineGrainedLineages) == 2
+    )

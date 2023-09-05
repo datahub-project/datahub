@@ -135,7 +135,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -145,11 +145,17 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"delta-lake\", \"instance\": \"DEV\", \"folder_abs_path\": \"my-test-bucket\"}, \"name\": \"my-test-bucket\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket"
+            },
+            "name": "my-test-bucket"
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -159,11 +165,12 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -173,11 +180,12 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -187,11 +195,29 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -201,11 +227,17 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"delta-lake\", \"instance\": \"DEV\", \"folder_abs_path\": \"my-test-bucket/delta_tables\"}, \"name\": \"delta_tables\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "delta-lake",
+                "env": "DEV",
+                "folder_abs_path": "my-test-bucket/delta_tables"
+            },
+            "name": "delta_tables"
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -215,11 +247,12 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -229,11 +262,12 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:delta-lake\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:delta-lake"
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -243,11 +277,14 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -257,11 +294,32 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:34fc0473e206bb1f4307aadf4177b2fd\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -271,11 +329,12 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:acebf8bcf966274632d3d2b710ef4947\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:acebf8bcf966274632d3d2b710ef4947"
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 },
@@ -285,11 +344,48 @@
     "changeType": "UPSERT",
     "aspectName": "operation",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"operationType\": \"CUSTOM\", \"customOperationType\": \"CONVERT\", \"customProperties\": {\"engineInfo\": \"local Delta-Standalone/0.4.0\", \"isBlindAppend\": \"True\", \"isolationLevel\": \"Serializable\"}, \"lastUpdatedTimestamp\": 1655664815399}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1672531200000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "CUSTOM",
+            "customOperationType": "CONVERT",
+            "customProperties": {
+                "engineInfo": "local Delta-Standalone/0.4.0",
+                "isBlindAppend": "True",
+                "isolationLevel": "Serializable"
+            },
+            "lastUpdatedTimestamp": 1655664815399
+        }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1672531200000,
+        "runId": "delta-lake-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:delta-lake,my-test-bucket/delta_tables/sales,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd",
+                    "urn": "urn:li:container:34fc0473e206bb1f4307aadf4177b2fd"
+                },
+                {
+                    "id": "urn:li:container:acebf8bcf966274632d3d2b710ef4947",
+                    "urn": "urn:li:container:acebf8bcf966274632d3d2b710ef4947"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1672531200000,
         "runId": "delta-lake-test"
     }
 }

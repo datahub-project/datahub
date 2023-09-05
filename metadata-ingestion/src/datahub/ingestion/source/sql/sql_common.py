@@ -32,22 +32,22 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
+    downgrade_schema_from_v2,
     gen_database_container,
     gen_database_key,
     gen_schema_container,
     gen_schema_key,
     get_domain_wu,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
+    schema_requires_v2,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -90,10 +90,6 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import telemetry
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 
 if TYPE_CHECKING:
@@ -293,7 +289,15 @@ def get_schema_metadata(
     pk_constraints: Optional[dict] = None,
     foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
     canonical_schema: Optional[List[SchemaField]] = None,
+    simplify_nested_field_paths: bool = False,
 ) -> SchemaMetadata:
+    if (
+        simplify_nested_field_paths
+        and canonical_schema is not None
+        and not schema_requires_v2(canonical_schema)
+    ):
+        canonical_schema = downgrade_schema_from_v2(canonical_schema)
+
     schema_metadata = SchemaMetadata(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),
@@ -315,23 +319,24 @@ config_options_to_report = [
 ]
 
 
+@dataclass
+class ProfileMetadata:
+    """
+    A class to hold information about the table for profile enrichment
+    """
+
+    dataset_name_to_storage_bytes: Dict[str, int] = field(default_factory=dict)
+
+
 class SQLAlchemySource(StatefulIngestionSourceBase):
     """A Base class for all SQL Sources that use SQLAlchemy to extend"""
 
-    def __init__(self, config: SQLAlchemyConfig, ctx: PipelineContext, platform: str):
+    def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super(SQLAlchemySource, self).__init__(config, ctx)
         self.config = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
-
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
+        self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
 
         config_report = {
             config_option: config.dict().get(config_option)
@@ -340,7 +345,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         config_report = {
             **config_report,
-            "profiling_enabled": config.profiling.enabled,
+            "profiling_enabled": config.is_profiling_enabled(),
             "platform": platform,
         }
 
@@ -349,7 +354,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             config_report,
         )
 
-        if config.profiling.enabled:
+        if config.is_profiling_enabled():
             telemetry.telemetry_instance.ping(
                 "sql_profiling_config",
                 config.profiling.config_for_telemetry(),
@@ -419,7 +424,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             extra_properties=extra_properties,
         )
 
@@ -452,7 +456,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             sub_types=[DatasetContainerSubTypes.SCHEMA],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             extra_properties=extra_properties,
         )
 
@@ -473,8 +476,36 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
             parent_container_key=schema_container_key,
-            report=self.report,
         )
+
+    def get_database_level_workunits(
+        self,
+        inspector: Inspector,
+        database: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from self.gen_database_containers(database=database)
+
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from self.gen_schema_containers(schema=schema, database=database)
+
+        if self.config.include_tables:
+            yield from self.loop_tables(inspector, schema, self.config)
+
+        if self.config.include_views:
+            yield from self.loop_views(inspector, schema, self.config)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         sql_config = self.config
@@ -484,7 +515,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if sql_config.profiling.enabled:
+        if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
             )
@@ -492,30 +523,33 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         for inspector in self.get_inspectors():
             profiler = None
             profile_requests: List["GEProfilerRequest"] = []
-            if sql_config.profiling.enabled:
+            if sql_config.is_profiling_enabled():
                 profiler = self.get_profiler_instance(inspector)
+                try:
+                    self.add_profile_metadata(inspector)
+                except Exception as e:
+                    logger.warning(
+                        "Failed to get enrichment data for profiler", exc_info=True
+                    )
+                    self.report.report_warning(
+                        "profile_metadata",
+                        f"Failed to get enrichment data for profile {e}",
+                    )
 
             db_name = self.get_db_name(inspector)
-            yield from self.gen_database_containers(
+            yield from self.get_database_level_workunits(
+                inspector=inspector,
                 database=db_name,
             )
 
             for schema in self.get_allowed_schemas(inspector, db_name):
                 self.add_information_for_schema(inspector, schema)
 
-                yield from self.gen_schema_containers(
-                    database=db_name,
+                yield from self.get_schema_level_workunits(
+                    inspector=inspector,
                     schema=schema,
-                    extra_properties=self.get_schema_properties(
-                        inspector=inspector, schema=schema, database=db_name
-                    ),
+                    database=db_name,
                 )
-
-                if sql_config.include_tables:
-                    yield from self.loop_tables(inspector, schema, sql_config)
-
-                if sql_config.include_views:
-                    yield from self.loop_views(inspector, schema, sql_config)
 
                 if profiler:
                     profile_requests += list(
@@ -526,19 +560,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
-
-    def standardize_schema_table_names(
-        self, schema: str, entity: str
-    ) -> Tuple[str, str]:
-        # Some SQLAlchemy dialects need a standardization step to clean the schema
-        # and table names. See BigQuery for an example of when this is useful.
-        return schema, entity
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any
@@ -588,26 +609,18 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
-    def normalise_dataset_name(self, dataset_name: str) -> str:
-        return dataset_name
-
     def loop_tables(  # noqa: C901
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         tables_seen: Set[str] = set()
         try:
             for table in inspector.get_table_names(schema):
-                schema, table = self.standardize_schema_table_names(
-                    schema=schema, entity=table
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=table, inspector=inspector
                 )
-
-                dataset_name = self.normalise_dataset_name(dataset_name)
 
                 if dataset_name not in tables_seen:
                     tables_seen.add(dataset_name)
@@ -648,7 +661,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         table: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -666,18 +679,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             inspector, schema, table
         )
 
-        # Tablename might be different from the real table if we ran some normalisation ont it.
-        # Getting normalized table name from the dataset_name
-        # Table is the last item in the dataset name
-        normalised_table = table
-        splits = dataset_name.split(".")
-        if splits:
-            normalised_table = splits[-1]
-            if properties and normalised_table != table:
-                properties["original_table_name"] = table
-
         dataset_properties = DatasetPropertiesClass(
-            name=normalised_table,
+            name=table,
             description=description,
             customProperties=properties,
         )
@@ -688,12 +691,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 dataset=location_urn,
                 type=DatasetLineageTypeClass.COPY,
             )
-            lineage_wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_snapshot.urn,
                 aspect=UpstreamLineage(upstreams=[external_upstream_table]),
             ).as_workunit()
-            self.report.report_workunit(lineage_wu)
-            yield lineage_wu
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
@@ -717,21 +718,17 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             dataset_urn=dataset_urn, db_name=db_name, schema=schema
         )
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataWorkUnit(
+        yield MetadataWorkUnit(
             id=f"{dataset_name}-subtypes",
             mcp=MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=SubTypesClass(typeNames=[DatasetSubTypes.TABLE]),
             ),
         )
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
 
         if self.config.domain:
             assert self.domain_registry
@@ -740,7 +737,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 entity_urn=dataset_urn,
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
     def get_database_properties(
@@ -791,7 +787,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     ) -> Optional[MetadataWorkUnit]:
         # If we are a platform instance based source, emit the instance aspect
         if self.config.platform_instance:
-            wu = MetadataChangeProposalWrapper(
+            return MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
@@ -800,8 +796,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                     ),
                 ),
             ).as_workunit()
-            self.report.report_workunit(wu)
-            return wu
         else:
             return None
 
@@ -887,18 +881,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             for view in inspector.get_view_names(schema):
-                schema, view = self.standardize_schema_table_names(
-                    schema=schema, entity=view
-                )
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
-                dataset_name = self.normalise_dataset_name(dataset_name)
-
                 self.report.report_entity_scanned(dataset_name, ent_type="view")
 
                 if not sql_config.view_pattern.allowed(dataset_name):
@@ -929,7 +918,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         inspector: Inspector,
         schema: str,
         view: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
             columns = inspector.get_columns(view, schema)
@@ -987,29 +976,23 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = SqlWorkUnit(id=dataset_name, mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
             yield dpi_aspect
-        subtypes_aspect = MetadataChangeProposalWrapper(
+        yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         ).as_workunit()
-        self.report.report_workunit(subtypes_aspect)
-        yield subtypes_aspect
         if "view_definition" in properties:
             view_definition_string = properties["view_definition"]
             view_properties_aspect = ViewPropertiesClass(
                 materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
             )
-            view_properties_wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=view_properties_aspect,
             ).as_workunit()
-            self.report.report_workunit(view_properties_wu)
-            yield view_properties_wu
 
         if self.config.domain and self.domain_registry:
             yield from get_domain_wu(
@@ -1017,7 +1000,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 entity_urn=dataset_urn,
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
-                report=self.report,
             )
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
@@ -1058,7 +1040,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
@@ -1074,7 +1056,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLAlchemyConfig,
+        sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
         from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
@@ -1100,9 +1082,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 logger.debug("Source does not support generating profile candidates.")
 
         for table in inspector.get_table_names(schema):
-            schema, table = self.standardize_schema_table_names(
-                schema=schema, entity=table
-            )
             dataset_name = self.get_identifier(
                 schema=schema, entity=table, inspector=inspector
             )
@@ -1112,8 +1091,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue
-
-            dataset_name = self.normalise_dataset_name(dataset_name)
 
             if dataset_name not in tables_seen:
                 tables_seen.add(dataset_name)
@@ -1165,6 +1142,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
                 ),
             )
 
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        """
+        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
+        This is meant to change self.profile_metadata_info in the sub-class.
+        """
+        pass
+
     def loop_profiler(
         self,
         profile_requests: List["GEProfilerRequest"],
@@ -1180,19 +1164,25 @@ class SQLAlchemySource(StatefulIngestionSourceBase):
             if profile is None:
                 continue
             dataset_name = request.pretty_name
+            if (
+                dataset_name in self.profile_metadata_info.dataset_name_to_storage_bytes
+                and profile.sizeInBytes is None
+            ):
+                profile.sizeInBytes = (
+                    self.profile_metadata_info.dataset_name_to_storage_bytes[
+                        dataset_name
+                    ]
+                )
             dataset_urn = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,
                 self.config.platform_instance,
                 self.config.env,
             )
-            wu = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=profile,
             ).as_workunit()
-            self.report.report_workunit(wu)
-
-            yield wu
 
     def prepare_profiler_args(
         self,

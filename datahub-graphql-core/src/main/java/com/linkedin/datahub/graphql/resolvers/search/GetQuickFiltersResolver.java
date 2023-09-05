@@ -29,9 +29,11 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static com.linkedin.datahub.graphql.Constants.*;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -42,7 +44,6 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
 
   private static final String PLATFORM = "platform";
   private static final int PLATFORM_COUNT = 5;
-  private static final String ENTITY = "entity";
   private static final int SOURCE_ENTITY_COUNT = 3;
   private static final int DATAHUB_ENTITY_COUNT = 2;
 
@@ -89,6 +90,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
         0,
         0,
         null,
+        null,
         authentication);
   }
 
@@ -118,7 +120,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
    */
   private List<QuickFilter> getEntityTypeQuickFilters(@Nonnull final AggregationMetadataArray aggregations) {
     final List<QuickFilter> entityTypes = new ArrayList<>();
-    final Optional<AggregationMetadata> entityAggregations = aggregations.stream().filter(agg -> agg.getName().equals(ENTITY)).findFirst();
+    final Optional<AggregationMetadata> entityAggregations = aggregations.stream().filter(agg -> agg.getName().equals(ENTITY_FILTER_NAME)).findFirst();
 
     if (entityAggregations.isPresent()) {
       final List<QuickFilter> sourceEntityTypeFilters =
@@ -145,7 +147,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
       if (entityTypes.size() < maxListSize) {
         final Optional<FilterValue> entityFilter = entityAggregations.getFilterValues().stream().filter(val -> val.getValue().equals(entityType)).findFirst();
         if (entityFilter.isPresent() && entityFilter.get().getFacetCount() > 0) {
-          entityTypes.add(mapQuickFilter(ENTITY, entityFilter.get()));
+          entityTypes.add(mapQuickFilter(ENTITY_FILTER_NAME, entityFilter.get()));
         }
       }
     });
@@ -154,7 +156,7 @@ public class GetQuickFiltersResolver implements DataFetcher<CompletableFuture<Ge
   }
 
   private QuickFilter mapQuickFilter(@Nonnull final String field, @Nonnull final FilterValue filterValue) {
-    final boolean isEntityTypeFilter = field.equals(ENTITY);
+    final boolean isEntityTypeFilter = field.equals(ENTITY_FILTER_NAME);
     final QuickFilter quickFilter = new QuickFilter();
     quickFilter.setField(field);
     quickFilter.setValue(convertFilterValue(filterValue.getValue(), isEntityTypeFilter));

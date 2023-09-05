@@ -1,7 +1,16 @@
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
-import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityPath,
+    EntityType,
+    GlobalTags,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -21,11 +30,14 @@ export const Preview = ({
     owners,
     globalTags,
     domain,
+    dataProduct,
     externalUrl,
     snippet,
     insights,
     jobCount,
     deprecation,
+    degree,
+    paths,
 }: {
     urn: string;
     name: string;
@@ -35,12 +47,15 @@ export const Preview = ({
     platformLogo?: string | null;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     globalTags?: GlobalTags | null;
     deprecation?: Deprecation | null;
     externalUrl?: string | null;
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
     jobCount?: number | null;
+    degree?: number;
+    paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -57,6 +72,7 @@ export const Preview = ({
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             snippet={snippet}
             insights={insights}
             externalUrl={externalUrl}
@@ -69,6 +85,8 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
         />
     );
 };

@@ -3,14 +3,21 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from datahub.configuration.common import OauthConfiguration
+from datahub.configuration.oauth import OAuthConfiguration
+from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
     SnowflakeCloudProvider,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    DEFAULT_TABLES_DENY_LIST,
+    SnowflakeV2Config,
+)
+from datahub.ingestion.source.snowflake.snowflake_query import (
+    create_deny_regex_sql_filter,
+)
 from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
     SnowflakeObjectAccessEntry,
 )
@@ -27,23 +34,15 @@ def test_snowflake_source_throws_error_on_account_id_missing():
         )
 
 
-def test_snowflake_throws_error_on_client_id_missing_if_using_oauth():
+def test_no_client_id_invalid_oauth_config():
     oauth_dict = {
         "provider": "microsoft",
         "scopes": ["https://microsoft.com/f4b353d5-ef8d/.default"],
         "client_secret": "6Hb9apkbc6HD7",
         "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
     }
-    # assert that this is a valid oauth config on its own
-    OauthConfiguration.parse_obj(oauth_dict)
     with pytest.raises(ValueError):
-        SnowflakeV2Config.parse_obj(
-            {
-                "account_id": "test",
-                "authentication_type": "OAUTH_AUTHENTICATOR",
-                "oauth_config": oauth_dict,
-            }
-        )
+        OAuthConfiguration.parse_obj(oauth_dict)
 
 
 def test_snowflake_throws_error_on_client_secret_missing_if_use_certificate_is_false():
@@ -54,7 +53,7 @@ def test_snowflake_throws_error_on_client_secret_missing_if_use_certificate_is_f
         "use_certificate": False,
         "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
     }
-    OauthConfiguration.parse_obj(oauth_dict)
+    OAuthConfiguration.parse_obj(oauth_dict)
 
     with pytest.raises(ValueError):
         SnowflakeV2Config.parse_obj(
@@ -75,7 +74,7 @@ def test_snowflake_throws_error_on_encoded_oauth_private_key_missing_if_use_cert
         "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
         "encoded_oauth_public_key": "fkdsfhkshfkjsdfiuwrwfkjhsfskfhksjf==",
     }
-    OauthConfiguration.parse_obj(oauth_dict)
+    OAuthConfiguration.parse_obj(oauth_dict)
     with pytest.raises(ValueError):
         SnowflakeV2Config.parse_obj(
             {
@@ -84,6 +83,60 @@ def test_snowflake_throws_error_on_encoded_oauth_private_key_missing_if_use_cert
                 "oauth_config": oauth_dict,
             }
         )
+
+
+def test_snowflake_oauth_okta_does_not_support_certificate():
+    oauth_dict = {
+        "client_id": "882e9831-7ea51cb2b954",
+        "provider": "okta",
+        "scopes": ["https://microsoft.com/f4b353d5-ef8d/.default"],
+        "use_certificate": True,
+        "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+        "encoded_oauth_public_key": "fkdsfhkshfkjsdfiuwrwfkjhsfskfhksjf==",
+    }
+    OAuthConfiguration.parse_obj(oauth_dict)
+    with pytest.raises(ValueError):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "oauth_config": oauth_dict,
+            }
+        )
+
+
+def test_snowflake_oauth_happy_paths():
+    okta_dict = {
+        "client_id": "client_id",
+        "client_secret": "secret",
+        "provider": "okta",
+        "scopes": ["datahub_role"],
+        "authority_url": "https://dev-abc.okta.com/oauth2/def/v1/token",
+    }
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "authentication_type": "OAUTH_AUTHENTICATOR",
+            "oauth_config": okta_dict,
+        }
+    )
+
+    microsoft_dict = {
+        "client_id": "client_id",
+        "provider": "microsoft",
+        "scopes": ["https://microsoft.com/f4b353d5-ef8d/.default"],
+        "use_certificate": True,
+        "authority_url": "https://login.microsoftonline.com/yourorganisation.com",
+        "encoded_oauth_public_key": "publickey",
+        "encoded_oauth_private_key": "privatekey",
+    }
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "authentication_type": "OAUTH_AUTHENTICATOR",
+            "oauth_config": microsoft_dict,
+        }
+    )
 
 
 def test_account_id_is_added_when_host_port_is_present():
@@ -540,7 +593,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     )
 
     assert cloud == SnowflakeCloudProvider.AZURE
-    assert cloud_region_id == "switzerlandnorth"
+    assert cloud_region_id == "switzerland-north"
 
     (
         cloud,
@@ -550,7 +603,7 @@ def test_azure_cloud_region_from_snowflake_region_id():
     )
 
     assert cloud == SnowflakeCloudProvider.AZURE
-    assert cloud_region_id == "central-india.azure"
+    assert cloud_region_id == "central-india"
 
 
 def test_unknown_cloud_region_from_snowflake_region_id():
@@ -572,3 +625,38 @@ def test_snowflake_object_access_entry_missing_object_id():
             "objectName": "SOME.OBJECT.NAME",
         }
     )
+
+
+def test_snowflake_query_create_deny_regex_sql():
+    assert create_deny_regex_sql_filter([], ["col"]) == ""
+    assert (
+        create_deny_regex_sql_filter([".*tmp.*"], ["col"])
+        == "NOT RLIKE(col,'.*tmp.*','i')"
+    )
+
+    assert (
+        create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col"])
+        == "NOT RLIKE(col,'.*tmp.*','i') AND NOT RLIKE(col,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+    )
+
+    assert (
+        create_deny_regex_sql_filter([".*tmp.*", UUID_REGEX], ["col1", "col2"])
+        == "NOT RLIKE(col1,'.*tmp.*','i') AND NOT RLIKE(col1,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(col2,'.*tmp.*','i') AND NOT RLIKE(col2,'[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+    )
+
+    assert (
+        create_deny_regex_sql_filter(DEFAULT_TABLES_DENY_LIST, ["upstream_table_name"])
+        == r"NOT RLIKE(upstream_table_name,'.*\.FIVETRAN_.*_STAGING\..*','i') AND NOT RLIKE(upstream_table_name,'.*__DBT_TMP$','i') AND NOT RLIKE(upstream_table_name,'.*\.SEGMENT_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i') AND NOT RLIKE(upstream_table_name,'.*\.STAGING_.*_[a-f0-9]{8}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{4}[-_][a-f0-9]{12}','i')"
+    )
+
+
+def test_snowflake_temporary_patterns_config_rename():
+    conf = SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "username": "user",
+            "password": "password",
+            "upstreams_deny_pattern": [".*tmp.*"],
+        }
+    )
+    assert conf.temporary_tables_pattern == [".*tmp.*"]

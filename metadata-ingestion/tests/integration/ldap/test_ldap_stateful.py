@@ -1,18 +1,15 @@
 import pathlib
 import time
-from typing import Optional, cast
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.ldap import LDAPSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
@@ -38,6 +35,7 @@ def ldap_ingest_common(
         # The openldap container loads the sample data after exposing the port publicly. As such,
         # we must wait a little bit extra to ensure that the sample data is loaded.
         wait_for_port(docker_services, "openldap", 389)
+        # without this ldap server can provide empty results
         time.sleep(5)
 
         with mock.patch(
@@ -88,15 +86,6 @@ def ldap_ingest_common(
                 ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
             )
             return pipeline
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    ldap_source = cast(LDAPSource, pipeline.source)
-    return ldap_source.get_current_checkpoint(
-        ldap_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)

@@ -25,7 +25,6 @@ query getDataProfiles($urn: String!, $limit: Int, $startTime: Long, $endTime: Lo
 
 query getDataset($urn: String!) {
     dataset(urn: $urn) {
-        exists
         ...nonSiblingDatasetFields
         siblings {
             isPrimary
@@ -40,6 +39,7 @@ query getDataset($urn: String!) {
 
 fragment nonSiblingDatasetFields on Dataset {
     ...nonRecursiveDatasetFields
+    exists
     deprecation {
         actor
         deprecated
@@ -58,6 +58,7 @@ fragment nonSiblingDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
+    ...entityDataProduct
     parentContainers {
         ...parentContainersFields
     }

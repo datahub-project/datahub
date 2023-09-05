@@ -6,17 +6,17 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateDeprecationInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -27,6 +27,7 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
 
@@ -57,7 +58,7 @@ public class UpdateDeprecationResolverTest {
                 .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
 
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);
@@ -71,16 +72,13 @@ public class UpdateDeprecationResolverTest {
     resolver.get(mockEnv).get();
 
     final Deprecation newDeprecation = new Deprecation().setDeprecated(true).setDecommissionTime(0L).setNote("Test note").setActor(TEST_ACTOR_URN);
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN));
-    proposal.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal.setAspectName(Constants.DEPRECATION_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
-    proposal.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(TEST_ENTITY_URN),
+        DEPRECATION_ASPECT_NAME, newDeprecation);
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
 
     Mockito.verify(mockService, Mockito.times(1)).exists(
@@ -127,16 +125,13 @@ public class UpdateDeprecationResolverTest {
         .setDecommissionTime(0L)
         .setNote("Test note")
         .setActor(TEST_ACTOR_URN);
-    final MetadataChangeProposal proposal = new MetadataChangeProposal();
-    proposal.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN));
-    proposal.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal.setAspectName(Constants.DEPRECATION_ASPECT_NAME);
-    proposal.setAspect(GenericRecordUtils.serializeAspect(newDeprecation));
-    proposal.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal = MutationUtils.buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(TEST_ENTITY_URN),
+        DEPRECATION_ASPECT_NAME, newDeprecation);
 
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.eq(proposal),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
 
     Mockito.verify(mockService, Mockito.times(1)).exists(

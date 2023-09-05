@@ -11,12 +11,13 @@ import MLModelSummary from './profile/MLModelSummary';
 import MLModelGroupsTab from './profile/MLModelGroupsTab';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -98,6 +99,12 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: SidebarOwnerSection,
+                    properties: {
+                        defaultOwnerType: OwnershipType.TechnicalOwner,
+                    },
+                },
+                {
                     component: SidebarTagsSection,
                     properties: {
                         hasTags: true,
@@ -105,13 +112,10 @@ export class MLModelEntity implements Entity<MlModel> {
                     },
                 },
                 {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
+                    component: SidebarDomainSection,
                 },
                 {
-                    component: SidebarDomainSection,
+                    component: DataProductSection,
                 },
             ]}
         />
@@ -123,7 +127,7 @@ export class MLModelEntity implements Entity<MlModel> {
 
     renderSearch = (result: SearchResult) => {
         const data = result.entity as MlModel;
-        return <Preview model={data} />;
+        return <Preview model={data} degree={(result as any).degree} paths={(result as any).paths} />;
     };
 
     getLineageVizConfig = (entity: MlModel) => {
@@ -152,6 +156,7 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.DOMAINS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
 }

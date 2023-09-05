@@ -23,6 +23,7 @@ from datahub.emitter.mcp_builder import (
     SchemaKey,
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,
@@ -140,9 +141,12 @@ def dataplatform2instance_func(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
+    # initialize for dry-run
+    graph = DataHubGraph(config=DataHubGraphConfig(server="127.0.0.1"))
+
     if not dry_run:
-        rest_emitter = DatahubRestEmitter(
-            gms_server=cli_utils.get_session_and_host()[1]
+        graph = DataHubGraph(
+            config=DataHubGraphConfig(server=cli_utils.get_session_and_host()[1])
         )
 
     urns_to_migrate = []
@@ -178,7 +182,7 @@ def dataplatform2instance_func(
         )
         sampled_new_urns: List[str] = [
             make_dataset_urn_with_platform_instance(
-                platform=key.platform,
+                platform=key.platform[len("urn:li:dataPlatform:") :],
                 name=key.name,
                 platform_instance=instance,
                 env=str(key.origin),
@@ -198,7 +202,7 @@ def dataplatform2instance_func(
         key = dataset_urn_to_key(src_entity_urn)
         assert key
         new_urn = make_dataset_urn_with_platform_instance(
-            platform=key.platform,
+            platform=key.platform[len("urn:li:dataPlatform:") :],
             name=key.name,
             platform_instance=instance,
             env=str(key.origin),
@@ -214,11 +218,11 @@ def dataplatform2instance_func(
             run_id=run_id,
         ):
             if not dry_run:
-                rest_emitter.emit_mcp(mcp)
+                graph.emit_mcp(mcp)
             migration_report.on_entity_create(mcp.entityUrn, mcp.aspectName)  # type: ignore
 
         if not dry_run:
-            rest_emitter.emit_mcp(
+            graph.emit_mcp(
                 MetadataChangeProposalWrapper(
                     entityUrn=new_urn,
                     aspect=DataPlatformInstanceClass(
@@ -252,14 +256,16 @@ def dataplatform2instance_func(
                     aspect=aspect,
                 )
                 if not dry_run:
-                    rest_emitter.emit_mcp(mcp)
+                    graph.emit_mcp(mcp)
                 migration_report.on_entity_affected(mcp.entityUrn, mcp.aspectName)  # type: ignore
             else:
                 log.debug(f"Didn't find aspect {aspect_name} for urn {target_urn}")
 
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_entity_urn}")
-            delete_cli._delete_one_urn(src_entity_urn, soft=not hard, run_id=run_id)
+            delete_cli._delete_one_urn(
+                graph, src_entity_urn, soft=not hard, run_id=run_id
+            )
         migration_report.on_entity_migrated(src_entity_urn, "status")  # type: ignore
 
     click.echo(f"{migration_report}")
@@ -270,7 +276,7 @@ def dataplatform2instance_func(
         instance=instance,
         platform=platform,
         keep=keep,
-        rest_emitter=rest_emitter,
+        rest_emitter=graph,
     )
 
 
@@ -281,7 +287,7 @@ def migrate_containers(
     hard: bool,
     instance: str,
     keep: bool,
-    rest_emitter: DatahubRestEmitter,
+    rest_emitter: DataHubGraph,
 ) -> None:
     run_id: str = f"container-migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
@@ -369,7 +375,9 @@ def migrate_containers(
 
         if not dry_run and not keep:
             log.info(f"will {'hard' if hard else 'soft'} delete {src_urn}")
-            delete_cli._delete_one_urn(src_urn, soft=not hard, run_id=run_id)
+            delete_cli._delete_one_urn(
+                rest_emitter, src_urn, soft=not hard, run_id=run_id
+            )
         migration_report.on_entity_migrated(src_urn, "status")  # type: ignore
 
     click.echo(f"{migration_report}")

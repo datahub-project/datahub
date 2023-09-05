@@ -50,6 +50,23 @@ extend type Query {
   Retrieve the browse paths corresponding to an entity
   """
   browsePaths(input: BrowsePathsInput!): [BrowsePath!]
+
+  """
+  Aggregate across DataHub entities
+  """
+  aggregateAcrossEntities(input: AggregateAcrossEntitiesInput!): AggregateResults
+
+  """
+  List Data Product assets for a given urn
+  """
+  listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
+  
+  """
+  Browse for different entities by getting organizational groups and their
+  aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
+  browse endpoint.
+  """
+  browseV2(input: BrowseV2Input!): BrowseResultsV2
 }
 
 """
@@ -121,6 +138,11 @@ input  SearchFlags {
   Whether to skip aggregates/facets
   """
   skipAggregates: Boolean
+
+  """
+  Whether to request for search suggestions on the _entityName virtualized field
+  """
+  getSuggestions: Boolean
 }
 
 """
@@ -152,6 +174,48 @@ input SearchAcrossEntitiesInput {
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
   filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
+}
+
+"""
+Input arguments for a full text search query across entities to get aggregations
+"""
+input AggregateAcrossEntitiesInput {
+  """
+  Entity types to be searched. If this is not provided, all entities will be searched.
+  """
+  types: [EntityType!]
+
+  """
+  The query string
+  """
+  query: String!
+
+  """
+  The list of facets to get aggregations for. If list is empty or null, get aggregations for all facets
+  Sub-aggregations can be specified with the unicode character ␞ (U+241E) as a delimiter between the subtypes.
+  e.g. _entityType␞owners
+  """
+  facets: [String]
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -389,6 +453,11 @@ enum FilterOperator {
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
+
+  """
+  Represents the relation: The field exists. If the field is an array, the field is either not present or empty.
+  """
+  EXISTS
 }
 
 """
@@ -419,6 +488,11 @@ type SearchResults {
   Candidate facet aggregations used for search filtering
   """
   facets: [FacetMetadata!]
+
+  """
+  Search suggestions based on the query provided for alternate query texts
+  """
+  suggestions: [SearchSuggestion!]
 }
 
 """
@@ -439,6 +513,16 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+}
+
+"""
+Results returned from aggregateAcrossEntities
+"""
+type AggregateResults {
+  """
+  Candidate facet aggregations used for search filtering
+  """
+  facets: [FacetMetadata!]
 }
 
 """
@@ -591,6 +675,11 @@ type MatchedField {
   Value of the field that matched
   """
   value: String!
+
+  """
+  Entity if the value is an urn
+  """
+  entity: Entity
 }
 
 """
@@ -647,6 +736,31 @@ type AggregationMetadata {
   """
   entity: Entity
 }
+
+"""
+A suggestion for an alternate search query given an original query compared to all
+of the entity names in our search index.
+"""
+type SearchSuggestion {
+  """
+  The suggested text based on the provided query text compared to
+  the entity name field in the search index.
+  """
+  text: String!
+
+  """
+  The "edit distance" for this suggestion. The closer this number is to 1, the
+  closer the suggested text is to the original text. The closer it is to 0, the
+  further from the original text it is.
+  """
+  score: Float
+
+  """
+  The number of entities that would match on the name field given the suggested text
+  """
+  frequency: Int
+}
+
 
 """
 Input for performing an auto completion query against a single Metadata Entity
@@ -907,6 +1021,29 @@ type BrowsePath {
 }
 
 """
+A hierarchical entity path V2
+"""
+type BrowsePathV2 {
+  """
+  The components of the browse path
+  """
+  path: [BrowsePathEntry!]!
+}
+
+type BrowsePathEntry {
+  """
+  The path name of a group of browse results
+  """
+  name: String!
+
+  """
+  An optional entity associated with this browse entry. This will usually be a container entity.
+  If this entity is not populated, the name must be used.
+  """
+  entity: Entity
+}
+
+"""
 A set of filter criteria
 """
 input FilterInput {
@@ -1012,4 +1149,133 @@ type SystemFreshness {
   In case an index was consulted, this reflects the freshness of the index
   """
   freshnessMillis: Long!
+}
+
+"""
+Input required for browse queries
+"""
+input BrowseV2Input {
+  """
+  The browse entity type
+  """
+  type: EntityType!
+
+  """
+  The browse path V2 - a list with each entry being part of the browse path V2
+  """
+  path: [String!]
+
+  """
+  The starting point of paginated results
+  """
+  start: Int
+
+  """
+  The number of elements included in the results
+  """
+  count: Int
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters)
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  Optional - A View to apply when generating results
+  """
+  viewUrn: String
+
+  """
+  The search query string
+  """
+  query: String
+}
+
+"""
+The results of a browse path V2 traversal query
+"""
+type BrowseResultsV2 {
+  """
+  The groups present at the provided browse path V2
+  """
+  groups: [BrowseResultGroupV2!]!
+
+  """
+  The starting point of paginated results
+  """
+  start: Int!
+
+  """
+  The number of groups included in the results
+  """
+  count: Int!
+
+  """
+  The total number of browse groups under the path with filters applied
+  """
+  total: Int!
+
+  """
+  Metadata containing resulting browse groups
+  """
+  metadata: BrowseResultMetadata!
+}
+
+"""
+A group of Entities under a given browse path
+"""
+type BrowseResultGroupV2 {
+  """
+  The path name of a group of browse results
+  """
+  name: String!
+
+  """
+  An optional entity associated with this browse group. This will usually be a container entity.
+  If this entity is not populated, the name must be used.
+  """
+  entity: Entity
+
+  """
+  The number of entities within the group
+  """
+  count: Long!
+
+  """
+  Whether or not there are any more groups underneath this group
+  """
+  hasSubGroups: Boolean!
+}
+
+"""
+Input required in order to sort search results
+"""
+input SearchSortInput {
+  """
+  A criterion to sort search results on
+  """
+  sortCriterion: SortCriterion!
+}
+
+"""
+Order for sorting
+"""
+enum SortOrder {
+  ASCENDING
+  DESCENDING
+}
+
+"""
+A single sorting criterion for sorting search.
+"""
+input SortCriterion {
+  """
+  A field upon which we'll do sorting on.
+  """
+  field: String!
+
+  """
+  The order in which we will be sorting
+  """
+  sortOrder: SortOrder!
 }

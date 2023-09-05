@@ -4,7 +4,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.function.Function;
 
 public class CreateAspectTableStep implements UpgradeStep {
@@ -17,9 +17,9 @@ public class CreateAspectTableStep implements UpgradeStep {
     MARIA
   }
 
-  private final EbeanServer _server;
+  private final Database _server;
 
-  public CreateAspectTableStep(final EbeanServer server) {
+  public CreateAspectTableStep(final Database server) {
     _server = server;
   }
 
@@ -76,7 +76,7 @@ public class CreateAspectTableStep implements UpgradeStep {
       try {
         _server.execute(_server.createSqlUpdate(sqlUpdateStr));
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to create table metadata_aspect_v2: %s", e.toString()));
+        context.report().addLine("Failed to create table metadata_aspect_v2", e);
         return new DefaultUpgradeStepResult(
             id(),
             UpgradeStepResult.Result.FAILED);

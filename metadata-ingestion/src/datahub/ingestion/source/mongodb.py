@@ -2,8 +2,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
 
-import bson
+import bson.timestamp
 import pymongo
+import pymongo.collection
 from packaging import version
 from pydantic import PositiveInt, validator
 from pydantic.fields import Field
@@ -198,7 +199,7 @@ def construct_schema_pymongo(
 @platform_name("MongoDB")
 @config_class(MongoDBConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class MongoDBSource(Source):
     """
@@ -295,7 +296,7 @@ class MongoDBSource(Source):
 
         return SchemaFieldDataType(type=TypeClass())
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         platform = "mongodb"
 
         database_names: List[str] = self.mongo_client.list_database_names()
@@ -407,9 +408,7 @@ class MongoDBSource(Source):
                 # See https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.list_indexes.
 
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                wu = MetadataWorkUnit(id=dataset_name, mce=mce)
-                self.report.report_workunit(wu)
-                yield wu
+                yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
     def is_server_version_gte_4_4(self) -> bool:
         try:

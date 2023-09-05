@@ -30,7 +30,11 @@ Conceptually, metadata is modeled using the following abstractions
 
 Here is an example graph consisting of 3 types of entity (CorpUser, Chart, Dashboard), 2 types of relationship (OwnedBy, Contains), and 3 types of metadata aspect (Ownership, ChartInfo, and DashboardInfo).
 
-![metadata-modeling](../imgs/metadata-model-chart.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-chart.png"/>
+</p>
+
 
 ## The Core Entities
 
@@ -73,7 +77,11 @@ to the YAML configuration, instead of creating new Snapshot / Aspect files.
 ## Exploring DataHub's Metadata Model
 
 To explore the current DataHub metadata model, you can inspect this high-level picture that shows the different entities and edges between them showing the relationships between them. 
-![Metadata Model Graph](../imgs/datahub-metadata-model.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-metadata-model.png"/>
+</p>
+
 
 To navigate the aspect model for specific entities and explore relationships using the `foreign-key` concept, you can view them in our demo environment or navigate the auto-generated docs in the **Metadata Modeling/Entities** section on the left.
 
@@ -478,6 +486,7 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
 )
 from datahub.emitter.kafka_emitter import DatahubKafkaEmitter
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 usageStats = DatasetUsageStatisticsClass(
@@ -500,8 +509,9 @@ mcpw = MetadataChangeProposalWrapper(
     aspect=usageStats,
 )
 
-# Instantiate appropriate emitter (kafk_emitter/rest_emitter)
-my_emitter = DatahubKafkaEmitter("""<config>""")
+# Instantiate appropriate emitter (kafka_emitter/rest_emitter)
+# my_emitter = DatahubKafkaEmitter("""<config>""")
+my_emitter = DatahubRestEmitter("http://localhost:8080")
 my_emitter.emit(mcpw)
 ```
 

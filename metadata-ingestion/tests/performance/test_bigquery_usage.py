@@ -7,6 +7,7 @@ from typing import Iterable, Tuple
 import humanfriendly
 import psutil
 
+from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryUsageConfig,
@@ -37,10 +38,18 @@ def run_test():
     config = BigQueryV2Config(
         start_time=seed_metadata.start_time,
         end_time=seed_metadata.end_time,
-        usage=BigQueryUsageConfig(include_top_n_queries=True, top_n_queries=10),
+        usage=BigQueryUsageConfig(
+            include_top_n_queries=True,
+            top_n_queries=10,
+            apply_view_usage_to_tables=True,
+        ),
         file_backed_cache_size=1000,
     )
-    usage_extractor = BigQueryUsageExtractor(config, report)
+    usage_extractor = BigQueryUsageExtractor(
+        config,
+        report,
+        lambda ref: make_dataset_urn("bigquery", str(ref.table_identifier)),
+    )
     report.set_ingestion_stage("All", "Event Generation")
 
     num_projects = 100
@@ -66,7 +75,7 @@ def run_test():
 
     report.set_ingestion_stage("All", "Event Ingestion")
     with PerfTimer() as timer:
-        workunits = usage_extractor._run(events, table_refs)
+        workunits = usage_extractor._get_workunits_internal(events, table_refs)
         num_workunits, peak_memory_usage = workunit_sink(workunits)
         report.set_ingestion_stage("All", "Done")
         print(f"Workunits Generated: {num_workunits}")

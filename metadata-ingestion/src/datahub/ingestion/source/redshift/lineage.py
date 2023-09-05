@@ -2,6 +2,7 @@ import logging
 import traceback
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Set, Tuple, Union
 from urllib.parse import urlparse
@@ -24,6 +25,9 @@ from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftView,
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -79,10 +83,26 @@ class RedshiftLineageExtractor:
         self,
         config: RedshiftConfig,
         report: RedshiftReport,
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
     ):
         self.config = config
         self.report = report
         self._lineage_map: Dict[str, LineageItem] = defaultdict()
+
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.lineage_start_time,
+            self.report.lineage_end_time,
+        ) = self.get_time_window()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            self.report.stateful_lineage_ingestion_enabled = True
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -107,7 +127,17 @@ class RedshiftLineageExtractor:
         parser = LineageRunner(query)
 
         for table in parser.source_tables:
-            source_schema, source_table = str(table).split(".")
+            split = str(table).split(".")
+            if len(split) == 3:
+                db_name, source_schema, source_table = split
+            elif len(split) == 2:
+                source_schema, source_table = split
+            else:
+                raise ValueError(
+                    f"Invalid table name {table} in query {query}. "
+                    f"Expected format: [db_name].[schema].[table] or [schema].[table] or [table]."
+                )
+
             if source_schema == "<default>":
                 source_schema = str(self.config.default_schema)
 
@@ -149,22 +179,19 @@ class RedshiftLineageExtractor:
             try:
                 sources = self._get_sources_from_query(db_name=db_name, query=ddl)
             except Exception as e:
-                self.warn(
-                    logger,
-                    "parsing-query",
-                    f"Error parsing query {ddl} for getting lineage ."
-                    f"\nError was {e}.",
+                logger.warning(
+                    f"Error parsing query {ddl} for getting lineage. Error was {e}."
                 )
+                self.report.num_lineage_dropped_query_parser += 1
         else:
             if lineage_type == lineage_type.COPY and filename is not None:
                 platform = LineageDatasetPlatform.S3
                 path = filename.strip()
                 if urlparse(path).scheme != "s3":
-                    self.warn(
-                        logger,
-                        "non-s3-lineage",
-                        f"Only s3 source supported with copy. The source was: {path}.",
+                    logger.warning(
+                        "Only s3 source supported with copy. The source was: {path}."
                     )
+                    self.report.num_lineage_dropped_not_support_copy_path += 1
                     return sources
                 path = strip_s3_prefix(self._get_s3_path(path))
             elif source_schema is not None and source_table is not None:
@@ -256,6 +283,7 @@ class RedshiftLineageExtractor:
                 f"extract-{lineage_type.name}",
                 f"Error was {e}, {traceback.format_exc()}",
             )
+            self.report_status(f"extract-{lineage_type.name}", False)
 
     def _get_target_lineage(
         self,
@@ -316,11 +344,10 @@ class RedshiftLineageExtractor:
                     or schema not in all_tables[db]
                     or not any(table == t.name for t in all_tables[db][schema])
                 ):
-                    self.warn(
-                        logger,
-                        "missing-table",
-                        f"{source.path} missing table",
+                    logger.debug(
+                        f"{source.path} missing table, dropping from lineage.",
                     )
+                    self.report.num_lineage_tables_dropped += 1
                     continue
 
             targe_source.append(source)
@@ -337,31 +364,33 @@ class RedshiftLineageExtractor:
         if self.config.table_lineage_mode == LineageMode.STL_SCAN_BASED:
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
-                self.config.database, self.config.start_time, self.config.end_time
+                self.config.database,
+                self.config.start_time,
+                self.config.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
         elif self.config.table_lineage_mode == LineageMode.SQL_BASED:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
         elif self.config.table_lineage_mode == LineageMode.MIXED:
             # Populate table level lineage by parsing table creating sqls
             query = RedshiftQuery.list_insert_create_queries_sql(
                 db_name=database,
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SQL_PARSER))
 
             # Populate table level lineage by getting upstream tables from stl_scan redshift table
             query = RedshiftQuery.stl_scan_based_lineage_query(
                 db_name=database,
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.QUERY_SCAN))
 
@@ -377,16 +406,16 @@ class RedshiftLineageExtractor:
         if self.config.include_copy_lineage:
             query = RedshiftQuery.list_copy_commands_sql(
                 db_name=database,
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
             populate_calls.append((query, LineageCollectorType.COPY))
 
         if self.config.include_unload_lineage:
             query = RedshiftQuery.list_unload_commands_sql(
                 db_name=database,
-                start_time=self.config.start_time,
-                end_time=self.config.end_time,
+                start_time=self.start_time,
+                end_time=self.end_time,
             )
 
             populate_calls.append((query, LineageCollectorType.UNLOAD))
@@ -461,3 +490,7 @@ class RedshiftLineageExtractor:
             return None
 
         return UpstreamLineage(upstreams=upstream_lineage), {}
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

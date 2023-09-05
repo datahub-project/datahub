@@ -201,7 +201,11 @@ Provision a MySQL database in AWS RDS that shares the VPC with the kubernetes cl
 the VPC of the kubernetes cluster. Once the database is provisioned, you should be able to see the following page. Take
 a note of the endpoint marked by the red box.
 
-![AWS RDS](../imgs/aws/aws-rds.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-rds.png"/>
+</p>
+
 
 First, add the DB password to kubernetes by running the following.
 
@@ -230,11 +234,15 @@ Run `helm upgrade --install datahub datahub/datahub --values values.yaml` to app
 
 ### Elasticsearch Service
 
-Provision an elasticsearch domain running elasticsearch version 7.9 or above that shares the VPC with the kubernetes
+Provision an elasticsearch domain running elasticsearch version 7.10 or above that shares the VPC with the kubernetes
 cluster or has VPC peering set up between the VPC of the kubernetes cluster. Once the domain is provisioned, you should
 be able to see the following page. Take a note of the endpoint marked by the red box.
 
-![AWS Elasticsearch Service](../imgs/aws/aws-elasticsearch.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-elasticsearch.png"/>
+</p>
+
 
 Update the elasticsearch settings under global in the values.yaml as follows.
 
@@ -322,7 +330,7 @@ and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/facto
 .
 
 A mapping between the property name used in the above two files and the name used in docker/env file can be
-found [here](../../metadata-service/factories/src/main/resources/application.yml).
+found [here](../../metadata-service/configuration/src/main/resources/application.yml).
 
 ### Managed Streaming for Apache Kafka (MSK)
 
@@ -330,7 +338,11 @@ Provision an MSK cluster that shares the VPC with the kubernetes cluster or has 
 the kubernetes cluster. Once the domain is provisioned, click on the “View client information” button in the ‘Cluster
 Summary” section. You should see a page like below. Take a note of the endpoints marked by the red boxes.
 
-![AWS MSK](../imgs/aws/aws-msk.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/aws/aws-msk.png"/>
+</p>
+
 
 Update the kafka settings under global in the values.yaml as follows.
 

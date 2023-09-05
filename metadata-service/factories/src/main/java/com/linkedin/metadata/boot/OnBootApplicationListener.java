@@ -1,7 +1,9 @@
 package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.annotation.Nonnull;
@@ -25,6 +27,8 @@ import org.springframework.web.context.WebApplicationContext;
 @Slf4j
 @Component
 public class OnBootApplicationListener {
+ private static final Set<Integer> ACCEPTED_HTTP_CODES = Set.of(HttpStatus.SC_OK, HttpStatus.SC_MOVED_PERMANENTLY,
+         HttpStatus.SC_MOVED_TEMPORARILY, HttpStatus.SC_FORBIDDEN, HttpStatus.SC_UNAUTHORIZED);
 
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
 
@@ -45,12 +49,17 @@ public class OnBootApplicationListener {
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     log.warn("OnBootApplicationListener context refreshed! {} event: {}",
         ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()), event);
+    String schemaRegistryType = provider.getKafka().getSchemaRegistry().getType();
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
-      executorService.submit(isSchemaRegistryAPIServeletReady());
+      if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
+        executorService.submit(isSchemaRegistryAPIServletReady());
+      } else {
+        _bootstrapManager.start();
+      }
     }
   }
 
-  public Runnable isSchemaRegistryAPIServeletReady() {
+  public Runnable isSchemaRegistryAPIServletReady() {
     return () -> {
         final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
         int timeouts = 30;
@@ -60,8 +69,8 @@ public class OnBootApplicationListener {
             log.info("Sleeping for 1 second");
             Thread.sleep(1000);
             StatusLine statusLine = httpClient.execute(request).getStatusLine();
-            if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
-              log.info("Connected!");
+            if (ACCEPTED_HTTP_CODES.contains(statusLine.getStatusCode())) {
+              log.info("Connected! Authentication not tested.");
               openAPIServeletReady = true;
             }
           } catch (IOException | InterruptedException e) {

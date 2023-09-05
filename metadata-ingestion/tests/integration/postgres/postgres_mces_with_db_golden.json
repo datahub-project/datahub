@@ -1,275 +1,421 @@
 [
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
-        "changeType": "UPSERT",
-        "aspectName": "containerProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {
-                    "platform": "postgres",
-                    "instance": "PROD",
-                    "database": "postgrestest"
-                },
-                "name": "postgrestest"
-            }
-        },
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "postgres",
+                "env": "PROD",
+                "database": "postgrestest"
+            },
+            "name": "postgrestest"
+        }
     },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {"json": {"removed": false}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {"json": {"platform": "urn:li:dataPlatform:postgres"}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {"json": {"typeNames": ["Database"]}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
-        "changeType": "UPSERT",
-        "aspectName": "containerProperties",
-        "aspect": {
-            "json": {
-                "customProperties": {
-                    "platform": "postgres",
-                    "instance": "PROD",
-                    "database": "postgrestest",
-                    "schema": "public"
-                },
-                "name": "public"
-            }
-        },
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
-        "changeType": "UPSERT",
-        "aspectName": "status",
-        "aspect": {"json": {"removed": false}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
-        "changeType": "UPSERT",
-        "aspectName": "dataPlatformInstance",
-        "aspect": {"json": {"platform": "urn:li:dataPlatform:postgres"}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {"json": {"typeNames": ["Schema"]}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "container",
-        "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
-        "changeType": "UPSERT",
-        "aspectName": "container",
-        "aspect": {
-            "json": {"container": "urn:li:container:a6097853edba03be190d99ece4b307ff"}
-        },
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "container",
-        "aspect": {
-            "json": {"container": "urn:li:container:51904fc8cd5cc729bc630decff284525"}
-        },
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-                "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
-                "aspects": [
-                    {"com.linkedin.pegasus2avro.common.Status": {"removed": false}},
-                    {
-                        "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                            "customProperties": {},
-                            "name": "metadata_aspect_v2",
-                            "tags": []
-                        }
-                    },
-                    {
-                        "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                            "schemaName": "postgrestest.public.metadata_aspect_v2",
-                            "platform": "urn:li:dataPlatform:postgres",
-                            "version": 0,
-                            "created": {"time": 0, "actor": "urn:li:corpuser:unknown"},
-                            "lastModified": {
-                                "time": 0,
-                                "actor": "urn:li:corpuser:unknown"
-                            },
-                            "hash": "",
-                            "platformSchema": {
-                                "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                    "tableSchema": ""
-                                }
-                            },
-                            "fields": [
-                                {
-                                    "fieldPath": "urn",
-                                    "nullable": false,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "VARCHAR(length=500)",
-                                    "recursive": false,
-                                    "isPartOfKey": true
-                                },
-                                {
-                                    "fieldPath": "aspect",
-                                    "nullable": false,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "VARCHAR(length=200)",
-                                    "recursive": false,
-                                    "isPartOfKey": true
-                                },
-                                {
-                                    "fieldPath": "version",
-                                    "nullable": false,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "BIGINT()",
-                                    "recursive": false,
-                                    "isPartOfKey": true
-                                },
-                                {
-                                    "fieldPath": "metadata",
-                                    "nullable": false,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "TEXT()",
-                                    "recursive": false,
-                                    "isPartOfKey": false
-                                },
-                                {
-                                    "fieldPath": "systemmetadata",
-                                    "nullable": true,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "TEXT()",
-                                    "recursive": false,
-                                    "isPartOfKey": false
-                                },
-                                {
-                                    "fieldPath": "createdon",
-                                    "nullable": false,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "TIMESTAMP()",
-                                    "recursive": false,
-                                    "isPartOfKey": false
-                                },
-                                {
-                                    "fieldPath": "createdby",
-                                    "nullable": false,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "VARCHAR(length=255)",
-                                    "recursive": false,
-                                    "isPartOfKey": false
-                                },
-                                {
-                                    "fieldPath": "createdfor",
-                                    "nullable": true,
-                                    "type": {
-                                        "type": {
-                                            "com.linkedin.pegasus2avro.schema.StringType": {}
-                                        }
-                                    },
-                                    "nativeDataType": "VARCHAR(length=255)",
-                                    "recursive": false,
-                                    "isPartOfKey": false
-                                }
-                            ]
-                        }
-                    }
-                ]
-            }
-        },
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "subTypes",
-        "aspect": {"json": {"typeNames": ["Table"]}},
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
-    },
-    {
-        "entityType": "dataset",
-        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
-        "changeType": "UPSERT",
-        "aspectName": "datasetProfile",
-        "aspect": {
-            "json": {
-                "timestampMillis": 1646575200000,
-                "partitionSpec": {
-                    "type": "FULL_TABLE",
-                    "partition": "FULL_TABLE_SNAPSHOT"
-                },
-                "rowCount": 2,
-                "columnCount": 8,
-                "fieldProfiles": [
-                    {"fieldPath": "urn"},
-                    {"fieldPath": "aspect"},
-                    {"fieldPath": "version"},
-                    {"fieldPath": "metadata"},
-                    {"fieldPath": "systemmetadata"},
-                    {"fieldPath": "createdon"},
-                    {"fieldPath": "createdby"},
-                    {"fieldPath": "createdfor"}
-                ]
-            }
-        },
-        "systemMetadata": {"lastObserved": 1646575200000, "runId": "postgres-test"}
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
     }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:postgres"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "postgres",
+                "env": "PROD",
+                "database": "postgrestest",
+                "schema": "public"
+            },
+            "name": "public"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:postgres"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "metadata_aspect_v2",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "postgrestest.public.metadata_aspect_v2",
+                        "platform": "urn:li:dataPlatform:postgres",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "urn",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=500)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "aspect",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=200)",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "version",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "BIGINT()",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "metadata",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "systemmetadata",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "TEXT()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "createdon",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "TIMESTAMP()",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "createdby",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=255)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "createdfor",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(length=255)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "metadata_json",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
+                                    }
+                                },
+                                "nativeDataType": "JSON(astext_type=Text())",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1646575200000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 2,
+            "columnCount": 9,
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,postgrestest.public.metadata_aspect_v2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:a6097853edba03be190d99ece4b307ff",
+                    "urn": "urn:li:container:a6097853edba03be190d99ece4b307ff"
+                },
+                {
+                    "id": "urn:li:container:51904fc8cd5cc729bc630decff284525",
+                    "urn": "urn:li:container:51904fc8cd5cc729bc630decff284525"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1646575200000,
+        "runId": "postgres-test"
+    }
+}
 ]

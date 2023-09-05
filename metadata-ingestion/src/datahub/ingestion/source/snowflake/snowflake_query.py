@@ -1,6 +1,26 @@
-from typing import Optional
+from typing import List, Optional
 
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
+from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
+
+
+def create_deny_regex_sql_filter(
+    deny_pattern: List[str], filter_cols: List[str]
+) -> str:
+    upstream_sql_filter = (
+        " AND ".join(
+            [
+                (f"NOT RLIKE({col_name},'{regexp}','i')")
+                for col_name in filter_cols
+                for regexp in deny_pattern
+            ]
+        )
+        if deny_pattern
+        else ""
+    )
+
+    return upstream_sql_filter
 
 
 class SnowflakeQuery:
@@ -137,7 +157,6 @@ class SnowflakeQuery:
 
     @staticmethod
     def get_all_tags_in_database_without_propagation(db_name: str) -> str:
-
         allowed_object_domains = (
             "("
             f"'{SnowflakeObjectDomain.DATABASE.upper()}',"
@@ -304,14 +323,19 @@ class SnowflakeQuery:
         FROM
             snowflake.account_usage.access_history access_history
         LEFT JOIN
-            snowflake.account_usage.query_history query_history
+            (
+                SELECT * FROM snowflake.account_usage.query_history
+                WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                    AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+            ) query_history
             ON access_history.query_id = query_history.query_id
         LEFT JOIN
             snowflake.account_usage.users users
             ON access_history.user_name = users.name
         WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
             AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-            AND query_history.query_type in ('INSERT', 'UPDATE', 'DELETE', 'CREATE', 'CREATE_TABLE', 'CREATE_TABLE_AS_SELECT')
+            AND access_history.objects_modified is not null
+            AND ARRAY_SIZE(access_history.objects_modified) > 0
         ORDER BY query_start_time DESC
         ;"""
 
@@ -426,20 +450,30 @@ class SnowflakeQuery:
           ) = 1
         """
 
+    # Note on use of `upstreams_deny_pattern` to ignore temporary tables:
+    # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
+    # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
     @staticmethod
     def table_to_table_lineage_history_v2(
         start_time_millis: int,
         end_time_millis: int,
         include_view_lineage: bool = True,
         include_column_lineage: bool = True,
+        upstreams_deny_pattern: List[str] = DEFAULT_TABLES_DENY_LIST,
     ) -> str:
         if include_column_lineage:
             return SnowflakeQuery.table_upstreams_with_column_lineage(
-                start_time_millis, end_time_millis, include_view_lineage
+                start_time_millis,
+                end_time_millis,
+                upstreams_deny_pattern,
+                include_view_lineage,
             )
         else:
             return SnowflakeQuery.table_upstreams_only(
-                start_time_millis, end_time_millis, include_view_lineage
+                start_time_millis,
+                end_time_millis,
+                upstreams_deny_pattern,
+                include_view_lineage,
             )
 
     @staticmethod
@@ -473,32 +507,32 @@ class SnowflakeQuery:
         return "show external tables in account"
 
     @staticmethod
-    def external_table_lineage_history(
-        start_time_millis: int, end_time_millis: int
+    def copy_lineage_history(
+        start_time_millis: int,
+        end_time_millis: int,
+        downstreams_deny_pattern: List[str],
     ) -> str:
+        temp_table_filter = create_deny_regex_sql_filter(
+            downstreams_deny_pattern,
+            ["DOWNSTREAM_TABLE_NAME"],
+        )
+
         return f"""
-        WITH external_table_lineage_history AS (
-            SELECT
-                r.value:"locations" AS upstream_locations,
-                w.value:"objectName"::varchar AS downstream_table_name,
-                w.value:"objectDomain"::varchar AS downstream_table_domain,
-                w.value:"columns" AS downstream_table_columns,
-                t.query_start_time AS query_start_time
-            FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
-                lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
-                lateral flatten(input => t.OBJECTS_MODIFIED) w
-            WHERE r.value:"locations" IS NOT NULL
-            AND w.value:"objectId" IS NOT NULL
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
         SELECT
-        upstream_locations AS "UPSTREAM_LOCATIONS",
-        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM external_table_lineage_history
-        WHERE downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
+            ARRAY_UNIQUE_AGG(h.stage_location) AS "UPSTREAM_LOCATIONS",
+            concat(
+                h.table_catalog_name, '.', h.table_schema_name,
+                '.', h.table_name
+            ) AS "DOWNSTREAM_TABLE_NAME"
+        FROM
+            snowflake.account_usage.copy_history h
+        WHERE h.status in ('Loaded','Partially loaded')
+            AND DOWNSTREAM_TABLE_NAME IS NOT NULL
+            AND h.last_load_time >= to_timestamp_ltz({start_time_millis}, 3)
+            AND h.last_load_time < to_timestamp_ltz({end_time_millis}, 3)
+            {("AND " + temp_table_filter) if temp_table_filter else ""}
+        GROUP BY DOWNSTREAM_TABLE_NAME;
+        """
 
     @staticmethod
     def get_access_history_date_range() -> str:
@@ -513,14 +547,17 @@ class SnowflakeQuery:
     def usage_per_object_per_time_bucket_for_time_window(
         start_time_millis: int,
         end_time_millis: int,
-        time_bucket_size: str,
+        time_bucket_size: BucketDuration,
         use_base_objects: bool,
         top_n_queries: int,
         include_top_n_queries: bool,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
-        assert time_bucket_size == "DAY" or time_bucket_size == "HOUR"
+        assert (
+            time_bucket_size == BucketDuration.DAY
+            or time_bucket_size == BucketDuration.HOUR
+        )
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
@@ -567,7 +604,7 @@ class SnowflakeQuery:
             SELECT
                 object_name,
                 ANY_VALUE(object_domain) AS object_domain,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 count( distinct(user_name) ) AS total_users
             FROM
@@ -582,7 +619,7 @@ class SnowflakeQuery:
             SELECT
                 object_name,
                 column_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries
             FROM
                 field_access_history
@@ -596,7 +633,7 @@ class SnowflakeQuery:
         (
             SELECT
                 object_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 user_name,
                 ANY_VALUE(users.email) AS user_email
@@ -615,14 +652,18 @@ class SnowflakeQuery:
         (
             SELECT
                 object_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 query_history.query_text AS query_text,
                 count(distinct(access_history.query_id)) AS total_queries
             FROM
                 object_access_history access_history
-                LEFT JOIN
-                    snowflake.account_usage.query_history query_history
-                    ON access_history.query_id = query_history.query_id
+            LEFT JOIN
+                (
+                    SELECT * FROM snowflake.account_usage.query_history
+                    WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+                ) query_history
+                ON access_history.query_id = query_history.query_id
             GROUP BY
                 bucket_start_time,
                 object_name,
@@ -664,19 +705,11 @@ class SnowflakeQuery:
             basic_usage_counts.bucket_start_time
         """
 
-    # Note on temporary tables:
-    # Snowflake access history may include temporary tables in DIRECT_OBJECTS_ACCESSED and
-    # OBJECTS_MODIFIED->columns->directSources. We do not need these temporary tables and filter these in the query.
-    #
-    # FIVETRAN creates temporary tables in schema named FIVETRAN_xxx_STAGING.
-    # Ref - https://support.fivetran.com/hc/en-us/articles/1500003507122-Why-Is-There-an-Empty-Schema-Named-Fivetran-staging-in-the-Destination-
-    #
-    # DBT incremental models create temporary tables ending with __dbt_tmp
-    # Ref - https://discourse.getdbt.com/t/handling-bigquery-incremental-dbt-tmp-tables/7540
     @staticmethod
     def table_upstreams_with_column_lineage(
         start_time_millis: int,
         end_time_millis: int,
+        upstreams_deny_pattern: List[str],
         include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
@@ -684,6 +717,12 @@ class SnowflakeQuery:
             if include_view_lineage
             else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
+
+        upstream_sql_filter = create_deny_regex_sql_filter(
+            upstreams_deny_pattern,
+            ["upstream_table_name", "upstream_column_table_name"],
+        )
+
         return f"""
         WITH column_lineage_history AS (
             SELECT
@@ -712,10 +751,7 @@ class SnowflakeQuery:
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
-                AND upstream_column_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
-                AND upstream_column_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
-                AND upstream_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
-                AND upstream_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
+                {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         column_upstream_jobs AS (
             SELECT
@@ -723,7 +759,7 @@ class SnowflakeQuery:
                 downstream_column_name,
                 ANY_VALUE(query_start_time),
                 query_id,
-                ARRAY_AGG(
+                ARRAY_UNIQUE_AGG(
                     OBJECT_CONSTRUCT(
                         'object_name', upstream_column_table_name,
                         'object_domain', upstream_column_object_domain,
@@ -781,12 +817,18 @@ class SnowflakeQuery:
     def table_upstreams_only(
         start_time_millis: int,
         end_time_millis: int,
+        upstreams_deny_pattern: List[str],
         include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
             if include_view_lineage
             else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
+        )
+
+        upstream_sql_filter = create_deny_regex_sql_filter(
+            upstreams_deny_pattern,
+            ["upstream_table_name"],
         )
         return f"""
             WITH table_lineage_history AS (
@@ -810,8 +852,7 @@ class SnowflakeQuery:
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
-                AND upstream_table_name NOT LIKE '%.FIVETRAN\\_%\\_STAGING.%'
-                AND upstream_table_name NOT LIKE '%\\_\\_DBT\\_TMP'
+                {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
                 )
             SELECT
                 downstream_table_name AS "DOWNSTREAM_TABLE_NAME",

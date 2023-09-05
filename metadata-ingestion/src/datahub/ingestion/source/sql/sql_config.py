@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 import pydantic
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
@@ -16,11 +16,12 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class SQLAlchemyConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
+class SQLCommonConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     options: dict = pydantic.Field(
         default_factory=dict,
         description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
@@ -66,6 +67,11 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
     @pydantic.root_validator(pre=True)
     def view_pattern_is_table_pattern_unless_specified(
         cls, values: Dict[str, Any]
@@ -91,7 +97,7 @@ class SQLAlchemyConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         pass
 
 
-class BasicSQLAlchemyConfig(SQLAlchemyConfig):
+class SQLAlchemyConnectionConfig(ConfigModel):
     username: Optional[str] = Field(default=None, description="username")
     password: Optional[pydantic.SecretStr] = Field(
         default=None, exclude=True, description="password"
@@ -107,6 +113,12 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
         description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
+    )
+
+    # Duplicate of SQLCommonConfig.options
+    options: dict = pydantic.Field(
+        default_factory=dict,
+        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
 
     _database_alias_deprecation = pydantic_field_deprecated(
@@ -125,9 +137,13 @@ class BasicSQLAlchemyConfig(SQLAlchemyConfig):
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
             self.host_port,
-            self.database or database,
+            database or self.database,
             uri_opts=uri_opts,
         )
+
+
+class BasicSQLAlchemyConfig(SQLAlchemyConnectionConfig, SQLCommonConfig):
+    pass
 
 
 def make_sqlalchemy_uri(

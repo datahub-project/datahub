@@ -34,6 +34,9 @@ import {
     FineGrainedLineage,
     EntityPrivileges,
     Embed,
+    FabricType,
+    BrowsePathV2,
+    DataJobInputOutput,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -45,6 +48,7 @@ export type EntityTab = {
         enabled: (GenericEntityProperties, T) => boolean; // Whether the tab is enabled on the UI. Defaults to true.
     };
     properties?: any;
+    id?: string;
 };
 
 export type EntitySidebarSection = {
@@ -72,6 +76,7 @@ export type GenericEntityProperties = {
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
+    dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
@@ -104,6 +109,9 @@ export type GenericEntityProperties = {
     privileges?: Maybe<EntityPrivileges>;
     embed?: Maybe<Embed>;
     exists?: boolean;
+    origin?: Maybe<FabricType>;
+    browsePathV2?: Maybe<BrowsePathV2>;
+    inputOutput?: Maybe<DataJobInputOutput>;
 };
 
 export type GenericEntityUpdate = {
@@ -138,6 +146,8 @@ export type EntityContextType = {
     routeToTab: (params: { tabName: string; tabParams?: Record<string, any>; method?: 'push' | 'replace' }) => void;
     refetch: () => Promise<any>;
     lineage: FetchedEntity | undefined;
+    shouldRefetchEmbeddedListSearch?: boolean;
+    setShouldRefetchEmbeddedListSearch?: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export type SchemaContextType = {

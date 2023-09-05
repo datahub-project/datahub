@@ -2,6 +2,31 @@
 
 A list of previous Town Halls, their planned schedule, and the recording of the meeting.
 
+## 03/23/2023
+[Full YouTube video](https://youtu.be/BTX8rIBe0yo)
+
+### Agenda
+
+- Community & Roadmap Update
+- Recent Releases
+- Community Case Study — Jumio’s DataHub adoption journey
+- DataHub 201: Data Debugging
+- Sneak Peek: Streamlined Filtering Experience 
+
+## 02/23/2023
+[Full YouTube video](https://youtu.be/UItt4ppJSFc)
+
+### Agenda
+
+- Community & Roadmap Update
+- Recent Releases
+- Community Case Study - How the Hurb Team successfully implemented and adopted DataHub within their organization
+- Sneak Peek: Subscriptions and Notifications
+- Search Improvements - API support for pagination
+- New Feature - Custom Queries
+- Simplifying Metadata Ingestion
+- DataHub 201: Rolling Out DataHub
+
 ## 01/26/2023
 [Full YouTube video](https://youtu.be/A3mSiGHZ6Rc)
 
@@ -318,8 +343,7 @@ Agenda
 
 - Announcements - 2 mins
 - Community Updates ([video](https://youtu.be/r862MZTLAJ0?t=99)) - 10 mins
-- Use-Case: DataHub at Viasat ([slides](demo/ViasatMetadataJourney.pdf),[video](https://youtu.be/2SrDAJnzkjE)) by [Anna Kepler](https://www.linkedin.com/in/akepler) - 15 mins
-- Tech Deep Dive: GraphQL + React RFCs readout and discussion ([slides](https://docs.google.com/presentation/d/e/2PACX-1vRtnINnpi6PvFw7-5iW8PSQoT9Kdf1O_0YW7QAr1_mSdJMNftYFTVCjKL-e3fpe8t6IGkha8UpdmoOI/pub?start=false&loop=false&delayms=3000) ,[video](https://www.youtube.com/watch?v=PrBaFrb7pqA)) by [John Joyce](https://www.linkedin.com/in/john-joyce-759883aa) and [Arun Vasudevan](https://www.linkedin.com/in/arun-vasudevan-55117368/) - 15 mins
+- Use-Case: DataHub at Viasat ([slides](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/ViasatMetadataJourney.pdf),[video](https://youtu.be/2SrDAJnzkjE)) by [Anna Kepler](https://www.linkedin.com/in/akepler) - 15 mins- Tech Deep Dive: GraphQL + React RFCs readout and discussion ([slides](https://docs.google.com/presentation/d/e/2PACX-1vRtnINnpi6PvFw7-5iW8PSQoT9Kdf1O_0YW7QAr1_mSdJMNftYFTVCjKL-e3fpe8t6IGkha8UpdmoOI/pub?start=false&loop=false&delayms=3000) ,[video](https://www.youtube.com/watch?v=PrBaFrb7pqA)) by [John Joyce](https://www.linkedin.com/in/john-joyce-759883aa) and [Arun Vasudevan](https://www.linkedin.com/in/arun-vasudevan-55117368/) - 15 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 3 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
@@ -331,8 +355,8 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Why did Grofers choose DataHub for their data catalog?](demo/Datahub_at_Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
-- [DataHub UI development - Part 2](demo/Town_Hall_Presentation_-_12-2020_-_UI_Development_Part_2.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
+- [Why did Grofers choose DataHub for their data catalog?](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/Datahub_at_Grofers.pdf) by [Shubham Gupta](https://www.linkedin.com/in/shubhamg931/) - 15 minutes
+- [DataHub UI development - Part 2](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/Town_Hall_Presentation_-_12-2020_-_UI_Development_Part_2.pdf) by [Charlie Tran](https://www.linkedin.com/in/charlie-tran/) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 minutes
 
@@ -343,9 +367,9 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Lightning talk on Metadata use-cases at LinkedIn](demo/Metadata_Use-Cases_at_LinkedIn_-_Lightning_Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
-- [Strongly Consistent Secondary Index (SCSI) in GMA](demo/Datahub_-_Strongly_Consistent_Secondary_Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
-- [DataHub UI overview](demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
+- [Lightning talk on Metadata use-cases at LinkedIn](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/Metadata_Use-Cases_at_LinkedIn_-_Lightning_Talk.pdf) by [Shirshanka Das](https://www.linkedin.com/in/shirshankadas/) (LinkedIn) - 5 mins
+- [Strongly Consistent Secondary Index (SCSI) in GMA](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/Datahub_-_Strongly_Consistent_Secondary_Indexing.pdf), an upcoming feature by [Jyoti Wadhwani](https://www.linkedin.com/in/jyotiwadhwani/) (LinkedIn) - 15 minutes
+- [DataHub UI overview](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/DataHub-UIOverview.pdf) by [Ignacio Bona](https://www.linkedin.com/in/ignaciobona) (LinkedIn) - 20 minutes
 - General Q&A from sign up sheet, slack, and participants - 10 mins
 - Closing remarks - 5 minutes
 
@@ -357,8 +381,8 @@ Agenda
 Agenda
 
 - Quick intro - 5 mins
-- [Data Discoverability at SpotHero](demo/Data_Discoverability_at_SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
-- [Designing the next generation of metadata events for scale](demo/Designing_the_next_generation_of_metadata_events_for_scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
+- [Data Discoverability at SpotHero](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/Data_Discoverability_at_SpotHero.pdf) by [Maggie Hays](https://www.linkedin.com/in/maggie-hays/) (SpotHero) - 20 mins
+- [Designing the next generation of metadata events for scale](https://github.com/acryldata/static-assets-test/raw/master/imgs/demo/Designing_the_next_generation_of_metadata_events_for_scale.pdf) by [Chris Lee](https://www.linkedin.com/in/chrisleecmu/) (LinkedIn) - 15 mins
 - General Q&A from sign up sheet, slack, and participants - 15 mins
 - Closing remarks - 5 mins
 

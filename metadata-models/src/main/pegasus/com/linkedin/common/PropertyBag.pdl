@@ -1,0 +1,11 @@
+namespace com.linkedin.common
+
+/**
+ * Misc. properties about anything.
+ * Not indexed by default. See CustomProperties if you want an auto-indexed property bag
+ */
+
+record PropertyBag
+{
+  customProperties: map[string, string] = {}
+}

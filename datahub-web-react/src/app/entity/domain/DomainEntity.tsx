@@ -6,12 +6,14 @@ import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/SidebarOwnerSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import DataProductsTab from './DataProductsTab/DataProductsTab';
+import { EntityProfileTab } from '../shared/constants';
 // import { EntityActionItem } from '../shared/entity/EntityActions';
 
 /**
@@ -71,12 +73,19 @@ export class DomainEntity implements Entity<Domain> {
             isNameEditable
             tabs={[
                 {
+                    id: EntityProfileTab.DOMAIN_ENTITIES_TAB,
                     name: 'Entities',
                     component: DomainEntitiesTab,
                 },
                 {
+                    id: EntityProfileTab.DOCUMENTATION_TAB,
                     name: 'Documentation',
                     component: DocumentationTab,
+                },
+                {
+                    id: EntityProfileTab.DATA_PRODUCTS_TAB,
+                    name: 'Data Products',
+                    component: DataProductsTab,
                 },
             ]}
             sidebarSections={[

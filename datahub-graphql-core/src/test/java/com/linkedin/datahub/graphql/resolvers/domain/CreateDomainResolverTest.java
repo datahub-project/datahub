@@ -40,7 +40,7 @@ public class CreateDomainResolverTest {
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
@@ -67,7 +67,8 @@ public class CreateDomainResolverTest {
     // Not ideal to match against "any", but we don't know the auto-generated execution request id
     Mockito.verify(mockClient, Mockito.times(1)).ingestProposal(
         Mockito.argThat(new CreateDomainProposalMatcher(proposal)),
-        Mockito.any(Authentication.class)
+        Mockito.any(Authentication.class),
+        Mockito.eq(false)
     );
   }
 
@@ -75,7 +76,7 @@ public class CreateDomainResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver
@@ -94,10 +95,10 @@ public class CreateDomainResolverTest {
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.doThrow(RemoteInvocationException.class).when(mockClient).ingestProposal(
         Mockito.any(),
-        Mockito.any(Authentication.class));
+        Mockito.any(Authentication.class), Mockito.eq(false));
     CreateDomainResolver resolver = new CreateDomainResolver(mockClient, mockService);
 
     // Execute resolver

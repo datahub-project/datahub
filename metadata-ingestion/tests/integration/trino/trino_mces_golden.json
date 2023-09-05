@@ -5,8 +5,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"library_catalog\"}, \"name\": \"library_catalog\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "trino",
+                "env": "PROD",
+                "database": "library_catalog"
+            },
+            "name": "library_catalog"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -19,8 +25,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -33,8 +40,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:trino"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -47,8 +55,26 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Database\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:57aba13b10c1691508600999cd411c25",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -61,8 +87,15 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"trino\", \"instance\": \"PROD\", \"database\": \"library_catalog\", \"schema\": \"librarydb\"}, \"name\": \"librarydb\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "trino",
+                "env": "PROD",
+                "database": "library_catalog",
+                "schema": "librarydb"
+            },
+            "name": "librarydb"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -75,8 +108,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -89,8 +123,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:trino\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:trino"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -103,8 +138,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Schema\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -117,8 +155,29 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:57aba13b10c1691508600999cd411c25\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:57aba13b10c1691508600999cd411c25"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -131,8 +190,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -270,8 +330,35 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -284,8 +371,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -394,8 +482,35 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.issue_history,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -408,8 +523,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -494,8 +610,35 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.member,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -508,8 +651,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:8568c0971ce28c183fde0dff7f88e617\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -642,8 +786,35 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:trino,library_catalog.librarydb.book_in_circulation,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:57aba13b10c1691508600999cd411c25",
+                    "urn": "urn:li:container:57aba13b10c1691508600999cd411c25"
+                },
+                {
+                    "id": "urn:li:container:8568c0971ce28c183fde0dff7f88e617",
+                    "urn": "urn:li:container:8568c0971ce28c183fde0dff7f88e617"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -656,8 +827,78 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 3, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 3, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"3\", \"mean\": \"2.0\", \"median\": \"2\", \"stdev\": \"1.0\", \"sampleValues\": [\"1\", \"2\", \"3\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 3, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 1\", \"Book 2\", \"Book 3\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 3, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"ABC\", \"PQR\", \"XYZ\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"tags\", \"nullCount\": 3, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"genre_ids\", \"uniqueCount\": 0, \"nullCount\": 3, \"nullProportion\": 1, \"sampleValues\": []}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 3,
+            "columnCount": 6,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "3",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "1.0",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Book 1",
+                        "Book 2",
+                        "Book 3"
+                    ]
+                },
+                {
+                    "fieldPath": "author",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "ABC",
+                        "PQR",
+                        "XYZ"
+                    ]
+                },
+                {
+                    "fieldPath": "publisher",
+                    "uniqueCount": 0,
+                    "nullCount": 3,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "tags",
+                    "nullCount": 3,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "genre_ids",
+                    "uniqueCount": 0,
+                    "nullCount": 3,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -670,8 +911,80 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"book_id\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"2\", \"mean\": \"1.5\", \"median\": \"2\", \"stdev\": \"0.7071067811865476\", \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"member_id\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"2\", \"mean\": \"1.5\", \"median\": \"2\", \"stdev\": \"0.7071067811865476\", \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"issue_date\", \"uniqueCount\": 1, \"uniqueProportion\": 0.5, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"distinctValueFrequencies\": [{\"value\": \"2021-09-27\", \"frequency\": 2}], \"sampleValues\": [\"2021-09-27\", \"2021-09-27\"]}, {\"fieldPath\": \"return_date\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 1, \"nullProportion\": 0.5, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 2,
+            "columnCount": 4,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "book_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "2",
+                    "mean": "1.5",
+                    "median": "2",
+                    "stdev": "0.7071067811865476",
+                    "sampleValues": [
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "member_id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "2",
+                    "mean": "1.5",
+                    "median": "2",
+                    "stdev": "0.7071067811865476",
+                    "sampleValues": [
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "issue_date",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2021-09-27",
+                    "max": "2021-09-27",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "2021-09-27",
+                            "frequency": 2
+                        }
+                    ],
+                    "sampleValues": [
+                        "2021-09-27",
+                        "2021-09-27"
+                    ]
+                },
+                {
+                    "fieldPath": "return_date",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 1,
+                    "nullProportion": 0.5,
+                    "min": "2021-09-27",
+                    "max": "2021-09-27",
+                    "sampleValues": [
+                        "2021-09-27"
+                    ]
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -684,8 +997,44 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 2, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"2\", \"mean\": \"1.5\", \"median\": \"2\", \"stdev\": \"0.7071067811865476\", \"sampleValues\": [\"1\", \"2\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 2, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Member 1\", \"Member 2\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 2,
+            "columnCount": 2,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "2",
+                    "mean": "1.5",
+                    "median": "2",
+                    "stdev": "0.7071067811865476",
+                    "sampleValues": [
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Member 1",
+                        "Member 2"
+                    ]
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,
@@ -698,8 +1047,86 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1632398400000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 1, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2\", \"max\": \"2\", \"mean\": \"2.0\", \"median\": \"2\", \"stdev\": \"0.0\", \"sampleValues\": [\"2\"]}, {\"fieldPath\": \"name\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Book 2\"]}, {\"fieldPath\": \"author\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"PQR\"]}, {\"fieldPath\": \"publisher\", \"uniqueCount\": 0, \"nullCount\": 1, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"member_id\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2\", \"max\": \"2\", \"mean\": \"2.0\", \"median\": \"2\", \"stdev\": \"0.0\", \"sampleValues\": [\"2\"]}, {\"fieldPath\": \"issue_date\", \"uniqueCount\": 1, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2021-09-27\", \"max\": \"2021-09-27\", \"sampleValues\": [\"2021-09-27\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1632398400000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 1,
+            "columnCount": 6,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2",
+                    "max": "2",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "0.0",
+                    "sampleValues": [
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Book 2"
+                    ]
+                },
+                {
+                    "fieldPath": "author",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "PQR"
+                    ]
+                },
+                {
+                    "fieldPath": "publisher",
+                    "uniqueCount": 0,
+                    "nullCount": 1,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "member_id",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2",
+                    "max": "2",
+                    "mean": "2.0",
+                    "median": "2",
+                    "stdev": "0.0",
+                    "sampleValues": [
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "issue_date",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "2021-09-27",
+                    "max": "2021-09-27",
+                    "sampleValues": [
+                        "2021-09-27"
+                    ]
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1632398400000,

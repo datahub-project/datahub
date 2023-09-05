@@ -10,13 +10,16 @@ import clickhouse_sqlalchemy.types as custom_types
 import pydantic
 from clickhouse_sqlalchemy.drivers import base
 from clickhouse_sqlalchemy.drivers.base import ClickHouseDialect
+from pydantic.class_validators import root_validator
 from pydantic.fields import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import reflection
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter import mce_builder
@@ -31,12 +34,15 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
-    SQLAlchemySource,
     SqlWorkUnit,
     logger,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.two_tier_sql_source import (
+    TwoTierSQLAlchemyConfig,
+    TwoTierSQLAlchemySource,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
@@ -118,7 +124,7 @@ class LineageItem:
 
 
 class ClickHouseConfig(
-    BasicSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
+    TwoTierSQLAlchemyConfig, BaseTimeWindowConfig, DatasetLineageProviderConfigBase
 ):
     # defaults
     host_port = Field(default="localhost:8123", description="ClickHouse host URL.")
@@ -126,22 +132,98 @@ class ClickHouseConfig(
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
-
     secure: Optional[bool] = Field(default=None, description="")
     protocol: Optional[str] = Field(default=None, description="")
+    _deprecate_secure = pydantic_field_deprecated("secure")
+    _deprecate_protocol = pydantic_field_deprecated("protocol")
 
+    uri_opts: Dict[str, str] = Field(
+        default={},
+        description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
+    )
     include_table_lineage: Optional[bool] = Field(
         default=True, description="Whether table lineage should be ingested."
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
-    def get_sql_alchemy_url(self, database=None):
-        uri_opts = None
-        if self.scheme == "clickhouse+native" and self.secure:
-            uri_opts = {"secure": "true"}
-        elif self.scheme != "clickhouse+native" and self.protocol:
-            uri_opts = {"protocol": self.protocol}
-        return super().get_sql_alchemy_url(uri_opts=uri_opts)
+    def get_sql_alchemy_url(self, current_db=None):
+
+        url = make_url(
+            super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
+        )
+        if url.drivername == "clickhouse+native" and url.query.get("protocol"):
+            logger.debug(f"driver = {url.drivername}, query = {url.query}")
+            raise Exception(
+                "You cannot use a schema clickhouse+native and clickhouse+http at the same time"
+            )
+
+        # We can setup clickhouse ingestion in sqlalchemy_uri form and config form.
+
+        # If we use sqlalchemu_uri form then super().get_sql_alchemy_url doesn't
+        # update current_db because it return self.sqlalchemy_uri without any update.
+        # This code bellow needed for rewriting sqlalchemi_uri and replace database with current_db.from
+        # For the future without python3.7 and sqlalchemy 1.3 support we can use code
+        # url=url.set(db=current_db), but not now.
+
+        # Why we need to update database in uri at all?
+        # Because we get database from sqlalchemy inspector and inspector we form from url inherited from
+        # TwoTierSQLAlchemySource and SQLAlchemySource
+
+        if self.sqlalchemy_uri and current_db:
+            self.scheme = url.drivername
+            self.username = url.username
+            self.password = (
+                pydantic.SecretStr(str(url.password))
+                if url.password
+                else pydantic.SecretStr("")
+            )
+            if url.host and url.port:
+                self.host_port = url.host + ":" + str(url.port)
+            elif url.host:
+                self.host_port = url.host
+            # untill released https://github.com/python/mypy/pull/15174
+            self.uri_opts = {str(k): str(v) for (k, v) in url.query.items()}
+
+            url = make_url(
+                make_sqlalchemy_uri(
+                    self.scheme,
+                    self.username,
+                    self.password.get_secret_value() if self.password else None,
+                    self.host_port,
+                    current_db if current_db else self.database,
+                    uri_opts=self.uri_opts,
+                )
+            )
+
+        return str(url)
+
+    # pre = True because we want to take some decision before pydantic initialize the configuration to default values
+    @root_validator(pre=True)
+    def projects_backward_compatibility(cls, values: Dict) -> Dict:
+        secure = values.get("secure")
+        protocol = values.get("protocol")
+        uri_opts = values.get("uri_opts")
+        if (secure or protocol) and not uri_opts:
+            logger.warning(
+                "uri_opts is not set but protocol or secure option is set."
+                " secure and  protocol options is deprecated, please use "
+                "uri_opts instead."
+            )
+            logger.info(
+                "Initializing uri_opts from deprecated secure or protocol options"
+            )
+            values["uri_opts"] = {}
+            if secure:
+                values["uri_opts"]["secure"] = secure
+            if protocol:
+                values["uri_opts"]["protocol"] = protocol
+            logger.debug(f"uri_opts: {uri_opts}")
+        elif (secure or protocol) and uri_opts:
+            raise ValueError(
+                "secure and protocol options is deprecated. Please use uri_opts only."
+            )
+
+        return values
 
 
 PROPERTIES_COLUMNS = (
@@ -330,7 +412,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-class ClickHouseSource(SQLAlchemySource):
+class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 
@@ -359,8 +441,8 @@ class ClickHouseSource(SQLAlchemySource):
         config = ClickHouseConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        for wu in super().get_workunits():
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        for wu in super().get_workunits_internal():
             if (
                 self.config.include_table_lineage
                 and isinstance(wu, SqlWorkUnit)
@@ -375,13 +457,7 @@ class ClickHouseSource(SQLAlchemySource):
                 )
 
                 if lineage_mcp is not None:
-                    lineage_wu = MetadataWorkUnit(
-                        id=f"{self.platform}-{lineage_mcp.entityUrn}-{lineage_mcp.aspectName}",
-                        mcp=lineage_mcp,
-                    )
-                    self.report.report_workunit(lineage_wu)
-
-                    yield lineage_wu
+                    yield lineage_mcp.as_workunit()
 
                 if lineage_properties_aspect:
                     aspects = dataset_snapshot.aspects

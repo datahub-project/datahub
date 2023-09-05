@@ -7,14 +7,18 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateNameInput;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
+import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.domain.DomainProperties;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +27,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.getAspectFromEntity;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persistAspect;
 
 @Slf4j
@@ -53,6 +56,8 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           return updateDomainName(targetUrn, input, environment.getContext());
         case Constants.CORP_GROUP_ENTITY_NAME:
           return updateGroupName(targetUrn, input, environment.getContext());
+        case Constants.DATA_PRODUCT_ENTITY_NAME:
+          return updateDataProductName(targetUrn, input, environment.getContext());
         default:
           throw new RuntimeException(
               String.format("Failed to update name. Unsupported resource type %s provided.", targetUrn));
@@ -68,7 +73,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
     if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
       try {
-        GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) getAspectFromEntity(
+        GlossaryTermInfo glossaryTermInfo = (GlossaryTermInfo) EntityUtils.getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, _entityService, null);
         if (glossaryTermInfo == null) {
           throw new IllegalArgumentException("Glossary Term does not exist");
@@ -93,7 +98,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
     final Urn parentNodeUrn = GlossaryUtils.getParentUrn(targetUrn, context, _entityClient);
     if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
       try {
-        GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) getAspectFromEntity(
+        GlossaryNodeInfo glossaryNodeInfo = (GlossaryNodeInfo) EntityUtils.getAspectFromEntity(
             targetUrn.toString(), Constants.GLOSSARY_NODE_INFO_ASPECT_NAME, _entityService, null);
         if (glossaryNodeInfo == null) {
           throw new IllegalArgumentException("Glossary Node does not exist");
@@ -117,7 +122,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
   ) {
     if (AuthorizationUtils.canManageDomains(context)) {
       try {
-        DomainProperties domainProperties = (DomainProperties) getAspectFromEntity(
+        DomainProperties domainProperties = (DomainProperties) EntityUtils.getAspectFromEntity(
             targetUrn.toString(), Constants.DOMAIN_PROPERTIES_ASPECT_NAME, _entityService, null);
         if (domainProperties == null) {
           throw new IllegalArgumentException("Domain does not exist");
@@ -141,7 +146,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
   ) {
     if (AuthorizationUtils.canManageUsersAndGroups(context)) {
       try {
-        CorpGroupInfo corpGroupInfo = (CorpGroupInfo) getAspectFromEntity(
+        CorpGroupInfo corpGroupInfo = (CorpGroupInfo) EntityUtils.getAspectFromEntity(
                 targetUrn.toString(), Constants.CORP_GROUP_INFO_ASPECT_NAME, _entityService, null);
         if (corpGroupInfo == null) {
           throw new IllegalArgumentException("Group does not exist");
@@ -156,5 +161,44 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
       }
     }
     throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private Boolean updateDataProductName(
+          Urn targetUrn,
+          UpdateNameInput input,
+          QueryContext context
+  ) {
+    try {
+      DataProductProperties dataProductProperties = (DataProductProperties) EntityUtils.getAspectFromEntity(
+              targetUrn.toString(), Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, _entityService, null);
+      if (dataProductProperties == null) {
+        throw new IllegalArgumentException("Data Product does not exist");
+      }
+
+      Domains dataProductDomains = (Domains) EntityUtils.getAspectFromEntity(
+          targetUrn.toString(), Constants.DOMAINS_ASPECT_NAME, _entityService, null);
+      if (dataProductDomains != null && dataProductDomains.hasDomains() && dataProductDomains.getDomains().size() > 0) {
+        // get first domain since we only allow one domain right now
+        Urn domainUrn = UrnUtils.getUrn(dataProductDomains.getDomains().get(0).toString());
+        // if they can't edit a data product from either the parent domain permission or from permission on the data product itself, throw error
+        if (!DataProductAuthorizationUtils.isAuthorizedToManageDataProducts(context, domainUrn)
+            && !DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+      } else {
+        // should not happen since data products need to have a domain
+        if (!DataProductAuthorizationUtils.isAuthorizedToEditDataProduct(context, targetUrn)) {
+          throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
+        }
+      }
+
+      dataProductProperties.setName(input.getName());
+      Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
+      persistAspect(targetUrn, Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME, dataProductProperties, actor, _entityService);
+
+      return true;
+    } catch (Exception e) {
+      throw new RuntimeException(String.format("Failed to perform update against input %s", input), e);
+    }
   }
 }

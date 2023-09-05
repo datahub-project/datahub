@@ -9,6 +9,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsS
 import com.linkedin.identity.CorpUserAppearanceSettings;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -54,9 +55,9 @@ public class UpdateUserSettingResolver implements DataFetcher<CompletableFuture<
         }
 
         MetadataChangeProposal proposal =
-            buildMetadataChangeProposal(actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings, actor, _entityService);
+            buildMetadataChangeProposalWithUrn(actor, CORP_USER_SETTINGS_ASPECT_NAME, newSettings);
 
-        _entityService.ingestProposal(proposal, getAuditStamp(actor), false);
+        _entityService.ingestProposal(proposal, EntityUtils.getAuditStamp(actor), false);
 
         return true;
       } catch (Exception e) {

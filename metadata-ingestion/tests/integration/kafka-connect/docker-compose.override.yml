@@ -1,9 +1,8 @@
 ---
 version: '3.8'
 services:
-
   connect:
-    image: confluentinc/cp-kafka-connect:6.2.1
+    image: confluentinc/cp-kafka-connect:7.4.0
     env_file: ./../kafka-connect/setup/connect.env
     container_name: test_connect
     hostname: test_connect
@@ -35,12 +34,13 @@ services:
         #
         #confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8
         #
-        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.8.0
+        confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1
+        #
+        confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1
         #
         curl -k -SL "https://dev.mysql.com/get/Downloads/Connector-J/mysql-connector-java-8.0.27.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib \
              --strip-components=1 mysql-connector-java-8.0.27/mysql-connector-java-8.0.27.jar
-        #
         curl -k -SL "https://repo1.maven.org/maven2/io/strimzi/kafka-env-var-config-provider/0.1.1/kafka-env-var-config-provider-0.1.1.tar.gz" \
              | tar -xzf - -C /usr/share/confluent-hub-components/
         #             
@@ -50,7 +50,7 @@ services:
         #
         sleep infinity
   mysqldb:
-    image: mysql:5.7
+    image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: rootpwd
       MYSQL_USER: foo
@@ -76,19 +76,21 @@ services:
 
   mongo:
     hostname: mongo
-    image: mongo:4.2.9
+    image: mongo:6.0.7
     container_name: "test_mongo"
     ports:
       - "27017:27017"
     command: --replSet rs0
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin
+      # Don't set mongo admin user or password to avoid KeyFile authentication
+      # which is required when running MongoDB as a replica set
       - MONGO_INITDB_DATABASE=test_db
-      - MONGO_INITDB_USERNAME=kafka-connector
-      - MONGO_INITDB_PASSWORD=password
     volumes:
-      - ./../kafka-connect/setup/conf/mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+      - ./../kafka-connect/setup/conf/:/scripts/
 
-volumes:
-    test_zkdata:
+  s3mock:
+    image: adobe/s3mock:2.13.0
+    environment:
+      - initialBuckets=test-bucket
+    ports:
+      - "9090:9090"

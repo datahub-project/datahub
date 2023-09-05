@@ -4,6 +4,12 @@ entities:
     keyAspect: dataPlatformKey
     aspects:
       - dataPlatformInfo
+  - name: role
+    category: core
+    keyAspect: roleKey
+    aspects:
+      - roleProperties
+      - actors
   - name: dataset
     doc: Datasets represent logical or physical data assets stored or represented in various data platforms. Tables, Views, Streams are all instances of datasets.
     category: core
@@ -35,6 +41,7 @@ entities:
       - browsePaths
       - dataPlatformInstance
       - browsePathsV2
+      - access
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -425,5 +432,23 @@ entities:
     aspects:
       - queryProperties
       - querySubjects
+      - status
+  - name: dataProduct
+    category: core
+    keyAspect: dataProductKey
+    aspects:
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - dataProductProperties
+      - institutionalMemory
+      - status
+  - name: ownershipType
+    doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
+    category: core
+    keyAspect: ownershipTypeKey
+    aspects:
+      - ownershipTypeInfo
       - status
 events:

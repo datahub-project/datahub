@@ -11,7 +11,6 @@ from datahub.metadata.schema_classes import (
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
     OwnerClass as Owner,
-    OwnershipClass as Ownership,
     OwnershipTypeClass,
     SchemaMetadataClass as SchemaMetadata,
     SystemMetadataClass,
@@ -20,6 +19,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass as UpstreamLineage,
 )
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
+from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -99,32 +99,23 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, DatasetProperties.ASPECT_NAME
         )
+        self.ownership_patch_helper = OwnershipPatchHelper(self)
 
     def add_owner(self, owner: Owner) -> "DatasetPatchBuilder":
-        self._add_patch(
-            Ownership.ASPECT_NAME,
-            "add",
-            path=f"/owners/{owner.owner}/{owner.type}",
-            value=owner,
-        )
+        self.ownership_patch_helper.add_owner(owner)
         return self
 
     def remove_owner(
-        self, owner: Urn, owner_type: Optional[OwnershipTypeClass] = None
+        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
     ) -> "DatasetPatchBuilder":
         """
         param: owner_type is optional
         """
-        self._add_patch(
-            Ownership.ASPECT_NAME,
-            "remove",
-            path=f"/owners/{owner}" + (f"/{owner_type}" if owner_type else ""),
-            value=owner,
-        )
+        self.ownership_patch_helper.remove_owner(owner, owner_type)
         return self
 
     def set_owners(self, owners: List[Owner]) -> "DatasetPatchBuilder":
-        self._add_patch(Ownership.ASPECT_NAME, "replace", path="/owners", value=owners)
+        self.ownership_patch_helper.set_owners(owners)
         return self
 
     def add_upstream_lineage(self, upstream: Upstream) -> "DatasetPatchBuilder":
@@ -224,4 +215,14 @@ class DatasetPatchBuilder(MetadataPatchProposal):
 
     def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
         self.custom_properties_patch_helper.remove_property(key)
+        return self
+
+    def set_display_name(self, display_name: str) -> "DatasetPatchBuilder":
+        if display_name is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "replace",
+                path="/name",
+                value=display_name,
+            )
         return self

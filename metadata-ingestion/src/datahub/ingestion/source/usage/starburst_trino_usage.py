@@ -129,7 +129,7 @@ class TrinoUsageSource(Source):
         config = TrinoUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         access_events = self._get_trino_history()
         # If the query results is empty, we don't want to proceed
         if not access_events:
@@ -140,9 +140,7 @@ class TrinoUsageSource(Source):
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
 
     def _make_usage_query(self) -> str:
         return trino_usage_sql_comment.format(
@@ -284,6 +282,7 @@ class TrinoUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> SourceReport:

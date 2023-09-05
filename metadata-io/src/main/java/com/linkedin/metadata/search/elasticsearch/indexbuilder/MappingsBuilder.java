@@ -6,6 +6,7 @@ import com.linkedin.metadata.models.SearchScoreFieldSpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -42,6 +43,13 @@ public class MappingsBuilder {
   // Subfields
   public static final String DELIMITED = "delimited";
   public static final String LENGTH = "length";
+  public static final String WORD_GRAMS_LENGTH_2 = "wordGrams2";
+  public static final String WORD_GRAMS_LENGTH_3 = "wordGrams3";
+  public static final String WORD_GRAMS_LENGTH_4 = "wordGrams4";
+
+  // Alias field mappings constants
+  public static final String ALIAS = "alias";
+  public static final String PATH = "path";
 
   private MappingsBuilder() {
   }
@@ -94,16 +102,30 @@ public class MappingsBuilder {
       mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
       // Add keyword subfield without lowercase filter
       mappingForField.put(FIELDS, ImmutableMap.of(KEYWORD, KEYWORD_TYPE_MAP));
-    } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL) {
+    } else if (fieldType == FieldType.TEXT || fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
       mappingForField.put(TYPE, KEYWORD);
       mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
       Map<String, Object> subFields = new HashMap<>();
-      if (fieldType == FieldType.TEXT_PARTIAL) {
+      if (fieldType == FieldType.TEXT_PARTIAL || fieldType == FieldType.WORD_GRAM) {
         subFields.put(NGRAM, getPartialNgramConfigWithOverrides(
                 ImmutableMap.of(
                         ANALYZER, PARTIAL_ANALYZER
                 )
         ));
+        if (fieldType == FieldType.WORD_GRAM) {
+          for (Map.Entry<String, String> entry : Map.of(
+              WORD_GRAMS_LENGTH_2, WORD_GRAM_2_ANALYZER,
+              WORD_GRAMS_LENGTH_3, WORD_GRAM_3_ANALYZER,
+              WORD_GRAMS_LENGTH_4, WORD_GRAM_4_ANALYZER).entrySet()) {
+            String fieldName = entry.getKey();
+            String analyzerName = entry.getValue();
+            subFields.put(fieldName, ImmutableMap.of(
+                TYPE, TEXT,
+                ANALYZER, analyzerName,
+                SEARCH_ANALYZER, analyzerName
+            ));
+          }
+        }
       }
       subFields.put(DELIMITED, ImmutableMap.of(
               TYPE, TEXT,
@@ -121,7 +143,15 @@ public class MappingsBuilder {
               ANALYZER, SLASH_PATTERN_ANALYZER)));
       mappingForField.put(ANALYZER, BROWSE_PATH_HIERARCHY_ANALYZER);
       mappingForField.put(FIELDDATA, true);
-    } else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
+    } else if (fieldType == FieldType.BROWSE_PATH_V2) {
+      mappingForField.put(TYPE, TEXT);
+      mappingForField.put(FIELDS,
+          ImmutableMap.of(LENGTH, ImmutableMap.of(
+              TYPE, TOKEN_COUNT,
+              ANALYZER, UNIT_SEPARATOR_PATTERN_ANALYZER)));
+      mappingForField.put(ANALYZER, BROWSE_PATH_V2_HIERARCHY_ANALYZER);
+      mappingForField.put(FIELDDATA, true);
+    }  else if (fieldType == FieldType.URN || fieldType == FieldType.URN_PARTIAL) {
       mappingForField.put(TYPE, TEXT);
       mappingForField.put(ANALYZER, URN_ANALYZER);
       mappingForField.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
@@ -155,6 +185,7 @@ public class MappingsBuilder {
     searchableFieldSpec.getSearchableAnnotation()
         .getNumValuesFieldName()
         .ifPresent(fieldName -> mappings.put(fieldName, ImmutableMap.of(TYPE, LONG)));
+    mappings.putAll(getMappingsForFieldNameAliases(searchableFieldSpec));
 
     return mappings;
   }
@@ -163,5 +194,17 @@ public class MappingsBuilder {
       @Nonnull final SearchScoreFieldSpec searchScoreFieldSpec) {
     return ImmutableMap.of(searchScoreFieldSpec.getSearchScoreAnnotation().getFieldName(),
         ImmutableMap.of(TYPE, DOUBLE));
+  }
+
+  private static Map<String, Object> getMappingsForFieldNameAliases(@Nonnull final SearchableFieldSpec searchableFieldSpec) {
+    Map<String, Object> mappings = new HashMap<>();
+    List<String> fieldNameAliases = searchableFieldSpec.getSearchableAnnotation().getFieldNameAliases();
+    fieldNameAliases.forEach(alias -> {
+      Map<String, Object> aliasMappings = new HashMap<>();
+      aliasMappings.put(TYPE, ALIAS);
+      aliasMappings.put(PATH, searchableFieldSpec.getSearchableAnnotation().getFieldName());
+      mappings.put(alias, aliasMappings);
+    });
+    return mappings;
   }
 }

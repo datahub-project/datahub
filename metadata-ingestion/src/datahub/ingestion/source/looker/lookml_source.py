@@ -6,7 +6,7 @@ import pathlib
 import re
 import tempfile
 from dataclasses import dataclass, field as dataclass_field, replace
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import (
     Any,
     ClassVar,
@@ -45,11 +45,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
+    CORPUSER_DATAHUB,
     LookerCommonConfig,
     LookerExplore,
     LookerUtil,
@@ -63,7 +64,6 @@ from datahub.ingestion.source.looker.looker_lib_wrapper import (
     LookerAPIConfig,
     TransportOptionsConfig,
 )
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -84,16 +84,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
     FineGrainedLineageUpstreamTypeClass,
     SubTypesClass,
 )
 from datahub.utilities.lossy_collections import LossyList
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 from datahub.utilities.sql_parser import SQLParser
 
 logger = logging.getLogger(__name__)
@@ -1472,14 +1469,6 @@ class LookMLSource(StatefulIngestionSourceBase):
                 raise ValueError(
                     "Failed to retrieve connections from looker client. Please check to ensure that you have manage_models permission enabled on this API key."
                 )
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
     def _load_model(self, path: str) -> LookerModel:
         with open(path, "r") as file:
@@ -1628,11 +1617,16 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         # Generate the upstream + fine grained lineage objects.
         upstreams = []
+        observed_lineage_ts = datetime.now(tz=timezone.utc)
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         for upstream_dataset_urn in upstream_dataset_urns:
             upstream = UpstreamClass(
                 dataset=upstream_dataset_urn,
                 type=DatasetLineageTypeClass.VIEW,
+                auditStamp=AuditStampClass(
+                    time=int(observed_lineage_ts.timestamp() * 1000),
+                    actor=CORPUSER_DATAHUB,
+                ),
             )
             upstreams.append(upstream)
 
@@ -1794,11 +1788,13 @@ class LookMLSource(StatefulIngestionSourceBase):
         else:
             return None
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with tempfile.TemporaryDirectory("lookml_tmp") as tmp_dir:
@@ -1863,6 +1859,13 @@ class LookMLSource(StatefulIngestionSourceBase):
             )
 
             yield from self.get_internal_workunits()
+
+            if not self.report.events_produced and not self.report.failures:
+                # Don't pass if we didn't produce any events.
+                self.report.report_failure(
+                    "<main>",
+                    "No metadata was produced. Check the logs for more details.",
+                )
 
     def _recursively_check_manifests(
         self, tmp_dir: str, project_name: str, project_visited: Set[str]
@@ -1987,7 +1990,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             if connectionDefinition is None:
                 self.reporter.report_warning(
                     f"model-{model_name}",
-                    f"Failed to load connection {model.connection}. Check your API key permissions.",
+                    f"Failed to load connection {model.connection}. Check your API key permissions and/or connection_to_platform_map configuration.",
                 )
                 self.reporter.report_models_dropped(model_name)
                 continue
@@ -2115,24 +2118,18 @@ class LookMLSource(StatefulIngestionSourceBase):
                                         f"Generating MCP for view {raw_view['name']}"
                                     )
                                     mce = self._build_dataset_mce(maybe_looker_view)
-                                    workunit = MetadataWorkUnit(
+                                    yield MetadataWorkUnit(
                                         id=f"lookml-view-{maybe_looker_view.id}",
                                         mce=mce,
                                     )
                                     processed_view_files.add(include.include)
-                                    self.reporter.report_workunit(workunit)
-                                    yield workunit
                                     for mcp in self._build_dataset_mcps(
                                         maybe_looker_view
                                     ):
                                         # We want to treat mcp aspects as optional, so allowing failures in this aspect to be treated as warnings rather than failures
-                                        workunit = MetadataWorkUnit(
-                                            id=f"lookml-view-{mcp.aspectName}-{maybe_looker_view.id}",
-                                            mcp=mcp,
-                                            treat_errors_as_warnings=True,
+                                        yield mcp.as_workunit(
+                                            treat_errors_as_warnings=True
                                         )
-                                        self.reporter.report_workunit(workunit)
-                                        yield workunit
                                 else:
                                     (
                                         prev_model_name,
@@ -2160,14 +2157,9 @@ class LookMLSource(StatefulIngestionSourceBase):
         ):
             # Emit tag MCEs for measures and dimensions:
             for tag_mce in LookerUtil.get_tag_mces():
-                workunit = MetadataWorkUnit(
+                yield MetadataWorkUnit(
                     id=f"tag-{tag_mce.proposedSnapshot.urn}", mce=tag_mce
                 )
-                self.reporter.report_workunit(workunit)
-                yield workunit
 
     def get_report(self):
         return self.reporter
-
-    def close(self):
-        self.prepare_for_commit()

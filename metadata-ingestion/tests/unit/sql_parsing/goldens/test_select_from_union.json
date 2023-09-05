@@ -1,0 +1,33 @@
+{
+    "query_type": "UNKNOWN",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf10.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf100.orders,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "label"
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "total_agg"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf10.orders,PROD)",
+                    "column": "totalprice"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf100.orders,PROD)",
+                    "column": "totalprice"
+                }
+            ]
+        }
+    ]
+}

@@ -5,7 +5,7 @@ import re
 import traceback
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union, cast
+from typing import Dict, Iterable, List, Optional, Set, Type, Union, cast
 
 from google.cloud import bigquery
 from google.cloud.bigquery.table import TableListItem
@@ -14,12 +14,12 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_dataset_urn_with_platform_instance,
+    make_dataset_urn,
     make_tag_urn,
     set_dataset_urn_to_lower,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import BigQueryDatasetKey, PlatformKey, ProjectIdKey
+from datahub.emitter.mcp_builder import BigQueryDatasetKey, ContainerKey, ProjectIdKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -30,6 +30,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -56,7 +57,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 )
 from datahub.ingestion.source.bigquery_v2.lineage import (
     BigqueryLineageExtractor,
-    LineageEdge,
+    make_lineage_edges_from_parsing_result,
 )
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
@@ -72,16 +73,19 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
-    RedundantRunSkipHandler,
-)
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
+    RedundantLineageRunSkipHandler,
+    RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    PROFILING,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     Status,
@@ -114,6 +118,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
+from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import (
     HiveColumnToAvroConverter,
     get_schema_fields_for_hive_column,
@@ -121,19 +126,14 @@ from datahub.utilities.hive_schema_to_avro import (
 from datahub.utilities.mapping import Constants
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_materialize_referenced_tags,
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
-from datahub.utilities.time import datetime_to_ts_millis
+from datahub.utilities.sqlglot_lineage import SchemaResolver, sqlglot_lineage
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Handle table snapshots
 # See https://cloud.google.com/bigquery/docs/table-snapshots-intro.
 SNAPSHOT_TABLE_REGEX = re.compile(r"^(.+)@(\d{13})$")
+CLUSTERING_COLUMN_TAG = "CLUSTERING_COLUMN"
 
 
 # We can't use close as it is not called if the ingestion is not successful
@@ -148,9 +148,9 @@ def cleanup(config: BigQueryV2Config) -> None:
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
-@capability(
+@capability(  # DataPlatformAspect is set to project id, but not added to urns as project id is in the container path
     SourceCapability.PLATFORM_INSTANCE,
-    "Not supported since BigQuery project ids are globally unique",
+    "Platform instance is pre-set to the BigQuery project id",
     supported=False,
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
@@ -162,6 +162,10 @@ def cleanup(config: BigQueryV2Config) -> None:
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+)
 @capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
@@ -224,17 +228,36 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         set_dataset_urn_to_lower(self.config.convert_urns_to_lowercase)
 
-        # For database, schema, tables, views, etc
-        self.lineage_extractor = BigqueryLineageExtractor(config, self.report)
-        self.usage_extractor = BigQueryUsageExtractor(config, self.report)
+        self.redundant_lineage_run_skip_handler: Optional[
+            RedundantLineageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_lineage_ingestion:
+            self.redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
 
-        # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
+        # For database, schema, tables, views, etc
+        self.lineage_extractor = BigqueryLineageExtractor(
+            config, self.report, self.redundant_lineage_run_skip_handler
+        )
+
+        redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None
+        if self.config.enable_stateful_usage_ingestion:
+            redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
+        self.usage_extractor = BigQueryUsageExtractor(
+            config,
+            self.report,
+            dataset_urn_builder=self.gen_dataset_urn_from_ref,
+            redundant_run_skip_handler=redundant_usage_run_skip_handler,
         )
 
         self.domain_registry: Optional[DomainRegistry] = None
@@ -243,15 +266,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
-        self.redundant_run_skip_handler = RedundantRunSkipHandler(
-            source=self,
-            config=self.config,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         self.profiling_state_handler: Optional[ProfilingHandler] = None
-        if self.config.store_last_profiling_timestamps:
+        if self.config.enable_stateful_profiling:
             self.profiling_state_handler = ProfilingHandler(
                 source=self,
                 config=self.config,
@@ -264,9 +280,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-        # Maps project -> view_ref -> [upstream_table_ref], for view lineage
-        self.view_upstream_tables: Dict[str, Dict[str, List[str]]] = defaultdict(dict)
 
+        # Maps project -> view_ref, so we can find all views in a project
+        self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
+        # Maps view ref -> actual sql
+        self.view_definitions: FileBackedDict[str] = FileBackedDict()
+
+        self.sql_parser_schema_resolver = SchemaResolver(
+            platform=self.platform, env=self.config.env
+        )
+        self.add_config_to_report()
         atexit.register(cleanup, config)
 
     @classmethod
@@ -285,7 +308,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return CapabilityReport(capable=True)
 
     @staticmethod
-    def metada_read_capability_test(
+    def metadata_read_capability_test(
         project_ids: List[str], config: BigQueryV2Config
     ) -> CapabilityReport:
         for project_id in project_ids:
@@ -306,7 +329,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.profiling.enabled,
+                    with_data_read_permission=config.is_profiling_enabled(),
                 )
                 if len(list(tables)) == 0:
                     return CapabilityReport(
@@ -347,7 +370,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         project_ids: List[str],
         report: BigQueryV2Report,
     ) -> CapabilityReport:
-        usage_extractor = BigQueryUsageExtractor(connection_conf, report)
+        usage_extractor = BigQueryUsageExtractor(
+            connection_conf, report, lambda ref: ""
+        )
         for project_id in project_ids:
             try:
                 logger.info(f"Usage capability test for project {project_id}")
@@ -388,11 +413,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 if connection_conf.project_id_pattern.allowed(project.project_id):
                     project_ids.append(project.project_id)
 
-            metada_read_capability = BigqueryV2Source.metada_read_capability_test(
+            metadata_read_capability = BigqueryV2Source.metadata_read_capability_test(
                 project_ids, connection_conf
             )
             if SourceCapability.SCHEMA_METADATA not in _report:
-                _report[SourceCapability.SCHEMA_METADATA] = metada_read_capability
+                _report[SourceCapability.SCHEMA_METADATA] = metadata_read_capability
 
             if connection_conf.include_table_lineage:
                 lineage_capability = BigqueryV2Source.lineage_capability_test(
@@ -418,37 +443,33 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return test_report
 
     def get_dataplatform_instance_aspect(
-        self, dataset_urn: str
-    ) -> Optional[MetadataWorkUnit]:
-        # If we are a platform instance based source, emit the instance aspect
-        if self.config.platform_instance:
-            aspect = DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(
-                    self.platform, self.config.platform_instance
-                ),
-            )
-            return MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=aspect
-            ).as_workunit()
-        else:
-            return None
+        self, dataset_urn: str, project_id: str
+    ) -> MetadataWorkUnit:
+        aspect = DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(self.platform, project_id)
+            if self.config.include_data_platform_instance
+            else None,
+        )
+        return MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn, aspect=aspect
+        ).as_workunit()
 
-    def gen_dataset_key(self, db_name: str, schema: str) -> PlatformKey:
+    def gen_dataset_key(self, db_name: str, schema: str) -> ContainerKey:
         return BigQueryDatasetKey(
             project_id=db_name,
             dataset_id=schema,
             platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
-    def gen_project_id_key(self, database: str) -> PlatformKey:
+    def gen_project_id_key(self, database: str) -> ContainerKey:
         return ProjectIdKey(
             project_id=database,
             platform=self.platform,
-            instance=self.config.platform_instance,
-            backcompat_instance_for_guid=self.config.env,
+            env=self.config.env,
+            backcompat_env_as_instance=True,
         )
 
     def gen_project_id_containers(self, database: str) -> Iterable[MetadataWorkUnit]:
@@ -460,7 +481,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.BIGQUERY_PROJECT],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             database_container_key=database_container_key,
         )
 
@@ -480,7 +500,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             sub_types=[DatasetContainerSubTypes.BIGQUERY_DATASET],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            report=self.report,
             schema_container_key=schema_container_key,
             database_container_key=database_container_key,
             external_url=BQ_EXTERNAL_DATASET_URL_TEMPLATE.format(
@@ -491,81 +510,60 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             tags=tags_joined,
         )
 
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         conn: bigquery.Client = get_bigquery_client(self.config)
-        self.add_config_to_report()
 
         projects = self._get_projects(conn)
         if not projects:
             return
 
         for project_id in projects:
+            self.report.set_ingestion_stage(project_id.id, METADATA_EXTRACTION)
             logger.info(f"Processing project: {project_id.id}")
-            self.report.set_ingestion_stage(project_id.id, "Metadata Extraction")
             yield from self._process_project(conn, project_id)
 
-        if self._should_ingest_usage():
-            yield from self.usage_extractor.run(
+        if self.config.include_usage_statistics:
+            yield from self.usage_extractor.get_usage_workunits(
                 [p.id for p in projects], self.table_refs
             )
 
         if self._should_ingest_lineage():
             for project in projects:
-                self.report.set_ingestion_stage(project.id, "Lineage Extraction")
+                self.report.set_ingestion_stage(project.id, LINEAGE_EXTRACTION)
                 yield from self.generate_lineage(project.id)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_materialize_referenced_tags(
-            auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_workunit_reporter(
-                    self.report,
-                    auto_status_aspect(self.get_workunits_internal()),
-                ),
-            )
-        )
-
-    def _should_ingest_usage(self) -> bool:
-        if not self.config.include_usage_statistics:
-            return False
-
-        if self.config.store_last_usage_extraction_timestamp:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-            ):
-                self.report.report_warning(
-                    "usage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return False
-            else:
+            if self.redundant_lineage_run_skip_handler:
                 # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
+                self.redundant_lineage_run_skip_handler.update_state(
+                    self.config.start_time, self.config.end_time
                 )
-        return True
 
     def _should_ingest_lineage(self) -> bool:
         if not self.config.include_table_lineage:
             return False
 
-        if self.config.store_last_lineage_extraction_timestamp:
-            if self.redundant_run_skip_handler.should_skip_this_run(
-                cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
-            ):
-                # Skip this run
-                self.report.report_warning(
-                    "lineage-extraction",
-                    f"Skip this run as there was a run later than the current start time: {self.config.start_time}",
-                )
-                return False
-            else:
-                # Update the checkpoint state for this run.
-                self.redundant_run_skip_handler.update_state(
-                    start_time_millis=datetime_to_ts_millis(self.config.start_time),
-                    end_time_millis=datetime_to_ts_millis(self.config.end_time),
-                )
+        if (
+            self.redundant_lineage_run_skip_handler
+            and self.redundant_lineage_run_skip_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "lineage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+
         return True
 
     def _get_projects(self, conn: bigquery.Client) -> List[BigqueryProject]:
@@ -617,7 +615,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             )
         except Exception as e:
             error_message = f"Unable to get datasets for project {project_id}, skipping. The error was: {e}"
-            if self.config.profiling.enabled:
+            if self.config.is_profiling_enabled():
                 error_message = f"Unable to get datasets for project {project_id}, skipping. Does your service account has bigquery.datasets.get permission? The error was: {e}"
             logger.error(error_message)
             self.report.report_failure(
@@ -652,7 +650,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             except Exception as e:
                 error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission? The error was: {e}"
-                if self.config.profiling.enabled:
+                if self.config.is_profiling_enabled():
                     error_message = f"Unable to get tables for dataset {bigquery_dataset.name} in project {project_id}, skipping. Does your service account has bigquery.tables.list, bigquery.routines.get, bigquery.routines.list permission, bigquery.tables.getData permission? The error was: {e}"
 
                 trace = traceback.format_exc()
@@ -664,9 +662,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 )
                 continue
 
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_ingestion_stage(project_id, "Profiling")
+            self.report.set_ingestion_stage(project_id, PROFILING)
             yield from self.profiler.get_workunits(
                 project_id=project_id,
                 tables=db_tables,
@@ -674,19 +672,46 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def generate_lineage(self, project_id: str) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Generate lineage for {project_id}")
-        lineage = self.lineage_extractor.calculate_lineage_for_project(project_id)
+        lineage = self.lineage_extractor.calculate_lineage_for_project(
+            project_id,
+            sql_parser_schema_resolver=self.sql_parser_schema_resolver,
+        )
 
         if self.config.lineage_parse_view_ddl:
-            for view, upstream_tables in self.view_upstream_tables[project_id].items():
-                # Override upstreams obtained by parsing audit logs as they may contain indirectly referenced tables
-                lineage[view] = {
-                    LineageEdge(
-                        table=table,
-                        auditStamp=datetime.now(timezone.utc),
-                        type=DatasetLineageTypeClass.VIEW,
+            for view in self.view_refs_by_project[project_id]:
+                view_definition = self.view_definitions[view]
+                raw_view_lineage = sqlglot_lineage(
+                    view_definition,
+                    schema_resolver=self.sql_parser_schema_resolver,
+                    default_db=project_id,
+                )
+                if raw_view_lineage.debug_info.table_error:
+                    logger.debug(
+                        f"Failed to parse lineage for view {view}: {raw_view_lineage.debug_info.table_error}"
                     )
-                    for table in upstream_tables
-                }
+                    self.report.num_view_definitions_failed_parsing += 1
+                    self.report.view_definitions_parsing_failures.append(
+                        f"Table-level sql parsing error for view {view}: {raw_view_lineage.debug_info.table_error}"
+                    )
+                    continue
+                elif raw_view_lineage.debug_info.column_error:
+                    self.report.num_view_definitions_failed_column_parsing += 1
+                    self.report.view_definitions_parsing_failures.append(
+                        f"Column-level sql parsing error for view {view}: {raw_view_lineage.debug_info.column_error}"
+                    )
+                else:
+                    self.report.num_view_definitions_parsed += 1
+
+                # For views, we override the upstreams obtained by parsing audit logs
+                # as they may contain indirectly referenced tables.
+                ts = datetime.now(timezone.utc)
+                lineage[view] = set(
+                    make_lineage_edges_from_parsing_result(
+                        raw_view_lineage,
+                        audit_stamp=ts,
+                        lineage_type=DatasetLineageTypeClass.VIEW,
+                    )
+                )
 
         for lineage_key in lineage.keys():
             if lineage_key not in self.table_refs:
@@ -701,6 +726,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             lineage_info = self.lineage_extractor.get_lineage_for_table(
                 bq_table=table_ref,
+                bq_table_urn=dataset_urn,
                 platform=self.platform,
                 lineage_metadata=lineage,
             )
@@ -768,7 +794,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_views:
             db_views[dataset_name] = list(
                 BigQueryDataDictionary.get_views_for_dataset(
-                    conn, project_id, dataset_name, self.config.profiling.enabled
+                    conn, project_id, dataset_name, self.config.is_profiling_enabled()
                 )
             )
 
@@ -816,7 +842,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
         if (
-            self.config.profiling.enabled
+            self.config.is_profiling_enabled()
             and not self.config.profiling.profile_table_level_only
         ):
             table.columns_ignore_from_profiling = self.generate_profile_ignore_list(
@@ -862,15 +888,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
             self.table_refs.add(table_ref)
-            if self.config.lineage_parse_view_ddl:
-                upstream_tables = self.lineage_extractor.parse_view_lineage(
-                    project_id, dataset_name, view
-                )
-                if upstream_tables is not None:
-                    self.view_upstream_tables[project_id][table_ref] = [
-                        str(BigQueryTableRef(table_id).get_sanitized_table_ref())
-                        for table_id in upstream_tables
-                    ]
+            if self.config.lineage_parse_view_ddl and view.view_definition:
+                self.view_refs_by_project[project_id].add(table_ref)
+                self.view_definitions[table_ref] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -960,7 +980,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         view_properties_aspect = ViewProperties(
             materialized=view.materialized,
             viewLanguage="SQL",
-            viewLogic=view_definition_string,
+            viewLogic=view_definition_string or "",
         )
         yield MetadataChangeProposalWrapper(
             entityUrn=self.gen_dataset_urn(
@@ -1026,12 +1046,11 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
         yield from add_table_to_schema_container(
             dataset_urn=dataset_urn,
-            report=self.report,
             parent_container_key=self.gen_dataset_key(project_id, dataset_name),
         )
-        dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
-        if dpi_aspect:
-            yield dpi_aspect
+        yield self.get_dataplatform_instance_aspect(
+            dataset_urn=dataset_urn, project_id=project_id
+        )
 
         subTypes = SubTypes(typeNames=sub_types)
         yield MetadataChangeProposalWrapper(
@@ -1044,18 +1063,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 entity_urn=dataset_urn,
                 domain_registry=self.domain_registry,
                 domain_config=self.config.domain,
-                report=self.report,
             )
 
     def gen_lineage(
         self,
         dataset_urn: str,
-        lineage_info: Optional[Tuple[UpstreamLineage, Dict[str, str]]] = None,
+        upstream_lineage: Optional[UpstreamLineage] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        if lineage_info is None:
+        if upstream_lineage is None:
             return
 
-        upstream_lineage, upstream_column_props = lineage_info
         if upstream_lineage is not None:
             if self.config.incremental_lineage:
                 patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
@@ -1072,6 +1089,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     for mcp in patch_builder.build()
                 ]
             else:
+                if not self.config.extract_column_lineage:
+                    upstream_lineage.fineGrainedLineages = None
+
                 yield from [
                     MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=upstream_lineage
@@ -1090,13 +1110,18 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def gen_dataset_urn(self, project_id: str, dataset_name: str, table: str) -> str:
         datahub_dataset_name = BigqueryTableIdentifier(project_id, dataset_name, table)
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        return make_dataset_urn(
             self.platform,
             str(datahub_dataset_name),
-            self.config.platform_instance,
             self.config.env,
         )
-        return dataset_urn
+
+    def gen_dataset_urn_from_ref(self, ref: BigQueryTableRef) -> str:
+        return self.gen_dataset_urn(
+            ref.table_identifier.project_id,
+            ref.table_identifier.dataset,
+            ref.table_identifier.table,
+        )
 
     def gen_schema_fields(self, columns: List[BigqueryColumn]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
@@ -1126,6 +1151,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                             field.description = col.comment
                             schema_fields[idx] = field
             else:
+                tags = []
+                if col.is_partition_column:
+                    tags.append(
+                        TagAssociationClass(make_tag_urn(Constants.TAG_PARTITION_KEY))
+                    )
+
+                if col.cluster_column_position is not None:
+                    tags.append(
+                        TagAssociationClass(
+                            make_tag_urn(
+                                f"{CLUSTERING_COLUMN_TAG}_{col.cluster_column_position}"
+                            )
+                        )
+                    )
+
                 field = SchemaField(
                     fieldPath=col.name,
                     type=SchemaFieldDataType(
@@ -1135,15 +1175,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     nativeDataType=col.data_type,
                     description=col.comment,
                     nullable=col.is_nullable,
-                    globalTags=GlobalTagsClass(
-                        tags=[
-                            TagAssociationClass(
-                                make_tag_urn(Constants.TAG_PARTITION_KEY)
-                            )
-                        ]
-                    )
-                    if col.is_partition_column
-                    else GlobalTagsClass(tags=[]),
+                    globalTags=GlobalTagsClass(tags=tags),
                 )
                 schema_fields.append(field)
             last_id = col.ordinal_position
@@ -1165,6 +1197,12 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # fields=[],
             fields=self.gen_schema_fields(columns),
         )
+
+        if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
+            self.sql_parser_schema_resolver.add_schema_metadata(
+                dataset_urn, schema_metadata
+            )
+
         return MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
@@ -1187,7 +1225,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             # https://cloud.google.com/bigquery/docs/information-schema-partitions
             max_batch_size: int = (
                 self.config.number_of_datasets_process_in_batch
-                if not self.config.profiling.enabled
+                if not self.config.is_profiling_enabled()
                 else self.config.number_of_datasets_process_in_batch_if_profiling_enabled
             )
 
@@ -1204,7 +1242,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         project_id,
                         dataset_name,
                         items_to_get,
-                        with_data_read_permission=self.config.profiling.enabled,
+                        with_data_read_permission=self.config.is_profiling_enabled(),
                     )
                     items_to_get.clear()
 
@@ -1214,7 +1252,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     project_id,
                     dataset_name,
                     items_to_get,
-                    with_data_read_permission=self.config.profiling.enabled,
+                    with_data_read_permission=self.config.is_profiling_enabled(),
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset_name}"] = round(
@@ -1286,4 +1324,14 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.report.log_page_size = self.config.log_page_size
         self.report.use_exported_bigquery_audit_metadata = (
             self.config.use_exported_bigquery_audit_metadata
+        )
+        self.report.stateful_lineage_ingestion_enabled = (
+            self.config.enable_stateful_lineage_ingestion
+        )
+        self.report.stateful_usage_ingestion_enabled = (
+            self.config.enable_stateful_usage_ingestion
+        )
+        self.report.window_start_time, self.report.window_end_time = (
+            self.config.start_time,
+            self.config.end_time,
         )

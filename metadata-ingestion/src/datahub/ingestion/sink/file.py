@@ -4,6 +4,7 @@ import pathlib
 from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.aspect import JSON_CONTENT_TYPE, JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
@@ -27,6 +28,14 @@ def _to_obj_for_file(
 ) -> dict:
     if isinstance(obj, MetadataChangeProposalWrapper):
         return obj.to_obj(simplified_structure=simplified_structure)
+    elif isinstance(obj, MetadataChangeProposal) and simplified_structure:
+        serialized = obj.to_obj()
+        if serialized.get("aspect") and serialized["aspect"].get("contentType") in [
+            JSON_CONTENT_TYPE,
+            JSON_PATCH_CONTENT_TYPE,
+        ]:
+            serialized["aspect"] = {"json": json.loads(serialized["aspect"]["value"])}
+        return serialized
     return obj.to_obj()
 
 
@@ -50,7 +59,6 @@ class FileSink(Sink[FileSinkConfig, SinkReport]):
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregation,
             ]
         ],
         write_callback: WriteCallback,
@@ -83,6 +91,7 @@ def write_metadata_file(
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
             UsageAggregation,
+            dict,  # Serialized MCE or MCP
         ]
     ],
 ) -> None:
@@ -92,6 +101,7 @@ def write_metadata_file(
         for i, record in enumerate(records):
             if i > 0:
                 f.write(",\n")
-            obj = _to_obj_for_file(record)
-            json.dump(obj, f, indent=4)
+            if not isinstance(record, dict):
+                record = _to_obj_for_file(record)
+            json.dump(record, f, indent=4)
         f.write("\n]")

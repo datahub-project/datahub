@@ -9,11 +9,9 @@ import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.AuthUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
 import graphql.schema.DataFetcher;
@@ -24,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -57,9 +56,9 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
       }
 
       try {
-        TagProperties tagProperties = (TagProperties) getAspectFromEntity(
+        TagProperties tagProperties = (TagProperties) EntityUtils.getAspectFromEntity(
             tagUrn.toString(),
-            Constants.TAG_PROPERTIES_ASPECT_NAME,
+            TAG_PROPERTIES_ASPECT_NAME,
             _entityService,
             null);
 
@@ -70,13 +69,8 @@ public class SetTagColorResolver implements DataFetcher<CompletableFuture<Boolea
         tagProperties.setColorHex(colorHex);
 
         // Update the TagProperties aspect.
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(tagUrn);
-        proposal.setEntityType(tagUrn.getEntityType());
-        proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(tagProperties));
-        proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(tagUrn, TAG_PROPERTIES_ASPECT_NAME, tagProperties);
+        _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         return true;
       } catch (Exception e) {
         log.error("Failed to set color for Tag with urn {}: {}", tagUrn, e.getMessage());

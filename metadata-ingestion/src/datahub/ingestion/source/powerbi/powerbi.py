@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional, Set, Tuple, Union
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import PlatformKey, gen_containers
+from datahub.emitter.mcp_builder import ContainerKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -19,7 +19,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
@@ -27,7 +28,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.powerbi.config import (
     Constant,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
@@ -37,9 +37,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.m_query import parser, resolver
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
-from datahub.ingestion.source.state.sql_common_state import (
-    BaseSQLAlchemyCheckpointState,
-)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -74,11 +71,6 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-    auto_workunit_reporter,
-)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -103,15 +95,17 @@ class Mapper:
 
     def __init__(
         self,
+        ctx: PipelineContext,
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ):
+        self.__ctx = ctx
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.processed_datasets: Set[powerbi_data_classes.PowerBIDataset] = set()
-        self.workspace_key: PlatformKey
+        self.workspace_key: ContainerKey
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -179,43 +173,40 @@ class Mapper:
         # table.dataset should always be set, but we check it just in case.
         parameters = table.dataset.parameters if table.dataset else {}
 
-        upstreams: List[UpstreamClass] = []
-        upstream_tables: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
-            table, self.__reporter, parameters=parameters
+        upstream: List[UpstreamClass] = []
+
+        upstream_dpts: List[resolver.DataPlatformTable] = parser.get_upstream_tables(
+            table=table,
+            reporter=self.__reporter,
+            platform_instance_resolver=self.__dataplatform_instance_resolver,
+            ctx=self.__ctx,
+            config=self.__config,
+            parameters=parameters,
         )
+
         logger.debug(
-            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_tables}"
+            f"PowerBI virtual table {table.full_name} and it's upstream dataplatform tables = {upstream_dpts}"
         )
-        for upstream_table in upstream_tables:
+
+        for upstream_dpt in upstream_dpts:
             if (
-                upstream_table.data_platform_pair.powerbi_data_platform_name
+                upstream_dpt.data_platform_pair.powerbi_data_platform_name
                 not in self.__config.dataset_type_mapping.keys()
             ):
                 logger.debug(
-                    f"Skipping upstream table for {ds_urn}. The platform {upstream_table.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
+                    f"Skipping upstream table for {ds_urn}. The platform {upstream_dpt.data_platform_pair.powerbi_data_platform_name} is not part of dataset_type_mapping",
                 )
                 continue
 
-            platform_detail: PlatformDetail = (
-                self.__dataplatform_instance_resolver.get_platform_instance(
-                    upstream_table
-                )
-            )
-            upstream_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=upstream_table.data_platform_pair.datahub_data_platform_name,
-                platform_instance=platform_detail.platform_instance,
-                env=platform_detail.env,
-                name=self.lineage_urn_to_lowercase(upstream_table.full_name),
-            )
-
             upstream_table_class = UpstreamClass(
-                upstream_urn,
+                upstream_dpt.urn,
                 DatasetLineageTypeClass.TRANSFORMED,
             )
-            upstreams.append(upstream_table_class)
 
-        if len(upstreams) > 0:
-            upstream_lineage = UpstreamLineageClass(upstreams=upstreams)
+            upstream.append(upstream_table_class)
+
+        if len(upstream) > 0:
+            upstream_lineage = UpstreamLineageClass(upstreams=upstream)
             logger.debug(f"Dataset urn = {ds_urn} and its lineage = {upstream_lineage}")
             mcp = MetadataChangeProposalWrapper(
                 entityType=Constant.DATASET,
@@ -263,7 +254,6 @@ class Mapper:
         self,
         table: powerbi_data_classes.Table,
     ) -> SchemaMetadataClass:
-
         fields = []
         table_fields = (
             [self.to_datahub_schema_field(column) for column in table.columns]
@@ -300,8 +290,12 @@ class Mapper:
         """
 
         dataset_mcps: List[MetadataChangeProposalWrapper] = []
+
         if dataset is None:
             return dataset_mcps
+
+        logger.debug(f"Processing dataset {dataset.name}")
+
         if not any(
             [
                 self.__config.filter_dataset_endorsements.allowed(tag)
@@ -318,7 +312,6 @@ class Mapper:
         )
 
         for table in dataset.tables:
-            self.processed_datasets.add(dataset)
             # Create a URN for dataset
             ds_urn = builder.make_dataset_urn_with_platform_instance(
                 platform=self.__config.platform_name,
@@ -416,6 +409,8 @@ class Mapper:
                 Constant.DATASET,
                 dataset.tags,
             )
+
+        self.processed_datasets.add(dataset)
 
         return dataset_mcps
 
@@ -1110,15 +1105,13 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising
             # unwanted stacktrace on console
 
-        self.mapper = Mapper(config, self.reporter, self.dataplatform_instance_resolver)
+        self.mapper = Mapper(
+            ctx, config, self.reporter, self.dataplatform_instance_resolver
+        )
 
         # Create and register the stateful ingestion use-case handler.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=BaseSQLAlchemyCheckpointState,
-            pipeline_name=ctx.pipeline_name,
-            run_id=ctx.run_id,
+        self.stale_entity_removal_handler = StaleEntityRemovalHandler.create(
+            self, self.source_config, self.ctx
         )
 
     @classmethod
@@ -1156,6 +1149,21 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             f"Dataset lineage would get ingested for data-platform = {self.source_config.dataset_type_mapping}"
         )
 
+    def extract_datasets_as_containers(self):
+        for dataset in self.mapper.processed_datasets:
+            yield from self.mapper.generate_container_for_dataset(dataset)
+
+    def extract_independent_datasets(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataWorkUnit]:
+        for dataset in workspace.independent_datasets:
+            yield from auto_workunit(
+                stream=self.mapper.to_datahub_dataset(
+                    dataset=dataset,
+                    workspace=workspace,
+                )
+            )
+
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1191,11 +1199,21 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
             ):
                 yield work_unit
 
-        for dataset in self.mapper.processed_datasets:
-            if self.source_config.extract_datasets_to_containers:
-                dataset_workunits = self.mapper.generate_container_for_dataset(dataset)
-                for workunit in dataset_workunits:
-                    yield workunit
+        if self.source_config.extract_datasets_to_containers:
+            yield from self.extract_datasets_as_containers()
+
+        yield from self.extract_independent_datasets(workspace)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
+        # This will result in creating checkpoint for each workspace_id
+        if self.source_config.modified_since:
+            return []  # Handle these in get_workunits_internal
+        else:
+            return [
+                *super().get_workunit_processors(),
+                self.stale_entity_removal_handler.workunit_processor,
+            ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -1228,35 +1246,20 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase):
                     # Because job_id is used as dictionary key, we have to set a new job_id
                     # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                     self.stale_entity_removal_handler.set_job_id(workspace.id)
-                    self.register_stateful_ingestion_usecase_handler(
+                    self.state_provider.register_stateful_ingestion_usecase_handler(
                         self.stale_entity_removal_handler
                     )
 
-                    yield from auto_stale_entity_removal(
-                        self.stale_entity_removal_handler,
-                        auto_workunit_reporter(
-                            self.reporter,
-                            auto_status_aspect(self.get_workspace_workunit(workspace)),
-                        ),
+                    yield from self._apply_workunit_processors(
+                        [
+                            *super().get_workunit_processors(),
+                            self.stale_entity_removal_handler.workunit_processor,
+                        ],
+                        self.get_workspace_workunit(workspace),
                     )
                 else:
                     # Maintain backward compatibility
                     yield from self.get_workspace_workunit(workspace)
-
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # As modified_workspaces is not idempotent, hence auto_stale_entity_removal is run later for each workspace_id
-        # This will result in creating checkpoint for each workspace_id
-        if self.source_config.modified_since:
-            return self.get_workunits_internal()
-        else:
-            # Since we only run for a fixed list of workspace_ids
-            # This will result in one checkpoint for the list of configured workspace_ids
-            return auto_stale_entity_removal(
-                self.stale_entity_removal_handler,
-                auto_workunit_reporter(
-                    self.reporter, auto_status_aspect(self.get_workunits_internal())
-                ),
-            )
 
     def get_report(self) -> SourceReport:
         return self.reporter

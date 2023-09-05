@@ -7,7 +7,7 @@ describe("run managed ingestion", () => {
     it("create run managed ingestion source", () => {
         let number = Math.floor(Math.random() * 100000);
         let testName = `cypress test source ${number}`
-        let cli_version = "0.9.3.3rc5";
+        let cli_version = "0.10.5.4";
         cy.login();
         cy.goToIngestionPage();
         cy.clickOptionWithText("Create new source");
@@ -31,7 +31,7 @@ describe("run managed ingestion", () => {
         cy.waitTextVisible(testName)
 
         cy.contains(testName).parent().within(() => {
-            cy.contains("Succeeded", {timeout: 30000})
+            cy.contains("Succeeded", {timeout: 180000})
             cy.clickOptionWithTestId("delete-button");
         })
         cy.clickOptionWithText("Yes")

@@ -1,0 +1,74 @@
+apply plugin: 'java'
+apply plugin: 'org.hidetake.swagger.generator'
+
+configurations {
+    enhance
+}
+
+dependencies {
+    implementation externalDependency.jsonPatch
+    implementation project(':entity-registry')
+    implementation project(':metadata-utils')
+    implementation project(':metadata-events:mxe-avro-1.7')
+    implementation project(':metadata-events:mxe-registration')
+    implementation project(':metadata-events:mxe-utils-avro-1.7')
+    implementation project(':metadata-models')
+    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:configuration')
+
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.swaggerAnnotations
+    runtimeOnly externalDependency.logbackClassic
+    compileOnly externalDependency.lombok
+    implementation externalDependency.commonsCollections
+    implementation externalDependency.javatuples
+    implementation externalDependency.javaxValidation
+    implementation externalDependency.opentelemetryAnnotations
+
+    annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.junit
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.mockitoInline
+    testCompileOnly externalDependency.lombok
+    testImplementation project(':test-models')
+    testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+    testImplementation project(':datahub-graphql-core')
+    // logback >=1.3 required due to `testcontainers` only
+    testImplementation 'ch.qos.logback:logback-classic:1.4.7'
+
+    testAnnotationProcessor externalDependency.lombok
+
+    constraints {
+        implementation(externalDependency.log4jCore) {
+            because("previous versions are vulnerable to CVE-2021-45105")
+        }
+        implementation(externalDependency.log4jApi) {
+            because("previous versions are vulnerable to CVE-2021-45105")
+        }
+        implementation(externalDependency.commonsText) {
+            because("previous versions are vulnerable to CVE-2022-42889")
+        }
+        implementation(externalDependency.snakeYaml) {
+            because("previous versions are vulnerable to CVE-2022-25857")
+        }
+        implementation(externalDependency.woodstoxCore) {
+            because("previous versions are vulnerable to CVE-2022-40151-2")
+        }
+        implementation(externalDependency.jettison) {
+            because("previous versions are vulnerable")
+        }
+    }
+}
+
+test {
+    // https://docs.gradle.org/current/userguide/performance.html
+    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+    testLogging.showStandardStreams = true
+    testLogging.exceptionFormat = 'full'
+}
+
+tasks.withType(Test) {
+    enableAssertions = false
+}

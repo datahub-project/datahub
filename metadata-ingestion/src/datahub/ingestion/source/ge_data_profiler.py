@@ -10,6 +10,7 @@ import threading
 import traceback
 import unittest.mock
 import uuid
+from functools import lru_cache
 from typing import (
     Any,
     Callable,
@@ -273,19 +274,30 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         # Compute columns to profile
         columns_to_profile: List[str] = []
+
         # Compute ignored columns
-        ignored_columns: List[str] = []
-        for col in self.dataset.get_table_columns():
+        ignored_columns_by_pattern: List[str] = []
+        ignored_columns_by_type: List[str] = []
+
+        for col_dict in self.dataset.columns:
+            col = col_dict["name"]
             # We expect the allow/deny patterns to specify '<table_pattern>.<column_pattern>'
             if not self.config._allow_deny_patterns.allowed(
                 f"{self.dataset_name}.{col}"
             ):
-                ignored_columns.append(col)
+                ignored_columns_by_pattern.append(col)
+            elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
+                ignored_columns_by_type.append(col)
             else:
                 columns_to_profile.append(col)
-        if ignored_columns:
+
+        if ignored_columns_by_pattern:
             self.report.report_dropped(
-                f"The profile of columns by pattern {self.dataset_name}({', '.join(sorted(ignored_columns))})"
+                f"The profile of columns by pattern {self.dataset_name}({', '.join(sorted(ignored_columns_by_pattern))})"
+            )
+        if ignored_columns_by_type:
+            self.report.report_dropped(
+                f"The profile of columns by type {self.dataset_name}({', '.join(sorted(ignored_columns_by_type))})"
             )
 
         if self.config.max_number_of_fields_to_profile is not None:
@@ -301,6 +313,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         f"The max_number_of_fields_to_profile={self.config.max_number_of_fields_to_profile} reached. Profile of columns {self.dataset_name}({', '.join(sorted(columns_being_dropped))})"
                     )
         return columns_to_profile
+
+    def _should_ignore_column(self, sqlalchemy_type: sa.types.TypeEngine) -> bool:
+        return str(sqlalchemy_type) in _get_column_types_to_ignore(
+            self.dataset.engine.dialect.name
+        )
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
@@ -342,21 +359,36 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
-        if (
-            self.config.profile_table_row_count_estimate_only
-            and self.dataset.engine.dialect.name.lower() == "postgresql"
-        ):
-            schema_name = self.dataset_name.split(".")[1]
-            table_name = self.dataset_name.split(".")[2]
-            logger.debug(
-                f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
-            )
+        if self.config.profile_table_row_count_estimate_only:
+            dialect_name = self.dataset.engine.dialect.name.lower()
+            if dialect_name == "postgresql":
+                schema_name = self.dataset_name.split(".")[1]
+                table_name = self.dataset_name.split(".")[2]
+                logger.debug(
+                    f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+                )
+                get_estimate_script = sa.text(
+                    f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
+                )
+            elif dialect_name == "mysql":
+                schema_name = self.dataset_name.split(".")[0]
+                table_name = self.dataset_name.split(".")[1]
+                logger.debug(
+                    f"Getting estimated rowcounts for table:{self.dataset_name}, schema:{schema_name}, table:{table_name}"
+                )
+                get_estimate_script = sa.text(
+                    f"SELECT table_rows AS estimate FROM information_schema.tables WHERE table_schema = '{schema_name}' AND table_name = '{table_name}'"
+                )
+            else:
+                logger.debug(
+                    f"Dialect {dialect_name} not supported for feature "
+                    f"profile_table_row_count_estimate_only. Proceeding with full row count."
+                )
+                dataset_profile.rowCount = self.dataset.get_row_count()
+                return
+
             dataset_profile.rowCount = int(
-                self.dataset.engine.execute(
-                    sa.text(
-                        f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
-                    )
-                ).scalar()
+                self.dataset.engine.execute(get_estimate_script).scalar()
             )
         else:
             dataset_profile.rowCount = self.dataset.get_row_count()
@@ -562,16 +594,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         self.query_combiner.flush()
 
         columns_profiling_queue: List[_SingleColumnSpec] = []
-        for column in all_columns:
-            column_profile = DatasetFieldProfileClass(fieldPath=column)
-            profile.fieldProfiles.append(column_profile)
+        if columns_to_profile:
+            for column in all_columns:
+                column_profile = DatasetFieldProfileClass(fieldPath=column)
+                profile.fieldProfiles.append(column_profile)
 
-            if column in columns_to_profile:
-                column_spec = _SingleColumnSpec(column, column_profile)
-                columns_profiling_queue.append(column_spec)
+                if column in columns_to_profile:
+                    column_spec = _SingleColumnSpec(column, column_profile)
+                    columns_profiling_queue.append(column_spec)
 
-                self._get_column_type(column_spec, column)
-                self._get_column_cardinality(column_spec, column)
+                    self._get_column_type(column_spec, column)
+                    self._get_column_cardinality(column_spec, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -780,7 +813,18 @@ class DatahubGEProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[Tuple[GEProfilerRequest, Optional[DatasetProfileClass]]]:
-        with PerfTimer() as timer, concurrent.futures.ThreadPoolExecutor(
+        max_workers = min(max_workers, len(requests))
+        logger.info(
+            f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
+        )
+
+        with PerfTimer() as timer, unittest.mock.patch(
+            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
+            get_column_unique_count_patch,
+        ), unittest.mock.patch(
+            "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
+            _get_column_quantiles_bigquery_patch,
+        ), concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers
         ) as async_executor, SQLAlchemyQueryCombiner(
             enabled=self.config.query_combiner_enabled,
@@ -788,70 +832,58 @@ class DatahubGEProfiler:
             is_single_row_query_method=_is_single_row_query_method,
             serial_execution_fallback_enabled=True,
         ).activate() as query_combiner:
-            max_workers = min(max_workers, len(requests))
-            logger.info(
-                f"Will profile {len(requests)} table(s) with {max_workers} worker(s) - this may take a while"
+            # Submit the profiling requests to the thread pool executor.
+            async_profiles = collections.deque(
+                async_executor.submit(
+                    self._generate_profile_from_request,
+                    query_combiner,
+                    request,
+                    platform=platform,
+                    profiler_args=profiler_args,
+                )
+                for request in requests
             )
-            with unittest.mock.patch(
-                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_unique_count",
-                get_column_unique_count_patch,
-            ):
-                with unittest.mock.patch(
-                    "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_bigquery",
-                    _get_column_quantiles_bigquery_patch,
-                ):
-                    async_profiles = collections.deque(
-                        async_executor.submit(
-                            self._generate_profile_from_request,
-                            query_combiner,
-                            request,
-                            platform=platform,
-                            profiler_args=profiler_args,
-                        )
-                        for request in requests
-                    )
 
-                    # Avoid using as_completed so that the results are yielded in the
-                    # same order as the requests.
-                    # for async_profile in concurrent.futures.as_completed(async_profiles):
-                    while len(async_profiles) > 0:
-                        async_profile = async_profiles.popleft()
-                        yield async_profile.result()
+            # Avoid using as_completed so that the results are yielded in the
+            # same order as the requests.
+            # for async_profile in concurrent.futures.as_completed(async_profiles):
+            while len(async_profiles) > 0:
+                async_profile = async_profiles.popleft()
+                yield async_profile.result()
 
-                    total_time_taken = timer.elapsed_seconds()
+        total_time_taken = timer.elapsed_seconds()
+        logger.info(
+            f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
+        )
 
-                    logger.info(
-                        f"Profiling {len(requests)} table(s) finished in {total_time_taken:.3f} seconds"
-                    )
+        time_percentiles: Dict[str, float] = {}
 
-                    time_percentiles: Dict[str, float] = {}
+        if len(self.times_taken) > 0:
+            percentiles = [50, 75, 95, 99]
+            percentile_values = stats.calculate_percentiles(
+                self.times_taken, percentiles
+            )
 
-                    if len(self.times_taken) > 0:
-                        percentiles = [50, 75, 95, 99]
-                        percentile_values = stats.calculate_percentiles(
-                            self.times_taken, percentiles
-                        )
+            time_percentiles = {
+                f"table_time_taken_p{percentile}": stats.discretize(
+                    percentile_values[percentile]
+                )
+                for percentile in percentiles
+            }
 
-                        time_percentiles = {
-                            f"table_time_taken_p{percentile}": stats.discretize(
-                                percentile_values[percentile]
-                            )
-                            for percentile in percentiles
-                        }
+        telemetry.telemetry_instance.ping(
+            "sql_profiling_summary",
+            # bucket by taking floor of log of time taken
+            {
+                "total_time_taken": stats.discretize(total_time_taken),
+                "count": stats.discretize(len(self.times_taken)),
+                "total_row_count": stats.discretize(self.total_row_count),
+                "platform": self.platform,
+                **time_percentiles,
+            },
+        )
 
-                    telemetry.telemetry_instance.ping(
-                        "sql_profiling_summary",
-                        # bucket by taking floor of log of time taken
-                        {
-                            "total_time_taken": stats.discretize(total_time_taken),
-                            "count": stats.discretize(len(self.times_taken)),
-                            "total_row_count": stats.discretize(self.total_row_count),
-                            "platform": self.platform,
-                            **time_percentiles,
-                        },
-                    )
-
-                    self.report.report_from_query_combiner(query_combiner.report)
+        self.report.report_from_query_combiner(query_combiner.report)
 
     def _generate_profile_from_request(
         self,
@@ -1086,3 +1118,13 @@ class DatahubGEProfiler:
                 logger.debug(f"Setting table name to be {batch._table}")
 
         return batch
+
+
+# More dialect specific types to ignore can be added here
+# Stringified types are used to avoid dialect specific import errors
+@lru_cache(maxsize=1)
+def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
+    if dialect_name.lower() == "postgresql":
+        return ["JSON"]
+
+    return []
