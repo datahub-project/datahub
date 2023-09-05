@@ -71,10 +71,6 @@ mutation createDomain($input: CreateDomainInput!) {
     createDomain(input: $input)
 }
 
-mutation moveDomain($input: UpdateParentDomainInput!) {
-    moveDomain(input: $input)
-}
-
 mutation deleteDomain($urn: String!) {
     deleteDomain(urn: $urn)
 }
