@@ -2,7 +2,7 @@ name: Test Results
 
 on:
   workflow_run:
-    workflows: ["build & test", "metadata ingestion", "Airflow Plugin"]
+    workflows: ["build & test", "metadata ingestion", "Airflow Plugin", "Dagster Plugin"]
     types:
       - completed
 

@@ -57,7 +57,8 @@ framework_common = {
     "click-spinner",
     "requests_file",
     "jsonref",
-    "jsonschema",
+    # jsonschema drops python 3.7 support in v4.18.0
+    "jsonschema<=4.17.3",
     "ruamel.yaml",
 }
 
@@ -392,8 +393,7 @@ plugins: Dict[str, Set[str]] = {
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
     "dagster": {
-        "dagster>=1.3.3",
-        *rest_common,
+        f"acryl-datahub-dagster-plugin == {package_metadata['__version__']}",
     },
 }
 
@@ -510,7 +510,6 @@ base_dev_requirements = {
             "salesforce",
             "unity-catalog",
             "nifi",
-            "dagster",
             "vertica",
             "mode",
         ]
@@ -651,6 +650,7 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
+    "dagster_provider": ["provider_info=datahub_dagster_plugin:get_provider_info"],
 }
 
 
