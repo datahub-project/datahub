@@ -9,6 +9,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -35,8 +36,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
+
+import io.ebean.Transaction;
 import mock.MockEntityRegistry;
 import mock.MockEntityService;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -60,6 +65,11 @@ public class EntitiesControllerTest {
       throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
+    Mockito.when(aspectDao.runInTransactionWithRetry(
+            ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), any(), anyInt())).thenAnswer(i ->
+            ((Function<Transaction, UpdateAspectResult>) i.getArgument(0)).apply(Mockito.mock(Transaction.class))
+    );
+
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     UpdateIndicesService mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();

@@ -5,20 +5,21 @@ plugins {
 
 dependencies {
 
-    compile project(':metadata-auth:auth-api')
-    compile project(':metadata-service:factories')
-    compile project(':metadata-service:openapi-servlet')
+    implementation project(':metadata-auth:auth-api')
+    implementation project(':metadata-service:auth-impl')
+    implementation project(':metadata-service:factories')
+    implementation project(':metadata-service:openapi-servlet')
     implementation project(':metadata-models')
 
-    compile externalDependency.springBoot
-    compile externalDependency.springCore
-    compile externalDependency.springDocUI
-    compile externalDependency.springWeb
-    compile externalDependency.springWebMVC
-    compile externalDependency.springBeans
-    compile externalDependency.springContext
+    implementation externalDependency.springBoot
+    implementation externalDependency.springCore
+    implementation externalDependency.springDocUI
+    implementation externalDependency.springWeb
+    implementation externalDependency.springWebMVC
+    implementation externalDependency.springBeans
+    implementation externalDependency.springContext
 
-    compile externalDependency.reflections
+    implementation externalDependency.reflections
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
 
@@ -27,8 +28,8 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 
-    testCompile externalDependency.testng
-    testCompile externalDependency.mockito
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
 
     swaggerCodegen externalDependency.swaggerCli
