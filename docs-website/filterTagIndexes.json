@@ -90,7 +90,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/datahub",
-      "imgPath": "img/acryl-logo-white-mark.svg",
+      "imgPath": "img/acryl-logo-light-mark.png",
       "Title": "DataHub",
       "Description": "Integrate your open source DataHub instance with Acryl Cloud or other on-prem DataHub instances",
       "tags": {
