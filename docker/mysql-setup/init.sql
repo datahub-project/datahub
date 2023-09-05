@@ -15,7 +15,7 @@ create table if not exists metadata_aspect_v2 (
   constraint pk_metadata_aspect_v2 primary key (urn,aspect,version)
 );
 
-CREATE INDEX IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);
+CREATE INDEX timeIndex ON metadata_aspect_v2 (createdon);
 
 -- create default records for datahub user if not exists
 DROP TABLE if exists temp_metadata_aspect_v2;

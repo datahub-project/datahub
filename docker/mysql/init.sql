@@ -11,7 +11,7 @@ CREATE TABLE metadata_aspect_v2 (
   constraint pk_metadata_aspect_v2 primary key (urn,aspect,version)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 
-CREATE INDEX IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);
+CREATE INDEX timeIndex ON metadata_aspect_v2 (createdon);
 
 INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
