@@ -174,13 +174,19 @@ const commonProps: Property[] = [
     {
         id: '__firstSynchronized',
         displayName: 'First Synchronized',
-        description: 'The time at which the asset was first seen by DataHub (ms).',
+        description: 'The time at which the asset was first ingested into DataHub (ms).',
         valueType: ValueTypeId.TIMESTAMP,
     },
     {
         id: '__lastSynchronized',
         displayName: 'Last Synchronized',
-        description: 'The time at which the asset was last seen by DataHub (ms).',
+        description: 'The time at which the asset was last ingested into DataHub (ms).',
+        valueType: ValueTypeId.TIMESTAMP,
+    },
+    {
+        id: '__lastObserved',
+        displayName: 'Last Observed',
+        description: 'The time at which the asset was last observed by DataHub (ms).',
         valueType: ValueTypeId.TIMESTAMP,
     },
 ];
@@ -298,13 +304,13 @@ const datasetProps: Property[] = [
         displayName: 'Assertions',
         children: [
             {
-                id: 'assertionsSummary.passingAssertions',
+                id: 'assertionsSummary.passingAssertionDetails',
                 displayName: 'Passing Assertions',
                 description: 'Passing assertions for the asset',
                 valueType: ValueTypeId.EXISTS_LIST,
             },
             {
-                id: 'assertionsSummary.failingAssertions',
+                id: 'assertionsSummary.failingAssertionDetails',
                 displayName: 'Failing Assertions',
                 description: 'Failing Assertions for the asset',
                 valueType: ValueTypeId.EXISTS_LIST,
@@ -316,13 +322,13 @@ const datasetProps: Property[] = [
         displayName: 'Incidents',
         children: [
             {
-                id: 'incidentsSummary.activeIncidents',
+                id: 'incidentsSummary.activeIncidentDetails',
                 displayName: 'Active Incidents',
                 description: 'Active incidents for the asset',
                 valueType: ValueTypeId.EXISTS_LIST,
             },
             {
-                id: 'incidentsSummary.resolvedIncidents',
+                id: 'incidentsSummary.resolvedIncidentDetails',
                 displayName: 'Resolved Incidents',
                 description: 'Resolved incidents for the asset',
                 valueType: ValueTypeId.EXISTS_LIST,

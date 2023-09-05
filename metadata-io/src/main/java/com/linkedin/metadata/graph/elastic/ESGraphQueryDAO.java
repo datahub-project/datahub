@@ -276,15 +276,8 @@ public class ESGraphQueryDAO {
         .stream()
         .collect(Collectors.toMap(Function.identity(),
             entityType -> lineageRegistry.getLineageRelationships(entityType, direction)));
-    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-    // Get all relation types relevant to the set of urns to hop from
-    urnsPerEntityType.forEach((entityType, urns) -> finalQuery.should(
-        getQueryForLineage(
-            urns,
-            edgesPerEntityType.getOrDefault(entityType, Collections.emptyList()),
-            graphFilters,
-            startTimeMillis,
-            endTimeMillis)));
+
+    QueryBuilder finalQuery = getLineageQuery(urnsPerEntityType, edgesPerEntityType, graphFilters, startTimeMillis, endTimeMillis);
     SearchResponse response = executeSearchQuery(finalQuery, 0, graphQueryConfiguration.getMaxResult());
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
     // Get all valid edges given the set of urns to hop from
@@ -294,19 +287,50 @@ public class ESGraphQueryDAO {
         .collect(Collectors.toSet());
     return extractRelationships(entityUrnSet, response, validEdges, visitedEntities, numHops, existingPaths);
   }
-
-  // Get search query for given list of edges and source urns
   @VisibleForTesting
-  static QueryBuilder getQueryForLineage(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> lineageEdges,
+  static QueryBuilder getLineageQuery(
+      @Nonnull Map<String, List<Urn>> urnsPerEntityType,
+      @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
       @Nonnull GraphFilters graphFilters,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
-    BoolQueryBuilder query = QueryBuilders.boolQuery();
-    if (lineageEdges.isEmpty()) {
-      return query;
+    BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
+    // Get all relation types relevant to the set of urns to hop from
+    urnsPerEntityType.forEach((entityType, urns) -> {
+      if (edgesPerEntityType.containsKey(entityType) && !edgesPerEntityType.get(entityType).isEmpty()) {
+        entityTypeQueries.should(
+            getLineageQueryForEntityType(urns, edgesPerEntityType.get(entityType), graphFilters));
+      }
+    });
+
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+
+    finalQuery.filter(entityTypeQueries);
+    finalQuery.filter(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
+    finalQuery.filter(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
+
+    /*
+     * Optional - Add edge filtering based on time windows.
+     */
+    if (startTimeMillis != null && endTimeMillis != null) {
+      finalQuery.filter(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
+    } else {
+      log.debug(String.format(
+          "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
+          startTimeMillis,
+          endTimeMillis));
     }
+
+    return finalQuery;
+  }
+
+  // Get search query for given list of edges and source urns
+  @VisibleForTesting
+  static QueryBuilder getLineageQueryForEntityType(
+      @Nonnull List<Urn> urns,
+      @Nonnull List<EdgeInfo> lineageEdges,
+      @Nonnull GraphFilters graphFilters) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
     Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
         lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));
 
@@ -320,18 +344,6 @@ public class ESGraphQueryDAO {
         edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptyList());
     if (!incomingEdges.isEmpty()) {
       query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
-    }
-
-    /*
-     * Optional - Add edge filtering based on time windows.
-     */
-    if (startTimeMillis != null && endTimeMillis != null) {
-      query.must(TimeFilterUtils.getEdgeTimeFilterQuery(startTimeMillis, endTimeMillis));
-    } else {
-      log.debug(String.format(
-          "Empty time filter range provided: start time %s, end time: %s. Skipping application of time filters",
-          startTimeMillis,
-          endTimeMillis));
     }
 
     return query;
@@ -498,7 +510,6 @@ public class ESGraphQueryDAO {
     relationship.setIsManual(isManual);
     return relationship;
   }
-
   private static BoolQueryBuilder getOutGoingEdgeQuery(
       @Nonnull List<Urn> urns,
       @Nonnull List<EdgeInfo> outgoingEdges,
@@ -506,8 +517,6 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
     outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
     outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
-    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    outgoingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
     return outgoingEdgeQuery;
   }
 
@@ -517,8 +526,6 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
     incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
     incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
-    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    incomingEdgeQuery.must(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
     return incomingEdgeQuery;
   }
 

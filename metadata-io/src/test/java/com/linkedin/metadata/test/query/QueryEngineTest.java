@@ -234,7 +234,7 @@ public class QueryEngineTest {
         ImmutableMap.of(DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("10")))));
 
-    testQuery = new TestQuery("__lastUpdated");
+    testQuery = new TestQuery("__created");
     assertEquals(_queryEngine.batchEvaluateQueries(ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(DATASET_URN,
             ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("11")))));

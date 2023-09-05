@@ -12,15 +12,19 @@ import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+
+import com.linkedin.mxe.SystemMetadata;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 
 /**
- * Evaluator that supports resolving the '__firstSynchronized', '__lastSynchronized', '__lastUpdated'
+ * Evaluator that supports resolving the '__firstSynchronized', '__lastSynchronized', '__lastObserved', '__created'
  * system queries for a given URN.
  *
  * @implNote These queries do not support Timeseries Aspects.
@@ -35,30 +39,28 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
 
   private static final String LAST_SYNCHRONIZED_FIELD_NAME = "__lastSynchronized";
 
-  private static final String LAST_UPDATED_FIELD_NAME = "__lastUpdated";
+  private static final String LAST_OBSERVED_FIELD_NAME = "__lastObserved";
+
+  private static final String CREATED_FIELD_NAME = "__created";
 
   @Override
   public boolean isEligible(@Nonnull final String entityType, @Nonnull final TestQuery query) {
-    if (query.getQueryParts().isEmpty()) {
+    if (query.getQueryParts().size() != 1) {
       return false;
     }
 
     final String queryName = query.getQuery();
-    return FIRST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(queryName) || LAST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(
-        queryName) || LAST_UPDATED_FIELD_NAME.equalsIgnoreCase(queryName);
+    return FIRST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(queryName)
+            || LAST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(queryName)
+            || LAST_OBSERVED_FIELD_NAME.equalsIgnoreCase(queryName)
+            || CREATED_FIELD_NAME.equalsIgnoreCase(queryName);
   }
 
   @Override
   @Nonnull
   public ValidationResult validateQuery(@Nonnull final String entityType, @Nonnull final TestQuery query)
       throws IllegalArgumentException {
-    // Validate that query has only 1 part which is the property we want to compute
-    // (__firstSynchronized or __lastSynchronized or __lastUpdated)
-    final boolean result =
-        query.getQueryParts().size() == 1 && (FIRST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(query.getQuery())
-            || LAST_SYNCHRONIZED_FIELD_NAME.equalsIgnoreCase(query.getQuery())
-            || LAST_UPDATED_FIELD_NAME.equalsIgnoreCase(query.getQuery()));
-    return new ValidationResult(result, Collections.emptyList());
+    return new ValidationResult(isEligible(entityType, query), Collections.emptyList());
   }
 
   @Override
@@ -103,7 +105,10 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
         }
         final String lastSynchronizedTime = lastIngested.toString();
         return new TestQueryResponse(Collections.singletonList(lastSynchronizedTime));
-      case LAST_UPDATED_FIELD_NAME:
+      case LAST_OBSERVED_FIELD_NAME:
+        final String lastObservedTime = computeLastObserved(urn, entityResponse);
+        return new TestQueryResponse(Collections.singletonList(lastObservedTime));
+      case CREATED_FIELD_NAME:
         final String lastUpdatedTime = computeLastUpdated(urn, entityResponse);
         return new TestQueryResponse(Collections.singletonList(lastUpdatedTime));
       default:
@@ -111,11 +116,34 @@ public class SystemAspectEvaluator extends BaseQueryEvaluator {
     }
   }
 
-  private static String computeLastUpdated(Urn urn, EntityResponse entityResponse) {
+  @Nonnull
+  private static Stream<EnvelopedAspect> getAspectsForProcessing(@Nonnull EntityResponse entityResponse) {
     return entityResponse.getAspects()
-        .values()
-        .stream()
-        .map(aspect -> aspect.getCreated().getTime())
+            .values()
+            .stream()
+            .filter(aspect -> !aspect.getName().equalsIgnoreCase("testResults")
+              && !aspect.getName().equalsIgnoreCase("storageFeatures")
+                    && !aspect.getName().equalsIgnoreCase("usageFeatures")
+            );
+  }
+
+  private static String computeLastObserved(Urn urn, EntityResponse entityResponse) {
+    return getAspectsForProcessing(entityResponse)
+            .map(EnvelopedAspect::getSystemMetadata)
+            .filter(Objects::nonNull)
+            .map(SystemMetadata::getLastObserved)
+            .filter(Objects::nonNull)
+            .max(Long::compareTo)
+            .orElseThrow(() -> {
+              log.error("Unable to compute max aspect lastObserved for urn: {}", urn);
+              return new RuntimeException(String.format("Unable to compute max aspect lastObserved for urn %s", urn));
+            })
+            .toString();
+  }
+
+  private static String computeLastUpdated(Urn urn, EntityResponse entityResponse) {
+    return getAspectsForProcessing(entityResponse)
+        .map(aspect ->  aspect.getCreated().getTime())
         .max(Long::compareTo)
         .orElseThrow(() -> {
           log.error("Unable to compute max aspect createdAt for urn: {}", urn);
