@@ -1,25 +1,18 @@
 package com.linkedin.metadata.dao.producer;
 
 import com.datahub.util.exception.ModelConversionException;
-import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
-import com.linkedin.mxe.MetadataAuditEvent;
-import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.PlatformEvent;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.TopicConvention;
 import com.linkedin.mxe.TopicConventionImpl;
-import com.linkedin.mxe.Topics;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.concurrent.Future;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,45 +50,6 @@ public class KafkaEventProducer implements EventProducer {
 
   @Override
   @WithSpan
-  @Deprecated
-  public void produceMetadataAuditEvent(@Nonnull Urn urn, @Nullable Snapshot oldSnapshot, @Nonnull Snapshot newSnapshot,
-      @Nullable SystemMetadata oldSystemMetadata, @Nullable SystemMetadata newSystemMetadata,
-      MetadataAuditOperation operation) {
-    final MetadataAuditEvent metadataAuditEvent = new MetadataAuditEvent();
-    if (newSnapshot != null) {
-      metadataAuditEvent.setNewSnapshot(newSnapshot);
-    }
-    if (oldSnapshot != null) {
-      metadataAuditEvent.setOldSnapshot(oldSnapshot);
-    }
-    if (oldSystemMetadata != null) {
-      metadataAuditEvent.setOldSystemMetadata(oldSystemMetadata);
-    }
-    if (newSystemMetadata != null) {
-      metadataAuditEvent.setNewSystemMetadata(newSystemMetadata);
-    }
-    if (operation != null) {
-      metadataAuditEvent.setOperation(operation);
-    }
-
-    GenericRecord record;
-    try {
-      log.debug(String.format("Converting Pegasus snapshot to Avro snapshot urn %s\nMetadataAuditEvent: %s",
-          urn,
-          metadataAuditEvent));
-      record = EventUtils.pegasusToAvroMAE(metadataAuditEvent);
-    } catch (IOException e) {
-      log.error(String.format("Failed to convert Pegasus MAE to Avro: %s", metadataAuditEvent), e);
-      throw new ModelConversionException("Failed to convert Pegasus MAE to Avro", e);
-    }
-
-    String topic = _topicConvention.getMetadataAuditEventTopicName();
-    _producer.send(new ProducerRecord(topic, urn.toString(), record),
-            _kafkaHealthChecker.getKafkaCallBack("MAE", urn.toString()));
-  }
-
-  @Override
-  @WithSpan
   public Future<?> produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     GenericRecord record;
@@ -120,7 +74,7 @@ public class KafkaEventProducer implements EventProducer {
   @Override
   @WithSpan
   public Future<?> produceMetadataChangeProposal(@Nonnull final Urn urn,
-      @Nonnull final MetadataChangeProposal metadataChangeProposal) {
+                                                              @Nonnull final MetadataChangeProposal metadataChangeProposal) {
     GenericRecord record;
 
     try {
@@ -170,10 +124,5 @@ public class KafkaEventProducer implements EventProducer {
     final String topic = _topicConvention.getDataHubUpgradeHistoryTopicName();
     _producer.send(new ProducerRecord(topic, event.getVersion(), record), _kafkaHealthChecker
             .getKafkaCallBack("History Event", "Event Version: " + event.getVersion()));
-  }
-
-  @VisibleForTesting
-  static boolean isValidAspectSpecificTopic(@Nonnull String topic) {
-    return Arrays.stream(Topics.class.getFields()).anyMatch(field -> field.getName().equals(topic));
   }
 }

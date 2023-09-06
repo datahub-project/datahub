@@ -34,8 +34,9 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.metadata.DockerTestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 
 public class ESTestUtils {
     private ESTestUtils() {
