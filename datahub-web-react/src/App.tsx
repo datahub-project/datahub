@@ -49,7 +49,8 @@ const errorLink = onError((error) => {
         if (serverError.statusCode === 401) {
             isLoggedInVar(false);
             Cookies.remove(GlobalCfg.CLIENT_AUTH_COOKIE);
-            window.location.replace(PageRoutes.AUTHENTICATE);
+            const currentPath = window.location.pathname + window.location.search;
+            window.location.replace(`${PageRoutes.AUTHENTICATE}?redirect_uri=${encodeURIComponent(currentPath)}`);
         }
     }
     if (graphQLErrors && graphQLErrors.length) {

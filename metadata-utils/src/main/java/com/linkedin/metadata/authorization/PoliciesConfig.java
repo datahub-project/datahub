@@ -64,6 +64,11 @@ public class PoliciesConfig {
       "Manage Domains",
       "Create and remove Asset Domains.");
 
+  public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOBAL_ANNOUNCEMENTS",
+      "Manage Home Page Posts",
+      "Create and delete home page posts");
+
   public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
       "MANAGE_TESTS",
       "Manage Tests",
@@ -113,6 +118,7 @@ public class PoliciesConfig {
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
       MANAGE_DOMAINS_PRIVILEGE,
+      MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
       GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE,
@@ -192,8 +198,8 @@ public class PoliciesConfig {
 
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
-      "Edit All",
-      "The ability to edit any information about an entity. Super user privileges.");
+      "Edit Entity",
+      "The ability to edit any information about an entity. Super user privileges for the entity.");
 
   public static final Privilege DELETE_ENTITY_PRIVILEGE = Privilege.of(
       "DELETE_ENTITY",

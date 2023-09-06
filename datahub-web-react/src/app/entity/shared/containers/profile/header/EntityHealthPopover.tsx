@@ -46,16 +46,16 @@ const StyledDivider = styled(Divider)`
     }
 `;
 
-const popoverStyle = { backgroundColor: '#262626' };
-
 type Props = {
     health: Health[];
     baseUrl: string;
     children: React.ReactNode;
+    fontSize?: number;
+    placement?: any;
 };
 
-export const EntityHealthPopover = ({ health, baseUrl, children }: Props) => {
-    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED);
+export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
+    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize);
     const message = getHealthSummaryMessage(health);
     return (
         <Popover
@@ -72,8 +72,8 @@ export const EntityHealthPopover = ({ health, baseUrl, children }: Props) => {
                     ))}
                 </>
             }
-            overlayStyle={popoverStyle}
-            placement="right"
+            color="#262626"
+            placement={placement}
             zIndex={10000000}
         >
             {children}

@@ -35,6 +35,10 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -199,6 +203,10 @@ class ElasticProfiling(ConfigModel):
         default=False,
         description="Whether to enable profiling for the elastic search source.",
     )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
+    )
 
 
 class CollapseUrns(ConfigModel):
@@ -295,6 +303,11 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     collapse_urns: CollapseUrns = Field(
         default_factory=CollapseUrns,
     )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
@@ -511,7 +524,7 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.profiling.enabled:
+        if self.source_config.is_profiling_enabled():
             if self.cat_response is None:
                 self.cat_response = self.client.cat.indices(
                     params={
@@ -540,8 +553,10 @@ class ElasticsearchSource(Source):
                 row_count = 0
                 size_in_bytes = 0
                 for profile_info in profile_info_current:
-                    row_count += int(profile_info["docs.count"])
-                    size_in_bytes += int(profile_info["store.size"])
+                    if profile_info["docs.count"] is not None:
+                        row_count += int(profile_info["docs.count"])
+                    if profile_info["store.size"] is not None:
+                        size_in_bytes += int(profile_info["store.size"])
                 yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=DatasetProfileClass(

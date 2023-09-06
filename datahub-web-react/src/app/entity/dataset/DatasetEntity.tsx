@@ -25,12 +25,13 @@ import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import { DatasetSearchSnippet } from './DatasetSearchSnippet';
+import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { RelationshipsTab } from '../shared/tabs/Dataset/Relationship/RelationshipsTab';
+import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -295,7 +296,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
                 parentContainers={data.parentContainers}
-                snippet={<DatasetSearchSnippet matchedFields={result.matchedFields} />}
+                snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
@@ -306,6 +307,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
                 }
                 health={data.health}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
@@ -319,6 +322,7 @@ export class DatasetEntity implements Entity<Dataset> {
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
+            health: entity?.health || undefined,
         };
     };
 

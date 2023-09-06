@@ -678,6 +678,7 @@ fragment schemaFieldFields on SchemaField {
     nativeDataType
     recursive
     isPartOfKey
+    isPartitioningKey
     globalTags {
         ...globalTagsFields
     }

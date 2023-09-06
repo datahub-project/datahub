@@ -31,13 +31,14 @@ _DEFAULT_READ_TIMEOUT_SEC = (
 )
 _DEFAULT_RETRY_STATUS_CODES = [  # Additional status codes to retry on
     429,
+    500,
     502,
     503,
     504,
 ]
 _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TRACE"]
 _DEFAULT_RETRY_MAX_TIMES = int(
-    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "3")
+    os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
 
@@ -62,6 +63,7 @@ class DataHubRestEmitter(Closeable):
         retry_max_times: Optional[int] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         ca_certificate_path: Optional[str] = None,
+        client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
     ):
         if not gms_server:
@@ -88,8 +90,11 @@ class DataHubRestEmitter(Closeable):
         if extra_headers:
             self._session.headers.update(extra_headers)
 
+        if client_certificate_path:
+            self._session.cert = client_certificate_path
+
         if ca_certificate_path:
-            self._session.cert = ca_certificate_path
+            self._session.verify = ca_certificate_path
 
         if disable_ssl_verification:
             self._session.verify = False

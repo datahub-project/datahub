@@ -25,6 +25,9 @@ import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -60,6 +63,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -340,8 +344,9 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nullable SearchFlags searchFlags,
+        @Nullable SortCriterion sortCriterion,
         @Nonnull final Authentication authentication) throws RemoteInvocationException {
-        return searchAcrossEntities(entities, input, filter, start, count, searchFlags, authentication, null);
+        return searchAcrossEntities(entities, input, filter, start, count, searchFlags, sortCriterion, authentication, null);
     }
 
     /**
@@ -353,6 +358,7 @@ public class JavaEntityClient implements EntityClient {
      * @param start start offset for search results
      * @param count max number of search results requested
      * @param facets list of facets we want aggregations for
+     * @param sortCriterion sorting criterion
      * @return Snapshot key
      * @throws RemoteInvocationException
      */
@@ -364,11 +370,12 @@ public class JavaEntityClient implements EntityClient {
         int start,
         int count,
         @Nullable SearchFlags searchFlags,
+        @Nullable SortCriterion sortCriterion,
         @Nonnull final Authentication authentication,
         @Nullable List<String> facets) throws RemoteInvocationException {
         final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setFulltext(true);
         return ValidationUtils.validateSearchResult(
-            _searchService.searchAcrossEntities(entities, input, filter, null, start, count, finalFlags, facets), _entityService);
+            _searchService.searchAcrossEntities(entities, input, filter, sortCriterion, start, count, finalFlags, facets), _entityService);
     }
 
     @Nonnull
@@ -532,8 +539,16 @@ public class JavaEntityClient implements EntityClient {
         final List<MetadataChangeProposal> additionalChanges =
             AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService);
 
-        Urn urn = _entityService.ingestProposal(metadataChangeProposal, auditStamp, async).getUrn();
-        additionalChanges.forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, async));
+        Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                additionalChanges.stream());
+        AspectsBatch batch = AspectsBatchImpl.builder()
+                .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                .build();
+
+        IngestResult one = _entityService.ingestProposal(batch, auditStamp, async).stream()
+                .findFirst().get();
+
+        Urn urn = one.getUrn();
         tryIndexRunId(urn, metadataChangeProposal.getSystemMetadata());
         return urn.toString();
     }

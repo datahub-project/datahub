@@ -4,25 +4,26 @@ plugins {
 apply plugin: 'java'
 
 dependencies {
-    compile project(':metadata-service:restli-client')
-    compile project(':metadata-service:auth-impl')
-    compile project(':metadata-service:auth-config')
-    compile project(':metadata-service:configuration')
-    compile project(':metadata-service:services')
-    compile project(':metadata-io')
-    compile project(':metadata-utils')
+    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:auth-impl')
+    implementation project(':metadata-service:auth-config')
+    implementation project(':metadata-service:configuration')
+    implementation project(':metadata-service:services')
+    implementation project(':metadata-io')
+    implementation project(':metadata-utils')
 
     implementation externalDependency.graphqlJava
     implementation externalDependency.graphqlJavaScalars
-    compile externalDependency.antlr4Runtime
-    compile externalDependency.antlr4
-    compile externalDependency.guava
+    implementation externalDependency.antlr4Runtime
+    implementation externalDependency.antlr4
+    implementation externalDependency.guava
+    implementation externalDependency.opentelemetryAnnotations
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
-    testCompile externalDependency.mockito
+    testImplementation externalDependency.mockito
 }
 
 graphqlCodegen {

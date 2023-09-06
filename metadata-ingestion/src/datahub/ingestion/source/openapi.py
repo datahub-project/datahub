@@ -108,7 +108,7 @@ class ApiWorkUnit(MetadataWorkUnit):
 
 @platform_name("OpenAPI", id="openapi")
 @config_class(OpenApiConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, supported=False, description="")
 class APISource(Source, ABC):
     """
@@ -246,6 +246,12 @@ class APISource(Source, ABC):
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
                 dataset_snapshot.aspects.append(schema_metadata)
                 yield self.build_wu(dataset_snapshot, dataset_name)
+            elif endpoint_dets["method"] != "get":
+                self.report.report_warning(
+                    key=endpoint_k,
+                    reason=f"No example provided for {endpoint_dets['method']}",
+                )
+                continue  # Only test endpoints if they're GETs
             elif (
                 "{" not in endpoint_k
             ):  # if the API does not explicitly require parameters

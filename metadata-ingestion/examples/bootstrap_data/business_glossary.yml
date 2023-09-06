@@ -70,7 +70,7 @@ nodes:
           - Shipping.CountryCode
           - Shipping.StreetAddress
         custom_properties:
-          - is_used_for_compliance_tracking: true
+          is_used_for_compliance_tracking: true
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Address"
             label: Wiki link

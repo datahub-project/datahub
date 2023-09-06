@@ -198,6 +198,12 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 path
             }
         }
+        health {
+            type
+            status
+            message
+            causes
+        }
     }
     ... on MLModelGroup {
         urn
@@ -271,6 +277,9 @@ fragment lineageFields on EntityWithRelationships {
             siblings {
                 urn
                 type
+                ... on Dataset {
+                    exists
+                }
                 ...lineageNodeProperties
             }
         }
@@ -389,6 +398,9 @@ query getEntityLineage(
                 siblings {
                     urn
                     type
+                    ... on Dataset {
+                        exists
+                    }
                     ...lineageNodeProperties
                 }
             }
