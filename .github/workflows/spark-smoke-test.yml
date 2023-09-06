@@ -40,6 +40,8 @@ jobs:
           python-version: "3.7"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Remove images
+        run: docker image prune -a -f || true
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:spark-lineage:integrationTest \

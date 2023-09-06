@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTermsResolver;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -32,7 +33,7 @@ public class BatchRemoveTermsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTerms() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -66,12 +67,12 @@ public class BatchRemoveTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    verifyIngestProposal(mockService, 2);
+    verifyIngestProposal(mockService, 1);
   }
 
   @Test
   public void testGetSuccessExistingTerms() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     final GlossaryTerms oldTerms1 = new GlossaryTerms().setTerms(new GlossaryTermAssociationArray(ImmutableList.of(
         new GlossaryTermAssociation().setUrn(GlossaryTermUrn.createFromString(TEST_TERM_1_URN)),
@@ -115,12 +116,12 @@ public class BatchRemoveTermsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     assertTrue(resolver.get(mockEnv).get());
 
-    verifyIngestProposal(mockService, 2);
+    verifyIngestProposal(mockService, 1);
   }
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -157,7 +158,7 @@ public class BatchRemoveTermsResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
 
@@ -179,10 +180,10 @@ public class BatchRemoveTermsResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchRemoveTermsResolver resolver = new BatchRemoveTermsResolver(mockService);
