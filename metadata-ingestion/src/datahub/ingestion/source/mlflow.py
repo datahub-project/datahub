@@ -1,6 +1,6 @@
+from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional, TypeVar, Union
 
-from dataclasses import dataclass
 from mlflow import MlflowClient
 from mlflow.entities import Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -10,7 +10,7 @@ from pydantic.fields import Field
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.common import PipelineContext, WorkUnit
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -102,11 +102,11 @@ class MLflowSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_workunits_internal(self) -> Iterable[WorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._get_tags_workunits()
         yield from self._get_ml_model_workunits()
 
-    def _get_tags_workunits(self) -> Iterable[WorkUnit]:
+    def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Create tags for each Stage in MLflow Model Registry.
         """
@@ -137,7 +137,7 @@ class MLflowSource(Source):
             aspect=aspect,
         ).as_workunit()
 
-    def _get_ml_model_workunits(self) -> Iterable[WorkUnit]:
+    def _get_ml_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         """
         Traverse each Registered Model in Model Registry and generate a corresponding workunit.
         """
@@ -181,7 +181,10 @@ class MLflowSource(Source):
             if not next_page_token:
                 return
 
-    def _get_ml_group_workunit(self, registered_model: RegisteredModel) -> WorkUnit:
+    def _get_ml_group_workunit(
+        self,
+        registered_model: RegisteredModel,
+    ) -> MetadataWorkUnit:
         """
         Generate an MLModelGroup workunit for an MLflow Registered Model.
         """
@@ -234,7 +237,7 @@ class MLflowSource(Source):
         registered_model: RegisteredModel,
         model_version: ModelVersion,
         run: Union[None, Run],
-    ) -> WorkUnit:
+    ) -> MetadataWorkUnit:
         """
         Generate an MLModel workunit for an MLflow Model Version.
         Every Model Version is a DataHub MLModel entity associated with an MLModelGroup corresponding to a Registered Model.
@@ -286,7 +289,10 @@ class MLflowSource(Source):
         else:
             return None
 
-    def _get_global_tags_workunit(self, model_version: ModelVersion) -> WorkUnit:
+    def _get_global_tags_workunit(
+        self,
+        model_version: ModelVersion,
+    ) -> MetadataWorkUnit:
         """
         Associate a Model Version Stage with a corresponding tag.
         """
