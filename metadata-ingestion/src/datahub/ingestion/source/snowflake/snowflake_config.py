@@ -161,7 +161,7 @@ class SnowflakeV2Config(
     def validate_convert_urns_to_lowercase(cls, v):
         if not v:
             add_global_warning(
-                "Please use `convert_urns_to_lowercase: True`, otherwise lineage may not work correctly."
+                "Please use `convert_urns_to_lowercase: True`, otherwise lineage to other sources may not work correctly."
             )
 
         return v
