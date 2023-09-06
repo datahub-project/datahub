@@ -40,7 +40,8 @@
     "markprompt": "^0.1.7",
     "react": "^18.2.0",
     "react-dom": "18.2.0",
-    "sass": "^1.43.2"
+    "sass": "^1.43.2",
+    "uuid": "^9.0.0"
   },
   "browserslist": {
     "production": [
