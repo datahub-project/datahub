@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.datastax.dse.driver.api.core.graph.predicates.Search;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.config.search.CustomConfiguration;

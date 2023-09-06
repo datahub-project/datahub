@@ -118,7 +118,7 @@ public class SearchQueryBuilder {
 
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(withoutQueryPrefix);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entitySpecs).forEach( entitySpec ->
+      getStandardFields(entitySpecs).forEach(entitySpec ->
           queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       finalQuery.should(queryBuilder);
       if (exactMatchConfiguration.isEnableStructured()) {
