@@ -1,5 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.datastax.dse.driver.api.core.graph.predicates.Search;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -10,9 +13,14 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.linkedin.util.Pair;
@@ -25,6 +33,7 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
+import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
@@ -262,5 +271,109 @@ public class SearchQueryBuilderTest {
       assertEquals(termQueryBuilder.fieldName(), "fieldName");
       assertEquals(termQueryBuilder.value().toString(), triggerQuery);
     }
+  }
+
+  @Test
+  public void testGetStandardFields() {
+    Set<SearchFieldConfig> fieldConfigs = TEST_CUSTOM_BUILDER.getStandardFields(ImmutableList.of(TestEntitySpecBuilder.getSpec()));
+    assertEquals(fieldConfigs.size(), 21);
+    assertEquals(fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()), Set.of(
+       "nestedArrayArrayField",
+       "esObjectField",
+       "foreignKey",
+       "keyPart1",
+       "nestedForeignKey",
+       "textArrayField.delimited",
+       "nestedArrayArrayField.delimited",
+       "wordGramField.delimited",
+       "wordGramField.wordGrams4",
+       "textFieldOverride",
+       "nestedArrayStringField.delimited",
+       "urn.delimited",
+       "textArrayField",
+       "keyPart1.delimited",
+       "nestedArrayStringField",
+       "wordGramField",
+       "customProperties",
+       "wordGramField.wordGrams3",
+       "textFieldOverride.delimited",
+       "urn",
+       "wordGramField.wordGrams2"));
+
+    assertEquals(fieldConfigs.stream().filter(field -> field.fieldName().equals("keyPart1")).findFirst().map(SearchFieldConfig::boost), Optional.of(
+        10.0F));
+    assertEquals(fieldConfigs.stream().filter(field -> field.fieldName().equals("nestedForeignKey")).findFirst().map(SearchFieldConfig::boost), Optional.of(
+        1.0F));
+    assertEquals(fieldConfigs.stream().filter(field -> field.fieldName().equals("textFieldOverride")).findFirst().map(SearchFieldConfig::boost), Optional.of(
+        1.0F));
+
+    EntitySpec mockEntitySpec = Mockito.mock(EntitySpec.class);
+    Mockito.when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of(
+        new SearchableFieldSpec(
+            Mockito.mock(PathSpec.class),
+            new SearchableAnnotation("fieldDoesntExistInOriginal",
+                SearchableAnnotation.FieldType.TEXT,
+                true, true, false, false,
+                Optional.empty(), Optional.empty(), 13.0,
+                Optional.empty(), Optional.empty(), Map.of(), List.of()),
+        Mockito.mock(DataSchema.class)),
+        new SearchableFieldSpec(
+            Mockito.mock(PathSpec.class),
+            new SearchableAnnotation("keyPart1",
+                SearchableAnnotation.FieldType.KEYWORD,
+                true, true, false, false,
+                Optional.empty(), Optional.empty(), 20.0,
+                Optional.empty(), Optional.empty(), Map.of(), List.of()),
+            Mockito.mock(DataSchema.class)),
+        new SearchableFieldSpec(
+            Mockito.mock(PathSpec.class),
+            new SearchableAnnotation("textFieldOverride",
+                SearchableAnnotation.FieldType.WORD_GRAM,
+                true, true, false, false,
+                Optional.empty(), Optional.empty(), 3.0,
+                Optional.empty(), Optional.empty(), Map.of(), List.of()),
+            Mockito.mock(DataSchema.class)))
+        );
+
+    fieldConfigs = TEST_CUSTOM_BUILDER.getStandardFields(ImmutableList.of(TestEntitySpecBuilder.getSpec(), mockEntitySpec));
+    // Same 21 from the original entity + newFieldNotInOriginal + 3 word gram fields from the textFieldOverride
+    assertEquals(fieldConfigs.size(), 26);
+    assertEquals(fieldConfigs.stream().map(SearchFieldConfig::fieldName).collect(Collectors.toSet()), Set.of(
+        "nestedArrayArrayField",
+        "esObjectField",
+        "foreignKey",
+        "keyPart1",
+        "nestedForeignKey",
+        "textArrayField.delimited",
+        "nestedArrayArrayField.delimited",
+        "wordGramField.delimited",
+        "wordGramField.wordGrams4",
+        "textFieldOverride",
+        "nestedArrayStringField.delimited",
+        "urn.delimited",
+        "textArrayField",
+        "keyPart1.delimited",
+        "nestedArrayStringField",
+        "wordGramField",
+        "customProperties",
+        "wordGramField.wordGrams3",
+        "textFieldOverride.delimited",
+        "urn",
+        "wordGramField.wordGrams2",
+        "fieldDoesntExistInOriginal",
+        "fieldDoesntExistInOriginal.delimited",
+        "textFieldOverride.wordGrams2",
+        "textFieldOverride.wordGrams3",
+        "textFieldOverride.wordGrams4"));
+
+    // Field which only exists in first one: Should be the same
+    assertEquals(fieldConfigs.stream().filter(field -> field.fieldName().equals("nestedForeignKey")).findFirst().map(SearchFieldConfig::boost), Optional.of(
+        1.0F));
+    // Average boost value: 10 vs. 20 -> 15
+    assertEquals(fieldConfigs.stream().filter(field -> field.fieldName().equals("keyPart1")).findFirst().map(SearchFieldConfig::boost), Optional.of(
+        15.0F));
+    // Field which added word gram fields: Original boost should be boost value averaged
+    assertEquals(fieldConfigs.stream().filter(field -> field.fieldName().equals("textFieldOverride")).findFirst().map(SearchFieldConfig::boost), Optional.of(
+        2.0F));
   }
 }
