@@ -351,9 +351,6 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqllineage_lib,
     "mlflow": {
-        "mlflow>=2.3.0",
-    },
-    "mlflow-skinny": {
         "mlflow-skinny>=2.3.0",
     },
     "mode": {"requests", "tenacity>=8.0.1"} | sqllineage_lib,

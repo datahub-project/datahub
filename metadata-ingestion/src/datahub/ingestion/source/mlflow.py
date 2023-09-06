@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Optional, TypeVar, Union
 
+from dataclasses import dataclass
 from mlflow import MlflowClient
 from mlflow.entities import Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
@@ -8,7 +8,7 @@ from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, WorkUnit
 from datahub.ingestion.api.decorators import (
@@ -35,22 +35,18 @@ from datahub.metadata.schema_classes import (
 T = TypeVar("T")
 
 
-class MLflowConfig(ConfigModel):
+class MLflowConfig(EnvConfigMixin):
     tracking_uri: Optional[str] = Field(
         default=None,
         description="Tracking server URI. If not set, an MLflow default tracking_uri is used (local `mlruns/` directory or `MLFLOW_TRACKING_URI` environment variable)",
     )
     registry_uri: Optional[str] = Field(
         default=None,
-        description="Registry server URI",
+        description="Registry server URI. If not set, an MLflow default registry_uri is used (value of tracking_uri or `MLFLOW_REGISTRY_URI` environment variable)",
     )
     model_name_separator: str = Field(
         default="_",
         description="A string which separates model name from its version (e.g. model_1 or model-1)",
-    )
-    env: str = Field(
-        default=builder.DEFAULT_ENV,
-        description="Environment to use in namespace when constructing URNs",
     )
 
 
@@ -68,24 +64,8 @@ class MLflowRegisteredModelStageInfo:
     SourceCapability.DESCRIPTIONS,
     "Extract descriptions for MLflow Registered Models and Model Versions",
 )
-@capability(SourceCapability.TAGS, "Extract tags for MLflow Model Stages")
+@capability(SourceCapability.TAGS, "Extract tags for MLflow Registered Model Stages")
 class MLflowSource(Source):
-    """
-    ### Concept Mapping
-
-    This ingestion source maps the following MLflow Concepts to DataHub Concepts:
-
-    |                                  Source Concept                                   |                                       DataHub Concept                                       | Notes                                                                                                                                                                                            |
-    |:---------------------------------------------------------------------------------:|:-------------------------------------------------------------------------------------------:|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | [`Registered Model`](https://mlflow.org/docs/latest/model-registry.html#concepts) | [`MlModelGroup`](https://datahubproject.io/docs/generated/metamodel/entities/mlmodelgroup/) | The name of a Model Group is the same as a Registered Model's name (e.g. my_mlflow_model)                                                                                                        |
-    |  [`Model Version`](https://mlflow.org/docs/latest/model-registry.html#concepts)   |      [`MlModel`](https://datahubproject.io/docs/generated/metamodel/entities/mlmodel/)      | The name of a Model is `{registered_model_name}{model_name_separator}{model_version}` (e.g. my_mlflow_model_1 for Registered Model named my_mlflow_model and Version 1, my_mlflow_model_2, etc.) |
-    |   [`Model Stage`](https://mlflow.org/docs/latest/model-registry.html#concepts)    |          [`Tag`](https://datahubproject.io/docs/generated/metamodel/entities/tag/)          | The mapping between Model Stages and generated Tags is the following:<br/>- Production: mlflow_production<br/>- Staging: mlflow_staging<br/>- Archived: mlflow_archived<br/>- None: mlflow_none  |
-
-    ### Lightweight MLflow Support
-
-    Besides a classic `mlflow` package, this plugin supports [`mlflow-skinny`](https://mlflow.org/docs/latest/quickstart_drilldown.html#python-library-options), which is a lightweight version of mlflow. To use it just replace `mlflow` with `mlflow-skinny` in the installation section below.
-    """
-
     platform = "mlflow"
     registered_model_stages_info = (
         MLflowRegisteredModelStageInfo(
@@ -122,7 +102,7 @@ class MLflowSource(Source):
     def get_report(self) -> SourceReport:
         return self.report
 
-    def get_workunits(self) -> Iterable[WorkUnit]:
+    def get_workunits_internal(self) -> Iterable[WorkUnit]:
         yield from self._get_tags_workunits()
         yield from self._get_ml_model_workunits()
 
@@ -152,10 +132,10 @@ class MLflowSource(Source):
         """
         Utility to create an MCP workunit.
         """
-        mcp = MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect)
-        wu = MetadataWorkUnit(id=urn, mcp=mcp)
-        self.report.report_workunit(wu)
-        return wu
+        return MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=aspect,
+        ).as_workunit()
 
     def _get_ml_model_workunits(self) -> Iterable[WorkUnit]:
         """
@@ -194,13 +174,12 @@ class MLflowSource(Source):
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
         next_page_token = None
-        all_pages_where_traversed = False
-        while not all_pages_where_traversed:
+        while True:
             paged_list = search_func(page_token=next_page_token, **kwargs)
             yield from paged_list.to_list()
             next_page_token = paged_list.token
             if not next_page_token:
-                all_pages_where_traversed = True
+                return
 
     def _get_ml_group_workunit(self, registered_model: RegisteredModel) -> WorkUnit:
         """
