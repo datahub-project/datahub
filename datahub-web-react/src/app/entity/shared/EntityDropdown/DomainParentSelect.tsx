@@ -7,16 +7,27 @@ import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import { useDomainsContext } from '../../../domain/DomainsContext';
+import { useEntityData } from '../EntityContext';
+
+// filter out entity itself and its children
+export function filterResultsForMove(entity: Domain, entityUrn: string) {
+    return (
+        entity.urn !== entityUrn &&
+        entity.__typename === 'Domain' &&
+        !entity.parentDomains?.domains.some((node) => node.urn === entityUrn)
+    );
+}
 
 interface Props {
     selectedParentUrn: string;
     setSelectedParentUrn: (parent: string) => void;
+    isMoving?: boolean;
 }
 
-export default function DomainParentSelect(props: Props) {
-    const { selectedParentUrn, setSelectedParentUrn } = props;
+export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
+    const { urn: entityDataUrn } = useEntityData();
 
     const {
         searchResults,
@@ -34,6 +45,10 @@ export default function DomainParentSelect(props: Props) {
         selectedParentUrn,
         setSelectedParentUrn,
     });
+
+    const domainSearchResultsFiltered = isMoving
+        ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, entityDataUrn))
+        : [];
 
     function selectDomain(domain: Domain) {
         selectParentFromBrowser(domain.urn, entityRegistry.getDisplayName(EntityType.Domain, domain));
@@ -54,7 +69,7 @@ export default function DomainParentSelect(props: Props) {
                 onFocus={() => setIsFocusedOnInput(true)}
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
             >
-                {searchResults?.map((result) => (
+                {domainSearchResultsFiltered.map((result) => (
                     <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
                         {entityRegistry.getDisplayName(result.entity.type, result.entity)}
                     </Select.Option>

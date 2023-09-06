@@ -33,11 +33,10 @@ export function isMoveDisabled(
         const canManageGlossaryEntity = !!entityData?.privileges?.canManageEntity;
         return !canManageGlossaryEntity;
     }
-
     if (entityType === EntityType.Domain) {
-        return !!platformPrivileges?.manageDomains;
+        const canManageDomains = !!platformPrivileges?.manageDomains;
+        return !canManageDomains;
     }
-
     return false;
 }
 
@@ -52,13 +51,11 @@ export function shouldDisplayChildDeletionWarning(
         const hasTooltip = entityHasChildren && canManageGlossaryEntity;
         return hasTooltip;
     }
-
     if (entityType === EntityType.Domain) {
         const entityHasChildren = !!entityData?.children?.total;
         const canManageDomains = !!platformPrivileges?.manageDomains;
         const hasTooltip = entityHasChildren && canManageDomains;
         return hasTooltip;
     }
-
     return false;
 }

@@ -22,6 +22,7 @@ import useDeleteEntity from './useDeleteEntity';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
 import { useUserContext } from '../../../context/useUserContext';
+import MoveDomainModal from './MoveDomainModal';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -255,7 +256,7 @@ function EntityDropdown(props: Props) {
             {isMoveModalVisible && isGlossaryEntity && (
                 <MoveGlossaryEntityModal onClose={() => setIsMoveModalVisible(false)} />
             )}
-            {isMoveModalVisible && isDomainEntity && <div>domain move modal goes here</div>}
+            {isMoveModalVisible && isDomainEntity && <MoveDomainModal onClose={() => setIsMoveModalVisible(false)} />}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
         </>
     );
