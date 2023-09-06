@@ -1139,6 +1139,10 @@ class Mapper:
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
 )
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Disabled by default, See config section for more detail",
+)
 class PowerBiDashboardSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
