@@ -68,6 +68,12 @@ Cypress.Commands.add("goToGlossaryList", () => {
   cy.waitTextVisible("Glossary");
 });
 
+Cypress.Commands.add("goToTestsList", () => {
+  cy.clickOptionWithText("Govern")
+  cy.get('[role="menuitem"]').contains("Tests").click();
+  cy.waitTextVisible("Metadata Tests");
+});
+
 Cypress.Commands.add("goToDomainList", () => {
   cy.visit("/domains");
   cy.waitTextVisible("Domains");
