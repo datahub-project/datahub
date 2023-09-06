@@ -249,7 +249,7 @@ class Mapper:
                     continue
 
                 upstream_table_class = UpstreamClass(
-                    self.lineage_urn_to_lowercase(upstream_dpt.urn),
+                    upstream_dpt.urn,
                     DatasetLineageTypeClass.TRANSFORMED,
                 )
 
