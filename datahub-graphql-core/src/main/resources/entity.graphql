@@ -10923,7 +10923,7 @@ type DataProductProperties {
     """
     Display name of the Data Product
     """
-    name: String!
+    name: String
 
     """
     Description of the Data Product
