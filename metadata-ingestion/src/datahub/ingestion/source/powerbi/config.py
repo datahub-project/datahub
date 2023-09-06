@@ -401,6 +401,7 @@ class PowerBiDashboardSourceConfig(
     extract_column_level_lineage: bool = pydantic.Field(
         default=False,
         description="Enabled to extract column level lineage. "
+        " along this flag, the native_query_parsing & extract_lineage should be enabled "
         "It works for M-Query where native SQL is used for transformation.",
     )
 
