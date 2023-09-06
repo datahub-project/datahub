@@ -64,7 +64,7 @@ RUN cd /datahub-src/datahub-integrations-service && \
     poetry install --no-interaction --no-ansi && \
     pip freeze
 
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-src/datahub-integrations-service/src/datahub_integrations"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-src/datahub-integrations-service/src --reload-dir /datahub-src/metadata-ingestion/src"
 
 FROM ${APP_ENV}-install as final
 
