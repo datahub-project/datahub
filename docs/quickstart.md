@@ -1,3 +1,6 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # DataHub Quickstart Guide
 
 :::note
@@ -23,45 +26,50 @@ Get Started with Managed DataHub
   | Mac      | [Docker Desktop](https://www.docker.com/products/docker-desktop/)                                                                               |
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
-- **Launch the Docker Engine** from command line or the desktop app.
+- **Launch the Docker engine** from command line or the desktop app.
 - Ensure you have **Python 3.7+** installed & configured. (Check using `python3 --version`).
 
 :::note
 
-Make sure to allocate enough hardware resources for Docker engine.
+Make sure to allocate enough hardware resources for Docker engine. <br />
 Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
 :::
 
 ## Installing the DataHub CLI
 
-Run the following commands in your terminal
+<Tabs>
+<TabItem value="pip" label="pip">
 
-```sh
+```bash
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 datahub version
 ```
 
-If you're using poetry, run the following command.
+:::note
 
-```sh
+If you see `command not found`, try running cli commands like `python3 -m datahub version`. <br />
+Note that DataHub CLI does not support Python 2.x.
+
+:::
+
+</TabItem>
+<TabItem value="poetry" label="poetry">
+
+```bash
 poetry add acryl-datahub
 datahub version
 ```
 
-:::note
-
-If you see "command not found", try running cli commands with the prefix 'python3 -m' instead like `python3 -m datahub version`
-Note that DataHub CLI does not support Python 2.x.
-
-:::
+</TabItem>
+</Tabs>
 
 ## Starting DataHub
 
 Run the following CLI command from your terminal.
 
-```
+```bash
 datahub docker quickstart
 ```
 
@@ -70,7 +78,7 @@ If you are curious, the `docker-compose.yaml` file is downloaded to your home di
 
 If things go well, you should see messages like the ones below:
 
-```
+```bash
 Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml from GitHub
 Pulling docker images...
 Finished pulling docker images!
@@ -94,17 +102,27 @@ or head to http://localhost:9002 (username: datahub, password: datahub) to play 
 Need support? Get in touch on Slack: https://slack.datahubproject.io/
 ```
 
-Upon completion of this step, you should be able to navigate to the DataHub UI
-at [http://localhost:9002](http://localhost:9002) in your browser. You can sign in using `datahub` as both the
-username and password.
-
 :::note
 
-On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
+On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`.
+This typically means that the datahub cli was not able to detect that you are running it on Apple Silicon.
+To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
 
 :::
 
-## Ingesting Sample Data
+### Signing In
+
+Upon completion of this step, you should be able to navigate to the DataHub UI at [http://localhost:9002](http://localhost:9002) in your browser.
+You can sign in using the default credentials below.
+
+```json
+username: datahub
+password: datahub
+```
+
+To change the default credentials, please refer to [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart).
+
+### Ingesting Sample Data
 
 To ingest the sample metadata, run the following CLI command from your terminal
 
@@ -135,7 +153,7 @@ That's it! Now feel free to play around with DataHub!
 We recommend deploying DataHub to production using Kubernetes. We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running. Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-by-step walkthrough.
 
 <details>
-<summary>Limitation of quickstart</summary>
+<summary>Reasons to move to production</summary>
 
 The `quickstart` method of running DataHub is intended for local development and a quick way to experience the features that DataHub has to offer. It is not
 intended for a production environment. This recommendation is based on the following points.
@@ -160,13 +178,13 @@ This makes it useful for development but is not recommended in a production envi
 
 </details>
 
-## Other Common Operations
+## Common Operations
 
 ### Stopping DataHub
 
 To stop DataHub's quickstart, you can issue the following command.
 
-```
+```bash
 datahub docker quickstart --stop
 ```
 
@@ -174,7 +192,7 @@ datahub docker quickstart --stop
 
 To cleanse DataHub of all of its state (e.g. before ingesting your own), you can use the CLI `nuke` command.
 
-```
+```bash
 datahub docker nuke
 ```
 
@@ -182,32 +200,43 @@ datahub docker nuke
 
 If you have been testing DataHub locally, a new version of DataHub got released and you want to try the new version then you can just issue the quickstart command again. It will pull down newer images and restart your instance without losing any data.
 
-```
+```bash
 datahub docker quickstart
 ```
 
-### Customization
+### Customizing installation
 
 If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
-```
+```bash
 datahub docker quickstart --quickstart-compose-file <path to compose file>
 ```
 
-## Backing up DataHub
+### Backing up DataHub
 
-The quickstart image is not recommended for use as a production instance. See [Moving to production](#move-to-production) for recommendations on setting up your production cluster. However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart.
+The quickstart image is not recommended for use as a production instance. <br />
+However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart.
 
-```
+<Tabs>
+<TabItem value="backup" label="Back up (default)">
+
+```bash
 datahub docker quickstart --backup
 ```
 
-will take a backup of your MySQL image and write it by default to your `~/.datahub/quickstart/` directory as the file `backup.sql`. You can customize this by passing a `--backup-file` argument.
-e.g.
+This will take a backup of your MySQL image and write it by default to your `~/.datahub/quickstart/` directory as the file `backup.sql`.
 
+</TabItem>
+<TabItem value="backup custom" label="Back up to custom directory">
+
+```bash
+datahub docker quickstart --backup --backup-file <path to backup file>
 ```
-datahub docker quickstart --backup --backup-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
-```
+
+You can customize the backup file path by passing a `--backup-file` argument.
+
+</TabItem>
+</Tabs>
 
 :::note
 
@@ -215,21 +244,16 @@ Note that the Quickstart backup does not include any timeseries data (dataset st
 
 :::
 
-## Restoring DataHub
+### Restoring DataHub
 
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
 
-| Use Cases                                                       | Restoring Primary Database (MySQL) | Restoring Index | Command                                                    |
-| --------------------------------------------------------------- | ---------------------------------- | --------------- | ---------------------------------------------------------- |
-| General case                                                    | O                                  | O               | `datahub docker quickstart --restore`                      |
-| Dealing with index out of sync & corruption issues              | X                                  | O               | `datahub docker quickstart --restore-indices`              |
-| Restore the state of the DB but not re-index data (Rarely used) | O                                  | X               | `datahub docker quickstart --restore --no-restore-indices` |
-
-### Restoring a backup (primary + index)
+<Tabs>
+<TabItem value="General" label="General Restoring">
 
 To restore a previous backup, run the following command:
 
-```
+```bash
 datahub docker quickstart --restore
 ```
 
@@ -237,22 +261,28 @@ This command will pick up the `backup.sql` file located under `~/.datahub/quicks
 
 To supply a specific backup file, use the `--restore-file` option.
 
-```
+```bash
 datahub docker quickstart --restore --restore-file /home/my_user/datahub_backups/quickstart_backup_2002_22_01.sql
 ```
 
-### Restoring only the index
+</TabItem>
+<TabItem value="Restoring Only Index" label="Restore Only Index">
 
 Another situation that can come up is the index can get corrupt, or be missing some update. In order to re-bootstrap the index from the primary store, you can run this command to sync the index with the primary store.
 
-```
+```bash
 datahub docker quickstart --restore-indices
 ```
 
-### Restoring only the primary
+</TabItem>
+
+<TabItem value="Restoring Only Primary" label="Restore Only Primary">
 
 Sometimes, you might want to just restore the state of your primary database (MySQL), but not re-index the data. To do this, you have to explicitly disable the restore-indices capability.
 
-```
+```bash
 datahub docker quickstart --restore --no-restore-indices
 ```
+
+</TabItem>
+</Tabs>
