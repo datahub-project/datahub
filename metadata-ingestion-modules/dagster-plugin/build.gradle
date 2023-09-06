@@ -52,7 +52,12 @@ task installDev(type: Exec, dependsOn: [install]) {
 }
 
 task lint(type: Exec, dependsOn: installDev) {
+  /*
+    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
+   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
+   */
   commandLine 'bash', '-c',
+    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
     "black --check --diff src/ tests/ && " +
     "isort --check --diff src/ tests/ && " +
