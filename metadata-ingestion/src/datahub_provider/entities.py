@@ -1,3 +1,3 @@
-from datahub_airflow_plugin.entities import Dataset, Urn, _Entity
+from datahub.api.entities.dataset import Dataset, Urn, _Entity
 
 __all__ = ["_Entity", "Dataset", "Urn"]
