@@ -132,7 +132,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
           throw new IllegalArgumentException("Domain does not exist");
         }
 
-        if (DomainUtils.hasNameConflict(input.getName(), domainProperties.getParentDomain(), context, _entityClient)) {
+        if (DomainUtils.hasNameConflict(input.getName(), DomainUtils.getParentDomainSafely(domainProperties), context, _entityClient)) {
           throw new DataHubGraphQLException(
               String.format("\"%s\" already exists in this domain. Please pick a unique name.", input.getName()),
               DataHubGraphQLErrorCode.CONFLICT

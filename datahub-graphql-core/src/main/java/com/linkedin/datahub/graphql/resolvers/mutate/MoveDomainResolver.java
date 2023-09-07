@@ -78,6 +78,8 @@ public class MoveDomainResolver implements DataFetcher<CompletableFuture<Boolean
         Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
         MutationUtils.persistAspect(resourceUrn, Constants.DOMAIN_PROPERTIES_ASPECT_NAME, properties, actor, _entityService);
         return true;
+      } catch (DataHubGraphQLException e) {
+        throw e;
       } catch (Exception e) {
         log.error("Failed to move domain {} to parent {} : {}", input.getResourceUrn(), input.getParentDomain(), e.getMessage());
         throw new RuntimeException(String.format("Failed to move domain %s to %s", input.getResourceUrn(), input.getParentDomain()), e);

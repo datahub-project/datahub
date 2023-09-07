@@ -45,7 +45,6 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
         selectedParentUrn,
         setSelectedParentUrn,
     });
-
     const domainSearchResultsFiltered = isMoving
         ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, entityDataUrn))
         : [];

@@ -3,10 +3,9 @@ import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
 import { useEntityData, useRefetch } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
-import NodeParentSelect from './NodeParentSelect';
-import { getGlossaryRootToUpdate, getParentNodeToUpdate } from '../../../glossary/utils';
-import { useDomainsContext } from '../../../domain/DomainsContext';
+import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
+import DomainParentSelect from './DomainParentSelect';
+import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -22,21 +21,22 @@ interface Props {
 
 function MoveDomainModal(props: Props) {
     const { onClose } = props;
-    const { urn: entityDataUrn, entityData, entityType } = useEntityData();
-    const { parentDomainsToUpdate, setParentDomainsToUpdate } = useDomainsContext();
+    const { urn: entityDataUrn, entityType } = useEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
     const refetch = useRefetch();
 
-    const [updateParentNode] = useUpdateParentNodeMutation();
+    const [moveDomainMutation] = useMoveDomainMutation();
+
+    const { handleMoveDomainComplete } = useHandleMoveDomainComplete();
 
     function moveDomain() {
-        updateParentNode({
+        moveDomainMutation({
             variables: {
                 input: {
                     resourceUrn: entityDataUrn,
-                    parentNode: selectedParentUrn || null,
+                    parentDomain: selectedParentUrn || null,
                 },
             },
         })
@@ -48,12 +48,8 @@ function MoveDomainModal(props: Props) {
                         duration: 2,
                     });
                     refetch();
-                    // if (isInGlossaryContext) {
-                    if (true) {
-                        const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
-                        const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
-                        setParentDomainsToUpdate([...parentDomainsToUpdate, oldParentToUpdate, newParentToUpdate]);
-                    }
+                    const newParentToUpdate = selectedParentUrn || undefined;
+                    handleMoveDomainComplete(entityDataUrn, newParentToUpdate);
                 }, 2000);
             })
             .catch((e) => {
@@ -86,7 +82,7 @@ function MoveDomainModal(props: Props) {
                     }
                 >
                     <StyledItem name="parent">
-                        <NodeParentSelect
+                        <DomainParentSelect
                             selectedParentUrn={selectedParentUrn}
                             setSelectedParentUrn={setSelectedParentUrn}
                             isMoving
