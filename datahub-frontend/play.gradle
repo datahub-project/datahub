@@ -88,7 +88,7 @@ dependencies {
   implementation externalDependency.logbackClassic
   implementation externalDependency.logbackJackson
   implementation externalDependency.logbackJsonClassic
-
+  implementation externalDependency.janino
   annotationProcessor externalDependency.lombok
 
   implementation externalDependency.sentry
