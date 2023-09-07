@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import Optional
 
 import attr
+
 import datahub.emitter.mce_builder as builder
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -39,7 +40,9 @@ class Urn(_Entity):
         if not value.startswith("urn:"):
             raise ValueError("invalid urn provided: urns must start with 'urn:'")
         if guess_entity_type(value) != "dataset":
-            raise ValueError("Datajob input/output currently only supports dataset lineage")
+            raise ValueError(
+                "Datajob input/output currently only supports dataset lineage"
+            )
 
     @property
     def urn(self):

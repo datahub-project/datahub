@@ -7,7 +7,6 @@ from datetime import timedelta
 
 from airflow.decorators import dag, task
 from airflow.utils.dates import days_ago
-
 from datahub.api.entities.dataset import Dataset, Urn
 
 default_args = {
