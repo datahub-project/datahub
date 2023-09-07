@@ -66,8 +66,6 @@ services:
       dockerfile: docker/datahub-upgrade/Dockerfile
     env_file: datahub-upgrade/env/docker-without-neo4j.env
     depends_on:
-      mysql-setup:
-        condition: service_completed_successfully
       elasticsearch-setup:
         condition: service_completed_successfully
       kafka-setup:
