@@ -167,7 +167,8 @@ public class SearchQueryBuilder {
     return fields;
   }
 
-  private Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
+  @VisibleForTesting
+  Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
     Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {

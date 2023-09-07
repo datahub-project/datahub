@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
-import com.datastax.dse.driver.api.core.graph.predicates.Search;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.metadata.ESTestConfiguration;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
@@ -22,7 +22,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.util.Pair;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
@@ -34,8 +36,13 @@ import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
 import static org.testng.Assert.assertEquals;
@@ -43,7 +50,12 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class SearchQueryBuilderTest {
+@Import(ESTestConfiguration.class)
+public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
+
+  @Autowired
+  private EntityRegistry entityRegistry;
+
   public static SearchConfiguration testQueryConfig;
   static {
     testQueryConfig = new SearchConfiguration();
@@ -271,6 +283,36 @@ public class SearchQueryBuilderTest {
       assertEquals(termQueryBuilder.fieldName(), "fieldName");
       assertEquals(termQueryBuilder.value().toString(), triggerQuery);
     }
+  }
+
+  /**
+   * Tests to make sure that the fields are correctly combined across search-able entities
+   */
+  @Test
+  public void testGetStandardFieldsEntitySpec() {
+    List<EntitySpec> entitySpecs = Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
+            .map(entityType -> entityType.toString().toLowerCase().replaceAll("_", ""))
+            .map(entityRegistry::getEntitySpec)
+            .collect(Collectors.toList());
+    assertTrue(entitySpecs.size() > 30, "Expected at least 30 searchable entities in the registry");
+
+    // Count of the distinct field names
+    Set<String> expectedFieldNames = Stream.concat(
+            // Standard urn fields plus entitySpec sourced fields
+            Stream.of("urn", "urn.delimited"),
+                    entitySpecs.stream()
+                            .flatMap(spec -> TEST_CUSTOM_BUILDER.getFieldsFromEntitySpec(spec).stream())
+                            .map(SearchFieldConfig::fieldName))
+            .collect(Collectors.toSet());
+
+    Set<String> actualFieldNames = TEST_CUSTOM_BUILDER.getStandardFields(entitySpecs).stream()
+            .map(SearchFieldConfig::fieldName)
+            .collect(Collectors.toSet());
+
+    assertEquals(actualFieldNames, expectedFieldNames,
+            String.format("Missing: %s Extra: %s",
+                    expectedFieldNames.stream().filter(f -> !actualFieldNames.contains(f)).collect(Collectors.toSet()),
+                    actualFieldNames.stream().filter(f -> !expectedFieldNames.contains(f)).collect(Collectors.toSet())));
   }
 
   @Test
