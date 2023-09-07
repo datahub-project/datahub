@@ -24,12 +24,12 @@ Dagster sensors allow us to perform some action based on some state change. Data
 pip install acryl-datahub[dagster]
 ```
 
-2. You need to import DataHub provided sensor definition and add it in Dagster definition or dagster repository before starting dagster UI as show below: 
+2. You need to import DataHub dagster plugin provided sensor definition and add it in Dagster definition or dagster repository before starting dagster UI as show below: 
 **Using Definitions class:**
 
 ```python
 from dagster import Definitions
-from datahub_provider.sensors.datahub_sensors import datahub_sensor
+from datahub_dagster_plugin.sensors.datahub_sensors import datahub_sensor
 
 defs = Definitions(
     sensors=[datahub_sensor],
@@ -40,26 +40,26 @@ defs = Definitions(
 
 ```python
 from dagster import repository
-from datahub_provider.sensors.datahub_sensors import datahub_sensor
+from datahub_dagster_plugin.sensors.datahub_sensors import datahub_sensor
 
 @repository
 def my_repository():
     return [datahub_sensor]
 ```
 
-3. The DataHub provided sensor internally uses below configs. You can set these configs using environment variables. If not set, the sensor will take the default value.
+3. The DataHub dagster plugin provided sensor internally uses below configs. You can set these configs using environment variables. If not set, the sensor will take the default value.
 
    **Configuration options:**
 
    | Environment variable           | Default value         | Description                                                                                   |
    | ------------------------------ | --------------------- | --------------------------------------------------------------------------------------------- |
-   | DATAHUB_REST_URL               | http://localhost:8080 | Datahub GMS Rest URL where datahub events get emitted.                                         |
+   | DATAHUB_REST_URL               | http://localhost:8080 | Datahub GMS Rest URL where datahub events get emitted.                                        |
    | DATAHUB_ENV                    | PROD                  | The environment that all assets produced by this connector belong to.                         |
    | DATAHUB_PLATFORM_INSTANCE      | None                  | The instance of the platform that all assets produced by this recipe belong to.               |
 
-4. Once Dagster UI is up, you need to turn on the DataHub provided sensor execution. To turn on the sensor, click on Overview tab and then on Sensors tab. You will see a toggle button in front of all defined sensors to turn it on/off.
+4. Once Dagster UI is up, you need to turn on the provided sensor execution. To turn on the sensor, click on Overview tab and then on Sensors tab. You will see a toggle button in front of all defined sensors to turn it on/off.
 
-5. DataHub provided sensor is ready to emit metadata after every dagster pipeline run execution.
+5. DataHub dagster plugin provided sensor is ready to emit metadata after every dagster pipeline run execution.
 
 
 ### How to validate installation
@@ -73,34 +73,7 @@ datahub_sensor - Emitting metadata...
 ## Dagster Ins and Out
 
 We can provide inputs and outputs to both assets and ops explicitly using a dictionary of `Ins` and `Out` corresponding to the decorated function arguments. While providing inputs and outputs explicitly we can provide metadata as well. 
-To create dataset upstream and downstream dependency for the assets and ops you can use an ins and out dictionary with metadata provided. For reference, look at the below sample dagster assets and ops definition:
-
-```python
-from dagster import asset, multi_asset, op, In, Out, Output, AssetIn, AssetOut
-from datahub_provider.entities import Dataset
-
-@multi_asset(outs={"my_asset": AssetOut(
-    metadata={"datahub.inputs": [Dataset('snowflake', 'tableC').urn]}
-)}) 
-def my_asset():
-    data = [1, 2, 3]
-    metadata = {
-        "num_records": len(data),
-    }
-    return Output(value=data, metadata=metadata)
-
-@asset(ins={"my_asset": AssetIn(
-    key="my_asset", 
-    metadata={"datahub.inputs": [Dataset('snowflake', 'tableA').urn]}
-)})
-def my_secound_asset(my_asset):
-    return my_asset.extend([4,5])    
-
-@op(ins={"name": In(metadata={"datahub.inputs": [Dataset('snowflake', 'tableA').urn]})},
-    out={"result": Out(metadata={"datahub.outputs": [Dataset('snowflake', 'tableB').urn]})})
-def my_op(name):
-    return "hello" + name
-```
+To create dataset upstream and downstream dependency for the assets and ops you can use an ins and out dictionary with metadata provided. For reference, look at the sample jobs created using assets [`assets_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/assets_job.py), or ops [`ops_job.py`](../../metadata-ingestion-modules/dagster-plugin/src/datahub_dagster_plugin/example_jobs/ops_job.py).
 
 
 

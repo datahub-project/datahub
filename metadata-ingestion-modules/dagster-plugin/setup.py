@@ -18,6 +18,7 @@ rest_common = {"requests", "requests_file"}
 base_requirements = {
     # Actual dependencies.
     "dagster >= 1.3.3",
+    "dagit >= 1.3.3",
     *rest_common,
     f"acryl-datahub == {package_metadata['__version__']}",
 }
