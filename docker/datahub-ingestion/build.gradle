@@ -23,10 +23,12 @@ docker {
     files fileTree(rootProject.projectDir) {
         include "docker/${docker_dir}/*"
         include "metadata-ingestion/**"
+        include "metadata-ingestion-modules/**"
     }.exclude {
         i -> i.file.isHidden() ||
                 i.file == buildDir ||
-                i.file == project(':metadata-ingestion').buildDir
+                i.file == project(':metadata-ingestion').buildDir ||
+                i.file == project(':metadata-ingestion-modules').buildDir
     }
     buildArgs([DOCKER_VERSION: version,
                RELEASE_VERSION: version.replace('-SNAPSHOT', '').replace('v', '').replace('-slim', '')])
