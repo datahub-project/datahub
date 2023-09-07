@@ -10,35 +10,21 @@ import Feedback from "../../../components/Feedback";
 
 function TagsRow(props) {
   return (
-    <div
-      className={clsx(
-        ThemeClassNames.docs.docFooterTagsRow,
-        "row margin-bottom--sm",
-      )}
-    >
+    <div className={clsx(ThemeClassNames.docs.docFooterTagsRow, "row margin-bottom--sm")}>
       <div className="col">
         <TagsListInline {...props} />
       </div>
     </div>
   );
 }
-function EditMetaRow({
-  editUrl,
-  lastUpdatedAt,
-  lastUpdatedBy,
-  formattedLastUpdatedAt,
-}) {
+function EditMetaRow({ editUrl, lastUpdatedAt, lastUpdatedBy, formattedLastUpdatedAt }) {
   return (
     <div className={clsx(ThemeClassNames.docs.docFooterEditMetaRow, "row")}>
       <div className="col">{editUrl && <EditThisPage editUrl={editUrl} />}</div>
 
       <div className={clsx("col", styles.lastUpdated)}>
         {(lastUpdatedAt || lastUpdatedBy) && (
-          <LastUpdated
-            lastUpdatedAt={lastUpdatedAt}
-            formattedLastUpdatedAt={formattedLastUpdatedAt}
-            lastUpdatedBy={lastUpdatedBy}
-          />
+          <LastUpdated lastUpdatedAt={lastUpdatedAt} formattedLastUpdatedAt={formattedLastUpdatedAt} lastUpdatedBy={lastUpdatedBy} />
         )}
       </div>
     </div>
@@ -46,14 +32,7 @@ function EditMetaRow({
 }
 export default function DocItemFooter() {
   const { metadata } = useDoc();
-  const {
-    editUrl,
-    lastUpdatedAt,
-    formattedLastUpdatedAt,
-    lastUpdatedBy,
-    tags,
-    unversionedId,
-  } = metadata;
+  const { editUrl, lastUpdatedAt, formattedLastUpdatedAt, lastUpdatedBy, tags, unversionedId } = metadata;
   const canDisplayTagsRow = tags.length > 0;
   const canDisplayEditMetaRow = !!(editUrl || lastUpdatedAt || lastUpdatedBy);
   const canDisplayFooter = canDisplayTagsRow || canDisplayEditMetaRow;
@@ -62,10 +41,7 @@ export default function DocItemFooter() {
   }
   return (
     <>
-      <Feedback resource={unversionedId} />
-      <footer
-        className={clsx(ThemeClassNames.docs.docFooter, "docusaurus-mt-lg")}
-      >
+      <footer className={clsx(ThemeClassNames.docs.docFooter, "docusaurus-mt-lg")}>
         {canDisplayTagsRow && <TagsRow tags={tags} />}
         {canDisplayEditMetaRow && (
           <EditMetaRow
@@ -76,6 +52,7 @@ export default function DocItemFooter() {
           />
         )}
       </footer>
+      <Feedback resource={unversionedId} />
     </>
   );
 }
