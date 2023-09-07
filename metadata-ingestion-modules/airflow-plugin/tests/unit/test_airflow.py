@@ -10,11 +10,11 @@ from unittest.mock import Mock
 import airflow.configuration
 import airflow.version
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.dataset import Dataset, Urn
 import packaging.version
 import pytest
 from airflow.lineage import apply_lineage, prepare_lineage
 from airflow.models import DAG, Connection, DagBag, DagRun, TaskInstance
+from datahub.api.entities.dataset import Dataset, Urn
 from datahub_provider import get_provider_info
 from datahub_provider._airflow_shims import AIRFLOW_PATCHED, EmptyOperator
 from datahub_provider.hooks.datahub import DatahubKafkaHook, DatahubRestHook
@@ -79,8 +79,6 @@ def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
 
     # Note: the .airflowignore file skips the snowflake DAG.
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
-    import pdb
-    pdb.set_trace()
     import_errors = dag_bag.import_errors
 
     assert len(import_errors) == 0
