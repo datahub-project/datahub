@@ -431,6 +431,11 @@ type Mutation {
     createDomain(input: CreateDomainInput!): String
 
     """
+    Moves a domain to be parented under another domain.
+    """
+    moveDomain(input: MoveDomainInput!): Boolean
+
+    """
     Delete a Domain
     """
     deleteDomain(
