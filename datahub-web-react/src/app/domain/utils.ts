@@ -7,6 +7,7 @@ import { GenericEntityProperties } from '../entity/shared/types';
 import usePrevious from '../shared/usePrevious';
 import { useDomainsContext } from './DomainsContext';
 import { useEntityRegistry } from '../useEntityRegistry';
+import EntityRegistry from '../entity/EntityRegistry';
 
 /**
  * Add an entry to the list domains cache.
@@ -136,4 +137,9 @@ export function useSortedDomains<T extends Entity>(domains?: Array<T>, sortBy?: 
         const nameB = entityRegistry.getDisplayName(EntityType.Domain, b) || '';
         return nameA.localeCompare(nameB);
     });
+}
+
+export function getParentDomains<T extends Entity>(domain: T, entityRegistry: EntityRegistry) {
+    const props = entityRegistry.getGenericEntityProperties(EntityType.Domain, domain);
+    return props?.parentDomains?.domains ?? [];
 }

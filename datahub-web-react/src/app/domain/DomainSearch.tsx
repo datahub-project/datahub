@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { CSSProperties, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import Highlight from 'react-highlighter';
 import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
 import { EntityType } from '../../types.generated';
 import { IconStyleType } from '../entity/Entity';
@@ -9,6 +10,8 @@ import { SearchBar } from '../search/SearchBar';
 import ClickOutside from '../shared/ClickOutside';
 import { useEntityRegistry } from '../useEntityRegistry';
 import DomainIcon from './DomainIcon';
+import ParentEntities from '../search/filters/ParentEntities';
+import { getParentDomains } from './utils';
 
 const DomainSearchWrapper = styled.div`
     position: relative;
@@ -32,7 +35,9 @@ const ResultsWrapper = styled.div`
 
 const SearchResult = styled(Link)`
     color: #262626;
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     height: 100%;
     padding: 6px 8px;
     width: 100%;
@@ -42,9 +47,13 @@ const SearchResult = styled(Link)`
     }
 `;
 
-const IconWrapper = styled.span`
-    margin-right: 8px;
-`;
+const IconWrapper = styled.span``;
+
+const highlightMatchStyle: CSSProperties = {
+    fontWeight: 'bold',
+    background: 'none',
+    padding: 0,
+};
 
 function DomainSearch() {
     const [query, setQuery] = useState('');
@@ -71,6 +80,7 @@ function DomainSearch() {
             setQuery(q);
         }, 250);
     };
+    console.log({ data });
 
     return (
         <DomainSearchWrapper>
@@ -98,7 +108,7 @@ function DomainSearch() {
                         {searchResults.map((result) => {
                             return (
                                 <SearchResult
-                                    to={`${entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}`}
+                                    to={entityRegistry.getEntityUrl(result.entity.type, result.entity.urn)}
                                     onClick={() => setIsSearchBarFocused(false)}
                                 >
                                     <IconWrapper>
@@ -113,7 +123,14 @@ function DomainSearch() {
                                             entityRegistry.getIcon(result.entity.type, 12, IconStyleType.ACCENT)
                                         )}
                                     </IconWrapper>
-                                    {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                                    <div>
+                                        <ParentEntities
+                                            parentEntities={getParentDomains(result.entity, entityRegistry)}
+                                        />
+                                        <Highlight matchStyle={highlightMatchStyle} search={query}>
+                                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                                        </Highlight>
+                                    </div>
                                 </SearchResult>
                             );
                         })}
