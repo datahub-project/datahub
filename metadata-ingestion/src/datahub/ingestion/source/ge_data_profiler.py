@@ -71,7 +71,6 @@ assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
-IDEAL_SAMPLE_SIZE = 1000
 BIGQUERY = "bigquery"
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
@@ -724,8 +723,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if (
             self.dataset.engine.dialect.name.lower() == BIGQUERY
             and profile.rowCount
-            # No need to sample if row count is closer to ideal sample size
-            and profile.rowCount > IDEAL_SAMPLE_SIZE * 1.5
+            and profile.rowCount > self.config.sample_size
         ):
             """
             According to BigQuery Sampling Docs(https://cloud.google.com/bigquery/docs/table-sampling),
@@ -748,7 +746,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 "SAMPLE", although profile is for entire table.
                 3. Table Sampling in BigQuery is a Pre-GA (Preview) feature.
             """
-            sample_pc = 100 * IDEAL_SAMPLE_SIZE / profile.rowCount
+            sample_pc = 100 * self.config.sample_size / profile.rowCount
             sql = (
                 f"SELECT * FROM {str(self.dataset._table)} "
                 + f"TABLESAMPLE SYSTEM ({sample_pc:.3f} percent)"
