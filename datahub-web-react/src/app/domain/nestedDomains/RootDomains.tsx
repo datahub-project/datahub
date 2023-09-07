@@ -19,7 +19,7 @@ const DomainsWrapper = styled.div`
 
 export default function RootDomains() {
     const entityRegistry = useEntityRegistry();
-    const { loading, error, data } = useListDomains({});
+    const { loading, error, data, sortedDomains } = useListDomains({});
 
     return (
         <>
@@ -27,7 +27,7 @@ export default function RootDomains() {
             {!data && loading && <Message type="loading" content="Loading domains..." />}
             {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
             <DomainsWrapper>
-                {data?.listDomains?.domains.map((domain) => (
+                {sortedDomains?.map((domain) => (
                     <ResultWrapper showUpdatedStyles>
                         {entityRegistry.renderSearchResult(EntityType.Domain, { entity: domain, matchedFields: [] })}
                     </ResultWrapper>
