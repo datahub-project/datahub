@@ -1,6 +1,6 @@
 const glossaryTerm = "CypressGlosssaryNavigationTerm";
 const glossaryTermGroup = "CypressGlosssaryNavigationGroup";
-const glossaryParentGroup = "CypressGlosssaryGroup";
+const glossaryParentGroup = "Cypress";
 
 describe("glossary sidebar navigation test", () => {
     it("create term and term parent group, move and delete term group", () => {
@@ -8,10 +8,14 @@ describe("glossary sidebar navigation test", () => {
         cy.loginWithCredentials();
         cy.goToGlossaryList();
         cy.clickOptionWithText("Add Term Group");
-        cy.addViaModal(glossaryTermGroup, "Create Term Group");
+        cy.waitTextVisible("Create Term Group");
+        cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(glossaryTermGroup);
+        cy.get(".ant-modal-footer > button:last-child").click();
         cy.get('*[class^="GlossaryBrowser"]').contains(glossaryTermGroup).should("be.visible");
         cy.clickOptionWithText("Add Term");
-        cy.addViaModal(glossaryTerm, "Create Glossary Term");
+        cy.waitTextVisible("Create Glossary Term");
+        cy.get(".ant-input-affix-wrapper > input[type='text']").first().type(glossaryTerm);
+        cy.get(".ant-modal-footer > button:last-child").click();
         cy.get('*[class^="GlossaryBrowser"]').contains(glossaryTerm).click();
         cy.waitTextVisible("No documentation yet");
         cy.openThreeDotDropdown();
