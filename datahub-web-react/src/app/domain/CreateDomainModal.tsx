@@ -57,6 +57,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                 if (!errors) {
                     analytics.event({
                         type: EventType.CreateDomainEvent,
+                        parentDomainUrn: selectedParentUrn || undefined,
                     });
                     message.success({
                         content: `Created domain!`,
