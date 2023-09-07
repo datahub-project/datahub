@@ -43,7 +43,6 @@ dependencies {
   implementation externalDependency.resilience4j
   api externalDependency.springContext
   implementation externalDependency.swaggerAnnotations
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -120,33 +119,6 @@ project.compileJava {
         transformArgs: 'debug=1')
   }
 }
-
-tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
-  it.setInputFile(
-      file(
-          "${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"
-      )
-  )
-  it.setOutputDir(file("$projectDir/generated"))
-  it.setLanguage("spring")
-  it.setComponents(['models'])
-  it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
-  it.setAdditionalProperties([
-      "group-id" : "io.datahubproject",
-      "dateLibrary" : "java8",
-      "java11" : "true",
-      "modelPropertyNaming" : "original",
-      "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
-
-  dependsOn ':metadata-models:generateJsonSchema'
-}
-
-compileJava.dependsOn generateOpenApiPojos
-processResources.dependsOn generateOpenApiPojos
-sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
-sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
-
-checkstyleMain.exclude '**/generated/**'
 
 clean {
   project.delete("$projectDir/generated")
