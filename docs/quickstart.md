@@ -36,7 +36,7 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
 
 :::
 
-## Installing the DataHub CLI
+## Install the DataHub CLI
 
 <Tabs>
 <TabItem value="pip" label="pip">
@@ -59,13 +59,14 @@ Note that DataHub CLI does not support Python 2.x.
 
 ```bash
 poetry add acryl-datahub
+poetry shell
 datahub version
 ```
 
 </TabItem>
 </Tabs>
 
-## Starting DataHub
+## Start DataHub
 
 Run the following CLI command from your terminal.
 
@@ -78,7 +79,7 @@ If you are curious, the `docker-compose.yaml` file is downloaded to your home di
 
 If things go well, you should see messages like the ones below:
 
-```bash
+```shell-session
 Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml from GitHub
 Pulling docker images...
 Finished pulling docker images!
@@ -110,7 +111,7 @@ To resolve this issue, override the default architecture detection by issuing `d
 
 :::
 
-### Signing In
+### Sign In
 
 Upon completion of this step, you should be able to navigate to the DataHub UI at [http://localhost:9002](http://localhost:9002) in your browser.
 You can sign in using the default credentials below.
@@ -122,7 +123,7 @@ password: datahub
 
 To change the default credentials, please refer to [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart).
 
-### Ingesting Sample Data
+### Ingest Sample Data
 
 To ingest the sample metadata, run the following CLI command from your terminal
 
@@ -139,48 +140,11 @@ using the `--token <token>` parameter in the command.
 
 That's it! Now feel free to play around with DataHub!
 
-## Next Steps
-
-- [Quickstart Debugging Guide](./troubleshooting/quickstart.md)
-- [UI-based Ingestion Guide](./ui-ingestion.md)
-- [Metadata Ingestion Guide](../metadata-ingestion/README.md)
-- [Adding Users to DataHub](authentication/guides/add-users.md)
-- [Configuring OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
-- [Configuring JaaS Authentication](authentication/guides/jaas.md)
-- [authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
-- [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
-
-We recommend deploying DataHub to production using Kubernetes. We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running. Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-by-step walkthrough.
-
-<details>
-<summary>Reasons to move to production</summary>
-
-The `quickstart` method of running DataHub is intended for local development and a quick way to experience the features that DataHub has to offer. It is not
-intended for a production environment. This recommendation is based on the following points.
-
-#### Default Credentials
-
-`quickstart` uses docker-compose configuration which includes default credentials for both DataHub, and it's underlying
-prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
-design choice to make development easier and is not best practice for a production environment.
-
-#### Exposed Ports
-
-DataHub's services, and it's backend data stores use the docker default behavior of binding to all interface addresses.
-This makes it useful for development but is not recommended in a production environment.
-
-#### Performance & Management
-
-- `quickstart` is limited by the resources available on a single host, there is no ability to scale horizontally.
-- Rollout of new versions requires downtime.
-- The configuration is largely pre-determined and not easily managed.
-- `quickstart`, by default, follows the most recent builds forcing updates to the latest released and unreleased builds.
-
-</details>
+---
 
 ## Common Operations
 
-### Stopping DataHub
+### Stop DataHub
 
 To stop DataHub's quickstart, you can issue the following command.
 
@@ -188,7 +152,7 @@ To stop DataHub's quickstart, you can issue the following command.
 datahub docker quickstart --stop
 ```
 
-### Resetting DataHub
+### Reset DataHub
 
 To cleanse DataHub of all of its state (e.g. before ingesting your own), you can use the CLI `nuke` command.
 
@@ -196,7 +160,7 @@ To cleanse DataHub of all of its state (e.g. before ingesting your own), you can
 datahub docker nuke
 ```
 
-### Upgrading DataHub
+### Upgrade DataHub
 
 If you have been testing DataHub locally, a new version of DataHub got released and you want to try the new version then you can just issue the quickstart command again. It will pull down newer images and restart your instance without losing any data.
 
@@ -204,7 +168,7 @@ If you have been testing DataHub locally, a new version of DataHub got released 
 datahub docker quickstart
 ```
 
-### Customizing installation
+### Customize installation
 
 If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
@@ -212,7 +176,7 @@ If you would like to customize the DataHub installation further, please download
 datahub docker quickstart --quickstart-compose-file <path to compose file>
 ```
 
-### Backing up DataHub
+### Back up DataHub
 
 The quickstart image is not recommended for use as a production instance. <br />
 However, in case you want to take a backup of your current quickstart state (e.g. you have a demo to your company coming up and you want to create a copy of the quickstart data so you can restore it at a future date), you can supply the `--backup` flag to quickstart.
@@ -238,13 +202,13 @@ You can customize the backup file path by passing a `--backup-file` argument.
 </TabItem>
 </Tabs>
 
-:::note
+:::caution
 
 Note that the Quickstart backup does not include any timeseries data (dataset statistics, profiles, etc.), so you will lose that information if you delete all your indexes and restore from this backup.
 
 :::
 
-### Restoring DataHub
+### Restore DataHub
 
 As you might imagine, these backups are restore-able. The following section describes a few different options you have to restore your backup.
 
@@ -286,3 +250,46 @@ datahub docker quickstart --restore --no-restore-indices
 
 </TabItem>
 </Tabs>
+
+---
+
+## Next Steps
+
+- [Quickstart Debugging Guide](./troubleshooting/quickstart.md)
+- [Ingest metadata through the UI](./ui-ingestion.md)
+- [Ingest metadata through the CLI](../metadata-ingestion/README.md)
+- [Add Users to DataHub](authentication/guides/add-users.md)
+- [Configure OIDC Authentication](authentication/guides/sso/configure-oidc-react.md)
+- [Configure JaaS Authentication](authentication/guides/jaas.md)
+- [Configure authentication in DataHub's backend](authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication).
+- [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart)
+
+### Move To Production
+
+:::caution
+
+Quickstart is not intended for a production environment. We recommend deploying DataHub to production using Kubernetes.
+We provide helpful [Helm Charts](https://artifacthub.io/packages/helm/datahub/datahub) to help you quickly get up and running.
+Check out [Deploying DataHub to Kubernetes](./deploy/kubernetes.md) for a step-by-step walkthrough.
+
+:::
+
+The `quickstart` method of running DataHub is intended for local development and a quick way to experience the features that DataHub has to offer.
+It is not intended for a production environment. This recommendation is based on the following points.
+
+#### Default Credentials
+
+`quickstart` uses docker-compose configuration which includes default credentials for both DataHub, and it's underlying
+prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
+design choice to make development easier and is not best practice for a production environment.
+
+#### Exposed Ports
+
+DataHub's services, and it's backend data stores use the docker default behavior of binding to all interface addresses.
+This makes it useful for development but is not recommended in a production environment.
+
+#### Performance & Management
+
+`quickstart` is limited by the resources available on a single host, there is no ability to scale horizontally.
+Rollout of new versions often requires downtime and the configuration is largely pre-determined and not easily managed.
+Lastly, by default, `quickstart` follows the most recent builds forcing updates to the latest released and unreleased builds.
