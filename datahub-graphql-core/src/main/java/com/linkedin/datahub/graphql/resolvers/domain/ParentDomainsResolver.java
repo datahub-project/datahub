@@ -11,7 +11,9 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
@@ -29,6 +31,7 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
         final QueryContext context = environment.getContext();
         final Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
         final List<Entity> parentDomains = new ArrayList<>();
+        final Set<String> visitedParentUrns = new HashSet<>();
 
         if (!DOMAIN_ENTITY_NAME.equals(urn.getEntityType())) {
             throw new IllegalArgumentException(String.format("Failed to resolve parents for entity type %s", urn));
@@ -38,8 +41,9 @@ public class ParentDomainsResolver implements DataFetcher<CompletableFuture<Pare
             try {
                 Entity parentDomain = DomainUtils.getParentDomain(urn, context, _entityClient);
 
-                while (parentDomain != null) {
+                while (parentDomain != null && !visitedParentUrns.contains(parentDomain.getUrn())) {
                     parentDomains.add(parentDomain);
+                    visitedParentUrns.add(parentDomain.getUrn());
                     parentDomain = DomainUtils.getParentDomain(Urn.createFromString(parentDomain.getUrn()), context, _entityClient);
                 }
 

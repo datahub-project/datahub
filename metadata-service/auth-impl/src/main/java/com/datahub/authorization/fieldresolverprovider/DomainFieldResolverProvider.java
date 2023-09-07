@@ -100,12 +100,19 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
       return FieldResolver.emptyFieldValue();
     }
 
+    /*
+     * Build up a set of all directly referenced domains and any of the domains' parent domains.
+     * To avoid cycles we remove any parents we've already visited to prevent an infinite loop cycle.
+     */
+
     final Set<Urn> domainUrns = new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
     Set<Urn> batchedParentUrns = getBatchedParentDomains(domainUrns);
+    batchedParentUrns.removeAll(domainUrns);
 
     while (!batchedParentUrns.isEmpty()) {
       domainUrns.addAll(batchedParentUrns);
       batchedParentUrns = getBatchedParentDomains(batchedParentUrns);
+      batchedParentUrns.removeAll(domainUrns);
     }
 
     return FieldResolver.FieldValue.builder().values(domainUrns
