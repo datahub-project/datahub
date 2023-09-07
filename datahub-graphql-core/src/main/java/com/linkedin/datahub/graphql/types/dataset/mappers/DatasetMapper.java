@@ -75,7 +75,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         result.setType(EntityType.DATASET);
 
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
         result.setLastIngested(lastIngested);
 
         MappingHelper<Dataset> mappingHelper = new MappingHelper<>(aspectMap, result);
