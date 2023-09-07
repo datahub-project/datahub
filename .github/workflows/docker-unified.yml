@@ -677,7 +677,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag (Full)
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_full_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
