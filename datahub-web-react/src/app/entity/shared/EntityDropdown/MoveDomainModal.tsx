@@ -42,14 +42,14 @@ function MoveDomainModal(props: Props) {
         })
             .then(() => {
                 message.loading({ content: 'Updating...', duration: 2 });
+                const newParentToUpdate = selectedParentUrn || undefined;
+                handleMoveDomainComplete(entityDataUrn, newParentToUpdate);
                 setTimeout(() => {
                     message.success({
                         content: `Moved ${entityRegistry.getEntityName(entityType)}!`,
                         duration: 2,
                     });
                     refetch();
-                    const newParentToUpdate = selectedParentUrn || undefined;
-                    handleMoveDomainComplete(entityDataUrn, newParentToUpdate);
                 }, 2000);
             })
             .catch((e) => {
