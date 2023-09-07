@@ -11,7 +11,7 @@ packages = [{include = "datahub_integrations", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-acryl-datahub = { path = "../metadata-ingestion", develop = true }
+acryl-datahub = {path = "../metadata-ingestion", develop = true}
 fastapi = "^0.95.1"
 uvicorn = {extras = ["standard"], version = "^0.22.0"}
 loguru = "^0.7.0"
