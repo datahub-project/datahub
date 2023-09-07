@@ -40,9 +40,7 @@ class Urn(_Entity):
         if not value.startswith("urn:"):
             raise ValueError("invalid urn provided: urns must start with 'urn:'")
         if guess_entity_type(value) != "dataset":
-            raise ValueError(
-                "Datajob input/output currently only supports dataset lineage"
-            )
+            raise ValueError("Datajob input/output currently only supports datasets")
 
     @property
     def urn(self):
