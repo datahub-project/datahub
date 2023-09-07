@@ -288,15 +288,34 @@ div[class^="announcementBar"] {
 
 .theme-doc-sidebar-item-category-level-1 > div > a:first-child {
   color: var(--ifm-navbar-link-color);
-  font-size: 17px;
+  font-size: 15px;
+  padding: 14px;
+  font-wight: bold;
 }
 
 .theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
   color: var(--ifm-menu-color-active);
-  font-size: 17px;
+  font-size: 15px;
 }
 
 /* Increase padding for levels greater than 1 */
 [class^="theme-doc-sidebar-item"][class*="-level-"]:not(.theme-doc-sidebar-item-category-level-1) {
-  padding-left: 8px;
+  font-size: 15px;
+  padding: 2px 4px;
+}
+
+.docMainContainer_node_modules-\@docusaurus-theme-classic-lib-theme-DocPage-Layout-Main-styles-module {
+  padding: 1.5rem;
+}
+
+.table-of-contents {
+  padding: 16px 20px;
+}
+
+.table-of-contents__link {
+  padding: 2px;
+}
+
+h1 {
+ font-weight: 600;
 }
