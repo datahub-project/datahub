@@ -1,6 +1,8 @@
 package com.linkedin.metadata.entity;
 
 import com.codahale.metrics.Timer;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
@@ -1805,6 +1807,10 @@ public class EntityServiceImpl implements EntityService {
           @Nullable final EntityAspect latest,
           @Nonnull final Long nextVersion) {
 
+    // Set the "last run id" to be the run id provided with the new system metadata. This will be stored in index
+    // for all aspects that have a run id, regardless of whether they change.
+    providedSystemMetadata.setLastRunId(providedSystemMetadata.getRunId(GetMode.NULL), SetMode.IGNORE_NULL);
+
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =
         latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
@@ -1814,6 +1820,7 @@ public class EntityServiceImpl implements EntityService {
     if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
       SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
       latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
+      latestSystemMetadata.setLastRunId(providedSystemMetadata.getLastRunId(GetMode.NULL), SetMode.IGNORE_NULL);
 
       latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 

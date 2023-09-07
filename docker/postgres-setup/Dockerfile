@@ -10,10 +10,10 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
 FROM alpine:3
+COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk add --no-cache postgresql-client sqlite
-COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 COPY docker/postgres-setup/init.sql /init.sql
 COPY docker/postgres-setup/init.sh /init.sh
