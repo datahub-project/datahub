@@ -76,7 +76,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
         initialValue: false,
         closeDelay: 250,
     });
-    const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen || shouldHideDomain });
+    const { sortedDomains } = useListDomains({ parentDomain: domain.urn, skip: !isOpen || shouldHideDomain });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
@@ -121,7 +121,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
             </RowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing}>
                 <BodyContainer style={{ overflow: 'hidden' }}>
-                    {data?.listDomains?.domains.map((childDomain) => (
+                    {sortedDomains?.map((childDomain) => (
                         <DomainNode
                             key={domain.urn}
                             domain={childDomain as Domain}

@@ -2,10 +2,11 @@ import { ApolloClient } from '@apollo/client';
 import { useEffect } from 'react';
 import { isEqual } from 'lodash';
 import { ListDomainsDocument, ListDomainsQuery } from '../../graphql/domain.generated';
-import { EntityType } from '../../types.generated';
+import { Entity, EntityType } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';
 import usePrevious from '../shared/usePrevious';
 import { useDomainsContext } from './DomainsContext';
+import { useEntityRegistry } from '../useEntityRegistry';
 
 /**
  * Add an entry to the list domains cache.
@@ -124,5 +125,15 @@ export function useUpdateDomainEntityDataOnChange(entityData: GenericEntityPrope
         if (EntityType.Domain === entityType && !isEqual(entityData, previousEntityData)) {
             setEntityData(entityData);
         }
+    });
+}
+
+export function useSortedDomains<T extends Entity>(domains?: Array<T>, sortBy?: 'displayName') {
+    const entityRegistry = useEntityRegistry();
+    if (!domains || !sortBy) return domains;
+    return [...domains].sort((a, b) => {
+        const nameA = entityRegistry.getDisplayName(EntityType.Domain, a) || '';
+        const nameB = entityRegistry.getDisplayName(EntityType.Domain, b) || '';
+        return nameA.localeCompare(nameB);
     });
 }

@@ -18,12 +18,12 @@ interface Props {
 }
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
-    const { data, error } = useListDomains({});
+    const { sortedDomains, error } = useListDomains({});
 
     return (
         <NavigatorWrapper>
             {error && <Alert message="Loading Domains failed." showIcon type="error" />}
-            {data?.listDomains?.domains.map((domain) => (
+            {sortedDomains?.map((domain) => (
                 <DomainNode
                     key={domain.urn}
                     domain={domain as Domain}

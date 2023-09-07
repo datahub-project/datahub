@@ -1,11 +1,13 @@
 import { useListDomainsQuery } from '../../graphql/domain.generated';
+import { useSortedDomains } from './utils';
 
 interface Props {
     parentDomain?: string;
     skip?: boolean;
+    sortBy?: 'displayName';
 }
 
-export default function useListDomains({ parentDomain, skip }: Props) {
+export default function useListDomains({ parentDomain, skip, sortBy = 'displayName' }: Props) {
     const { data, error, loading, refetch } = useListDomainsQuery({
         skip,
         variables: {
@@ -19,5 +21,7 @@ export default function useListDomains({ parentDomain, skip }: Props) {
         nextFetchPolicy: 'cache-first', // then use cache after that so we can manipulate it
     });
 
-    return { data, error, loading, refetch };
+    const sortedDomains = useSortedDomains(data?.listDomains?.domains, sortBy);
+
+    return { data, sortedDomains, error, loading, refetch };
 }
