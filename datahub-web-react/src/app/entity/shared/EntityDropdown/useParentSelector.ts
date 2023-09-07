@@ -12,7 +12,7 @@ interface Props {
 }
 
 export default function useParentSelector({ entityType, entityData, selectedParentUrn, setSelectedParentUrn }: Props) {
-    const [selectedParentName, setSelectedParentName] = useState('');
+    const [selectedParentName, setSelectedParentName] = useState<string>();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const entityRegistry = useEntityRegistry();

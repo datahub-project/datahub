@@ -60,6 +60,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
             <Select
                 showSearch
                 allowClear
+                placeholder="Select"
                 filterOption={false}
                 value={selectedParentName}
                 onSelect={onSelectParent}
