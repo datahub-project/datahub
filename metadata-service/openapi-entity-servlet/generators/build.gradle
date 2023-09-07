@@ -1,0 +1,10 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation externalDependency.swaggerCli
+
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+}
