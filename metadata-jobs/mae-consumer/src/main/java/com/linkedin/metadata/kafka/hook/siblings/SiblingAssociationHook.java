@@ -10,6 +10,7 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataList;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
@@ -200,10 +201,16 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
-        if (
-            upstreams.size() == 1
-                && upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourceUrn);
+        UpstreamArray dbtUpstreams = new UpstreamArray(
+          upstreams.stream()
+          .filter(obj -> obj.getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME))
+          .collect(Collectors.toList())
+        );
+        if (dbtUpstreams.size() == 1) {
+          setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
+        } else {
+          log.error("{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.", sourceUrn.toString(), dbtUpstreams.size());
+ 
         }
       }
     }
@@ -219,7 +226,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         existingDbtSiblingAspect != null
             && existingSourceSiblingAspect != null
             && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
-            && existingDbtSiblingAspect.getSiblings().contains(dbtUrn.toString())
+            && existingSourceSiblingAspect.getSiblings().contains(dbtUrn.toString())
     ) {
       // we have already connected them- we can abort here
       return;
