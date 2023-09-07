@@ -63,10 +63,12 @@ const StyledExpander = styled(BodyGridExpander)`
 interface Props {
     domain: Domain;
     numDomainChildren: number;
+    domainUrnToHide?: string;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
-export default function DomainNode({ domain, numDomainChildren, selectDomainOverride }: Props) {
+export default function DomainNode({ domain, numDomainChildren, domainUrnToHide, selectDomainOverride }: Props) {
+    const shouldHideDomain = domainUrnToHide === domain.urn;
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
@@ -74,7 +76,7 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
         initialValue: false,
         closeDelay: 250,
     });
-    const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen });
+    const { data } = useListDomains({ parentDomain: domain.urn, skip: !isOpen || shouldHideDomain });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
@@ -96,6 +98,8 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
             history.push(entityRegistry.getEntityUrl(domain.type, domain.urn));
         }
     }
+
+    if (shouldHideDomain) return null;
 
     return (
         <>
@@ -122,6 +126,7 @@ export default function DomainNode({ domain, numDomainChildren, selectDomainOver
                             key={domain.urn}
                             domain={childDomain as Domain}
                             numDomainChildren={childDomain.children?.total || 0}
+                            domainUrnToHide={domainUrnToHide}
                             selectDomainOverride={selectDomainOverride}
                         />
                     ))}

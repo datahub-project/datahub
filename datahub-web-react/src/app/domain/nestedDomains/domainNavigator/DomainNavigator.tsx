@@ -13,10 +13,11 @@ const NavigatorWrapper = styled.div`
 `;
 
 interface Props {
+    domainUrnToHide?: string;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
-export default function DomainNavigator({ selectDomainOverride }: Props) {
+export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
     const { data, error } = useListDomains({});
 
     return (
@@ -27,6 +28,7 @@ export default function DomainNavigator({ selectDomainOverride }: Props) {
                     key={domain.urn}
                     domain={domain as Domain}
                     numDomainChildren={domain.children?.total || 0}
+                    domainUrnToHide={domainUrnToHide}
                     selectDomainOverride={selectDomainOverride}
                 />
             ))}
