@@ -283,14 +283,18 @@ div[class^="announcementBar"] {
   --docsearch-hit-background: var(--ifm-color-emphasis-100);
   /* Footer */
   --docsearch-footer-background: var(--ifm-background-surface-color);
-  --docsearch-key-gradient: linear-gradient(-26.5deg, var(--ifm-color-emphasis-200) 0%, var(--ifm-color-emphasis-100) 100%);
+  --docsearch-key-gradient: linear-gradient(
+    -26.5deg,
+    var(--ifm-color-emphasis-200) 0%,
+    var(--ifm-color-emphasis-100) 100%
+  );
 }
 
 .theme-doc-sidebar-item-category-level-1 > div > a:first-child {
   color: var(--ifm-navbar-link-color);
   font-size: 15px;
   padding: 14px;
-  font-wight: bold;
+  font-weight: bold;
 }
 
 .theme-doc-sidebar-item-category-level-1 > div > a.menu__link--active {
@@ -299,13 +303,19 @@ div[class^="announcementBar"] {
 }
 
 /* Increase padding for levels greater than 1 */
-[class^="theme-doc-sidebar-item"][class*="-level-"]:not(.theme-doc-sidebar-item-category-level-1) {
+[class^="theme-doc-sidebar-item"][class*="-level-"]:not(
+    .theme-doc-sidebar-item-category-level-1
+  ) {
   font-size: 15px;
   padding: 2px 4px;
 }
 
-.docMainContainer_node_modules-\@docusaurus-theme-classic-lib-theme-DocPage-Layout-Main-styles-module {
-  padding: 1.5rem;
+.padding-top--md {
+  padding: 2rem !important;
+}
+
+.padding-bottom--lg {
+  padding: 2rem !important;
 }
 
 .table-of-contents {
@@ -317,5 +327,5 @@ div[class^="announcementBar"] {
 }
 
 h1 {
- font-weight: 600;
+  font-weight: 600;
 }
