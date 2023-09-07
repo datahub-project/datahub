@@ -80,7 +80,6 @@ function DomainSearch() {
             setQuery(q);
         }, 250);
     };
-    console.log({ data });
 
     return (
         <DomainSearchWrapper>
