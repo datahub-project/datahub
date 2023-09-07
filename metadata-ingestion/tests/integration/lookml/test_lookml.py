@@ -99,9 +99,14 @@ def test_lookml_refinement_ingest(pytestconfig, tmp_path, mock_time):
         f"{tmp_path}/{mce_out_file}", f"{test_resources_dir}/lkml_samples"
     )
     new_recipe["source"]["config"]["process_refinements"] = True
+
     new_recipe["source"]["config"][
         "view_naming_pattern"
     ] = "{project}.{file_path}.view.{name}"
+
+    new_recipe["source"]["config"][
+        "view_browse_pattern"
+    ] = "/{env}/{platform}/{project}/{file_path}/views"
 
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
