@@ -52,7 +52,7 @@ export default function useParentSelector({ entityType, entityData, selectedPare
 
     function clearSelectedParent() {
         setSelectedParentUrn('');
-        setSelectedParentName('');
+        setSelectedParentName(undefined);
         setSearchQuery('');
     }
 
