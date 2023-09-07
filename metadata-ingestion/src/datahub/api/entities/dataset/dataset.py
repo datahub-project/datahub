@@ -39,8 +39,7 @@ class Urn(_Entity):
         if not value.startswith("urn:"):
             raise ValueError("invalid urn provided: urns must start with 'urn:'")
         if guess_entity_type(value) != "dataset":
-            # This is because DataJobs only support Dataset lineage.
-            raise ValueError("Airflow lineage currently only supports datasets")
+            raise ValueError("Datajob input/output currently only supports dataset lineage")
 
     @property
     def urn(self):
