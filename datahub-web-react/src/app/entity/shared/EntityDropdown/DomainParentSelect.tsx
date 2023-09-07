@@ -75,7 +75,10 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 ))}
             </Select>
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                <DomainNavigator selectDomainOverride={selectDomain} />
+                <DomainNavigator
+                    domainUrnToHide={isMoving ? entityDataUrn : undefined}
+                    selectDomainOverride={selectDomain}
+                />
             </BrowserWrapper>
         </ClickOutside>
     );
