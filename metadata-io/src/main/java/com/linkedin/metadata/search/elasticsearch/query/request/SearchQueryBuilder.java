@@ -437,7 +437,8 @@ public class SearchQueryBuilder {
   private BoolQueryBuilder toBoolQueryBuilder(String query, BoolQueryConfiguration boolQuery) {
     try {
       String jsonFragment = OBJECT_MAPPER.writeValueAsString(boolQuery)
-          .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query));
+          .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query))
+          .replace("\"{{unquoted_query_string}}\"", OBJECT_MAPPER.writeValueAsString(unquote(query)));
       XContentParser parser = XContentType.JSON.xContent().createParser(X_CONTENT_REGISTRY,
           LoggingDeprecationHandler.INSTANCE, jsonFragment);
       return BoolQueryBuilder.fromXContent(parser);
