@@ -6,11 +6,11 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType } from '../../../types.generated';
 import useListDomains from '../useListDomains';
 
-const RootDomainsHeader = styled.div`
-    font-size: 20px;
-    margin-bottom: 18px;
-    padding: 0 28px;
-`;
+// const RootDomainsHeader = styled.div`
+//     font-size: 20px;
+//     margin-bottom: 18px;
+//     padding: 0 28px;
+// `;
 
 const DomainsWrapper = styled.div`
     overflow: auto;
@@ -23,7 +23,6 @@ export default function RootDomains() {
 
     return (
         <>
-            <RootDomainsHeader>Your Domains</RootDomainsHeader>
             {!data && loading && <Message type="loading" content="Loading domains..." />}
             {error && <Message type="error" content="Failed to load domains. An unexpected error occurred." />}
             <DomainsWrapper>
