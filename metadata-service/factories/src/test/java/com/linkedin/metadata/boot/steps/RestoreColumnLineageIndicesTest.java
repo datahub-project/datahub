@@ -21,6 +21,7 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.util.Pair;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -29,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 public class RestoreColumnLineageIndicesTest {
 
@@ -64,7 +66,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(datasetUrn),
         Mockito.eq(Constants.DATASET_ENTITY_NAME),
         Mockito.eq(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
@@ -76,7 +78,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(chartUrn),
         Mockito.eq(Constants.CHART_ENTITY_NAME),
         Mockito.eq(Constants.INPUT_FIELDS_ASPECT_NAME),
@@ -88,7 +90,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(dashboardUrn),
         Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
         Mockito.eq(Constants.INPUT_FIELDS_ASPECT_NAME),
@@ -126,7 +128,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(datasetUrn),
         Mockito.eq(Constants.DATASET_ENTITY_NAME),
         Mockito.eq(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
@@ -138,7 +140,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(chartUrn),
         Mockito.eq(Constants.CHART_ENTITY_NAME),
         Mockito.eq(Constants.INPUT_FIELDS_ASPECT_NAME),
@@ -150,7 +152,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(1)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(1)).alwaysProduceMCLAsync(
         Mockito.eq(dashboardUrn),
         Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
         Mockito.eq(Constants.INPUT_FIELDS_ASPECT_NAME),
@@ -188,7 +190,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(AuditStamp.class),
         Mockito.eq(false)
     );
-    Mockito.verify(mockService, Mockito.times(0)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(0)).alwaysProduceMCLAsync(
         Mockito.eq(datasetUrn),
         Mockito.eq(Constants.DATASET_ENTITY_NAME),
         Mockito.eq(Constants.UPSTREAM_LINEAGE_ASPECT_NAME),
@@ -200,7 +202,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(0)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(0)).alwaysProduceMCLAsync(
         Mockito.eq(chartUrn),
         Mockito.eq(Constants.CHART_ENTITY_NAME),
         Mockito.eq(Constants.INPUT_FIELDS_ASPECT_NAME),
@@ -212,7 +214,7 @@ public class RestoreColumnLineageIndicesTest {
         Mockito.any(),
         Mockito.eq(ChangeType.RESTATE)
     );
-    Mockito.verify(mockService, Mockito.times(0)).produceMetadataChangeLog(
+    Mockito.verify(mockService, Mockito.times(0)).alwaysProduceMCLAsync(
         Mockito.eq(dashboardUrn),
         Mockito.eq(Constants.DASHBOARD_ENTITY_NAME),
         Mockito.eq(Constants.INPUT_FIELDS_ASPECT_NAME),
@@ -233,6 +235,12 @@ public class RestoreColumnLineageIndicesTest {
             .setVersion(0L)
             .setAudit(new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:test")).setTime(0L))
     );
+
+    Mockito.when(mockService.alwaysProduceMCLAsync(
+            Mockito.any(Urn.class), Mockito.anyString(), Mockito.anyString(), Mockito.any(AspectSpec.class),
+            Mockito.eq(null), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(),
+            Mockito.any(ChangeType.class)
+    )).thenReturn(Pair.of(Mockito.mock(Future.class), false));
 
     Mockito.when(mockService.listLatestAspects(
         Mockito.eq(Constants.DATASET_ENTITY_NAME),

@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    compile externalDependency.jacksonDataBind
+    implementation externalDependency.jacksonDataBind
 
     implementation externalDependency.slf4jApi
     implementation externalDependency.springCore

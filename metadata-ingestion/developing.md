@@ -26,6 +26,16 @@ source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
 
+### (Optional) Set up your Python environment for developing on Airflow Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/airflow-plugin
+../../gradlew :metadata-ingestion-modules:airflow-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
 ### Common setup issues
 
 Common issues (click to expand):
@@ -74,7 +84,9 @@ The syntax for installing plugins is slightly different in development. For exam
 
 ## Architecture
 
-![metadata ingestion framework layout](../docs/imgs/datahub-metadata-ingestion-framework.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-metadata-ingestion-framework.png"/>
+</p>
 
 The architecture of this metadata ingestion framework is heavily inspired by [Apache Gobblin](https://gobblin.apache.org/) (also originally a LinkedIn project!). We have a standardized format - the MetadataChangeEvent - and sources and sinks which respectively produce and consume these objects. The sources pull metadata from a variety of data systems, while the sinks are primarily for moving this metadata into DataHub.
 
@@ -181,7 +193,7 @@ pytest -m 'slow_integration'
 ../gradlew :metadata-ingestion:testFull
 ../gradlew :metadata-ingestion:check
 # Run all tests in a single file
-../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_airflow.py
+../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit/test_bigquery_source.py
 # Run all tests under tests/unit
 ../gradlew :metadata-ingestion:testSingle -PtestFile=tests/unit
 ```

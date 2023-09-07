@@ -11,40 +11,41 @@ configurations {
 dependencies {
     avro project(path: ':metadata-models', configuration: 'avroSchema')
 
-    compile project(':li-utils')
-    compile (project(':metadata-service:factories')) {
+    implementation project(':li-utils')
+    implementation(project(':metadata-service:factories')) {
         exclude group: 'org.neo4j.test'
     }
-    compile project(':metadata-service:auth-config')
-    compile project(':metadata-service:restli-client')
-    compile project(':metadata-io')
-    compile project(':ingestion-scheduler')
-    compile project(':metadata-utils')
-    compile project(":entity-registry")
-    compile project(':metadata-events:mxe-avro-1.7')
-    compile project(':metadata-events:mxe-registration')
-    compile project(':metadata-events:mxe-utils-avro-1.7')
+    implementation project(':metadata-service:auth-config')
+    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-io')
+    implementation project(':ingestion-scheduler')
+    implementation project(':metadata-utils')
+    implementation project(":entity-registry")
+    implementation project(':metadata-events:mxe-avro-1.7')
+    implementation project(':metadata-events:mxe-registration')
+    implementation project(':metadata-events:mxe-utils-avro-1.7')
+    implementation project(':datahub-graphql-core')
 
-    compile externalDependency.elasticSearchRest
-    compile externalDependency.kafkaAvroSerde
+    implementation externalDependency.elasticSearchRest
+    implementation externalDependency.kafkaAvroSerde
     implementation externalDependency.protobuf
-    compile externalDependency.neo4jJavaDriver
+    implementation externalDependency.neo4jJavaDriver
 
-    compile externalDependency.springKafka
-    compile externalDependency.springActuator
+    implementation externalDependency.springKafka
+    implementation externalDependency.springActuator
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
 
-    runtime externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackClassic
 
-    testCompile externalDependency.mockito
+    testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
 
     testImplementation externalDependency.springBootTest
-    testRuntime externalDependency.logbackClassic
+    testRuntimeOnly externalDependency.logbackClassic
 }
 
 task avroSchemaSources(type: Copy) {

@@ -58,7 +58,9 @@ locust -f perf-test/locustfiles/ingest.py
 This will set up the web interface in http://localhost:8089 (unless the port is already taken). Once you click into it,
 you should see the following
 
-![Locust Example](../docs/imgs/locust-example.png)
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/locust-example.png"/>
+</p>
 
 Input the number of users you would like to spawn and the spawn rate. Point the host to the deployed DataHub GMS (
 locally, it should be http://localhost:8080). Click on the "Start swarming" button to start the load test.

@@ -89,6 +89,17 @@
       }
     },
     {
+      "Path": "docs/generated/ingestion/sources/datahub",
+      "imgPath": "img/acryl-logo-light-mark.png",
+      "Title": "DataHub",
+      "Description": "Integrate your open source DataHub instance with Acryl Cloud or other on-prem DataHub instances",
+      "tags": {
+        "Platform Type": "Metadata",
+        "Connection Type": "Pull",
+        "Features": "Stateful Ingestion"
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/dbt",
       "imgPath": "img/logos/platforms/dbt.svg",
       "Title": "dbt",
