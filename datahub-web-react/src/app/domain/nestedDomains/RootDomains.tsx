@@ -6,12 +6,6 @@ import { useEntityRegistry } from '../../useEntityRegistry';
 import { EntityType } from '../../../types.generated';
 import useListDomains from '../useListDomains';
 
-// const RootDomainsHeader = styled.div`
-//     font-size: 20px;
-//     margin-bottom: 18px;
-//     padding: 0 28px;
-// `;
-
 const DomainsWrapper = styled.div`
     overflow: auto;
     padding: 0 28px 16px 28px;

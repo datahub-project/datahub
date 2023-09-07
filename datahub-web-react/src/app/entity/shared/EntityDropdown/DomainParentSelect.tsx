@@ -60,7 +60,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
     const handleClickOutside = () => setIsFocusedOnInput(false);
 
     const handleClear = (event: MouseEvent) => {
-        // Prevent, otherwise the default clear button triggers the onClickOutside
+        // Prevent, otherwise antd will close the select menu but leaves it focused
         event.stopPropagation();
         clearSelectedParent();
     };
