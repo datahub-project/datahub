@@ -26,12 +26,11 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-
   implementation project(':metadata-models')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
-  compile externalDependency.avro_1_7
+  implementation externalDependency.avro_1_7
   constraints {
     implementation('commons-collections:commons-collections:3.2.2') {
       because 'Vulnerability Issue'
@@ -48,14 +47,16 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  testCompile externalDependency.mockito
-  testCompile externalDependency.mockServer
-  testCompile externalDependency.mockServerClient
-  testCompile externalDependency.testContainers
-  testCompile externalDependency.httpAsyncClient
-  testRuntime externalDependency.logbackClassic
+  // VisibleForTesting
+  compileOnly externalDependency.guava
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockServer
+  testImplementation externalDependency.mockServerClient
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.httpAsyncClient
+  testRuntimeOnly externalDependency.logbackClassic
 
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
+  swaggerCodegen externalDependency.swaggerCli
 }
 
 task copyAvroSchemas {
@@ -139,6 +140,7 @@ checkShadowJar {
 assemble {
   dependsOn shadowJar
 }
+compileTestJava.dependsOn shadowJar
 
 task sourcesJar(type: Jar) {
   archiveClassifier = 'sources'
@@ -231,7 +233,12 @@ tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
 }
 
 compileJava.dependsOn generateOpenApiPojos
+processResources.dependsOn generateOpenApiPojos
 sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
 sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
 
 checkstyleMain.exclude '**/generated/**'
+
+clean {
+  project.delete("$projectDir/generated")
+}

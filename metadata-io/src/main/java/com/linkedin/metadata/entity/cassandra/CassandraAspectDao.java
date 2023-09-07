@@ -32,18 +32,20 @@ import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import io.ebean.PagedList;
+import io.ebean.Transaction;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
@@ -82,6 +84,19 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   public EntityAspect getLatestAspect(@Nonnull String urn, @Nonnull String aspectName) {
     validateConnection();
     return getAspect(urn, aspectName, ASPECT_LATEST_VERSION);
+  }
+
+  @Override
+  public Map<String, Map<String, EntityAspect>> getLatestAspects(Map<String, Set<String>> urnAspects) {
+    return urnAspects.entrySet().stream()
+            .map(entry -> Map.entry(entry.getKey(), entry.getValue().stream()
+                    .map(aspectName -> {
+                      EntityAspect aspect = getLatestAspect(entry.getKey(), aspectName);
+                      return aspect != null ? Map.entry(aspectName, aspect) : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   @Override
@@ -148,7 +163,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void saveAspect(@Nonnull EntityAspect aspect, final boolean insert) {
+  public void saveAspect(@Nullable Transaction tx, @Nonnull EntityAspect aspect, final boolean insert) {
     validateConnection();
     SimpleStatement statement = generateSaveStatement(aspect, insert);
     _cqlSession.execute(statement);
@@ -240,7 +255,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   @Nonnull
-  public <T> T runInTransactionWithRetry(@Nonnull final Supplier<T> block, final int maxTransactionRetry) {
+  public <T> T runInTransactionWithRetry(@Nonnull final Function<Transaction, T> block, final int maxTransactionRetry) {
     validateConnection();
     int retryCount = 0;
     Exception lastException;
@@ -248,7 +263,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     do {
       try {
         // TODO: Try to bend this code to make use of Cassandra batches. This method is called from single-urn operations, so perf should not suffer much
-        return block.get();
+        return block.apply(null);
       } catch (DriverException exception) {
         lastException = exception;
       }
@@ -318,7 +333,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public void deleteAspect(@Nonnull final EntityAspect aspect) {
+  public void deleteAspect(@Nullable Transaction tx, @Nonnull final EntityAspect aspect) {
     validateConnection();
     SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(aspect.getUrn()))
@@ -331,7 +346,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public int deleteUrn(@Nonnull final String urn) {
+  public int deleteUrn(@Nullable Transaction tx, @Nonnull final String urn) {
     validateConnection();
     SimpleStatement ss = deleteFrom(CassandraAspect.TABLE_NAME)
         .whereColumn(CassandraAspect.URN_COLUMN).isEqualTo(literal(urn))
@@ -452,42 +467,42 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long getNextVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  public Map<String, Map<String, Long>> getNextVersions(Map<String, Set<String>> urnAspectMap) {
     validateConnection();
-    Map<String, Long> versions = getNextVersions(urn, ImmutableSet.of(aspectName));
-    return versions.get(aspectName);
-  }
+    Map<String, Map<String, Long>> result = new HashMap<>();
 
-  @Override
-  public Map<String, Long> getNextVersions(@Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
-    validateConnection();
-    Map<String, Long> maxVersions = getMaxVersions(urn, aspectNames);
-    Map<String, Long> nextVersions = new HashMap<>();
+    for (Map.Entry<String, Set<String>> aspectNames : urnAspectMap.entrySet()) {
+      Map<String, Long> maxVersions = getMaxVersions(aspectNames.getKey(), aspectNames.getValue());
+      Map<String, Long> nextVersions = new HashMap<>();
 
-    for (String aspectName: aspectNames) {
-      long latestVersion = maxVersions.get(aspectName);
-      long nextVal = latestVersion < 0 ? ASPECT_LATEST_VERSION : latestVersion + 1L;
-      nextVersions.put(aspectName, nextVal);
+      for (String aspectName : aspectNames.getValue()) {
+        long latestVersion = maxVersions.get(aspectName);
+        long nextVal = latestVersion < 0 ? ASPECT_LATEST_VERSION : latestVersion + 1L;
+        nextVersions.put(aspectName, nextVal);
+      }
+
+      result.put(aspectNames.getKey(), nextVersions);
     }
 
-    return nextVersions;
+    return result;
   }
 
   @Override
   public long saveLatestAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nullable final String oldAspectMetadata,
-      @Nullable final String oldActor,
-      @Nullable final String oldImpersonator,
-      @Nullable final Timestamp oldTime,
-      @Nullable final String oldSystemMetadata,
-      @Nonnull final String newAspectMetadata,
-      @Nonnull final String newActor,
-      @Nullable final String newImpersonator,
-      @Nonnull final Timestamp newTime,
-      @Nullable final String newSystemMetadata,
-      final Long nextVersion
+          @Nullable Transaction tx,
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nullable final String oldAspectMetadata,
+          @Nullable final String oldActor,
+          @Nullable final String oldImpersonator,
+          @Nullable final Timestamp oldTime,
+          @Nullable final String oldSystemMetadata,
+          @Nonnull final String newAspectMetadata,
+          @Nonnull final String newActor,
+          @Nullable final String newImpersonator,
+          @Nonnull final Timestamp newTime,
+          @Nullable final String newSystemMetadata,
+          final Long nextVersion
   ) {
 
     validateConnection();
@@ -573,15 +588,16 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public void saveAspect(
-      @Nonnull final String urn,
-      @Nonnull final String aspectName,
-      @Nonnull final String aspectMetadata,
-      @Nonnull final String actor,
-      @Nullable final String impersonator,
-      @Nonnull final Timestamp timestamp,
-      @Nonnull final String systemMetadata,
-      final long version,
-      final boolean insert) {
+          @Nullable Transaction tx,
+          @Nonnull final String urn,
+          @Nonnull final String aspectName,
+          @Nonnull final String aspectMetadata,
+          @Nonnull final String actor,
+          @Nullable final String impersonator,
+          @Nonnull final Timestamp timestamp,
+          @Nonnull final String systemMetadata,
+          final long version,
+          final boolean insert) {
 
     validateConnection();
     final EntityAspect aspect = new EntityAspect(
@@ -595,7 +611,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
         impersonator
     );
 
-    saveAspect(aspect, insert);
+    saveAspect(tx, aspect, insert);
+
+    // metrics
+    incrementWriteMetrics(aspectName, 1, aspectMetadata.getBytes(StandardCharsets.UTF_8).length);
   }
 
   @Override

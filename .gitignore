@@ -69,6 +69,8 @@ metadata-ingestion/generated/**
 
 # docs
 docs/generated/
+docs-website/versioned_docs/
+docs-website/versioned_sidebars/
 tmp*
 temp/**
 

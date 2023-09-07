@@ -38,7 +38,7 @@
         "@visx/shape": "^3.2.0",
         "@visx/xychart": "^3.2.0",
         "@visx/zoom": "^3.1.1",
-        "analytics": "^0.7.5",
+        "analytics": "^0.8.9",
         "antd": "4.24.7",
         "color-hash": "^2.0.1",
         "craco-antd": "^2.0.0",

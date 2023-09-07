@@ -97,7 +97,7 @@ class DatasetUrn(Urn):
     """A helper function to extract simple . path notation from the v2 field path"""
 
     @staticmethod
-    def _get_simple_field_path_from_v2_field_path(field_path: str) -> str:
+    def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
         if field_path.startswith("[version=2.0]"):
             # this is a v2 field path
             tokens = [

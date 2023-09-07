@@ -30,6 +30,7 @@ dependencies {
     implementation project(':metadata-models')
     implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
+    implementation externalDependency.guava
     implementation externalDependency.protobuf
     implementation externalDependency.jgrapht
     implementation externalDependency.gson

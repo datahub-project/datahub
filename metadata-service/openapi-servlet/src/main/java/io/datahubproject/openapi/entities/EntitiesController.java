@@ -52,7 +52,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 
 
 @RestController
@@ -201,7 +201,7 @@ public class EntitiesController {
               .map(proposal -> MappingUtil.ingestProposal(proposal, actorUrnStr, _entityService))
               .filter(Pair::getSecond)
               .map(Pair::getFirst)
-              .map(urnString -> new AspectRowSummary().urn(urnString))
+              .map(urnString -> AspectRowSummary.builder().urn(urnString).build())
               .collect(Collectors.toList()))
           .rowsDeletedFromEntityDeletion(deleteRequests.size())
           .build()));

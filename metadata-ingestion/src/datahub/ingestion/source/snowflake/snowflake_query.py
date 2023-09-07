@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_config import DEFAULT_TABLES_DENY_LIST
 
@@ -505,35 +506,6 @@ class SnowflakeQuery:
     def show_external_tables() -> str:
         return "show external tables in account"
 
-    # Note - This method should be removed once legacy lineage is removed
-    @staticmethod
-    def external_table_lineage_history(
-        start_time_millis: int, end_time_millis: int
-    ) -> str:
-        return f"""
-        WITH external_table_lineage_history AS (
-            SELECT
-                r.value:"locations" AS upstream_locations,
-                w.value:"objectName"::varchar AS downstream_table_name,
-                w.value:"objectDomain"::varchar AS downstream_table_domain,
-                w.value:"columns" AS downstream_table_columns,
-                t.query_start_time AS query_start_time
-            FROM
-                (SELECT * from snowflake.account_usage.access_history) t,
-                lateral flatten(input => t.BASE_OBJECTS_ACCESSED) r,
-                lateral flatten(input => t.OBJECTS_MODIFIED) w
-            WHERE r.value:"locations" IS NOT NULL
-            AND w.value:"objectId" IS NOT NULL
-            AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-            AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3))
-        SELECT
-        upstream_locations AS "UPSTREAM_LOCATIONS",
-        downstream_table_name AS "DOWNSTREAM_TABLE_NAME",
-        downstream_table_columns AS "DOWNSTREAM_TABLE_COLUMNS"
-        FROM external_table_lineage_history
-        WHERE downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY downstream_table_name ORDER BY query_start_time DESC) = 1"""
-
     @staticmethod
     def copy_lineage_history(
         start_time_millis: int,
@@ -575,14 +547,17 @@ class SnowflakeQuery:
     def usage_per_object_per_time_bucket_for_time_window(
         start_time_millis: int,
         end_time_millis: int,
-        time_bucket_size: str,
+        time_bucket_size: BucketDuration,
         use_base_objects: bool,
         top_n_queries: int,
         include_top_n_queries: bool,
     ) -> str:
         if not include_top_n_queries:
             top_n_queries = 0
-        assert time_bucket_size == "DAY" or time_bucket_size == "HOUR"
+        assert (
+            time_bucket_size == BucketDuration.DAY
+            or time_bucket_size == BucketDuration.HOUR
+        )
         objects_column = (
             "BASE_OBJECTS_ACCESSED" if use_base_objects else "DIRECT_OBJECTS_ACCESSED"
         )
@@ -629,7 +604,7 @@ class SnowflakeQuery:
             SELECT
                 object_name,
                 ANY_VALUE(object_domain) AS object_domain,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 count( distinct(user_name) ) AS total_users
             FROM
@@ -644,7 +619,7 @@ class SnowflakeQuery:
             SELECT
                 object_name,
                 column_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries
             FROM
                 field_access_history
@@ -658,7 +633,7 @@ class SnowflakeQuery:
         (
             SELECT
                 object_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 count(distinct(query_id)) AS total_queries,
                 user_name,
                 ANY_VALUE(users.email) AS user_email
@@ -677,7 +652,7 @@ class SnowflakeQuery:
         (
             SELECT
                 object_name,
-                DATE_TRUNC('{time_bucket_size}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
+                DATE_TRUNC('{time_bucket_size.value}', CONVERT_TIMEZONE('UTC', query_start_time)) AS bucket_start_time,
                 query_history.query_text AS query_text,
                 count(distinct(access_history.query_id)) AS total_queries
             FROM

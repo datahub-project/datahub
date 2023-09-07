@@ -13,12 +13,11 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
-import com.linkedin.metadata.snapshot.Snapshot;
-import com.linkedin.mxe.MetadataAuditOperation;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -28,12 +27,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 
 public interface EntityService {
+
+  /**
+   * Just whether the entity/aspect exists
+   * @param urn urn for the entity
+   * @param aspectName aspect for the entity
+   * @return exists or not
+   */
+  Boolean exists(Urn urn, String aspectName);
 
   /**
    * Retrieves the latest aspects corresponding to a batch of {@link Urn}s based on a provided
@@ -140,22 +148,6 @@ public interface EntityService {
       @Nonnull final Urn urn,
       @Nonnull final String aspectName) throws Exception;
 
-  /**
-   * Retrieves the specific version of the aspect for the given urn
-   *
-   * @param entityName name of the entity to fetch
-   * @param urn urn to fetch
-   * @param aspectName name of the aspect to fetch
-   * @param version version to fetch
-   * @return {@link EnvelopedAspect} object, or null if one cannot be found
-   */
-  EnvelopedAspect getEnvelopedAspect(
-      // TODO: entityName is only used for a debug statement, can we remove this as a param?
-      String entityName,
-      @Nonnull Urn urn,
-      @Nonnull String aspectName,
-      long version) throws Exception;
-
   @Deprecated
   VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version);
 
@@ -165,24 +157,11 @@ public interface EntityService {
       final int start,
       final int count);
 
-  void ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
+  List<UpdateAspectResult> ingestAspects(@Nonnull final Urn urn, @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest,
       @Nonnull final AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata);
 
-  /**
-   * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
-   *
-   * Note that in general, this should not be used externally. It is currently serving upgrade scripts and
-   * is as such public.
-   *
-   * @param urn an urn associated with the new aspect
-   * @param aspectName name of the aspect being inserted
-   * @param newValue value of the aspect being inserted
-   * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
-   * @param systemMetadata
-   * @return the {@link RecordTemplate} representation of the written aspect object
-   */
-  RecordTemplate ingestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nonnull final RecordTemplate newValue, @Nonnull final AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata);
+  List<UpdateAspectResult> ingestAspects(@Nonnull final AspectsBatch aspectsBatch, @Nonnull final AuditStamp auditStamp,
+                                         boolean emitMCL, boolean overwrite);
 
   /**
    * Ingests (inserts) a new version of an entity aspect & emits a {@link com.linkedin.mxe.MetadataAuditEvent}.
@@ -211,17 +190,6 @@ public interface EntityService {
   // TODO: Extract this to a different service, doesn't need to be here
   RestoreIndicesResult restoreIndices(@Nonnull RestoreIndicesArgs args, @Nonnull Consumer<String> logger);
 
-  @Deprecated
-  RecordTemplate updateAspect(
-      @Nonnull final Urn urn,
-      @Nonnull final String entityName,
-      @Nonnull final String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final RecordTemplate newValue,
-      @Nonnull final AuditStamp auditStamp,
-      @Nonnull final long version,
-      @Nonnull final boolean emitMae);
-
   ListUrnsResult listUrns(@Nonnull final String entityName, final int start, final int count);
 
   @Deprecated
@@ -230,23 +198,14 @@ public interface EntityService {
   @Deprecated
   Map<Urn, Entity> getEntities(@Nonnull final Set<Urn> urns, @Nonnull Set<String> aspectNames);
 
-  @Deprecated
-  void produceMetadataAuditEvent(@Nonnull final Urn urn, @Nonnull final String aspectName,
-      @Nullable final RecordTemplate oldAspectValue, @Nullable final RecordTemplate newAspectValue,
-      @Nullable final SystemMetadata oldSystemMetadata, @Nullable final SystemMetadata newSystemMetadata,
-      @Nullable final MetadataAuditOperation operation);
-
-  @Deprecated
-  void produceMetadataAuditEventForKey(@Nonnull final Urn urn,
-      @Nullable final SystemMetadata newSystemMetadata);
-
-  void produceMetadataChangeLog(@Nonnull final Urn urn, AspectSpec aspectSpec,
+  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(@Nonnull final Urn urn, AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
-  void produceMetadataChangeLog(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
-      @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata, @Nonnull AuditStamp auditStamp, @Nonnull final ChangeType changeType);
+  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(@Nonnull final Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
+                                                 @Nonnull final AspectSpec aspectSpec, @Nullable final RecordTemplate oldAspectValue,
+                                                 @Nullable final RecordTemplate newAspectValue, @Nullable final SystemMetadata oldSystemMetadata,
+                                                 @Nullable final SystemMetadata newSystemMetadata, @Nonnull AuditStamp auditStamp,
+                                                 @Nonnull final ChangeType changeType);
 
   RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 
@@ -255,14 +214,11 @@ public interface EntityService {
       @Nonnull final List<SystemMetadata> systemMetadata);
 
   @Deprecated
-  void ingestEntity(Entity entity, AuditStamp auditStamp);
+  SystemMetadata ingestEntity(Entity entity, AuditStamp auditStamp);
 
   @Deprecated
   void ingestEntity(@Nonnull Entity entity, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata systemMetadata);
-
-  @Deprecated
-  Snapshot buildSnapshot(@Nonnull final Urn urn, @Nonnull final RecordTemplate aspectValue);
 
   void setRetentionService(RetentionService retentionService);
 
@@ -272,8 +228,33 @@ public interface EntityService {
 
   String getKeyAspectName(@Nonnull final Urn urn);
 
+  /**
+   * Generate default aspects if not present in the database.
+   * @param urn entity urn
+   * @param includedAspects aspects being written
+   * @return additional aspects to be written
+   */
   List<Pair<String, RecordTemplate>> generateDefaultAspectsIfMissing(@Nonnull final Urn urn,
-      Set<String> includedAspects);
+                                                                     Map<String, RecordTemplate> includedAspects);
+
+  /**
+   * Generate default aspects if the entity key aspect is NOT in the database **AND**
+   * the key aspect is being written, present in `includedAspects`.
+   *
+   * Does not automatically create key aspects.
+   * @see EntityService#generateDefaultAspectsIfMissing if key aspects need autogeneration
+   *
+   * This version is more efficient in that it only generates additional writes
+   * when a new entity is being minted for the first time. The drawback is that it will not automatically
+   * add key aspects, in case the producer is not bothering to ensure that the entity exists
+   * before writing non-key aspects.
+   *
+   * @param urn entity urn
+   * @param includedAspects aspects being written
+   * @return whether key aspect exists in database and the additional aspects to be written
+   */
+  Pair<Boolean, List<Pair<String, RecordTemplate>>> generateDefaultAspectsOnFirstWrite(@Nonnull final Urn urn,
+                                                                                       Map<String, RecordTemplate> includedAspects);
 
   AspectSpec getKeyAspectSpec(@Nonnull final String entityName);
 
@@ -289,8 +270,16 @@ public interface EntityService {
 
   RollbackRunResult rollbackWithConditions(List<AspectRowSummary> aspectRows, Map<String, String> conditions, boolean hardDelete);
 
-  IngestProposalResult ingestProposal(@Nonnull MetadataChangeProposal mcp,
-      AuditStamp auditStamp, final boolean async);
+  Set<IngestResult> ingestProposal(AspectsBatch aspectsBatch, AuditStamp auditStamp, final boolean async);
+
+  /**
+   * If you have more than 1 proposal use the {AspectsBatch} method
+   * @param proposal the metadata proposal to ingest
+   * @param auditStamp audit information
+   * @param async async ingestion or sync ingestion
+   * @return ingestion result
+   */
+  IngestResult ingestProposal(MetadataChangeProposal proposal, AuditStamp auditStamp, final boolean async);
 
   Boolean exists(Urn urn);
 

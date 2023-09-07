@@ -60,6 +60,7 @@ public class ContainerEntitiesResolverTest {
         Mockito.eq(0),
         Mockito.eq(20),
         Mockito.eq(null),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenReturn(
         new SearchResult()
