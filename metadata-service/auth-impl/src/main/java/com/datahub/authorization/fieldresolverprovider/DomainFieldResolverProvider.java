@@ -102,10 +102,12 @@ public class DomainFieldResolverProvider implements ResourceFieldResolverProvide
 
     final Set<Urn> domainUrns = new HashSet<>(new Domains(domainsAspect.getValue().data()).getDomains());
     Set<Urn> batchedParentUrns = getBatchedParentDomains(domainUrns);
+    batchedParentUrns.removeAll(domainUrns);
 
     while (!batchedParentUrns.isEmpty()) {
       domainUrns.addAll(batchedParentUrns);
       batchedParentUrns = getBatchedParentDomains(batchedParentUrns);
+      batchedParentUrns.removeAll(domainUrns);
     }
 
     return FieldResolver.FieldValue.builder().values(domainUrns
