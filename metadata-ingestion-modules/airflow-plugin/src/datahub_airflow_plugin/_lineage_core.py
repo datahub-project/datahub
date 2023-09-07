@@ -7,7 +7,7 @@ from datahub.configuration.common import ConfigModel
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
-from datahub_airflow_plugin.entities import _Entity
+from datahub.api.entities.dataset import _Entity
 
 if TYPE_CHECKING:
     from airflow import DAG
