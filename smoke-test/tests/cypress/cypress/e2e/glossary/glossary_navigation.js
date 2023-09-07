@@ -8,10 +8,10 @@ describe("glossary sidebar navigation test", () => {
         cy.loginWithCredentials();
         cy.goToGlossaryList();
         cy.clickOptionWithText("Add Term Group");
-        cy.addViaAffixModal(glossaryTermGroup, "Create Term Group");
+        cy.addViaModal(glossaryTermGroup, "Create Term Group");
         cy.get('*[class^="GlossaryBrowser"]').contains(glossaryTermGroup).should("be.visible");
         cy.clickOptionWithText("Add Term");
-        cy.addViaAffixModal(glossaryTerm, "Create Glossary Term");
+        cy.addViaModal(glossaryTerm, "Create Glossary Term");
         cy.get('*[class^="GlossaryBrowser"]').contains(glossaryTerm).click();
         cy.waitTextVisible("No documentation yet");
         cy.openThreeDotDropdown();
