@@ -20,7 +20,7 @@ plugins {
 
 ext {
     python_executable = 'python3'
-    venv_name = '.venv'
+    venv_name = 'venv'
 }
 
 task checkPythonVersion(type: Exec) {
@@ -29,20 +29,19 @@ task checkPythonVersion(type: Exec) {
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
     inputs.file file('pyproject.toml')
-    inputs.file file('poetry.lock')
     outputs.dir("${venv_name}")
     commandLine 'bash', '-c',
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools poetry==1.4.2"
+        "${venv_name}/bin/python -m pip install --upgrade pip wheel setuptools pip-tools"
 }
 
 task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:codegen']) {
     inputs.file file('pyproject.toml')
-    inputs.file file('poetry.lock')
+    inputs.file file('requirements.txt')
     outputs.file("${venv_name}/.build_install_sentinel")
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/poetry config virtualenvs.in-project true && " +
-        "${venv_name}/bin/poetry install --only main && " +
+        "${venv_name}/bin/pip install -r requirements.txt && " +
+        "${venv_name}/bin/pip install -e . && " +
         "touch ${venv_name}/.build_install_sentinel"
 }
 
@@ -50,33 +49,33 @@ task install(dependsOn: [installPackage])
 
 task installDev(type: Exec, dependsOn: [install]) {
     inputs.file file('pyproject.toml')
-    inputs.file file('poetry.lock')
+    inputs.file file('requirements-dev.txt')
     outputs.file("${venv_name}/.build_install_dev_sentinel")
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/poetry install && " +
+        "${venv_name}/bin/pip install -r requirements-dev.txt && " +
         "touch ${venv_name}/.build_install_dev_sentinel"
 }
 
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "set -x &&" +
-        "${venv_name}/bin/poetry run black --check --diff src/ tests/ && " +
-        "${venv_name}/bin/poetry run isort --check --diff src/ tests/ && " +
-        "${venv_name}/bin/poetry run ruff --statistics src/ tests/ && " +
-        "${venv_name}/bin/poetry run mypy src/ tests/"
+        "source ${venv_name}/bin/activate && set -x && " +
+        "black --check --diff src/ tests/ && " +
+        "isort --check --diff src/ tests/ && " +
+        "ruff --statistics src/ tests/ && " +
+        "mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
-        "set -x &&" +
-        "${venv_name}/bin/poetry run black src/ tests/ && " +
-        "${venv_name}/bin/poetry run isort src/ tests/ && " +
-        "${venv_name}/bin/poetry run ruff --fix src/ tests/ && " +
-        "${venv_name}/bin/poetry run mypy src/ tests/"
+        "source ${venv_name}/bin/activate && set -x && " +
+        "black src/ tests/ && " +
+        "isort src/ tests/ && " +
+        "ruff --fix src/ tests/ && " +
+        "mypy src/ tests/"
 }
 
 task test(type: Exec, dependsOn: [installDev]) {
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/poetry run pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+        "${venv_name}/bin/pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 task cleanPythonCache(type: Exec) {
