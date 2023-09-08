@@ -8,7 +8,6 @@ import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import { useDomainsContext } from '../../../domain/DomainsContext';
-import { useEntityData } from '../EntityContext';
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: Domain, entityUrn: string) {
@@ -28,7 +27,7 @@ interface Props {
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
-    const { urn: entityDataUrn } = useEntityData();
+    const domainUrn = entityData?.urn;
 
     const {
         searchResults,
@@ -46,9 +45,10 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
         selectedParentUrn,
         setSelectedParentUrn,
     });
-    const domainSearchResultsFiltered = isMoving
-        ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, entityDataUrn))
-        : searchResults;
+    const domainSearchResultsFiltered =
+        isMoving && domainUrn
+            ? searchResults.filter((r) => filterResultsForMove(r.entity as Domain, domainUrn))
+            : searchResults;
 
     function selectDomain(domain: Domain) {
         selectParentFromBrowser(domain.urn, entityRegistry.getDisplayName(EntityType.Domain, domain));
@@ -87,7 +87,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
             </Select>
             <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                 <DomainNavigator
-                    domainUrnToHide={isMoving ? entityDataUrn : undefined}
+                    domainUrnToHide={isMoving ? domainUrn : undefined}
                     selectDomainOverride={selectDomain}
                 />
             </BrowserWrapper>
