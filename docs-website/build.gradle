@@ -74,6 +74,8 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     ':metadata-ingestion:buildWheel', ':metadata-ingestion-modules:airflow-plugin:buildWheel'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
+  // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
+  environment = ['NODE_OPTIONS': '--max-old-space-size=8192']
   args = ['run', 'generate']
 }
 
