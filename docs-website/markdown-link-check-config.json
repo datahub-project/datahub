@@ -1,0 +1,38 @@
+{
+  "ignorePatterns": [
+    {
+    "pattern": "^http://demo\\.datahubproject\\.io"
+    },
+    {
+    "pattern": "^http://localhost"
+    },
+    {
+    "pattern": "^http://www.famfamfam.com"
+    },
+    {
+    "pattern": "^http://www.linkedin.com"
+    },
+    {
+    "pattern": "\\.md$"
+    },
+    {
+    "pattern": "\\.pdl$"
+    },
+    {
+    "pattern":"\\.json$"
+    },
+    {
+    "pattern":"\\.txt$"
+    },
+    {
+    "pattern":"\\.js$"
+    },
+    {
+    "pattern": "\\.svg$"
+    },
+    {
+    "pattern": "\\.md#.*$"
+    }
+  ],
+  "aliveStatusCodes": [200, 206, 0, 999, 400, 401, 403]
+}

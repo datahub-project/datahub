@@ -24,7 +24,7 @@ We will refer to the two options as the **open-source fork** and **custom reposi
 ## This Guide
 
 This guide will outline what the experience of adding a new Entity should look like through a real example of adding the
-Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 3](#step_3).
+Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 3](#step-3-define-custom-aspects-or-attach-existing-aspects-to-your-entity).
 
 At a high level, an entity is made up of:
 
@@ -89,7 +89,7 @@ the annotation model.
 
 ### <a name="step_2"></a>Step 2: Create the new entity with its key aspect
 
-Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step_4) and [5](#step_5).
+Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step-4-choose-a-place-to-store-your-model-extension) and [5](#step_5).
 
 Example:
 ```yaml
@@ -212,11 +212,11 @@ After you create your Aspect, you need to attach to all the entities that it app
 
 **Constraints**: Note that all aspects MUST be of type Record.
 
-### <a name="step_4"></a> Step 4: Choose a place to store your model extension
+### <a name="step_4"></a>Step 4: Choose a place to store your model extension
 
 At the beginning of this document, we walked you through a flow-chart that should help you decide whether you need to maintain a fork of the open source DataHub repo for your model extensions, or whether you can just use a model extension repository that can stay independent of the DataHub repo. Depending on what path you took, the place you store your aspect model files (the .pdl files) and the entity-registry files (the yaml file called `entity-registry.yaml` or `entity-registry.yml`) will vary.
 
-- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step_5).
+- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step-5-attaching-your-non-key-aspects-to-the-entity).
 - Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to learn how to store and version your aspect models and registry.
 
 ### <a name="step_5"></a>Step 5: Attaching your non-key Aspect(s) to the Entity
