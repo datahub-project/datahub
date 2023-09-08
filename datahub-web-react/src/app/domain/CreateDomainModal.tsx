@@ -6,6 +6,7 @@ import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../shared/textUtil';
 import analytics, { EventType } from '../analytics';
 import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
+import { useIsNestedDomainsEnabled } from '../useAppConfig';
 import { useDomainsContext } from './DomainsContext';
 
 const SuggestedNamesGroup = styled.div`
@@ -59,9 +60,12 @@ const NAME_FIELD_NAME = 'name';
 const DESCRIPTION_FIELD_NAME = 'description';
 
 export default function CreateDomainModal({ onClose, onCreate }: Props) {
+    const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const [createDomainMutation] = useCreateDomainMutation();
     const { entityData } = useDomainsContext();
-    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(entityData?.urn || '');
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(
+        (isNestedDomainsEnabled && entityData?.urn) || '',
+    );
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -137,12 +141,14 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
                 }}
             >
-                <FormItemWithMargin label={<FormItemLabel>Parent (optional)</FormItemLabel>}>
-                    <DomainParentSelect
-                        selectedParentUrn={selectedParentUrn}
-                        setSelectedParentUrn={setSelectedParentUrn}
-                    />
-                </FormItemWithMargin>
+                {isNestedDomainsEnabled && (
+                    <FormItemWithMargin label={<FormItemLabel>Parent (optional)</FormItemLabel>}>
+                        <DomainParentSelect
+                            selectedParentUrn={selectedParentUrn}
+                            setSelectedParentUrn={setSelectedParentUrn}
+                        />
+                    </FormItemWithMargin>
+                )}
                 <FormItemWithMargin label={<FormItemLabel>Name</FormItemLabel>}>
                     <FormItemNoMargin
                         name={NAME_FIELD_NAME}
