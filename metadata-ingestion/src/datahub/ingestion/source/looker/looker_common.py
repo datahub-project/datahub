@@ -132,19 +132,19 @@ class LookerViewId:
         new_file_path: str = str(file_path)
 
         str_to_remove: List[str] = [
-            ".view.lkml",
+            "\\.view\\.lkml$",  # escape the . using \
         ]
 
+        for pattern in str_to_remove:
+            new_file_path = re.sub(pattern, "", new_file_path)
+
         str_to_replace: Dict[str, str] = {
-            f"imported_projects/{self.project_name}/": "",
-            "/": "_",  # / is not urn friendly
+            f"^imported_projects/{re.escape(self.project_name)}/": "",  # escape any special regex character present in project-name
+            "/": ".",  # / is not urn friendly
         }
 
-        for remove in str_to_remove:
-            new_file_path = new_file_path.rstrip(remove)
-
-        for replace in str_to_replace:
-            new_file_path = new_file_path.replace(replace, str_to_replace[replace])
+        for pattern in str_to_replace:
+            new_file_path = re.sub(pattern, str_to_replace[pattern], new_file_path)
 
         logger.debug(f"Original file path {file_path}")
         logger.debug(f"After preprocessing file path {new_file_path}")
@@ -234,7 +234,6 @@ def create_upstream_views_file_path_map(
     """
     Create a map of view-name v/s view file path, so that later we can fetch view's file path via view-name
     """
-    logger.debug("Entered")
 
     upstream_views_file_path: Dict[str, Optional[str]] = {}
 
@@ -244,8 +243,6 @@ def create_upstream_views_file_path_map(
         )
 
         upstream_views_file_path[view_name] = file_path
-
-    logger.debug("Exit")
 
     return upstream_views_file_path
 
