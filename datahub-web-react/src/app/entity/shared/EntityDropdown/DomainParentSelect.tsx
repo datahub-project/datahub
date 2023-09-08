@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { MouseEvent } from 'react';
 import { Select } from 'antd';
+import { CloseCircleFilled } from '@ant-design/icons';
 import { Domain, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ClickOutside from '../../../shared/ClickOutside';
@@ -55,17 +56,27 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
 
     const isShowingDomainNavigator = !searchQuery && isFocusedOnInput;
 
+    const handleFocus = () => setIsFocusedOnInput(true);
+    const handleClickOutside = () => setIsFocusedOnInput(false);
+
+    const handleClear = (event: MouseEvent) => {
+        // Prevent, otherwise antd will close the select menu but leaves it focused
+        event.stopPropagation();
+        clearSelectedParent();
+    };
+
     return (
-        <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
+        <ClickOutside onClickOutside={handleClickOutside}>
             <Select
                 showSearch
                 allowClear
+                clearIcon={<CloseCircleFilled onClick={handleClear} />}
+                placeholder="Select"
                 filterOption={false}
                 value={selectedParentName}
                 onSelect={onSelectParent}
                 onSearch={handleSearch}
-                onClear={clearSelectedParent}
-                onFocus={() => setIsFocusedOnInput(true)}
+                onFocus={handleFocus}
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
             >
                 {domainSearchResultsFiltered.map((result) => (

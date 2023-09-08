@@ -9,13 +9,36 @@ import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSele
 import { useDomainsContext } from './DomainsContext';
 
 const SuggestedNamesGroup = styled.div`
-    margin-top: 12px;
+    margin-top: 8px;
 `;
 
 const ClickableTag = styled(Tag)`
     :hover {
         cursor: pointer;
     }
+`;
+
+const FormItem = styled(Form.Item)`
+    .ant-form-item-label {
+        padding-bottom: 2px;
+    }
+`;
+
+const FormItemWithMargin = styled(FormItem)`
+    margin-bottom: 16px;
+`;
+
+const FormItemNoMargin = styled(FormItem)`
+    margin-bottom: 0;
+`;
+
+const FormItemLabel = styled(Typography.Text)`
+    font-weight: 600;
+    color: #373d44;
+`;
+
+const AdvancedLabel = styled(Typography.Text)`
+    color: #373d44;
 `;
 
 type Props = {
@@ -87,7 +110,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
 
     return (
         <Modal
-            title="Create new Domain"
+            title="Create New Domain"
             visible
             onCancel={onClose}
             footer={
@@ -114,15 +137,14 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
                 }}
             >
-                <Form.Item label={<Typography.Text>Parent (optional)</Typography.Text>}>
+                <FormItemWithMargin label={<FormItemLabel>Parent (optional)</FormItemLabel>}>
                     <DomainParentSelect
                         selectedParentUrn={selectedParentUrn}
                         setSelectedParentUrn={setSelectedParentUrn}
                     />
-                </Form.Item>
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new Domain a name. </Typography.Paragraph>
-                    <Form.Item
+                </FormItemWithMargin>
+                <FormItemWithMargin label={<FormItemLabel>Name</FormItemLabel>}>
+                    <FormItemNoMargin
                         name={NAME_FIELD_NAME}
                         rules={[
                             {
@@ -135,7 +157,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input data-testid="create-domain-name" placeholder="A name for your domain" />
-                    </Form.Item>
+                    </FormItemNoMargin>
                     <SuggestedNamesGroup>
                         {SUGGESTED_DOMAIN_NAMES.map((name) => {
                             return (
@@ -153,29 +175,29 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                             );
                         })}
                     </SuggestedNamesGroup>
-                </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>
-                        An optional description for your new domain. You can change this later.
-                    </Typography.Paragraph>
-                    <Form.Item
+                </FormItemWithMargin>
+                <FormItemWithMargin
+                    label={<FormItemLabel>Description</FormItemLabel>}
+                    help="You can always change the description later."
+                >
+                    <FormItemNoMargin
                         name={DESCRIPTION_FIELD_NAME}
                         rules={[{ whitespace: true }, { min: 1, max: 500 }]}
                         hasFeedback
                     >
                         <Input.TextArea placeholder="A description for your domain" />
-                    </Form.Item>
-                </Form.Item>
+                    </FormItemNoMargin>
+                </FormItemWithMargin>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Domain Id</Typography.Text>}>
-                            <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this domain. If
-                                you&apos;d like to provide a custom id instead to more easily keep track of this domain,
+                    <Collapse.Panel header={<AdvancedLabel>Advanced Options</AdvancedLabel>} key="1">
+                        <FormItemWithMargin
+                            label={<Typography.Text strong>Domain Id</Typography.Text>}
+                            help="By default, a random UUID will be generated to uniquely identify this domain. If
+                                you'd like to provide a custom id instead to more easily keep track of this domain,
                                 you may provide it here. Be careful, you cannot easily change the domain id after
-                                creation.
-                            </Typography.Paragraph>
-                            <Form.Item
+                                creation."
+                        >
+                            <FormItemNoMargin
                                 name={ID_FIELD_NAME}
                                 rules={[
                                     () => ({
@@ -189,8 +211,8 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                                 ]}
                             >
                                 <Input data-testid="create-domain-id" placeholder="engineering" />
-                            </Form.Item>
-                        </Form.Item>
+                            </FormItemNoMargin>
+                        </FormItemWithMargin>
                     </Collapse.Panel>
                 </Collapse>
             </Form>
