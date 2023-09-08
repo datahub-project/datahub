@@ -71,7 +71,6 @@ task installDev(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[dev] ${extra_pip_requirements} && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "touch ${sentinel_file}"
 }
 
@@ -82,7 +81,6 @@ task installAll(type: Exec, dependsOn: [install]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${venv_name}/bin/pip install -e .[all] ${extra_pip_requirements} && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "touch ${sentinel_file}"
 }
 
@@ -119,7 +117,6 @@ task lint(type: Exec, dependsOn: installDev) {
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "./scripts/install-sqlalchemy-stubs.sh && " +
     "black src/ tests/ examples/ && " +
     "isort src/ tests/ examples/ && " +
     "flake8 src/ tests/ examples/ && " +
