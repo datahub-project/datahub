@@ -180,7 +180,7 @@ const quickLinkContent = [
   {
     title: "Developer Guides",
     icon: <CodeTwoTone />,
-    description: "Interact with DataHub programmatically ",
+    description: "Step-by-step guides for developers",
     to: "/docs/developers",
   },
   {
