@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable
+from urllib import parse
+from abc import ABCMeta, abstractmethod
 
 
 @dataclass
@@ -12,18 +14,27 @@ class FileStatus:
         return f"FileStatus({self.path}, {self.size}, {self.is_file})"
 
 
-class FileSystem:
+class FileSystem(metaclass=ABCMeta):
 
     @classmethod
-    def get(cls, path: str):
-        from datahub.ingestion.source.fs import fs_factory
-        return fs_factory.get_fs(path)
+    def create_fs(cls) -> "FileSystem":
+        raise NotImplementedError('File system implementations must implement "create_fs"')
 
+    @abstractmethod
     def open(self, path: str, **kwargs):
-        raise NotImplementedError("open method must be implemented in a subclass")
+        pass
 
+    @abstractmethod
     def file_status(self, path: str) -> FileStatus:
-        raise NotImplementedError("file_status method must be implemented in a subclass")
+        pass
 
+    @abstractmethod
     def list(self, path: str) -> Iterable[FileStatus]:
-        raise NotImplementedError("list method must be implemented in a subclass")
+        pass
+
+
+def get_path_schema(path: str):
+    scheme = parse.urlparse(path).scheme
+    if scheme == "":
+        scheme = "file"
+    return scheme

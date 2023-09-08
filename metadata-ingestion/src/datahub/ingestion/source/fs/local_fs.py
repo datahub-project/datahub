@@ -7,6 +7,10 @@ import smart_open
 
 class LocalFileSystem(FileSystem):
 
+    @classmethod
+    def create_fs(cls):
+        return LocalFileSystem()
+
     def open(self, path: str, **kwargs):
         return smart_open.open(path, mode='rb', transport_params=kwargs)
 

@@ -41,7 +41,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
 
-from datahub.ingestion.source.fs.fs_base import FileSystem, FileStatus
+from datahub.ingestion.source.fs.fs_base import FileStatus, get_path_schema
+from datahub.ingestion.source.fs.fs_registry import fs_registry
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +187,9 @@ class GenericFileSource(TestableSource):
 
     def get_filenames(self) -> Iterable[FileStatus]:
         path_str = str(self.config.path)
-        fs = FileSystem.get(path_str)
+        schema = get_path_schema(path_str)
+        fs_class = fs_registry.get(schema)
+        fs = fs_class.create_fs()
         for file_status in fs.list(path_str):
             if file_status.is_file and file_status.path.endswith(self.config.file_extension):
                 yield file_status
@@ -228,7 +231,9 @@ class GenericFileSource(TestableSource):
         super().close()
 
     def _iterate_file(self, file_status: FileStatus) -> Iterable[Tuple[int, Any]]:
-        fs = FileSystem.get(file_status.path)
+        schema = get_path_schema(file_status.path)
+        fs_class = fs_registry.get(schema)
+        fs = fs_class.create_fs()
         self.report.current_file_name = file_status.path
         self.report.current_file_size = file_status.size
         self.fp = fs.open(file_status.path)
@@ -260,7 +265,9 @@ class GenericFileSource(TestableSource):
         self.report.reset_current_file_stats()
 
     def iterate_mce_file(self, path: str) -> Iterator[MetadataChangeEvent]:
-        fs = FileSystem.get(path)
+        schema = get_path_schema(path)
+        fs_class = fs_registry.get(schema)
+        fs = fs_class.create_fs()
         file_status = fs.file_status(path)
         for i, obj in self._iterate_file(file_status):
             mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)

@@ -6,6 +6,10 @@ from datahub.ingestion.source.fs.fs_base import FileSystem, FileStatus
 
 class HttpFileSystem(FileSystem):
 
+    @classmethod
+    def create_fs(cls):
+        return HttpFileSystem()
+
     def open(self, path: str, **kwargs):
         return smart_open.open(path, mode='rb', transport_params=kwargs)
 

@@ -30,14 +30,18 @@ class S3FileSystem(FileSystem):
 
     _s3 = boto3.client('s3')
 
+    @classmethod
+    def create_fs(cls):
+        return S3FileSystem()
+
     def open(self, path: str, **kwargs):
-        transport_params = kwargs.update({'client': self._s3})
+        transport_params = kwargs.update({'client': S3FileSystem._s3})
         return smart_open.open(path, mode='rb', transport_params=transport_params)
 
     def file_status(self, path: str) -> FileStatus:
         s3_path = parse_s3_path(path)
         try:
-            response = self._s3.get_object_attributes(
+            response = S3FileSystem._s3.get_object_attributes(
                 Bucket=s3_path.bucket,
                 Key=s3_path.key,
                 ObjectAttributes=['ObjectSize']
@@ -52,4 +56,4 @@ class S3FileSystem(FileSystem):
 
     def list(self, path: str) -> Iterable[FileStatus]:
         s3_path = parse_s3_path(path)
-        return S3ListIterator(self._s3, s3_path.bucket, s3_path.key)
+        return S3ListIterator(S3FileSystem._s3, s3_path.bucket, s3_path.key)
