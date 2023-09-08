@@ -303,7 +303,6 @@ plugins: Dict[str, Set[str]] = {
         # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
         *sqlglot_lib,
-        "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
