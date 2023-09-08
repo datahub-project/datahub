@@ -5,7 +5,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
-- #8810 - Removed support for SQLAlchemy 1.3.x . Only SQLAlchemy 1.4.x is supported now.
+- #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
 
 ### Potential Downtime
 
