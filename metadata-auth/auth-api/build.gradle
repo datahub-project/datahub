@@ -31,7 +31,7 @@ dependencies() {
   api project(path: ':metadata-utils')
  
   implementation externalDependency.guava
-  implementation externalDependency.lombok
+  compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
 

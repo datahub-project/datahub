@@ -70,6 +70,7 @@ query appConfig {
             subscriptionsEnabled
             datasetHealthDashboardEnabled
             showAcrylInfo
+            showAccessManagement
         }
         chromeExtensionConfig {
             enabled

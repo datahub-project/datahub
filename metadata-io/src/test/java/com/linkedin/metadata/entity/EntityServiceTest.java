@@ -457,9 +457,8 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         _entityServiceImpl.ingestAspects(entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
-        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn),
-            Mockito.any(), Mockito.eq(restateChangeLog));
-
+        verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.any(),
+                Mockito.any(), Mockito.any());
 
         verifyNoMoreInteractions(_mockProducer);
     }
@@ -1092,7 +1091,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
         SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
-        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123");
+        SystemMetadata metadata3 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456");
 
         List<UpsertBatchItem> items = List.of(
                 UpsertBatchItem.builder()
@@ -1143,7 +1142,7 @@ abstract public class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
         assertTrue(DataTemplateUtil.areEqual(EntityUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
-        verify(_mockProducer, times(1)).produceMetadataChangeLog(Mockito.eq(entityUrn), Mockito.any(), mclCaptor.capture());
+        verify(_mockProducer, times(0)).produceMetadataChangeLog(Mockito.any(), Mockito.any(), Mockito.any());
 
         verifyNoMoreInteractions(_mockProducer);
     }

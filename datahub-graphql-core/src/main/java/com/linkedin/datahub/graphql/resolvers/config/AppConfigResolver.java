@@ -190,6 +190,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setSubscriptionsEnabled(_featureFlags.isSubscriptionsEnabled())
       .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
       .setDatasetHealthDashboardEnabled(_featureFlags.isDatasetHealthDashboardEnabled())
+      .setShowAccessManagement(_featureFlags.isShowAccessManagement())
       .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

@@ -132,6 +132,17 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern():
     ]
 
 
+def test_platform_instance_config_always_none():
+    config = BigQueryV2Config.parse_obj(
+        {"include_data_platform_instance": True, "platform_instance": "something"}
+    )
+    assert config.platform_instance is None
+
+    config = BigQueryV2Config(platform_instance="something", project_id="project_id")
+    assert config.project_id == "project_id"
+    assert config.platform_instance is None
+
+
 def test_get_dataplatform_instance_aspect_returns_project_id():
     project_id = "project_id"
     expected_instance = (

@@ -72,7 +72,7 @@ class PartitionInfo:
 
         return cls(
             field=field,
-            type="RANGE",
+            type=RANGE_PARTITION_NAME,
         )
 
     @classmethod
@@ -151,6 +151,9 @@ order by
 """
 
     # https://cloud.google.com/bigquery/docs/information-schema-table-storage?hl=en
+    # Note for max_partition_id -
+    # should we instead pick the partition with latest LAST_MODIFIED_TIME ?
+    # for range partitioning max may not be latest partition
     tables_for_dataset = f"""
 SELECT
   t.table_catalog as table_catalog,

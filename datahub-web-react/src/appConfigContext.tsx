@@ -54,6 +54,7 @@ export const DEFAULT_APP_CONFIG = {
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
         showAcrylInfo: false,
+        showAccessManagement: false,
     },
     chromeExtensionConfig: {
         enabled: false,

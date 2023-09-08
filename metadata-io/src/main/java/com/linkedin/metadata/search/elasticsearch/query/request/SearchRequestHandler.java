@@ -228,7 +228,7 @@ public class SearchRequestHandler {
   @Nonnull
   @WithSpan
   public SearchRequest getSearchRequest(@Nonnull String input, @Nullable Filter filter,
-      @Nullable SortCriterion sortCriterion, @Nullable Object[] sort, @Nullable String pitId, @Nonnull String keepAlive,
+      @Nullable SortCriterion sortCriterion, @Nullable Object[] sort, @Nullable String pitId, @Nullable String keepAlive,
       int size, SearchFlags searchFlags) {
     SearchRequest searchRequest = new PITAwareSearchRequest();
     SearchFlags finalSearchFlags = applyDefaultSearchFlags(searchFlags, input, DEFAULT_SERVICE_SEARCH_FLAGS);

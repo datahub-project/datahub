@@ -5,6 +5,7 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
+import json
 import logging
 import threading
 import traceback
@@ -27,7 +28,7 @@ from typing import (
 import sqlalchemy as sa
 import sqlalchemy.sql.compiler
 from great_expectations.core.util import convert_to_json_serializable
-from great_expectations.data_context import BaseDataContext
+from great_expectations.data_context import AbstractDataContext, BaseDataContext
 from great_expectations.data_context.types.base import (
     DataContextConfig,
     DatasourceConfig,
@@ -55,6 +56,7 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     HistogramClass,
     PartitionSpecClass,
+    PartitionTypeClass,
     QuantileClass,
     ValueFrequencyClass,
 )
@@ -70,6 +72,12 @@ assert MARKUPSAFE_PATCHED
 logger: logging.Logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
+POSTGRESQL = "postgresql"
+MYSQL = "mysql"
+SNOWFLAKE = "snowflake"
+BIGQUERY = "bigquery"
+REDSHIFT = "redshift"
+TRINO = "trino"
 
 # The reason for this wacky structure is quite fun. GE basically assumes that
 # the config structures were generated directly from YML and further assumes that
@@ -113,14 +121,14 @@ class GEProfilerRequest:
 
 
 def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
-    if self.engine.dialect.name.lower() == "redshift":
+    if self.engine.dialect.name.lower() == REDSHIFT:
         element_values = self.engine.execute(
             sa.select(
                 [sa.text(f'APPROXIMATE count(distinct "{column}")')]  # type:ignore
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "bigquery":
+    elif self.engine.dialect.name.lower() == BIGQUERY:
         element_values = self.engine.execute(
             sa.select(
                 [
@@ -131,7 +139,7 @@ def get_column_unique_count_patch(self: SqlAlchemyDataset, column: str) -> int:
             ).select_from(self._table)
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
-    elif self.engine.dialect.name.lower() == "snowflake":
+    elif self.engine.dialect.name.lower() == SNOWFLAKE:
         element_values = self.engine.execute(
             sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
                 self._table
@@ -361,7 +369,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
         if self.config.profile_table_row_count_estimate_only:
             dialect_name = self.dataset.engine.dialect.name.lower()
-            if dialect_name == "postgresql":
+            if dialect_name == POSTGRESQL:
                 schema_name = self.dataset_name.split(".")[1]
                 table_name = self.dataset_name.split(".")[2]
                 logger.debug(
@@ -370,7 +378,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 get_estimate_script = sa.text(
                     f"SELECT c.reltuples AS estimate FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE  c.relname = '{table_name}' AND n.nspname = '{schema_name}'"
                 )
-            elif dialect_name == "mysql":
+            elif dialect_name == MYSQL:
                 schema_name = self.dataset_name.split(".")[0]
                 table_name = self.dataset_name.split(".")[1]
                 logger.debug(
@@ -421,12 +429,20 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_median_value:
             return
         try:
-            if self.dataset.engine.dialect.name.lower() == "snowflake":
+            if self.dataset.engine.dialect.name.lower() == SNOWFLAKE:
                 column_profile.median = str(
                     self.dataset.engine.execute(
                         sa.select([sa.func.median(sa.column(column))]).select_from(
                             self.dataset._table
                         )
+                    ).scalar()
+                )
+            elif self.dataset.engine.dialect.name.lower() == BIGQUERY:
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            sa.text(f"approx_quantiles(`{column}`, 2) [OFFSET (1)]")
+                        ).select_from(self.dataset._table)
                     ).scalar()
                 )
             else:
@@ -583,6 +599,13 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         profile = DatasetProfileClass(timestampMillis=get_sys_time())
         if self.partition:
             profile.partitionSpec = PartitionSpecClass(partition=self.partition)
+        elif self.config.limit and self.config.offset:
+            profile.partitionSpec = PartitionSpecClass(
+                type=PartitionTypeClass.QUERY,
+                partition=json.dumps(
+                    dict(limit=self.config.limit, offset=self.config.offset)
+                ),
+            )
         profile.fieldProfiles = []
         self._get_dataset_rows(profile)
 
@@ -717,7 +740,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
 @dataclasses.dataclass
 class GEContext:
-    data_context: BaseDataContext
+    data_context: AbstractDataContext
     datasource_name: str
 
 
@@ -935,7 +958,7 @@ class DatahubGEProfiler:
         }
 
         bigquery_temp_table: Optional[str] = None
-        if platform == "bigquery" and (
+        if platform == BIGQUERY and (
             custom_sql or self.config.limit or self.config.offset
         ):
             # On BigQuery, we need to bypass GE's mechanism for creating temporary tables because
@@ -950,6 +973,8 @@ class DatahubGEProfiler:
                 )
                 if custom_sql is not None:
                     # Note that limit and offset are not supported for custom SQL.
+                    # Presence of custom SQL represents that the bigquery table
+                    # is either partitioned or sharded
                     bq_sql = custom_sql
                 else:
                     bq_sql = f"SELECT * FROM `{table}`"
@@ -1015,7 +1040,7 @@ class DatahubGEProfiler:
             finally:
                 raw_connection.close()
 
-        if platform == "bigquery":
+        if platform == BIGQUERY:
             if bigquery_temp_table:
                 ge_config["table"] = bigquery_temp_table
                 ge_config["schema"] = None
@@ -1066,7 +1091,7 @@ class DatahubGEProfiler:
                 self.report.report_warning(pretty_name, f"Profiling exception {e}")
                 return None
             finally:
-                if self.base_engine.engine.name == "trino":
+                if self.base_engine.engine.name == TRINO:
                     self._drop_trino_temp_table(batch)
 
     def _get_ge_dataset(
@@ -1103,7 +1128,7 @@ class DatahubGEProfiler:
                 **batch_kwargs,
             },
         )
-        if platform is not None and platform == "bigquery":
+        if platform == BIGQUERY:
             # This is done as GE makes the name as DATASET.TABLE
             # but we want it to be PROJECT.DATASET.TABLE instead for multi-project setups
             name_parts = pretty_name.split(".")
@@ -1124,7 +1149,7 @@ class DatahubGEProfiler:
 # Stringified types are used to avoid dialect specific import errors
 @lru_cache(maxsize=1)
 def _get_column_types_to_ignore(dialect_name: str) -> List[str]:
-    if dialect_name.lower() == "postgresql":
+    if dialect_name.lower() == POSTGRESQL:
         return ["JSON"]
 
     return []

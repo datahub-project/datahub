@@ -61,7 +61,15 @@ class BigQueryV2Report(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowR
     partition_info: Dict[str, str] = field(default_factory=TopKDict)
     profile_table_selection_criteria: Dict[str, str] = field(default_factory=TopKDict)
     selected_profile_tables: Dict[str, List[str]] = field(default_factory=TopKDict)
-    invalid_partition_ids: Dict[str, str] = field(default_factory=TopKDict)
+    profiling_skipped_invalid_partition_ids: Dict[str, str] = field(
+        default_factory=TopKDict
+    )
+    profiling_skipped_invalid_partition_type: Dict[str, str] = field(
+        default_factory=TopKDict
+    )
+    profiling_skipped_partition_profiling_disabled: List[str] = field(
+        default_factory=LossyList
+    )
     allow_pattern: Optional[str] = None
     deny_pattern: Optional[str] = None
     num_usage_workunits_emitted: int = 0

@@ -1,0 +1,25 @@
+{{#jackson}}
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+{{/jackson}}
+/**
+* {{#description}}{{.}}{{/description}}{{^description}}{{classname}}{{/description}}
+*/
+{{#jackson}}
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME,
+  include = JsonTypeInfo.As.PROPERTY,
+  property = "__type")
+@JsonSubTypes({
+  {{#subTypes}}
+  @JsonSubTypes.Type(value = {{classname}}.class, name = "{{classname}}"){{^@last}},{{/@last}}
+  {{/subTypes}}
+})
+{{/jackson}}
+public interface {{{classname}}} {
+{{#vendorExtensions}}
+{{#x-discriminator-type-getter}}
+    {{x-discriminator-type}} {{x-discriminator-type-getter}}();
+{{/x-discriminator-type-getter}}
+{{/vendorExtensions}}
+}

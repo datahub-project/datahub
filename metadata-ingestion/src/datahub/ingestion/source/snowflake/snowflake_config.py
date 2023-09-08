@@ -23,6 +23,7 @@ from datahub.ingestion.source_config.sql.snowflake import (
     SnowflakeConfig,
 )
 from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
+from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.Logger(__name__)
 
@@ -155,6 +156,15 @@ class SnowflakeV2Config(
         default=True,
         description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
     )
+
+    @validator("convert_urns_to_lowercase")
+    def validate_convert_urns_to_lowercase(cls, v):
+        if not v:
+            add_global_warning(
+                "Please use `convert_urns_to_lowercase: True`, otherwise lineage to other sources may not work correctly."
+            )
+
+        return v
 
     @validator("include_column_lineage")
     def validate_include_column_lineage(cls, v, values):

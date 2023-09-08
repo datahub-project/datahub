@@ -404,7 +404,9 @@ class SnowflakeLineageExtractor(
 
     # Handles the case for explicitly created external tables.
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(self, discovered_tables):
+    def _populate_external_lineage_from_show_query(
+        self, discovered_tables: List[str]
+    ) -> None:
         external_tables_query: str = SnowflakeQuery.show_external_tables()
         try:
             for db_row in self.query(external_tables_query):
@@ -455,7 +457,9 @@ class SnowflakeLineageExtractor(
                 )
             self.report_status(EXTERNAL_LINEAGE, False)
 
-    def _process_external_lineage_result_row(self, db_row, discovered_tables):
+    def _process_external_lineage_result_row(
+        self, db_row: dict, discovered_tables: List[str]
+    ) -> None:
         # key is the down-stream table name
         key: str = self.get_dataset_identifier_from_qualified_name(
             db_row["DOWNSTREAM_TABLE_NAME"]
@@ -475,7 +479,7 @@ class SnowflakeLineageExtractor(
                 f"ExternalLineage[Table(Down)={key}]:External(Up)={self._external_lineage_map[key]} via access_history"
             )
 
-    def _fetch_upstream_lineages_for_tables(self):
+    def _fetch_upstream_lineages_for_tables(self) -> Iterable[Dict]:
         query: str = SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=int(self.start_time.timestamp() * 1000),
             end_time_millis=int(self.end_time.timestamp() * 1000),
@@ -498,7 +502,9 @@ class SnowflakeLineageExtractor(
                 )
             self.report_status(TABLE_LINEAGE, False)
 
-    def map_query_result_upstreams(self, upstream_tables):
+    def map_query_result_upstreams(
+        self, upstream_tables: Optional[List[dict]]
+    ) -> List[UpstreamClass]:
         if not upstream_tables:
             return []
         upstreams: List[UpstreamClass] = []
@@ -510,7 +516,9 @@ class SnowflakeLineageExtractor(
                     logger.debug(e, exc_info=e)
         return upstreams
 
-    def _process_add_single_upstream(self, upstreams, upstream_table):
+    def _process_add_single_upstream(
+        self, upstreams: List[UpstreamClass], upstream_table: dict
+    ) -> None:
         upstream_name = self.get_dataset_identifier_from_qualified_name(
             upstream_table["upstream_object_name"]
         )
@@ -524,7 +532,9 @@ class SnowflakeLineageExtractor(
                 )
             )
 
-    def map_query_result_fine_upstreams(self, dataset_urn, column_wise_upstreams):
+    def map_query_result_fine_upstreams(
+        self, dataset_urn: str, column_wise_upstreams: Optional[List[dict]]
+    ) -> List[FineGrainedLineage]:
         if not column_wise_upstreams:
             return []
         fine_upstreams: List[FineGrainedLineage] = []
@@ -539,8 +549,11 @@ class SnowflakeLineageExtractor(
         return fine_upstreams
 
     def _process_add_single_column_upstream(
-        self, dataset_urn, fine_upstreams, column_with_upstreams
-    ):
+        self,
+        dataset_urn: str,
+        fine_upstreams: List[FineGrainedLineage],
+        column_with_upstreams: Dict,
+    ) -> None:
         column_name = column_with_upstreams["column_name"]
         upstream_jobs = column_with_upstreams["upstreams"]
         if column_name and upstream_jobs:
