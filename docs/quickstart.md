@@ -3,16 +3,11 @@ import TabItem from '@theme/TabItem';
 
 # DataHub Quickstart Guide
 
-:::note
+:::tip Managed DataHub
 
 This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub.
-
-<a
-    className='button button--primary button--md'
-    href="/docs/managed-datahub/welcome-acryl">
-Get Started with Managed DataHub
-</a>
+If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub. <br />
+**[Get Started with Managed DataHub](./managed-datahub/welcome-acryl.md)**
 
 :::
 
@@ -29,7 +24,7 @@ Get Started with Managed DataHub
 - **Launch the Docker engine** from command line or the desktop app.
 - Ensure you have **Python 3.7+** installed & configured. (Check using `python3 --version`).
 
-:::note
+:::note Docker Resource Allocation
 
 Make sure to allocate enough hardware resources for Docker engine. <br />
 Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 10GB disk space.
@@ -47,7 +42,7 @@ python3 -m pip install --upgrade acryl-datahub
 datahub version
 ```
 
-:::note
+:::note Command Not Found
 
 If you see `command not found`, try running cli commands like `python3 -m datahub version`. <br />
 Note that DataHub CLI does not support Python 2.x.
@@ -103,7 +98,7 @@ or head to http://localhost:9002 (username: datahub, password: datahub) to play 
 Need support? Get in touch on Slack: https://slack.datahubproject.io/
 ```
 
-:::note
+:::note Mac M1/M2
 
 On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`.
 This typically means that the datahub cli was not able to detect that you are running it on Apple Silicon.
@@ -131,7 +126,7 @@ To ingest the sample metadata, run the following CLI command from your terminal
 datahub docker ingest-sample-data
 ```
 
-:::note
+:::note Token Authentication
 
 If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
 using the `--token <token>` parameter in the command.
