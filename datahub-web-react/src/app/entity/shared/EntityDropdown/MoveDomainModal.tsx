@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { message, Button, Modal, Typography, Form } from 'antd';
-import { useEntityData, useRefetch } from '../EntityContext';
+import { useRefetch } from '../EntityContext';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useMoveDomainMutation } from '../../../../graphql/domain.generated';
 import DomainParentSelect from './DomainParentSelect';
 import { useHandleMoveDomainComplete } from './useHandleMoveDomainComplete';
+import { useDomainsContext } from '../../../domain/DomainsContext';
+import { EntityType } from '../../../../types.generated';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -21,7 +23,8 @@ interface Props {
 
 function MoveDomainModal(props: Props) {
     const { onClose } = props;
-    const { urn: entityDataUrn, entityType } = useEntityData();
+    const { entityData } = useDomainsContext();
+    const domainUrn = entityData?.urn;
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
@@ -32,21 +35,23 @@ function MoveDomainModal(props: Props) {
     const { handleMoveDomainComplete } = useHandleMoveDomainComplete();
 
     function moveDomain() {
+        if (!domainUrn) return;
+
         moveDomainMutation({
             variables: {
                 input: {
-                    resourceUrn: entityDataUrn,
-                    parentDomain: selectedParentUrn || null,
+                    resourceUrn: domainUrn,
+                    parentDomain: selectedParentUrn || undefined,
                 },
             },
         })
             .then(() => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 const newParentToUpdate = selectedParentUrn || undefined;
-                handleMoveDomainComplete(entityDataUrn, newParentToUpdate);
+                handleMoveDomainComplete(domainUrn, newParentToUpdate);
                 setTimeout(() => {
                     message.success({
-                        content: `Moved ${entityRegistry.getEntityName(entityType)}!`,
+                        content: `Moved ${entityRegistry.getEntityName(EntityType.Domain)}!`,
                         duration: 2,
                     });
                     refetch();
