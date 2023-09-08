@@ -13,6 +13,7 @@ import com.linkedin.metadata.service.GlossaryTermService;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionApplier;
 import com.linkedin.metadata.test.action.cleanup.DeprecationAction;
+import com.linkedin.metadata.test.action.cleanup.UnDeprecationAction;
 import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
 import com.linkedin.metadata.test.action.owner.AddOwnersAction;
@@ -65,6 +66,7 @@ public class TestActionApplierFactory {
     appliers.add(new SetDomainAction(domainService));
     appliers.add(new UnsetDomainAction(domainService));
     appliers.add(new DeprecationAction(entityService));
+    appliers.add(new UnDeprecationAction(entityService));
     return new ActionApplier(appliers);
   }
 }
