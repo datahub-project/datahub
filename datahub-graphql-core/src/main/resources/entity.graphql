@@ -1460,7 +1460,7 @@ type Role implements Entity {
     """
     A standard Entity Type
     """
-    actors: Actor!
+    actors: Actor
 
 
 }

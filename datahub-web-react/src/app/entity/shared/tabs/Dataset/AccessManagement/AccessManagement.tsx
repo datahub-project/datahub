@@ -74,8 +74,8 @@ export default function AccessManagement() {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
-            render: (text) => {
-                return <AccessManagerDescription description={text} />;
+            render: (roleDescription) => {
+                return <AccessManagerDescription description={roleDescription} />;
             },
         },
         {
@@ -87,20 +87,23 @@ export default function AccessManagement() {
             title: 'Access',
             dataIndex: 'hasAccess',
             key: 'hasAccess',
-            render: (text, record) => {
-                if (text) {
+            render: (hasAccess, record) => {
+                if (hasAccess) {
                     return <StyledSection>Provisioned</StyledSection>;
                 }
-                return (
-                    <AccessButton
-                        onClick={(e) => {
-                            e.preventDefault();
-                            window.open(record.url);
-                        }}
-                    >
-                        Request
-                    </AccessButton>
-                );
+                if (record?.url) {
+                    return (
+                        <AccessButton
+                            onClick={(e) => {
+                                e.preventDefault();
+                                window.open(record.url);
+                            }}
+                        >
+                            Request
+                        </AccessButton>
+                    );
+                }
+                return <StyledSection />;
             },
             hidden: true,
         },

@@ -17,7 +17,7 @@ export function handleAccessRoles(externalRoles, loggedInUser) {
                             (user) => user.user.urn === loggedInUser?.me?.corpUser.urn,
                         )) ||
                     false,
-                url: userRoles?.role?.properties?.requestUrl || window.location.href,
+                url: userRoles?.role?.properties?.requestUrl || undefined,
             };
             accessRoles.push(role);
         });
