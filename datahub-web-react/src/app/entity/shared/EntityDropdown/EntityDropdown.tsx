@@ -23,6 +23,7 @@ import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils'
 import { shouldDisplayChildDeletionWarning, isDeleteDisabled, isMoveDisabled } from './utils';
 import { useUserContext } from '../../../context/useUserContext';
 import MoveDomainModal from './MoveDomainModal';
+import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 
 export enum EntityMenuItems {
     COPY_URL,
@@ -94,6 +95,7 @@ function EntityDropdown(props: Props) {
     const me = useUserContext();
     const entityRegistry = useEntityRegistry();
     const [updateDeprecation] = useUpdateDeprecationMutation();
+    const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
         urn,
         entityType,
@@ -194,7 +196,7 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
-                        {menuItems.has(EntityMenuItems.MOVE) && (
+                        {isNestedDomainsEnabled && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 key="4"
                                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
