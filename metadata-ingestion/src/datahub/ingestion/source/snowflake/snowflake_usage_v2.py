@@ -245,7 +245,9 @@ class SnowflakeUsageExtractor(
 
             yield from self.build_usage_statistics_for_dataset(dataset_identifier, row)
 
-    def build_usage_statistics_for_dataset(self, dataset_identifier, row):
+    def build_usage_statistics_for_dataset(
+        self, dataset_identifier: str, row: dict
+    ) -> Iterable[MetadataWorkUnit]:
         try:
             stats = DatasetUsageStatistics(
                 timestampMillis=int(row["BUCKET_START_TIME"].timestamp() * 1000),
@@ -357,7 +359,7 @@ class SnowflakeUsageExtractor(
         end_time = int(self.end_time.timestamp() * 1000)
         return SnowflakeQuery.operational_data_for_time_window(start_time, end_time)
 
-    def _check_usage_date_ranges(self) -> Any:
+    def _check_usage_date_ranges(self) -> None:
         with PerfTimer() as timer:
             try:
                 results = self.query(SnowflakeQuery.get_access_history_date_range())
@@ -477,7 +479,7 @@ class SnowflakeUsageExtractor(
                 f"Failed to parse operation history row {event_dict}, {e}",
             )
 
-    def parse_event_objects(self, event_dict):
+    def parse_event_objects(self, event_dict: Dict) -> None:
         event_dict["BASE_OBJECTS_ACCESSED"] = [
             obj
             for obj in json.loads(event_dict["BASE_OBJECTS_ACCESSED"])

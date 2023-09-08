@@ -2,7 +2,6 @@ import hashlib
 import json
 from typing import Any, Dict, Iterable, List, Optional, TypeVar
 
-from deprecated import deprecated
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
@@ -30,7 +29,6 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
-    _Aspect,
 )
 
 
@@ -174,23 +172,6 @@ def add_tags_to_entity_wu(
             tags=[TagAssociationClass(f"urn:li:tag:{tag}") for tag in tags]
         ),
     ).as_workunit()
-
-
-@deprecated("use MetadataChangeProposalWrapper(...).as_workunit() instead")
-def wrap_aspect_as_workunit(
-    entityName: str,
-    entityUrn: str,
-    aspectName: str,
-    aspect: _Aspect,
-) -> MetadataWorkUnit:
-    wu = MetadataWorkUnit(
-        id=f"{aspectName}-for-{entityUrn}",
-        mcp=MetadataChangeProposalWrapper(
-            entityUrn=entityUrn,
-            aspect=aspect,
-        ),
-    )
-    return wu
 
 
 def gen_containers(
