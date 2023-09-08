@@ -8,6 +8,28 @@ with open("./src/datahub_airflow_plugin/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
 
+if package_metadata["__version__"] == "0.0.0.dev0":
+    # This is a "development mode" install.
+    # In this case, we use setuptools_scm to set the version number.
+
+    datahub_version = None
+
+    _setuptools_version_kwargs = dict(
+        use_scm_version={
+            "root": "../..",
+        },
+    )
+else:
+    # This is a "release mode" build.
+    # The version number is already set in __init__.py, and we just need
+    # to respect it.
+    datahub_version = package_metadata["__version__"]
+
+    _setuptools_version_kwargs = dict(
+        version=datahub_version,
+    )
+
+
 def get_long_description():
     root = os.path.dirname(__file__)
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
@@ -27,7 +49,12 @@ base_requirements = {
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
     *rest_common,
-    f"acryl-datahub == {package_metadata['__version__']}",
+    ("acryl-datahub" + (f"=={datahub_version}" if datahub_version else "")),
+}
+
+acryl_kafka = {
+    "acryl-datahub[datahub-kafka]"
+    + (f"=={datahub_version}" if datahub_version else ""),
 }
 
 
@@ -85,9 +112,8 @@ entry_points = {
 
 
 setuptools.setup(
-    # Package metadata.
     name=package_metadata["__package_name__"],
-    version=package_metadata["__version__"],
+    # Package metadata.
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
@@ -132,10 +158,10 @@ setuptools.setup(
     extras_require={
         "dev": list(dev_requirements),
         "datahub-kafka": [
-            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}"
+            *acryl_kafka,
         ],
         "integration-tests": [
-            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
+            *acryl_kafka,
             # Extra requirements for Airflow.
             "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
             # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
@@ -143,4 +169,6 @@ setuptools.setup(
             "virtualenv",  # needed by PythonVirtualenvOperator
         ],
     },
+    # Versioning.
+    **_setuptools_version_kwargs,
 )

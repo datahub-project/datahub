@@ -8,6 +8,27 @@ package_metadata: dict = {}
 with open("./src/datahub/__init__.py") as fp:
     exec(fp.read(), package_metadata)
 
+if package_metadata["__version__"] == "0.0.0.dev0":
+    # This is a "development mode" install.
+    # In this case, we use setuptools_scm to set the version number.
+
+    datahub_version = None
+
+    _setuptools_version_kwargs = dict(
+        use_scm_version={
+            "root": "..",
+        },
+    )
+else:
+    # This is a "release mode" build.
+    # The version number is already set in __init__.py, and we just need
+    # to respect it.
+    datahub_version = package_metadata["__version__"]
+
+    _setuptools_version_kwargs = dict(
+        version=datahub_version,
+    )
+
 
 def get_long_description():
     root = os.path.dirname(__file__)
@@ -283,7 +304,8 @@ plugins: Dict[str, Set[str]] = {
     },
     # Integrations.
     "airflow": {
-        f"acryl-datahub-airflow-plugin == {package_metadata['__version__']}",
+        "acryl-datahub-airflow-plugin"
+        + (f"=={datahub_version}" if datahub_version else "")
     },
     "circuit-breaker": {
         "gql>=3.3.0",
@@ -650,9 +672,8 @@ entry_points = {
 
 
 setuptools.setup(
-    # Package metadata.
     name=package_metadata["__package_name__"],
-    version=package_metadata["__version__"],
+    # Package metadata.
     url="https://datahubproject.io/",
     project_urls={
         "Documentation": "https://datahubproject.io/docs/",
@@ -716,4 +737,6 @@ setuptools.setup(
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
     },
+    # Versioning.
+    **_setuptools_version_kwargs,
 )
