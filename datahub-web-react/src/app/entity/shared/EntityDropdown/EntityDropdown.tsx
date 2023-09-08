@@ -138,6 +138,7 @@ function EntityDropdown(props: Props) {
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const isDomainEntity = entityType === EntityType.Domain;
     const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
 
     /**
      * A default path to redirect to if the entity is deleted.
@@ -196,7 +197,7 @@ function EntityDropdown(props: Props) {
                                 </MenuItem>
                             </StyledMenuItem>
                         )}
-                        {isNestedDomainsEnabled && menuItems.has(EntityMenuItems.MOVE) && (
+                        {!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE) && (
                             <StyledMenuItem
                                 key="4"
                                 disabled={isMoveDisabled(entityType, entityData, me.platformPrivileges)}
