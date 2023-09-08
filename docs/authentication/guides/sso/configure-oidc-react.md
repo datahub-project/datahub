@@ -72,6 +72,7 @@ AUTH_OIDC_BASE_URL=your-datahub-url
 - `AUTH_OIDC_CLIENT_SECRET`: Unique client secret received from identity provider
 - `AUTH_OIDC_DISCOVERY_URI`: Location of the identity provider OIDC discovery API. Suffixed with `.well-known/openid-configuration`
 - `AUTH_OIDC_BASE_URL`: The base URL of your DataHub deployment, e.g. https://yourorgdatahub.com (prod) or http://localhost:9002 (testing)
+- `AUTH_SESSION_TTL_HOURS`: The length of time in hours before a user will be prompted to login again. Session tokens are stateless so this determines at what time a session token may no longer be used and a valid session token can be used until this time has passed.
 
 Providing these configs will cause DataHub to delegate authentication to your identity
 provider, requesting the "oidc email profile" scopes and parsing the "preferred_username" claim from
