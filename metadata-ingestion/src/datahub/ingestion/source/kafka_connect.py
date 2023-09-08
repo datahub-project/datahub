@@ -901,27 +901,44 @@ class SnowflakeSinkConnector:
         logger.warning(f"{key}: {reason}")
         self.report.report_warning(key, reason)
 
+    def get_table_name_from_topic_name(self, topic_name: str) -> str:
+        """
+        This function converts the topic name to a valid Snowflake table name using some rules.
+        Refer below link for more info
+        https://docs.snowflake.com/en/user-guide/kafka-connector-overview#target-tables-for-kafka-topics
+        """
+        table_name = re.sub("[^a-zA-Z0-9_]", "_", topic_name.upper())
+        if re.match("^[^a-zA-Z_].*", table_name):
+            table_name = "_" + table_name
+        # TODO: Connector is also appending a suffix i.e. underscore followed by a generated hash code
+        # if adjustment happen in name of the table. Logic for this is yet to develop.
+        return table_name
+
     def get_parser(
         self,
         connector_manifest: ConnectorManifest,
     ) -> SnowflakeParser:
         database_name = connector_manifest.config["snowflake.database.name"]
         schema_name = connector_manifest.config["snowflake.schema.name"]
-        topics_to_tables: Dict[str, str] = {}
 
-        # If config contains topic to table map, take target table from config
-        # Else kafka connect create target table with same name as source topic
-        if "snowflake.topic2table.map" in connector_manifest.config:
+        # Fetch user provided topic to table map
+        provided_topics_to_tables: Dict[str, str] = {}
+        if connector_manifest.config.get("snowflake.topic2table.map"):
             for each in connector_manifest.config["snowflake.topic2table.map"].split(
                 ","
             ):
                 topic, table = each.split(":")
-                # Extract lineage for only those topics whose data ingestion started
-                if topic in connector_manifest.topic_names:
-                    topics_to_tables[topic] = table
-        else:
-            for topic in connector_manifest.topic_names:
-                topics_to_tables[topic] = topic
+                provided_topics_to_tables[topic.strip()] = table.strip()
+
+        topics_to_tables: Dict[str, str] = {}
+        # Extract lineage for only those topics whose data ingestion started
+        for topic in connector_manifest.topic_names:
+            if topic in provided_topics_to_tables:
+                # If user provided which table to get mapped with this topic
+                topics_to_tables[topic] = provided_topics_to_tables[topic]
+            else:
+                # Else connector converts topic name to a valid Snowflake table name.
+                topics_to_tables[topic] = self.get_table_name_from_topic_name(topic)
 
         return self.SnowflakeParser(
             database_name=database_name,
@@ -931,8 +948,16 @@ class SnowflakeSinkConnector:
 
     def _extract_lineages(self):
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
-        # remove private key from properties
-        del self.connector_manifest.flow_property_bag["snowflake.private.key"]
+
+        # remove private keys, secrets from properties
+        secret_properties = [
+            "snowflake.private.key",
+            "snowflake.private.key.passphrase",
+            "value.converter.basic.auth.user.info",
+        ]
+        for k in secret_properties:
+            if k in self.connector_manifest.flow_property_bag:
+                del self.connector_manifest.flow_property_bag[k]
 
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)

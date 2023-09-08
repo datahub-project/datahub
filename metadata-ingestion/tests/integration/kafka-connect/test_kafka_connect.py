@@ -561,9 +561,9 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
                     "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
                     "snowflake.database.name": "kafka_db",
                     "snowflake.schema.name": "kafka_schema",
-                    "snowflake.topic2table.map": "topic1:table1,topic2:table2",
+                    "snowflake.topic2table.map": "topic1:table1",
                     "tasks.max": "1",
-                    "topics": "topic1,topic2",
+                    "topics": "topic1,_topic+2",
                     "snowflake.user.name": "kafka_connector_user_1",
                     "snowflake.private.key": "rrSnqU=",
                     "name": "snowflake_sink1",
@@ -576,7 +576,7 @@ def register_mock_api(request_mock: Any, override_data: dict = {}) -> None:
         "http://localhost:28083/connectors/snowflake_sink1/topics": {
             "method": "GET",
             "status_code": 200,
-            "json": {"snowflake_sink1": {"topics": ["topic1", "topic2"]}},
+            "json": {"snowflake_sink1": {"topics": ["topic1", "_topic+2"]}},
         },
     }
 

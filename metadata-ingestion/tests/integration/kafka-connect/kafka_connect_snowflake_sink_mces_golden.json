@@ -10,9 +10,9 @@
                 "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
                 "snowflake.database.name": "kafka_db",
                 "snowflake.schema.name": "kafka_schema",
-                "snowflake.topic2table.map": "topic1:table1,topic2:table2",
+                "snowflake.topic2table.map": "topic1:table1",
                 "tasks.max": "1",
-                "topics": "topic1,topic2",
+                "topics": "topic1,_topic+2",
                 "snowflake.user.name": "kafka_connector_user_1",
                 "name": "snowflake_sink1",
                 "snowflake.url.name": "bcaurux-lc62744.snowflakecomputing.com:443"
@@ -67,13 +67,13 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),topic2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "snowflake_sink1:topic2",
+            "name": "snowflake_sink1:_topic+2",
             "type": {
                 "string": "COMMAND"
             }
@@ -86,16 +86,16 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),topic2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,topic2,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,_topic+2,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_db.kafka_schema.table2,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_db.kafka_schema._TOPIC_2,PROD)"
             ]
         }
     },
@@ -121,7 +121,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),topic1)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),_topic+2)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -136,7 +136,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),topic2)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,connect-instance-1.snowflake_sink1,PROD),topic1)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
