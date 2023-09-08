@@ -69,7 +69,7 @@ class PartitionInfo:
 
         return cls(
             field=field,
-            type="RANGE",
+            type=RANGE_PARTITION_NAME,
         )
 
     @classmethod
