@@ -630,6 +630,13 @@ def test_extract_owners_from_tags():
         expected_owner="urn:li:corpuser:foo",
     )
     _test_owner(
+        tag="abcdef-owner:foo",
+        config={
+            "tag_prefix": ".*owner:",
+        },
+        expected_owner="urn:li:corpuser:foo",
+    )
+    _test_owner(
         tag="owner:foo",
         config={
             "tag_prefix": "owner:",
