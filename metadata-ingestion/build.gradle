@@ -188,15 +188,15 @@ task specGen(type: Exec, dependsOn: [codegen, installDevTest]) {
 task docGen(type: Exec, dependsOn: [codegen, installDevTest, specGen]) {
   commandLine 'bash', '-c', "source ${venv_name}/bin/activate && ./scripts/docgen.sh"
 }
-task buildWheel(type: Exec, dependsOn: [install, codegen]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
-}
 
 
 
 task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src tests -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
+}
+task buildWheel(type: Exec, dependsOn: [install, codegen, cleanPythonCache]) {
+  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install
