@@ -33,6 +33,8 @@ GET           /openapi/*path                                                   c
 POST          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 DELETE        /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 PUT           /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+HEAD          /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
+PATCH         /openapi/*path                                                   controllers.Application.proxy(path: String, request: Request)
 
 # Map static resources from the /public folder to the /assets URL path
 GET           /assets/*file                                                    controllers.Assets.at(path="/public", file)

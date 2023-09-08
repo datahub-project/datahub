@@ -121,6 +121,9 @@ setuptools.setup(
     # Package info.
     zip_safe=False,
     python_requires=">=3.7",
+    package_data={
+        "datahub_airflow_plugin": ["py.typed"],
+    },
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,
