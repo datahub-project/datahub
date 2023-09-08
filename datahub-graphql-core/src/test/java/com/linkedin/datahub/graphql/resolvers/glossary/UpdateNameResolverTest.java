@@ -58,7 +58,7 @@ public class UpdateNameResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -68,12 +68,12 @@ public class UpdateNameResolverTest {
     final MetadataChangeProposal proposal = setupTests(mockEnv, mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetSuccessForNode() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(NODE_URN))).thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -98,12 +98,12 @@ public class UpdateNameResolverTest {
     UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetSuccessForDomain() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(DOMAIN_URN))).thenReturn(true);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -129,12 +129,12 @@ public class UpdateNameResolverTest {
     UpdateNameResolver resolver = new UpdateNameResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetFailureEntityDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(false);
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);

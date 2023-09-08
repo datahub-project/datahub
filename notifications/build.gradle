@@ -1,22 +1,22 @@
 apply plugin: 'java'
 
 dependencies {
-  compile project(path: ':metadata-models')
-  compile project(path: ':metadata-service:restli-client')
-  compile project(path: ':metadata-service:auth-config')
-  compile project(path: ':metadata-io')
-  compile project(path: ':metadata-utils')
+  implementation project(path: ':metadata-models')
+  implementation project(path: ':metadata-service:restli-client')
+  implementation project(path: ':metadata-service:auth-config')
+  implementation project(path: ':metadata-io')
+  implementation project(path: ':metadata-utils')
 
-  compile("com.slack.api:slack-api-client:1.20.2")
+  implementation("com.slack.api:slack-api-client:1.20.2")
 
-  compile externalDependency.lombok
-  compile externalDependency.jacksonDataBind
+  implementation externalDependency.guava
+  compileOnly externalDependency.lombok
+  implementation externalDependency.jacksonDataBind
 
   annotationProcessor externalDependency.lombok
 
-  testCompile externalDependency.mockito
-  testCompile externalDependency.mockitoInline
-  testCompile externalDependency.lombok
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
 
   testAnnotationProcessor externalDependency.lombok
 

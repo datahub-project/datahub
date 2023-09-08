@@ -8,6 +8,9 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
+import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -16,7 +19,6 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.IngestProposalResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
@@ -41,6 +43,10 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -179,7 +185,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async) throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
-    boolean asyncBool;
+    final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
     } else {
@@ -200,18 +206,34 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
-        Urn responseUrn = result.getUrn();
+        final AspectsBatch batch;
+        if (asyncBool) {
+          // if async we'll expand the getAdditionalChanges later, no need to do this early
+          batch = AspectsBatchImpl.builder()
+                  .mcps(List.of(metadataChangeProposal), _entityService.getEntityRegistry())
+                  .build();
+        } else {
+          Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                  AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
 
-        if (!asyncBool) {
-          AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
-              .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
+          batch = AspectsBatchImpl.builder()
+                  .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                  .build();
         }
 
-        if (!result.isQueued()) {
-          tryIndexRunId(responseUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+        Set<IngestResult> results =
+                _entityService.ingestProposal(batch, auditStamp, asyncBool);
+
+        IngestResult one = results.stream()
+                .findFirst()
+                .get();
+
+        // Update runIds, only works for existing documents, so ES document must exist
+        Urn resultUrn = one.getUrn();
+        if (one.isProcessedMCL() || one.isUpdate()) {
+          tryIndexRunId(resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
         }
-        return responseUrn.toString();
+        return resultUrn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }

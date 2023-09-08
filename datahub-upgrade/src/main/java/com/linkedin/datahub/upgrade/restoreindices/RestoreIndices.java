@@ -10,7 +10,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +28,7 @@ public class RestoreIndices implements Upgrade {
 
   private final List<UpgradeStep> _steps;
 
-  public RestoreIndices(final EbeanServer server, final EntityService entityService,
+  public RestoreIndices(final Database server, final EntityService entityService,
       final EntityRegistry entityRegistry, final EntitySearchService entitySearchService,
       final GraphService graphService) {
     _steps = buildSteps(server, entityService, entityRegistry, entitySearchService, graphService);
@@ -44,7 +44,7 @@ public class RestoreIndices implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final EbeanServer server, final EntityService entityService,
+  private List<UpgradeStep> buildSteps(final Database server, final EntityService entityService,
       final EntityRegistry entityRegistry, final EntitySearchService entitySearchService,
       final GraphService graphService) {
     final List<UpgradeStep> steps = new ArrayList<>();

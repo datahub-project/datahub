@@ -1,19 +1,20 @@
 apply plugin: 'java'
 
 dependencies {
-    compile project(':metadata-service:factories')
-    compile project(':metadata-service:schema-registry-api')
+    implementation project(':metadata-service:factories')
+    implementation project(':metadata-service:schema-registry-api')
 
-    compile externalDependency.reflections
-    compile externalDependency.springBoot
-    compile externalDependency.springCore
-    compile(externalDependency.springDocUI) {
+    implementation externalDependency.reflections
+    implementation externalDependency.springBoot
+    implementation externalDependency.springCore
+    implementation(externalDependency.springDocUI) {
         exclude group: 'org.springframework.boot'
     }
-    compile externalDependency.springWeb
-    compile externalDependency.springWebMVC
-    compile externalDependency.springBeans
-    compile externalDependency.springContext
+    implementation externalDependency.springWeb
+    implementation externalDependency.springWebMVC
+    implementation externalDependency.springBeans
+    implementation externalDependency.springContext
+    implementation externalDependency.springBootAutoconfigure
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     implementation externalDependency.antlr4Runtime
@@ -23,14 +24,14 @@ dependencies {
 
     testImplementation externalDependency.springBootTest
     testImplementation project(':mock-entity-registry')
-    testCompile externalDependency.springBoot
-    testCompile externalDependency.testContainers
-    testCompile externalDependency.testContainersKafka
-    testCompile externalDependency.springKafka
-    testCompile externalDependency.testng
-    testCompile externalDependency.mockito
-    testCompile externalDependency.logbackClassic
-    testCompile externalDependency.jacksonCore
-    testCompile externalDependency.jacksonDataBind
-    testCompile externalDependency.springBootStarterWeb
+    testImplementation externalDependency.springBoot
+    testImplementation externalDependency.testContainers
+    testImplementation externalDependency.testContainersKafka
+    testImplementation externalDependency.springKafka
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.logbackClassic
+    testImplementation externalDependency.jacksonCore
+    testImplementation externalDependency.jacksonDataBind
+    testImplementation externalDependency.springBootStarterWeb
 }

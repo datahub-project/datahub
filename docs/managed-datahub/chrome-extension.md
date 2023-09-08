@@ -12,7 +12,7 @@ In order to use the Acryl DataHub Chrome extension, you need to download it onto
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/chrome-store-extension-screenshot.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/chrome-store-extension-screenshot.png"/>
 </p>
 
 
@@ -26,7 +26,7 @@ Once you have your extension installed, you'll need to configure it to work with
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/extension_open_popup.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_open_popup.png"/>
 </p>
 
 
@@ -34,7 +34,7 @@ Once you have your extension installed, you'll need to configure it to work with
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/extension_enter_domain.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_enter_domain.png"/>
 </p>
 
 
@@ -48,7 +48,7 @@ Some organizations have custom SaaS domains for Looker and some Acryl DataHub de
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/extension_open_options_page.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_open_options_page.png"/>
 </p>
 
 
@@ -56,7 +56,7 @@ Some organizations have custom SaaS domains for Looker and some Acryl DataHub de
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/extension_custom_configs.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_custom_configs.png"/>
 </p>
 
 
@@ -74,7 +74,7 @@ Once you have everything configured on your extension, it's time to use it!
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/extension_view_in_looker.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/extension_view_in_looker.png"/>
 </p>
 
 

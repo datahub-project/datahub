@@ -20,6 +20,7 @@ const AutoCompleteEntityWrapper = styled.div`
 
 const IconsContainer = styled.div`
     display: flex;
+    gap: 4px;
 `;
 
 const ContentWrapper = styled.div`

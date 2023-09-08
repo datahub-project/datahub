@@ -1,7 +1,7 @@
+import json
 import os
 import tarfile
 import urllib.request
-import json
 
 repo_url = "https://api.github.com/repos/datahub-project/static-assets"
 
@@ -16,30 +16,36 @@ def download_file(url, destination):
                 f.write(chunk)
 
 
-def fetch_tar_urls(repo_url, folder_path):
+def fetch_urls(repo_url: str, folder_path: str, file_format: str):
     api_url = f"{repo_url}/contents/{folder_path}"
     response = urllib.request.urlopen(api_url)
-    data = response.read().decode('utf-8')
-    tar_urls = [
-        file["download_url"] for file in json.loads(data) if file["name"].endswith(".tar.gz")
+    data = response.read().decode("utf-8")
+    urls = [
+        file["download_url"]
+        for file in json.loads(data)
+        if file["name"].endswith(file_format)
     ]
-    print(tar_urls)
-    return tar_urls
+    print(urls)
+    return urls
 
 
-def main():
-    folder_path = "versioned_docs"
-    destination_dir = "versioned_docs"
+def extract_tar_file(destination_path):
+    with tarfile.open(destination_path, "r:gz") as tar:
+        tar.extractall()
+    os.remove(destination_path)
+
+
+def download_versioned_docs(folder_path: str, destination_dir: str, file_format: str):
     if not os.path.exists(destination_dir):
         os.makedirs(destination_dir)
 
-    tar_urls = fetch_tar_urls(repo_url, folder_path)
+    urls = fetch_urls(repo_url, folder_path, file_format)
 
-    for url in tar_urls:
+    for url in urls:
         filename = os.path.basename(url)
         destination_path = os.path.join(destination_dir, filename)
 
-        version = '.'.join(filename.split('.')[:3])
+        version = ".".join(filename.split(".")[:3])
         extracted_path = os.path.join(destination_dir, version)
         print("extracted_path", extracted_path)
         if os.path.exists(extracted_path):
@@ -48,12 +54,24 @@ def main():
         try:
             download_file(url, destination_path)
             print(f"Downloaded {filename} to {destination_dir}")
-            with tarfile.open(destination_path, "r:gz") as tar:
-                tar.extractall()
-            os.remove(destination_path)
+            if file_format == ".tar.gz":
+                extract_tar_file(destination_path)
         except urllib.error.URLError as e:
             print(f"Error while downloading {filename}: {e}")
             continue
+
+
+def main():
+    download_versioned_docs(
+        folder_path="versioned_docs",
+        destination_dir="versioned_docs",
+        file_format=".tar.gz",
+    )
+    download_versioned_docs(
+        folder_path="versioned_sidebars",
+        destination_dir="versioned_sidebars",
+        file_format=".json",
+    )
 
 
 if __name__ == "__main__":

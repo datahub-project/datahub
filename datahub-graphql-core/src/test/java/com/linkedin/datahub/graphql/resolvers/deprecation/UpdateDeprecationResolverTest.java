@@ -58,7 +58,7 @@ public class UpdateDeprecationResolverTest {
                 .setUrn(Urn.createFromString(TEST_ENTITY_URN))
                 .setAspects(new EnvelopedAspectMap(Collections.emptyMap()))));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ENTITY_URN))).thenReturn(true);
 
     UpdateDeprecationResolver resolver = new UpdateDeprecationResolver(mockClient, mockService);

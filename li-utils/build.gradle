@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'pegasus'
 
 tasks.withType(JavaCompile).configureEach {
@@ -13,19 +13,21 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-    compile spec.product.pegasus.data
-    compile externalDependency.commonsLang
-    compile(externalDependency.reflections) {
+    api spec.product.pegasus.data
+    implementation externalDependency.commonsLang
+    implementation(externalDependency.reflections) {
         exclude group: 'com.google.guava', module: 'guava'
     }
-    compile externalDependency.guava
+    implementation externalDependency.guava
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 
-    testCompile externalDependency.assertJ
-    testCompile project(':test-models')
+    testImplementation externalDependency.assertJ
+    testImplementation externalDependency.commonsIo
+    testImplementation project(':test-models')
+    testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
 }
 
 idea {

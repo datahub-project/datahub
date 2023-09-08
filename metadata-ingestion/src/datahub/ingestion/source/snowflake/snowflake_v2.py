@@ -770,7 +770,8 @@ class SnowflakeV2Source(
             if self.config.parse_view_ddl:
                 for view in views:
                     key = self.get_dataset_identifier(view.name, schema_name, db_name)
-                    self.view_definitions[key] = view.view_definition
+                    if view.view_definition:
+                        self.view_definitions[key] = view.view_definition
 
             if self.config.include_technical_schema or self.config.parse_view_ddl:
                 for view in views:

@@ -44,7 +44,7 @@ class BaseView:
     comment: Optional[str]
     created: Optional[datetime]
     last_altered: Optional[datetime]
-    view_definition: str
+    view_definition: Optional[str]
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
     column_count: Optional[int] = None

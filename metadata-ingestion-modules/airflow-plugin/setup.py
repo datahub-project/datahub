@@ -13,16 +13,21 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
+rest_common = {"requests", "requests_file"}
+
 base_requirements = {
     # Compatibility.
     "dataclasses>=0.6; python_version < '3.7'",
-    "typing_extensions>=3.10.0.2",
+    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to Airflow 2.0.2 dependency conflict
+    "typing_extensions>=3.7.4.3 ;  python_version < '3.8'",
+    "typing_extensions>=3.10.0.2,<4.6.0 ;  python_version >= '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
-    f"acryl-datahub[airflow] == {package_metadata['__version__']}",
+    *rest_common,
+    f"acryl-datahub == {package_metadata['__version__']}",
 }
 
 
@@ -47,19 +52,18 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black>=21.12b0",
+    "black==22.12.0",
     "coverage>=5.1",
     "flake8>=3.8.3",
     "flake8-tidy-imports>=4.3.0",
     "isort>=5.7.0",
-    "mypy>=0.920",
+    "mypy>=1.4.0",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.9.0",
+    "pydantic>=1.10",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
-    "pytest-docker>=0.10.3,<0.12",
     "tox",
     "deepdiff",
     "requests-mock",
@@ -126,6 +130,14 @@ setuptools.setup(
         "dev": list(dev_requirements),
         "datahub-kafka": [
             f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}"
+        ],
+        "integration-tests": [
+            f"acryl-datahub[datahub-kafka] == {package_metadata['__version__']}",
+            # Extra requirements for Airflow.
+            "apache-airflow[snowflake]>=2.0.2",  # snowflake is used in example dags
+            # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
+            "SQLAlchemy<1.4.42",
+            "virtualenv",  # needed by PythonVirtualenvOperator
         ],
     },
 )

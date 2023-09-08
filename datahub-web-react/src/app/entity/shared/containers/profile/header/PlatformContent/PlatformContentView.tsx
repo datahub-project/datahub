@@ -14,6 +14,7 @@ import ParentNodesView, {
 
 const LogoIcon = styled.span`
     display: flex;
+    gap: 4px;
     margin-right: 8px;
 `;
 

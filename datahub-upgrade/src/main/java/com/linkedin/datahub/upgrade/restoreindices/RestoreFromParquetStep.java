@@ -140,7 +140,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
     };
   }
 
-  private Integer readerExecutable(ParquetReaderWrapper reader, UpgradeContext context) {
+  private Integer readerExecutable(ParquetReaderWrapper reader, UpgradeContext context) throws ExecutionException, InterruptedException {
 
     EbeanAspectV2 aspect;
     long startTime = System.currentTimeMillis();
@@ -209,10 +209,10 @@ public class RestoreFromParquetStep implements UpgradeStep {
       SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(aspect.getSystemMetadata());
 
       // 5. Produce MAE events for the aspect record
-      _entityService.produceMetadataChangeLog(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
+      _entityService.alwaysProduceMCLAsync(urn, entityName, aspectName, aspectSpec, null, aspectRecord, null,
           latestSystemMetadata,
           new AuditStamp().setActor(UrnUtils.getUrn(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
-          ChangeType.RESTATE);
+          ChangeType.RESTATE).getFirst().get();
 
       try {
         this._entityCounts.compute(entityName, (key, count) -> {

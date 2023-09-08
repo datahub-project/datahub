@@ -7,32 +7,33 @@ configurations {
 
 dependencies {
     implementation externalDependency.jsonPatch
-    compile project(':entity-registry')
-    compile project(':metadata-utils')
-    compile project(':metadata-events:mxe-avro-1.7')
-    compile project(':metadata-events:mxe-registration')
-    compile project(':metadata-events:mxe-utils-avro-1.7')
-    compile project(':metadata-models')
-    compile project(':metadata-service:restli-client')
-    compile project(':metadata-service:configuration')
+    implementation project(':entity-registry')
+    implementation project(':metadata-utils')
+    implementation project(':metadata-events:mxe-avro-1.7')
+    implementation project(':metadata-events:mxe-registration')
+    implementation project(':metadata-events:mxe-utils-avro-1.7')
+    implementation project(':metadata-models')
+    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:configuration')
 
     implementation externalDependency.slf4jApi
     implementation externalDependency.swaggerAnnotations
-    runtime externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackClassic
     compileOnly externalDependency.lombok
     implementation externalDependency.commonsCollections
-    compile externalDependency.javatuples
-    compile externalDependency.javaxValidation
-    compile externalDependency.opentelemetryAnnotations
+    implementation externalDependency.javatuples
+    implementation externalDependency.javaxValidation
+    implementation externalDependency.opentelemetryAnnotations
 
     annotationProcessor externalDependency.lombok
 
-    testCompile externalDependency.testng
-    testCompile externalDependency.junit
-    testCompile externalDependency.mockito
-    testCompile externalDependency.mockitoInline
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.junit
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.mockitoInline
     testCompileOnly externalDependency.lombok
-    testCompile project(':test-models')
+    testImplementation project(':test-models')
+    testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
     testImplementation project(':datahub-graphql-core')
     // logback >=1.3 required due to `testcontainers` only
     testImplementation 'ch.qos.logback:logback-classic:1.4.7'

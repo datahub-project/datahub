@@ -12,7 +12,7 @@ For a full reference to the Queries & Mutations available for consumption, check
 
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/image-(3).png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/image-(3).png"/>
 </p>
 
 

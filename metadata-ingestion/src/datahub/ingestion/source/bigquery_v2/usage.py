@@ -56,10 +56,7 @@ from datahub.ingestion.source.bigquery_v2.common import (
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.usage.usage_common import (
-    TOTAL_BUDGET_FOR_QUERY_LIST,
-    make_usage_workunit,
-)
+from datahub.ingestion.source.usage.usage_common import make_usage_workunit
 from datahub.ingestion.source_report.ingestion_stage import (
     USAGE_EXTRACTION_INGESTION,
     USAGE_EXTRACTION_OPERATIONAL_STATS,
@@ -101,7 +98,6 @@ OPERATION_STATEMENT_TYPES = {
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 STRING_ENCODING = "utf-8"
-MAX_QUERY_LENGTH = TOTAL_BUDGET_FOR_QUERY_LIST
 
 
 @dataclass(frozen=True, order=True)
@@ -601,6 +597,7 @@ class BigQueryUsageExtractor:
                     resource_urn_builder=self.dataset_urn_builder,
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
+                    queries_character_limit=self.config.usage.queries_character_limit,
                 )
                 self.report.num_usage_workunits_emitted += 1
             except Exception as e:
@@ -662,7 +659,8 @@ class BigQueryUsageExtractor:
                 usage_state.column_accesses[str(uuid.uuid4())] = key, field_read
             return True
         elif event.query_event and event.query_event.job_name:
-            query = event.query_event.query[:MAX_QUERY_LENGTH]
+            max_query_length = self.config.usage.queries_character_limit
+            query = event.query_event.query[:max_query_length]
             query_hash = hashlib.md5(query.encode(STRING_ENCODING)).hexdigest()
             if usage_state.queries.get(query_hash, query) != query:
                 key = str(uuid.uuid4())

@@ -1,7 +1,5 @@
 package com.linkedin.datahub.upgrade.restorebackup.backupreader;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Regions;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -31,6 +29,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 
 
 @Slf4j
@@ -69,7 +68,7 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
 
     if (arg == null) {
       log.warn("Region not provided, defaulting to us-west-2");
-      s3Region = Regions.US_WEST_2.getName();
+      s3Region = Region.US_WEST_2.id();
     } else {
       s3Region = arg;
     }
@@ -77,7 +76,7 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
       region = Region.of(s3Region);
     } catch (Exception e) {
       log.warn("Invalid region: {}, defaulting to us-west-2", s3Region);
-      region = Region.of(Regions.US_WEST_2.getName());
+      region = Region.of(Region.US_WEST_2.id());
     }
 
     System.setProperty("software.amazon.awssdk.http.service.impl",
@@ -184,10 +183,7 @@ public class S3BackupReader implements BackupReader<ParquetReaderWrapper> {
         fos.write(readBuf, 0, readLen);
       }
       return Optional.of(localFilePath);
-    } catch (AmazonServiceException e) {
-      log.error(e.getErrorMessage());
-      return Optional.empty();
-    } catch (IOException e) {
+    } catch (AwsServiceException | IOException e) {
       log.error(e.getMessage());
       return Optional.empty();
     }
