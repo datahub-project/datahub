@@ -637,6 +637,9 @@ jobs:
         uses: aquasecurity/trivy-action@0.8.0
         env:
           TRIVY_OFFLINE_SCAN: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
         with:
           image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
           format: "template"
@@ -647,6 +650,7 @@ jobs:
           vuln-type: "os,library"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
+        if: ${{ false }}
         with:
           sarif_file: "trivy-results.sarif"
 
@@ -719,6 +723,9 @@ jobs:
         uses: aquasecurity/trivy-action@0.8.0
         env:
           TRIVY_OFFLINE_SCAN: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-west-2
         with:
           image-ref: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
           format: "template"
@@ -729,6 +736,7 @@ jobs:
           vuln-type: "os,library"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v2
+        if: ${{ false }}
         with:
           sarif_file: "trivy-results.sarif"
 
