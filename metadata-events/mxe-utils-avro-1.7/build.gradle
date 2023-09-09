@@ -15,7 +15,9 @@ tasks.withType(Test).configureEach {
 dependencies {
   api project(':metadata-events:mxe-avro-1.7')
   api project(':metadata-models')
-  api spec.product.pegasus.dataAvro1_6
+  api(spec.product.pegasus.dataAvro1_6) {
+      exclude group: 'org.apache.avro'
+  }
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
