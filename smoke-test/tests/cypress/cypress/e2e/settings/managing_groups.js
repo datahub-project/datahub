@@ -65,7 +65,7 @@ describe("create and manage group", () => {
 
     it("update group info", () => {
         var expected_name = Cypress.env('ADMIN_USERNAME');
-        var display_name = Cypress.env('ADMIN_DISPLAYNAME', 'DataHub')
+        var display_name = Cypress.env('ADMIN_USERNAME') == 'datahub' ?  'DataHub' : 'Admin'; // Saas
         cy.loginWithCredentials();
         cy.visit("/settings/identities/groups");
         cy.clickOptionWithText(group_name);
@@ -80,12 +80,12 @@ describe("create and manage group", () => {
         cy.clickOptionWithText("Add Owners");
         cy.contains("Search for users or groups...").click({ force: true });
         cy.focused().type(expected_name);
-        cy.get(".ant-select-item-option").contains(display_name, { matchCase: false }).click();
+        cy.get(".ant-select-item-option").contains(display_name, { matchCase: false }).click(); // Saas
         cy.focused().blur();
-        cy.contains(display_name).should("have.length", 1);
+        cy.contains(display_name).should("have.length", 1); // Saas
         cy.get('[role="dialog"] button').contains("Done").click();
         cy.waitTextVisible("Owners Added");
-        cy.contains(display_name, { matchCase: false }).should("be.visible");
+        cy.contains(display_name, { matchCase: false }).should("be.visible"); // Saas
         cy.clickOptionWithText("Edit Group");
         cy.waitTextVisible("Edit Profile");
         cy.get("#email").type(`${test_id}@testemail.com`);
