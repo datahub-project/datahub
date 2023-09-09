@@ -1,7 +1,13 @@
 package com.linkedin.metadata.entity;
 
 import com.codahale.metrics.Timer;
-import com.linkedin.data.template.*;
+import com.linkedin.data.template.DataTemplateUtil;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.data.template.UnionTemplate;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
