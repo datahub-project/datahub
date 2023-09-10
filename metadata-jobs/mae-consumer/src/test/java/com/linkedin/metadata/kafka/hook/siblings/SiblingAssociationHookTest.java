@@ -36,6 +36,8 @@ import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.net.URISyntaxException;
+
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.*;
 
@@ -304,4 +306,50 @@ public class SiblingAssociationHookTest {
         Mockito.eq(_mockAuthentication)
     );
   }
-}
+  @Test
+  public void testInvokeWhenSourceUrnHasTwoDbtUpstreams() throws Exception {
+
+    MetadataChangeLog event = createEvent(DATASET_ENTITY_NAME, UPSTREAM_LINEAGE_ASPECT_NAME, ChangeType.UPSERT);
+    final UpstreamLineage upstreamLineage = new UpstreamLineage();
+    final UpstreamArray upstreamArray = new UpstreamArray();
+    Upstream dbtUpstream1 = createUpstream("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.source_entity1,PROD)");
+    Upstream dbtUpstream2 = createUpstream("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.source_entity2,PROD)");
+    upstreamArray.add(dbtUpstream1);
+    upstreamArray.add(dbtUpstream2);
+    upstreamLineage.setUpstreams(upstreamArray);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setEntityUrn(Urn.createFromString("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"));
+    _siblingAssociationHook.invoke(event);
+
+
+    Mockito.verify(_mockEntityClient, Mockito.times(0)).ingestProposal(
+            Mockito.any(),
+            Mockito.eq(_mockAuthentication)
+    );
+
+
+  }
+
+  private MetadataChangeLog createEvent(String entityType, String aspectName, ChangeType changeType) {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(entityType);
+    event.setAspectName(aspectName);
+    event.setChangeType(changeType);
+    return event;
+  }
+  private Upstream createUpstream(String urn) {
+
+    final Upstream upstream = new Upstream();
+    upstream.setType(DatasetLineageType.TRANSFORMED);
+    try {
+      upstream.setDataset(DatasetUrn.createFromString(urn));
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    }
+
+    return upstream;
+  }
+
+
+  }

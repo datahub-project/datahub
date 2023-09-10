@@ -10,7 +10,6 @@ import com.linkedin.common.SubTypes;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataList;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
