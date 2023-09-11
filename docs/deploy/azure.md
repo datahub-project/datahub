@@ -5,14 +5,13 @@ title: "Deploying to Azure"
 # Azure setup guide
 
 The following is a set of instructions to quickstart DataHub on Azure Kubernetes Service (AKS). Note, the guide
-assumes that you do not have a kubernetes cluster set up. If you are deploying DataHub to an existing cluster, please
-skip the corresponding sections.
+assumes that you do not have a Kubernetes cluster set up. 
 
 ## Prerequisites
 
 This guide requires the following tools:
 
-- [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage Kubernetes resources
 - [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm
     3.
 - [AZ CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) to manage Azure resources
@@ -20,12 +19,13 @@ This guide requires the following tools:
 To use the above tools, you need to set up Azure credentials by following
 this [guide](https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli).
 
-## Start up a kubernetes cluster on AKS
+## Start up a Kubernetes cluster on AKS
 
 You can follow this [guide](https://learn.microsoft.com/en-us/azure/aks/learn/quick-kubernetes-deploy-cli) to create a new
 cluster using az cli. 
 
-Note: you can skip the application deployment step since we are deploying DataHub instead.
+Note: you can skip the application deployment step since we are deploying DataHub instead. If you are deploying DataHub to an existing cluster, please
+skip the corresponding sections.
 
 - Verify you have the Microsoft.OperationsManagement and Microsoft.OperationalInsights providers registered on your subscription. These Azure resource providers are required to support Container insights. Check the registration status using the following commands:
 
@@ -77,7 +77,7 @@ Configure kubectl to connect to your Kubernetes cluster using the az aks get-cre
 az aks get-credentials --resource-group myResourceGroup --name myAKSCluster
 ```
 
-Verify the connection to your cluster using the kubectl get command. This command returns a list of the cluster nodes.
+Verify the connection to your cluster using the `kubectl get` command. This command returns a list of the cluster nodes.
 
 ```
 kubectl get nodes
@@ -94,7 +94,7 @@ aks-nodepool1-37660971-vmss000002              Ready    agent   24h   v1.25.6
 
 ## Setup DataHub using Helm
 
-Once the kubernetes cluster has been set up, you can deploy DataHub and it’s prerequisites using helm. Please follow the
+Once the Kubernetes cluster has been set up, you can deploy DataHub and its prerequisites using helm. Please follow the
 steps in this [guide](kubernetes.md). 
 
 
@@ -201,7 +201,7 @@ You should see a result like this:
 
 
 ## Use PostgresSQL for the storage layer
-Configure a PostgreSQL database in the same virtual network as the kubernetes cluster or implement virtual network peering to connect both networks. Once the database is provisioned, you should be able to see the following page under the Connect tab on the left side. 
+Configure a PostgreSQL database in the same virtual network as the Kubernetes cluster or implement virtual network peering to connect both networks. Once the database is provisioned, you should be able to see the following page under the Connect tab on the left side. 
 
 
 Note: PostgreSQL Database MUST be deployed in same location as AKS/resource group (eastus, centralus, etc.)
