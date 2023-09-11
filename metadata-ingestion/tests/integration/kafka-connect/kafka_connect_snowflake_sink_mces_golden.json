@@ -95,7 +95,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:kafka,_topic+2,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_db.kafka_schema._TOPIC_2,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,kafka_db.kafka_schema._topic_2,PROD)"
             ]
         }
     },
