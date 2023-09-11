@@ -9,6 +9,17 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Potential Downtime
 
 ### Deprecations
+
+### Other Notable Changes
+
+## 0.11.0
+
+### Breaking Changes
+
+### Potential Downtime
+- #8611 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities.
+
+### Deprecations
 - #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
 
 ### Other Notable Changes
