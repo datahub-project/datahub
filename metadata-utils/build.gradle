@@ -1,30 +1,31 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 dependencies {
-  compile externalDependency.avro_1_7
-  compile externalDependency.commonsLang
-  compile externalDependency.dropwizardMetricsCore
-  compile externalDependency.dropwizardMetricsJmx
-  compile externalDependency.elasticSearchRest
-  compile externalDependency.httpClient
-  compile externalDependency.neo4jJavaDriver
-  compile externalDependency.json
+  api externalDependency.avro_1_7
+  implementation externalDependency.commonsLang
+  api externalDependency.dropwizardMetricsCore
+  implementation externalDependency.dropwizardMetricsJmx
+  api externalDependency.elasticSearchRest
+  implementation externalDependency.httpClient
+  api externalDependency.neo4jJavaDriver
+  api externalDependency.json
 
-  compile spec.product.pegasus.restliClient
-  compile spec.product.pegasus.restliCommon
-  compile spec.product.pegasus.restliServer
+  implementation spec.product.pegasus.restliClient
+  implementation spec.product.pegasus.restliCommon
+  implementation spec.product.pegasus.restliServer
 
-  compile project(':li-utils')
-  compile project(':entity-registry')
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-events:mxe-utils-avro-1.7')
+  api project(':li-utils')
+  api project(':entity-registry')
+  api project(':metadata-events:mxe-avro-1.7')
+  api project(':metadata-events:mxe-utils-avro-1.7')
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
 
-  testCompile project(':test-models')
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
 
   constraints {
       implementation(externalDependency.log4jCore) {

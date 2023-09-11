@@ -770,7 +770,8 @@ class SnowflakeV2Source(
             if self.config.parse_view_ddl:
                 for view in views:
                     key = self.get_dataset_identifier(view.name, schema_name, db_name)
-                    self.view_definitions[key] = view.view_definition
+                    if view.view_definition:
+                        self.view_definitions[key] = view.view_definition
 
             if self.config.include_technical_schema or self.config.parse_view_ddl:
                 for view in views:
@@ -1164,7 +1165,7 @@ class SnowflakeV2Source(
 
         foreign_keys: Optional[List[ForeignKeyConstraint]] = None
         if isinstance(table, SnowflakeTable) and len(table.foreign_keys) > 0:
-            foreign_keys = self.build_foreign_keys(table, dataset_urn, foreign_keys)
+            foreign_keys = self.build_foreign_keys(table, dataset_urn)
 
         schema_metadata = SchemaMetadata(
             schemaName=dataset_name,
@@ -1210,7 +1211,9 @@ class SnowflakeV2Source(
 
         return schema_metadata
 
-    def build_foreign_keys(self, table, dataset_urn, foreign_keys):
+    def build_foreign_keys(
+        self, table: SnowflakeTable, dataset_urn: str
+    ) -> List[ForeignKeyConstraint]:
         foreign_keys = []
         for fk in table.foreign_keys:
             foreign_dataset = make_dataset_urn(
@@ -1427,7 +1430,7 @@ class SnowflakeV2Source(
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
 
-    def add_config_to_report(self):
+    def add_config_to_report(self) -> None:
         self.report.cleaned_account_id = self.config.get_account()
         self.report.ignore_start_time_lineage = self.config.ignore_start_time_lineage
         self.report.upstream_lineage_in_report = self.config.upstream_lineage_in_report
@@ -1480,7 +1483,9 @@ class SnowflakeV2Source(
     # that would be expensive, hence not done. To compensale for possibility
     # of some null values in collected sample, we fetch extra (20% more)
     # rows than configured sample_size.
-    def get_sample_values_for_table(self, table_name, schema_name, db_name):
+    def get_sample_values_for_table(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> pd.DataFrame:
         # Create a cursor object.
         logger.debug(
             f"Collecting sample values for table {db_name}.{schema_name}.{table_name}"
@@ -1561,7 +1566,7 @@ class SnowflakeV2Source(
             )
             return None
 
-    def is_standard_edition(self):
+    def is_standard_edition(self) -> bool:
         try:
             self.query(SnowflakeQuery.show_tags())
             return False
@@ -1570,7 +1575,7 @@ class SnowflakeV2Source(
                 return True
             raise
 
-    def _snowflake_clear_ocsp_cache(self):
+    def _snowflake_clear_ocsp_cache(self) -> None:
         # Because of some issues with the Snowflake Python connector, we wipe the OCSP cache.
         #
         # Why is this necessary:

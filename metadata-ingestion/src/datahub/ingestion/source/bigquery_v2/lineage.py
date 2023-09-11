@@ -183,6 +183,7 @@ def make_lineage_edges_from_parsing_result(
             column_mapping=frozenset(
                 LineageEdgeColumnMapping(out_column=out_column, in_columns=in_columns)
                 for out_column, in_columns in column_mapping.items()
+                if in_columns
             ),
             auditStamp=audit_stamp,
             type=lineage_type,

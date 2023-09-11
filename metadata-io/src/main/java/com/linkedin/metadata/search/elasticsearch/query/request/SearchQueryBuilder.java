@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -116,11 +118,8 @@ public class SearchQueryBuilder {
 
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(withoutQueryPrefix);
       queryBuilder.defaultOperator(Operator.AND);
-      entitySpecs.stream()
-          .map(this::getStandardFields)
-          .flatMap(Set::stream)
-          .distinct()
-          .forEach(cfg -> queryBuilder.field(cfg.fieldName(), cfg.boost()));
+      getStandardFields(entitySpecs).forEach(entitySpec ->
+          queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
       finalQuery.should(queryBuilder);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(null, entitySpecs, withoutQueryPrefix).ifPresent(finalQuery::should);
@@ -130,16 +129,47 @@ public class SearchQueryBuilder {
     return finalQuery;
   }
 
-  private Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
+  /**
+   * Gets searchable fields from all entities in the input collection. De-duplicates fields across entities.
+   * @param entitySpecs: Entity specs to extract searchable fields from
+   * @return A set of SearchFieldConfigs containing the searchable fields from the input entities.
+   */
+  @VisibleForTesting
+  Set<SearchFieldConfig> getStandardFields(@Nonnull Collection<EntitySpec> entitySpecs) {
     Set<SearchFieldConfig> fields = new HashSet<>();
-
     // Always present
     final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
 
     fields.add(SearchFieldConfig.detectSubFieldType("urn", urnBoost, SearchableAnnotation.FieldType.URN, true));
     fields.add(SearchFieldConfig.detectSubFieldType("urn.delimited", urnBoost * partialConfiguration.getUrnFactor(),
-            SearchableAnnotation.FieldType.URN, true));
+        SearchableAnnotation.FieldType.URN, true));
 
+    entitySpecs.stream()
+        .map(this::getFieldsFromEntitySpec)
+        .flatMap(Set::stream)
+        .collect(Collectors.groupingBy(SearchFieldConfig::fieldName)).forEach((key, value) ->
+            fields.add(
+                new SearchFieldConfig(
+                    key,
+                    value.get(0).shortName(),
+                    (float) value.stream().mapToDouble(SearchFieldConfig::boost).average().getAsDouble(),
+                    value.get(0).analyzer(),
+                    value.stream().anyMatch(SearchFieldConfig::hasKeywordSubfield),
+                    value.stream().anyMatch(SearchFieldConfig::hasDelimitedSubfield),
+                    value.stream().anyMatch(SearchFieldConfig::hasWordGramSubfields),
+                    true,
+                    value.stream().anyMatch(SearchFieldConfig::isDelimitedSubfield),
+                    value.stream().anyMatch(SearchFieldConfig::isKeywordSubfield),
+                    value.stream().anyMatch(SearchFieldConfig::isWordGramSubfield)
+            ))
+        );
+
+    return fields;
+  }
+
+  @VisibleForTesting
+  Set<SearchFieldConfig> getFieldsFromEntitySpec(EntitySpec entitySpec) {
+    Set<SearchFieldConfig> fields = new HashSet<>();
     List<SearchableFieldSpec> searchableFieldSpecs = entitySpec.getSearchableFieldSpecs();
     for (SearchableFieldSpec fieldSpec : searchableFieldSpecs) {
       if (!fieldSpec.getSearchableAnnotation().isQueryByDefault()) {
@@ -153,8 +183,8 @@ public class SearchQueryBuilder {
         final SearchableAnnotation searchableAnnotation = fieldSpec.getSearchableAnnotation();
 
         fields.add(SearchFieldConfig.detectSubFieldType(searchFieldConfig.fieldName() + ".delimited",
-                searchFieldConfig.boost() * partialConfiguration.getFactor(),
-                searchableAnnotation.getFieldType(), searchableAnnotation.isQueryByDefault()));
+            searchFieldConfig.boost() * partialConfiguration.getFactor(),
+            searchableAnnotation.getFieldType(), searchableAnnotation.isQueryByDefault()));
 
         if (SearchFieldConfig.detectSubFieldType(fieldSpec).hasWordGramSubfields()) {
           fields.add(SearchFieldConfig.builder()
@@ -187,6 +217,20 @@ public class SearchQueryBuilder {
         }
       }
     }
+    return fields;
+  }
+
+  private Set<SearchFieldConfig> getStandardFields(@Nonnull EntitySpec entitySpec) {
+    Set<SearchFieldConfig> fields = new HashSet<>();
+
+    // Always present
+    final float urnBoost = Float.parseFloat((String) PRIMARY_URN_SEARCH_PROPERTIES.get("boostScore"));
+
+    fields.add(SearchFieldConfig.detectSubFieldType("urn", urnBoost, SearchableAnnotation.FieldType.URN, true));
+    fields.add(SearchFieldConfig.detectSubFieldType("urn.delimited", urnBoost * partialConfiguration.getUrnFactor(),
+            SearchableAnnotation.FieldType.URN, true));
+
+    fields.addAll(getFieldsFromEntitySpec(entitySpec));
 
     return fields;
   }
@@ -255,49 +299,42 @@ public class SearchQueryBuilder {
     BoolQueryBuilder finalQuery =  QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
 
-    entitySpecs.stream()
-            .map(this::getStandardFields)
-            .flatMap(Set::stream)
-            .filter(SearchFieldConfig::isQueryByDefault)
-            .forEach(searchFieldConfig -> {
+    getStandardFields(entitySpecs).forEach(searchFieldConfig -> {
+          if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
+            finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
+                .boost(searchFieldConfig.boost() * exactMatchConfiguration.getPrefixFactor()
+                    * exactMatchConfiguration.getCaseSensitivityFactor())
+                .queryName(searchFieldConfig.shortName())); // less than exact
+          }
 
-              if (searchFieldConfig.isDelimitedSubfield() && isPrefixQuery) {
-                finalQuery.should(QueryBuilders.matchPhrasePrefixQuery(searchFieldConfig.fieldName(), query)
-                        .boost(searchFieldConfig.boost()
-                                * exactMatchConfiguration.getPrefixFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
-                        .queryName(searchFieldConfig.shortName())); // less than exact
-              }
+          if (searchFieldConfig.isKeyword() && isExactQuery) {
+            // It is important to use the subfield .keyword (it uses a different normalizer)
+            // The non-.keyword field removes case information
 
-              if (searchFieldConfig.isKeyword() && isExactQuery) {
-                // It is important to use the subfield .keyword (it uses a different normalizer)
-                // The non-.keyword field removes case information
+            // Exact match case-sensitive
+            finalQuery.should(
+                QueryBuilders.termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+                    .caseInsensitive(false)
+                    .boost(searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor())
+                    .queryName(searchFieldConfig.shortName()));
 
-                // Exact match case-sensitive
-                finalQuery.should(QueryBuilders
-                        .termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
-                        .caseInsensitive(false)
-                        .boost(searchFieldConfig.boost()
-                                * exactMatchConfiguration.getExactFactor())
-                        .queryName(searchFieldConfig.shortName()));
+            // Exact match case-insensitive
+            finalQuery.should(
+                QueryBuilders.termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+                    .caseInsensitive(true)
+                    .boost(searchFieldConfig.boost() * exactMatchConfiguration.getExactFactor()
+                        * exactMatchConfiguration.getCaseSensitivityFactor())
+                    .queryName(searchFieldConfig.fieldName()));
+          }
 
-                // Exact match case-insensitive
-                finalQuery.should(QueryBuilders
-                        .termQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
-                        .caseInsensitive(true)
-                        .boost(searchFieldConfig.boost()
-                                * exactMatchConfiguration.getExactFactor()
-                                * exactMatchConfiguration.getCaseSensitivityFactor())
-                        .queryName(searchFieldConfig.fieldName()));
-              }
-
-              if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
-                finalQuery.should(QueryBuilders
-                    .matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false), unquotedQuery)
+          if (searchFieldConfig.isWordGramSubfield() && isPrefixQuery) {
+            finalQuery.should(
+                QueryBuilders.matchPhraseQuery(ESUtils.toKeywordField(searchFieldConfig.fieldName(), false),
+                        unquotedQuery)
                     .boost(searchFieldConfig.boost() * getWordGramFactor(searchFieldConfig.fieldName()))
                     .queryName(searchFieldConfig.shortName()));
-              }
-            });
+          }
+        });
 
     return finalQuery.should().size() > 0 ? Optional.of(finalQuery) : Optional.empty();
   }
@@ -400,7 +437,8 @@ public class SearchQueryBuilder {
   private BoolQueryBuilder toBoolQueryBuilder(String query, BoolQueryConfiguration boolQuery) {
     try {
       String jsonFragment = OBJECT_MAPPER.writeValueAsString(boolQuery)
-          .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query));
+          .replace("\"{{query_string}}\"", OBJECT_MAPPER.writeValueAsString(query))
+          .replace("\"{{unquoted_query_string}}\"", OBJECT_MAPPER.writeValueAsString(unquote(query)));
       XContentParser parser = XContentType.JSON.xContent().createParser(X_CONTENT_REGISTRY,
           LoggingDeprecationHandler.INSTANCE, jsonFragment);
       return BoolQueryBuilder.fromXContent(parser);
