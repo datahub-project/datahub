@@ -9,6 +9,7 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -35,8 +36,12 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
+
+import io.ebean.Transaction;
 import mock.MockEntityRegistry;
 import mock.MockEntityService;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -60,6 +65,11 @@ public class EntitiesControllerTest {
       throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
     EntityRegistry mockEntityRegistry = new MockEntityRegistry();
     AspectDao aspectDao = Mockito.mock(AspectDao.class);
+    Mockito.when(aspectDao.runInTransactionWithRetry(
+            ArgumentMatchers.<Function<Transaction, UpdateAspectResult>>any(), any(), anyInt())).thenAnswer(i ->
+            ((Function<Transaction, UpdateAspectResult>) i.getArgument(0)).apply(Mockito.mock(Transaction.class))
+    );
+
     EventProducer mockEntityEventProducer = Mockito.mock(EventProducer.class);
     UpdateIndicesService mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
@@ -80,85 +90,86 @@ public class EntitiesControllerTest {
   public void testIngestDataset() {
     List<UpsertAspectRequest> datasetAspects = new ArrayList<>();
     UpsertAspectRequest viewProperties = UpsertAspectRequest.builder()
-        .aspect(new ViewProperties()
+        .aspect(ViewProperties.builder()
             .viewLogic(S)
             .viewLanguage(S)
-            .materialized(true))
+            .materialized(true).build())
         .entityType(DATASET_ENTITY_NAME)
         .entityUrn(DATASET_URN)
         .build();
     datasetAspects.add(viewProperties);
 
     UpsertAspectRequest subTypes = UpsertAspectRequest.builder()
-        .aspect(new SubTypes()
-            .typeNames(Collections.singletonList(S)))
+        .aspect(SubTypes.builder()
+            .typeNames(Collections.singletonList(S)).build())
         .entityType(DATASET_ENTITY_NAME)
-        .entityKeyAspect(new DatasetKey()
+        .entityKeyAspect(DatasetKey.builder()
             .name("name")
             .platform(DATA_PLATFORM_URN)
-            .origin(FabricType.PROD))
+            .origin(FabricType.PROD).build())
         .build();
     datasetAspects.add(subTypes);
 
     UpsertAspectRequest datasetProfile = UpsertAspectRequest.builder()
-        .aspect(new DatasetProfile().timestampMillis(0L).addFieldProfilesItem(
-            new DatasetFieldProfile()
-                .fieldPath(S)
-                .histogram(new Histogram()
-                    .boundaries(Collections.singletonList(S))))
-        )
-        .entityType(DATASET_ENTITY_NAME)
-        .entityKeyAspect(new DatasetKey()
-            .name("name")
-            .platform(DATA_PLATFORM_URN)
-            .origin(FabricType.PROD))
-        .build();
+            .aspect(DatasetProfile.builder().build().timestampMillis(0L).addFieldProfilesItem(
+                            DatasetFieldProfile.builder()
+                                    .fieldPath(S)
+                                    .histogram(Histogram.builder()
+                                            .boundaries(Collections.singletonList(S)).build()).build()
+                    )
+            )
+            .entityType(DATASET_ENTITY_NAME)
+            .entityKeyAspect(DatasetKey.builder()
+                    .name("name")
+                    .platform(DATA_PLATFORM_URN)
+                    .origin(FabricType.PROD).build())
+            .build();
     datasetAspects.add(datasetProfile);
 
     UpsertAspectRequest schemaMetadata = UpsertAspectRequest.builder()
-        .aspect(new SchemaMetadata()
+        .aspect(SchemaMetadata.builder()
             .schemaName(S)
             .dataset(DATASET_URN)
             .platform(DATA_PLATFORM_URN)
             .hash(S)
             .version(0L)
-            .platformSchema(new MySqlDDL().tableSchema(S))
-            .fields(Collections.singletonList(new SchemaField()
+            .platformSchema(MySqlDDL.builder().tableSchema(S).build())
+            .fields(Collections.singletonList(SchemaField.builder()
                 .fieldPath(S)
                 .nativeDataType(S)
-                .type(new SchemaFieldDataType().type(new StringType()))
+                .type(SchemaFieldDataType.builder().type(StringType.builder().build()).build())
                 .description(S)
-                .globalTags(new GlobalTags()
-                    .tags(Collections.singletonList(new TagAssociation()
-                        .tag(TAG_URN))))
-                .glossaryTerms(new GlossaryTerms()
-                    .terms(Collections.singletonList(new GlossaryTermAssociation()
-                        .urn(GLOSSARY_TERM_URN)))
-                    .auditStamp(new AuditStamp()
+                .globalTags(GlobalTags.builder()
+                    .tags(Collections.singletonList(TagAssociation.builder()
+                        .tag(TAG_URN).build())).build())
+                .glossaryTerms(GlossaryTerms.builder()
+                    .terms(Collections.singletonList(GlossaryTermAssociation.builder()
+                        .urn(GLOSSARY_TERM_URN).build()))
+                    .auditStamp(AuditStamp.builder()
                         .time(0L)
-                        .actor(CORPUSER_URN)))
+                        .actor(CORPUSER_URN).build()).build()).build()
             )
-        ))
+        ).build())
         .entityType(DATASET_ENTITY_NAME)
-        .entityKeyAspect(new DatasetKey()
+        .entityKeyAspect(DatasetKey.builder()
             .name("name")
             .platform(DATA_PLATFORM_URN)
-            .origin(FabricType.PROD))
+            .origin(FabricType.PROD).build())
         .build();
     datasetAspects.add(schemaMetadata);
 
     UpsertAspectRequest glossaryTerms = UpsertAspectRequest.builder()
-        .aspect(new GlossaryTerms()
-            .terms(Collections.singletonList(new GlossaryTermAssociation()
-                .urn(GLOSSARY_TERM_URN)))
-            .auditStamp(new AuditStamp()
+        .aspect(GlossaryTerms.builder()
+            .terms(Collections.singletonList(GlossaryTermAssociation.builder()
+                .urn(GLOSSARY_TERM_URN).build()))
+            .auditStamp(AuditStamp.builder()
                 .time(0L)
-                .actor(CORPUSER_URN)))
+                .actor(CORPUSER_URN).build()).build())
         .entityType(DATASET_ENTITY_NAME)
-        .entityKeyAspect(new DatasetKey()
+        .entityKeyAspect(DatasetKey.builder()
             .name("name")
             .platform(DATA_PLATFORM_URN)
-            .origin(FabricType.PROD))
+            .origin(FabricType.PROD).build())
         .build();
     datasetAspects.add(glossaryTerms);
 

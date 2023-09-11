@@ -65,11 +65,15 @@ class BaseTimeWindowConfig(ConfigModel):
                 assert delta < timedelta(
                     0
                 ), "Relative start time should start with minus sign (-) e.g. '-2 days'."
-                assert abs(delta) > get_bucket_duration_delta(
+                assert abs(delta) >= get_bucket_duration_delta(
                     values["bucket_duration"]
                 ), "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
-                return values["end_time"] + delta
+                return get_time_bucket(
+                    values["end_time"] + delta, values["bucket_duration"]
+                )
             except humanfriendly.InvalidTimespan:
+                # We do not floor start_time to the bucket start time if absolute start time is specified.
+                # If user has specified absolute start time in recipe, it's most likely that he means it.
                 return parse_absolute_time(v)
 
         return v

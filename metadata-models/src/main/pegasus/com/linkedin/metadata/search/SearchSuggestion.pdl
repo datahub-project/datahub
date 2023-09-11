@@ -1,0 +1,24 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * The model for the search result
+ */
+record SearchSuggestion {
+
+  /**
+   * The suggestion text for this search query
+   */
+  text: string
+
+  /**
+   * The score for how close this suggestion is to the original search query.
+   * The closer to 1 means it is closer to the original query and 0 is further away.
+   */
+  score: float
+
+  /**
+   * How many matches there are with the suggested text for the given field
+   */
+  frequency: long
+
+}

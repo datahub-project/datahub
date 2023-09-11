@@ -30,6 +30,9 @@ export const DEFAULT_APP_CONFIG = {
         entityProfile: {
             domainDefaultTab: null,
         },
+        searchResult: {
+            enableNameHighlight: false,
+        },
     },
     authConfig: {
         tokenAuthEnabled: false,
@@ -51,6 +54,7 @@ export const DEFAULT_APP_CONFIG = {
         subscriptionsEnabled: false,
         datasetHealthDashboardEnabled: false,
         showAcrylInfo: false,
+        showAccessManagement: false,
     },
     chromeExtensionConfig: {
         enabled: false,

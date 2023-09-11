@@ -43,6 +43,9 @@ datahub delete --platform snowflake
 # Filters can be combined, which will select entities that match all filters.
 datahub delete --platform looker --entity-type chart
 datahub delete --platform bigquery --env PROD
+
+# You can also do recursive deletes for container and dataPlatformInstance entities.
+datahub delete --urn "urn:li:container:f76..." --recursive
 ```
 
 When performing hard deletes, you can optionally add the `--only-soft-deleted` flag to only hard delete entities that were previously soft deleted.
@@ -122,11 +125,26 @@ datahub delete --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted
 datahub delete --platform snowflake --env DEV
 ```
 
+#### Delete everything within a specific Snowflake DB
+
+```shell
+# You can find your container urn by navigating to the relevant
+# DB in the DataHub UI and clicking the "copy urn" button.
+datahub delete --urn "urn:li:container:77644901c4f574845578ebd18b7c14fa" --recursive
+```
+
 #### Delete all BigQuery datasets in the PROD environment
 
 ```shell
 # Note: this will leave BigQuery containers intact.
 datahub delete --env PROD --entity-type dataset --platform bigquery
+```
+
+#### Delete everything within a MySQL platform instance
+
+```shell
+# The instance name comes from the `platform_instance` config option in the ingestion recipe.
+datahub delete --urn 'urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,my_instance_name)' --recursive
 ```
 
 #### Delete all pipelines and tasks from Airflow
@@ -138,6 +156,7 @@ datahub delete --platform "airflow"
 #### Delete all containers for a particular platform
 
 ```shell
+# Note: this will leave S3 datasets intact.
 datahub delete --entity-type container --platform s3
 ```
 

@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_schema_field_urn,
@@ -68,6 +69,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
@@ -278,6 +280,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         operation = self._create_table_operation_aspect(table)
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
+        data_platform_instance = self._create_data_platform_instance_aspect(table)
 
         lineage: Optional[UpstreamLineageClass] = None
         if self.config.include_column_lineage:
@@ -299,6 +302,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     operation,
                     domain,
                     ownership,
+                    data_platform_instance,
                     lineage,
                 ],
             )
@@ -555,6 +559,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         type=OwnershipTypeClass.DATAOWNER,
                     )
                 ]
+            )
+        return None
+
+    def _create_data_platform_instance_aspect(
+        self, table: Table
+    ) -> Optional[DataPlatformInstanceClass]:
+        # Only ingest the DPI aspect if the flag is true
+        if self.config.ingest_data_platform_instance_aspect:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(
+                    self.platform, self.platform_instance_name
+                ),
             )
         return None
 

@@ -11,7 +11,11 @@ We introduced a few important concepts to the Metadata Service to make authentic
 
 In following sections, we'll take a closer look at each individually.
 
-![](../imgs/metadata-service-auth.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-service-auth.png"/>
+</p>
+
 *High level overview of Metadata Service Authentication*
 
 ## What is an Actor?

@@ -1,7 +1,7 @@
 plugins {
   id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
-  id 'com.palantir.docker'
   id 'scala'
+  id 'com.palantir.docker'
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
@@ -79,6 +79,8 @@ docker {
   files fileTree(rootProject.projectDir) {
     include 'docker/monitoring/*'
     include "docker/${docker_dir}/*"
+  }.exclude {
+    i -> i.file.isHidden() || i.file == buildDir
   }
   tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -94,11 +96,11 @@ task unversionZip(type: Copy, dependsOn: [':datahub-web-react:build', dist]) {
   into "${buildDir}/docker/"
   rename "datahub-frontend-${version}.zip", "datahub-frontend.zip"
 }
-tasks.getByName("docker").dependsOn(unversionZip)
+tasks.getByPath(":datahub-frontend:docker").dependsOn(unversionZip)
 
 task cleanLocalDockerImages {
   doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

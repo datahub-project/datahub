@@ -32,7 +32,11 @@ Azure supports more than one redirect URI, so both can be configured at the same
 
 At this point, your app registration should look like the following:
 
-![azure-setup-app-registration](img/azure-setup-app-registration.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-app-registration.png"/>
+</p>
+
 
 e. Click **Register**.
 
@@ -40,7 +44,11 @@ e. Click **Register**.
 
 Once registration is done, you will land on the app registration **Overview** tab.  On the left-side navigation bar, click on **Authentication** under **Manage** and add extra redirect URIs if need be (if you want to support both local testing and Azure deployments).
 
-![azure-setup-authentication](img/azure-setup-authentication.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>
+</p>
+
 
 Click **Save**.
 
@@ -51,7 +59,11 @@ Select **Client secrets**, then **New client secret**.  Type in a meaningful des
 
 **IMPORTANT:** Copy the `value` of your newly create secret since Azure will never display its value afterwards.
 
-![azure-setup-certificates-secrets](img/azure-setup-certificates-secrets.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-certificates-secrets.png"/>
+</p>
+
 
 ### 4. Configure API permissions
 
@@ -66,7 +78,11 @@ Click on **Add a permission**, then from the **Microsoft APIs** tab select **Mic
 
 At this point, you should be looking at a screen like the following:
 
-![azure-setup-api-permissions](img/azure-setup-api-permissions.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-api-permissions.png"/>
+</p>
+
 
 ### 5. Obtain Application (Client) ID
 

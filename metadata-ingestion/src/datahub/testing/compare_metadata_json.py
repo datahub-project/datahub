@@ -55,7 +55,6 @@ def assert_metadata_files_equal(
     output = load_json_file(output_path)
 
     if update_golden and not golden_exists:
-        golden = load_json_file(output_path)
         shutil.copyfile(str(output_path), str(golden_path))
         return
     else:

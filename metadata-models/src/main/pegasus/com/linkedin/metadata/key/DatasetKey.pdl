@@ -25,7 +25,7 @@ record DatasetKey {
   //This is no longer to be used for Dataset native name. Use name, qualifiedName from DatasetProperties instead.
   @Searchable = {
     "fieldName": "id"
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0
   }

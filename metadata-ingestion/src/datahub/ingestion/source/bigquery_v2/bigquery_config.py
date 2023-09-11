@@ -81,6 +81,13 @@ class BigQueryV2Config(
         description="Whether to populate BigQuery Console url to Datasets/Tables",
     )
 
+    include_data_platform_instance: bool = Field(
+        default=False,
+        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
+        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
+        " because the project id is represented as the top-level container.",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",

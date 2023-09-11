@@ -11,6 +11,7 @@ import {
     FilterOutlined,
     TeamOutlined,
     StarOutlined,
+    PushpinOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
@@ -30,6 +31,7 @@ import { ManageOwnership } from '../entity/ownership/ManageOwnership';
 import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSubscriptions';
 import { useSubscriptionsEnabled } from './personal/notifications/utils';
+import ManagePosts from './posts/ManagePosts';
 
 const PageContainer = styled.div`
     display: flex;
@@ -84,6 +86,7 @@ const PATHS = [
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'views', content: <ManageViews /> },
     { path: 'ownership', content: <ManageOwnership /> },
+    { path: 'posts', content: <ManagePosts /> },
 ];
 
 /**
@@ -115,6 +118,7 @@ export const SettingsPage = () => {
     const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
     const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
+    const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements;
 
     return (
         <PageContainer>
@@ -198,6 +202,11 @@ export const SettingsPage = () => {
                         {showOwnershipTypes && (
                             <Menu.Item key="ownership">
                                 <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
+                            </Menu.Item>
+                        )}
+                        {showHomePagePosts && (
+                            <Menu.Item key="posts">
+                                <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
                             </Menu.Item>
                         )}
                     </Menu.ItemGroup>

@@ -1,0 +1,85 @@
+name: Airflow Plugin
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/airflow-plugin.yml"
+      - "metadata-ingestion-modules/airflow-plugin/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - ".github/**"
+      - "metadata-ingestion-modules/airflow-plugin/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  airflow-plugin:
+    runs-on: ubuntu-latest
+    env:
+      SPARK_VERSION: 3.0.3
+      DATAHUB_TELEMETRY_ENABLED: false
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.7"
+            extraPythonRequirement: "apache-airflow~=2.1.0"
+          - python-version: "3.7"
+            extraPythonRequirement: "apache-airflow~=2.2.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow~=2.4.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow~=2.6.0"
+          - python-version: "3.10"
+            extraPythonRequirement: "apache-airflow>2.6.0"
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Install airflow package and test  (extras ${{ matrix.extraPythonRequirement }})
+        run: ./gradlew -Pextra_pip_requirements='${{ matrix.extraPythonRequirement }}' :metadata-ingestion-modules:airflow-plugin:lint :metadata-ingestion-modules:airflow-plugin:testQuick
+      - name: pip freeze show list installed
+        if: always()
+        run: source metadata-ingestion-modules/airflow-plugin/venv/bin/activate && pip freeze
+      - uses: actions/upload-artifact@v3
+        if: ${{ always() && matrix.python-version == '3.10' && matrix.extraPythonRequirement == 'apache-airflow>2.6.0' }}
+        with:
+          name: Test Results (Airflow Plugin ${{ matrix.python-version}})
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: .
+          fail_ci_if_error: false
+          flags: airflow-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          name: pytest-airflow
+          verbose: true
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

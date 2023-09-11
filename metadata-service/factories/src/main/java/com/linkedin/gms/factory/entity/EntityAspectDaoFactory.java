@@ -4,7 +4,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.cassandra.CassandraAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +19,7 @@ public class EntityAspectDaoFactory {
   @DependsOn({"gmsEbeanServiceConfig"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected AspectDao createEbeanInstance(EbeanServer server) {
+  protected AspectDao createEbeanInstance(Database server) {
     return new EbeanAspectDao(server);
   }
 

@@ -104,6 +104,7 @@ export const SearchHeader = ({
                     entityRegistry={entityRegistry}
                     setIsSearchBarFocused={setIsSearchBarFocused}
                     viewsEnabled={viewsEnabled}
+                    combineSiblings
                     fixAutoComplete
                     showQuickFilters
                 />

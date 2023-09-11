@@ -66,6 +66,9 @@ public class SettingsBuilder {
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String URN_ANALYZER = "urn_component";
   public static final String URN_SEARCH_ANALYZER = "query_urn_component";
+  public static final String WORD_GRAM_2_ANALYZER = "word_gram_2";
+  public static final String WORD_GRAM_3_ANALYZER = "word_gram_3";
+  public static final String WORD_GRAM_4_ANALYZER = "word_gram_4";
 
   // Filters
   public static final String ALPHANUM_SPACE_ONLY = "alpha_num_space";
@@ -80,6 +83,10 @@ public class SettingsBuilder {
   public static final String MULTIFILTER = "multifilter";
   public static final String MULTIFILTER_GRAPH = "multifilter_graph";
   public static final String PARTIAL_URN_COMPONENT = "partial_urn_component";
+  public static final String SHINGLE = "shingle";
+  public static final String WORD_GRAM_2_FILTER = "word_gram_2_filter";
+  public static final String WORD_GRAM_3_FILTER = "word_gram_3_filter";
+  public static final String WORD_GRAM_4_FILTER = "word_gram_4_filter";
   public static final String SNOWBALL = "snowball";
   public static final String STEM_OVERRIDE = "stem_override";
   public static final String STOP = "stop";
@@ -108,6 +115,7 @@ public class SettingsBuilder {
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
   public static final String UNIT_SEPARATOR_PATH_TOKENIZER = "unit_separator_path_tokenizer";
   public static final String UNIT_SEPARATOR_TOKENIZER = "unit_separator_tokenizer";
+  public static final String WORD_GRAM_TOKENIZER = "word_gram_tokenizer";
   // Do not remove the space, needed for multi-term synonyms
   public static final List<String> ALPHANUM_SPACE_PATTERNS = ImmutableList.of(
           "([a-z0-9 _-]{2,})",
@@ -160,6 +168,13 @@ public class SettingsBuilder {
           ASCII_FOLDING,
           AUTOCOMPLETE_CUSTOM_DELIMITER,
           LOWERCASE);
+
+  public static final List<String> WORD_GRAM_TOKEN_FILTERS = ImmutableList.of(
+      ASCII_FOLDING,
+      LOWERCASE,
+      TRIM,
+      REMOVE_QUOTES
+  );
 
   public final Map<String, Object> settings;
 
@@ -275,6 +290,17 @@ public class SettingsBuilder {
                         .collect(Collectors.toList()))
                 .build());
       }
+
+      for (Map.Entry<String, Integer> entry : Map.of(WORD_GRAM_2_FILTER, 2, WORD_GRAM_3_FILTER, 3, WORD_GRAM_4_FILTER, 4).entrySet()) {
+        String filterName = entry.getKey();
+        Integer gramSize = entry.getValue();
+        filters.put(filterName, ImmutableMap.<String, Object>builder()
+            .put(TYPE, SHINGLE)
+            .put("min_shingle_size", gramSize)
+            .put("max_shingle_size", gramSize)
+            .put("output_unigrams", false)
+            .build());
+      }
     }
 
     return filters.build();
@@ -302,12 +328,23 @@ public class SettingsBuilder {
             .put(DELIMITER, "␟")
             .build());
 
-    // Tokenize by whitespace and most special chars
+    // Tokenize by most special chars
+    // Do NOT tokenize by whitespace to keep multi-word synonyms in the same token
+    // The split by whitespace is done later in the token filters phase
     tokenizers.put(MAIN_TOKENIZER,
             ImmutableMap.<String, Object>builder()
                     .put(TYPE, PATTERN)
                     .put(PATTERN, "[(),./:]")
                     .build());
+
+    // Tokenize by whitespace and most special chars for wordgrams
+    // only split on - when not preceded by a whitespace to preserve exclusion functionality
+    // i.e. "logging-events-bkcp" and "logging-events -bckp" should be handled differently
+    tokenizers.put(WORD_GRAM_TOKENIZER,
+        ImmutableMap.<String, Object>builder()
+            .put(TYPE, PATTERN)
+            .put(PATTERN, "[(),./:\\s_]|(?<=\\S)(-)")
+            .build());
 
     return tokenizers.build();
   }
@@ -382,6 +419,21 @@ public class SettingsBuilder {
             .put(FILTER, SEARCH_TOKEN_FILTERS)
             .build());
 
+    // Support word grams
+    for (Map.Entry<String, String> entry : Map.of(
+        WORD_GRAM_2_ANALYZER, WORD_GRAM_2_FILTER,
+        WORD_GRAM_3_ANALYZER, WORD_GRAM_3_FILTER,
+        WORD_GRAM_4_ANALYZER, WORD_GRAM_4_FILTER).entrySet()) {
+      String analyzerName = entry.getKey();
+      String filterName = entry.getValue();
+      analyzers.put(analyzerName, ImmutableMap.<String, Object>builder()
+          .put(TOKENIZER, WORD_GRAM_TOKENIZER)
+          .put(FILTER, ImmutableList.<Object>builder()
+              .addAll(WORD_GRAM_TOKEN_FILTERS)
+              .add(filterName).build())
+          .build());
+    }
+
     // For special analysis, the substitution can be read from the configuration (chinese tokenizer: ik_smart / smartCN)
     // Analyzer for partial matching (i.e. autocomplete) - Prefix matching of each token
     analyzers.put(PARTIAL_ANALYZER, ImmutableMap.<String, Object>builder()
@@ -394,6 +446,7 @@ public class SettingsBuilder {
             .put(TOKENIZER, MAIN_TOKENIZER)
             .put(FILTER, PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS)
             .build());
+
 
     return analyzers.build();
   }

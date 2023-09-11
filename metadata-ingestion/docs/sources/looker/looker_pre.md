@@ -19,7 +19,10 @@ see_user_dashboards
 see_users
 ```
 Here is an example permission set after configuration. 
-![Looker DataHub Permission Set](./looker_datahub_permission_set.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/looker_datahub_permission_set.png"/>
+</p>
 
 #### Get an API key
 

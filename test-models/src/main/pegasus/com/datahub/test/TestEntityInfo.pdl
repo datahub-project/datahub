@@ -14,7 +14,8 @@ record TestEntityInfo includes CustomProperties {
   @Searchable = {
     "fieldName": "textFieldOverride",
     "fieldType": "TEXT",
-    "addToFilters": true
+    "addToFilters": true,
+    "fieldNameAliases": [ "_entityName" ]
   }
   textField: optional string
 
@@ -24,6 +25,11 @@ record TestEntityInfo includes CustomProperties {
    }
   }
   textArrayField: optional array[string]
+
+  @Searchable = {
+    "fieldType": "WORD_GRAM"
+  }
+  wordGramField: optional string
 
   @Relationship = {
     "name": "foreignKey",

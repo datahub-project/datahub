@@ -77,7 +77,12 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
   args = ['run', 'generate']
 }
 
-task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task downloadHistoricalVersions(type: Exec) {
+    workingDir '.'
+    commandLine 'python3', 'download_historical_versions.py'
+}
+
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, downloadHistoricalVersions]) {
   args = ['run', 'start']
 }
 task fastReload(type: YarnTask) {
@@ -105,7 +110,7 @@ task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
 }
 
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHistoricalVersions]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)

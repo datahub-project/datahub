@@ -11,6 +11,10 @@ task copyMetadataModels(type: Copy) {
 }
 
 generateAvroSchema.dependsOn copyMetadataModels
+validateSchemaAnnotation.dependsOn copyMetadataModels
+mainTranslateSchemas.dependsOn copyMetadataModels
+generateDataTemplate.dependsOn copyMetadataModels
+mainCopySchemas.dependsOn copyMetadataModels
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
 task copyOriginalAvsc(type: Copy, dependsOn: generateAvroSchema) {

@@ -5,9 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+.searchHeader {
+  display: flex;
+  gap: 0.8rem;
+}
+
 .searchForm {
   position: relative;
-
+  flex: 1;
   &:focus + svg {
     color: red;
   }
@@ -21,21 +26,33 @@
   height: 1.5rem;
 }
 
+.searchQueryInput {
+  padding: 0.8rem 0.8rem 0.8rem 3rem;
+  width: 100%;
+}
+
+.searchVersionInput {
+  padding: 0.8rem 2rem 0.8rem 0.8rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1em;
+}
+
 .searchQueryInput,
 .searchVersionInput {
   border-radius: 1000em;
   border-style: solid;
   border-color: transparent;
   font: var(--ifm-font-size-base) var(--ifm-font-family-base);
-  padding: 0.8rem 0.8rem 0.8rem 3rem;
-  width: 100%;
-  background: var(--docsearch-searchbox-background);
+  background-color: var(--docsearch-searchbox-background);
   color: var(--docsearch-text-color);
   margin-bottom: 0.5rem;
   transition: border var(--ifm-transition-fast) ease;
 
   &:focus {
-    background: var(--ifm-background-color);
+    background-color: var(--ifm-background-color);
 
     + svg {
       color: var(--docsearch-primary-color);
@@ -91,10 +108,6 @@
 }
 
 @media only screen and (max-width: 996px) {
-  .searchVersionColumn {
-    max-width: 40% !important;
-  }
-
   .searchResultsColumn {
     max-width: 60% !important;
   }
@@ -113,7 +126,12 @@
   .searchVersionColumn {
     max-width: 100% !important;
     padding-left: var(--ifm-spacing-horizontal) !important;
+    margin: auto;
   }
+}
+
+.searchVersionColumn {
+  margin: auto;
 }
 
 .loadingSpinner {

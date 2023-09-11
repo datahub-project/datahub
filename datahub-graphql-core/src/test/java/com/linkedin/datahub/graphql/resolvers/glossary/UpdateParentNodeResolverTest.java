@@ -58,7 +58,7 @@ public class UpdateParentNodeResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);
@@ -69,12 +69,12 @@ public class UpdateParentNodeResolverTest {
     final MetadataChangeProposal proposal = setupTests(mockEnv, mockService);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetSuccessForNode() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(NODE_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);
@@ -102,12 +102,12 @@ public class UpdateParentNodeResolverTest {
     UpdateParentNodeResolver resolver = new UpdateParentNodeResolver(mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    verifySingleIngestProposal(mockService, 1, proposal);
   }
 
   @Test
   public void testGetFailureEntityDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(false);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);
@@ -123,7 +123,7 @@ public class UpdateParentNodeResolverTest {
 
   @Test
   public void testGetFailureNodeDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(false);
@@ -139,7 +139,7 @@ public class UpdateParentNodeResolverTest {
 
   @Test
   public void testGetFailureParentIsNotNode() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     Mockito.when(mockService.exists(Urn.createFromString(TERM_URN))).thenReturn(true);
     Mockito.when(mockService.exists(GlossaryNodeUrn.createFromString(PARENT_NODE_URN))).thenReturn(true);

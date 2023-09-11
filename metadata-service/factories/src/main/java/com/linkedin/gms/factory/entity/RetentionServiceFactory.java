@@ -6,7 +6,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.entity.cassandra.CassandraRetentionService;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,7 +46,7 @@ public class RetentionServiceFactory {
   @DependsOn({"ebeanServer", "entityService"})
   @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
   @Nonnull
-  protected RetentionService createEbeanInstance(EbeanServer server) {
+  protected RetentionService createEbeanInstance(Database server) {
     RetentionService retentionService = new EbeanRetentionService(_entityService, server, _batchSize);
     _entityService.setRetentionService(retentionService);
     return retentionService;

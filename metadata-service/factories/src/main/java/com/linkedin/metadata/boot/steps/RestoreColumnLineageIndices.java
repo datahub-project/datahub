@@ -16,7 +16,11 @@ import com.linkedin.metadata.query.ExtraInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 @Slf4j
 public class RestoreColumnLineageIndices extends UpgradeStep {
@@ -89,6 +93,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       return latestAspects.getTotalCount();
     }
 
+    List<Future<?>> futures = new LinkedList<>();
     for (int i = 0; i < latestAspects.getValues().size(); i++) {
       ExtraInfo info = latestAspects.getMetadata().getExtraInfos().get(i);
       RecordTemplate upstreamLineageRecord = latestAspects.getValues().get(i);
@@ -99,7 +104,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      futures.add(_entityService.alwaysProduceMCLAsync(
           urn,
           Constants.DATASET_ENTITY_NAME,
           Constants.UPSTREAM_LINEAGE_ASPECT_NAME,
@@ -109,8 +114,16 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
           null,
           null,
           auditStamp,
-          ChangeType.RESTATE);
+          ChangeType.RESTATE).getFirst());
     }
+
+    futures.stream().filter(Objects::nonNull).forEach(f -> {
+      try {
+        f.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+    });
 
     return latestAspects.getTotalCount();
   }
@@ -140,6 +153,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
       return latestAspects.getTotalCount();
     }
 
+    List<Future<?>> futures = new LinkedList<>();
     for (int i = 0; i < latestAspects.getValues().size(); i++) {
       ExtraInfo info = latestAspects.getMetadata().getExtraInfos().get(i);
       RecordTemplate inputFieldsRecord = latestAspects.getValues().get(i);
@@ -150,7 +164,7 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
         continue;
       }
 
-      _entityService.produceMetadataChangeLog(
+      futures.add(_entityService.alwaysProduceMCLAsync(
           urn,
           entityName,
           Constants.INPUT_FIELDS_ASPECT_NAME,
@@ -160,8 +174,16 @@ public class RestoreColumnLineageIndices extends UpgradeStep {
           null,
           null,
           auditStamp,
-          ChangeType.RESTATE);
+          ChangeType.RESTATE).getFirst());
     }
+
+    futures.stream().filter(Objects::nonNull).forEach(f -> {
+      try {
+        f.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+    });
 
     return latestAspects.getTotalCount();
   }

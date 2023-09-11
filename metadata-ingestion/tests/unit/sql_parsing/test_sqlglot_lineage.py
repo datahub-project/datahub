@@ -287,6 +287,40 @@ FROM snowflake_sample_data.tpch_sf1.orders o
     )
 
 
+def test_snowflake_ctas_column_normalization():
+    # For CTAS statements, we also should try to match the output table's
+    # column name casing. This is technically incorrect since we have the
+    # exact column names from the query, but necessary to match our column
+    # name normalization behavior in the Snowflake source.
+
+    assert_sql_result(
+        """
+CREATE TABLE snowflake_sample_data.tpch_sf1.orders_normalized
+AS
+SELECT
+    SUM(o."totalprice") as Total_Agg,
+    AVG("TotalPrice") as TOTAL_AVG,
+    MIN("TOTALPRICE") as TOTAL_MIN,
+    MAX(TotalPrice)   as Total_Max
+FROM snowflake_sample_data.tpch_sf1.orders o
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)": {
+                "orderkey": "NUMBER",
+                "TotalPrice": "FLOAT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders_normalized,PROD)": {
+                "Total_Agg": "FLOAT",
+                "total_avg": "FLOAT",
+                "TOTAL_MIN": "FLOAT",
+                # Purposely excluding total_max to test out the fallback behavior.
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_ctas_column_normalization.json",
+    )
+
+
 def test_snowflake_case_statement():
     assert_sql_result(
         """

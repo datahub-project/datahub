@@ -14,6 +14,8 @@ import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.ebean.transactions.UpsertBatchItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -154,15 +156,16 @@ public class RestoreAspectStep implements UpgradeStep {
         context.report().addLine(String.format("Found aspect to restore with version %s. Restoring..", aspect.getKey().getVersion()));
 
         boolean emitMae = aspect.getKey().getVersion() == 0L;
-        _entityService.updateAspect(
-            urn,
-            entityName,
-            aspectName,
-            aspectSpec,
-            aspectRecord,
-            toAuditStamp(aspect),
-            aspect.getKey().getVersion(),
-            emitMae);
+
+        List<UpsertBatchItem> items = List.of(
+                UpsertBatchItem.builder()
+                        .urn(urn)
+                        .aspectName(aspectName)
+                        .aspect(aspectRecord)
+                        .build(_entityRegistry)
+        );
+
+        _entityService.ingestAspects(AspectsBatchImpl.builder().items(items).build(), toAuditStamp(aspect), emitMae, true);
       }
     }
     return new DefaultUpgradeStepResult(id(), UpgradeStepResult.Result.SUCCEEDED);

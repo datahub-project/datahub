@@ -11,7 +11,11 @@ these two concepts prior to making changes.
 ## To fork or not to fork?
 
 An important question that will arise once you've decided to extend the metadata model is whether you need to fork the main repo or not. Use the diagram below to understand how to make this decision.
-![Metadata Model To Fork or Not](../imgs/metadata-model-to-fork-or-not-to.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-to-fork-or-not-to.png"/>
+</p>
+
 
 The green lines represent pathways that will lead to lesser friction for you to maintain your code long term. The red lines represent higher risk of conflicts in the future. We are working hard to move the majority of model extension use-cases to no-code / low-code pathways to ensure that you can extend the core metadata model without having to maintain a custom fork of DataHub.
 
@@ -323,7 +327,7 @@ It takes the following parameters:
   annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
   the set of mappings to be applied in the MappingsBuilder.
 
-  Thus far, we have implemented 10 fieldTypes:
+  Thus far, we have implemented 11 fieldTypes:
 
     1. *KEYWORD* - Short text fields that only support exact matches, often used only for filtering
 
@@ -332,20 +336,25 @@ It takes the following parameters:
     3. *TEXT_PARTIAL* - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
        matching is expensive, so this field type should not be applied to fields with long values (like description)
 
-    4. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+    4. *WORD_GRAM* - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND 
+       word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
+       matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is 
+       expensive, so should not be applied to fields with long values such as description.
 
-    5. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+    5. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+
+    6. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
        "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
 
-    6. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+    7. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
 
-    7. *BOOLEAN* - Boolean fields used for filtering.
+    8. *BOOLEAN* - Boolean fields used for filtering.
 
-    8. *COUNT* - Count fields used for filtering.
+    9. *COUNT* - Count fields used for filtering.
   
-    9. *DATETIME* - Datetime fields used to represent timestamps.
+    10. *DATETIME* - Datetime fields used to represent timestamps.
 
-    10. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
+    11. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
     `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
     mapping explosion in Elasticsearch.
 

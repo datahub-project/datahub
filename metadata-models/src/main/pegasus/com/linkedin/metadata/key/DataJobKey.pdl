@@ -27,7 +27,7 @@ record DataJobKey {
   * Unique Identifier of the data job
   */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true
   }
   jobId: string

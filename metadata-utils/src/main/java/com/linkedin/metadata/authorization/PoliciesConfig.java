@@ -47,6 +47,11 @@ public class PoliciesConfig {
       "View Analytics",
       "View the DataHub analytics dashboard.");
 
+  public static final Privilege GET_ANALYTICS_PRIVILEGE = Privilege.of(
+          "GET_ANALYTICS_PRIVILEGE",
+          "Analytics API access",
+          "API read access to raw analytics data.");
+
   public static final Privilege GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE = Privilege.of(
       "GENERATE_PERSONAL_ACCESS_TOKENS",
       "Generate Personal Access Tokens",
@@ -73,6 +78,11 @@ public class PoliciesConfig {
       "MANAGE_DOMAINS",
       "Manage Domains",
       "Create and remove Asset Domains.");
+
+  public static final Privilege MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE = Privilege.of(
+      "MANAGE_GLOBAL_ANNOUNCEMENTS",
+      "Manage Home Page Posts",
+      "Create and delete home page posts");
 
   public static final Privilege MANAGE_TESTS_PRIVILEGE = Privilege.of(
       "MANAGE_TESTS",
@@ -137,8 +147,11 @@ public class PoliciesConfig {
       MANAGE_POLICIES_PRIVILEGE,
       MANAGE_USERS_AND_GROUPS_PRIVILEGE,
       VIEW_ANALYTICS_PRIVILEGE,
+      GET_ANALYTICS_PRIVILEGE,
       VIEW_METADATA_PROPOSALS_PRIVILEGE,
       CREATE_CONSTRAINTS_PRIVILEGE,
+      MANAGE_DOMAINS_PRIVILEGE,
+      MANAGE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
       MANAGE_INGESTION_PRIVILEGE,
       MANAGE_SECRETS_PRIVILEGE,
       MANAGE_DOMAINS_PRIVILEGE,
@@ -258,8 +271,8 @@ public class PoliciesConfig {
 
   public static final Privilege EDIT_ENTITY_PRIVILEGE = Privilege.of(
       "EDIT_ENTITY",
-      "Edit All",
-      "The ability to edit any information about an entity. Super user privileges.");
+      "Edit Entity",
+      "The ability to edit any information about an entity. Super user privileges for the entity.");
 
   public static final Privilege DELETE_ENTITY_PRIVILEGE = Privilege.of(
       "DELETE_ENTITY",

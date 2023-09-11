@@ -11,4 +11,5 @@ public class SearchConfiguration {
   private PartialConfiguration partial;
   private CustomConfiguration custom;
   private GraphQueryConfiguration graph;
+  private WordGramConfiguration wordGram;
 }

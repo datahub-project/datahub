@@ -1,0 +1,78 @@
+.feedbackWrapper {
+  display: flex;
+}
+
+.feedbackWidget {
+  min-height: 64px;
+  margin: 15px auto;
+  padding: 10px 20px;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 32px;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.feedbackButtons {
+  strong {
+    margin-right: 4px;
+  }
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.feedbackForm {
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.8rem;
+  button {
+    margin-left: auto;
+  }
+}
+
+.feedbackText {
+  width: 100%;
+  border: var(--ifm-hr-border-color) 1px solid;
+  border-radius: 0.4rem;
+  padding: 0.4rem;
+  font-family: "Manrope", sans-serif;
+}
+
+.feedbackButton {
+  width: 2rem;
+  height: 2rem;
+  text-align: center;
+  font-size: 1.25rem;
+  padding: 0.25rem;
+  border-radius: 1000em;
+  margin-left: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  svg {
+    fill: var(--ifm-link-color);
+  }
+
+  &:hover,
+  &.active {
+    background: var(--ifm-link-color);
+    svg {
+      fill: var(--ifm-background-color);
+    }
+  }
+}
+
+.feedbackMessage {
+  display: flex;
+  align-items: center;
+  svg {
+    font-size: larger;
+    margin-right: 6px;
+    fill: var(--ifm-color-success);
+  }
+}

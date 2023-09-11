@@ -74,7 +74,11 @@ Expected Response:
 
 You can now see `Marketing` domain has been created under `Govern > Domains`.
 
-![domain-created](../../imgs/apis/tutorials/domain-created.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/domain-created.png"/>
+</p>
+
 
 ## Read Domains
 
@@ -209,7 +213,11 @@ Expected Response:
 
 You can now see `Marketing` domain has been added to the dataset.
 
-![domain-added](../../imgs/apis/tutorials/domain-added.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/domain-added.png"/>
+</p>
+
 
 ## Remove Domains
 
@@ -259,4 +267,8 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 
 You can now see a domain `Marketing` has been removed from the `fct_users_created` dataset.
 
-![domain-removed](../../imgs/apis/tutorials/domain-removed.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/domain-removed.png"/>
+</p>
+

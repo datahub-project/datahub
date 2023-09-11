@@ -8,7 +8,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_AGG"
+                "column": "total_agg"
             },
             "upstreams": [
                 {
@@ -20,7 +20,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_AVG"
+                "column": "total_avg"
             },
             "upstreams": [
                 {
@@ -32,7 +32,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_MIN"
+                "column": "total_min"
             },
             "upstreams": [
                 {
@@ -44,7 +44,7 @@
         {
             "downstream": {
                 "table": null,
-                "column": "TOTAL_MAX"
+                "column": "total_max"
             },
             "upstreams": [
                 {

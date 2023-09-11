@@ -15,7 +15,7 @@
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)",
-                    "column": "deptno"
+                    "column": "DEPTNO"
                 }
             ]
         },
@@ -34,7 +34,7 @@
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,scott.emp,PROD)",
-                    "column": "sal"
+                    "column": "SAL"
                 }
             ]
         }

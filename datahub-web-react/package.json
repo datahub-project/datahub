@@ -38,7 +38,7 @@
         "@vx/shape": "^0.0.199",
         "@vx/tooltip": "^0.0.199",
         "@vx/zoom": "^0.0.199",
-        "analytics": "^0.7.5",
+        "analytics": "^0.8.9",
         "antd": "4.24.7",
         "color-hash": "^2.0.1",
         "craco-antd": "^1.19.0",

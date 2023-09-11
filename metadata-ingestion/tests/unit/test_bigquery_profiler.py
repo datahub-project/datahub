@@ -37,6 +37,7 @@ def test_generate_day_partitioned_partition_profiler_query():
         ordinal_position=1,
         data_type="TIMESTAMP",
         is_partition_column=True,
+        cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
@@ -63,7 +64,7 @@ SELECT
 FROM
     `test_project.test_dataset.test_table`
 WHERE
-    TIMESTAMP(`date`) BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
+    `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
 """.strip()
 
     assert "20200101" == query[0]
@@ -79,6 +80,7 @@ def test_generate_day_partitioned_partition_profiler_query_with_set_partition_ti
         ordinal_position=1,
         data_type="TIMESTAMP",
         is_partition_column=True,
+        cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
@@ -105,7 +107,7 @@ SELECT
 FROM
     `test_project.test_dataset.test_table`
 WHERE
-    TIMESTAMP(`date`) BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
+    `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
 """.strip()
 
     assert "20200101" == query[0]
@@ -120,6 +122,7 @@ def test_generate_hour_partitioned_partition_profiler_query():
         ordinal_position=1,
         data_type="TIMESTAMP",
         is_partition_column=True,
+        cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
@@ -147,7 +150,7 @@ SELECT
 FROM
     `test_project.test_dataset.test_table`
 WHERE
-    TIMESTAMP(`partition_column`) BETWEEN TIMESTAMP('2020-01-01 03:00:00') AND TIMESTAMP('2020-01-01 04:00:00')
+    `partition_column` BETWEEN TIMESTAMP('2020-01-01 03:00:00') AND TIMESTAMP('2020-01-01 04:00:00')
 """.strip()
 
     assert "2020010103" == query[0]
@@ -180,7 +183,7 @@ SELECT
 FROM
     `test_project.test_dataset.test_table`
 WHERE
-    TIMESTAMP(`_PARTITIONTIME`) BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
+    `_PARTITIONTIME` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
 """.strip()
 
     assert "20200101" == query[0]

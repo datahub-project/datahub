@@ -460,3 +460,34 @@ query getIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentSt
         }
     }
 }
+
+query getExternalRoles($urn: String!) {
+    dataset(urn: $urn) {
+        access {
+            ...getRoles
+        }
+        __typename
+    }
+}
+
+fragment getRoles on Access {
+    roles {
+        role {
+            id
+            properties {
+                name
+                description
+                type
+                requestUrl
+            }
+            urn
+            actors {
+                users {
+                    user {
+                        urn
+                    }
+                }
+            }
+        }
+    }
+}

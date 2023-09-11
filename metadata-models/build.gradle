@@ -1,7 +1,8 @@
 import io.datahubproject.GenerateJsonSchemaTask
 
-
+apply plugin: 'java-library'
 apply plugin: 'pegasus'
+apply plugin: 'org.hidetake.swagger.generator'
 
 tasks.withType(JavaCompile).configureEach {
   javaCompiler = javaToolchains.compilerFor {
@@ -15,16 +16,32 @@ tasks.withType(Test).configureEach {
 }
 
 dependencies {
-  compile spec.product.pegasus.data 
+  api spec.product.pegasus.data
     constraints {
       implementation('org.apache.commons:commons-text:1.10.0') {
         because 'Vulnerability Issue'
       }
     }
-  compile project(':li-utils')
+  api project(':li-utils')
   dataModel project(':li-utils')
 
-  testCompile externalDependency.guava
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+  compileOnly externalDependency.swaggerAnnotations
+  compileOnly externalDependency.springBootStarterValidation
+  compileOnly externalDependency.jacksonCore
+  compileOnly externalDependency.jacksonDataBind
+
+  swaggerCodegen externalDependency.swaggerCli
+  testImplementation externalDependency.guava
+}
+
+sourceSets {
+  main {
+    java {
+      srcDirs = ["$buildDir/openapi/generated/src/main/java"]
+    }
+  }
 }
 
 mainAvroSchemaJar.dependsOn generateAvroSchema
@@ -35,9 +52,32 @@ pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGeneration
 tasks.register('generateJsonSchema', GenerateJsonSchemaTask) {
   it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
   it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
+  it.setEntityRegistryYaml("${project(':metadata-models').projectDir}/src/main/resources/entity-registry.yml")
   dependsOn generateAvroSchema
 }
 
-clean {
-  project.delete("$projectDir/src/generatedJsonSchema")
+// https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
+task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema') {
+  inputFile = file("$projectDir/src/generatedJsonSchema/combined/open-api.yaml")
+  outputDir = file("$buildDir/openapi/generated")
+  language = "spring"
+  components = ["models"]
+  templateDir = file("$projectDir/src/main/resources/JavaSpring")
+  additionalProperties = [
+          'group-id'           : "io.datahubproject",
+          'dateLibrary'        : "java8",
+          'java11'             : "true",
+          'modelPropertyNaming': "original",
+          'modelPackage'       : "io.datahubproject.openapi.generated"
+  ]
 }
+tasks.getByName("compileJava").dependsOn(openApiGenerate)
+
+checkstyleMain.exclude '**/generated/**'
+
+task cleanExtraDirs {
+  delete "$projectDir/src/generatedJsonSchema"
+}
+clean.finalizedBy(cleanExtraDirs)
+
+checkstyleMain.exclude '**/generated/**'

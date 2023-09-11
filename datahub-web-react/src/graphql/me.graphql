@@ -58,6 +58,7 @@ query getMe {
             manageGlobalSettings
             manageGlobalViews
             manageOwnershipTypes
+            manageGlobalAnnouncements
         }
     }
 }

@@ -144,6 +144,11 @@
         "doc" : "The last run id that produced the metadata. Populated in case of batch-ingestion.",
         "default" : "no-run-id-provided"
       }, {
+        "name" : "pipelineName",
+        "type" : [ "null", "string" ],
+        "doc" : "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.",
+        "default" : null
+      }, {
         "name" : "registryName",
         "type" : [ "null", "string" ],
         "doc" : "The model registry name that was used to process this event",

@@ -42,7 +42,7 @@ export const ViewSelectHeader = ({ onClickClear }: Props) => {
                 ref={clearButtonRef}
                 onClick={onHandleClickClear}
             >
-                All Entities
+                View all
             </AllEntitiesButton>
         </ButtonContainer>
     );

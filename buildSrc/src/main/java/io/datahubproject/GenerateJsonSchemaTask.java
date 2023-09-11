@@ -20,11 +20,9 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.gradle.api.DefaultTask;
-import org.gradle.api.tasks.CacheableTask;
-import org.gradle.api.tasks.InputDirectory;
-import org.gradle.api.tasks.OutputDirectory;
-import org.gradle.api.tasks.TaskAction;
+import org.gradle.api.tasks.*;
 
 import static com.github.fge.processing.ProcessingUtil.*;
 import static org.apache.commons.io.FilenameUtils.*;
@@ -34,18 +32,33 @@ import static org.apache.commons.io.FilenameUtils.*;
 public class GenerateJsonSchemaTask extends DefaultTask {
   private String inputDirectory;
   private String outputDirectory;
+
   private ArrayNode aspectType;
   private Path combinedDirectory;
+
   private Path jsonDirectory;
   public static final String sep = FileSystems.getDefault().getSeparator();
 
   private static final JsonNodeFactory NODE_FACTORY = JacksonUtils.nodeFactory();
+
+  private static final OpenApiEntities openApiEntities = new OpenApiEntities(NODE_FACTORY);
+
+  @InputFile
+  @PathSensitive(PathSensitivity.NAME_ONLY)
+  public String getEntityRegistryYaml() {
+    return openApiEntities.getEntityRegistryYaml();
+  }
+
+  public void setEntityRegistryYaml(String entityRegistryYaml) {
+    openApiEntities.setEntityRegistryYaml(entityRegistryYaml);
+  }
 
   public void setInputDirectory(String inputDirectory) {
     this.inputDirectory = inputDirectory;
   }
 
   @InputDirectory
+  @PathSensitive(PathSensitivity.NAME_ONLY)
   public String getInputDirectory() {
    return inputDirectory;
   }
@@ -80,6 +93,7 @@ public class GenerateJsonSchemaTask extends DefaultTask {
         .filter(Files::isRegularFile)
         .map(Path::toFile)
         .forEach(this::generateSchema);
+
     List<ObjectNode> nodesList = Files.walk(jsonDirectory)
         .filter(Files::isRegularFile)
         .filter(path -> {
@@ -110,6 +124,18 @@ public class GenerateJsonSchemaTask extends DefaultTask {
       }
       schemasNode.setAll(definitions);
     });
+
+    combinedDirectory = Paths.get(outputDirectory + sep + "combined");
+    try {
+      Files.createDirectory(combinedDirectory);
+    } catch (FileAlreadyExistsException fae) {
+      // No-op
+    }
+
+    // Add additional components and paths
+    openApiEntities.setCombinedDirectory(combinedDirectory);
+    ObjectNode extendedNode = openApiEntities.entityExtension(nodesList, schemasNode);
+
     /*
     Minimal OpenAPI header
     openapi: 3.0.1
@@ -133,29 +159,23 @@ public class GenerateJsonSchemaTask extends DefaultTask {
         .set("paths", NODE_FACTORY.objectNode()
             .set("/path", NODE_FACTORY.objectNode()
                 .set("get", NODE_FACTORY.objectNode().set("tags", NODE_FACTORY.arrayNode().add("path")))));
-    JsonNode combinedSchemaDefinitionsYaml = ((ObjectNode) NODE_FACTORY.objectNode().set("components",
-        NODE_FACTORY.objectNode().set("schemas", schemasNode))).setAll(yamlHeader);
+
+    JsonNode combinedSchemaDefinitionsYaml = extendedNode.setAll(yamlHeader);
 
     final String yaml = new YAMLMapper().writeValueAsString(combinedSchemaDefinitionsYaml)
-        .replaceAll("definitions", "components/schemas")
-        .replaceAll("\n\\s+- type: \"null\"", "");
+            .replaceAll("definitions", "components/schemas")
+            .replaceAll("\n\\s+description: null", "")
+            .replaceAll("\n\\s+- type: \"null\"", "");
 
-    combinedDirectory = Paths.get(outputDirectory + sep + "combined");
-    try {
-      Files.createDirectory(combinedDirectory);
-    } catch (FileAlreadyExistsException fae) {
-      // No-op
-    }
     Files.write(Paths.get(combinedDirectory + sep + "open-api.yaml"),
         yaml.getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING);
 
-    JsonNode combinedSchemaDefinitionsJson = NODE_FACTORY.objectNode().set("definitions",schemasNode);
+    JsonNode combinedSchemaDefinitionsJson = NODE_FACTORY.objectNode().set("definitions", extendedNode);
     String prettySchema = JacksonUtils.prettyPrint(combinedSchemaDefinitionsJson);
     Files.write(Paths.get(Paths.get(outputDirectory) + sep + "combined" + sep + "schema.json"),
         prettySchema.getBytes(StandardCharsets.UTF_8), StandardOpenOption.WRITE, StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING);
-
   }
 
   private final HashSet<String> filenames = new HashSet<>();
@@ -185,5 +205,4 @@ public class GenerateJsonSchemaTask extends DefaultTask {
       throw new RuntimeException(e);
     }
   }
-
 }

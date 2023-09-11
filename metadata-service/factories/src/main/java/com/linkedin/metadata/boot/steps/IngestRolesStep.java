@@ -10,6 +10,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -18,6 +19,7 @@ import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.policy.DataHubRoleInfo;
 import java.net.URISyntaxException;
+import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -99,9 +101,6 @@ public class IngestRolesStep implements BootstrapStep {
     keyAspectProposal.setChangeType(ChangeType.UPSERT);
     keyAspectProposal.setEntityUrn(roleUrn);
 
-    _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
-
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(roleUrn);
     proposal.setEntityType(DATAHUB_ROLE_ENTITY_NAME);
@@ -109,10 +108,12 @@ public class IngestRolesStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(dataHubRoleInfo));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+    _entityService.ingestProposal(AspectsBatchImpl.builder()
+            .mcps(List.of(keyAspectProposal, proposal), _entityRegistry).build(),
+            new AuditStamp().setActor(Urn.createFromString(SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+            false);
 
-    _entityService.produceMetadataChangeLog(roleUrn, DATAHUB_ROLE_ENTITY_NAME, DATAHUB_ROLE_INFO_ASPECT_NAME,
+    _entityService.alwaysProduceMCLAsync(roleUrn, DATAHUB_ROLE_ENTITY_NAME, DATAHUB_ROLE_INFO_ASPECT_NAME,
         roleInfoAspectSpec, null, dataHubRoleInfo, null, null, auditStamp, ChangeType.RESTATE);
   }
 }

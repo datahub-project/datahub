@@ -18,4 +18,5 @@ public class FeatureFlags {
   private boolean datasetHealthDashboardEnabled = false;
   private PreProcessHooks preProcessHooks;
   private boolean showAcrylInfo = false;
+  private boolean showAccessManagement = false;
 }

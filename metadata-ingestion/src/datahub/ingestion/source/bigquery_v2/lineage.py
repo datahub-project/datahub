@@ -4,7 +4,18 @@ import logging
 import textwrap
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Set, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import humanfriendly
 from google.cloud.bigquery import Client as BigQueryClient
@@ -28,6 +39,9 @@ from datahub.ingestion.source.bigquery_v2.common import (
     BQ_DATETIME_FORMAT,
     _make_gcp_logging_client,
     get_bigquery_client,
+)
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantLineageRunSkipHandler,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -133,7 +147,6 @@ def _follow_column_lineage(
 def make_lineage_edges_from_parsing_result(
     sql_lineage: SqlParsingResult, audit_stamp: datetime, lineage_type: str
 ) -> List[LineageEdge]:
-
     # Note: This ignores the out_tables section of the sql parsing result.
     audit_stamp = datetime.now(timezone.utc)
 
@@ -170,6 +183,7 @@ def make_lineage_edges_from_parsing_result(
             column_mapping=frozenset(
                 LineageEdgeColumnMapping(out_column=out_column, in_columns=in_columns)
                 for out_column, in_columns in column_mapping.items()
+                if in_columns
             ),
             auditStamp=audit_stamp,
             type=lineage_type,
@@ -215,9 +229,28 @@ AND
 timestamp < "{end_time}"
 """.strip()
 
-    def __init__(self, config: BigQueryV2Config, report: BigQueryV2Report):
+    def __init__(
+        self,
+        config: BigQueryV2Config,
+        report: BigQueryV2Report,
+        redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
+    ):
         self.config = config
         self.report = report
+
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.lineage_start_time,
+            self.report.lineage_end_time,
+        ) = self.get_time_window()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -406,7 +439,7 @@ timestamp < "{end_time}"
     ) -> Iterable[AuditLogEntry]:
         self.report.num_total_log_entries[client.project] = 0
         # Add a buffer to start and end time to account for delays in logging events.
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
+        start_time = (self.start_time - self.config.max_query_duration).strftime(
             BQ_DATETIME_FORMAT
         )
         self.report.log_entry_start_time = start_time
@@ -462,12 +495,12 @@ timestamp < "{end_time}"
             self.report.bigquery_audit_metadata_datasets_missing = True
             return
 
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
+        corrected_start_time = self.start_time - self.config.max_query_duration
         start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
         start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_start_time = start_time
 
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
+        corrected_end_time = self.end_time + self.config.max_query_duration
         end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
         end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
         self.report.audit_end_time = end_time
@@ -663,6 +696,7 @@ timestamp < "{end_time}"
                 "lineage",
                 f"{project_id}: {e}",
             )
+            self.report_status(f"{project_id}-lineage", False)
             lineage_metadata = {}
 
         self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
@@ -832,3 +866,7 @@ timestamp < "{end_time}"
             )
             for entry in self._get_bigquery_log_entries(gcp_logging_client, limit=1):
                 logger.debug(f"Connection test got one audit metadata entry {entry}")
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)

@@ -13,9 +13,10 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
    * Display name of the Data Product
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
-    "boostScore": 10.0
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
   }
   name: optional string
 

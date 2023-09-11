@@ -9,7 +9,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import io.ebean.ExpressionList;
 
 import java.util.ArrayList;
@@ -28,11 +28,11 @@ import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
+  private static final long DEFAULT_BATCH_DELAY_MS = 250;
   private static final int DEFAULT_THREADS = 1;
 
-  private final EbeanServer _server;
+  private final Database _server;
   private final EntityService _entityService;
-
 
   public class KafkaJob implements Callable<RestoreIndicesResult> {
       UpgradeContext context;
@@ -57,7 +57,7 @@ public class SendMAEStep implements UpgradeStep {
     return false;
   }
 
-  public SendMAEStep(final EbeanServer server, final EntityService entityService, final EntityRegistry entityRegistry) {
+  public SendMAEStep(final Database server, final EntityService entityService, final EntityRegistry entityRegistry) {
     _server = server;
     _entityService = entityService;
   }

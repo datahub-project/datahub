@@ -117,6 +117,61 @@
 },
 {
     "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.ChartSnapshot": {
+            "urn": "urn:li:chart:(metabase,3)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.chart.ChartInfo": {
+                        "customProperties": {
+                            "Metrics": "Distinct values of order_number, Sum of nominal_total",
+                            "Filters": "['time-interval', ['field', 'completed_at', {'base-type': 'type/DateTimeWithTZ'}], -8, 'day', {'include-current': False}]",
+                            "Dimensions": "completed_at"
+                        },
+                        "title": "Question with data from other question",
+                        "description": "",
+                        "lastModified": {
+                            "created": {
+                                "time": 1685628119636,
+                                "actor": "urn:li:corpuser:john.doe@example.com"
+                            },
+                            "lastModified": {
+                                "time": 1685628119636,
+                                "actor": "urn:li:corpuser:john.doe@example.com"
+                            }
+                        },
+                        "chartUrl": "http://localhost:3000/card/3",
+                        "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
+                            }
+                        ],
+                        "type": "TABLE"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test"
+    }
+},
+{
+    "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
             "urn": "urn:li:dashboard:(metabase,1)",
             "aspects": [
@@ -183,6 +238,21 @@
 {
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(metabase,2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(metabase,3)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

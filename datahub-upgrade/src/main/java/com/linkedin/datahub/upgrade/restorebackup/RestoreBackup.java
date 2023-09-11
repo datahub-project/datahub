@@ -14,7 +14,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,7 +24,7 @@ public class RestoreBackup implements Upgrade {
   private final List<UpgradeStep> _steps;
 
   public RestoreBackup(
-      final EbeanServer server,
+      final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,
@@ -45,7 +45,7 @@ public class RestoreBackup implements Upgrade {
   }
 
   private List<UpgradeStep> buildSteps(
-      final EbeanServer server,
+      final Database server,
       final EntityService entityService,
       final EntityRegistry entityRegistry,
       final Authentication systemAuthentication,

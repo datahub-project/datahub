@@ -106,6 +106,7 @@ public class DataHubTokenAuthenticatorTest {
         final AspectSpec keyAspectSpec = configEntityRegistry.getEntitySpec(Constants.ACCESS_TOKEN_ENTITY_NAME).getKeyAspectSpec();
         Mockito.when(mockService.getKeyAspectSpec(Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME))).thenReturn(keyAspectSpec);
         Mockito.when(mockService.exists(Mockito.any(Urn.class))).thenReturn(true);
+        Mockito.when(mockService.getEntityRegistry()).thenReturn(configEntityRegistry);
 
         final DataHubTokenAuthenticator authenticator = new DataHubTokenAuthenticator();
         authenticator.init(ImmutableMap.of(SIGNING_KEY_CONFIG_NAME, TEST_SIGNING_KEY, SALT_CONFIG_NAME,

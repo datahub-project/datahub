@@ -32,6 +32,7 @@ export enum PageRoutes {
     EMBED_HEALTH = '/embed/health',
     EMBED_LOOKUP = '/embed/lookup/:url',
     DATASET_HEALTH_DASHBOARD = '/observe/datasets',
+    SETTINGS_POSTS = '/settings/posts',
 }
 
 /**

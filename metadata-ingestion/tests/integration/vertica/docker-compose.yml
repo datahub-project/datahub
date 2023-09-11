@@ -1,6 +1,7 @@
 version: "3.9"
 services:
   vertica:
+    platform: linux/amd64
     environment:
       APP_DB_USER: "dbadmin"
       APP_DB_PASSWORD: "abc123"
@@ -18,6 +19,3 @@ services:
 
 volumes:
   vertica-data:
-
-
-

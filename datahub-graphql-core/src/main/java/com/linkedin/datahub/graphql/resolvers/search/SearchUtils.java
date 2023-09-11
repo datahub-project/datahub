@@ -68,12 +68,12 @@ public class SearchUtils {
           EntityType.GLOSSARY_TERM,
           EntityType.GLOSSARY_NODE,
           EntityType.TAG,
+          EntityType.ROLE,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
           EntityType.CONTAINER,
           EntityType.DOMAIN,
           EntityType.DATA_PRODUCT,
-          EntityType.ROLE,
           EntityType.NOTEBOOK);
 
 
@@ -95,6 +95,7 @@ public class SearchUtils {
           EntityType.TAG,
           EntityType.CORP_USER,
           EntityType.CORP_GROUP,
+          EntityType.ROLE,
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT);
 

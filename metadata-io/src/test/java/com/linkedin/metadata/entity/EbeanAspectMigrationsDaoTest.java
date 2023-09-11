@@ -7,7 +7,7 @@ import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.service.UpdateIndicesService;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -22,7 +22,7 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
 
   @BeforeMethod
   public void setupTest() {
-    EbeanServer server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer();
     _mockProducer = mock(EventProducer.class);
     EbeanAspectDao dao = new EbeanAspectDao(server);
     dao.setConnectionValidated(true);

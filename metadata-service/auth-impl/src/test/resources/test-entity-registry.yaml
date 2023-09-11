@@ -4,4 +4,14 @@ entities:
     keyAspect: dataHubAccessTokenKey
     aspects:
       - dataHubAccessTokenInfo
+  - name: corpuser
+    keyAspect: corpUserKey
+    aspects:
+      - corpUserInfo
+      - corpUserEditableInfo
+      - corpUserStatus
+      - groupMembership
+      - status
+      - corpUserCredentials
+      - corpUserSettings
 events:

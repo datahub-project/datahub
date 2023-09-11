@@ -174,7 +174,7 @@ public class SearchService {
    */
   @Nonnull
   public ScrollResult scrollAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
-      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive,
+      @Nullable Filter postFilters, @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nullable String keepAlive,
       int size, @Nullable SearchFlags searchFlags) {
     log.debug(String.format(
         "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",

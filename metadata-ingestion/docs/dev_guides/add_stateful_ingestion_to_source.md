@@ -252,7 +252,7 @@ Example code:
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         # Skip a redundant run
         if self.redundant_run_skip_handler.should_skip_this_run(
-            cur_start_time_millis=datetime_to_ts_millis(self.config.start_time)
+            cur_start_time_millis=self.config.start_time
         ):
             return
         
@@ -260,7 +260,7 @@ Example code:
         # <code for generating the workunits>
         # Update checkpoint state for this run.
         self.redundant_run_skip_handler.update_state(
-            start_time_millis=datetime_to_ts_millis(self.config.start_time),
-            end_time_millis=datetime_to_ts_millis(self.config.end_time),
+            start_time_millis=self.config.start_time,
+            end_time_millis=self.config.end_time,
         )
 ```
