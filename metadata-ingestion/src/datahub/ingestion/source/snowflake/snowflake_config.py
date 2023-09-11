@@ -252,7 +252,7 @@ class SnowflakeV2Config(
             if current_platform_instance is None:
                 logger.info(
                     "It is advisable to use `platform_instance` when ingesting from multiple snowflake accounts, if they contain databases with same name. "
-                    "Setting `platform_instance` allows distinguishing such databases without conflict and correctly ingest their metadata." 
+                    "Setting `platform_instance` allows distinguishing such databases without conflict and correctly ingest their metadata."
                 )
 
             databases_included_in_share: List[DatabaseId] = []
