@@ -52,14 +52,16 @@ class DatabaseId:
         description="Database created from share in consumer account."
     )
     platform_instance: Optional[str] = Field(
-        description="Platform instance of consumer snowflake account."
+        default=None,
+        description="Platform instance of consumer snowflake account.",
     )
 
 
 class SnowflakeShareConfig(ConfigModel):
     database: str = Field(description="Database from which share is created.")
     platform_instance: Optional[str] = Field(
-        description="Platform instance for snowflake account in which share is created."
+        default=None,
+        description="Platform instance for snowflake account in which share is created.",
     )
 
     consumers: Set[DatabaseId] = Field(
