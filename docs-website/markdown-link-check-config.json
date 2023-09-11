@@ -19,6 +19,9 @@
     "pattern": "\\.pdl$"
     },
     {
+    "pattern": "\\.pdl#.*$"
+    },
+    {
     "pattern":"\\.json$"
     },
     {
@@ -31,7 +34,16 @@
     "pattern": "\\.svg$"
     },
     {
+    "pattern": "\\.java$"
+    },
+    {
     "pattern": "\\.md#.*$"
+    },
+    {
+    "pattern": "^https://oauth2.googleapis.com/token"
+    },
+    {
+    "pattern": "^https://login.microsoftonline.com/common/oauth2/na$"
     }
   ],
   "aliveStatusCodes": [200, 206, 0, 999, 400, 401, 403]

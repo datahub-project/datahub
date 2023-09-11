@@ -82,14 +82,14 @@ Because they are aspects, keys need to be annotated with an @Aspect annotation, 
 can be a part of.
 
 The key can also be annotated with the two index annotations: @Relationship and @Searchable. This instructs DataHub
-infra to use the fields in the key to create relationships and index fields for search. See [Step 3](#step_3) for more details on
+infra to use the fields in the key to create relationships and index fields for search. See [Step 3](#step-3-define-custom-aspects-or-attach-existing-aspects-to-your-entity) for more details on
 the annotation model.
 
 **Constraints**: Note that each field in a Key Aspect MUST be of String or Enum type.
 
 ### <a name="step_2"></a>Step 2: Create the new entity with its key aspect
 
-Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step-4-choose-a-place-to-store-your-model-extension) and [5](#step_5).
+Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step-4-choose-a-place-to-store-your-model-extension) and [5](#step-5-attaching-your-non-key-aspects-to-the-entity).
 
 Example:
 ```yaml
