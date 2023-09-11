@@ -1,4 +1,4 @@
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply plugin: 'org.hidetake.swagger.generator'
 
 configurations {
@@ -6,66 +6,72 @@ configurations {
 }
 
 dependencies {
+  implementation project(':entity-registry')
+  api project(':metadata-utils')
+  api project(':metadata-events:mxe-avro-1.7')
+  api project(':metadata-events:mxe-registration')
+  api project(':metadata-events:mxe-utils-avro-1.7')
+  api project(':metadata-models')
+  api project(':metadata-service:restli-client')
+  api project(':metadata-service:configuration')
+  api project(':metadata-service:services')
+
+  implementation spec.product.pegasus.data
+  implementation spec.product.pegasus.generator
+
+  implementation externalDependency.guava
+  implementation externalDependency.reflections
   implementation externalDependency.jsonPatch
-  compile project(':entity-registry')
-  compile project(':metadata-utils')
-  compile project(':metadata-events:mxe-avro-1.7')
-  compile project(':metadata-events:mxe-registration')
-  compile project(':metadata-events:mxe-utils-avro-1.7')
-  compile project(':metadata-models')
-  compile project(':metadata-service:restli-client')
-  compile project(':metadata-service:configuration')
-  compile project(':metadata-service:services')
-
-  compile spec.product.pegasus.data
-  compile spec.product.pegasus.generator
-
-  compile externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  api externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
   implementation externalDependency.slf4jApi
-  testImplementation project(':metadata-integration:java:datahub-client')
-  runtime externalDependency.logbackClassic
+  runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
-  compile externalDependency.datastaxOssNativeProtocol
-  compile externalDependency.datastaxOssCore
-  compile externalDependency.datastaxOssQueryBuilder
-  compile externalDependency.elasticSearchRest
-  compile externalDependency.elasticSearchTransport
-  compile externalDependency.javatuples
-  compile externalDependency.javaxValidation
+  api externalDependency.datastaxOssNativeProtocol
+  api externalDependency.datastaxOssCore
+  api externalDependency.datastaxOssQueryBuilder
+  api externalDependency.elasticSearchRest
+  api externalDependency.elasticSearchTransport
+  implementation externalDependency.javatuples
+  api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
-  compile externalDependency.kafkaClients
-  compile externalDependency.ebean
+  api externalDependency.kafkaClients
+  api externalDependency.ebean
   enhance externalDependency.ebeanAgent
-  compile externalDependency.opentelemetryAnnotations
-  compile externalDependency.resilience4j
-  compile externalDependency.springContext
-  compile externalDependency.swaggerAnnotations
-  swaggerCodegen 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.33'
-  compile (externalDependency.mixpanel) {
+  implementation externalDependency.ebeanDdl
+  implementation externalDependency.opentelemetryAnnotations
+  implementation externalDependency.resilience4j
+  api externalDependency.springContext
+  implementation externalDependency.swaggerAnnotations
+  implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
 
   annotationProcessor externalDependency.lombok
 
-  testCompile externalDependency.testng
-  testCompile externalDependency.h2
-  testCompile externalDependency.mysqlConnector
-  testCompile externalDependency.neo4jHarness
-  testCompile externalDependency.mockito
-  testCompile externalDependency.mockitoInline
-  testCompile externalDependency.iStackCommons
-  testCompile externalDependency.resilience4j
-  testCompile externalDependency.testContainers
-  testCompile externalDependency.testContainersJunit
-  testCompile externalDependency.testContainersElasticsearch
-  testCompile externalDependency.testContainersCassandra
-  testCompile externalDependency.lombok
-  testCompile project(':test-models')
-  testImplementation externalDependency.springBootTest
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':datahub-graphql-core')
+  testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.h2
+  testImplementation externalDependency.mysqlConnector
+  testImplementation externalDependency.neo4jHarness
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
+  testImplementation externalDependency.iStackCommons
+  testImplementation externalDependency.resilience4j
+  testImplementation externalDependency.testContainers
+  testImplementation externalDependency.testContainersJunit
+  testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersCassandra
+  testImplementation externalDependency.lombok
+  testImplementation externalDependency.springBootTest
+  testImplementation spec.product.pegasus.restliServer
+
   // logback >=1.3 required due to `testcontainers` only
   testImplementation 'ch.qos.logback:logback-classic:1.4.7'
+  testImplementation 'net.datafaker:datafaker:1.9.0'
 
   testAnnotationProcessor externalDependency.lombok
 
@@ -113,32 +119,6 @@ project.compileJava {
         transformArgs: 'debug=1')
   }
 }
-
-tasks.register('generateOpenApiPojos', GenerateSwaggerCode) {
-  it.setInputFile(
-      file(
-          "${project(':metadata-models').projectDir}/src/generatedJsonSchema/combined/open-api.yaml"
-      )
-  )
-  it.setOutputDir(file("$projectDir/generated"))
-  it.setLanguage("spring")
-  it.setComponents(['models'])
-  it.setTemplateDir(file("$projectDir/src/main/resources/JavaSpring"))
-  it.setAdditionalProperties([
-      "group-id" : "io.datahubproject",
-      "dateLibrary" : "java8",
-      "java11" : "true",
-      "modelPropertyNaming" : "original",
-      "modelPackage" : "io.datahubproject.openapi.generated"] as Map<String, String>)
-
-  dependsOn ':metadata-models:generateJsonSchema'
-}
-
-compileJava.dependsOn generateOpenApiPojos
-sourceSets.main.java.srcDir "${generateOpenApiPojos.outputDir}/src/main/java"
-sourceSets.main.resources.srcDir "${generateOpenApiPojos.outputDir}/src/main/resources"
-
-checkstyleMain.exclude '**/generated/**'
 
 clean {
   project.delete("$projectDir/generated")

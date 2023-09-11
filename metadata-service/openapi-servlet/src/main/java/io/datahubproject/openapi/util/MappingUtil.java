@@ -7,20 +7,25 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.datahub.authorization.ResourceSpec;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.avro2pegasus.events.KafkaAuditHeader;
 import com.linkedin.avro2pegasus.events.UUID;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.ByteString;
+import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.IngestProposalResult;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -31,6 +36,22 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.openapi.dto.RollbackRunResultDto;
 import io.datahubproject.openapi.dto.UpsertAspectRequest;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import io.datahubproject.openapi.generated.AspectRowSummary;
 import io.datahubproject.openapi.generated.AspectType;
 import io.datahubproject.openapi.generated.AuditStamp;
@@ -40,17 +61,8 @@ import io.datahubproject.openapi.generated.MetadataChangeProposal;
 import io.datahubproject.openapi.generated.OneOfEnvelopedAspectValue;
 import io.datahubproject.openapi.generated.OneOfGenericAspectValue;
 import io.datahubproject.openapi.generated.Status;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
 import org.reflections.Reflections;
 import org.reflections.scanners.SubTypesScanner;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -60,8 +72,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.HttpClientErrorException;
 
-import static com.linkedin.metadata.Constants.*;
-import static java.nio.charset.StandardCharsets.*;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 @Slf4j
 public class MappingUtil {
@@ -69,24 +82,19 @@ public class MappingUtil {
 
   }
 
+  private static final JsonNodeFactory NODE_FACTORY = JsonNodeFactory.instance;
   private static final Map<String, Class<? extends OneOfEnvelopedAspectValue>> ENVELOPED_ASPECT_TYPE_MAP =
       new HashMap<>();
   private static final Map<Class<? extends OneOfGenericAspectValue>, String> ASPECT_NAME_MAP =
       new HashMap<>();
   private static final Map<String, Class<? extends RecordTemplate>> PEGASUS_TYPE_MAP = new HashMap<>();
-  private static final Pattern CLASS_NAME_PATTERN =
-      Pattern.compile("(\"com\\.linkedin\\.)([a-z]+?\\.)+?(?<className>[A-Z]\\w+?)(\":\\{)(?<content>.*?)(}})");
-  private static final Pattern GLOBAL_TAGS_PATTERN =
-      Pattern.compile("\"globalTags\":\\{");
-  private static final Pattern GLOSSARY_TERMS_PATTERN =
-      Pattern.compile("\"glossaryTerms\":\\{");
 
   private static final String DISCRIMINATOR = "__type";
-  private static final Pattern CLASS_TYPE_NAME_PATTERN =
-      Pattern.compile("(\\s+?\"__type\"\\s+?:\\s+?\")(?<classTypeName>\\w*?)(\"[,]?\\s+?)(?<content>[\\S\\s]*?)(\\s+})");
   private static final String PEGASUS_PACKAGE = "com.linkedin";
-  private static final String GLOBAL_TAGS = "GlobalTags";
-  private static final String GLOSSARY_TERMS = "GlossaryTerms";
+  private static final ReflectionCache REFLECT_AVRO = ReflectionCache.builder()
+          .basePackage("com.linkedin.pegasus2avro").build();
+  private static final ReflectionCache REFLECT_OPENAPI = ReflectionCache.builder()
+          .basePackage("io.datahubproject.openapi.generated").build();
 
   static {
     // Build a map from __type name to generated class
@@ -114,59 +122,75 @@ public class MappingUtil {
   }
 
   public static EntityResponse mapEntityResponse(com.linkedin.entity.EntityResponse entityResponse, ObjectMapper objectMapper) {
-    return new EntityResponse().entityName(entityResponse.getEntityName())
-        .urn(entityResponse.getUrn().toString())
-        .aspects(entityResponse.getAspects()
-            .entrySet()
-            .stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> mapEnvelopedAspect(entry.getValue(), objectMapper))));
+    return EntityResponse.builder()
+            .entityName(entityResponse.getEntityName())
+            .urn(entityResponse.getUrn().toString())
+            .aspects(entityResponse.getAspects()
+                    .entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, entry -> mapEnvelopedAspect(entry.getValue(), objectMapper)))).build();
   }
 
   public static EnvelopedAspect mapEnvelopedAspect(com.linkedin.entity.EnvelopedAspect envelopedAspect,
-      ObjectMapper objectMapper) {
-    return new EnvelopedAspect()
-        .name(envelopedAspect.getName())
-        .timestamp(envelopedAspect.getTimestamp())
-        .version(envelopedAspect.getVersion())
-        .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
-        .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
-        .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper));
+                                                   ObjectMapper objectMapper) {
+    return EnvelopedAspect.builder()
+            .name(envelopedAspect.getName())
+            .timestamp(envelopedAspect.getTimestamp())
+            .version(envelopedAspect.getVersion())
+            .type(AspectType.fromValue(envelopedAspect.getType().name().toUpperCase(Locale.ROOT)))
+            .created(objectMapper.convertValue(envelopedAspect.getCreated().data(), AuditStamp.class))
+            .value(mapAspectValue(envelopedAspect.getName(), envelopedAspect.getValue(), objectMapper)).build();
+  }
+
+  private static DataMap insertDiscriminator(@Nullable Class<?> parentClazz, DataMap dataMap) {
+    if (REFLECT_OPENAPI.lookupMethod(parentClazz, "get__type") != null) {
+      dataMap.put(DISCRIMINATOR, parentClazz.getSimpleName());
+    }
+
+    Set<Map.Entry<String, DataMap>> requiresDiscriminator = dataMap.entrySet().stream()
+            .filter(e -> e.getValue() instanceof DataMap)
+            .filter(e -> e.getKey().startsWith(PEGASUS_PACKAGE + "."))
+            .map(e -> Map.entry(e.getKey(), (DataMap) e.getValue()))
+            .collect(Collectors.toSet());
+    requiresDiscriminator.forEach(e -> {
+      dataMap.remove(e.getKey());
+      dataMap.put(DISCRIMINATOR, e.getKey().substring(e.getKey().lastIndexOf('.') + 1));
+      dataMap.putAll(e.getValue());
+    });
+
+    Set<Pair<String, DataMap>> recurse = dataMap.entrySet().stream()
+            .filter(e -> e.getValue() instanceof DataMap || e.getValue() instanceof DataList)
+            .flatMap(e -> {
+              if (e.getValue() instanceof DataList) {
+                return ((DataList) e.getValue()).stream()
+                        .filter(item -> item instanceof DataMap)
+                        .map(item -> Pair.of((String) null, (DataMap) item));
+              } else {
+                return Stream.of(Pair.of(e.getKey(), (DataMap) e.getValue()));
+              }
+            }).collect(Collectors.toSet());
+
+    recurse.forEach(e -> {
+      if (e.getKey() != null) {
+        Class<?> getterClazz = null;
+        if (parentClazz != null) {
+          Method getMethod = REFLECT_OPENAPI.lookupMethod(parentClazz, "get" + toUpperFirst(e.getKey()));
+          getterClazz = getMethod.getReturnType();
+        }
+        insertDiscriminator(getterClazz, e.getValue());
+      } else {
+        insertDiscriminator(null, e.getValue());
+      }
+    });
+
+    return dataMap;
   }
 
   public static OneOfEnvelopedAspectValue mapAspectValue(String aspectName, Aspect aspect, ObjectMapper objectMapper) {
     Class<? extends OneOfEnvelopedAspectValue> aspectClass = ENVELOPED_ASPECT_TYPE_MAP.get(aspectName);
-    DataMap wrapper = aspect.data();
-    wrapper.put(DISCRIMINATOR, aspectClass.getSimpleName());
-    String dataMapAsJson;
+    DataMap wrapper = insertDiscriminator(aspectClass, aspect.data());
     try {
-      dataMapAsJson = objectMapper.writeValueAsString(wrapper);
-      Matcher classNameMatcher = CLASS_NAME_PATTERN.matcher(dataMapAsJson);
-      while (classNameMatcher.find()) {
-        String className = classNameMatcher.group("className");
-        String content = classNameMatcher.group("content");
-        StringBuilder replacement = new StringBuilder("\"" + DISCRIMINATOR + "\" : \"" + className + "\"");
-
-        if (content.length() > 0) {
-          replacement.append(",")
-              .append(content);
-        }
-        replacement.append("}");
-        dataMapAsJson = classNameMatcher.replaceFirst(Matcher.quoteReplacement(replacement.toString()));
-        classNameMatcher = CLASS_NAME_PATTERN.matcher(dataMapAsJson);
-      }
-      // Global Tags & Glossary Terms will not have the explicit class name in the DataMap, so we handle them differently
-      Matcher globalTagsMatcher = GLOBAL_TAGS_PATTERN.matcher(dataMapAsJson);
-      while (globalTagsMatcher.find()) {
-        String replacement = "\"globalTags\" : {\"" + DISCRIMINATOR + "\" : \"GlobalTags\",";
-        dataMapAsJson = globalTagsMatcher.replaceFirst(Matcher.quoteReplacement(replacement));
-        globalTagsMatcher = GLOBAL_TAGS_PATTERN.matcher(dataMapAsJson);
-      }
-      Matcher glossaryTermsMatcher = GLOSSARY_TERMS_PATTERN.matcher(dataMapAsJson);
-      while (glossaryTermsMatcher.find()) {
-        String replacement = "\"glossaryTerms\" : {\"" + DISCRIMINATOR + "\" : \"GlossaryTerms\",";
-        dataMapAsJson = glossaryTermsMatcher.replaceFirst(Matcher.quoteReplacement(replacement));
-        glossaryTermsMatcher = GLOSSARY_TERMS_PATTERN.matcher(dataMapAsJson);
-      }
+      String dataMapAsJson = objectMapper.writeValueAsString(wrapper);
       return objectMapper.readValue(dataMapAsJson, aspectClass);
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
@@ -203,36 +227,79 @@ public class MappingUtil {
     return new String(c);
   }
 
+  private static Optional<String> shouldDiscriminate(String parentShortClass, String fieldName, ObjectNode node) {
+    try {
+      if (parentShortClass != null) {
+        Class<?> pegasus2AvroClazz = REFLECT_AVRO.lookupClass(parentShortClass, true);
+        Method getClassSchema = REFLECT_AVRO.lookupMethod(pegasus2AvroClazz, "getClassSchema");
+        Schema avroSchema = (Schema) getClassSchema.invoke(null);
+        Schema.Field avroField = avroSchema.getField(fieldName);
+
+        if (avroField.schema().isUnion()) {
+          Class<?> discriminatedClazz = REFLECT_AVRO.lookupClass(node.get(DISCRIMINATOR).asText(), true);
+          return Optional.of(discriminatedClazz.getName().replace(".pegasus2avro", ""));
+        }
+      }
+
+      // check leaf
+      Iterator<String> itr = node.fieldNames();
+      itr.next();
+      if (!itr.hasNext()) { // only contains discriminator
+        Class<?> discriminatedClazz = REFLECT_AVRO.lookupClass(node.get(DISCRIMINATOR).asText(), true);
+        return Optional.of(discriminatedClazz.getName().replace(".pegasus2avro", ""));
+      }
+
+    } catch (IllegalAccessException | InvocationTargetException e) {
+      throw new RuntimeException(e);
+    }
+    return Optional.empty();
+  }
+
+  private static void replaceDiscriminator(ObjectNode node) {
+    replaceDiscriminator(null, null, null, node);
+  }
+  private static void replaceDiscriminator(@Nullable ObjectNode parentNode, @Nullable String parentDiscriminator,
+                                           @Nullable String propertyName, @Nonnull ObjectNode node) {
+
+    final String discriminator;
+    if (node.isObject() && node.has(DISCRIMINATOR)) {
+      Optional<String> discriminatorClassName = shouldDiscriminate(parentDiscriminator, propertyName, node);
+      if (parentNode != null && discriminatorClassName.isPresent()) {
+        discriminator = node.remove(DISCRIMINATOR).asText();
+        parentNode.remove(propertyName);
+        parentNode.set(propertyName, NODE_FACTORY.objectNode().set(discriminatorClassName.get(), node));
+      } else {
+        discriminator = node.remove(DISCRIMINATOR).asText();
+      }
+    } else {
+      discriminator = null;
+    }
+
+    List<Map.Entry<String, JsonNode>> objectChildren = new LinkedList<>();
+    node.fields().forEachRemaining(entry -> {
+      if (entry.getValue().isObject()) {
+        objectChildren.add(entry);
+      } else if (entry.getValue().isArray()) {
+        entry.getValue().forEach(i -> {
+          if (i.isObject()) {
+            objectChildren.add(Map.entry(entry.getKey(), i));
+          }
+        });
+      }
+    });
+
+    objectChildren.forEach(entry ->
+      replaceDiscriminator(node, discriminator, entry.getKey(), (ObjectNode) entry.getValue())
+    );
+  }
 
   @Nonnull
   public static GenericAspect convertGenericAspect(@Nonnull io.datahubproject.openapi.generated.GenericAspect genericAspect,
       ObjectMapper objectMapper) {
     try {
       ObjectNode jsonTree = (ObjectNode) objectMapper.valueToTree(genericAspect).get("value");
-      jsonTree.remove(DISCRIMINATOR);
+      replaceDiscriminator(jsonTree);
       String pretty = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonTree);
-      Matcher classTypeNameMatcher = CLASS_TYPE_NAME_PATTERN.matcher(pretty);
-      while (classTypeNameMatcher.find()) {
-        String classTypeName = classTypeNameMatcher.group("classTypeName");
-        String content = classTypeNameMatcher.group("content");
-        StringBuilder replacement = new StringBuilder();
-        // Global Tags & Glossary Terms get used as both a union type and a non-union type, in the DataMap this means
-        // that it does not want the explicit class name if it is being used explicitly as a non-union type field on an aspect
-        if (!GLOBAL_TAGS.equals(classTypeName) && !GLOSSARY_TERMS.equals(classTypeName)) {
-          String pegasusClassName = PEGASUS_TYPE_MAP.get(classTypeName).getName();
-          replacement.append("\"").append(pegasusClassName).append("\" : {");
-
-          if (content.length() > 0) {
-            replacement.append(content);
-          }
-          replacement.append("}}");
-        } else {
-          replacement.append(content)
-              .append("}");
-        }
-        pretty = classTypeNameMatcher.replaceFirst(Matcher.quoteReplacement(replacement.toString()));
-        classTypeNameMatcher = CLASS_TYPE_NAME_PATTERN.matcher(pretty);
-      }
       return new GenericAspect().setContentType(genericAspect.getContentType())
           .setValue(ByteString.copyString(pretty, UTF_8));
     } catch (JsonProcessingException e) {
@@ -266,10 +333,17 @@ public class MappingUtil {
     log.info("Proposal: {}", serviceProposal);
     Throwable exceptionally = null;
     try {
-      IngestProposalResult proposalResult = entityService.ingestProposal(serviceProposal, auditStamp, false);
-      Urn urn = proposalResult.getUrn();
-      additionalChanges.forEach(proposal -> entityService.ingestProposal(proposal, auditStamp, false));
-      return new Pair<>(urn.toString(), proposalResult.isDidUpdate());
+      Stream<com.linkedin.mxe.MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(serviceProposal),
+              AspectUtils.getAdditionalChanges(serviceProposal, entityService).stream());
+
+      AspectsBatch batch = AspectsBatchImpl.builder().mcps(proposalStream.collect(Collectors.toList()),
+              entityService.getEntityRegistry()).build();
+
+      Set<IngestResult> proposalResult =
+              entityService.ingestProposal(batch, auditStamp, false);
+
+      Urn urn = proposalResult.stream().findFirst().get().getUrn();
+      return new Pair<>(urn.toString(), proposalResult.stream().anyMatch(IngestResult::isSqlCommitted));
     } catch (ValidationException ve) {
       exceptionally = ve;
       throw HttpClientErrorException.create(HttpStatus.UNPROCESSABLE_ENTITY, ve.getMessage(), null, null, null);
@@ -287,16 +361,16 @@ public class MappingUtil {
   }
 
   public static MetadataChangeProposal mapToProposal(UpsertAspectRequest aspectRequest) {
-    MetadataChangeProposal metadataChangeProposal = new MetadataChangeProposal();
+    MetadataChangeProposal.MetadataChangeProposalBuilder metadataChangeProposal = MetadataChangeProposal.builder();
     io.datahubproject.openapi.generated.GenericAspect
-        genericAspect = new io.datahubproject.openapi.generated.GenericAspect()
+        genericAspect = io.datahubproject.openapi.generated.GenericAspect.builder()
         .value(aspectRequest.getAspect())
-        .contentType(MediaType.APPLICATION_JSON_VALUE);
+        .contentType(MediaType.APPLICATION_JSON_VALUE).build();
     io.datahubproject.openapi.generated.GenericAspect keyAspect = null;
     if (aspectRequest.getEntityKeyAspect() != null) {
-      keyAspect = new io.datahubproject.openapi.generated.GenericAspect()
+      keyAspect = io.datahubproject.openapi.generated.GenericAspect.builder()
           .contentType(MediaType.APPLICATION_JSON_VALUE)
-          .value(aspectRequest.getEntityKeyAspect());
+          .value(aspectRequest.getEntityKeyAspect()).build();
     }
     metadataChangeProposal.aspect(genericAspect)
         .changeType(io.datahubproject.openapi.generated.ChangeType.UPSERT)
@@ -305,7 +379,7 @@ public class MappingUtil {
         .entityUrn(aspectRequest.getEntityUrn())
         .entityType(aspectRequest.getEntityType());
 
-    return metadataChangeProposal;
+    return metadataChangeProposal.build();
   }
 
   public static com.linkedin.mxe.MetadataChangeProposal mapToServiceProposal(MetadataChangeProposal metadataChangeProposal,
@@ -375,7 +449,7 @@ public class MappingUtil {
       throw new IllegalArgumentException("Entity type is not valid for soft deletes: " + urn.getEntityType());
     }
     return UpsertAspectRequest.builder()
-        .aspect(new Status().removed(true))
+        .aspect(Status.builder().removed(true).build())
         .entityUrn(urn.toString())
         .entityType(urn.getEntityType())
         .build();

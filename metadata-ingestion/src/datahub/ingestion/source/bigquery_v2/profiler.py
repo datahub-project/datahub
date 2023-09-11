@@ -94,7 +94,7 @@ class BigqueryProfiler(GenericProfiler):
             partition_where_clause: str
 
             if table.partition_info.type == RANGE_PARTITION_NAME:
-                if table.partition_info and table.partition_info.column:
+                if table.partition_info.column:
                     partition_where_clause = (
                         f"{table.partition_info.column.name} >= {partition}"
                     )
@@ -102,6 +102,9 @@ class BigqueryProfiler(GenericProfiler):
                     logger.warning(
                         f"Partitioned table {table.name} without partiton column"
                     )
+                    self.report.profiling_skipped_invalid_partition_ids[
+                        f"{project}.{schema}.{table.name}"
+                    ] = partition
                     return None, None
             else:
                 logger.debug(
@@ -118,8 +121,8 @@ class BigqueryProfiler(GenericProfiler):
                     logger.error(
                         f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
                     )
-                    self.report.invalid_partition_ids[
-                        f"{schema}.{table.name}"
+                    self.report.profiling_skipped_invalid_partition_ids[
+                        f"{project}.{schema}.{table.name}"
                     ] = partition
                     return None, None
 
@@ -132,11 +135,14 @@ class BigqueryProfiler(GenericProfiler):
                     partition_column_name = table.partition_info.column.name
                     partition_data_type = table.partition_info.column.data_type
                 if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"{partition_data_type}(`{partition_column_name}`) BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
+                    partition_where_clause = f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
                 else:
                     logger.warning(
                         f"Not supported partition type {table.partition_info.type}"
                     )
+                    self.report.profiling_skipped_invalid_partition_type[
+                        f"{project}.{schema}.{table.name}"
+                    ] = table.partition_info.type
                     return None, None
             custom_sql = """
 SELECT
@@ -153,7 +159,7 @@ WHERE
             )
 
             return (partition, custom_sql)
-        if table.max_shard_id:
+        elif table.max_shard_id:
             # For sharded table we want to get the partition id but not needed to generate custom query
             return table.max_shard_id, None
 
@@ -162,15 +168,9 @@ WHERE
     def get_workunits(
         self, project_id: str, tables: Dict[str, List[BigqueryTable]]
     ) -> Iterable[MetadataWorkUnit]:
-        # Otherwise, if column level profiling is enabled, use  GE profiler.
-        if not self.config.project_id_pattern.allowed(project_id):
-            return
         profile_requests = []
 
         for dataset in tables:
-            if not self.config.schema_pattern.allowed(dataset):
-                continue
-
             for table in tables[dataset]:
                 normalized_table_name = BigqueryTableIdentifier(
                     project_id=project_id, dataset=dataset, table=table.name
@@ -253,23 +253,25 @@ WHERE
             if self.config.profiling.report_dropped_profiles:
                 self.report.report_dropped(f"profile of {dataset_name}")
             return None
+
         (partition, custom_sql) = self.generate_partition_profiler_query(
             project, dataset, table, self.config.profiling.partition_datetime
         )
-
         if partition is None and table.partition_info:
             self.report.report_warning(
-                "profile skipped as partitioned table is empty or partition id was invalid",
+                "profile skipped as partitioned table is empty or partition id or type was invalid",
                 dataset_name,
             )
             return None
-
         if (
             partition is not None
             and not self.config.profiling.partition_profiling_enabled
         ):
             logger.debug(
                 f"{dataset_name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+            )
+            self.report.profiling_skipped_partition_profiling_disabled.append(
+                dataset_name
             )
             return None
 

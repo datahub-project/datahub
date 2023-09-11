@@ -24,7 +24,11 @@ decommissioned.
 To create the topics, navigate to your **Cluster** and click "Create Topic". Feel free to tweak the default topic configurations to
 match your preferences.
 
-![CreateTopic](../imgs/confluent-create-topic.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/confluent-create-topic.png"/>
+</p>
+
 
 ## Step 2: Configure DataHub Container to use Confluent Cloud Topics
 
@@ -140,12 +144,20 @@ and another for the user info used for connecting to the schema registry. You'll
 select "Clients" -> "Configure new Java Client". You should see a page like the following:
 
 
-![Config](../imgs/confluent-cloud-config.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/confluent-cloud-config.png"/>
+</p>
+
 
 You'll want to generate both a Kafka Cluster API Key & a Schema Registry key. Once you do so,you should see the config
 automatically populate with your new secrets:
 
-![Config](../imgs/confluent-cloud-config-2.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/confluent-cloud-config-2.png"/>
+</p>
+
 
 You'll need to copy the values of `sasl.jaas.config` and `basic.auth.user.info`
 for the next step.
