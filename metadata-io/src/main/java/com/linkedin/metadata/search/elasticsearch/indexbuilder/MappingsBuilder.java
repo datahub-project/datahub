@@ -121,8 +121,7 @@ public class MappingsBuilder {
             String analyzerName = entry.getValue();
             subFields.put(fieldName, ImmutableMap.of(
                 TYPE, TEXT,
-                ANALYZER, analyzerName,
-                SEARCH_ANALYZER, analyzerName
+                ANALYZER, analyzerName
             ));
           }
         }
