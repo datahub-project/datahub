@@ -45,6 +45,7 @@ jobs:
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       publish: ${{ steps.publish.outputs.publish }}
+      python_release_version: ${{ steps.tag.outputs.python_release_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -58,6 +59,7 @@ jobs:
           echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
           echo "unique_slim_tag=$(get_unique_tag)-slim" >> $GITHUB_OUTPUT
           echo "unique_full_tag=$(get_unique_tag)-full" >> $GITHUB_OUTPUT
+          echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -573,7 +575,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}
       - name: Build and push Slim Image
-        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: final
@@ -582,6 +584,7 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
             DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_slim_tag || 'head' }}
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
             APP_ENV=slim
           tags: ${{ needs.setup.outputs.slim_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -655,7 +658,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}
       - name: Build and push Full Image
-        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' }}
+        if: ${{ steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true' || needs.setup.outputs.publish }}
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           target: final
@@ -664,6 +667,7 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_BASE_IMAGE }}
             DOCKER_VERSION=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           tags: ${{ needs.setup.outputs.unique_full_tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
@@ -673,7 +677,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
       - name: Compute Tag (Full)
         id: tag
-        run: echo "tag=${{ steps.filter.outputs.datahub-ingestion-base == 'true' && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ (steps.filter.outputs.datahub-ingestion-base == 'true' || steps.filter.outputs.datahub-ingestion == 'true') && needs.setup.outputs.unique_full_tag || 'head' }}" >> $GITHUB_OUTPUT
   datahub_ingestion_full_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -739,7 +743,7 @@ jobs:
           java-version: 11
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.10"
           cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
