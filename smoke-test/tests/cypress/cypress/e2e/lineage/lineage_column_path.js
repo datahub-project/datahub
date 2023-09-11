@@ -18,6 +18,7 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.loginWithCredentials();
       cy.goToEntityLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
       //enable “show columns” toggle
+      cy.waitTextVisible("SampleCypressHdfs");
       cy.clickOptionWithTestId("column-toggle");
       cy.waitTextVisible("shipment_info");
       //verify functionality of column lineage
