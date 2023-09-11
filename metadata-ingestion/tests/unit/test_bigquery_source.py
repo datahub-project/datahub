@@ -132,24 +132,48 @@ def test_get_projects_with_project_ids_overrides_project_id_pattern():
     ]
 
 
+def test_platform_instance_config_always_none():
+    config = BigQueryV2Config.parse_obj(
+        {"include_data_platform_instance": True, "platform_instance": "something"}
+    )
+    assert config.platform_instance is None
+
+    config = BigQueryV2Config(platform_instance="something", project_id="project_id")
+    assert config.project_id == "project_id"
+    assert config.platform_instance is None
+
+
 def test_get_dataplatform_instance_aspect_returns_project_id():
     project_id = "project_id"
     expected_instance = (
         f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,{project_id})"
     )
 
-    config = BigQueryV2Config.parse_obj({})
+    config = BigQueryV2Config.parse_obj({"include_data_platform_instance": True})
     source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
 
     data_platform_instance = source.get_dataplatform_instance_aspect(
         "urn:li:test", project_id
     )
-
     metadata = data_platform_instance.get_metadata()["metadata"]
 
     assert data_platform_instance is not None
     assert metadata.aspectName == "dataPlatformInstance"
     assert metadata.aspect.instance == expected_instance
+
+
+def test_get_dataplatform_instance_default_no_instance():
+    config = BigQueryV2Config.parse_obj({})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    data_platform_instance = source.get_dataplatform_instance_aspect(
+        "urn:li:test", "project_id"
+    )
+    metadata = data_platform_instance.get_metadata()["metadata"]
+
+    assert data_platform_instance is not None
+    assert metadata.aspectName == "dataPlatformInstance"
+    assert metadata.aspect.instance is None
 
 
 @patch("google.cloud.bigquery.client.Client")

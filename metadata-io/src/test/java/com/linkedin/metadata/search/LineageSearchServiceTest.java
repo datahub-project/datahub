@@ -33,8 +33,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -136,12 +134,6 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
         new SearchService(
             new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
             cachingEntitySearchService,
-            new CachingAllEntitiesSearchAggregator(
-                _cacheManager,
-                new AllEntitiesSearchAggregator(_entityRegistry, _elasticSearchService, cachingEntitySearchService,
-                    new SimpleRanker(), entityDocCountCacheConfiguration),
-                100,
-                true),
             new SimpleRanker()),
         _graphService, _cacheManager.getCache("test"), withCache, searchLineageCacheConfiguration));
   }
@@ -323,6 +315,83 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
 
     assertEquals(searchResult.getNumEntities().intValue(), 0);
 
+  }
+
+  @Test
+  public void testScrollAcrossLineage() throws Exception {
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    LineageScrollResult scrollResult = scrollAcrossLineage(null, TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertNull(scrollResult.getScrollId());
+    scrollResult = scrollAcrossLineage(null, TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertNull(scrollResult.getScrollId());
+    clearCache(false);
+
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        anyInt(), eq(null), eq(null))).thenReturn(
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(TEST_URN).setType("test").setDegree(1))));
+    // just testing null input does not throw any exception
+    scrollAcrossLineage(null, null);
+
+    scrollResult = scrollAcrossLineage(null, TEST);
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertNull(scrollResult.getScrollId());
+    scrollResult = scrollAcrossLineage(null, TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertNull(scrollResult.getScrollId());
+    clearCache(false);
+
+    Urn urn = new TestEntityUrn("test1", "urn1", "VALUE_1");
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("test"));
+    document.set("textFieldOverride", JsonNodeFactory.instance.textNode("textFieldOverride"));
+    document.set("browsePaths", JsonNodeFactory.instance.textNode("/a/b/c"));
+    _elasticSearchService.upsertDocument(ENTITY_NAME, document.toString(), urn.toString());
+    syncAfterWrite(_bulkProcessor);
+
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        anyInt(), eq(null), eq(null))).thenReturn(mockResult(Collections.emptyList()));
+    scrollResult = scrollAcrossLineage(null, TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertEquals(scrollResult.getEntities().size(), 0);
+    assertNull(scrollResult.getScrollId());
+    clearCache(false);
+
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        anyInt(), eq(null), eq(null))).thenReturn(
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test").setDegree(1))));
+    scrollResult = scrollAcrossLineage(null, TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 1);
+    assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
+    assertEquals(scrollResult.getEntities().get(0).getDegree().intValue(), 1);
+    assertNull(scrollResult.getScrollId());
+
+    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree.keyword", "1"), TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 1);
+    assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
+    assertEquals(scrollResult.getEntities().get(0).getDegree().intValue(), 1);
+    assertNull(scrollResult.getScrollId());
+
+    scrollResult = scrollAcrossLineage(QueryUtils.newFilter("degree.keyword", "2"), TEST1);
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertEquals(scrollResult.getEntities().size(), 0);
+    assertNull(scrollResult.getScrollId());
+    clearCache(false);
+
+    // Cleanup
+    _elasticSearchService.deleteDocument(ENTITY_NAME, urn.toString());
+    syncAfterWrite(_bulkProcessor);
+
+    when(_graphService.getLineage(eq(TEST_URN), eq(LineageDirection.DOWNSTREAM), anyInt(), anyInt(),
+        anyInt())).thenReturn(
+        mockResult(ImmutableList.of(new LineageRelationship().setEntity(urn).setType("test1").setDegree(1))));
+    scrollResult = scrollAcrossLineage(null, TEST1);
+
+    assertEquals(scrollResult.getNumEntities().intValue(), 0);
+    assertNull(scrollResult.getScrollId());
   }
 
   @Test
@@ -737,6 +806,16 @@ public class LineageSearchServiceTest extends AbstractTestNGSpringContextTests {
     return _lineageSearchService.searchAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), input,
         null, filter, null, 0, 10, null, null,
         new SearchFlags().setSkipCache(true));
+  }
+
+  private LineageScrollResult scrollAcrossLineage(@Nullable Filter filter, @Nullable String input, String scrollId, int size) {
+    return _lineageSearchService.scrollAcrossLineage(TEST_URN, LineageDirection.DOWNSTREAM, ImmutableList.of(), input,
+        null, filter, null, scrollId,  "5m",  size, null, null,
+        new SearchFlags().setSkipCache(true));
+  }
+
+  private LineageScrollResult scrollAcrossLineage(@Nullable Filter filter, @Nullable String input) {
+    return scrollAcrossLineage(filter, input, null, 10);
   }
 
   @Test

@@ -80,7 +80,11 @@ Please follow the [DataHub Quickstart Guide](https://datahubproject.io/docs/quic
 
 If you're looking to build & modify datahub please take a look at our [Development Guide](https://datahubproject.io/docs/developers).
 
-[![DataHub Demo GIF](docs/imgs/entity.png)](https://demo.datahubproject.io/)
+<p align="center">
+<a href="https://demo.datahubproject.io/">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/entity.png"/>
+</a>
+</p>
 
 ## Source Code and Repositories
 

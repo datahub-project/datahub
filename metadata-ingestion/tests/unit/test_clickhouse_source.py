@@ -8,7 +8,7 @@ def test_clickhouse_uri_https():
             "password": "password",
             "host_port": "host:1111",
             "database": "db",
-            "protocol": "https",
+            "uri_opts": {"protocol": "https"},
         }
     )
     assert (
@@ -26,7 +26,9 @@ def test_clickhouse_uri_native():
             "scheme": "clickhouse+native",
         }
     )
-    assert config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111"
+    assert (
+        config.get_sql_alchemy_url() == "clickhouse+native://user:password@host:1111/"
+    )
 
 
 def test_clickhouse_uri_native_secure():
@@ -37,12 +39,12 @@ def test_clickhouse_uri_native_secure():
             "host_port": "host:1111",
             "database": "db",
             "scheme": "clickhouse+native",
-            "secure": True,
+            "uri_opts": {"secure": True},
         }
     )
     assert (
         config.get_sql_alchemy_url()
-        == "clickhouse+native://user:password@host:1111/db?secure=true"
+        == "clickhouse+native://user:password@host:1111/db?secure=True"
     )
 
 
@@ -55,4 +57,37 @@ def test_clickhouse_uri_default_password():
             "scheme": "clickhouse+native",
         }
     )
-    assert config.get_sql_alchemy_url() == "clickhouse+native://user:@host:1111/db"
+    assert config.get_sql_alchemy_url() == "clickhouse+native://user@host:1111/db"
+
+
+def test_clickhouse_uri_native_secure_backward_compatibility():
+    config = ClickHouseConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1111",
+            "database": "db",
+            "scheme": "clickhouse+native",
+            "secure": True,
+        }
+    )
+    assert (
+        config.get_sql_alchemy_url()
+        == "clickhouse+native://user:password@host:1111/db?secure=True"
+    )
+
+
+def test_clickhouse_uri_https_backward_compatibility():
+    config = ClickHouseConfig.parse_obj(
+        {
+            "username": "user",
+            "password": "password",
+            "host_port": "host:1111",
+            "database": "db",
+            "protocol": "https",
+        }
+    )
+    assert (
+        config.get_sql_alchemy_url()
+        == "clickhouse://user:password@host:1111/db?protocol=https"
+    )

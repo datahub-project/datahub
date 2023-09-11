@@ -3,11 +3,11 @@ configurations {
 }
 
 apply plugin: 'io.acryl.gradle.plugin.avro'
-apply plugin: 'java'
+apply plugin: 'java-library'
 
 dependencies {
-  compile externalDependency.avro_1_7
-  compile(externalDependency.avroCompiler_1_7) {
+  api externalDependency.avro_1_7
+  implementation(externalDependency.avroCompiler_1_7) {
     exclude group: 'org.apache.velocity', module: 'velocity'
   }
   constraints {

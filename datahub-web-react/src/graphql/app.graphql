@@ -45,6 +45,9 @@ query appConfig {
                     defaultTab
                 }
             }
+            searchResult {
+                enableNameHighlight
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -60,6 +63,7 @@ query appConfig {
             showSearchFiltersV2
             showBrowseV2
             showAcrylInfo
+            showAccessManagement
         }
     }
 }
