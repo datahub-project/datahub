@@ -392,9 +392,6 @@ plugins: Dict[str, Set[str]] = {
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8"},
     "unity-catalog": databricks | sqllineage_lib,
-    "dagster": {
-        f"acryl-datahub-dagster-plugin == {package_metadata['__version__']}",
-    },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -650,7 +647,6 @@ entry_points = {
         "file = datahub.ingestion.reporting.file_reporter:FileReporter",
     ],
     "apache_airflow_provider": ["provider_info=datahub_provider:get_provider_info"],
-    "dagster_provider": ["provider_info=datahub_dagster_plugin:get_provider_info"],
 }
 
 
