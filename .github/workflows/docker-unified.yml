@@ -743,7 +743,7 @@ jobs:
           java-version: 11
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.10"
           cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
