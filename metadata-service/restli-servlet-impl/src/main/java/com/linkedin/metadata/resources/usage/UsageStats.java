@@ -382,7 +382,8 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     Authentication auth = AuthenticationContext.getAuthentication();
     Urn resourceUrn = UrnUtils.getUrn(resource);
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE), new ResourceSpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.VIEW_DATASET_USAGE_PRIVILEGE),
+            new ResourceSpec(resourceUrn.getEntityType(), resourceUrn.toString()))) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to query usage.");
     }
