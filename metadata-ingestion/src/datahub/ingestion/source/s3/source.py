@@ -37,6 +37,7 @@ from smart_open import open as smart_open
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -81,6 +82,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     MapTypeClass,
     OperationClass,
@@ -259,13 +261,14 @@ class S3Source(StatefulIngestionSourceBase):
         import pydeequ
 
         conf = SparkConf()
-
+        spark_version = os.getenv("SPARK_VERSION", "3.3")
         conf.set(
             "spark.jars.packages",
             ",".join(
                 [
                     "org.apache.hadoop:hadoop-aws:3.0.3",
-                    "org.apache.spark:spark-avro_2.12:3.0.3",
+                    # Spark's avro version needs to be matched with the Spark version
+                    f"org.apache.spark:spark-avro_2.12:{spark_version}{'.0' if spark_version.count('.') == 1 else ''}",
                     pydeequ.deequ_maven_coord,
                 ]
             ),
@@ -329,6 +332,9 @@ class S3Source(StatefulIngestionSourceBase):
         conf.set("spark.jars.excludes", pydeequ.f2j_maven_coord)
         conf.set("spark.driver.memory", self.source_config.spark_driver_memory)
 
+        if self.source_config.spark_config:
+            for key, value in self.source_config.spark_config.items():
+                conf.set(key, value)
         self.spark = SparkSession.builder.config(conf=conf).getOrCreate()
 
     @classmethod
@@ -369,10 +375,10 @@ class S3Source(StatefulIngestionSourceBase):
         elif ext.endswith(".avro"):
             try:
                 df = self.spark.read.format("avro").load(file)
-            except AnalysisException:
+            except AnalysisException as e:
                 self.report.report_warning(
                     file,
-                    "To ingest avro files, please install the spark-avro package: https://mvnrepository.com/artifact/org.apache.spark/spark-avro_2.12/3.0.3",
+                    f"Avro file reading failed with exception. The error was: {e}",
                 )
                 return None
 
@@ -558,6 +564,15 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config.platform_instance,
             self.source_config.env,
         )
+
+        if self.source_config.platform_instance:
+            data_platform_instance = DataPlatformInstanceClass(
+                platform=data_platform_urn,
+                instance=make_dataplatform_instance_urn(
+                    self.source_config.platform, self.source_config.platform_instance
+                ),
+            )
+            aspects.append(data_platform_instance)
 
         customProperties = {"schema_inferred_from": str(table_data.full_path)}
 

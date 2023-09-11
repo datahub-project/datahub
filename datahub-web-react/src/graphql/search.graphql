@@ -2,6 +2,7 @@ fragment autoCompleteFields on Entity {
     urn
     type
     ... on Dataset {
+        exists
         name
         platform {
             ...platformFields
@@ -19,7 +20,40 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    exists
+                    platform {
+                        ...platformFields
+                    }
+                    parentContainers {
+                        ...parentContainersFields
+                    }
+                    name
+                    properties {
+                        name
+                        description
+                        qualifiedName
+                        externalUrl
+                    }
+                }
+            }
+        }
         ...datasetStatsFields
+        access {
+            ...getAccess
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
     }
     ... on CorpUser {
         username
@@ -218,6 +252,25 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
+fragment getAccess on Access {
+    roles {
+        role {
+            ...getRolesName
+        }
+    }
+}
+
+fragment getRolesName on Role {
+    urn
+    type
+    id
+    properties {
+        name
+        description
+        type
+    }
+}
+
 fragment datasetStatsFields on Dataset {
     lastProfile: datasetProfiles(limit: 1) {
         rowCount
@@ -250,83 +303,87 @@ fragment datasetStatsFields on Dataset {
     }
 }
 
+fragment nonSiblingsDatasetSearchFields on Dataset {
+    exists
+    name
+    origin
+    uri
+    platform {
+        ...platformFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    editableProperties {
+        description
+    }
+    access {
+        ...getAccess
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    domain {
+        ...entityDomain
+    }
+    ...entityDataProduct
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        type
+        status
+        message
+        causes
+    }
+    ...datasetStatsFields
+}
+
 fragment searchResultFields on Entity {
     urn
     type
     ... on Dataset {
-        exists
-        name
-        origin
-        uri
-        platform {
-            ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        editableProperties {
-            description
-        }
-        platformNativeType
-        properties {
-            name
-            description
-            qualifiedName
-            customProperties {
-                key
-                value
-            }
-            externalUrl
-        }
-        ownership {
-            ...ownershipFields
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        ...entityDataProduct
-        parentContainers {
-            ...parentContainersFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            type
-            status
-            message
-            causes
-        }
+        ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
             siblings {
                 urn
                 type
                 ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    name
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                    }
+                    ...nonSiblingsDatasetSearchFields
                 }
             }
         }
-        ...datasetStatsFields
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
     }
     ... on CorpUser {
         username
@@ -814,6 +871,11 @@ fragment searchResults on SearchResults {
         matchedFields {
             name
             value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
         }
         insights {
             text
@@ -822,6 +884,11 @@ fragment searchResults on SearchResults {
     }
     facets {
         ...facetFields
+    }
+    suggestions {
+        text
+        frequency
+        score
     }
 }
 

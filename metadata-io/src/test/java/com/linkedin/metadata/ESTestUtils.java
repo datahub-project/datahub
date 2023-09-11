@@ -34,8 +34,9 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.metadata.DockerTestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 
 public class ESTestUtils {
     private ESTestUtils() {
@@ -75,6 +76,11 @@ public class ESTestUtils {
     public static SearchResult searchAcrossEntities(SearchService searchService, String query, @Nullable List<String> facets) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
             100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
+    }
+
+    public static SearchResult searchAcrossCustomEntities(SearchService searchService, String query, List<String> searchableEntities) {
+        return searchService.searchAcrossEntities(searchableEntities, query, null, null, 0,
+                100, new SearchFlags().setFulltext(true).setSkipCache(true));
     }
 
     public static SearchResult search(SearchService searchService, String query) {

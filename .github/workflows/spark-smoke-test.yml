@@ -30,6 +30,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 800
+          fetch-tags: true
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
@@ -37,9 +40,11 @@ jobs:
           java-version: 11
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.10"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
+      - name: Remove images
+        run: docker image prune -a -f || true
       - name: Smoke test
         run: |
           ./gradlew :metadata-integration:java:spark-lineage:integrationTest \

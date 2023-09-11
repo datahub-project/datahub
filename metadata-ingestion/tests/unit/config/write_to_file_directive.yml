@@ -1,0 +1,11 @@
+foo: bar
+nested:
+  hi: hello
+  __DATAHUB_TO_FILE_ssl_cert: |
+    -----BEGIN CERTIFICATE-----
+    thisisnotarealcert
+    -----END CERTIFICATE-----
+
+  __DATAHUB_TO_FILE_ssl_key: ${DATAHUB_SSL_KEY}
+
+  another-key: final-value

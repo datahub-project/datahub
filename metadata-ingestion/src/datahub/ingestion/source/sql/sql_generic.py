@@ -14,7 +14,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 
 
 @dataclass
@@ -44,13 +44,13 @@ class BaseView:
     comment: Optional[str]
     created: Optional[datetime]
     last_altered: Optional[datetime]
-    view_definition: str
+    view_definition: Optional[str]
     size_in_bytes: Optional[int] = None
     rows_count: Optional[int] = None
     column_count: Optional[int] = None
 
 
-class SQLAlchemyGenericConfig(SQLAlchemyConfig):
+class SQLAlchemyGenericConfig(SQLCommonConfig):
     platform: str = Field(
         description="Name of platform being ingested, used in constructing URNs."
     )

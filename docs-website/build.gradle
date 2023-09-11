@@ -77,7 +77,12 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
   args = ['run', 'generate']
 }
 
-task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+task downloadHistoricalVersions(type: Exec) {
+    workingDir '.'
+    commandLine 'python3', 'download_historical_versions.py'
+}
+
+task yarnStart(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, downloadHistoricalVersions]) {
   args = ['run', 'start']
 }
 task fastReload(type: YarnTask) {
@@ -105,7 +110,7 @@ task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
 }
 
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHistoricalVersions]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)
@@ -114,6 +119,10 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
   outputs.dir("dist")
   // tell gradle to apply the build cache
   outputs.cacheIf { true }
+  // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
+  // and https://github.com/facebook/docusaurus/issues/8329.
+  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader.
+  environment = ['NODE_OPTIONS': '--max-old-space-size=10248']
   args = ['run', 'build']
 
 }
