@@ -907,11 +907,13 @@ class SnowflakeSinkConnector:
         Refer below link for more info
         https://docs.snowflake.com/en/user-guide/kafka-connector-overview#target-tables-for-kafka-topics
         """
-        table_name = re.sub("[^a-zA-Z0-9_]", "_", topic_name.upper())
+        table_name = re.sub("[^a-zA-Z0-9_]", "_", topic_name)
         if re.match("^[^a-zA-Z_].*", table_name):
             table_name = "_" + table_name
-        # TODO: Connector is also appending a suffix i.e. underscore followed by a generated hash code
-        # if adjustment happen in name of the table. Logic for this is yet to develop.
+        # Connector  may append original topic's hash code as suffix for conflict resolution
+        # if generated table names for 2 topics are similar. This corner case is not handled here.
+        # Note that Snowflake recommends to choose topic names that follow the rules for
+        # Snowflake identifier names so this case is not recommended by snowflake.
         return table_name
 
     def get_parser(
