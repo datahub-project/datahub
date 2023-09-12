@@ -37,6 +37,7 @@ const PERSONAL_ACTION_REQUESTS_GROUP_NAME = 'Personal';
 
 type ActionRequestGroup = {
     name: string;
+    displayName: string;
     assignee: ActionRequestAssignee;
 };
 
@@ -63,6 +64,7 @@ export const ActionRequestsPage = () => {
         (authenticatedUser && [
             {
                 name: PERSONAL_ACTION_REQUESTS_GROUP_NAME,
+                displayName: PERSONAL_ACTION_REQUESTS_GROUP_NAME,
                 assignee: {
                     type: AssigneeType.User,
                     urn: authenticatedUser?.corpUser.urn,
@@ -72,6 +74,7 @@ export const ActionRequestsPage = () => {
                 const group = rel.entity as CorpGroup;
                 return {
                     name: group.name,
+                    displayName: group.properties?.displayName || group.name,
                     assignee: {
                         type: AssigneeType.Group,
                         urn: group.urn,
@@ -101,7 +104,7 @@ export const ActionRequestsPage = () => {
             </PageHeaderContainer>
             <StyledTabs activeKey={actionRequestGroupName} size="large" onTabClick={(tab: string) => onClickTab(tab)}>
                 {actionRequestGroups.map((group) => (
-                    <Tab key={group.name} tab={group.name} />
+                    <Tab key={group.name} tab={group.displayName} />
                 ))}
             </StyledTabs>
             {activeActionRequestGroupTabView}

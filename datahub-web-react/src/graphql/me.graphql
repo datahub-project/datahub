@@ -25,6 +25,9 @@ query getMe {
                         ... on CorpGroup {
                             urn
                             name
+                            properties {
+                                displayName
+                            }
                         }
                     }
                 }
