@@ -8,10 +8,7 @@ from botocore.client import BaseClient
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -57,22 +54,15 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-# Configure logger.
-BASE_LOGGING_FORMAT = (
-    "[%(asctime)s] %(levelname)-8s {%(name)s:%(lineno)d} - %(message)s"
-)
-logging.basicConfig(format=BASE_LOGGING_FORMAT)
 MAX_ITEMS_TO_RETRIEVE = 100
 PAGE_SIZE = 100
 MAX_SCHEMA_SIZE = 300
 MAX_PRIMARY_KEYS_SIZE = 100
 
+logger: logging.Logger = logging.getLogger(__name__)
 
-class DynamoDBConfig(
-    EnvConfigMixin, PlatformInstanceConfigMixin, StatefulIngestionConfigBase
-):
+
+class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
 
     aws_access_key_id: Optional[pydantic.SecretStr] = Field(
         default=None, description="AWS Access Key ID."
@@ -105,7 +95,7 @@ class DynamoDBSourceReport(StaleEntityRemovalSourceReport):
 
 
 # map attribute data types to native types
-_atrribute_type_to_native_type_mapping: Dict[str, str] = {
+_attribute_type_to_native_type_mapping: Dict[str, str] = {
     "N": "Numbers",
     "B": "Bytes",
     "S": "String",
@@ -242,21 +232,15 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     primary_key_dict,
                 )
 
-                mcp_schema_metadata = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=schema_metadata,
-                )
-                wu = MetadataWorkUnit(id=dataset_name, mcp=mcp_schema_metadata)
-                self.report.report_workunit(wu)
-                yield wu
+                ).as_workunit()
 
-                mcp_dataset_properties = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=dataset_properties,
-                )
-                wu = MetadataWorkUnit(id=dataset_name, mcp=mcp_dataset_properties)
-                self.report.report_workunit(wu)
-                yield wu
+                ).as_workunit()
 
                 platform_instance_aspect = DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform),
@@ -265,13 +249,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                     ),
                 )
 
-                mcp_platform_instance = MetadataChangeProposalWrapper(
+                yield MetadataChangeProposalWrapper(
                     entityUrn=dataset_urn,
                     aspect=platform_instance_aspect,
-                )
-                wu = MetadataWorkUnit(id=dataset_name, mcp=mcp_platform_instance)
-                self.report.report_workunit(wu)
-                yield wu
+                ).as_workunit()
 
     def construct_schema_from_dynamodb(
         self,
@@ -458,15 +439,14 @@ class DynamoDBSource(StatefulIngestionSourceBase):
 
     def get_native_type(self, attribute_type: Union[type, str], table_name: str) -> str:
         assert isinstance(attribute_type, str)
-        type_string: Optional[str] = _atrribute_type_to_native_type_mapping.get(
+        type_string: Optional[str] = _attribute_type_to_native_type_mapping.get(
             attribute_type
         )
         if type_string is None:
             self.report.report_warning(
                 table_name, f"unable to map type {attribute_type} to native data type"
             )
-            _atrribute_type_to_native_type_mapping[attribute_type] = "unknown"
-            return "unknwon"
+            return _attribute_type_to_native_type_mapping[attribute_type]
         return type_string
 
     def get_field_type(

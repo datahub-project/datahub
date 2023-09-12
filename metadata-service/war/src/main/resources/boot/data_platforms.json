@@ -551,7 +551,7 @@
       "datasetNameDelimiter": ".",
       "name": "dynamodb",
       "displayName": "DynamoDB",
-      "type": "OTHERS",
+      "type": "KEY_VALUE_STORE",
       "logoUrl": "/assets/platforms/dynamodblogo.png"
     }
   }
