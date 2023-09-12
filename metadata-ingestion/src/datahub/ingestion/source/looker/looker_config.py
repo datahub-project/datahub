@@ -83,8 +83,19 @@ class NamingPatternMapping:
     name: str
 
 
+@dataclasses.dataclass
+class ViewNamingPatternMapping(NamingPatternMapping):
+    file_path: str
+
+
 class LookerNamingPattern(NamingPattern):
     ALLOWED_VARS = [field.name for field in dataclasses.fields(NamingPatternMapping)]
+
+
+class LookerViewNamingPattern(NamingPattern):
+    ALLOWED_VARS = [
+        field.name for field in dataclasses.fields(ViewNamingPatternMapping)
+    ]
 
 
 class LookerCommonConfig(DatasetSourceConfigMixin):
@@ -96,13 +107,13 @@ class LookerCommonConfig(DatasetSourceConfigMixin):
         description=f"Pattern for providing browse paths to explores. {LookerNamingPattern.allowed_docstring()}",
         default=LookerNamingPattern(pattern="/{env}/{platform}/{project}/explores"),
     )
-    view_naming_pattern: LookerNamingPattern = Field(
-        LookerNamingPattern(pattern="{project}.view.{name}"),
-        description=f"Pattern for providing dataset names to views. {LookerNamingPattern.allowed_docstring()}",
+    view_naming_pattern: LookerViewNamingPattern = Field(
+        LookerViewNamingPattern(pattern="{project}.view.{name}"),
+        description=f"Pattern for providing dataset names to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
-    view_browse_pattern: LookerNamingPattern = Field(
-        LookerNamingPattern(pattern="/{env}/{platform}/{project}/views"),
-        description=f"Pattern for providing browse paths to views. {LookerNamingPattern.allowed_docstring()}",
+    view_browse_pattern: LookerViewNamingPattern = Field(
+        LookerViewNamingPattern(pattern="/{env}/{platform}/{project}/views"),
+        description=f"Pattern for providing browse paths to views. {LookerViewNamingPattern.allowed_docstring()}",
     )
     tag_measures_and_dimensions: bool = Field(
         True,

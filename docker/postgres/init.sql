@@ -11,7 +11,7 @@ create table metadata_aspect_v2 (
   constraint pk_metadata_aspect_v2 primary key (urn,aspect,version)
 );
 
-create index timeIndex ON metadata_aspect_v2 (createdon);
+create index if not exists timeIndex ON metadata_aspect_v2 (createdon);
 
 insert into metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) values(
   'urn:li:corpuser:datahub',

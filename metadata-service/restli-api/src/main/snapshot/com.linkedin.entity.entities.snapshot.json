@@ -95,7 +95,7 @@
       "Searchable" : {
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1328,7 +1328,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1474,7 +1474,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1534,7 +1534,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1927,7 +1927,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : false,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       },
       "validate" : {
         "strlen" : {
@@ -1942,7 +1942,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "type",
@@ -2117,7 +2117,7 @@
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
         "fieldNameAliases" : [ "_entityName" ],
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "qualifiedName",
@@ -2128,7 +2128,7 @@
         "addToFilters" : false,
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -2423,7 +2423,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   } ],
@@ -2562,7 +2562,7 @@
                       "boostScore" : 2.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "ldap",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -2593,7 +2593,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   }, {
@@ -2656,7 +2656,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   }, {
@@ -2717,7 +2717,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   }, {
@@ -2878,7 +2878,7 @@
                     "doc" : "Unique Identifier of the data flow",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "cluster",
@@ -2941,7 +2941,7 @@
                     "doc" : "Unique Identifier of the data job",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -2994,7 +2994,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -3607,7 +3607,7 @@
                     "Searchable" : {
                       "boostScore" : 4.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "orchestrator",
@@ -3713,7 +3713,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -4312,7 +4312,7 @@
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4401,7 +4401,7 @@
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4496,7 +4496,7 @@
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4603,7 +4603,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -4710,7 +4710,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -4792,7 +4792,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4811,7 +4811,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "description",
@@ -4866,7 +4866,7 @@
                     "Searchable" : {
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4895,7 +4895,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "definition",
@@ -5073,7 +5073,7 @@
                     "type" : "string",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -5113,7 +5113,7 @@
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
                       "fieldNameAliases" : [ "_entityName" ],
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "id",
@@ -6249,8 +6249,19 @@
     }, {
       "name" : "runId",
       "type" : "string",
-      "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
+      "doc" : "The original run id that produced the metadata. Populated in case of batch-ingestion.",
       "default" : "no-run-id-provided",
+      "optional" : true
+    }, {
+      "name" : "lastRunId",
+      "type" : "string",
+      "doc" : "The last run id that produced the metadata. Populated in case of batch-ingestion.",
+      "default" : "no-run-id-provided",
+      "optional" : true
+    }, {
+      "name" : "pipelineName",
+      "type" : "string",
+      "doc" : "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.",
       "optional" : true
     }, {
       "name" : "registryName",

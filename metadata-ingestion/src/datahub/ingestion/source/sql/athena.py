@@ -9,7 +9,7 @@ from pyathena.model import AthenaTableMetadata
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -192,15 +192,12 @@ class AthenaSource(SQLAlchemySource):
         database: str,
         extra_properties: Optional[Dict[str, Any]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        database_container_key = gen_database_key(
-            database,
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
+        database_container_key = self.get_database_container_key(
+            db_name=database, schema=schema
         )
 
         yield from gen_database_container(
-            database=database,
+            database=database_container_key.database,
             database_container_key=database_container_key,
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
@@ -208,7 +205,7 @@ class AthenaSource(SQLAlchemySource):
             extra_properties=extra_properties,
         )
 
-    def get_database_container_key(self, db_name: str, schema: str) -> ContainerKey:
+    def get_database_container_key(self, db_name: str, schema: str) -> DatabaseKey:
         # Because our overridden get_allowed_schemas method returns db_name as the schema name,
         # the db_name and schema here will be the same. Hence, we just ignore the schema parameter.
         # Based on community feedback, db_name only available if it is explicitly specified in the connection string.

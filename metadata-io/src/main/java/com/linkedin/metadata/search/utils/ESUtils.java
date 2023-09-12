@@ -261,11 +261,11 @@ public class ESUtils {
   }
 
   public static void setSearchAfter(SearchSourceBuilder searchSourceBuilder, @Nullable Object[] sort,
-      @Nullable String pitId, String keepAlive) {
+      @Nullable String pitId, @Nullable String keepAlive) {
     if (sort != null && sort.length > 0) {
       searchSourceBuilder.searchAfter(sort);
     }
-    if (StringUtils.isNotBlank(pitId)) {
+    if (StringUtils.isNotBlank(pitId) && keepAlive != null) {
       PointInTimeBuilder pointInTimeBuilder = new PointInTimeBuilder(pitId);
       pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
       searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);

@@ -1,16 +1,17 @@
 apply plugin: 'pegasus'
+apply plugin: 'java-library'
 
 dependencies {
-  compile spec.product.pegasus.data
-  compile spec.product.pegasus.generator
-  compile project(path: ':metadata-models')
+  implementation spec.product.pegasus.data
+  implementation spec.product.pegasus.generator
+  api project(path: ':metadata-models')
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
-  compile externalDependency.guava
-  compile externalDependency.jacksonDataBind
-  compile externalDependency.jacksonDataFormatYaml
-  compile externalDependency.reflections
-  compile externalDependency.jsonPatch
+  implementation externalDependency.guava
+  implementation externalDependency.jacksonDataBind
+  implementation externalDependency.jacksonDataFormatYaml
+  implementation externalDependency.reflections
+  implementation externalDependency.jsonPatch
   constraints {
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
@@ -19,12 +20,13 @@ dependencies {
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 
-  compile externalDependency.mavenArtifact
+  api externalDependency.mavenArtifact
 
-  testCompile project(':test-models')
-  testCompile externalDependency.testng
-  testCompile externalDependency.mockito
-  testCompile externalDependency.mockitoInline
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
 
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
