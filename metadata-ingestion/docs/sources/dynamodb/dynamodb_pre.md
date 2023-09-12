@@ -1,6 +1,6 @@
 ### Prerequisities
 
-In order to execute this source, your AWS account will need to have permissions to create access key and DynamoDB read access, you can create these policies and attach to your account or can ask your account admin to attach these policies to you
+In order to execute this source, you will need to create access key and secret keys that have DynamoDB read access. You can create these policies and attach to your account or can ask your account admin to attach these policies to your account.
 
 For access key permissions, you can create a policy with permissions below and attach to your account, you can find more details in [Managing access keys for IAM users](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html)
 
