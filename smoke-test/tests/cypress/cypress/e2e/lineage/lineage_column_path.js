@@ -1,9 +1,10 @@
 import { aliasQuery, hasOperationName } from "../utils";
 const DATASET_ENTITY_TYPE = 'dataset';
-const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsAssertionDataset,PROD)';
+const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)';
 const DOWNSTREAM_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)";
 const upstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)-Upstream"] text';
-const downstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsAssertionDataset,PROD)-Downstream"] text';
+const downstream = '[data-testid="node-urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)-Downstream"] text';
+
 
 describe("column-Level lineage and impact analysis path test", () => {
     beforeEach(() => {
@@ -29,7 +30,7 @@ describe("column-Level lineage and impact analysis path test", () => {
       cy.get(downstream).eq(2).prev().should('not.have.attr', 'fill', 'white');
       cy.get(upstream).eq(3).prev().should('not.have.attr', 'stroke', 'transparent');
       //open dataset impact analysis view, enable column lineage
-      cy.goToDataset(DATASET_URN, "SampleCypressHdfsAssertionDataset");
+      cy.goToDataset(DATASET_URN, "SampleCypressHdfsDataset");
       cy.openEntityTab("Lineage");
       cy.clickOptionWithText("Column Lineage");
       cy.clickOptionWithText("Downstream");
