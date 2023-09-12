@@ -113,7 +113,7 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Whether or not to strip email id while adding owners using meta mappings.",
     )
     tag_prefix: str = pydantic.Field(
-        default="kafka:", description="Prefix added to tags during ingestion."
+        default="", description="Prefix added to tags during ingestion."
     )
     ignore_warnings_on_schema_type: bool = pydantic.Field(
         default=False,
@@ -198,6 +198,7 @@ class KafkaSource(StatefulIngestionSourceBase):
             self.source_config.tag_prefix,
             "SOURCE_CONTROL",
             self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
     def init_kafka_admin_client(self) -> None:
@@ -307,7 +308,6 @@ class KafkaSource(StatefulIngestionSourceBase):
             avro_schema = avro.schema.parse(
                 schema_metadata.platformSchema.documentSchema
             )
-            meta_aspects = self.meta_processor.process(avro_schema.other_props)
             description = avro_schema.doc
             # set the tags
             all_tags: List[str] = []
@@ -315,21 +315,25 @@ class KafkaSource(StatefulIngestionSourceBase):
                 self.source_config.schema_tags_field, []
             ):
                 all_tags.append(self.source_config.tag_prefix + tag)
-            meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
-            if meta_owners_aspects:
-                dataset_snapshot.aspects.append(meta_owners_aspects)
 
-            meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
-            if meta_terms_aspect:
-                dataset_snapshot.aspects.append(meta_terms_aspect)
+            if self.source_config.enable_meta_mapping:
+                meta_aspects = self.meta_processor.process(avro_schema.other_props)
 
-            # Create the tags aspect
-            meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
-            if meta_tags_aspect:
-                all_tags += [
-                    tag_association.tag[len("urn:li:tag:") :]
-                    for tag_association in meta_tags_aspect.tags
-                ]
+                meta_owners_aspects = meta_aspects.get(Constants.ADD_OWNER_OPERATION)
+                if meta_owners_aspects:
+                    dataset_snapshot.aspects.append(meta_owners_aspects)
+
+                meta_terms_aspect = meta_aspects.get(Constants.ADD_TERM_OPERATION)
+                if meta_terms_aspect:
+                    dataset_snapshot.aspects.append(meta_terms_aspect)
+
+                # Create the tags aspect
+                meta_tags_aspect = meta_aspects.get(Constants.ADD_TAG_OPERATION)
+                if meta_tags_aspect:
+                    all_tags += [
+                        tag_association.tag[len("urn:li:tag:") :]
+                        for tag_association in meta_tags_aspect.tags
+                    ]
 
             if all_tags:
                 dataset_snapshot.aspects.append(

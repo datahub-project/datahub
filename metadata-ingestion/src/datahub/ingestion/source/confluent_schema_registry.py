@@ -66,6 +66,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             self.source_config.tag_prefix,
             "SOURCE_CONTROL",
             self.source_config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
     @classmethod
@@ -305,7 +306,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             fields = schema_util.avro_schema_to_mce_fields(
                 avro_schema,
                 is_key_schema=is_key_schema,
-                meta_mapping_processor=self.field_meta_processor,
+                meta_mapping_processor=self.field_meta_processor
+                if self.source_config.enable_meta_mapping
+                else None,
                 schema_tags_field=self.source_config.schema_tags_field,
                 tag_prefix=self.source_config.tag_prefix,
             )
