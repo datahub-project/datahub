@@ -36,7 +36,7 @@ jobs:
           java-version: 11
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
+          python-version: "3.10"
       - name: Gradle build (and test)
         # there is some race condition in gradle build, which makes gradle never terminate in ~30% of the runs
         # running build first without datahub-web-react:yarnBuild and then with it is 100% stable

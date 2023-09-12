@@ -112,7 +112,8 @@ kafka_protobuf = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.3.24, <2",
+    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+    "sqlalchemy>=1.4.39, <2",
     # Required for SQL profiling.
     "great-expectations>=0.15.12, <=0.15.50",
     # scipy version restricted to reduce backtracking, used by great-expectations,
@@ -172,13 +173,13 @@ bigquery_common = {
 }
 
 clickhouse_common = {
-    # Clickhouse 0.1.8 requires SQLAlchemy 1.3.x, while the newer versions
-    # allow SQLAlchemy 1.4.x.
-    "clickhouse-sqlalchemy>=0.1.8",
+    # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
+    "clickhouse-sqlalchemy>=0.2.0",
 }
 
 redshift_common = {
-    "sqlalchemy-redshift",
+    # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
+    "sqlalchemy-redshift>=0.8.3",
     "psycopg2-binary",
     "GeoAlchemy2",
     *sqllineage_lib,
@@ -188,13 +189,8 @@ redshift_common = {
 snowflake_common = {
     # Snowflake plugin utilizes sql common
     *sql_common,
-    # Required for all Snowflake sources.
-    # See https://github.com/snowflakedb/snowflake-sqlalchemy/issues/234 for why 1.2.5 is blocked.
-    "snowflake-sqlalchemy>=1.2.4, !=1.2.5",
-    # Because of https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350 we need to restrict SQLAlchemy's max version.
-    # Eventually we should just require snowflake-sqlalchemy>=1.4.3, but I won't do that immediately
-    # because it may break Airflow users that need SQLAlchemy 1.3.x.
-    "SQLAlchemy<1.4.42",
+    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    "snowflake-sqlalchemy>=1.4.3",
     # See https://github.com/snowflakedb/snowflake-connector-python/pull/1348 for why 2.8.2 is blocked
     "snowflake-connector-python!=2.8.2",
     "pandas",
@@ -206,9 +202,7 @@ snowflake_common = {
 }
 
 trino = {
-    # Trino 0.317 broke compatibility with SQLAlchemy 1.3.24.
-    # See https://github.com/trinodb/trino-python-client/issues/250.
-    "trino[sqlalchemy]>=0.308, !=0.317",
+    "trino[sqlalchemy]>=0.308",
 }
 
 pyhive_common = {
@@ -304,7 +298,6 @@ plugins: Dict[str, Set[str]] = {
         # TODO: I doubt we need all three sql parsing libraries.
         *sqllineage_lib,
         *sqlglot_lib,
-        "sql_metadata",
         "sqlalchemy-bigquery>=1.4.1",
         "google-cloud-datacatalog-lineage==0.2.2",
     },
@@ -432,6 +425,7 @@ mypy_stubs = {
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
     "types-tzlocal",
+    "sqlalchemy2-stubs",
 }
 
 

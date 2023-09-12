@@ -1,0 +1,41 @@
+package {{package}};
+
+{{^x-is-composed-model}}
+import java.util.Objects;
+{{#imports}}import {{import}};
+{{/imports}}
+{{#serializableModel}}
+import java.io.Serializable;
+{{/serializableModel}}
+{{#useBeanValidation}}
+import org.springframework.validation.annotation.Validated;
+import javax.validation.Valid;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import javax.validation.constraints.*;
+{{/useBeanValidation}}
+{{#jackson}}
+{{#withXml}}
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+{{/withXml}}
+{{/jackson}}
+{{#withXml}}
+import javax.xml.bind.annotation.*;
+{{/withXml}}
+{{/x-is-composed-model}}
+
+{{#models}}
+{{#model}}
+{{#isComposedModel}}
+{{>interface}}
+{{/isComposedModel}}
+{{^isComposedModel}}
+{{#isEnum}}
+{{>enumOuterClass}}
+{{/isEnum}}
+{{^isEnum}}
+{{>pojo}}
+{{/isEnum}}
+{{/isComposedModel}}
+{{/model}}
+{{/models}}
