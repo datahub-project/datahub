@@ -324,10 +324,19 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             groupNames = Collections.emptyList();
           }
 
-          for (String groupName : groupNames) {
+          Collection<String> splitGroupNames = new ArrayList<String>();
+
+          // Split groups that are delimited by /
+          for (String groupName: groupNames) {
+            Collection<String> splitGroups = Arrays.stream(groupName.split("/"))
+                                                   .filter(name -> name.trim().length() > 0)
+                                                   .collect(Collectors.toList());
+            splitGroupNames.addAll(splitGroups);
+          }
+
+          for (String groupName : splitGroupNames) {
             // Create a basic CorpGroupSnapshot from the information.
             try {
-
               final CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
               corpGroupInfo.setAdmins(new CorpuserUrnArray());
               corpGroupInfo.setGroups(new CorpGroupUrnArray());
@@ -423,8 +432,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebConte
             log.debug(String.format("Extracted group that does not yet exist %s. Provisioning...",
                 corpGroupSnapshot.getUrn()));
             groupsToCreate.add(extractedGroup);
+          } else {
+            log.debug(String.format("Group %s already exists. Skipping provisioning", corpGroupSnapshot.getUrn()));
           }
-          log.debug(String.format("Group %s already exists. Skipping provisioning", corpGroupSnapshot.getUrn()));
+
         } else {
           // Should not occur until we stop returning default Key aspects for unrecognized entities.
           log.debug(
