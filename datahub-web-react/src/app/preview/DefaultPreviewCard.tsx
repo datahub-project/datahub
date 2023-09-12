@@ -316,7 +316,7 @@ export default function DefaultPreviewCard({
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer
-                            limit={descriptionExpanded ? undefined : 250}
+                            limit={descriptionExpanded ? undefined : 400}
                             shouldWrap={previewType === PreviewType.HOVER_CARD}
                             readMore={
                                 previewType === PreviewType.HOVER_CARD ? (

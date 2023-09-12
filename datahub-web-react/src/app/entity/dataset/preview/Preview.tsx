@@ -17,7 +17,7 @@ import {
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { IconStyleType } from '../../Entity';
+import { IconStyleType, PreviewType } from '../../Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '../shared/DatasetStatsSummary';
 
 export const Preview = ({
@@ -102,6 +102,7 @@ export const Preview = ({
             parentContainers={parentContainers}
             externalUrl={externalUrl}
             topUsers={statsSummary?.topUsersLast30Days}
+            previewType={PreviewType.HOVER_CARD}
             subHeader={
                 <DatasetStatsSummaryView
                     rowCount={rowCount}
