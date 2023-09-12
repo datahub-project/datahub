@@ -1,6 +1,14 @@
+from typing import List
+
+import airflow.version
+import packaging.version
 from airflow.models.baseoperator import BaseOperator
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
+
+AIRFLOW_VERSION = packaging.version.parse(airflow.version.version)
+
+IS_AIRFLOW_V23_PLUS = AIRFLOW_VERSION >= packaging.version.parse("2.3.0.dev0")
 
 try:
     from airflow.models.mappedoperator import MappedOperator
@@ -21,7 +29,29 @@ except ImportError:
 
 assert AIRFLOW_PATCHED
 
+
+def get_task_inlets(operator: "Operator") -> List:
+    # From Airflow 2.4 _inlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _inlets
+    if hasattr(operator, "_inlets"):
+        return operator._inlets  # type: ignore[attr-defined, union-attr]
+    if hasattr(operator, "get_inlet_defs"):
+        return operator.get_inlet_defs()  # type: ignore[attr-defined]
+    return operator.inlets
+
+
+def get_task_outlets(operator: "Operator") -> List:
+    # From Airflow 2.4 _outlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _outlets
+    # We have to use _outlets because outlets is empty in Airflow < 2.4.0
+    if hasattr(operator, "_outlets"):
+        return operator._outlets  # type: ignore[attr-defined, union-attr]
+    if hasattr(operator, "get_outlet_defs"):
+        return operator.get_outlet_defs()
+    return operator.outlets
+
+
 __all__ = [
+    "AIRFLOW_VERSION",
+    "IS_AIRFLOW_V23_PLUS",
     "Operator",
     "MappedOperator",
     "EmptyOperator",

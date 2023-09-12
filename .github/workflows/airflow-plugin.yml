@@ -32,9 +32,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - python-version: "3.7"
+          - python-version: "3.8"
             extraPythonRequirement: "apache-airflow~=2.1.0"
-          - python-version: "3.7"
+          - python-version: "3.8"
             extraPythonRequirement: "apache-airflow~=2.2.0"
           - python-version: "3.10"
             extraPythonRequirement: "apache-airflow~=2.4.0"

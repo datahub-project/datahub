@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List, Optional, Set, Union, cast
 
 from airflow.configuration import conf
@@ -171,7 +172,7 @@ class AirflowGenerator:
         data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
 
         if capture_owner and dag.owner:
-            data_flow.owners.add(dag.owner)
+            data_flow.owners.update(owner.strip() for owner in dag.owner.split(","))
 
         if capture_tags and dag.tags:
             data_flow.tags.update(dag.tags)
@@ -442,8 +443,10 @@ class AirflowGenerator:
                 dpi.type = DataProcessTypeClass.BATCH_AD_HOC
 
         if start_timestamp_millis is None:
-            assert ti.start_date
-            start_timestamp_millis = int(ti.start_date.timestamp() * 1000)
+            if ti.start_date:
+                start_timestamp_millis = int(ti.start_date.timestamp() * 1000)
+            else:
+                start_timestamp_millis = int(datetime.now().timestamp() * 1000)
 
         if attempt is None:
             attempt = ti.try_number
@@ -483,8 +486,10 @@ class AirflowGenerator:
             datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
 
         if end_timestamp_millis is None:
-            assert ti.end_date
-            end_timestamp_millis = int(ti.end_date.timestamp() * 1000)
+            if ti.end_date:
+                end_timestamp_millis = int(ti.end_date.timestamp() * 1000)
+            else:
+                end_timestamp_millis = int(datetime.now().timestamp() * 1000)
 
         if result is None:
             # We should use TaskInstanceState but it is not available in Airflow 1

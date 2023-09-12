@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import requests
 from deprecated import deprecated
@@ -22,6 +22,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +192,11 @@ class DataHubRestEmitter(Closeable):
                 message = f"Unable to connect to {url} with status_code: {response.status_code}."
             message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
             raise ConfigurationError(message)
+
+    def to_graph(self) -> "DataHubGraph":
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        return DataHubGraph.from_emitter(self)
 
     def emit(
         self,

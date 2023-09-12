@@ -27,7 +27,8 @@ base_requirements = {
     "pydantic>=1.5.1",
     "apache-airflow >= 2.0.2",
     *rest_common,
-    f"acryl-datahub == {package_metadata['__version__']}",
+    f"acryl-datahub[sql-parser] == {package_metadata['__version__']}",
+    "openlineage-airflow==1.2.0",
 }
 
 

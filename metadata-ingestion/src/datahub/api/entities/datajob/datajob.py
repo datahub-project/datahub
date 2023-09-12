@@ -8,9 +8,8 @@ from datahub.metadata.schema_classes import (
     AzkabanJobTypeClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
-    DataJobSnapshotClass,
+    FineGrainedLineageClass,
     GlobalTagsClass,
-    MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -59,6 +58,7 @@ class DataJob:
     group_owners: Set[str] = field(default_factory=set)
     inlets: List[DatasetUrn] = field(default_factory=list)
     outlets: List[DatasetUrn] = field(default_factory=list)
+    fine_grained_lineages: List[FineGrainedLineageClass] = field(default_factory=list)
     upstream_urns: List[DataJobUrn] = field(default_factory=list)
 
     def __post_init__(self):
@@ -102,31 +102,6 @@ class DataJob:
             ]
         )
         return [tags]
-
-    def generate_mce(self) -> MetadataChangeEventClass:
-        job_mce = MetadataChangeEventClass(
-            proposedSnapshot=DataJobSnapshotClass(
-                urn=str(self.urn),
-                aspects=[
-                    DataJobInfoClass(
-                        name=self.name if self.name is not None else self.id,
-                        type=AzkabanJobTypeClass.COMMAND,
-                        description=self.description,
-                        customProperties=self.properties,
-                        externalUrl=self.url,
-                    ),
-                    DataJobInputOutputClass(
-                        inputDatasets=[str(urn) for urn in self.inlets],
-                        outputDatasets=[str(urn) for urn in self.outlets],
-                        inputDatajobs=[str(urn) for urn in self.upstream_urns],
-                    ),
-                    *self.generate_ownership_aspect(),
-                    *self.generate_tags_aspect(),
-                ],
-            )
-        )
-
-        return job_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
@@ -179,6 +154,7 @@ class DataJob:
                 inputDatasets=[str(urn) for urn in self.inlets],
                 outputDatasets=[str(urn) for urn in self.outlets],
                 inputDatajobs=[str(urn) for urn in self.upstream_urns],
+                fineGrainedLineages=self.fine_grained_lineages,
             ),
         )
         yield mcp

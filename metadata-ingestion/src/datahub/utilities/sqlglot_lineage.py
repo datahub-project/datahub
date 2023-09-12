@@ -872,8 +872,7 @@ def create_lineage_sql_parsed_result(
     env: str,
     schema: Optional[str] = None,
     graph: Optional[DataHubGraph] = None,
-) -> Optional["SqlParsingResult"]:
-    parsed_result: Optional["SqlParsingResult"] = None
+) -> SqlParsingResult:
     try:
         schema_resolver = (
             graph._make_schema_resolver(
@@ -890,14 +889,18 @@ def create_lineage_sql_parsed_result(
             )
         )
 
-        parsed_result = sqlglot_lineage(
+        return sqlglot_lineage(
             query,
             schema_resolver=schema_resolver,
             default_db=database,
             default_schema=schema,
         )
     except Exception as e:
-        logger.debug(f"Fail to prase query {query}", exc_info=e)
-        logger.warning("Fail to parse custom SQL")
-
-    return parsed_result
+        return SqlParsingResult(
+            in_tables=[],
+            out_tables=[],
+            column_lineage=None,
+            debug_info=SqlParsingDebugInfo(
+                table_error=e,
+            ),
+        )
