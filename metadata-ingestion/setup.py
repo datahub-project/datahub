@@ -112,7 +112,7 @@ kafka_protobuf = {
 
 sql_common = {
     # Required for all SQL sources.
-    "sqlalchemy>=1.4.0, <2",
+    "sqlalchemy>=1.4.8, <2",
     # Required for SQL profiling.
     "great-expectations>=0.15.12, <=0.15.50",
     # scipy version restricted to reduce backtracking, used by great-expectations,
