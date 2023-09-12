@@ -200,11 +200,14 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
+
+        // an entity can have merged lineage (eg. dbt + snowflake), but by default siblings are only between dbt <> non-dbt
         UpstreamArray dbtUpstreams = new UpstreamArray(
           upstreams.stream()
           .filter(obj -> obj.getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME))
           .collect(Collectors.toList())
         );
+        // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt model
         if (dbtUpstreams.size() == 1) {
           setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
         } else {

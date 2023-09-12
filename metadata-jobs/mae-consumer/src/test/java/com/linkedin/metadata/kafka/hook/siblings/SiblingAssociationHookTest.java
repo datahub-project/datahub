@@ -324,7 +324,8 @@ public class SiblingAssociationHookTest {
     final UpstreamLineage upstreamLineage = new UpstreamLineage();
     final UpstreamArray upstreamArray = new UpstreamArray();
     Upstream dbtUpstream = createUpstream("urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.source_entity1,PROD)", DatasetLineageType.TRANSFORMED);
-    Upstream snowflakeUpstream = createUpstream("urn:li:dataset:(urn:li:dataPlatform:snowflake,my-proj.jaffle_shop.customers,PROD)", DatasetLineageType.TRANSFORMED);
+    Upstream snowflakeUpstream =
+            createUpstream("urn:li:dataset:(urn:li:dataPlatform:snowflake,my-proj.jaffle_shop.customers,PROD)", DatasetLineageType.TRANSFORMED);
     upstreamArray.add(dbtUpstream);
     upstreamArray.add(snowflakeUpstream);
     upstreamLineage.setUpstreams(upstreamArray);
