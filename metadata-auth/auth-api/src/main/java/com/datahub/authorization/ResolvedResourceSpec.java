@@ -67,4 +67,20 @@ public class ResolvedResourceSpec {
     }
     return null;
   }
+
+  /**
+   * Fetch the platform instance for a Resolved Resource Spec
+   * @return a Platform Instance or null if one does not exist.
+   */
+  @Nullable
+  public String getDataPlatformInstance() {
+    if (!fieldResolvers.containsKey(ResourceFieldType.DATA_PLATFORM_INSTANCE)) {
+      return null;
+    }
+    Set<String> dataPlatformInstance = fieldResolvers.get(ResourceFieldType.DATA_PLATFORM_INSTANCE).getFieldValuesFuture().join().getValues();
+    if (dataPlatformInstance.size() > 0) {
+      return dataPlatformInstance.stream().findFirst().get();
+    }
+    return null;
+  }
 }
