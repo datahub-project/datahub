@@ -64,12 +64,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
 
-    aws_access_key_id: Optional[pydantic.SecretStr] = Field(
-        default=None, description="AWS Access Key ID."
-    )
-    aws_secret_access_key: Optional[pydantic.SecretStr] = Field(
-        default=None, description="AWS Secret Key."
-    )
+    aws_access_key_id: str = Field(description="AWS Access Key ID.")
+    aws_secret_access_key: pydantic.SecretStr = Field(description="AWS Secret Key.")
 
     # This config option allows user to include a list of items from a table when we scan and construct the schema,
     # the key of this dict is table name and the value is the list of item primary keys in dynamodb format,
@@ -185,7 +181,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 dynamodb_client = boto3.client(
                     "dynamodb",
                     region_name=region,
-                    aws_access_key_id=self.config.aws_access_key_id.get_secret_value()
+                    aws_access_key_id=self.config.aws_access_key_id
                     if self.config.aws_access_key_id
                     else None,
                     aws_secret_access_key=self.config.aws_secret_access_key.get_secret_value()
