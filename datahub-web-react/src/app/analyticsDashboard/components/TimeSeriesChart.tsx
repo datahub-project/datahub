@@ -112,15 +112,14 @@ export const TimeSeriesChart = ({
                 yScale={yScale ?? { type: 'linear' }}
             >
                 <Axis
-                    orientation="right"
+                    orientation="bottom"
                     stroke={style?.axisColor}
                     strokeWidth={style?.axisWidth}
-                    tickFormat={(tick) => formatNumber(tick)}
                     tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
                     numTicks={3}
                 />
                 <Axis
-                    orientation="bottom"
+                    orientation="right"
                     stroke={style?.axisColor}
                     strokeWidth={style?.axisWidth}
                     tickFormat={(tick) => (yAxis?.formatter ? yAxis.formatter(tick) : formatNumber(tick))}
@@ -131,14 +130,14 @@ export const TimeSeriesChart = ({
                     <>
                         <LineSeries
                             dataKey={line.name}
-                            data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
+                            data={line.data.map((point) => ({ x: new Date(point.x), y: point.y }))}
                             stroke={(style && style.lineColor) || lineColors[i]}
                             curve={curveMonotoneX}
                             {...accessors}
                         />
                         <GlyphSeries
                             dataKey={line.name}
-                            data={line.data.map((point) => ({ x: new Date(point.x).getTime().toString(), y: point.y }))}
+                            data={line.data.map((point) => ({ x: new Date(point.x), y: point.y }))}
                             {...accessors}
                         />
                     </>
