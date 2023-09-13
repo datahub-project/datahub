@@ -3,9 +3,14 @@ import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated';
+import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
-import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
+import {
+    convertLegacyResourceFilter,
+    getFieldCondition,
+    getFieldValues,
+    mapResourceTypeToDisplayName,
+} from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
 
 type PrivilegeOptionType = {
@@ -69,6 +74,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
     const resources = convertLegacyResourceFilter(policy?.resources);
     const resourceTypes = getFieldValues(resources?.filter, 'RESOURCE_TYPE') || [];
     const resourceEntities = getFieldValues(resources?.filter, 'RESOURCE_URN') || [];
+    const policyMatchCondition = getFieldCondition(resources?.filter, 'RESOURCE_URN');
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
     const {
@@ -156,6 +162,13 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                         </PoliciesTag>
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
+                        </div>
+                        <div>
+                            <Typography.Title level={5}>Asset Condition</Typography.Title>
+                            <ThinDivider />
+                            <PoliciesTag>
+                                {policyMatchCondition === PolicyMatchCondition.NotEquals ? 'Excludes' : 'Includes'}
+                            </PoliciesTag>
                         </div>
                         <div>
                             <Typography.Title level={5}>Assets</Typography.Title>

@@ -43,6 +43,12 @@ public class AddTagsResolver implements DataFetcher<CompletableFuture<Boolean>> 
         throw new AuthorizationException("Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
 
+      tagUrns.forEach((tagUrn) -> {
+        if (!LabelUtils.isAuthorizedToAssociateTag(environment.getContext(), tagUrn)) {
+          throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
+        }
+      });
+
       LabelUtils.validateResourceAndLabel(
           tagUrns,
           targetUrn,

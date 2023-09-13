@@ -45,7 +45,7 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     return CompletableFuture.supplyAsync(() -> {
 
       // First, validate the batch
-      validateTags(tagUrns);
+      validateTags(tagUrns, context);
 
       if (resources.size() == 1 && resources.get(0).getSubResource() != null) {
         return handleAddTagsToSingleSchemaField(context, resources, tagUrns);
@@ -117,9 +117,13 @@ public class BatchAddTagsResolver implements DataFetcher<CompletableFuture<Boole
     }
   }
 
-  private void validateTags(List<Urn> tagUrns) {
+  private void validateTags(List<Urn> tagUrns, QueryContext context) {
     for (Urn tagUrn : tagUrns) {
       LabelUtils.validateLabel(tagUrn, Constants.TAG_ENTITY_NAME, _entityService);
+
+      if (!LabelUtils.isAuthorizedToAssociateTag(context, tagUrn)) {
+        throw new AuthorizationException("Only users granted permission to this tag can assign or remove it");
+      }
     }
   }
 

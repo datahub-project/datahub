@@ -117,6 +117,7 @@ These privileges are common to both Self-Hosted DataHub and Managed DataHub.
 | Manage Dataset Column Tags           | :heavy_check_mark: | :heavy_check_mark: | :x:                |
 | Manage Dataset Column Glossary Terms | :heavy_check_mark: | :heavy_check_mark: | :x:                |
 | Edit Tag Color                       | :heavy_check_mark: | :heavy_check_mark: | :x:                |
+| Associate Tags                       | :heavy_check_mark: | :heavy_check_mark: | :x:                |
 | Edit User Profile                    | :heavy_check_mark: | :heavy_check_mark: | :x:                |
 | Edit Contact Info                    | :heavy_check_mark: | :heavy_check_mark: | :x:                |
 
