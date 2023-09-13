@@ -558,12 +558,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             return list(self._query_project_list())
 
     def _query_project_list(self) -> Iterable[BigqueryProject]:
-        try:
-            projects = self.bigquery_data_dictionary.get_projects()
-        except Exception as e:
-            logger.error(f"Error getting projects. {e}", exc_info=True)
-            projects = []
-
+        projects = self.bigquery_data_dictionary.get_projects()
         if not projects:  # Report failure on exception and if empty list is returned
             self.report.report_failure(
                 "metadata-extraction",

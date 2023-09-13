@@ -87,14 +87,12 @@ class BigQueryAuditLogApi:
                     f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
                 )
 
-                if rate_limiter:
-                    with rate_limiter:
-                        for entry in query_job:
-                            with current_timer.pause_timer():
+                for entry in query_job:
+                    with current_timer.pause():
+                        if rate_limiter:
+                            with rate_limiter:
                                 yield entry
-                else:
-                    for entry in query_job:
-                        with current_timer.pause_timer():
+                        else:
                             yield entry
 
     def get_bigquery_log_entries_via_gcp_logging(
@@ -124,17 +122,12 @@ class BigQueryAuditLogApi:
             )
 
             for i, entry in enumerate(list_entries):
-                if i == 0:
-                    logger.info(
-                        f"Starting log load from GCP Logging for {client.project}"
-                    )
-
                 if i % 1000 == 0:
                     logger.info(
                         f"Loaded {i} log entries from GCP Log for {client.project}"
                     )
 
-                with current_timer.pause_timer():
+                with current_timer.pause():
                     if rate_limiter:
                         with rate_limiter:
                             yield entry

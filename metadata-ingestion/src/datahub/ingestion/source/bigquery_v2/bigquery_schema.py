@@ -133,30 +133,29 @@ class BigQuerySchemaApi:
         self.bq_client = client
         self.report = report
 
-    def get_client(self) -> bigquery.Client:
-        assert self.bq_client is not None
-        return self.bq_client
-
     def get_query_result(self, query: str) -> RowIterator:
         logger.debug(f"Query : {query}")
-        resp = self.get_client().query(query)
+        resp = self.bq_client.query(query)
         return resp.result()
 
     def get_projects(self) -> List[BigqueryProject]:
         with self.report.list_projects:
-            projects = self.get_client().list_projects()
+            try:
+                projects = self.bq_client.list_projects()
 
-            return [
-                BigqueryProject(id=p.project_id, name=p.friendly_name) for p in projects
-            ]
+                return [
+                    BigqueryProject(id=p.project_id, name=p.friendly_name)
+                    for p in projects
+                ]
+            except Exception as e:
+                logger.error(f"Error getting projects. {e}", exc_info=True)
+                return []
 
     def get_datasets_for_project_id(
         self, project_id: str, maxResults: Optional[int] = None
     ) -> List[BigqueryDataset]:
         with self.report.list_datasets:
-            datasets = self.get_client().list_datasets(
-                project_id, max_results=maxResults
-            )
+            datasets = self.bq_client.list_datasets(project_id, max_results=maxResults)
             return [
                 BigqueryDataset(name=d.dataset_id, labels=d.labels) for d in datasets
             ]
@@ -189,8 +188,8 @@ class BigQuerySchemaApi:
         self, dataset_name: str, project_id: str
     ) -> Iterator[TableListItem]:
         with self.report.list_tables as current_timer:
-            for table in self.get_client().list_tables(f"{project_id}.{dataset_name}"):
-                with current_timer.pause_timer():
+            for table in self.bq_client.list_tables(f"{project_id}.{dataset_name}"):
+                with current_timer.pause():
                     yield table
 
     def get_tables_for_dataset(
@@ -231,7 +230,7 @@ class BigQuerySchemaApi:
 
             for table in cur:
                 try:
-                    with current_timer.pause_timer():
+                    with current_timer.pause():
                         yield BigQuerySchemaApi._make_bigquery_table(
                             table, tables.get(table.table_name)
                         )
@@ -308,7 +307,7 @@ class BigQuerySchemaApi:
 
             for table in cur:
                 try:
-                    with current_timer.pause_timer():
+                    with current_timer.pause():
                         yield BigQuerySchemaApi._make_bigquery_view(table)
                 except Exception as e:
                     view_name = f"{project_id}.{dataset_name}.{table.table_name}"

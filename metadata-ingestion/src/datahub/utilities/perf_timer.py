@@ -1,6 +1,9 @@
+import logging
 import time
 from contextlib import AbstractContextManager
 from typing import Any, Optional
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class PerfTimer(AbstractContextManager):
@@ -13,29 +16,19 @@ class PerfTimer(AbstractContextManager):
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
         self._past_active_time: float = 0
-        self.paused: Optional[bool] = None
+        self.paused: bool = False
+        self._error_state = False
 
     def start(self) -> None:
-        # TODO
-        # assert (
-        #    self.end_time is None
-        # ), "Can not start a finished timer. Did you accidentally re-use this timer ?"
-
         if self.end_time is not None:
             self._past_active_time = self.elapsed_seconds()
 
         self.start_time = time.perf_counter()
         self.end_time = None
-        if self.paused:
-            self.paused = False
+        self.paused = False
 
-    def pause_timer(self) -> "PerfTimer":
-        assert (
-            not self.paused and not self.end_time
-        ), "Can not pause a paused/stopped timer"
-        assert (
-            self.start_time is not None
-        ), "Can not pause a timer that hasn't started. Did you forget to start the timer ?"
+    def pause(self) -> "PerfTimer":
+        self.assert_timer_is_running()
         self._past_active_time = self.elapsed_seconds()
         self.start_time = None
         self.end_time = None
@@ -43,9 +36,7 @@ class PerfTimer(AbstractContextManager):
         return self
 
     def finish(self) -> None:
-        assert (
-            self.start_time is not None
-        ), "Can not stop a timer that hasn't started. Did you forget to start the timer ?"
+        self.assert_timer_is_running()
         self.end_time = time.perf_counter()
 
     def __enter__(self) -> "PerfTimer":
@@ -71,14 +62,25 @@ class PerfTimer(AbstractContextManager):
         """
         Returns the elapsed time in seconds.
         """
-        if self.paused:
+        if self.paused or not self.start_time:
             return self._past_active_time
 
-        assert self.start_time is not None, "Did you forget to start the timer ?"
         if self.end_time is None:
             return (time.perf_counter() - self.start_time) + (self._past_active_time)
         else:
             return (self.end_time - self.start_time) + self._past_active_time
+
+    def assert_timer_is_running(self) -> None:
+        """
+        Returns true if timer is in running state.
+        Timer is in NOT in running state if
+        1. it has never been started.
+        2. it is in paused state.
+        3. it had been started and finished in the past but not started again.
+        """
+        if self.start_time is None or self.paused or self.end_time:
+            self._error_state = True
+            logger.warning("Did you forget to start the timer ?")
 
     def __repr__(self) -> str:
         return repr(self.as_obj())
@@ -91,4 +93,5 @@ class PerfTimer(AbstractContextManager):
             return None
         else:
             time_taken = self.elapsed_seconds()
-            return f"{time_taken:.3f} seconds"
+            state = " (error)" if self._error_state else ""
+            return f"{time_taken:.3f} seconds{state}"
