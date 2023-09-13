@@ -451,17 +451,10 @@ class SnowflakeUsageExtractor(
                 yield wu
 
     def _process_snowflake_history_row(
-        self, row: Any
+        self, event_dict: dict
     ) -> Iterable[SnowflakeJoinedAccessEvent]:
         try:  # big hammer try block to ensure we don't fail on parsing events
             self.report.rows_processed += 1
-            # Make some minor type conversions.
-            if hasattr(row, "_asdict"):
-                # Compat with SQLAlchemy 1.3 and 1.4
-                # See https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#rowproxy-is-no-longer-a-proxy-is-now-called-row-and-behaves-like-an-enhanced-named-tuple.
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
 
             # no use processing events that don't have a query text
             if not event_dict["QUERY_TEXT"]:
