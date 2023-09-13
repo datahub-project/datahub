@@ -120,7 +120,7 @@ class DataHubRestEmitter(Closeable):
             self._retry_max_times = retry_max_times
 
         try:
-            # Unset raise_on_status to propagate errors:
+            # Set raise_on_status to False to propagate errors:
             # https://stackoverflow.com/questions/70189330/determine-status-code-from-python-retry-exception
             # Must call `raise_for_status` after making a request, which we do
             retry_strategy = Retry(
