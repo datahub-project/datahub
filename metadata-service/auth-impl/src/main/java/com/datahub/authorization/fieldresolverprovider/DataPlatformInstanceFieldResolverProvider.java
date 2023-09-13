@@ -41,7 +41,7 @@ public class DataPlatformInstanceFieldResolverProvider implements ResourceFieldR
     private FieldResolver.FieldValue getDataPlatformInstance(ResourceSpec resourceSpec) {
         Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
         // In the case that the entity is a platform instance, the associated platform instance entity is the instance itself
-        if (entityUrn.getEntityType().equals(DATA_PLATFORM_ENTITY_NAME)) {
+        if (entityUrn.getEntityType().equals(DATA_PLATFORM_INSTANCE_ENTITY_NAME)) {
             return FieldResolver.FieldValue.builder()
                 .values(Collections.singleton(entityUrn.toString()))
                 .build();
