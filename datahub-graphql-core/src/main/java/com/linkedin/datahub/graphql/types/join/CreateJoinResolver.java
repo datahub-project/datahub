@@ -5,6 +5,7 @@ import com.linkedin.common.urn.JoinUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.JoinPropertiesInput;
 import com.linkedin.datahub.graphql.generated.JoinUpdateInput;
 import com.linkedin.datahub.graphql.types.join.mappers.JoinUpdateInputMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -17,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
@@ -30,7 +32,29 @@ public class CreateJoinResolver implements DataFetcher<CompletableFuture<Boolean
     @Override
     public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
         final JoinUpdateInput input = bindArgument(environment.getArgument("input"), JoinUpdateInput.class);
-        JoinUrn inputUrn = new JoinUrn(UUID.randomUUID().toString());
+
+        final JoinPropertiesInput joinPropertiesInput = input.getProperties();
+        String joinName = joinPropertiesInput.getName();
+        String datasetA = joinPropertiesInput.getDataSetA();
+        String datasetB = joinPropertiesInput.getDatasetB();
+
+        String lowDataset =  datasetA;
+        String highDataset = datasetB;
+        if (datasetA.compareTo(datasetB)  > 0) {
+            lowDataset = datasetB;
+            highDataset = datasetA;
+        }
+        // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
+        // Json is sorted by key here (JoinName, DatasetA, DatasetB)
+        String joinKey = new JSONObject()
+            .put("JoinName", joinName)
+            .put("DatasetA", lowDataset)
+            .put("DatasetB", highDataset)
+            .toString();
+
+        UUID joinGuid = UUID.fromString(joinKey);
+        JoinUrn inputUrn = new JoinUrn(joinGuid.toString());
+
         QueryContext context = environment.getContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
         if (!JoinType.isAuthorizedToCreateJoin(context, Urn.createFromString(input.getProperties().getDataSetA()),
