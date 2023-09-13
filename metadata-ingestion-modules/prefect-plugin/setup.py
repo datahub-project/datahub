@@ -17,7 +17,7 @@ rest_common = {"requests", "requests_file"}
 
 base_requirements = {
     # For python 3.7 and importlib-metadata>=5.0.0, build failed with attribute error
-    "importlib-metadata>=4.4.0,<5.0.0; python_version < '3.8'"
+    "importlib-metadata>=4.4.0,<5.0.0; python_version < '3.8'",
     # Actual dependencies.
     "prefect >= 2.0.0",
     *rest_common,
