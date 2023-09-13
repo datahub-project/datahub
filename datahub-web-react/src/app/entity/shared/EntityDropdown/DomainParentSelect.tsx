@@ -1,6 +1,7 @@
 import React, { MouseEvent } from 'react';
 import { Select } from 'antd';
 import { CloseCircleFilled } from '@ant-design/icons';
+import styled from 'styled-components';
 import { Domain, EntityType } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import ClickOutside from '../../../shared/ClickOutside';
@@ -8,6 +9,14 @@ import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import useParentSelector from './useParentSelector';
 import DomainNavigator from '../../../domain/nestedDomains/domainNavigator/DomainNavigator';
 import { useDomainsContext } from '../../../domain/DomainsContext';
+import ParentEntities from '../../../search/filters/ParentEntities';
+import { getParentDomains } from '../../../domain/utils';
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+`;
 
 // filter out entity itself and its children
 export function filterResultsForMove(entity: Domain, entityUrn: string) {
@@ -81,7 +90,10 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
             >
                 {domainSearchResultsFiltered.map((result) => (
                     <Select.Option key={result?.entity?.urn} value={result.entity.urn}>
-                        {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                        <SearchResultContainer>
+                            <ParentEntities parentEntities={getParentDomains(result.entity, entityRegistry)} />
+                            {entityRegistry.getDisplayName(result.entity.type, result.entity)}
+                        </SearchResultContainer>
                     </Select.Option>
                 ))}
             </Select>
