@@ -1,5 +1,6 @@
 import contextlib
 import functools
+import os
 import re
 from datetime import datetime, timezone
 from typing import Optional, Tuple
@@ -34,6 +35,7 @@ internal_router = fastapi.APIRouter(
 
 _state_store = InMemoryStateStore(expiration_seconds=300)
 
+SLACK_PROXY = os.environ.get("DATAHUB_SLACK_PROXY")
 ACRYL_SLACK_ICON_URL = (
     f"{DATAHUB_FRONTEND_URL}/integrations/static/acryl-slack-icon.png"
 )
@@ -100,7 +102,7 @@ def oauth_callback(
     assert code
 
     # Logic based on https://slack.dev/python-slack-sdk/oauth/.
-    slack_client = slack_sdk.web.WebClient()  # no token required
+    slack_client = slack_sdk.web.WebClient(proxy=SLACK_PROXY)  # no token required
 
     authorize_url_generator = get_oauth_url_generator(config)
     oauth_response = slack_client.oauth_v2_access(
@@ -153,6 +155,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     # Initializes your app with your bot token and signing secret
     app = slack_bolt.App(
+        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY),
         token=config.bot_token,
         signing_secret=config.app_details.signing_secret,
         # As per the docs:
