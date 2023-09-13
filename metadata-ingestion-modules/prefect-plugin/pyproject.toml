@@ -9,7 +9,6 @@ extend-exclude = '''
 ^/tmp
 '''
 include = '\.pyi?$'
-target-version = ['py36', 'py37', 'py38']
 
 [tool.isort]
 indent = '    '

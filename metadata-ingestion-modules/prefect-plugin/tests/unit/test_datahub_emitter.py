@@ -4,9 +4,9 @@ from unittest.mock import Mock, patch
 
 from datahub.api.entities.datajob import DataJob
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub_provider.entities import Dataset, _Entity
 
 from prefect_datahub.datahub_emitter import DatahubEmitter
+from prefect_datahub.dataset import Dataset, _Entity
 
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
