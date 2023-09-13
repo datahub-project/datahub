@@ -2,6 +2,7 @@ import logging
 import sys
 from typing import Any, Dict, List, cast
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
@@ -23,25 +24,19 @@ from tests.test_helpers import mce_helpers
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
-class MsalClient:
-    def __init__(self):
-        self.expiry_to_return = 3599
-        self.token_request_count = 0
-
-    def acquire_token_for_client(self, *args, **kwargs):
-        self.token_request_count += 1
-        return {
-            "access_token": "dummy",
-            "expires_in": self.expiry_to_return,
-        }
-
-
 def enable_logging():
     # set logging to console
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
     logging.getLogger().setLevel(logging.DEBUG)
 
+
 def mock_msal_cca(*args, **kwargs):
+    class MsalClient:
+        def acquire_token_for_client(self, *args, **kwargs):
+            return {
+                "access_token": "dummy",
+            }
+
     return MsalClient()
 
 
@@ -1069,7 +1064,7 @@ def test_workspace_container(
 
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_access_token_expiry(
-    mock_msal: MsalClient, pytestconfig, tmp_path, mock_time, requests_mock
+    mock_msal: MagicMock, pytestconfig, tmp_path, mock_time, requests_mock
 ):
     enable_logging()
 
@@ -1094,14 +1089,21 @@ def test_access_token_expiry(
     )
 
     # for long expiry, the token should only be requested once.
-    mock_msal.expiry_to_return = 3600
+    mock_msal.acquire_token_for_client = lambda *args, **kwargs: {
+        "access_token": "dummy",
+        "expires_in": 3600,
+    }
     pipeline.run()
-    assert mock_msal.token_request_count == 1
+    mock_msal.return_value.acquire_token_for_client.assert_called_once()
 
     # for short expiry, the token should be requested when expires.
-    mock_msal.expiry_to_return = 0
+    mock_msal.reset_mock()
+    mock_msal.acquire_token_for_client = lambda *args, **kwargs: {
+        "access_token": "dummy",
+        "expires_in": 0,
+    }
     pipeline.run()
-    assert mock_msal.token_request_count > 1
+    assert len(mock_msal.return_value.acquire_token_for_client.mock_calls) > 1
 
 
 def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:

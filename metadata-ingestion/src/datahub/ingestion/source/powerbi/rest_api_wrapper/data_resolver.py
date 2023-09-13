@@ -154,7 +154,9 @@ class DataResolverBase(ABC):
         )
         safety_gap = 300
         self.__access_token_expiry_time = datetime.now() + timedelta(
-            seconds=(max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0))
+            seconds=(
+                max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
+            )
         )
 
         logger.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
