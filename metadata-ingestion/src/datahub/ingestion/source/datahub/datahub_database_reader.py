@@ -69,11 +69,7 @@ class DataHubDatabaseReader:
                     return
 
                 for i, row in enumerate(rows):
-                    # TODO: Replace with namedtuple usage once we drop sqlalchemy 1.3
-                    if hasattr(row, "_asdict"):
-                        row_dict = row._asdict()
-                    else:
-                        row_dict = dict(row)
+                    row_dict = row._asdict()
                     mcp = self._parse_row(row_dict)
                     if mcp:
                         yield mcp, row_dict["createdon"]
