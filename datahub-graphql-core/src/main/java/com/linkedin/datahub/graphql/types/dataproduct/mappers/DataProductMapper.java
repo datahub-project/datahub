@@ -70,7 +70,7 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
     DataProductProperties dataProductProperties = new DataProductProperties(dataMap);
     com.linkedin.datahub.graphql.generated.DataProductProperties properties = new com.linkedin.datahub.graphql.generated.DataProductProperties();
 
-    String name = dataProductProperties.hasName() ? dataProductProperties.getName() : urn.getId();
+    final String name = dataProductProperties.hasName() ? dataProductProperties.getName() : urn.getId();
     properties.setName(name);
     properties.setDescription(dataProductProperties.getDescription());
     if (dataProductProperties.hasExternalUrl()) {
