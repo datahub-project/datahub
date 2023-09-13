@@ -6,7 +6,7 @@ export const Logo = (props) => {
     <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
       <img
         alt="DataHub Logo"
-        src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
+        src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
         {...props}
       />
     </div>
@@ -18,7 +18,7 @@ export const Logo = (props) => {
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="150" />
+<img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" height="150" />
 </p>
 <!-- -->
 
