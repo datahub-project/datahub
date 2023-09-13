@@ -1,6 +1,5 @@
 import contextlib
 import functools
-import os
 import re
 from datetime import datetime, timezone
 from typing import Optional, Tuple
@@ -23,7 +22,7 @@ from datahub_integrations.slack.app_manifest import (
     slack_bot_scopes,
     upsert_app_with_manifest,
 )
-from datahub_integrations.slack.config import SlackConnection, slack_config
+from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
 from datahub_integrations.slack.oauth_state_store import InMemoryStateStore
 
 external_router = fastapi.APIRouter()
@@ -35,7 +34,6 @@ internal_router = fastapi.APIRouter(
 
 _state_store = InMemoryStateStore(expiration_seconds=300)
 
-SLACK_PROXY = os.environ.get("DATAHUB_SLACK_PROXY")
 ACRYL_SLACK_ICON_URL = (
     f"{DATAHUB_FRONTEND_URL}/integrations/static/acryl-slack-icon.png"
 )
