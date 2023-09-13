@@ -178,7 +178,7 @@ class Mapper:
 
         if (
             self.__config.extract_column_level_lineage is False
-            and self.__config.extract_lineage is False
+            or self.__config.extract_lineage is False
         ):
             return fine_grained_lineages
 
@@ -1141,7 +1141,7 @@ class Mapper:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Disabled by default, See config section for more detail",
+    "Disabled by default, configured using `extract_column_level_lineage`. ",
 )
 class PowerBiDashboardSource(StatefulIngestionSourceBase):
     """

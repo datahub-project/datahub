@@ -184,10 +184,7 @@ class AbstractDataPlatformTableCreator(ABC):
 
         if parsed_result is None:
             logger.debug("Failed to parse query")
-            return Lineage(
-                upstreams=[],
-                column_lineage=[],
-            )
+            return Lineage.empty()
 
         for urn in parsed_result.in_tables:
             dataplatform_tables.append(

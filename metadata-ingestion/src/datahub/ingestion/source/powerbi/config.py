@@ -400,10 +400,38 @@ class PowerBiDashboardSourceConfig(
     # Enable CLL extraction
     extract_column_level_lineage: bool = pydantic.Field(
         default=False,
-        description="Enabled to extract column level lineage. "
-        " along this flag, the native_query_parsing & extract_lineage should be enabled "
-        "It works for M-Query where native SQL is used for transformation.",
+        description="Whether to extract column level lineage. "
+        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
+        "Works for M-Query where native SQL is used for transformation.",
     )
+
+    @root_validator
+    @classmethod
+    def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
+        flags = [
+            "native_query_parsing",
+            "enable_advance_lineage_sql_construct",
+            "extract_lineage",
+        ]
+
+        if (
+            "extract_column_level_lineage" in values
+            and values["extract_column_level_lineage"] is False
+        ):
+            # Flag is not set. skip validation
+            return values
+
+        logger.debug(f"Validating additional flags: {flags}")
+
+        is_flag_enabled: bool = True
+        for flag in flags:
+            if flag not in values or values[flag] is False:
+                is_flag_enabled = False
+
+        if not is_flag_enabled:
+            raise ValueError(f"Enable all these flags in recipe: {flags} ")
+
+        return values
 
     @validator("dataset_type_mapping")
     @classmethod

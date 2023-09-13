@@ -1533,6 +1533,7 @@ def test_cll_extraction(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
                     "extract_lineage": True,
                     "extract_column_level_lineage": True,
                     "enable_advance_lineage_sql_construct": True,
+                    "native_query_parsing": True,
                     "extract_independent_datasets": True,
                 },
             },
@@ -1554,3 +1555,40 @@ def test_cll_extraction(mock_msal, pytestconfig, tmp_path, mock_time, requests_m
         output_path=tmp_path / "powerbi_cll_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+def test_cll_extraction_flags(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+
+    register_mock_api(
+        request_mock=requests_mock,
+    )
+
+    default_conf: dict = default_source_config()
+    try:
+        Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_conf,
+                        "extract_column_level_lineage": True,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_cll_mces.json",
+                    },
+                },
+            }
+        )
+    except Exception as e:
+        assert (
+            "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+            in str(e)
+        )
