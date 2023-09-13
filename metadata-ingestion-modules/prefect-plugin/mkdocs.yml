@@ -1,6 +1,6 @@
 site_name: prefect-datahub
-site_url: https://shubhamjagtap639.github.io/prefect-datahub
-repo_url: https://github.com/shubhamjagtap639/prefect-datahub
+site_url: https://datahub-project.github.io/datahub
+repo_url: https://github.com/datahub-project/datahub
 edit_uri: edit/main/docs/
 theme:
   name: material
@@ -68,7 +68,7 @@ plugins:
             show_signature: False
             heading_level: 1
 watch:
-    - prefect_datahub/
+    - src/prefect_datahub/
     - README.md
 
 nav:

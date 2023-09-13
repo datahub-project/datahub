@@ -3,17 +3,15 @@
 <p align="center">
     <a href="https://pypi.python.org/pypi/prefect-datahub/" alt="PyPI version">
         <img alt="PyPI" src="https://img.shields.io/pypi/v/prefect-datahub?color=0052FF&labelColor=090422" /></a>
-    <a href="https://github.com/shubhamjagtap639/prefect-datahub/" alt="Stars">
-        <img src="https://img.shields.io/github/stars/shubhamjagtap639/prefect-datahub?color=0052FF&labelColor=090422" /></a>
+    <a href="https://github.com/datahub-project/datahub/" alt="Stars">
+        <img src="https://img.shields.io/github/stars/datahub-project/datahub?color=0052FF&labelColor=090422" /></a>
     <a href="https://pypistats.org/packages/prefect-datahub/" alt="Downloads">
         <img src="https://img.shields.io/pypi/dm/prefect-datahub?color=0052FF&labelColor=090422" /></a>
-    <a href="https://github.com/shubhamjagtap639/prefect-datahub/pulse" alt="Activity">
-        <img src="https://img.shields.io/github/commit-activity/m/shubhamjagtap639/prefect-datahub?color=0052FF&labelColor=090422" /></a>
+    <a href="https://github.com/datahub-project/datahub/pulse" alt="Activity">
+        <img src="https://img.shields.io/github/commit-activity/m/datahub-project/datahub?color=0052FF&labelColor=090422" /></a>
     <br/>
-    <a href="https://prefect-community.slack.com" alt="Slack">
+    <a href="https://datahubspace.slack.com" alt="Slack">
         <img src="https://img.shields.io/badge/slack-join_community-red.svg?color=0052FF&labelColor=090422&logo=slack" /></a>
-    <a href="https://discourse.prefect.io/" alt="Discourse">
-        <img src="https://img.shields.io/badge/discourse-browse_forum-red.svg?color=0052FF&labelColor=090422&logo=discourse" /></a>
 </p>
 
 ## Welcome!
@@ -74,9 +72,8 @@ DatahubEmitter.load("BLOCK-NAME-PLACEHOLDER")
 After installing `prefect-datahub` and [saving the configution](#saving-configurations-to-a-block), you can easily use it within your prefect workflows to help you emit metadata event as show below!
 
 ```python
-from datahub_provider.entities import Dataset
 from prefect import flow, task
-
+from prefect_datahub.dataset import Dataset
 from prefect_datahub.datahub_emitter import DatahubEmitter
 
 datahub_emitter = DatahubEmitter.load("MY_BLOCK_NAME")
@@ -114,33 +111,16 @@ Requires an installation of Python 3.7+.
 
 We recommend using a Python virtual environment manager such as pipenv, conda or virtualenv.
 
-These tasks are designed to work with Prefect 2.0. For more information about how to use Prefect, please refer to the [Prefect documentation](https://docs.prefect.io/).
+These tasks are designed to work with Prefect 2.0.0 or higher. For more information about how to use Prefect, please refer to the [Prefect documentation](https://docs.prefect.io/).
 
 ### Feedback
 
-If you encounter any bugs while using `prefect-datahub`, feel free to open an issue in the [prefect-datahub](https://github.com/shubhamjagtap639/prefect-datahub) repository.
+If you encounter any bugs while using `prefect-datahub`, feel free to open an issue in the [datahub](https://github.com/datahub-project/datahub) repository.
 
-If you have any questions or issues while using `prefect-datahub`, you can find help in either the [Prefect Discourse forum](https://discourse.prefect.io/) or the [Prefect Slack community](https://prefect.io/slack).
+If you have any questions or issues while using `prefect-datahub`, you can find help in the [Prefect Slack community](https://prefect.io/slack).
 
-Feel free to star or watch [`prefect-datahub`](https://github.com/shubhamjagtap639/prefect-datahub) for updates too!
+Feel free to star or watch [`datahub`](https://github.com/datahub-project/datahub) for updates too!
 
 ### Contributing
 
-If you'd like to help contribute to fix an issue or add a feature to `prefect-datahub`, please [propose changes through a pull request from a fork of the repository](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork).
-
-Here are the steps:
-
-1. [Fork the repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo#forking-a-repository)
-2. [Clone the forked repository](https://docs.github.com/en/get-started/quickstart/fork-a-repo#cloning-your-forked-repository)
-3. Install the repository and its dependencies:
-```
-pip install -e ".[dev]"
-```
-4. Make desired changes
-5. Add tests
-6. Insert an entry to [CHANGELOG.md](https://github.com/shubhamjagtap639/prefect-datahub/blob/main/CHANGELOG.md)
-7. Install `pre-commit` to perform quality checks prior to commit:
-```
-pre-commit install
-```
-8. `git commit`, `git push`, and create a pull request
+If you'd like to help contribute to fix an issue or add a feature to `prefect-datahub`, please refer to our [Contributing Guidelines](https://datahubproject.io/docs/contributing).

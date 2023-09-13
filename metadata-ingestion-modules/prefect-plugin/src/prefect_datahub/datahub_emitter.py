@@ -16,7 +16,6 @@ from datahub.metadata.schema_classes import BrowsePathsClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub_provider.entities import _Entity
 from prefect import get_run_logger
 from prefect.blocks.core import Block
 from prefect.client import cloud, orchestration
@@ -24,7 +23,9 @@ from prefect.client.schemas import FlowRun, TaskRun, Workspace
 from prefect.client.schemas.objects import Flow
 from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
-from pydantic import Field, HttpUrl, parse_obj_as
+from pydantic import Field
+
+from prefect_datahub.dataset import _Entity
 
 ORCHESTRATOR = "prefect"
 
@@ -107,20 +108,11 @@ class DatahubEmitter(Block):
     """
 
     _block_type_name: Optional[str] = "datahub emitter"
-    # replace this with a relevant logo; defaults to Prefect logo
-    _logo_url = parse_obj_as(
-        HttpUrl, "https://datahubproject.io/img/datahub-logo-color-mark.svg"
-    )  # noqa
-    _documentation_url = parse_obj_as(
-        HttpUrl,
-        "https://shubhamjagtap639.github.io/prefect-datahub/datahub_emitter/"
-        "#prefect-datahub.datahub_emitter.DatahubEmitter",
-    )  # noqa
 
     datahub_rest_url: str = Field(
         default="http://localhost:8080",
         title="Datahub rest url",
-        description="Datahub GMS Rest URL. Example: http://localhost:8080",
+        description="Datahub GMS Rest URL. Example: http://localhost:8080.",
     )
 
     env: str = Field(
@@ -555,9 +547,8 @@ class DatahubEmitter(Block):
         Example:
             Emit the task metadata as show below:
             ```python
-            from datahub_provider.entities import Dataset
             from prefect import flow, task
-
+            from prefect_datahub.dataset import Dataset
             from prefect_datahub.datahub_emitter import DatahubEmitter
 
             datahub_emitter = DatahubEmitter.load("MY_BLOCK_NAME")
@@ -604,7 +595,6 @@ class DatahubEmitter(Block):
             Emit the flow metadata as show below:
             ```python
             from prefect import flow, task
-
             from prefect_datahub.datahub_emitter import DatahubEmitter
 
             datahub_emitter = DatahubEmitter.load("MY_BLOCK_NAME")

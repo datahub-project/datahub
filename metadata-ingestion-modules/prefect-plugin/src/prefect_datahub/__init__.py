@@ -1,6 +1,6 @@
 # Published at https://pypi.org/project/acryl-datahub/.
 __package_name__ = "prefect-datahub"
-__version__ = "0.0.0.dev1"
+__version__ = "0.0.0.dev0"
 
 
 def is_dev_mode() -> bool:
@@ -17,5 +17,5 @@ def get_provider_info():
     return {
         "package-name": f"{__package_name__}",
         "name": f"{__package_name__}",
-        "description": "datahub emitter to emit prefect metadata",
+        "description": "Datahub prefect block to capture executions and send to Datahub",
     }

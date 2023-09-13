@@ -43,8 +43,7 @@ def insert_blocks_catalog(generated_file):
 
             To register blocks in this module to
             [view and edit them](https://docs.prefect.io/ui/blocks/)
-            on Prefect Cloud, first [install the required packages](
-            https://shubhamjagtap639.github.io/prefect-datahub/#installation),
+            on Prefect Cloud, first install the required packages,
             then
             ```bash
             prefect block register -m {COLLECTION_SLUG}

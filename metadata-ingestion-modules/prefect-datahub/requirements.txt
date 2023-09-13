@@ -1,2 +1,0 @@
-prefect>=2.0.0
-acryl-datahub

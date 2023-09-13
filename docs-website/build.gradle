@@ -72,7 +72,7 @@ task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
     ':metadata-ingestion:buildWheel', ':metadata-ingestion-modules:airflow-plugin:buildWheel',
-    ':metadata-ingestion-modules:prefect-datahub:buildWheel'] ) {
+    ':metadata-ingestion-modules:prefect-plugin:buildWheel'] ) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
