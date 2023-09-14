@@ -252,15 +252,15 @@ def test_get_projects_list_empty(get_bq_client_mock, get_projects_mock):
     assert projects == []
 
 
-@patch.object(BigQuerySchemaApi, "get_projects")
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 def test_get_projects_list_failure(
     get_bq_client_mock: MagicMock,
-    get_projects_mock: MagicMock,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     error_str = "my error"
-    get_projects_mock.side_effect = GoogleAPICallError(error_str)
+    bq_client_mock = MagicMock()
+    get_bq_client_mock.return_value = bq_client_mock
+    bq_client_mock.list_projects.side_effect = GoogleAPICallError(error_str)
 
     config = BigQueryV2Config.parse_obj(
         {"project_id_pattern": {"deny": ["^test-project$"]}}
