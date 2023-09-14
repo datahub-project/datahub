@@ -1,11 +1,10 @@
-import hashlib
-import json
-from typing import Any, Dict, Iterable, List, Optional, TypeVar
+from typing import Dict, Iterable, List, Optional, TypeVar
 
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 from datahub.emitter.mce_builder import (
+    datahub_guid,
     make_container_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -32,24 +31,13 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def _stable_guid_from_dict(d: dict) -> str:
-    json_key = json.dumps(
-        d,
-        separators=(",", ":"),
-        sort_keys=True,
-        cls=DatahubKeyJSONEncoder,
-    )
-    md5_hash = hashlib.md5(json_key.encode("utf-8"))
-    return str(md5_hash.hexdigest())
-
-
 class DatahubKey(BaseModel):
     def guid_dict(self) -> Dict[str, str]:
         return self.dict(by_alias=True, exclude_none=True)
 
     def guid(self) -> str:
         bag = self.guid_dict()
-        return _stable_guid_from_dict(bag)
+        return datahub_guid(bag)
 
 
 class ContainerKey(DatahubKey):
@@ -123,15 +111,6 @@ class FolderKey(ContainerKey):
 
 class BucketKey(ContainerKey):
     bucket_name: str
-
-
-class DatahubKeyJSONEncoder(json.JSONEncoder):
-    # overload method default
-    def default(self, obj: Any) -> Any:
-        if hasattr(obj, "guid"):
-            return obj.guid()
-        # Call the default method for other types
-        return json.JSONEncoder.default(self, obj)
 
 
 KeyType = TypeVar("KeyType", bound=ContainerKey)
