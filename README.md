@@ -6,7 +6,7 @@ export const Logo = (props) => {
     <div style={{ display: "flex", justifyContent: "center", padding: "20px", height: "190px" }}>
       <img
         alt="DataHub Logo"
-        src={useBaseUrl("/img/datahub-logo-color-mark.svg")}
+        src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
         {...props}
       />
     </div>
@@ -18,7 +18,7 @@ export const Logo = (props) => {
 <!--
 HOSTED_DOCS_ONLY-->
 <p align="center">
-<img alt="DataHub" src="docs/imgs/datahub-logo-color-mark.svg" height="150" />
+<img alt="DataHub" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg" height="150" />
 </p>
 <!-- -->
 
@@ -156,7 +156,7 @@ Here are the companies that have officially adopted DataHub. Please feel free to
 
 - [DataHub Blog](https://blog.datahubproject.io/)
 - [DataHub YouTube Channel](https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w)
-- [Optum: Data Mesh via DataHub](https://optum.github.io/blog/2022/03/23/data-mesh-via-datahub/)
+- [Optum: Data Mesh via DataHub](https://opensource.optum.com/blog/2022/03/23/data-mesh-via-datahub)
 - [Saxo Bank: Enabling Data Discovery in Data Mesh](https://medium.com/datahub-project/enabling-data-discovery-in-a-data-mesh-the-saxo-journey-451b06969c8f)
 - [Bringing The Power Of The DataHub Real-Time Metadata Graph To Everyone At Acryl Data](https://www.dataengineeringpodcast.com/acryl-data-datahub-metadata-graph-episode-230/)
 - [DataHub: Popular Metadata Architectures Explained](https://engineering.linkedin.com/blog/2020/datahub-popular-metadata-architectures-explained)
