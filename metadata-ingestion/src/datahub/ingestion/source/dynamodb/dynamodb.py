@@ -63,7 +63,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
-
+    # TODO: refactor the config to use AwsConnectionConfig and create a method get_dynamodb_client
+    # in the class to provide optional region name input
     aws_access_key_id: str = Field(description="AWS Access Key ID.")
     aws_secret_access_key: pydantic.SecretStr = Field(description="AWS Secret Key.")
 
@@ -71,9 +72,9 @@ class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
     # the key of this dict is table name and the value is the list of item primary keys in dynamodb format,
     # if the table use composite key then the value should have partition key and sort key present
     include_table_item: Optional[Dict[str, List[Dict]]] = Field(
-        defaul=None,
+        default=None,
         description="[Advanced] The primary keys of items of a table in dynamodb format the user would like to include in schema. "
-        "Refer "Advanced Configurations" section for more details",
+        'Refer "Advanced Configurations" section for more details',
     )
 
     table_pattern: AllowDenyPattern = Field(
@@ -107,7 +108,7 @@ _attribute_type_to_native_type_mapping: Dict[str, str] = {
     "mixed": "mixed",
 }
 # map DynamoDB attribute types to DataHub classes
-_atrribute_type_to_field_type_mapping: Dict[str, Type] = {
+_attribute_type_to_field_type_mapping: Dict[str, Type] = {
     "N": NumberTypeClass,
     "B": BytesTypeClass,
     "S": StringTypeClass,
@@ -191,6 +192,8 @@ class DynamoDBSource(StatefulIngestionSourceBase):
                 )
                 table_names: List[str] = dynamodb_client.list_tables()["TableNames"]
             except Exception as ex:
+                # TODO: If regions is config input then this would be self.report.report_warning,
+                # we can create dynamodb client to take aws region or regions as user input
                 logger.info(f"exception happen in region {region}, skipping: {ex}")
                 continue
             for table_name in sorted(table_names):
@@ -264,7 +267,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         schema: Dict[str, SchemaDescription] = {}
         """
         https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb.html#DynamoDB.Paginator.Scan
-        Note that the behavior of the pagination does not align with the documentation acording to https://stackoverflow.com/questions/39201093/how-to-use-boto3-pagination
+        Note that the behavior of the pagination does not align with the documentation according to https://stackoverflow.com/questions/39201093/how-to-use-boto3-pagination
 
         What we'll do is to create a paginator and boto3 library handles the pagination automatically. We'll iterate through pages
         and retrieve the items from page.
@@ -450,7 +453,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         self, attribute_type: Union[type, str], table_name: str
     ) -> SchemaFieldDataType:
         assert isinstance(attribute_type, str)
-        type_class: Optional[type] = _atrribute_type_to_field_type_mapping.get(
+        type_class: Optional[type] = _attribute_type_to_field_type_mapping.get(
             attribute_type
         )
 
