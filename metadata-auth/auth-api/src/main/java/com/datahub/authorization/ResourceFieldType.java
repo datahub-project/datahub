@@ -19,5 +19,9 @@ public enum ResourceFieldType {
   /**
    * Domains of resource
    */
-  DOMAIN
+  DOMAIN,
+  /**
+   * Groups of which the resource (only applies to corpUser) is a member
+   */
+  GROUP_MEMBERSHIP
 }

@@ -67,4 +67,15 @@ public class ResolvedResourceSpec {
     }
     return null;
   }
+
+  /**
+   * Fetch the group membership for a resource.
+   * @return a set of groups urns, or empty set if none exist.
+   */
+  public Set<String> getGroupMembership() {
+    if (!fieldResolvers.containsKey(ResourceFieldType.GROUP_MEMBERSHIP)) {
+      return Collections.emptySet();
+    }
+    return fieldResolvers.get(ResourceFieldType.GROUP_MEMBERSHIP).getFieldValuesFuture().join().getValues();
+  }
 }

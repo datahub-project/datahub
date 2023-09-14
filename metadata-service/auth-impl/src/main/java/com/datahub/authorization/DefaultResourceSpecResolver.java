@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authorization.fieldresolverprovider.DomainFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.EntityUrnFieldResolverProvider;
 import com.datahub.authorization.fieldresolverprovider.ResourceFieldResolverProvider;
+import com.datahub.authorization.fieldresolverprovider.GroupMembershipFieldResolverProvider;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.entity.client.EntityClient;
 import java.util.List;
@@ -20,7 +21,8 @@ public class DefaultResourceSpecResolver implements ResourceSpecResolver {
     _resourceFieldResolverProviders =
         ImmutableList.of(new EntityTypeFieldResolverProvider(), new EntityUrnFieldResolverProvider(),
             new DomainFieldResolverProvider(entityClient, systemAuthentication),
-            new OwnerFieldResolverProvider(entityClient, systemAuthentication));
+            new OwnerFieldResolverProvider(entityClient, systemAuthentication),
+            new GroupMembershipFieldResolverProvider(entityClient, systemAuthentication));
   }
 
   @Override
