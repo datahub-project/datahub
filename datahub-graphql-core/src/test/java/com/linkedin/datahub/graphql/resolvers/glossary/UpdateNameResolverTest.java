@@ -22,7 +22,6 @@ import graphql.schema.DataFetchingEnvironment;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import java.util.HashMap;
 import java.util.concurrent.CompletionException;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;

@@ -1,7 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.datahub.authentication.Authentication;
-import com.datastax.dse.driver.api.core.graph.predicates.Search;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.client.EntityClient;
