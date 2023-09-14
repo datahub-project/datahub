@@ -36,4 +36,4 @@ For additional information and assistance, feel free to visit one of these chann
 - [Slack](https://datahubspace.slack.com)
 - [Blog](https://blog.datahubproject.io/)
 - [LinkedIn](https://www.linkedin.com/company/acryl-data/)
-- Our champions - [Data Practitioners Guild](https://www.notion.so/Features-Page-Draft-d0e3c905baaa451eabe5fe64166024e0?pvs=21)
+- Our champions - [Data Practitioners Guild](https://datahubproject.io/guild/?_gl=1*11cd6n0*_gcl_au*ODQyMTk0NTI5LjE2OTQ2NjI1MjM.)
