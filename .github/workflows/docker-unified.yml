@@ -809,7 +809,7 @@ jobs:
           DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_INGESTION_IMAGE }}
           ACTIONS_VERSION: ${{ needs.datahub_ingestion_slim_build.outputs.tag }}
-          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions[executor] acryl-datahub-actions'
+          ACTIONS_EXTRA_PACKAGES: 'acryl-datahub-actions[executor]==0.0.13 acryl-datahub-actions==0.0.13 acryl-datahub==0.10.5'
           ACTIONS_CONFIG: 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
         run: |
           ./smoke-test/run-quickstart.sh
