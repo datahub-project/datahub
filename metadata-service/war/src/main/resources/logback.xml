@@ -81,7 +81,7 @@
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />
-        <appender-ref ref="FILE"/>
+        <appender-ref ref="DEBUG_FILE"/>
         <appender-ref ref="Sentry"/>
     </root>
 </configuration>

@@ -18,9 +18,7 @@
       </then>
       <else>
         <encoder>
-          <layout class="ch.qos.logback.classic.PatternLayout">
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
-          </layout>
+          <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
         </encoder>
       </else>
     </if>
