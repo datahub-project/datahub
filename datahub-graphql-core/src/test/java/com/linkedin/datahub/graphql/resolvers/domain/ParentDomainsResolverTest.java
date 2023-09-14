@@ -13,7 +13,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetchingEnvironment;
-import lombok.extern.slf4j.Slf4j;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -24,7 +23,6 @@ import java.util.Map;
 import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.assertEquals;
 
-@Slf4j
 public class ParentDomainsResolverTest {
   @Test
   public void testGetSuccessForDomain() throws Exception {
