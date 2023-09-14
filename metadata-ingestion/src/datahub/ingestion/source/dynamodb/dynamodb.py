@@ -72,7 +72,8 @@ class DynamoDBConfig(DatasetSourceConfigMixin, StatefulIngestionConfigBase):
     # if the table use composite key then the value should have partition key and sort key present
     include_table_item: Optional[Dict[str, List[Dict]]] = Field(
         defaul=None,
-        description="the primary keys of items of a table in dynamodb format the user would like to include",
+        description="[Advanced] The primary keys of items of a table in dynamodb format the user would like to include in schema. "
+        "Refer "Advanced Configurations" section for more details",
     )
 
     table_pattern: AllowDenyPattern = Field(
