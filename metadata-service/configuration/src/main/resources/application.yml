@@ -308,6 +308,7 @@ notifications:
         # Whether we should attempt to retry sending important Slack notifications
         retryEnabled: ${SLACK_RETRY_NOTIFICATION_ENABLED:true}
         maxNumRetries: ${SLACK_MAX_NUM_RETRIES:2}
+        proxyUrl: ${SLACK_PROXY_URL:#{null}}
 
 # Mirroring events to external systems (e.g. Event Bridge)
 eventSinks:
@@ -421,4 +422,3 @@ integrationsService:
   host: ${DATAHUB_INTEGRATIONS_HOST:localhost}
   port: ${DATAHUB_INTEGRATIONS_PORT:9003}
   useSsl: ${DATAHUB_INTEGRATIONS_USE_SSL:false}
-
