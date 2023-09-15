@@ -200,10 +200,19 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
-        if (
-            upstreams.size() == 1
-                && upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourceUrn);
+
+        // an entity can have merged lineage (eg. dbt + snowflake), but by default siblings are only between dbt <> non-dbt
+        UpstreamArray dbtUpstreams = new UpstreamArray(
+          upstreams.stream()
+          .filter(obj -> obj.getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME))
+          .collect(Collectors.toList())
+        );
+        // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt model
+        if (dbtUpstreams.size() == 1) {
+          setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
+        } else {
+          log.error("{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.", sourceUrn.toString(), dbtUpstreams.size());
+ 
         }
       }
     }
@@ -219,7 +228,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         existingDbtSiblingAspect != null
             && existingSourceSiblingAspect != null
             && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
-            && existingDbtSiblingAspect.getSiblings().contains(dbtUrn.toString())
+            && existingSourceSiblingAspect.getSiblings().contains(dbtUrn.toString())
     ) {
       // we have already connected them- we can abort here
       return;
