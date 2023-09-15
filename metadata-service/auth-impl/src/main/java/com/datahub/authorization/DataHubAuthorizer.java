@@ -8,6 +8,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubPolicyInfo;
+
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -102,14 +104,17 @@ public class DataHubAuthorizer implements Authorizer {
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY,  null);
   }
 
-  public List<String> getGrantedPrivileges(final String actorUrn, final Optional<ResourceSpec> resourceSpec) {
+  public List<String> getGrantedPrivileges(final String actor, final Optional<ResourceSpec> resourceSpec) {
 
     // 1. Fetch all policies
     final List<DataHubPolicyInfo> policiesToEvaluate = _policyCache.getOrDefault(ALL, new ArrayList<>());
 
+    Urn actorUrn = UrnUtils.getUrn(actor);
+    final ResolvedResourceSpec actorResolvedResourceSpec = _resourceSpecResolver.resolve(new ResourceSpec(actorUrn.getEntityType(), actor));
+
     Optional<ResolvedResourceSpec> resolvedResourceSpec = resourceSpec.map(_resourceSpecResolver::resolve);
 
-    return _policyEngine.getGrantedPrivileges(policiesToEvaluate, UrnUtils.getUrn(actorUrn), resolvedResourceSpec);
+    return _policyEngine.getGrantedPrivileges(policiesToEvaluate, actorResolvedResourceSpec, resolvedResourceSpec);
   }
 
   /**
@@ -184,13 +189,30 @@ public class DataHubAuthorizer implements Authorizer {
     if (AuthorizationMode.ALLOW_ALL.equals(mode())) {
       return true;
     }
+
+    Optional<Urn> actorUrn = getUrnFromRequestActor(request.getActorUrn());
+    if (actorUrn.isEmpty()) {
+      return false;
+    }
+
+    final ResolvedResourceSpec actorResolvedResourceSpec = _resourceSpecResolver.resolve(
+            new ResourceSpec(actorUrn.get().getEntityType(), request.getActorUrn()));
     final PolicyEngine.PolicyEvaluationResult result = _policyEngine.evaluatePolicy(
         policy,
-        request.getActorUrn(),
+        actorResolvedResourceSpec,
         request.getPrivilege(),
         resourceSpec
     );
     return result.isGranted();
+  }
+
+  private Optional<Urn> getUrnFromRequestActor(String actor) {
+    try {
+      return Optional.of(Urn.createFromString(actor));
+    } catch (URISyntaxException e) {
+      log.error(String.format("Failed to bind actor %s to an URN. Actors must be URNs. Denying the authorization request", actor));
+      return Optional.empty();
+    }
   }
 
   /**
