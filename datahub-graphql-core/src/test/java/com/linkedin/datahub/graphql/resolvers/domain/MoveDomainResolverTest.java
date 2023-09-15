@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.domain;
 
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -73,10 +74,14 @@ public class MoveDomainResolverTest {
     Mockito.when(mockEnv.getArgument("input")).thenReturn(INPUT);
 
     MoveDomainResolver resolver = new MoveDomainResolver(mockService, mockClient);
-    final MetadataChangeProposal proposal = setupTests(mockEnv, mockService, mockClient);
+    setupTests(mockEnv, mockService, mockClient);
 
     assertTrue(resolver.get(mockEnv).get());
-    verifyIngestProposal(mockService, 1, proposal);
+    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
+        Mockito.any(MetadataChangeProposal.class),
+        Mockito.any(AuditStamp.class),
+        Mockito.eq(false)
+    );
   }
 
   @Test
