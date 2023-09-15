@@ -1,6 +1,8 @@
 package com.linkedin.metadata.entity;
 
 import com.codahale.metrics.Timer;
+import com.linkedin.data.template.GetMode;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ModelConversionException;
@@ -1147,12 +1149,13 @@ public class EntityServiceImpl implements EntityService {
   }
 
   @Override
-  public void ingestEntity(Entity entity, AuditStamp auditStamp) {
+  public SystemMetadata ingestEntity(Entity entity, AuditStamp auditStamp) {
     SystemMetadata generatedSystemMetadata = new SystemMetadata();
     generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
     generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
 
     ingestEntity(entity, auditStamp, generatedSystemMetadata);
+    return generatedSystemMetadata;
   }
 
   @Override
@@ -1541,6 +1544,13 @@ public class EntityServiceImpl implements EntityService {
     return statusAspect != null && ((Status) statusAspect).isRemoved();
   }
 
+  @Override
+  public Boolean exists(Urn urn, String aspectName) {
+    EntityAspectIdentifier dbKey = new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION);
+    Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(Set.of(dbKey));
+    return aspects.values().stream().anyMatch(Objects::nonNull);
+  }
+
   @Nullable
   @Override
   public RollbackResult deleteAspect(String urn, String aspectName, @Nonnull Map<String, String> conditions, boolean hardDelete) {
@@ -1805,6 +1815,10 @@ public class EntityServiceImpl implements EntityService {
           @Nullable final EntityAspect latest,
           @Nonnull final Long nextVersion) {
 
+    // Set the "last run id" to be the run id provided with the new system metadata. This will be stored in index
+    // for all aspects that have a run id, regardless of whether they change.
+    providedSystemMetadata.setLastRunId(providedSystemMetadata.getRunId(GetMode.NULL), SetMode.IGNORE_NULL);
+
     // 2. Compare the latest existing and new.
     final RecordTemplate oldValue =
         latest == null ? null : EntityUtils.toAspectRecord(urn, aspectName, latest.getMetadata(), getEntityRegistry());
@@ -1814,6 +1828,7 @@ public class EntityServiceImpl implements EntityService {
     if (oldValue != null && DataTemplateUtil.areEqual(oldValue, newValue)) {
       SystemMetadata latestSystemMetadata = EntityUtils.parseSystemMetadata(latest.getSystemMetadata());
       latestSystemMetadata.setLastObserved(providedSystemMetadata.getLastObserved());
+      latestSystemMetadata.setLastRunId(providedSystemMetadata.getLastRunId(GetMode.NULL), SetMode.IGNORE_NULL);
 
       latest.setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 

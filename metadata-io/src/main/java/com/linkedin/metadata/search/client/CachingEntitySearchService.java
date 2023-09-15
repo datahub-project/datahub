@@ -127,7 +127,7 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
-      @Nonnull String keepAlive,
+      @Nullable String keepAlive,
       int size,
       @Nullable SearchFlags flags) {
     return getCachedScrollResults(entities, query, filters, sortCriterion, scrollId, keepAlive, size, flags);
@@ -238,7 +238,7 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       @Nullable SortCriterion sortCriterion,
       @Nullable String scrollId,
-      @Nonnull String keepAlive,
+      @Nullable String keepAlive,
       int size,
       @Nullable SearchFlags flags) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getCachedScrollResults").time()) {
@@ -326,7 +326,7 @@ public class CachingEntitySearchService {
       final Filter filters,
       final SortCriterion sortCriterion,
       @Nullable final String scrollId,
-      @Nonnull final String keepAlive,
+      @Nullable final String keepAlive,
       final int count,
       final boolean fulltext) {
     if (fulltext) {
