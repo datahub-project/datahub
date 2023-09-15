@@ -12,7 +12,7 @@ from datahub.ingestion.source.ge_data_profiler import (
     GEProfilerRequest,
 )
 from datahub.ingestion.source.sql.sql_common import SQLSourceReport
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 class GenericProfiler:
     def __init__(
         self,
-        config: SQLAlchemyConfig,
+        config: SQLCommonConfig,
         report: ProfilingSqlReport,
         platform: str,
         state_handler: Optional[ProfilingHandler] = None,

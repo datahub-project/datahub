@@ -1,6 +1,8 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../types.generated';
+import { FilterScenarioType } from './filters/render/types';
+import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
 import { ENTITY_FILTER_NAME, ENTITY_INDEX_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME } from './utils/constants';
 
@@ -53,17 +55,28 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
         return TOP_FILTERS.indexOf(facetA.field) - TOP_FILTERS.indexOf(facetB.field);
     });
 
+    const filterRendererRegistry = useFilterRendererRegistry();
+
     return (
         <>
-            {sortedFacets.map((facet) => (
-                <SimpleSearchFilter
-                    key={`${facet.displayName}-${facet.field}`}
-                    facet={facet}
-                    selectedFilters={cachedProps.selectedFilters}
-                    onFilterSelect={onFilterSelectAndSetCache}
-                    defaultDisplayFilters={TOP_FILTERS.includes(facet.field)}
-                />
-            ))}
+            {sortedFacets.map((facet) => {
+                return filterRendererRegistry.hasRenderer(facet.field) ? (
+                    filterRendererRegistry.render(facet.field, {
+                        scenario: FilterScenarioType.SEARCH_V1,
+                        filter: facet,
+                        activeFilters: selectedFilters,
+                        onChangeFilters: onFilterSelect,
+                    })
+                ) : (
+                    <SimpleSearchFilter
+                        key={`${facet.displayName}-${facet.field}`}
+                        facet={facet}
+                        selectedFilters={cachedProps.selectedFilters}
+                        onFilterSelect={onFilterSelectAndSetCache}
+                        defaultDisplayFilters={TOP_FILTERS.includes(facet.field)}
+                    />
+                );
+            })}
         </>
     );
 };

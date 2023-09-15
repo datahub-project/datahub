@@ -125,6 +125,11 @@ type PlatformPrivileges {
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
+  
+  """
+  Whether the user can create and delete posts pinned to the home page.
+  """
+  manageGlobalAnnouncements: Boolean!
 }
 
 """
@@ -216,6 +221,11 @@ type VisualConfig {
   Configuration for the queries tab
   """
   entityProfiles: EntityProfilesConfig
+
+  """
+  Configuration for search results
+  """
+  searchResult: SearchResultsVisualConfig
 }
 
 """
@@ -248,6 +258,16 @@ type EntityProfileConfig {
   entity profile pages. If null, rely on default sorting from React code.
   """
   defaultTab: String
+}
+
+"""
+Configuration for a search result
+"""
+type SearchResultsVisualConfig {
+    """
+    Whether a search result should highlight the name/description if it was matched on those fields.
+    """
+    enableNameHighlight: Boolean
 }
 
 """
@@ -421,6 +441,10 @@ type FeatureFlagsConfig {
   Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
   """
   showAcrylInfo: Boolean!
+  """
+  Whether we should show AccessManagement tab in the datahub UI.
+  """
+  showAccessManagement: Boolean!
 }
 
 """

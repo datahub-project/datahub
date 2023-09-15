@@ -14,11 +14,19 @@ This document will describe the steps required to configure, schedule, and execu
 To view & manage UI-based metadata ingestion, you must have the `Manage Metadata Ingestion` & `Manage Secrets`
  privileges assigned to your account. These can be granted by a [Platform Policy](authorization/policies.md).
 
-![](./imgs/ingestion-privileges.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-privileges.png"/>
+</p>
+
 
 Once you have these privileges, you can begin to manage ingestion by navigating to the 'Ingestion' tab in DataHub. 
 
-![](./imgs/ingestion-tab.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-tab.png"/>
+</p>
+
 
 On this page, you'll see a list of active **Ingestion Sources**. An Ingestion Sources is a unique source of metadata ingested
 into DataHub from an external source like Snowflake, Redshift, or BigQuery.
@@ -28,9 +36,16 @@ your first **Ingestion Source**.
 
 ### Creating an Ingestion Source
 
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+
 Before ingesting any metadata, you need to create a new Ingestion Source. Start by clicking **+ Create new source**.
 
-![](./imgs/create-new-ingestion-source-button.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-new-ingestion-source-button.png"/>
+</p>
+
 
 #### Step 1: Select a Platform Template
 
@@ -38,7 +53,11 @@ In the first step, select a **Recipe Template** corresponding to the source type
 a variety of natively supported integrations, from Snowflake to Postgres to Kafka.
 Select `Custom` to construct an ingestion recipe from scratch. 
 
-![](./imgs/select-platform-template.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/select-platform-template.png"/>
+</p>
+
 
 Next, you'll configure an ingestion **Recipe**, which defines _how_ and _what_ to extract from the source system.
 
@@ -65,7 +84,11 @@ used by DataHub to extract metadata from a 3rd party system. It most often consi
    
 A sample of a full recipe configured to ingest metadata from MySQL can be found in the image below.
 
-![](./imgs/example-mysql-recipe.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/example-mysql-recipe.png"/>
+</p>
+
 
 Detailed configuration examples & documentation for each source type can be found on the [DataHub Docs](https://datahubproject.io/docs/metadata-ingestion/) website.
 
@@ -77,7 +100,11 @@ that are encrypted and stored within DataHub's storage layer.
 
 To create a secret, first navigate to the 'Secrets' tab. Then click `+ Create new secret`. 
 
-![](./imgs/create-secret.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-secret.png"/>
+</p>
+
 
 _Creating a Secret to store the username for a MySQL database_
 
@@ -120,7 +147,11 @@ Secret values are not persisted to disk beyond execution time, and are never tra
 Next, you can optionally configure a schedule on which to execute your new Ingestion Source. This enables to schedule metadata extraction on a monthly, weekly, daily, or hourly cadence depending on the needs of your organization.
 Schedules are defined using CRON format. 
 
-![](./imgs/schedule-ingestion.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schedule-ingestion.png"/>
+</p>
+
 
 _An Ingestion Source that is executed at 9:15am every day, Los Angeles time_
 
@@ -133,7 +164,11 @@ you can always come back and change this.
 
 Finally, give your Ingestion Source a name. 
 
-![](./imgs/name-ingestion-source.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/name-ingestion-source.png"/>
+</p>
+
 
 Once you're happy with your configurations, click 'Done' to save your changes.
 
@@ -146,11 +181,54 @@ with the server. However, you can override the default package version using the
 To do so, simply click 'Advanced', then change the 'CLI Version' text box to contain the exact version
 of the DataHub CLI you'd like to use.
 
-![](./imgs/custom-ingestion-cli-version.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/custom-ingestion-cli-version.png"/>
+</p>
+
 _Pinning the CLI version to version `0.8.23.2`_
 
 Once you're happy with your changes, simply click 'Done' to save. 
 
+   </TabItem>
+   <TabItem value="cli" label="CLI" default>
+
+You can upload and even update recipes using the cli as mentioned in the [cli documentation for uploading ingestion recipes](./cli.md#ingest-deploy).
+An example execution would look something like:
+
+```bash
+datahub ingest deploy --name "My Test Ingestion Source" --schedule "5 * * * *" --time-zone "UTC" -c recipe.yaml
+```
+
+This would create a new recipe with the name `My Test Ingestion Source`. Note that to update an existing recipe, it's `urn` id must be passed as a parameter.
+DataHub supports having multiple recipes with the same name so to distinguish them we use the urn for unique identification.
+
+   </TabItem>
+   <TabItem value="graphql" label="GraphQL" default>
+
+Create ingestion sources using [DataHub's GraphQL API](./api/graphql/overview.md) using the **createIngestionSource** mutation endpoint.
+```graphql
+mutation {
+   createIngestionSource(input: {
+      name: "My Test Ingestion Source",
+      type: "mysql",
+      description: "My ingestion source description",
+      schedule: {interval: "*/5 * * * *", timezone: "UTC"},
+      config: {
+         recipe: "{\"source\":{\"type\":\"mysql\",\"config\":{\"include_tables\":true,\"database\":null,\"password\":\"${MYSQL_PASSWORD}\",\"profiling\":{\"enabled\":false},\"host_port\":null,\"include_views\":true,\"username\":\"${MYSQL_USERNAME}\"}},\"pipeline_name\":\"urn:li:dataHubIngestionSource:f38bd060-4ea8-459c-8f24-a773286a2927\"}",
+         version: "0.8.18",
+         executorId: "mytestexecutor",
+      }
+   })
+}
+```
+
+To update sources, please use the `updateIngestionSource` endpoint. It is almost identical to the create endpoint, only requiring the urn of the source to be updated in addition to the same input as the create endpoint.
+
+**Note**: Recipe must be double quotes escaped
+
+   </TabItem>
+</Tabs>
 
 ### Running an Ingestion Source
 
@@ -158,11 +236,19 @@ Once you've created your Ingestion Source, you can run it by clicking 'Execute'.
 you should see the 'Last Status' column of the ingestion source change from `N/A` to `Running`. This
 means that the request to execute ingestion has been successfully picked up by the DataHub ingestion executor.
 
-![](./imgs/running-ingestion.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/running-ingestion.png"/>
+</p>
+
 
 If ingestion has executed successfully, you should see it's state shown in green as `Succeeded`. 
 
-![](./imgs/successful-ingestion.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/successful-ingestion.png"/>
+</p>
+
 
 
 ### Cancelling an Ingestion Run
@@ -170,14 +256,22 @@ If ingestion has executed successfully, you should see it's state shown in green
 If your ingestion run is hanging, there may a bug in the ingestion source, or another persistent issue like exponential timeouts. If these situations, 
 you can cancel ingestion by clicking **Cancel** on the problematic run.
 
-![](./imgs/cancelled-ingestion.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/cancelled-ingestion.png"/>
+</p>
+
 
 Once cancelled, you can view the output of the ingestion run by clicking **Details**. 
 
 
 ### Debugging a Failed Ingestion Run
 
-![](./imgs/failed-ingestion.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/failed-ingestion.png"/>
+</p>
+
 
 A variety of things can cause an ingestion run to fail. Common reasons for failure include:  
 
@@ -193,12 +287,20 @@ A variety of things can cause an ingestion run to fail. Common reasons for failu
    
 4. **Authentication**: If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token 
     in your Recipe Configuration. To so this, set the 'token' field of the sink configuration to contain a Personal Access Token:
-   ![](./imgs/ingestion-with-token.png)
+   
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-with-token.png"/>
+</p>
+
 
 The output of each run is captured and available to view in the UI for easier debugging. To view output logs, click **DETAILS** 
 on the corresponding ingestion run. 
 
-![](./imgs/ingestion-logs.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-logs.png"/>
+</p>
+
 
 ## FAQ
 
@@ -208,7 +310,11 @@ If not due to one of the reasons outlined above, this may be because the executo
 to reach DataHub's backend using the default configurations. Try changing your ingestion recipe to make the `sink.config.server` variable point to the Docker
 DNS name for the `datahub-gms` pod: 
 
-![](./imgs/quickstart-ingestion-config.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/quickstart-ingestion-config.png"/>
+</p>
+
 
 ### I see 'N/A' when I try to run ingestion. What do I do?
 

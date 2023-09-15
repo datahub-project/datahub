@@ -68,6 +68,7 @@ import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.ListTestsResult;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
+import com.linkedin.datahub.graphql.generated.MatchedField;
 import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureProperties;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
@@ -645,6 +646,7 @@ public class GmsGraphQLEngine {
         configureOrganisationRoleResolvers(builder);
         configureGlossaryNodeResolvers(builder);
         configureDomainResolvers(builder);
+        configureDataProductResolvers(builder);
         configureAssertionResolvers(builder);
         configurePolicyResolvers(builder);
         configureDataProcessInstanceResolvers(builder);
@@ -1006,6 +1008,10 @@ public class GmsGraphQLEngine {
             .type("SearchResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
                     (env) -> ((SearchResult) env.getSource()).getEntity()))
+            )
+            .type("MatchedField", typeWiring -> typeWiring
+                .dataFetcher("entity", new EntityTypeResolver(entityTypes,
+                    (env) -> ((MatchedField) env.getSource()).getEntity()))
             )
             .type("SearchAcrossLineageResult", typeWiring -> typeWiring
                 .dataFetcher("entity", new EntityTypeResolver(entityTypes,
@@ -1676,6 +1682,13 @@ public class GmsGraphQLEngine {
             .dataFetcher("domain",
                 new LoadableTypeResolver<>(domainType,
                     (env) -> ((com.linkedin.datahub.graphql.generated.DomainAssociation) env.getSource()).getDomain().getUrn()))
+        );
+    }
+
+    private void configureDataProductResolvers(final RuntimeWiring.Builder builder) {
+        builder.type("DataProduct", typeWiring -> typeWiring
+            .dataFetcher("entities", new ListDataProductAssetsResolver(this.entityClient))
+            .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
         );
     }
 

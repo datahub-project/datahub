@@ -122,7 +122,7 @@ public class RecentlyViewedSource implements RecommendationSource {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
     // Filter for the entity view events of the user requesting recommendation
     query.must(
-        QueryBuilders.termQuery(ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, true), userUrn.toString()));
+        QueryBuilders.termQuery(ESUtils.toKeywordField(DataHubUsageEventConstants.ACTOR_URN, false), userUrn.toString()));
     query.must(
         QueryBuilders.termQuery(DataHubUsageEventConstants.TYPE, DataHubUsageEventType.ENTITY_VIEW_EVENT.getType()));
     source.query(query);

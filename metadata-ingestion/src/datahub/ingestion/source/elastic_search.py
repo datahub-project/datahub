@@ -33,9 +33,12 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import Source, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
@@ -200,6 +203,10 @@ class ElasticProfiling(ConfigModel):
         default=False,
         description="Whether to enable profiling for the elastic search source.",
     )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
+    )
 
 
 class CollapseUrns(ConfigModel):
@@ -297,6 +304,11 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         default_factory=CollapseUrns,
     )
 
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
+
     @validator("host")
     def host_colon_port_comma(cls, host_val: str) -> str:
         for entry in host_val.split(","):
@@ -343,7 +355,7 @@ class ElasticsearchSource(Source):
         self.report = ElasticsearchSourceReport()
         self.data_stream_partition_count: Dict[str, int] = defaultdict(int)
         self.platform: str = "elasticsearch"
-        self.profiling_info: Dict[str, DatasetProfileClass] = {}
+        self.cat_response: Optional[List[Dict[str, Any]]] = None
 
     @classmethod
     def create(
@@ -352,12 +364,8 @@ class ElasticsearchSource(Source):
         config = ElasticsearchSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         indices = self.client.indices.get_alias()
-
         for index in indices:
             self.report.report_index_scanned(index)
 
@@ -366,12 +374,6 @@ class ElasticsearchSource(Source):
                     yield mcp.as_workunit()
             else:
                 self.report.report_dropped(index)
-        for urn, profiling_info in self.profiling_info.items():
-            yield MetadataChangeProposalWrapper(
-                entityUrn=urn,
-                aspect=profiling_info,
-            ).as_workunit()
-        self.profiling_info = {}
 
         for mcp in self._get_data_stream_index_count_mcps():
             yield mcp.as_workunit()
@@ -522,37 +524,47 @@ class ElasticsearchSource(Source):
                 ),
             )
 
-        if self.source_config.profiling.enabled:
-            cat_response = self.client.cat.indices(
-                index=index, params={"format": "json", "bytes": "b"}
+        if self.source_config.is_profiling_enabled():
+            if self.cat_response is None:
+                self.cat_response = self.client.cat.indices(
+                    params={
+                        "format": "json",
+                        "bytes": "b",
+                        "h": "index,docs.count,store.size",
+                    }
+                )
+                if self.cat_response is None:
+                    return
+                for item in self.cat_response:
+                    item["index"] = collapse_name(
+                        name=item["index"],
+                        collapse_urns=self.source_config.collapse_urns,
+                    )
+
+            profile_info_current = list(
+                filter(lambda x: x["index"] == collapsed_index_name, self.cat_response)
             )
-            if len(cat_response) == 1:
-                index_res = cat_response[0]
-                docs_count = int(index_res["docs.count"])
-                size = int(index_res["store.size"])
-                if len(self.source_config.collapse_urns.urns_suffix_regex) > 0:
-                    if dataset_urn not in self.profiling_info:
-                        self.profiling_info[dataset_urn] = DatasetProfileClass(
-                            timestampMillis=int(time.time() * 1000),
-                            rowCount=docs_count,
-                            columnCount=len(schema_fields),
-                            sizeInBytes=size,
-                        )
-                    else:
-                        existing_profile = self.profiling_info[dataset_urn]
-                        if existing_profile.rowCount is not None:
-                            docs_count = docs_count + existing_profile.rowCount
-                        if existing_profile.sizeInBytes is not None:
-                            size = size + existing_profile.sizeInBytes
-                        self.profiling_info[dataset_urn] = DatasetProfileClass(
-                            timestampMillis=int(time.time() * 1000),
-                            rowCount=docs_count,
-                            columnCount=len(schema_fields),
-                            sizeInBytes=size,
-                        )
-            else:
-                logger.warning(
-                    "Unexpected response from cat response with multiple rows"
+            if len(profile_info_current) > 0:
+                self.cat_response = list(
+                    filter(
+                        lambda x: x["index"] != collapsed_index_name, self.cat_response
+                    )
+                )
+                row_count = 0
+                size_in_bytes = 0
+                for profile_info in profile_info_current:
+                    if profile_info["docs.count"] is not None:
+                        row_count += int(profile_info["docs.count"])
+                    if profile_info["store.size"] is not None:
+                        size_in_bytes += int(profile_info["store.size"])
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=DatasetProfileClass(
+                        timestampMillis=int(time.time() * 1000),
+                        rowCount=row_count,
+                        columnCount=len(schema_fields),
+                        sizeInBytes=size_in_bytes,
+                    ),
                 )
 
     def get_report(self):

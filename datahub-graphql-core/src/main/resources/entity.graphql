@@ -68,6 +68,10 @@ type Query {
     Fetch a Tag by primary key (urn)
     """
     tag(urn: String!): Tag
+    """
+    Fetch a Role by primary key (urn)
+    """
+    role(urn: String!): Role
 
     """
     Fetch a Glossary Term by primary key (urn)
@@ -1451,12 +1455,12 @@ type Role implements Entity {
     """
     Role properties to include Request Access Url
     """
-    properties: RoleProperties!
+    properties: RoleProperties
 
     """
     A standard Entity Type
     """
-    actors: Actor!
+    actors: Actor
 
 
 }
@@ -2872,6 +2876,11 @@ type SchemaField {
     Whether the field is part of a key schema
     """
     isPartOfKey: Boolean
+
+    """
+    Whether the field is part of a partitioning key schema
+    """
+    isPartitioningKey: Boolean
 }
 
 """
@@ -10918,6 +10927,11 @@ type DataProduct implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
+    Children entities inside of the DataProduct
+    """
+    entities(input: SearchAcrossEntitiesInput): SearchResults
+
+    """
     The structured glossary terms associated with the Data Product
     """
     glossaryTerms: GlossaryTerms
@@ -10953,7 +10967,7 @@ type DataProductProperties {
     externalUrl: String
 
     """
-    Number of children entities inside of the Data Product
+    Number of children entities inside of the Data Product. This number includes soft deleted entities.
     """
     numAssets: Int
 

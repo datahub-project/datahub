@@ -19,7 +19,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 5
-      start_period: 30s
+      start_period: 60s
       test: nc -z broker $${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}
       timeout: 5s
     hostname: broker
@@ -34,6 +34,8 @@ services:
       datahub-gms:
         condition: service_healthy
     environment:
+    - ACTIONS_CONFIG=${ACTIONS_CONFIG:-}
+    - ACTIONS_EXTRA_PACKAGES=${ACTIONS_EXTRA_PACKAGES:-}
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - DATAHUB_GMS_PROTOCOL=http
@@ -45,7 +47,7 @@ services:
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
   datahub-frontend-react:
     container_name: datahub-frontend-react
     depends_on:
@@ -146,6 +148,7 @@ services:
     - DATAHUB_GMS_HOST=datahub-gms
     - DATAHUB_GMS_PORT=8080
     - ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
+    - BACKFILL_BROWSE_PATHS_V2=true
     hostname: datahub-upgrade
     image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
     labels:
@@ -269,7 +272,7 @@ services:
     healthcheck:
       interval: 1s
       retries: 3
-      start_period: 30s
+      start_period: 60s
       test: nc -z schema-registry ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
       timeout: 5s
     hostname: schema-registry

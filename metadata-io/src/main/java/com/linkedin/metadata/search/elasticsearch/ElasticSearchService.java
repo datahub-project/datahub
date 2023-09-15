@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.elasticsearch.action.search.SearchResponse;
 
 
 @Slf4j
@@ -106,18 +107,18 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Nonnull
   @Override
-  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  public SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
                              @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags) {
-    return search(entityName, input, postFilters, sortCriterion, from, size, searchFlags, null);
+    return search(entityNames, input, postFilters, sortCriterion, from, size, searchFlags, null);
   }
 
   @Nonnull
-  public SearchResult search(@Nonnull String entityName, @Nonnull String input, @Nullable Filter postFilters,
+  public SearchResult search(@Nonnull List<String> entityNames, @Nonnull String input, @Nullable Filter postFilters,
       @Nullable SortCriterion sortCriterion, int from, int size, @Nullable SearchFlags searchFlags, @Nullable List<String> facets) {
     log.debug(String.format(
         "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
-        entityName, input, postFilters, sortCriterion, from, size));
-    return esSearchDAO.search(entityName, input, postFilters, sortCriterion, from, size, searchFlags, facets);
+        entityNames, input, postFilters, sortCriterion, from, size));
+    return esSearchDAO.search(entityNames, input, postFilters, sortCriterion, from, size, searchFlags, facets);
   }
 
   @Nonnull
@@ -174,7 +175,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Nonnull
   @Override
   public ScrollResult fullTextScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nullable String keepAlive, int size) {
     log.debug(String.format(
         "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
         entities, input, postFilters, sortCriterion, scrollId, size));
@@ -185,12 +186,16 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Nonnull
   @Override
   public ScrollResult structuredScroll(@Nonnull List<String> entities, @Nonnull String input, @Nullable Filter postFilters,
-      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nonnull String keepAlive, int size) {
+      @Nullable SortCriterion sortCriterion, @Nullable String scrollId, @Nullable String keepAlive, int size) {
     log.debug(String.format(
         "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, scrollId: %s, size: %s",
         entities, input, postFilters, sortCriterion, scrollId, size));
     return esSearchDAO.scroll(entities, input, postFilters, sortCriterion, scrollId, keepAlive, size,
             new SearchFlags().setFulltext(false));
+  }
+
+  public Optional<SearchResponse> raw(@Nonnull String indexName, @Nullable String jsonQuery) {
+    return esSearchDAO.raw(indexName, jsonQuery);
   }
 
   @Override

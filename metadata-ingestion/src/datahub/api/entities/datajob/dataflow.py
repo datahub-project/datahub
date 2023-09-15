@@ -65,6 +65,7 @@ class DataFlow:
     url: Optional[str] = None
     tags: Set[str] = field(default_factory=set)
     owners: Set[str] = field(default_factory=set)
+    group_owners: Set[str] = field(default_factory=set)
     platform_instance: Optional[str] = None
     env: Optional[str] = None
 
@@ -92,17 +93,20 @@ class DataFlow:
         )
 
     def generate_ownership_aspect(self):
+        owners = set([builder.make_user_urn(owner) for owner in self.owners]) | set(
+            [builder.make_group_urn(owner) for owner in self.group_owners]
+        )
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
-                    owner=builder.make_user_urn(owner),
+                    owner=urn,
                     type=OwnershipTypeClass.DEVELOPER,
                     source=OwnershipSourceClass(
                         type=OwnershipSourceTypeClass.SERVICE,
                         # url=dag.filepath,
                     ),
                 )
-                for owner in (self.owners or [])
+                for urn in (owners or [])
             ],
             lastModified=AuditStampClass(
                 time=0, actor=builder.make_user_urn(self.orchestrator)

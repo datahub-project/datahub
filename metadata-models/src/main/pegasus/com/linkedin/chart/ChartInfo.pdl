@@ -20,8 +20,9 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Title of the chart
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "fieldNameAliases": [ "_entityName" ]
   }
   title: string
 

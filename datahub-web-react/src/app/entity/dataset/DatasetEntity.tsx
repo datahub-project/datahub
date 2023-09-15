@@ -2,6 +2,7 @@ import * as React from 'react';
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import { Dataset, DatasetProperties, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { useAppConfig } from '../../useAppConfig';
 import { Preview } from './preview/Preview';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
@@ -25,11 +26,13 @@ import { OperationsTab } from './profile/OperationsTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { SidebarSiblingsSection } from '../shared/containers/profile/sidebar/SidebarSiblingsSection';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import { DatasetSearchSnippet } from './DatasetSearchSnippet';
+import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPathsRenderer';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -67,6 +70,8 @@ export class DatasetEntity implements Entity<Dataset> {
     };
 
     isSearchEnabled = () => true;
+
+    appconfig = useAppConfig;
 
     isBrowseEnabled = () => true;
 
@@ -175,6 +180,14 @@ export class DatasetEntity implements Entity<Dataset> {
                         },
                     },
                 },
+                {
+                    name: 'Access Management',
+                    component: AccessManagement,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, _2) => true,
+                    },
+                },
             ]}
             sidebarSections={[
                 {
@@ -257,6 +270,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
                 container={data.container}
                 externalUrl={data.properties?.externalUrl}
+                health={data.health}
             />
         );
     };
@@ -289,7 +303,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 container={data.container}
                 parentContainers={data.parentContainers}
-                snippet={<DatasetSearchSnippet matchedFields={result.matchedFields} />}
+                snippet={<MatchedFieldList customFieldRenderer={matchedFieldPathsRenderer} />}
                 insights={result.insights}
                 externalUrl={data.properties?.externalUrl}
                 statsSummary={data.statsSummary}
@@ -299,6 +313,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 lastUpdatedMs={
                     (data as any).lastOperation?.length && (data as any).lastOperation[0].lastUpdatedTimestamp
                 }
+                health={data.health}
+                degree={(result as any).degree}
+                paths={(result as any).paths}
             />
         );
     };
@@ -312,6 +329,7 @@ export class DatasetEntity implements Entity<Dataset> {
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
+            health: entity?.health || undefined,
         };
     };
 

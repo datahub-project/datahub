@@ -5,6 +5,46 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 0.11.0
+
+### Breaking Changes
+
+### Potential Downtime
+- #8611 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities.
+
+### Deprecations
+- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
+- MAE Events are no longer produced. MAE events have been deprecated for over a year.
+
+### Other Notable Changes
+- In this release we now enable you to create and delete pinned announcements on your DataHub homepage! If you have the “Manage Home Page Posts” platform privilege you’ll see a new section in settings called “Home Page Posts” where you can create and delete text posts and link posts that your users see on the home page.
+- The new search and browse experience, which was first made available in the previous release behind a feature flag, is now on by default. Check out our release notes for v0.10.5 to get more information and documentation on this new Browse experience.
+- In addition to the ranking changes mentioned above, this release includes changes to the highlighting of search entities to understand why they match your query. You can also sort your results alphabetically or by last updated times, in addition to relevance. In this release, we suggest a correction if your query has a typo in it.
+- #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
+  container db (None) -> container schema and now we have platform_instance -> container database.
+- #8300: Added `uri_opts` argument; now we can add any options for clickhouse client.
+- #8659: BigQuery ingestion no longer creates DataPlatformInstance aspects by default.
+  This will only affect users that were depending on this aspect for custom functionality,
+  and can be enabled via the `include_data_platform_instance` config option.
+- OpenAPI entity and aspect endpoints expanded to improve developer experience when using this API with additional aspects to be added in the near future.
+- The CLI now supports recursive deletes.
+- Batching of default aspects on initial ingestion (SQL)
+- Improvements to multi-threading. Ingestion recipes, if previously reduced to 1 thread, can be restored to the 15 thread default.
+- Gradle 7 upgrade moderately improves build speed
+- DataHub Ingestion slim images reduced in size by 2GB+
+- Glue Schema Registry fixed
+
+## 0.10.5
+
+### Breaking Changes
 
 - #8201: Python SDK: In the DataFlow class, the `cluster` argument is deprecated in favor of `env`.
 - #8263: Okta source config option `okta_profile_to_username_attr` default changed from `login` to `email`.
@@ -14,12 +54,27 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 `profile_table_level_only` together with `include_field_xyz` config options to ingest
 certain column-level metrics. Instead, set `profile_table_level_only` to `false` and
 individually enable / disable desired field metrics.
-
+- #8451: The `bigquery-beta` and `snowflake-beta` source aliases have been dropped. Use `bigquery` and `snowflake` as the source type instead.
+- #8472: Ingestion runs created with Pipeline.create will show up in the DataHub ingestion tab as CLI-based runs. To revert to the previous behavior of not showing these runs in DataHub, pass `no_default_report=True`.
+- #8513: `snowflake` connector will use user's `email` attribute as is in urn. To revert to previous behavior disable `email_as_user_identifier` in recipe. 
 ### Potential Downtime
+
+- BrowsePathsV2 upgrade will now be handled by the `system-update` job in non-blocking mode. This process generates data needed for the new search
+  and browse feature. This process must complete before enabling the new search and browse UI and while upgrading entities will be missing from the UI.
+  If not using the new search and browse UI, there will be no impact and the update will complete in the background.
 
 ### Deprecations
 
-### Other notable Changes
+- #8198: In the Python SDK, the `PlatformKey` class has been renamed to `ContainerKey`.
+
+### Other Notable Changes
+
+0.10.5 introduces the new Unified Search & Browse experience and is disabled by default. You can control whether or not you want to see just the new search filtering experience, the new search and browse experience together, or keep the existing search and browse experiences by toggling the two environment variable feature flags `SHOW_SEARCH_FILTERS_V2` and `SHOW_BROWSE_V2` in your GMS container.
+
+**Upgrade Considerations:**
+
+- With the release of Browse V2, we have created a job to run in GMS that will backfill your existing data with new `browsePathsV2` aspects. This job loops over entity types that need a `browsePathsV2` aspect (Dataset, Dashboard, Chart, DataJob, DataFlow, MLModel, MLModelGroup, MLFeatureTable, and MLFeature) and generates one for them. For entities that may have Container parents (Datasets and Dashboards) we will try to fetch their parent containers in order to generate this new aspect. For those deployments with large amounts of data, consider whether running this upgrade job makes sense as it may be a heavy operation and take some time to complete. If you wish to skip this job, simply set the `BACKFILL_BROWSE_PATHS_V2` environment variable flag to `false` in your GMS container. Without this backfill job, though, you will need to rely on the newest CLI of ingestion to create these `browsePathsV2` aspects when running ingestion otherwise your browse sidebar will be out-of-sync.
+- Since the new browse experience replaces the old, consider whether having the `SHOW_BROWSE_V2` environment variable feature flag on is the right decision for your organization. If you’re creating custom browse paths with the `browsePaths` aspect, you can continue to do the same with the new experience, however you will have to generate `browsePathsV2` aspects instead which are documented [here](https://datahubproject.io/docs/browsev2/browse-paths-v2/).
 
 ## 0.10.4
 
