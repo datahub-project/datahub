@@ -44,3 +44,7 @@ jar {
   from sourceSets.main.output
   exclude('com/linkedin/events/**')
 }
+
+clean {
+    delete 'src'
+}
