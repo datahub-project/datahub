@@ -13,11 +13,14 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.json.JSONObject;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
@@ -45,15 +48,16 @@ public class CreateJoinResolver implements DataFetcher<CompletableFuture<Boolean
             highDataset = datasetA;
         }
         // The following sequence mimics datahub.emitter.mce_builder.datahub_guid
-        // Json is sorted by key here (JoinName, DatasetA, DatasetB)
-        String joinKey = new JSONObject()
-            .put("JoinName", joinName)
-            .put("DatasetA", lowDataset)
-            .put("DatasetB", highDataset)
-            .toString();
 
-        UUID joinGuid = UUID.fromString(joinKey);
-        JoinUrn inputUrn = new JoinUrn(joinGuid.toString());
+        String joinKey =  "{\"DatasetA\":\""+lowDataset+"\",\"DatasetB\":\""+highDataset+"\",\"JoinName\":\""+joinName+"\"}";
+
+        byte[] mybytes = joinKey.getBytes(StandardCharsets.UTF_8);
+
+        String joinKeyEncoded = new String(mybytes, StandardCharsets.UTF_8);
+        String joinGuid = DigestUtils.md5Hex(joinKeyEncoded);
+        log.info("joinkey {}, joinGuid {}", joinKeyEncoded, joinGuid);
+
+        JoinUrn inputUrn = new JoinUrn(joinGuid);
 
         QueryContext context = environment.getContext();
         final CorpuserUrn actor = CorpuserUrn.createFromString(context.getActorUrn());
