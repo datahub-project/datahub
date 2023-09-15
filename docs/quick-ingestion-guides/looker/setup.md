@@ -33,6 +33,9 @@ Follow below steps to create API key.
 
    b. Set name for  `New Permission Set`, says `DataHub Connector Permission Set` and select following permissions
 
+   <details>
+      <summary>Permission List</summary>
+      
       - access_data
       - see_lookml_dashboards
       - see_looks
@@ -48,6 +51,8 @@ Follow below steps to create API key.
       - see_schedules
       - see_system_activity
       - see_users
+
+   </details>
 
     Scroll down and select all permissions mentioned above & click `New Permission Set` 
 

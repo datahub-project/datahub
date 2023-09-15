@@ -112,7 +112,7 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 ## Finish Up
 
-1. Name your ingestion source, then click **Save and Run**
+Name your ingestion source, then click **Save and Run**
 <p align="center">
   <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-source-window.png"/>
 </p>  
