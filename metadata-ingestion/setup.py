@@ -58,7 +58,8 @@ framework_common = {
     "requests_file",
     "jsonref",
     # jsonschema drops python 3.7 support in v4.18.0
-    "jsonschema<=4.17.3",
+    "jsonschema<=4.17.3; python_version < '3.8'",
+    "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
 }
 
