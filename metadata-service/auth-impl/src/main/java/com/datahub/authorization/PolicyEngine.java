@@ -125,11 +125,7 @@ public class PolicyEngine {
     }
 
     // If the actor does not match, deny the request.
-    if (!isActorMatch(actorResolvedResourceSpec, policy.getActors(), resource, context)) {
-      return false;
-    }
-
-    return true;
+    return isActorMatch(actorResolvedResourceSpec, policy.getActors(), resource, context);
   }
 
   public List<String> getGrantedPrivileges(
@@ -179,7 +175,7 @@ public class PolicyEngine {
       // No resource defined on the policy.
       return true;
     }
-    if (!requestResource.isPresent()) {
+    if (requestResource.isEmpty()) {
       // Resource filter present in policy, but no resource spec provided.
       log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
@@ -277,7 +273,8 @@ public class PolicyEngine {
     // If the actor is in a matching "Group" in the actor filter, return true immediately.
     if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
       final Set<String> groups = actorResolvedResourceSpec.getGroupMembership();
-      return actorFilter.isAllGroups() || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
+      return (actorFilter.isAllGroups() && !groups.isEmpty())
+          || (actorFilter.hasGroups() && Objects.requireNonNull(actorFilter.getGroups())
           .stream().map(Urn::toString)
           .anyMatch(groups::contains));
     }
@@ -290,7 +287,7 @@ public class PolicyEngine {
       final DataHubActorFilter actorFilter,
       final Optional<ResolvedResourceSpec> requestResource) {
     // If the policy does not apply to owners, or there is no resource to own, return false immediately.
-    if (!actorFilter.isResourceOwners() || !requestResource.isPresent()) {
+    if (!actorFilter.isResourceOwners() || requestResource.isEmpty()) {
       return false;
     }
     List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
@@ -328,10 +325,7 @@ public class PolicyEngine {
     }
     final Set<String> groups = actorResolvedResourceSpec.getGroupMembership();
 
-    if (isGroupOwner(groups, owners)) {
-      return true;
-    }
-    return false;
+    return isGroupOwner(groups, owners);
   }
 
   private boolean isUserOwner(final ResolvedResourceSpec actorResolvedResourceSpec, Set<String> owners) {

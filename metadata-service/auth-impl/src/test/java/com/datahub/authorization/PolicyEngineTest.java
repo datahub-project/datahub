@@ -479,7 +479,7 @@ public class PolicyEngineTest {
     PolicyEngine.PolicyEvaluationResult result2 =
         _policyEngine.evaluatePolicy(dataHubPolicyInfo, unauthorizedUserResolvedResourceSpec, "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec));
-    assertTrue(result2.isGranted()); //TODO
+    assertFalse(result2.isGranted());
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
