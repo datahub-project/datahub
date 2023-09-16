@@ -17,8 +17,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertNotNull;
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertNotNull;
 
 
 @Import({OpenAPIEntityTestConfiguration.class})
