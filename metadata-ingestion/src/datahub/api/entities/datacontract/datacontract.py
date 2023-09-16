@@ -1,19 +1,18 @@
 import collections
 from typing import Iterable, List, Literal, Optional, Tuple
-from datahub.api.entities.datacontract.data_quality_assertion import (
-    DataQualityAssertion,
-)
-from datahub.api.entities.datacontract.freshness_assertion import FreshnessAssertion
-from datahub.utilities.urns.urn import guess_entity_type
 
 import pydantic
 from ruamel.yaml import YAML
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
-from datahub.configuration.common import ConfigModel
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.api.entities.datacontract.data_quality_assertion import (
+    DataQualityAssertion,
+)
+from datahub.api.entities.datacontract.freshness_assertion import FreshnessAssertion
 from datahub.api.entities.datacontract.schema_assertion import SchemaAssertion
+from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     DataContractPropertiesClass,
     DataContractStateClass,
@@ -23,6 +22,7 @@ from datahub.metadata.schema_classes import (
     SchemaContractClass,
     StatusClass,
 )
+from datahub.utilities.urns.urn import guess_entity_type
 
 
 class DataContract(ConfigModel):

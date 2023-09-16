@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import json
 from typing import List, Literal, Union
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 import pydantic
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
     SchemaAssertionInfoClass,
     SchemaFieldClass,
-    SchemaMetadataClass,
     SchemalessClass,
+    SchemaMetadataClass,
 )
 
 

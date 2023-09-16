@@ -1,19 +1,21 @@
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from typing import List, Literal, Optional, Union
+
+import pydantic
+
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
-    AssertionStdParameterTypeClass,
     AssertionStdParametersClass,
+    AssertionStdParameterTypeClass,
     AssertionTypeClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
 )
-import pydantic
-from typing import List, Literal, Optional, Union
-from datahub.configuration.common import ConfigModel
 
 
 class IdConfigMixin(ConfigModel):

@@ -1,4 +1,12 @@
 from __future__ import annotations
+
+from datetime import timedelta
+from typing import List, Literal, Union
+
+import pydantic
+
+from datahub.configuration.common import ConfigModel
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionTypeClass,
@@ -10,15 +18,6 @@ from datahub.metadata.schema_classes import (
     FreshnessAssertionTypeClass,
     FreshnessCronScheduleClass,
 )
-
-from datetime import timedelta
-
-from typing import List, Literal, Union
-
-import pydantic
-
-from datahub.configuration.common import ConfigModel
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 
 
 class CronFreshnessAssertion(ConfigModel):
