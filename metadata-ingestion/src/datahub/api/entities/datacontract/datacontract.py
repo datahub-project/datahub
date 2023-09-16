@@ -1,6 +1,6 @@
 import collections
-from typing import Iterable, List, Literal, Optional, Tuple
-
+from typing import Iterable, List, Optional, Tuple
+from typing_extensions import Literal
 import pydantic
 from ruamel.yaml import YAML
 

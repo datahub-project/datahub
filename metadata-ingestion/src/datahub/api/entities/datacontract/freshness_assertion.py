@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import List, Literal, Union
+from typing import List, Union
+from typing_extensions import Literal
 
 import pydantic
 

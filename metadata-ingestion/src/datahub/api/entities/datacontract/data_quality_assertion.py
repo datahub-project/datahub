@@ -1,4 +1,5 @@
-from typing import List, Literal, Optional, Union
+from typing import List, Optional, Union
+from typing_extensions import Literal
 
 import pydantic
 
