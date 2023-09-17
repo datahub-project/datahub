@@ -58,7 +58,8 @@ framework_common = {
     "requests_file",
     "jsonref",
     # jsonschema drops python 3.7 support in v4.18.0
-    "jsonschema<=4.17.3",
+    "jsonschema<=4.17.3; python_version < '3.8'",
+    "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
 }
 
@@ -309,6 +310,7 @@ plugins: Dict[str, Set[str]] = {
     "dbt": {"requests"} | aws_common,
     "dbt-cloud": {"requests"},
     "druid": sql_common | {"pydruid>=0.6.2"},
+    "dynamodb": aws_common,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
     # UnsupportedProductError
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
@@ -557,6 +559,7 @@ entry_points = {
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
+        "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
         "feast = datahub.ingestion.source.feast:FeastRepositorySource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
