@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 from typing import List, Union
-from typing_extensions import Literal
 
 import pydantic
+from typing_extensions import Literal
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

@@ -1,8 +1,9 @@
 import collections
 from typing import Iterable, List, Optional, Tuple
-from typing_extensions import Literal
+
 import pydantic
 from ruamel.yaml import YAML
+from typing_extensions import Literal
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datacontract.data_quality_assertion import (

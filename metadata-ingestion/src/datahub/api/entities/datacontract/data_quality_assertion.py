@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
-from typing_extensions import Literal
 
 import pydantic
+from typing_extensions import Literal
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel

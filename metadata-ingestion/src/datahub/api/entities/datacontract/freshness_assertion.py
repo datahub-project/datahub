@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import List, Union
-from typing_extensions import Literal
 
 import pydantic
+from typing_extensions import Literal
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

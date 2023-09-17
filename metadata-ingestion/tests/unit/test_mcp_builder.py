@@ -80,7 +80,7 @@ def test_guid_generators():
     key = builder.SchemaKey(
         database="test", schema="Test", platform="mysql", instance="TestInstance"
     )
-    guid_datahub = datahub_guid(key.dict(by_alias=True))
+    guid_datahub = key.guid()
 
     guid = key.guid()
     assert guid == guid_datahub
