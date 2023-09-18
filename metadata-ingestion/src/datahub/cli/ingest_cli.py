@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import memray
 import textwrap
 from datetime import datetime
 from typing import Optional
@@ -128,7 +129,12 @@ def run(
         logger.info("Starting metadata ingestion")
         with click_spinner.spinner(disable=no_spinner):
             try:
-                pipeline.run()
+                if pipeline.config.flags.generate_memory_profiles:
+                    logger.info(pipeline)
+                    with memray.Tracker(f"{pipeline.config.source.type}-{pipeline.config.pipeline_name}-{pipeline.config.run_id}.bin"):
+                        pipeline.run()
+                else:
+                    pipeline.run()
             except Exception as e:
                 logger.info(
                     f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"

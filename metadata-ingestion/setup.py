@@ -52,6 +52,7 @@ framework_common = {
     "jsonschema<=4.17.3; python_version < '3.8'",
     "jsonschema; python_version >= '3.8'",
     "ruamel.yaml",
+    "memray"
 }
 
 rest_common = {"requests", "requests_file"}

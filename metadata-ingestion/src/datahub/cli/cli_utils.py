@@ -100,7 +100,6 @@ def write_gms_config(
 def should_skip_config() -> bool:
     return get_boolean_env_variable(ENV_SKIP_CONFIG, False)
 
-
 def ensure_datahub_config() -> None:
     if not os.path.isfile(DATAHUB_CONFIG_PATH):
         click.secho(
