@@ -57,7 +57,7 @@ for unexpected or sudden changes in its meaning. Custom Assertions are defined t
 the Table. You have full control over the SQL query, and can use any SQL features supported by your Data Warehouse. 
 Custom Assertions can be particularly useful when you have complex tables or relationships
 that are used to generate important metrics or reports, and where the meaning of the table is expected to be stable over time.
-If you have existing SQL queries that you use to monitor your data, you may find that Custom Assertions are an easy way port them
+If you have existing SQL queries that you already use to monitor your data, you may find that Custom Assertions are an easy way to port them
 to Acryl DataHub to get started.
 
 For example, imagine that you have a Table that tracks the number of purchases made on your company's e-commerce web store.
