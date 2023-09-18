@@ -92,7 +92,7 @@ export default function LineageExplorer({ urn, type }: Props) {
             type: EventType.VisualLineageViewEvent,
             entityType: entityData?.type,
         });
-    }, [isHideSiblingMode, startTimeMillis, endTimeMillis]);
+    }, [isHideSiblingMode, startTimeMillis, endTimeMillis, entityData?.type]);
 
     useEffect(() => {
         if (showColumns) {

@@ -357,7 +357,7 @@ export interface SearchAcrossLineageEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
-    degree?: string;
+    maxDegree?: string;
 }
 export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageResultsViewEvent;
@@ -365,7 +365,7 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     page?: number;
     total: number;
-    degree?: string;
+    maxDegree?: string;
 }
 
 export interface DownloadAsCsvEvent extends BaseEvent {

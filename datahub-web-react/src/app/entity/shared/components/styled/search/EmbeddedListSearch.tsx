@@ -275,9 +275,9 @@ export const EmbeddedListSearch = ({
         analytics.event({
             type: EventType.SearchAcrossLineageResultsViewEvent,
             query,
-            page: page,
+            page,
             total: data?.total || 0,
-            degree: degreeFilter?.values?.sort()?.reverse()[0] || '1',
+            maxDegree: degreeFilter?.values?.sort()?.reverse()[0] || '1',
         });
     }
 
