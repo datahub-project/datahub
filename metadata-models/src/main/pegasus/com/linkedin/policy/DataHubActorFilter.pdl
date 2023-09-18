@@ -1,7 +1,6 @@
 namespace com.linkedin.policy
 
 import com.linkedin.common.Urn
-import com.linkedin.ownership.OwnershipTypeInfo
 
 /**
  * Information used to filter DataHub actors.
@@ -25,9 +24,20 @@ record DataHubActorFilter {
   resourceOwners: boolean = false
 
   /**
-   * Define type of ownership for the policy
+   * Define type of resource ownership for the policy
   */
   resourceOwnersTypes: optional array[Urn]
+
+  /**
+   * Whether the filter should return true for owners of the platform instance to which a particular resource belongs to.
+   * Only applies to policies of type 'Metadata', which have a resource associated with them.
+   */
+  platformInstanceOwners: boolean = false
+
+  /**
+   * Define type of platform instance ownership for the policy
+  */
+  platformInstanceOwnersTypes: optional array[Urn]
 
   /**
    * Whether the filter should apply to all users.

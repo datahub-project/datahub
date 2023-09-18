@@ -109,6 +109,7 @@ def test_frontend_policy_operations(frontend_session):
                 "actors": {
                     "users": [get_root_urn()],
                     "resourceOwners": False,
+                    "platformInstanceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
                 },
@@ -139,6 +140,7 @@ def test_frontend_policy_operations(frontend_session):
                 "privileges": ["EDIT_ENTITY_TAGS", "EDIT_ENTITY_GLOSSARY_TERMS"],
                 "actors": {
                     "resourceOwners": False,
+                    "platformInstanceOwners": False,
                     "allUsers": True,
                     "allGroups": False,
                 },

@@ -309,37 +309,31 @@ public class PolicyEngine {
       final Optional<ResolvedResourceSpec> requestResource,
       final PolicyEvaluationContext context) {
     // If the policy does not apply to owners, or there is no resource to own, return false immediately.
-    if (!actorFilter.isResourceOwners() || !requestResource.isPresent()) {
+    if (!(actorFilter.isResourceOwners() || actorFilter.isPlatformInstanceOwners()) || !requestResource.isPresent()) {
       return false;
     }
-    List<Urn> ownershipTypes = actorFilter.getResourceOwnersTypes();
-    return isActorOwner(actor, requestResource.get(), ownershipTypes, context);
+    List<Urn> resourceOwnershipTypes = actorFilter.getResourceOwnersTypes();
+    List<Urn> platformInstanceOwnershipTypes = actorFilter.getPlatformInstanceOwnersTypes();
+    return isActorOwner(actor, requestResource.get(), resourceOwnershipTypes, platformInstanceOwnershipTypes, context);
   }
 
-  private Set<String> getOwnersForType(ResourceSpec resourceSpec, List<Urn> ownershipTypes) {
-    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getResource());
-    EnvelopedAspect ownershipAspect;
-    try {
-      EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
-              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME), _systemAuthentication);
-      if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
-        return Collections.emptySet();
-      }
-      ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
-    } catch (Exception e) {
-      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
-      return Collections.emptySet();
+  private boolean isActorOwner(
+    Urn actor,
+    ResolvedResourceSpec resourceSpec,
+    List<Urn> resourceOwnershipTypes,
+    List<Urn> platformInstanceOwnershipTypes,
+    PolicyEvaluationContext context
+  ) {
+    Urn entityUrn = UrnUtils.getUrn(resourceSpec.getSpec().getResource());
+    Set<String> resourceOwners = this.resolveEntityOwnersForType(entityUrn, resourceOwnershipTypes);
+    Set<String> owners = new HashSet<>(new ArrayList<>(resourceOwners));
+    String platformInstance = resourceSpec.getPlatformInstance();
+    if (platformInstance != null) {
+      Urn platformInstanceUrn = UrnUtils.getUrn(platformInstance);
+      Set<String> platformInstanceOwners = this.resolveEntityOwnersForType(platformInstanceUrn, platformInstanceOwnershipTypes);
+      owners.addAll(new ArrayList<>(platformInstanceOwners));
     }
-    Ownership ownership = new Ownership(ownershipAspect.getValue().data());
-    Stream<Owner> ownersStream = ownership.getOwners().stream();
-    if (ownershipTypes != null) {
-      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
-    }
-    return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
-  }
 
-  private boolean isActorOwner(Urn actor, ResolvedResourceSpec resourceSpec, List<Urn> ownershipTypes, PolicyEvaluationContext context) {
-    Set<String> owners = this.getOwnersForType(resourceSpec.getSpec(), ownershipTypes);
     if (isUserOwner(actor, owners)) {
       return true;
     }
@@ -369,6 +363,29 @@ public class PolicyEngine {
     return Objects.requireNonNull(actorFilter.getRoles())
         .stream()
         .anyMatch(actorRoles::contains);
+  }
+
+  private Set<String> resolveEntityOwnersForType(Urn entityUrn, List<Urn> ownershipTypes) {
+    EnvelopedAspect ownershipAspect;
+
+    try {
+      EntityResponse response = _entityClient.getV2(entityUrn.getEntityType(), entityUrn,
+              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME), _systemAuthentication);
+      if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
+        return Collections.emptySet();
+      }
+      ownershipAspect = response.getAspects().get(Constants.OWNERSHIP_ASPECT_NAME);
+    } catch (Exception e) {
+      log.error("Error while retrieving ownership aspect for urn {}", entityUrn, e);
+      return Collections.emptySet();
+    }
+
+    Ownership ownership = new Ownership(ownershipAspect.getValue().data());
+    Stream<Owner> ownersStream = ownership.getOwners().stream();
+    if (ownershipTypes != null) {
+      ownersStream = ownersStream.filter(owner -> ownershipTypes.contains(owner.getTypeUrn()));
+    }
+    return ownersStream.map(owner -> owner.getOwner().toString()).collect(Collectors.toSet());
   }
 
   private Set<Urn> resolveRoles(Urn actor, PolicyEvaluationContext context) {

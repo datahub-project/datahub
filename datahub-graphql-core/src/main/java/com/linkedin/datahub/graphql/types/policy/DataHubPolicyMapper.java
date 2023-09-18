@@ -68,10 +68,15 @@ public class DataHubPolicyMapper implements ModelMapper<EntityResponse, DataHubP
     result.setAllGroups(actorFilter.isAllGroups());
     result.setAllUsers(actorFilter.isAllUsers());
     result.setResourceOwners(actorFilter.isResourceOwners());
+    result.setPlatformInstanceOwners(actorFilter.isPlatformInstanceOwners());
     // Change here is not executed at the moment - leaving it for the future
     UrnArray resourceOwnersTypes = actorFilter.getResourceOwnersTypes();
     if (resourceOwnersTypes != null) {
       result.setResourceOwnersTypes(resourceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
+    }
+    UrnArray platformInstanceOwnersTypes = actorFilter.getPlatformInstanceOwnersTypes();
+    if (platformInstanceOwnersTypes != null) {
+      result.setPlatformInstanceOwnersTypes(platformInstanceOwnersTypes.stream().map(Urn::toString).collect(Collectors.toList()));
     }
     if (actorFilter.hasGroups()) {
       result.setGroups(actorFilter.getGroups().stream().map(Urn::toString).collect(Collectors.toList()));
