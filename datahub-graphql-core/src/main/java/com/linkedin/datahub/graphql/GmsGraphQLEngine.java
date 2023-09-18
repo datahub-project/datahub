@@ -544,7 +544,7 @@ public class GmsGraphQLEngine {
         this.dataHubPolicyType = new DataHubPolicyType(entityClient);
         this.dataHubRoleType = new DataHubRoleType(entityClient);
         this.schemaFieldType = new SchemaFieldType();
-        this.joinType = new JoinType(entityClient);
+        this.joinType = new JoinType(entityClient, featureFlags);
         this.dataHubViewType = new DataHubViewType(entityClient);
         this.queryType = new QueryType(entityClient);
         this.dataProductType = new DataProductType(entityClient);

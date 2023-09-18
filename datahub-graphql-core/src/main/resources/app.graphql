@@ -441,6 +441,10 @@ type FeatureFlagsConfig {
   Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
   """
   showAcrylInfo: Boolean!
+  """
+  Whether Join Tables Feature should be shown.
+  """
+  joinFeatureEnabled: Boolean!
 }
 
 """

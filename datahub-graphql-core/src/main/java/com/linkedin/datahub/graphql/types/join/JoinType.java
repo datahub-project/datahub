@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowseResults;
@@ -72,10 +73,11 @@ public class JoinType implements com.linkedin.datahub.graphql.types.EntityType<J
   private static final String ENTITY_NAME = "join";
 
   private final EntityClient _entityClient;
+  private final FeatureFlags _featureFlags;
 
-
-  public JoinType(final EntityClient entityClient)  {
+  public JoinType(final EntityClient entityClient, final FeatureFlags featureFlags)  {
     _entityClient = entityClient;
+    _featureFlags = featureFlags; // TODO: check if Join Feture is Enabled and throw error when called
   }
 
   @Override

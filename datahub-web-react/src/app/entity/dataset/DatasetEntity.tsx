@@ -101,6 +101,10 @@ export class DatasetEntity implements Entity<Dataset> {
                 {
                     name: 'Relationships',
                     component: RelationshipsTab,
+                    display: {
+                        visible: (_, _1) => false,
+                        enabled: (_, _2) => false,
+                    },
                 },
                 {
                     name: 'View Definition',
