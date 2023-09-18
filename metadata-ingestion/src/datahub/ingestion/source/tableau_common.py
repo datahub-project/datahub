@@ -1,6 +1,8 @@
 import html
 import logging
 from dataclasses import dataclass
+
+import re
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
@@ -843,3 +845,11 @@ def query_metadata(server, main_query, connection_name, first, offset, qry_filte
         main_query=main_query,
     )
     return server.metadata.query(query)
+
+
+def get_dataset_platform_from_urn(urn: str) -> Optional[str]:
+    pattern = r"urn:li:dataset:\(urn:li:dataPlatform:(.*),(.*),(.*)\)"
+    results = re.search(pattern, urn)
+    if results is not None:
+        return results[1]
+    return None
