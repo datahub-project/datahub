@@ -51,4 +51,9 @@ record DataContractProperties {
      }
    }
   dataQuality: optional array[DataQualityContract]
+
+  /**
+   * YAML-formatted contract definition
+   */
+  rawContract: optional string
 }
