@@ -86,14 +86,15 @@ minutes in an hour.
 
 #### 2. Query
 
-The **Query**: This is the SQL query that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. This requires that the configured user account has read access to the asset.
+The **Query**: This is the SQL query that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. This requires that the configured user account has read access to the asset. Make sure to use the fully qualified name of the Table in your query.
+
 
 Use the "Try it out" button to test your query and ensure that it returns a single row with a single column. The query will be run against the Table in the context of the configured user account, so ensure that the user has read access to the Table.
 
 
 #### 3. Condition Type
 
-The **Condition Type**: This defines the conditions under which the Assertion will fail. The list of supported operations is:
+The **Condition Type**: This defines the conditions under which the Assertion will **fail**. The list of supported operations is:
 - **Is Equal To**: The assertion will fail if the query result is equal to the configured value
 - **Is Not Equal To**: The assertion will fail if the query result is not equal to the configured value
 - **Is Greater Than**: The assertion will fail if the query result is greater than the configured value
@@ -138,12 +139,12 @@ Once these are in place, you're ready to create your Custom Assertions!
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-choose-type.png"/>
 </p>
 
-4. Choose **Volume**
+4. Choose **Custom**
 
 5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a pass or fail result, and the times 
    when the query will be executed.
 
-6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse.
+6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. Make sure to use the fully qualified name of the Table in your query.
 
 <p align="center">
   <img width=60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
@@ -177,7 +178,7 @@ Once these are in place, you're ready to create your Custom Assertions!
 - **Raise incident**: Automatically raise a new DataHub Incident for the Table whenever the Custom Assertion is failing. This
   may indicate that the Table is unfit for consumption. Configure Slack Notifications under **Settings** to be notified when
   an incident is created due to an Assertion failure.
-- **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Volume Assertion. Note that
+- **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Custom Assertion. Note that
   any other incidents will not be impacted.
 
 1.  Click **Save**.
