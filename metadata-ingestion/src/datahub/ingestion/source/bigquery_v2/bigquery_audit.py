@@ -13,48 +13,6 @@ from datahub.utilities.parsing_util import (
     get_first_missing_key_any,
 )
 
-BQ_FILTER_RULE_TEMPLATE = "BQ_FILTER_RULE_TEMPLATE"
-
-BQ_AUDIT_V2 = {
-    BQ_FILTER_RULE_TEMPLATE: """
-resource.type=("bigquery_project" OR "bigquery_dataset")
-AND
-timestamp >= "{start_time}"
-AND
-timestamp < "{end_time}"
-AND protoPayload.serviceName="bigquery.googleapis.com"
-AND
-(
-    (
-        protoPayload.methodName=
-            (
-                "google.cloud.bigquery.v2.JobService.Query"
-                OR
-                "google.cloud.bigquery.v2.JobService.InsertJob"
-            )
-        AND protoPayload.metadata.jobChange.job.jobStatus.jobState="DONE"
-        AND NOT protoPayload.metadata.jobChange.job.jobStatus.errorResult:*
-        AND protoPayload.metadata.jobChange.job.jobConfig.queryConfig:*
-        AND
-        (
-            (
-                protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables:*
-                AND NOT protoPayload.metadata.jobChange.job.jobStats.queryStats.referencedTables =~ "projects/.*/datasets/.*/tables/__TABLES__|__TABLES_SUMMARY__|INFORMATION_SCHEMA.*"
-            )
-            OR
-            (
-                protoPayload.metadata.jobChange.job.jobConfig.queryConfig.destinationTable:*
-            )
-        )
-    )
-    OR
-    protoPayload.metadata.tableDataRead.reason = "JOB"
-)
-""".strip(
-        "\t \n"
-    ),
-}
-
 AuditLogEntry = Any
 
 # BigQueryAuditMetadata is the v2 format in which audit logs are exported to BigQuery
@@ -606,7 +564,6 @@ class ReadEvent:
         query_event: QueryEvent,
         debug_include_full_payloads: bool = False,
     ) -> "ReadEvent":
-
         readEvent = ReadEvent(
             actor_email=query_event.actor_email,
             timestamp=query_event.timestamp,
