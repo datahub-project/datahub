@@ -12,6 +12,7 @@ DataHub makes these relationships discoverable and facilitate utilization by oth
 For technical details on ML entities, please refer to the following docs:
 
 - [MlFeature](/docs/generated/metamodel/entities/mlFeature.md)
+- [MlPrimaryKey](/docs/generated/metamodel/entities/mlPrimaryKey.md)
 - [MlFeatureTable](/docs/generated/metamodel/entities/mlFeatureTable.md)
 - [MlModel](/docs/generated/metamodel/entities/mlModel.md)
 - [MlModelGroup](/docs/generated/metamodel/entities/mlModelGroup.md)
@@ -20,9 +21,9 @@ For technical details on ML entities, please refer to the following docs:
 
 This guide will show you how to
 
-- Create ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup
-- Read ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup
-- Attach MlFeatureTable or MlModel to MlFeature
+- Create ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup, MlPrimaryKey
+- Read ML entities: MlFeature, MlFeatureTable, MlModel, MlModelGroup, MlPrimaryKey
+- Attach MlModel to MlFeature
 - Attach MlFeatures to MlFeatureTable
 - Attached MlFeatures to upstream Datasets that power them
 
@@ -116,17 +117,13 @@ An ML Model Group represents the grouping of all training runs of a single Machi
 
 You can search the entities in DataHub UI.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/feature-table-created.png"/>
 </p>
 
-
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/model-group-created.png"/>
 </p>
-
 
 ## Read ML Entities
 
@@ -209,6 +206,93 @@ Expected response:
 
 ```python
 {{ inline /metadata-ingestion/examples/library/read_mlfeature.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+### Read MlPrimaryKey
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```json
+query {
+  mlPrimaryKey(urn: "urn:li:mlPrimaryKey:(user_features,user_id)"){
+    name
+    featureNamespace
+    description
+    dataType
+    properties {
+      description
+      dataType
+      version {
+        versionTag
+      }
+    }
+  }
+}
+```
+
+Expected response:
+
+```json
+{
+  "data": {
+    "mlPrimaryKey": {
+      "name": "user_id",
+      "featureNamespace": "user_features",
+      "description": "User's internal ID",
+      "dataType": "ORDINAL",
+      "properties": {
+        "description": "User's internal ID",
+        "dataType": "ORDINAL",
+        "version": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="curl" label="Curl" default>
+
+```json
+curl --location --request POST 'http://localhost:8080/api/graphql' \
+--header 'Authorization: Bearer <my-access-token>' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "query": "query {  mlPrimaryKey(urn: \"urn:li:mlPrimaryKey:(user_features,user_id)\"){    name    featureNamespace    description    dataType    properties {      description      dataType      version {        versionTag      }    }  }}"
+}'
+```
+
+Expected response:
+
+```json
+{
+  "data": {
+    "mlPrimaryKey": {
+      "name": "user_id",
+      "featureNamespace": "user_features",
+      "description": "User's internal ID",
+      "dataType": "ORDINAL",
+      "properties": {
+        "description": "User's internal ID",
+        "dataType": "ORDINAL",
+        "version": null
+      }
+    }
+  },
+  "extensions": {}
+}
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/read_mlprimarykey.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -527,14 +611,10 @@ Expected Response: (Note that this entity does not exist in the sample ingestion
 
 You can access to `Features` or `Group` Tab of each entity to view the added entities.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/feature-added-to-model.png"/>
 </p>
 
-
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/model-group-added-to-model.png"/>
 </p>
-
