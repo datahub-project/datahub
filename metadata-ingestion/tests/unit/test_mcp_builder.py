@@ -1,5 +1,4 @@
 import datahub.emitter.mcp_builder as builder
-from datahub.emitter.mce_builder import datahub_guid
 
 
 def test_guid_generator():
