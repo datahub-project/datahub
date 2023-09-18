@@ -62,9 +62,13 @@ Postman is a popular API client that provides a graphical user interface for sen
 Within Postman, you can create a `POST` request and set the request URL to the `/api/graphql` endpoint.
 In the request body, select the `GraphQL` option and enter your GraphQL query in the request body.
 
-![postman-graphql](../../imgs/apis/postman-graphql.png)
 
-Please refer to [Querying with GraphQL](https://learning.postman.com/docs/sending-requests/graphql/graphql/) in the Postman documentation for more information.
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/postman-graphql.png"/>
+</p>
+
+
+Please refer to [Querying with GraphQL](https://learning.postman.com/docs/sending-requests/graphql/graphql-overview/) in the Postman documentation for more information.
 
 ### Authentication + Authorization
 

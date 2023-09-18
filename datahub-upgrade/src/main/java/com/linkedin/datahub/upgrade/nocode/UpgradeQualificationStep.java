@@ -5,14 +5,14 @@ import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.AspectStorageValidationUtil;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.function.Function;
 
 public class UpgradeQualificationStep implements UpgradeStep {
 
-  private final EbeanServer _server;
+  private final Database _server;
 
-  UpgradeQualificationStep(EbeanServer server) {
+  UpgradeQualificationStep(Database server) {
     _server = server;
   }
 
@@ -52,7 +52,7 @@ public class UpgradeQualificationStep implements UpgradeStep {
   }
 
   // Check whether the upgrade is needed
-  private boolean isQualified(EbeanServer server, UpgradeContext context) {
+  private boolean isQualified(Database server, UpgradeContext context) {
     boolean v1TableExists = AspectStorageValidationUtil.checkV1TableExists(server);
     if (v1TableExists) {
       context.report().addLine("-- V1 table exists");

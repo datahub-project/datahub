@@ -5,16 +5,42 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+- #8810 - Removed support for SQLAlchemy 1.3.x. Only SQLAlchemy 1.4.x is supported now.
 
 ### Potential Downtime
 
 ### Deprecations
-- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
 
 ### Other Notable Changes
+
+## 0.11.0
+
+### Breaking Changes
+
+### Potential Downtime
+- #8611 Search improvements requires reindexing indices. A `system-update` job will run which will set indices to read-only and create a backup/clone of each index. During the reindexing new components will be prevented from start-up until the reindex completes. The logs of this job will indicate a % complete per index. Depending on index sizes and infrastructure this process can take 5 minutes to hours however as a rough estimate 1 hour for every 2.3 million entities.
+
+### Deprecations
+- #8525: In LDAP ingestor, the `manager_pagination_enabled` changed to general `pagination_enabled`
+- MAE Events are no longer produced. MAE events have been deprecated for over a year.
+
+### Other Notable Changes
+- In this release we now enable you to create and delete pinned announcements on your DataHub homepage! If you have the “Manage Home Page Posts” platform privilege you’ll see a new section in settings called “Home Page Posts” where you can create and delete text posts and link posts that your users see on the home page.
+- The new search and browse experience, which was first made available in the previous release behind a feature flag, is now on by default. Check out our release notes for v0.10.5 to get more information and documentation on this new Browse experience.
+- In addition to the ranking changes mentioned above, this release includes changes to the highlighting of search entities to understand why they match your query. You can also sort your results alphabetically or by last updated times, in addition to relevance. In this release, we suggest a correction if your query has a typo in it.
 - #8300: Clickhouse source now inherited from TwoTierSQLAlchemy. In old way we have platform_instance -> container -> co
   container db (None) -> container schema and now we have platform_instance -> container database.
 - #8300: Added `uri_opts` argument; now we can add any options for clickhouse client.
+- #8659: BigQuery ingestion no longer creates DataPlatformInstance aspects by default.
+  This will only affect users that were depending on this aspect for custom functionality,
+  and can be enabled via the `include_data_platform_instance` config option.
+- OpenAPI entity and aspect endpoints expanded to improve developer experience when using this API with additional aspects to be added in the near future.
+- The CLI now supports recursive deletes.
+- Batching of default aspects on initial ingestion (SQL)
+- Improvements to multi-threading. Ingestion recipes, if previously reduced to 1 thread, can be restored to the 15 thread default.
+- Gradle 7 upgrade moderately improves build speed
+- DataHub Ingestion slim images reduced in size by 2GB+
+- Glue Schema Registry fixed
 
 ## 0.10.5
 

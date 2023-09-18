@@ -56,7 +56,7 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         result.setUrn(entityResponse.getUrn().toString());
         result.setType(EntityType.MLPRIMARY_KEY);
         EnvelopedAspectMap aspectMap = entityResponse.getAspects();
-        Long lastIngested = SystemMetadataUtils.getLastIngested(aspectMap);
+        Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspectMap);
         result.setLastIngested(lastIngested);
 
         MappingHelper<MLPrimaryKey> mappingHelper = new MappingHelper<>(aspectMap, result);

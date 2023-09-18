@@ -94,7 +94,8 @@
       "doc" : "Title of the chart",
       "Searchable" : {
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldNameAliases" : [ "_entityName" ],
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1326,7 +1327,8 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldNameAliases" : [ "_entityName" ],
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1471,7 +1473,8 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldNameAliases" : [ "_entityName" ],
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1530,7 +1533,8 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldNameAliases" : [ "_entityName" ],
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -1922,7 +1926,8 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : false,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldNameAliases" : [ "_entityName" ],
+        "fieldType" : "WORD_GRAM"
       },
       "validate" : {
         "strlen" : {
@@ -1937,7 +1942,7 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "type",
@@ -2111,7 +2116,8 @@
       "Searchable" : {
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT_PARTIAL"
+        "fieldNameAliases" : [ "_entityName" ],
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "qualifiedName",
@@ -2122,7 +2128,7 @@
         "addToFilters" : false,
         "boostScore" : 10.0,
         "enableAutocomplete" : true,
-        "fieldType" : "TEXT"
+        "fieldType" : "WORD_GRAM"
       }
     }, {
       "name" : "description",
@@ -2417,7 +2423,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   } ],
@@ -2437,6 +2443,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
+                      "fieldNameAliases" : [ "_entityName" ],
                       "fieldType" : "TEXT_PARTIAL",
                       "queryByDefault" : true
                     }
@@ -2555,7 +2562,7 @@
                       "boostScore" : 2.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "ldap",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -2585,7 +2592,8 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   }, {
@@ -2648,7 +2656,7 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   }, {
@@ -2709,7 +2717,7 @@
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
-                      "fieldType" : "TEXT_PARTIAL",
+                      "fieldType" : "WORD_GRAM",
                       "queryByDefault" : true
                     }
                   }, {
@@ -2870,7 +2878,7 @@
                     "doc" : "Unique Identifier of the data flow",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "cluster",
@@ -2933,7 +2941,7 @@
                     "doc" : "Unique Identifier of the data job",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -2986,7 +2994,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -3599,7 +3607,7 @@
                     "Searchable" : {
                       "boostScore" : 4.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "orchestrator",
@@ -3704,7 +3712,8 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -4302,7 +4311,8 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4390,7 +4400,8 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4484,7 +4495,8 @@
                     "Searchable" : {
                       "boostScore" : 8.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4590,7 +4602,8 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -4696,7 +4709,8 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "origin",
@@ -4778,7 +4792,7 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4796,7 +4810,8 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "description",
@@ -4851,7 +4866,7 @@
                     "Searchable" : {
                       "enableAutocomplete" : true,
                       "fieldName" : "id",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -4879,7 +4894,8 @@
                     "Searchable" : {
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "definition",
@@ -5057,7 +5073,7 @@
                     "type" : "string",
                     "Searchable" : {
                       "enableAutocomplete" : true,
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldType" : "WORD_GRAM"
                     }
                   } ],
                   "Aspect" : {
@@ -5096,7 +5112,8 @@
                       "boostScore" : 10.0,
                       "enableAutocomplete" : true,
                       "fieldName" : "displayName",
-                      "fieldType" : "TEXT_PARTIAL"
+                      "fieldNameAliases" : [ "_entityName" ],
+                      "fieldType" : "WORD_GRAM"
                     }
                   }, {
                     "name" : "id",
@@ -5710,6 +5727,12 @@
       "doc" : "Whether to skip aggregates/facets",
       "default" : false,
       "optional" : true
+    }, {
+      "name" : "getSuggestions",
+      "type" : "boolean",
+      "doc" : "Whether to request for search suggestions on the _entityName virtualized field",
+      "default" : false,
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
@@ -6081,6 +6104,31 @@
           },
           "doc" : "A list of search result metadata such as aggregations",
           "default" : [ ]
+        }, {
+          "name" : "suggestions",
+          "type" : {
+            "type" : "array",
+            "items" : {
+              "type" : "record",
+              "name" : "SearchSuggestion",
+              "doc" : "The model for the search result",
+              "fields" : [ {
+                "name" : "text",
+                "type" : "string",
+                "doc" : "The suggestion text for this search query"
+              }, {
+                "name" : "score",
+                "type" : "float",
+                "doc" : "The score for how close this suggestion is to the original search query.\nThe closer to 1 means it is closer to the original query and 0 is further away."
+              }, {
+                "name" : "frequency",
+                "type" : "long",
+                "doc" : "How many matches there are with the suggested text for the given field"
+              } ]
+            }
+          },
+          "doc" : "A list of search query suggestions based on the given query",
+          "default" : [ ]
         } ]
       },
       "doc" : "Metadata specific to the browse result of the queried path"
@@ -6187,7 +6235,7 @@
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
     } ]
-  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataHubRetentionSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
+  }, "com.linkedin.metadata.search.SearchResultMetadata", "com.linkedin.metadata.search.SearchSuggestion", "com.linkedin.metadata.snapshot.ChartSnapshot", "com.linkedin.metadata.snapshot.CorpGroupSnapshot", "com.linkedin.metadata.snapshot.CorpUserSnapshot", "com.linkedin.metadata.snapshot.DashboardSnapshot", "com.linkedin.metadata.snapshot.DataFlowSnapshot", "com.linkedin.metadata.snapshot.DataHubPolicySnapshot", "com.linkedin.metadata.snapshot.DataHubRetentionSnapshot", "com.linkedin.metadata.snapshot.DataJobSnapshot", "com.linkedin.metadata.snapshot.DataPlatformSnapshot", "com.linkedin.metadata.snapshot.DataProcessSnapshot", "com.linkedin.metadata.snapshot.DatasetSnapshot", "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot", "com.linkedin.metadata.snapshot.GlossaryTermSnapshot", "com.linkedin.metadata.snapshot.MLFeatureSnapshot", "com.linkedin.metadata.snapshot.MLFeatureTableSnapshot", "com.linkedin.metadata.snapshot.MLModelDeploymentSnapshot", "com.linkedin.metadata.snapshot.MLModelGroupSnapshot", "com.linkedin.metadata.snapshot.MLModelSnapshot", "com.linkedin.metadata.snapshot.MLPrimaryKeySnapshot", "com.linkedin.metadata.snapshot.SchemaFieldSnapshot", "com.linkedin.metadata.snapshot.Snapshot", "com.linkedin.metadata.snapshot.TagSnapshot", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.DeploymentStatus", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLFeatureTableProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelDeploymentProperties", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelGroupProperties", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.MLPrimaryKeyProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", {
     "type" : "record",
     "name" : "SystemMetadata",
     "namespace" : "com.linkedin.mxe",
@@ -6201,8 +6249,19 @@
     }, {
       "name" : "runId",
       "type" : "string",
-      "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
+      "doc" : "The original run id that produced the metadata. Populated in case of batch-ingestion.",
       "default" : "no-run-id-provided",
+      "optional" : true
+    }, {
+      "name" : "lastRunId",
+      "type" : "string",
+      "doc" : "The last run id that produced the metadata. Populated in case of batch-ingestion.",
+      "default" : "no-run-id-provided",
+      "optional" : true
+    }, {
+      "name" : "pipelineName",
+      "type" : "string",
+      "doc" : "The ingestion pipeline id that produced the metadata. Populated in case of batch ingestion.",
       "optional" : true
     }, {
       "name" : "registryName",

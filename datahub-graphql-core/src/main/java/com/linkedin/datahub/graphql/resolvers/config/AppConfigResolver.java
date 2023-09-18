@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
@@ -144,6 +145,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setEntityProfiles(entityProfilesConfig);
     }
+    if (_visualConfiguration != null && _visualConfiguration.getSearchResult() != null) {
+      SearchResultsVisualConfig searchResultsVisualConfig = new SearchResultsVisualConfig();
+      if (_visualConfiguration.getSearchResult().getEnableNameHighlight() != null) {
+        searchResultsVisualConfig.setEnableNameHighlight(_visualConfiguration.getSearchResult().getEnableNameHighlight());
+      }
+      visualConfig.setSearchResult(searchResultsVisualConfig);
+    }
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
@@ -163,6 +171,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       .setReadOnlyModeEnabled(_featureFlags.isReadOnlyModeEnabled())
       .setShowBrowseV2(_featureFlags.isShowBrowseV2())
       .setShowAcrylInfo(_featureFlags.isShowAcrylInfo())
+      .setShowAccessManagement(_featureFlags.isShowAccessManagement())
       .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
