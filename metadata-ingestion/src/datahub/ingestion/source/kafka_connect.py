@@ -973,6 +973,8 @@ class SnowflakeSinkConnector:
     def _extract_lineages(self):
         self.connector_manifest.flow_property_bag = self.connector_manifest.config
 
+        # For all snowflake sink connector properties, refer below link
+        # https://docs.snowflake.com/en/user-guide/kafka-connector-install#configuring-the-kafka-connector
         # remove private keys, secrets from properties
         secret_properties = [
             "snowflake.private.key",
