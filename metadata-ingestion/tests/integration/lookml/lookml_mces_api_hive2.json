@@ -21,8 +21,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,default-hive-db.my_table,PROD)",
                                 "type": "VIEW"
@@ -260,8 +260,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.my_view,PROD)",
                                 "type": "VIEW"
@@ -478,8 +478,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,looker_schema.include_able,PROD)",
                                 "type": "VIEW"
@@ -585,8 +585,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,looker_schema.events,PROD)",
                                 "type": "VIEW"
@@ -692,8 +692,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,looker_schema.events,PROD)",
                                 "type": "VIEW"
@@ -844,8 +844,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,default-hive-db.autodetect_sql_name_based_on_view_name,PROD)",
                                 "type": "VIEW"
@@ -951,8 +951,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,looker_schema.include_able,PROD)",
                                 "type": "VIEW"
@@ -1058,8 +1058,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,default-hive-db.fragment_derived_view,PROD)",
                                 "type": "VIEW"
@@ -1240,8 +1240,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,default-hive-db.order,PROD)",
                                 "type": "VIEW"
@@ -1347,8 +1347,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,ecommerce.ability,PROD)",
                                 "type": "VIEW"
@@ -1533,8 +1533,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,default-hive-db.owners,PROD)",
                                 "type": "VIEW"
@@ -1732,8 +1732,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view_explore,PROD)",
                                 "type": "VIEW"
@@ -1971,8 +1971,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,flightstats.accidents,PROD)",
                                 "type": "VIEW"

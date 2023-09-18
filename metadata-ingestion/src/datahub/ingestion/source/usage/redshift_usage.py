@@ -298,9 +298,7 @@ class RedshiftUsageSource(Source):
         for row in results:
             if not self._should_process_row(row):
                 continue
-            if hasattr(row, "_asdict"):
-                # Compatibility with sqlalchemy 1.4.x.
-                row = row._asdict()
+            row = row._asdict()
             access_event = RedshiftAccessEvent(**dict(row.items()))
             # Replace database name with the alias name if one is provided in the config.
             if self.config.database_alias:
@@ -392,6 +390,7 @@ class RedshiftUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> RedshiftUsageSourceReport:

@@ -33,9 +33,15 @@ public class AspectGenerationUtils {
 
   @Nonnull
   public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId) {
+    return createSystemMetadata(lastObserved, runId, runId);
+  }
+
+  @Nonnull
+  public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId, @Nonnull String lastRunId) {
     SystemMetadata metadata = new SystemMetadata();
     metadata.setLastObserved(lastObserved);
     metadata.setRunId(runId);
+    metadata.setLastRunId(lastRunId);
     return metadata;
   }
 

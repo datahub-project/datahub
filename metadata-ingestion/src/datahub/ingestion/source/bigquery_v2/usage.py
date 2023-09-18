@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import os
-import textwrap
 import time
 import uuid
 from dataclasses import dataclass
@@ -21,19 +20,17 @@ from typing import (
 )
 
 import humanfriendly
-from google.cloud.bigquery import Client as BigQueryClient
-from google.cloud.logging_v2.client import Client as GCPLoggingClient
-from ratelimiter import RateLimiter
 
-from datahub.configuration.time_window_config import get_time_bucket
+from datahub.configuration.time_window_config import (
+    BaseTimeWindowConfig,
+    get_time_bucket,
+)
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
-    BQ_AUDIT_V2,
-    BQ_FILTER_RULE_TEMPLATE,
     AuditEvent,
     AuditLogEntry,
     BigQueryAuditMetadata,
@@ -42,17 +39,24 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     QueryEvent,
     ReadEvent,
 )
+from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
+    BigQueryAuditLogApi,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import (
-    BQ_DATE_SHARD_FORMAT,
-    BQ_DATETIME_FORMAT,
-    _make_gcp_logging_client,
-    get_bigquery_client,
+from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.queries import (
+    BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
+    bigquery_audit_metadata_query_template_usage,
 )
-from datahub.ingestion.source.usage.usage_common import (
-    TOTAL_BUDGET_FOR_QUERY_LIST,
-    make_usage_workunit,
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
+)
+from datahub.ingestion.source.usage.usage_common import make_usage_workunit
+from datahub.ingestion.source_report.ingestion_stage import (
+    USAGE_EXTRACTION_INGESTION,
+    USAGE_EXTRACTION_OPERATIONAL_STATS,
+    USAGE_EXTRACTION_USAGE_AGGREGATION,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
 from datahub.utilities.bigquery_sql_parser import BigQuerySQLParser
@@ -90,7 +94,6 @@ OPERATION_STATEMENT_TYPES = {
 
 READ_STATEMENT_TYPES: List[str] = ["SELECT"]
 STRING_ENCODING = "utf-8"
-MAX_QUERY_LENGTH = TOTAL_BUDGET_FOR_QUERY_LIST
 
 
 @dataclass(frozen=True, order=True)
@@ -99,77 +102,6 @@ class OperationalDataMeta:
     last_updated_timestamp: int
     actor_email: str
     custom_type: Optional[str] = None
-
-
-def bigquery_audit_metadata_query_template(
-    dataset: str,
-    use_date_sharded_tables: bool,
-    limit: Optional[int] = None,
-) -> str:
-    """
-    Receives a dataset (with project specified) and returns a query template that is used to query exported
-    v2 AuditLogs containing protoPayloads of type BigQueryAuditMetadata.
-    :param dataset: the dataset to query against in the form of $PROJECT.$DATASET
-    :param use_date_sharded_tables: whether to read from date sharded audit log tables or time partitioned audit log
-           tables
-    :param limit: maximum number of events to query for
-    :return: a query template, when supplied start_time and end_time, can be used to query audit logs from BigQuery
-    """
-
-    limit_text = f"limit {limit}" if limit else ""
-
-    shard_condition = ""
-    if use_date_sharded_tables:
-        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access_*`"
-        shard_condition = (
-            """ AND _TABLE_SUFFIX BETWEEN "{start_date}" AND "{end_date}" """
-        )
-    else:
-        from_table = f"`{dataset}.cloudaudit_googleapis_com_data_access`"
-
-    # Deduplicates insertId via QUALIFY, see:
-    # https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry, insertId field
-    query = f"""
-        SELECT
-            timestamp,
-            logName,
-            insertId,
-            protopayload_auditlog AS protoPayload,
-            protopayload_auditlog.metadataJson AS metadata
-        FROM
-            {from_table}
-        WHERE (
-            timestamp >= "{{start_time}}"
-            AND timestamp < "{{end_time}}"
-        )
-        {shard_condition}
-        AND protopayload_auditlog.serviceName="bigquery.googleapis.com"
-        AND
-        (
-            (
-                protopayload_auditlog.methodName IN
-                    (
-                        "google.cloud.bigquery.v2.JobService.Query",
-                        "google.cloud.bigquery.v2.JobService.InsertJob"
-                    )
-                AND JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.jobState") = "DONE"
-                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobStatus.errorResults") IS NULL
-                AND JSON_EXTRACT(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig") IS NOT NULL
-                AND (
-                        JSON_EXTRACT_ARRAY(protopayload_auditlog.metadataJson,
-                                                            "$.jobChange.job.jobStats.queryStats.referencedTables") IS NOT NULL
-                    OR
-                        JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.jobChange.job.jobConfig.queryConfig.destinationTable") IS NOT NULL
-                    )
-            )
-            OR
-                JSON_EXTRACT_SCALAR(protopayload_auditlog.metadataJson, "$.tableDataRead.reason") = "JOB"
-        )
-        QUALIFY ROW_NUMBER() OVER (PARTITION BY insertId, timestamp, logName) = 1
-        {limit_text};
-    """
-
-    return textwrap.dedent(query)
 
 
 class BigQueryUsageState(Closeable):
@@ -368,7 +300,8 @@ class BigQueryUsageExtractor:
     * Aggregation of these statistics into buckets, by day or hour granularity
 
     :::note
-    1. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient. In that case, use either admin or private log viewer permission.
+    1. Depending on the compliance policies setup for the bigquery instance, sometimes logging.read permission is not sufficient.
+    In that case, use either admin or private log viewer permission.
     :::
     """
 
@@ -377,12 +310,27 @@ class BigQueryUsageExtractor:
         config: BigQueryV2Config,
         report: BigQueryV2Report,
         dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
         self.dataset_urn_builder = dataset_urn_builder
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
+
+        self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.start_time, self.end_time = (
+            self.report.usage_start_time,
+            self.report.usage_end_time,
+        ) = self.get_time_window()
+
+    def get_time_window(self) -> Tuple[datetime, datetime]:
+        if self.redundant_run_skip_handler:
+            return self.redundant_run_skip_handler.suggest_run_time_window(
+                self.config.start_time, self.config.end_time
+            )
+        else:
+            return self.config.start_time, self.config.end_time
 
     def _is_table_allowed(self, table_ref: Optional[BigQueryTableRef]) -> bool:
         return (
@@ -391,11 +339,38 @@ class BigQueryUsageExtractor:
             and self.config.table_pattern.allowed(table_ref.table_identifier.table)
         )
 
+    def _should_ingest_usage(self) -> bool:
+        if (
+            self.redundant_run_skip_handler
+            and self.redundant_run_skip_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+        ):
+            # Skip this run
+            self.report.report_warning(
+                "usage-extraction",
+                "Skip this run as there was already a run for current ingestion window.",
+            )
+            return False
+
+        return True
+
     def get_usage_workunits(
         self, projects: Iterable[str], table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
+        if not self._should_ingest_usage():
+            return
         events = self._get_usage_events(projects)
         yield from self._get_workunits_internal(events, table_refs)
+
+        if self.redundant_run_skip_handler:
+            # Update the checkpoint state for this run.
+            self.redundant_run_skip_handler.update_state(
+                self.config.start_time,
+                self.config.end_time,
+                self.config.bucket_duration,
+            )
 
     def _get_workunits_internal(
         self, events: Iterable[AuditEvent], table_refs: Collection[str]
@@ -413,7 +388,11 @@ class BigQueryUsageExtractor:
 
                 yield from auto_empty_dataset_usage_statistics(
                     self._generate_usage_workunits(usage_state),
-                    config=self.config,
+                    config=BaseTimeWindowConfig(
+                        start_time=self.start_time,
+                        end_time=self.end_time,
+                        bucket_duration=self.config.bucket_duration,
+                    ),
                     dataset_urns={
                         self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
                         for ref in table_refs
@@ -423,6 +402,7 @@ class BigQueryUsageExtractor:
         except Exception as e:
             logger.error("Error processing usage", exc_info=True)
             self.report.report_warning("usage-ingestion", str(e))
+            self.report_status("usage-ingestion", False)
 
     def generate_read_events_from_query(
         self, query_event_on_view: QueryEvent
@@ -496,7 +476,7 @@ class BigQueryUsageExtractor:
     def _generate_operational_workunits(
         self, usage_state: BigQueryUsageState, table_refs: Collection[str]
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage("*", "Usage Extraction Operational Stats")
+        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_OPERATIONAL_STATS)
         for audit_event in usage_state.standalone_events():
             try:
                 operational_wu = self._create_operation_workunit(
@@ -515,7 +495,7 @@ class BigQueryUsageExtractor:
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage("*", "Usage Extraction Usage Aggregation")
+        self.report.set_ingestion_stage("*", USAGE_EXTRACTION_USAGE_AGGREGATION)
         top_n = (
             self.config.usage.top_n_queries
             if self.config.usage.include_top_n_queries
@@ -543,6 +523,7 @@ class BigQueryUsageExtractor:
                     resource_urn_builder=self.dataset_urn_builder,
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
+                    queries_character_limit=self.config.usage.queries_character_limit,
                 )
                 self.report.num_usage_workunits_emitted += 1
             except Exception as e:
@@ -560,7 +541,7 @@ class BigQueryUsageExtractor:
             with PerfTimer() as timer:
                 try:
                     self.report.set_ingestion_stage(
-                        project_id, "Usage Extraction Ingestion"
+                        project_id, USAGE_EXTRACTION_INGESTION
                     )
                     yield from self._get_parsed_bigquery_log_events(project_id)
                 except Exception as e:
@@ -570,6 +551,7 @@ class BigQueryUsageExtractor:
                     )
                     self.report.usage_failed_extraction.append(project_id)
                     self.report.report_warning(f"usage-extraction-{project_id}", str(e))
+                    self.report_status(f"usage-extraction-{project_id}", False)
 
                 self.report.usage_extraction_sec[project_id] = round(
                     timer.elapsed_seconds(), 2
@@ -583,7 +565,7 @@ class BigQueryUsageExtractor:
     ) -> bool:
         """Stores a usage event in `usage_state` and returns if an event was successfully processed."""
         if event.read_event and (
-            self.config.start_time <= event.read_event.timestamp < self.config.end_time
+            self.start_time <= event.read_event.timestamp < self.end_time
         ):
             resource = event.read_event.resource
             if str(resource) not in table_refs:
@@ -603,7 +585,8 @@ class BigQueryUsageExtractor:
                 usage_state.column_accesses[str(uuid.uuid4())] = key, field_read
             return True
         elif event.query_event and event.query_event.job_name:
-            query = event.query_event.query[:MAX_QUERY_LENGTH]
+            max_query_length = self.config.usage.queries_character_limit
+            query = event.query_event.query[:max_query_length]
             query_hash = hashlib.md5(query.encode(STRING_ENCODING)).hexdigest()
             if usage_state.queries.get(query_hash, query) != query:
                 key = str(uuid.uuid4())
@@ -616,109 +599,6 @@ class BigQueryUsageExtractor:
             usage_state.query_events[event.query_event.job_name] = event.query_event
             return True
         return False
-
-    def _get_exported_bigquery_audit_metadata(
-        self,
-        bigquery_client: BigQueryClient,
-        limit: Optional[int] = None,
-    ) -> Iterable[BigQueryAuditMetadata]:
-        if self.config.bigquery_audit_metadata_datasets is None:
-            return
-
-        corrected_start_time = self.config.start_time - self.config.max_query_duration
-        start_time = corrected_start_time.strftime(BQ_DATETIME_FORMAT)
-        start_date = corrected_start_time.strftime(BQ_DATE_SHARD_FORMAT)
-        self.report.audit_start_time = start_time
-
-        corrected_end_time = self.config.end_time + self.config.max_query_duration
-        end_time = corrected_end_time.strftime(BQ_DATETIME_FORMAT)
-        end_date = corrected_end_time.strftime(BQ_DATE_SHARD_FORMAT)
-        self.report.audit_end_time = end_time
-
-        for dataset in self.config.bigquery_audit_metadata_datasets:
-            logger.info(
-                f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
-            )
-
-            query = bigquery_audit_metadata_query_template(
-                dataset,
-                self.config.use_date_sharded_audit_log_tables,
-                limit=limit,
-            ).format(
-                start_time=start_time,
-                end_time=end_time,
-                start_date=start_date,
-                end_date=end_date,
-            )
-
-            query_job = bigquery_client.query(query)
-            logger.info(
-                f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"
-            )
-            if self.config.rate_limit:
-                with RateLimiter(max_calls=self.config.requests_per_min, period=60):
-                    yield from query_job
-            else:
-                yield from query_job
-
-    def _get_bigquery_log_entries_via_gcp_logging(
-        self, client: GCPLoggingClient, limit: Optional[int] = None
-    ) -> Iterable[AuditLogEntry]:
-
-        filter = self._generate_filter(BQ_AUDIT_V2)
-        logger.debug(filter)
-
-        list_entries: Iterable[AuditLogEntry]
-        rate_limiter: Optional[RateLimiter] = None
-        if self.config.rate_limit:
-            # client.list_entries is a generator, does api calls to GCP Logging when it runs out of entries and needs to fetch more from GCP Logging
-            # to properly ratelimit we multiply the page size by the number of requests per minute
-            rate_limiter = RateLimiter(
-                max_calls=self.config.requests_per_min * self.config.log_page_size,
-                period=60,
-            )
-
-        list_entries = client.list_entries(
-            filter_=filter,
-            page_size=self.config.log_page_size,
-            max_results=limit,
-        )
-
-        for i, entry in enumerate(list_entries):
-            if i == 0:
-                logger.info(f"Starting log load from GCP Logging for {client.project}")
-            if i % 1000 == 0:
-                logger.info(f"Loaded {i} log entries from GCP Log for {client.project}")
-            self.report.total_query_log_entries += 1
-
-            if rate_limiter:
-                with rate_limiter:
-                    yield entry
-            else:
-                yield entry
-
-        logger.info(
-            f"Finished loading {self.report.total_query_log_entries} log entries from GCP Logging for {client.project}"
-        )
-
-    def _generate_filter(self, audit_templates: Dict[str, str]) -> str:
-        # We adjust the filter values a bit, since we need to make sure that the join
-        # between query events and read events is complete. For example, this helps us
-        # handle the case where the read happens within our time range but the query
-        # completion event is delayed and happens after the configured end time.
-
-        start_time = (self.config.start_time - self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
-        self.report.log_entry_start_time = start_time
-        end_time = (self.config.end_time + self.config.max_query_duration).strftime(
-            BQ_DATETIME_FORMAT
-        )
-        self.report.log_entry_end_time = end_time
-        filter = audit_templates[BQ_FILTER_RULE_TEMPLATE].format(
-            start_time=start_time, end_time=end_time
-        )
-        return filter
 
     @staticmethod
     def _get_destination_table(event: AuditEvent) -> Optional[BigQueryTableRef]:
@@ -954,27 +834,54 @@ class BigQueryUsageExtractor:
     def _get_parsed_bigquery_log_events(
         self, project_id: str, limit: Optional[int] = None
     ) -> Iterable[AuditEvent]:
+        audit_log_api = BigQueryAuditLogApi(
+            self.report.audit_log_api_perf,
+            self.config.rate_limit,
+            self.config.requests_per_min,
+        )
+        # We adjust the filter values a bit, since we need to make sure that the join
+        # between query events and read events is complete. For example, this helps us
+        # handle the case where the read happens within our time range but the query
+        # completion event is delayed and happens after the configured end time.
+        corrected_start_time = self.start_time - self.config.max_query_duration
+        corrected_end_time = self.end_time + -self.config.max_query_duration
+        self.report.audit_start_time = corrected_start_time
+        self.report.audit_end_time = corrected_end_time
+
         parse_fn: Callable[[Any], Optional[AuditEvent]]
         if self.config.use_exported_bigquery_audit_metadata:
-            bq_client = get_bigquery_client(self.config)
-            entries = self._get_exported_bigquery_audit_metadata(
+            bq_client = self.config.get_bigquery_client()
+
+            entries = audit_log_api.get_exported_bigquery_audit_metadata(
                 bigquery_client=bq_client,
+                bigquery_audit_metadata_datasets=self.config.bigquery_audit_metadata_datasets,
+                bigquery_audit_metadata_query_template=bigquery_audit_metadata_query_template_usage,
+                use_date_sharded_audit_log_tables=self.config.use_date_sharded_audit_log_tables,
+                start_time=corrected_start_time,
+                end_time=corrected_end_time,
                 limit=limit,
             )
             parse_fn = self._parse_exported_bigquery_audit_metadata
         else:
-            logging_client = _make_gcp_logging_client(
-                project_id, self.config.extra_client_options
+            logging_client = self.config.make_gcp_logging_client(project_id)
+            logger.info(
+                f"Start loading log entries from BigQuery for {project_id} "
+                f"with start_time={corrected_start_time} and end_time={corrected_end_time}"
             )
-            entries = self._get_bigquery_log_entries_via_gcp_logging(
-                logging_client, limit=limit
+            entries = audit_log_api.get_bigquery_log_entries_via_gcp_logging(
+                logging_client,
+                filter=self._generate_filter(corrected_start_time, corrected_end_time),
+                log_page_size=self.config.log_page_size,
+                limit=limit,
             )
             parse_fn = self._parse_bigquery_log_entry
 
         for entry in entries:
             try:
+                self.report.num_usage_total_log_entries[project_id] += 1
                 event = parse_fn(entry)
                 if event:
+                    self.report.num_usage_parsed_log_entries[project_id] += 1
                     yield event
             except Exception as e:
                 logger.warning(
@@ -984,6 +891,12 @@ class BigQueryUsageExtractor:
                 self._report_error(
                     f"log-parse-{project_id}", e, group="usage-log-parse"
                 )
+
+    def _generate_filter(self, corrected_start_time, corrected_end_time):
+        return BQ_FILTER_RULE_TEMPLATE_V2_USAGE.format(
+            start_time=corrected_start_time.strftime(BQ_DATETIME_FORMAT),
+            end_time=corrected_end_time.strftime(BQ_DATETIME_FORMAT),
+        )
 
     def get_tables_from_query(
         self, default_project: str, query: str
@@ -1046,3 +959,7 @@ class BigQueryUsageExtractor:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):
             logger.debug(f"Connection test got one {entry}")
             return
+
+    def report_status(self, step: str, status: bool) -> None:
+        if self.redundant_run_skip_handler:
+            self.redundant_run_skip_handler.report_current_run_status(step, status)
