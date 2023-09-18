@@ -23,7 +23,6 @@ describe("add remove domain", () => {
       };
 
     it("create domain", () => {
-        setDomainsFeatureFlag(false);
         cy.loginWithCredentials();
         cy.goToDomainList();
         cy.clickOptionWithText("New Domain");
