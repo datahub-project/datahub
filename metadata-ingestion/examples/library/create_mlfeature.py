@@ -26,7 +26,7 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
         # and the upstream dataset. This is how lineage between your data warehouse
         # and machine learning ecosystem is established.
         sources=[dataset_urn],
-        dataType="TIME"
+        dataType="TIME",
     ),
 )
 

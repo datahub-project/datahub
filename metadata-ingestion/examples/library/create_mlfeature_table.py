@@ -19,10 +19,12 @@ feature_urns = [
     ),
 ]
 
-primary_key_urns = [builder.make_ml_primary_key_urn(
-    feature_table_name="users_feature_table",
-    primary_key_name="user_id",
-)]
+primary_key_urns = [
+    builder.make_ml_primary_key_urn(
+        feature_table_name="users_feature_table",
+        primary_key_name="user_id",
+    )
+]
 
 feature_table_properties = models.MLFeatureTablePropertiesClass(
     description="Test description",

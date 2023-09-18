@@ -20,7 +20,7 @@ metadata_change_proposal = MetadataChangeProposalWrapper(
     changeType=models.ChangeTypeClass.UPSERT,
     entityUrn=primary_key_urn,
     aspectName="mlPrimaryKeyProperties",
-    aspect=models.MLPrimaryKeyProperties(
+    aspect=models.MLPrimaryKeyPropertiesClass(
         description="Represents the id of the user the other features relate to.",
         # attaching a source to a ml primary key creates lineage between the feature
         # and the upstream dataset. This is how lineage between your data warehouse
