@@ -146,25 +146,25 @@ Once these are in place, you're ready to create your Custom Assertions!
 6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse.
 
 <p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
+  <img width=60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
 </p>
 
 7. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
 
 <p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-condition-type.png"/>
+  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-condition-type.png"/>
 </p>
 
 8. Add a **description** for the assertion. This is a human-readable description of the Assertion. It should be used to describe the meaning of the Assertion, and can be used to provide additional context to users who are viewing the Assertion.
 
 <p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-description.png"/>
+  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-description.png"/>
 </p>
 
 9. (Optional) Use the **Try it out** button to test your query and ensure that it returns a single row with a single column, and passes the configured condition type.
 
 <p align="center">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-try-it-out.png"/>
+  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-try-it-out.png"/>
 </p>
 
 10. Click **Next**
