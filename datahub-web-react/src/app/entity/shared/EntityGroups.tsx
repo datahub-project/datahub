@@ -16,12 +16,20 @@ type Props = {
  */
 export default function EntityGroups({ readMore, setReadMore, groupMemberRelationships }: Props) {
     const entityRegistry = useEntityRegistry();
+    const sortedGroupMemberRelationships = groupMemberRelationships?.sort((group1, group2) => {
+        const groupName1 = entityRegistry.getDisplayName(EntityType.CorpGroup, group1?.entity) ?? '';
+        const groupName2 = entityRegistry.getDisplayName(EntityType.CorpGroup, group2?.entity) ?? '';
+        if (groupName1 < groupName2) {
+            return -1;
+        }
+        return 1;
+    });
 
     return (
         <TagsSection>
             {groupMemberRelationships?.length === 0 && <EmptyValue />}
             {!readMore &&
-                groupMemberRelationships?.slice(0, 2).map((item) => {
+                sortedGroupMemberRelationships?.slice(0, 2).map((item) => {
                     if (!item?.entity?.urn) return null;
                     const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item?.entity?.urn);
                     return (
@@ -34,7 +42,7 @@ export default function EntityGroups({ readMore, setReadMore, groupMemberRelatio
                 })}
             {readMore &&
                 groupMemberRelationships?.length > 2 &&
-                groupMemberRelationships?.map((item) => {
+                sortedGroupMemberRelationships?.map((item) => {
                     if (!item?.entity?.urn) return null;
                     const entityUrn = entityRegistry.getEntityUrl(EntityType.CorpGroup, item.entity.urn);
                     return (
