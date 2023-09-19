@@ -59,9 +59,7 @@ class FlagsConfig(ConfigModel):
 
     generate_memory_profiles: bool = Field(
         default=False,
-        description=(
-            "Generate memray memory dumps for ingestion process."
-        )
+        description=("Generate memray memory dumps for ingestion process."),
     )
 
 

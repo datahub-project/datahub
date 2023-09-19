@@ -11,6 +11,8 @@ from typing import Optional
 
 import click
 import click_spinner
+import memray
+import tzlocal
 from click_default_group import DefaultGroup
 from tabulate import tabulate
 
@@ -131,7 +133,9 @@ def run(
             try:
                 if pipeline.config.flags.generate_memory_profiles:
                     logger.info(pipeline)
-                    with memray.Tracker(f"{pipeline.config.source.type}-{pipeline.config.pipeline_name}-{pipeline.config.run_id}.bin"):
+                    with memray.Tracker(
+                        f"{pipeline.config.source.type}-{pipeline.config.pipeline_name}-{pipeline.config.run_id}.bin"
+                    ):
                         pipeline.run()
                 else:
                     pipeline.run()
