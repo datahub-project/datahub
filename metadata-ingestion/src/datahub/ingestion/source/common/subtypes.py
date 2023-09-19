@@ -14,6 +14,7 @@ class DatasetSubTypes(str, Enum):
     ELASTIC_DATASTREAM = "Datastream"
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
+    POWERBI_DATASET_TABLE = "PowerBI Dataset Table"
 
 
 class DatasetContainerSubTypes(str, Enum):
@@ -21,18 +22,20 @@ class DatasetContainerSubTypes(str, Enum):
     DATABASE = "Database"
     SCHEMA = "Schema"
     # System-Specific SubTypes
-    PRESTO_CATALOG = "Catalog"
+    CATALOG = "Catalog"  # Presto or Unity Catalog
     BIGQUERY_PROJECT = "Project"
     BIGQUERY_DATASET = "Dataset"
     DATABRICKS_METASTORE = "Metastore"
-    S3_FOLDER = "Folder"
+    FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
+    GCS_BUCKET = "GCS bucket"
 
 
 class BIContainerSubTypes(str, Enum):
     LOOKER_FOLDER = "Folder"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
+    POWERBI_DATASET = "PowerBI Dataset"
 
 
 class BIAssetSubTypes(str, Enum):

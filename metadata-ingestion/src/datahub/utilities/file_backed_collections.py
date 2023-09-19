@@ -1,4 +1,5 @@
 import collections
+import gzip
 import logging
 import pathlib
 import pickle
@@ -54,16 +55,19 @@ class ConnectionWrapper:
 
     conn: sqlite3.Connection
     filename: pathlib.Path
-    _directory: Optional[tempfile.TemporaryDirectory]
+
+    _temp_directory: Optional[tempfile.TemporaryDirectory]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
-        self._directory = None
-        # Warning: If filename is provided, the file will not be automatically cleaned up
+        self._temp_directory = None
+
+        # Warning: If filename is provided, the file will not be automatically cleaned up.
         if not filename:
-            self._directory = tempfile.TemporaryDirectory()
-            filename = pathlib.Path(self._directory.name) / _DEFAULT_FILE_NAME
+            self._temp_directory = tempfile.TemporaryDirectory()
+            filename = pathlib.Path(self._temp_directory.name) / _DEFAULT_FILE_NAME
 
         self.conn = sqlite3.connect(filename, isolation_level=None)
+        self.conn.row_factory = sqlite3.Row
         self.filename = filename
 
         # These settings are optimized for performance.
@@ -75,22 +79,29 @@ class ConnectionWrapper:
         self.conn.execute('PRAGMA journal_mode = "MEMORY"')
         self.conn.execute(f"PRAGMA journal_size_limit = {100 * 1024 * 1024}")  # 100MB
 
+    @property
+    def allow_table_name_reuse(self) -> bool:
+        # In the normal case, we do not use "IF NOT EXISTS" in our create table statements
+        # because creating the same table twice indicates a client usage error.
+        # However, if you're trying to persist a file-backed dict across multiple runs,
+        # which happens when filename is passed explicitly, then we need to allow table name reuse.
+
+        return self._temp_directory is None
+
     def execute(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        logger.debug(f"Executing <{sql}> ({parameters})")
         return self.conn.execute(sql, parameters)
 
     def executemany(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        logger.debug(f"Executing many <{sql}> ({parameters})")
         return self.conn.executemany(sql, parameters)
 
     def close(self) -> None:
         self.conn.close()
-        if self._directory:
-            self._directory.cleanup()
+        if self._temp_directory:
+            self._temp_directory.cleanup()
 
     def __enter__(self) -> "ConnectionWrapper":
         return self
@@ -134,7 +145,7 @@ def _default_deserializer(value: Any) -> Any:
 
 
 @dataclass(eq=False)
-class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
+class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     """
     A dict-like object that stores its data in a temporary SQLite database.
     This is useful for storing large amounts of data that don't fit in memory.
@@ -152,8 +163,11 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
 
     cache_max_size: int = _DEFAULT_MEMORY_CACHE_MAX_SIZE
     cache_eviction_batch_size: int = _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE
+    delay_index_creation: bool = False
+    should_compress_value: bool = False
 
     _conn: ConnectionWrapper = field(init=False, repr=False)
+    indexes_created: bool = field(init=False, default=False)
 
     # To improve performance, we maintain an in-memory LRU cache using an OrderedDict.
     # Maintains a dirty bit marking whether the value has been modified since it was persisted.
@@ -179,22 +193,34 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         # a poor-man's LRU cache.
         self._active_object_cache = collections.OrderedDict()
 
-        # Create the table. We're not using "IF NOT EXISTS" because creating
-        # the same table twice indicates a client usage error.
+        # Create the table.
+        if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
         self._conn.execute(
-            f"""CREATE TABLE {self.tablename} (
+            f"""CREATE TABLE {if_not_exists} {self.tablename} (
                 key TEXT PRIMARY KEY,
                 value BLOB
                 {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
             )"""
         )
 
-        # The key column will automatically be indexed, but we need indexes
-        # for the extra columns.
+        if not self.delay_index_creation:
+            self.create_indexes()
+
+        if self.should_compress_value:
+            serializer = self.serializer
+            self.serializer = lambda value: gzip.compress(serializer(value))  # type: ignore
+            deserializer = self.deserializer
+            self.deserializer = lambda value: deserializer(gzip.decompress(value))
+
+    def create_indexes(self) -> None:
+        if self.indexes_created:
+            return
+        # The key column will automatically be indexed, but we need indexes for the extra columns.
         for column_name in self.extra_columns.keys():
             self._conn.execute(
                 f"CREATE INDEX {self.tablename}_{column_name} ON {self.tablename} ({column_name})"
             )
+        self.indexes_created = True
 
     def _add_to_cache(self, key: str, value: _VT, dirty: bool) -> None:
         self._active_object_cache[key] = value, dirty
@@ -266,7 +292,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
-        # Cache should be small, so safe list cast to avoid mutation during iteration
+        # Cache should be small, so safe set cast to avoid mutation during iteration
         cache_keys = set(self._active_object_cache.keys())
         yield from cache_keys
 
@@ -314,7 +340,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._sql_query(query, params, refs).fetchall()
 
     def sql_query_iterator(
@@ -322,7 +348,7 @@ class FileBackedDict(MutableMapping[str, _VT], Generic[_VT], Closeable):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> Iterator[Tuple[Any, ...]]:
+    ) -> Iterator[sqlite3.Row]:
         return self._sql_query(query, params, refs)
 
     def _sql_query(
@@ -376,7 +402,7 @@ class FileBackedList(Generic[_VT]):
         cache_eviction_batch_size: Optional[int] = None,
     ) -> None:
         self._len = 0
-        self._dict = FileBackedDict(
+        self._dict = FileBackedDict[_VT](
             shared_connection=connection,
             serializer=serializer,
             deserializer=deserializer,
@@ -422,7 +448,7 @@ class FileBackedList(Generic[_VT]):
         query: str,
         params: Tuple[Any, ...] = (),
         refs: Optional[List[Union["FileBackedList", "FileBackedDict"]]] = None,
-    ) -> List[Tuple[Any, ...]]:
+    ) -> List[sqlite3.Row]:
         return self._dict.sql_query(query, params, refs=refs)
 
     def close(self) -> None:

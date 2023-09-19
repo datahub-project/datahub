@@ -20,6 +20,8 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.util.Pair;
+
 import java.lang.reflect.InvocationTargetException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -138,7 +140,7 @@ public class RestoreStorageStep implements UpgradeStep {
       } catch (Exception e) {
         context.report()
             .addLine(
-                String.format("Failed to bind Urn with value %s into Urn object: %s", aspect.getKey().getUrn(), e));
+                String.format("Failed to bind Urn with value %s into Urn object", aspect.getKey().getUrn()), e);
         continue;
       }
 
@@ -149,7 +151,7 @@ public class RestoreStorageStep implements UpgradeStep {
         entitySpec = _entityRegistry.getEntitySpec(entityName);
       } catch (Exception e) {
         context.report()
-            .addLine(String.format("Failed to find Entity with name %s in Entity Registry: %s", entityName, e));
+            .addLine(String.format("Failed to find Entity with name %s in Entity Registry", entityName), e);
         continue;
       }
       final String aspectName = aspect.getKey().getAspect();
@@ -161,8 +163,8 @@ public class RestoreStorageStep implements UpgradeStep {
             EntityUtils.toAspectRecord(entityName, aspectName, aspect.getMetadata(), _entityRegistry);
       } catch (Exception e) {
         context.report()
-            .addLine(String.format("Failed to create aspect record with name %s associated with entity named %s: %s",
-                aspectName, entityName, e));
+            .addLine(String.format("Failed to create aspect record with name %s associated with entity named %s",
+                aspectName, entityName), e);
         continue;
       }
 
@@ -172,8 +174,8 @@ public class RestoreStorageStep implements UpgradeStep {
         aspectSpec = entitySpec.getAspectSpec(aspectName);
       } catch (Exception e) {
         context.report()
-            .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s: %s",
-                aspectName, entityName, e));
+            .addLine(String.format("Failed to find aspect spec with name %s associated with entity named %s",
+                aspectName, entityName), e);
         continue;
       }
 
@@ -181,8 +183,7 @@ public class RestoreStorageStep implements UpgradeStep {
       final long version = aspect.getKey().getVersion();
       final AuditStamp auditStamp = toAuditStamp(aspect);
       futureList.add(_gmsThreadPool.submit(() ->
-          _entityService.updateAspect(urn, entityName, aspectName, aspectSpec, aspectRecord, auditStamp,
-              version, version == 0L)));
+          _entityService.ingestAspects(urn, List.of(Pair.of(aspectName, aspectRecord)), auditStamp, null).get(0).getNewValue()));
       if (numRows % REPORT_BATCH_SIZE == 0) {
         for (Future<?> future : futureList) {
           try {

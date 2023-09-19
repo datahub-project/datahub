@@ -14,6 +14,7 @@ from datahub.configuration.common import (
     LineageConfig,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderBase,
@@ -27,10 +28,7 @@ from datahub.ingestion.source.state.use_case_handler import (
 from datahub.ingestion.source.state_provider.state_provider_registry import (
     ingestion_checkpoint_provider_registry,
 )
-from datahub.metadata.schema_classes import (
-    DatahubIngestionCheckpointClass,
-    DatahubIngestionRunSummaryClass,
-)
+from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -71,10 +69,12 @@ class StatefulIngestionConfig(ConfigModel):
     ignore_old_state: bool = Field(
         default=False,
         description="If set to True, ignores the previous checkpoint state.",
+        hidden_from_docs=True,
     )
     ignore_new_state: bool = Field(
         default=False,
         description="If set to True, ignores the current checkpoint state.",
+        hidden_from_docs=True,
     )
 
     @pydantic.root_validator()
@@ -101,57 +101,75 @@ class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
 
 
 class StatefulLineageConfigMixin(LineageConfig):
-    store_last_lineage_extraction_timestamp: bool = Field(
-        default=False,
-        description="Enable checking last lineage extraction date in store.",
+    enable_stateful_lineage_ingestion: bool = Field(
+        default=True,
+        description="Enable stateful lineage ingestion."
+        " This will store lineage window timestamps after successful lineage ingestion. "
+        "and will not run lineage ingestion for same timestamps in subsequent run. ",
+    )
+
+    _store_last_lineage_extraction_timestamp = pydantic_renamed_field(
+        "store_last_lineage_extraction_timestamp", "enable_stateful_lineage_ingestion"
     )
 
     @root_validator(pre=False)
     def lineage_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
-            if values.get("store_last_lineage_extraction_timestamp"):
+            if values.get("enable_stateful_lineage_ingestion"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling store_last_lineage_extraction_timestamp config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_lineage_ingestion config option as well"
                 )
-                values["store_last_lineage_extraction_timestamp"] = False
+                values["enable_stateful_lineage_ingestion"] = False
 
         return values
 
 
 class StatefulProfilingConfigMixin(ConfigModel):
-    store_last_profiling_timestamps: bool = Field(
-        default=False,
-        description="Enable storing last profile timestamp in store.",
+    enable_stateful_profiling: bool = Field(
+        default=True,
+        description="Enable stateful profiling."
+        " This will store profiling timestamps per dataset after successful profiling. "
+        "and will not run profiling again in subsequent run if table has not been updated. ",
+    )
+
+    _store_last_profiling_timestamps = pydantic_renamed_field(
+        "store_last_profiling_timestamps", "enable_stateful_profiling"
     )
 
     @root_validator(pre=False)
     def profiling_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
-            if values.get("store_last_profiling_timestamps"):
+            if values.get("enable_stateful_profiling"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling store_last_profiling_timestamps config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_profiling config option as well"
                 )
-                values["store_last_profiling_timestamps"] = False
+                values["enable_stateful_profiling"] = False
         return values
 
 
 class StatefulUsageConfigMixin(BaseTimeWindowConfig):
-    store_last_usage_extraction_timestamp: bool = Field(
+    enable_stateful_usage_ingestion: bool = Field(
         default=True,
-        description="Enable checking last usage timestamp in store.",
+        description="Enable stateful lineage ingestion."
+        " This will store usage window timestamps after successful usage ingestion. "
+        "and will not run usage ingestion for same timestamps in subsequent run. ",
+    )
+
+    _store_last_usage_extraction_timestamp = pydantic_renamed_field(
+        "store_last_usage_extraction_timestamp", "enable_stateful_usage_ingestion"
     )
 
     @root_validator(pre=False)
     def last_usage_extraction_stateful_option_validator(cls, values: Dict) -> Dict:
         sti = values.get("stateful_ingestion")
         if not sti or not sti.enabled:
-            if values.get("store_last_usage_extraction_timestamp"):
+            if values.get("enable_stateful_usage_ingestion"):
                 logger.warning(
-                    "Stateful ingestion is disabled, disabling store_last_usage_extraction_timestamp config option as well"
+                    "Stateful ingestion is disabled, disabling enable_stateful_usage_ingestion config option as well"
                 )
-                values["store_last_usage_extraction_timestamp"] = False
+                values["enable_stateful_usage_ingestion"] = False
         return values
 
 
@@ -171,13 +189,8 @@ class StatefulIngestionSourceBase(Source):
         ctx: PipelineContext,
     ) -> None:
         super().__init__(ctx)
-        self.stateful_ingestion_config = config.stateful_ingestion
-        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
-        self.run_summaries_to_report: Dict[JobId, DatahubIngestionRunSummaryClass] = {}
         self.report: StatefulIngestionReport = StatefulIngestionReport()
-        self._initialize_checkpointing_state_provider()
-        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
+        self.state_provider = StateProviderWrapper(config.stateful_ingestion, ctx)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_warning(key, reason)
@@ -186,6 +199,26 @@ class StatefulIngestionSourceBase(Source):
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
         self.report.report_failure(key, reason)
         log.error(f"{key} => {reason}")
+
+    def close(self) -> None:
+        self.state_provider.prepare_for_commit()
+        super().close()
+
+
+class StateProviderWrapper:
+    def __init__(
+        self,
+        config: Optional[StatefulIngestionConfig],
+        ctx: PipelineContext,
+    ) -> None:
+        self.ctx = ctx
+        self.stateful_ingestion_config = config
+
+        self.last_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.cur_checkpoints: Dict[JobId, Optional[Checkpoint]] = {}
+        self.report: StatefulIngestionReport = StatefulIngestionReport()
+        self._initialize_checkpointing_state_provider()
+        self._usecase_handlers: Dict[JobId, StatefulIngestionUsecaseHandlerBase] = {}
 
     #
     # Checkpointing specific support.
@@ -309,7 +342,7 @@ class StatefulIngestionSourceBase(Source):
     # Base-class implementations for common state management tasks.
     def get_last_checkpoint(
         self, job_id: JobId, checkpoint_state_class: Type[StateType]
-    ) -> Optional[Checkpoint]:
+    ) -> Optional[Checkpoint[StateType]]:
         if not self.is_stateful_ingestion_configured() or (
             self.stateful_ingestion_config
             and self.stateful_ingestion_config.ignore_old_state
@@ -383,7 +416,3 @@ class StatefulIngestionSourceBase(Source):
     def prepare_for_commit(self) -> None:
         """NOTE: Sources should call this method from their close method."""
         self._prepare_checkpoint_states_for_commit()
-
-    def close(self) -> None:
-        self.prepare_for_commit()
-        super().close()

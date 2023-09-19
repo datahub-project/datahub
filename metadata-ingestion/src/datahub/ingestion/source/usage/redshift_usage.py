@@ -217,7 +217,7 @@ class RedshiftUsageSource(Source):
         config = RedshiftUsageConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets Redshift usage stats as work units"""
         engine: Engine = self._make_sql_engine()
         if self.config.include_operational_stats:
@@ -241,10 +241,8 @@ class RedshiftUsageSource(Source):
         self.report.num_usage_workunits_emitted = 0
         for time_bucket in aggregated_events.values():
             for aggregate in time_bucket.values():
-                wu: MetadataWorkUnit = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
+                yield self._make_usage_stat(aggregate)
                 self.report.num_usage_workunits_emitted += 1
-                yield wu
 
     def _gen_operation_aspect_workunits(
         self, engine: Engine
@@ -300,9 +298,7 @@ class RedshiftUsageSource(Source):
         for row in results:
             if not self._should_process_row(row):
                 continue
-            if hasattr(row, "_asdict"):
-                # Compatibility with sqlalchemy 1.4.x.
-                row = row._asdict()
+            row = row._asdict()
             access_event = RedshiftAccessEvent(**dict(row.items()))
             # Replace database name with the alias name if one is provided in the config.
             if self.config.database_alias:
@@ -341,7 +337,7 @@ class RedshiftUsageSource(Source):
                     else OperationTypeClass.DELETE
                 ),
             )
-            mcp = MetadataChangeProposalWrapper(
+            yield MetadataChangeProposalWrapper(
                 entityUrn=builder.make_dataset_urn_with_platform_instance(
                     "redshift",
                     resource.lower(),
@@ -349,14 +345,8 @@ class RedshiftUsageSource(Source):
                     self.config.env,
                 ),
                 aspect=operation_aspect,
-            )
-            wu = MetadataWorkUnit(
-                id=f"operation-aspect-{event.table}-{event.endtime.isoformat()}",
-                mcp=mcp,
-            )
-            self.report.report_workunit(wu)
+            ).as_workunit()
             self.report.num_operational_stats_workunits_emitted += 1
-            yield wu
 
     def _aggregate_access_events(
         self, events_iterable: Iterable[RedshiftAccessEvent]
@@ -400,6 +390,7 @@ class RedshiftUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> RedshiftUsageSourceReport:

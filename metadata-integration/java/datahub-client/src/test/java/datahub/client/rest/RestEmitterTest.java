@@ -1,5 +1,6 @@
 package datahub.client.rest;
 
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.dataset.DatasetProperties;
 import datahub.client.Callback;
@@ -49,6 +50,7 @@ import org.mockserver.matchers.Times;
 import org.mockserver.model.HttpRequest;
 import org.mockserver.model.RequestDefinition;
 
+import static com.linkedin.metadata.Constants.*;
 import static org.mockserver.model.HttpRequest.*;
 
 
@@ -192,6 +194,9 @@ public class RestEmitterTest {
         .map(x -> (HttpRequest) x)
         .collect(Collectors.toList());
     ObjectMapper mapper = new ObjectMapper();
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
     for (int i = 0; i < numRequests; ++i) {
       String expectedContent = String.format("{\"proposal\":{\"aspectName\":\"datasetProperties\","
           + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar-%d,PROD)\","
@@ -259,6 +264,9 @@ public class RestEmitterTest {
         .map(x -> (HttpRequest) x)
         .collect(Collectors.toList());
     ObjectMapper mapper = new ObjectMapper();
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
     for (int i = 0; i < numRequests; ++i) {
       String expectedContent = String.format("{\"proposal\":{\"aspectName\":\"datasetProperties\","
           + "\"entityUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,foo.bar-%d,PROD)\","

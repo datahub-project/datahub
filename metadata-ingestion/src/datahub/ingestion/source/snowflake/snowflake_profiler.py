@@ -30,6 +30,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 snowdialect.ischema_names["GEOGRAPHY"] = sqltypes.NullType
+snowdialect.ischema_names["GEOMETRY"] = sqltypes.NullType
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
     ) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
         # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        if self.config.profiling.enabled:
+        if self.config.is_profiling_enabled():
             self.config.options.setdefault(
                 "max_overflow", self.config.profiling.max_workers
             )
@@ -147,7 +148,14 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
         logger.debug(f"Preparing profiling request for {dataset_name}")
         profile_request = SnowflakeProfilerRequest(
             pretty_name=dataset_name,
-            batch_kwargs=dict(schema=schema_name, table=table.name),
+            batch_kwargs=dict(
+                schema=schema_name,
+                table=table.name,
+                # Lowercase/Mixedcase table names in Snowflake do not work by default.
+                # We need to pass `use_quoted_name=True` for such tables as mentioned here -
+                # https://github.com/great-expectations/great_expectations/pull/2023
+                use_quoted_name=(table.name != table.name.upper()),
+            ),
             table=table,
             profile_table_level_only=profile_table_level_only,
         )

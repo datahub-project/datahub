@@ -16,6 +16,7 @@ public class EntityTypeMapper {
   static final Map<EntityType, String> ENTITY_TYPE_TO_NAME =
       ImmutableMap.<EntityType, String>builder()
           .put(EntityType.DATASET, "dataset")
+          .put(EntityType.ROLE, "role")
           .put(EntityType.CORP_USER, "corpuser")
           .put(EntityType.CORP_GROUP, "corpGroup")
           .put(EntityType.DATA_PLATFORM, "dataPlatform")
@@ -37,6 +38,7 @@ public class EntityTypeMapper {
           .put(EntityType.DATA_PLATFORM_INSTANCE, "dataPlatformInstance")
           .put(EntityType.TEST, "test")
           .put(EntityType.DATAHUB_VIEW, Constants.DATAHUB_VIEW_ENTITY_NAME)
+          .put(EntityType.DATA_PRODUCT, Constants.DATA_PRODUCT_ENTITY_NAME)
           .build();
 
   private static final Map<String, EntityType> ENTITY_NAME_TO_TYPE =

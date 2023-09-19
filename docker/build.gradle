@@ -35,6 +35,8 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
 
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
+    // environment "ACTIONS_VERSION", 'alpine3.17-slim'
+    // environment "DATAHUB_ACTIONS_IMAGE", 'nginx'
 
     def cmd = [
             'source ../metadata-ingestion/venv/bin/activate && ',
@@ -44,6 +46,30 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
             '--version', "v${version}",
             '--dump-logs-on-failure'
     ]
+
+    commandLine 'bash', '-c', cmd.join(" ")
+}
+
+task quickstartSlim(type: Exec, dependsOn: ':metadata-ingestion:install') {
+    dependsOn(([':docker:datahub-ingestion'] + quickstart_modules).collect { it + ':dockerTag' })
+    shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
+
+    environment "DATAHUB_TELEMETRY_ENABLED", "false"
+    environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
+    environment "DATAHUB_ACTIONS_IMAGE", "acryldata/datahub-ingestion"
+    environment "ACTIONS_VERSION", "v${version}-slim"
+    environment "ACTIONS_EXTRA_PACKAGES", 'acryl-datahub-actions[executor] acryl-datahub-actions'
+    environment "ACTIONS_CONFIG", 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml'
+
+    def cmd = [
+            'source ../metadata-ingestion/venv/bin/activate && ',
+            'datahub docker quickstart',
+            '--no-pull-images',
+            '--standalone_consumers',
+            '--version', "v${version}",
+            '--dump-logs-on-failure'
+    ]
+
     commandLine 'bash', '-c', cmd.join(" ")
 }
 
@@ -61,6 +87,7 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
     dependsOn(debug_modules.collect { it + ':dockerTagDebug' })
     shouldRunAfter ':metadata-ingestion:clean', 'quickstartNuke'
 
+    environment "DATAHUB_PRECREATE_TOPICS", "true"
     environment "DATAHUB_TELEMETRY_ENABLED", "false"
     environment "DOCKER_COMPOSE_BASE", "file://${rootProject.projectDir}"
 

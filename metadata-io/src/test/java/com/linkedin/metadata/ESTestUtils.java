@@ -14,6 +14,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.LineageSearchService;
+import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import java.time.Duration;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -32,8 +34,9 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
-import static com.linkedin.metadata.DockerTestUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.DockerTestUtils.checkContainerEngine;
 
 public class ESTestUtils {
     private ESTestUtils() {
@@ -66,9 +69,32 @@ public class ESTestUtils {
                 .collect(Collectors.toList());
     }
 
-    public static SearchResult search(SearchService searchService, String query) {
+    public static SearchResult searchAcrossEntities(SearchService searchService, String query) {
+        return searchAcrossEntities(searchService, query, null);
+    }
+
+    public static SearchResult searchAcrossEntities(SearchService searchService, String query, @Nullable List<String> facets) {
         return searchService.searchAcrossEntities(SEARCHABLE_ENTITIES, query, null, null, 0,
+            100, new SearchFlags().setFulltext(true).setSkipCache(true), facets);
+    }
+
+    public static SearchResult searchAcrossCustomEntities(SearchService searchService, String query, List<String> searchableEntities) {
+        return searchService.searchAcrossEntities(searchableEntities, query, null, null, 0,
                 100, new SearchFlags().setFulltext(true).setSkipCache(true));
+    }
+
+    public static SearchResult search(SearchService searchService, String query) {
+        return search(searchService, SEARCHABLE_ENTITIES, query);
+    }
+
+    public static SearchResult search(SearchService searchService, List<String> entities, String query) {
+        return searchService.search(entities, query, null, null, 0, 100,
+            new SearchFlags().setFulltext(true).setSkipCache(true));
+    }
+
+    public static ScrollResult scroll(SearchService searchService, String query, int batchSize, @Nullable String scrollId) {
+        return searchService.scrollAcrossEntities(SEARCHABLE_ENTITIES, query, null, null,
+            scrollId, "3m", batchSize, new SearchFlags().setFulltext(true).setSkipCache(true));
     }
 
     public static SearchResult searchStructured(SearchService searchService, String query) {

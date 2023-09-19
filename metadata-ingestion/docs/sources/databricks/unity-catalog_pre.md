@@ -1,4 +1,20 @@
 ### Prerequisities
-- Generate a Databrick Personal Access token following the guide here: https://docs.databricks.com/dev-tools/api/latest/authentication.html#generate-a-personal-access-token
-- Get your workspace Id where Unity Catalog is following: https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids
-- Check the starter recipe below and replace Token and Workspace Id with the ones above.
+- Get your Databricks instance's [workspace url](https://docs.databricks.com/workspace/workspace-details.html#workspace-instance-names-urls-and-ids)
+- Create a [Databricks Service Principal](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#what-is-a-service-principal)
+  + You can skip this step and use your own account to get things running quickly,
+  but we strongly recommend creating a dedicated service principal for production use.
+- Generate a Databricks Personal Access token following the following guides:
+  + [Service Principals](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#personal-access-tokens)
+  + [Personal Access Tokens](https://docs.databricks.com/dev-tools/auth.html#databricks-personal-access-tokens)
+- Provision your service account:
+  + To ingest your workspace's metadata and lineage, your service principal must have all of the following:
+    * One of: metastore admin role, ownership of, or `USE CATALOG` privilege on any catalogs you want to ingest
+    * One of: metastore admin role, ownership of, or `USE SCHEMA` privilege on any schemas you want to ingest
+    * Ownership of or `SELECT` privilege on any tables and views you want to ingest
+    * [Ownership documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/ownership.html)
+    * [Privileges documentation](https://docs.databricks.com/data-governance/unity-catalog/manage-privileges/privileges.html)
+  + To `include_usage_statistics` (enabled by default), your service principal must have `CAN_MANAGE` permissions on any SQL Warehouses you want to ingest: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
+  + To ingest `profiling` information with `call_analyze` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.
+    * Alternatively, you can run [ANALYZE TABLE](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) yourself on any tables you want to profile, then set `call_analyze` to `false`.
+    You will still need `SELECT` privilege on those tables to fetch the results.
+- Check the starter recipe below and replace `workspace_url` and `token` with your information from the previous steps.

@@ -6,6 +6,8 @@ import {
     UsergroupAddOutlined,
     ToolOutlined,
     FilterOutlined,
+    TeamOutlined,
+    PushpinOutlined,
 } from '@ant-design/icons';
 import { Redirect, Route, useHistory, useLocation, useRouteMatch, Switch } from 'react-router';
 import styled from 'styled-components';
@@ -17,6 +19,8 @@ import { AccessTokens } from './AccessTokens';
 import { Preferences } from './Preferences';
 import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
+import { ManageOwnership } from '../entity/ownership/ManageOwnership';
+import ManagePosts from './posts/ManagePosts';
 
 const PageContainer = styled.div`
     display: flex;
@@ -59,6 +63,8 @@ const PATHS = [
     { path: 'permissions', content: <ManagePermissions /> },
     { path: 'preferences', content: <Preferences /> },
     { path: 'views', content: <ManageViews /> },
+    { path: 'ownership', content: <ManageOwnership /> },
+    { path: 'posts', content: <ManagePosts /> },
 ];
 
 /**
@@ -87,6 +93,8 @@ export const SettingsPage = () => {
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
     const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
     const showViews = isViewsEnabled || false;
+    const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
+    const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements;
 
     return (
         <PageContainer>
@@ -127,13 +135,25 @@ export const SettingsPage = () => {
                             )}
                         </Menu.ItemGroup>
                     )}
-                    {showViews && (
-                        <Menu.ItemGroup title="Manage">
+
+                    <Menu.ItemGroup title="Manage">
+                        {showViews && (
                             <Menu.Item key="views">
                                 <FilterOutlined /> <ItemTitle>My Views</ItemTitle>
                             </Menu.Item>
-                        </Menu.ItemGroup>
-                    )}
+                        )}
+                        {showOwnershipTypes && (
+                            <Menu.Item key="ownership">
+                                <TeamOutlined /> <ItemTitle>Ownership Types</ItemTitle>
+                            </Menu.Item>
+                        )}
+                        {showHomePagePosts && (
+                            <Menu.Item key="posts">
+                                <PushpinOutlined /> <ItemTitle>Home Page Posts</ItemTitle>
+                            </Menu.Item>
+                        )}
+                    </Menu.ItemGroup>
+
                     <Menu.ItemGroup title="Preferences">
                         <Menu.Item key="preferences">
                             <ToolOutlined />

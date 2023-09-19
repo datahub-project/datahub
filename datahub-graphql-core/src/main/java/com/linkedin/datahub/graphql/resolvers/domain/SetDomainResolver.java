@@ -7,10 +7,8 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -19,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -49,21 +48,16 @@ public class SetDomainResolver implements DataFetcher<CompletableFuture<Boolean>
         _entityService
       );
       try {
-        Domains domains = (Domains) getAspectFromEntity(
+        Domains domains = (Domains) EntityUtils.getAspectFromEntity(
             entityUrn.toString(),
-            Constants.DOMAINS_ASPECT_NAME,
+            DOMAINS_ASPECT_NAME,
             _entityService,
             new Domains());
         setDomain(domains, domainUrn);
 
         // Create the Domains aspects
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityUrn(entityUrn);
-        proposal.setEntityType(entityUrn.getEntityType());
-        proposal.setAspectName(Constants.DOMAINS_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(domains));
-        proposal.setChangeType(ChangeType.UPSERT);
-        _entityClient.ingestProposal(proposal, context.getAuthentication());
+        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithUrn(entityUrn, DOMAINS_ASPECT_NAME, domains);
+        _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
         return true;
       } catch (Exception e) {
         log.error("Failed to set Domain to resource with entity urn {}, domain urn {}: {}", entityUrn, domainUrn, e.getMessage());

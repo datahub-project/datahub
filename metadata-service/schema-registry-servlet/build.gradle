@@ -1,0 +1,37 @@
+apply plugin: 'java'
+
+dependencies {
+    implementation project(':metadata-service:factories')
+    implementation project(':metadata-service:schema-registry-api')
+
+    implementation externalDependency.reflections
+    implementation externalDependency.springBoot
+    implementation externalDependency.springCore
+    implementation(externalDependency.springDocUI) {
+        exclude group: 'org.springframework.boot'
+    }
+    implementation externalDependency.springWeb
+    implementation externalDependency.springWebMVC
+    implementation externalDependency.springBeans
+    implementation externalDependency.springContext
+    implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
+    implementation externalDependency.antlr4Runtime
+    implementation externalDependency.antlr4
+
+    annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.springBootTest
+    testImplementation project(':mock-entity-registry')
+    testImplementation externalDependency.springBoot
+    testImplementation externalDependency.testContainers
+    testImplementation externalDependency.testContainersKafka
+    testImplementation externalDependency.springKafka
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.logbackClassic
+    testImplementation externalDependency.jacksonCore
+    testImplementation externalDependency.jacksonDataBind
+    testImplementation externalDependency.springBootStarterWeb
+}

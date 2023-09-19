@@ -109,6 +109,7 @@ const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
             allUsers: policy.actors.allUsers,
             allGroups: policy.actors.allGroups,
             resourceOwners: policy.actors.resourceOwners,
+            resourceOwnersTypes: policy.actors.resourceOwnersTypes,
         },
     };
     if (policy.resources !== null && policy.resources !== undefined) {

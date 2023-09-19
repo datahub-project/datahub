@@ -1,5 +1,11 @@
 # Introduction to Metadata Ingestion
 
+<a
+    className='button button--primary button--lg'
+    href="https://datahubproject.io/integrations">
+    Find Integration Source
+</a>
+
 ## Integration Options
 
 DataHub supports both **push-based** and **pull-based** metadata integration.
@@ -153,6 +159,26 @@ reporting:
   - type: datahub
     config:
       report_recipe: false
+
+# Optional log to put failed JSONs into a file
+# Helpful in case you are trying to debug some issue with specific ingestion failing
+failure_log:
+  enabled: false
+  log_config:
+    filename: ./path/to/failure.json
+```
+
+#### Deploying and scheduling ingestion to the UI
+
+The `deploy` subcommand of the `ingest` command tree allows users to upload their recipes and schedule them in the server.
+
+```shell
+datahub ingest deploy -n <user friendly name for ingestion> -c recipe.yaml
+```
+
+By default, no schedule is done unless explicitly configured with the `--schedule` parameter. Timezones are inferred from the system time, can be overriden with `--time-zone` flag.
+```shell
+datahub ingest deploy -n test --schedule "0 * * * *" --time-zone "Europe/London" -c recipe.yaml
 ```
 
 ## Transformations

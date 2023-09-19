@@ -14,7 +14,7 @@ export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const [viewType, setViewType] = useState(ViewType.LATEST);
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.WEEK);
+    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },
@@ -51,6 +51,9 @@ export default function StatsTab() {
             latestProfile?.timestampMillis,
         )}`;
 
+    const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
+    const queryCountLast30Days = baseEntity.dataset?.statsSummary?.queryCountLast30Days;
+
     const statsHeader = (
         <StatsHeader
             viewType={viewType}
@@ -66,7 +69,7 @@ export default function StatsTab() {
             <TableStats
                 rowCount={latestProfile?.rowCount || undefined}
                 columnCount={latestProfile?.columnCount || undefined}
-                queryCount={usageStats?.aggregations?.totalSqlQueries || undefined}
+                queryCount={queryCountLast30Days || totalSqlQueries || undefined}
                 users={usageStats?.aggregations?.users || undefined}
                 lastUpdatedTime={lastUpdatedTime || undefined}
                 lastReportedTime={lastReportedTime || undefined}

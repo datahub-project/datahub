@@ -9,3 +9,7 @@ def add_global_warning(warn: str) -> None:
 
 def get_global_warnings() -> List:
     return global_warnings
+
+
+def clear_global_warnings() -> None:
+    global_warnings.clear()

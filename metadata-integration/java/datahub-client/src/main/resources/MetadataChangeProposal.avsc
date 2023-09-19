@@ -136,7 +136,12 @@
       }, {
         "name" : "runId",
         "type" : [ "string", "null" ],
-        "doc" : "The run id that produced the metadata. Populated in case of batch-ingestion.",
+        "doc" : "The original run id that produced the metadata. Populated in case of batch-ingestion.",
+        "default" : "no-run-id-provided"
+      }, {
+        "name" : "lastRunId",
+        "type" : [ "string", "null" ],
+        "doc" : "The last run id that produced the metadata. Populated in case of batch-ingestion.",
         "default" : "no-run-id-provided"
       }, {
         "name" : "registryName",

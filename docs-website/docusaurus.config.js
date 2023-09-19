@@ -18,6 +18,7 @@ module.exports = {
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
+    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || 'IeF3CUFCUQWuouZ8MP5Np9nES52QAtaA',
   },
   themeConfig: {
     ...(!isSaas && {
@@ -54,7 +55,7 @@ module.exports = {
           position: "right",
         },
         {
-          to: "docs/demo",
+          to: "https://demo.datahubproject.io/",
           label: "Demo",
           position: "right",
         },
@@ -67,6 +68,11 @@ module.exports = {
           href: "https://feature-requests.datahubproject.io/roadmap",
           label: "Roadmap",
           position: "right",
+        },
+        {
+          type: 'docsVersionDropdown',
+          position: 'right',
+          dropdownActiveClassDisabled: true,
         },
         {
           href: "https://slack.datahubproject.io",
@@ -139,7 +145,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "docs/demo",
+              to: "https://demo.datahubproject.io/",
             },
             {
               label: "Roadmap",
@@ -172,8 +178,8 @@ module.exports = {
       appId: "RK0UG797F3",
       apiKey: "39d7eb90d8b31d464e309375a52d674f",
       indexName: "datahubproject",
-      // contextualSearch: true,
-      // searchParameters: {},
+      insights: true,
+      contextualSearch: true,
       // debug: true,
     },
   },
@@ -199,6 +205,7 @@ module.exports = {
               ? require.resolve("./src/styles/acryl.scss")
               : require.resolve("./src/styles/datahub.scss"),
             require.resolve("./src/styles/global.scss"),
+            require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
           ],
         },

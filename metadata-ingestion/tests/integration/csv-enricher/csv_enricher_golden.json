@@ -1,116 +1,1142 @@
 [
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "glossaryTerms",
     "aspect": {
-        "value": "{\"terms\": [{\"urn\": \"urn:li:glossaryTerm:CustomerAccount\"}], \"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}}",
-        "contentType": "application/json"
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test-csv-enricher",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test-csv-enricher"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
-        "value": "{\"tags\": [{\"tag\": \"urn:li:tag:Legacy\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test-csv-enricher",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test-csv-enricher"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
-        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:datahub\", \"type\": \"TECHNICAL_OWNER\"}, {\"owner\": \"urn:li:corpuser:jdoe\", \"type\": \"TECHNICAL_OWNER\"}], \"lastModified\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}}",
-        "contentType": "application/json"
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test-csv-enricher",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test-csv-enricher"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:Engineering\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:Engineering"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test-csv-enricher",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test-csv-enricher"
     }
 },
 {
-    "auditHeader": null,
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "entityKeyAspect": null,
     "changeType": "UPSERT",
     "aspectName": "editableDatasetProperties",
     "aspect": {
-        "value": "{\"created\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}, \"lastModified\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}, \"description\": \"new description\"}",
-        "contentType": "application/json"
+        "json": {
+            "created": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            },
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            },
+            "description": "new description"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test-csv-enricher",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test-csv-enricher"
     }
 },
 {
-    "auditHeader": null,
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
-    "entityKeyAspect": null,
+    "entityType": "container",
+    "entityUrn": "urn:li:container:DATABASE",
     "changeType": "UPSERT",
-    "aspectName": "editableSchemaMetadata",
+    "aspectName": "glossaryTerms",
     "aspect": {
-        "value": "{\"created\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"field_foo\", \"description\": \"field_foo!\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:AccountBalance\"}], \"auditStamp\": {\"time\": 1643871600000, \"actor\": \"urn:li:corpuser:ingestion\"}}}, {\"fieldPath\": \"field_bar\", \"description\": \"field_bar?\", \"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Legacy\"}]}}]}",
-        "contentType": "application/json"
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "test-csv-enricher",
-        "registryName": null,
-        "registryVersion": null,
-        "properties": null
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,baz1)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,baz1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,baz1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,baz)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,baz)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,baz)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_features)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_features)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_features)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:science,scienceGroup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:science,scienceGroup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:science,scienceGroup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "notebook",
+    "entityUrn": "urn:li:notebook:(querybook,1234)",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTerms",
+    "aspect": {
+        "json": {
+            "terms": [
+                {
+                    "urn": "urn:li:glossaryTerm:CustomerAccount"
+                }
+            ],
+            "auditStamp": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "notebook",
+    "entityUrn": "urn:li:notebook:(querybook,1234)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Legacy"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "notebook",
+    "entityUrn": "urn:li:notebook:(querybook,1234)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "lastModified": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+        "json": {
+            "created": {
+                "time": 1643871600000,
+                "actor": "urn:li:corpuser:ingestion"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "editableSchemaFieldInfo": [
+                {
+                    "fieldPath": "field_foo",
+                    "description": "field_foo!",
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:AccountBalance"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1643871600000,
+                            "actor": "urn:li:corpuser:ingestion"
+                        }
+                    }
+                },
+                {
+                    "fieldPath": "field_bar",
+                    "description": "field_bar?",
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Legacy"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,baz1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,dag_abc,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,baz)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:DATABASE",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Legacy",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Legacy"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_123)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeature",
+    "entityUrn": "urn:li:mlFeature:(test_feature_table_all_feature_dtypes,test_BOOL_LIST_feature)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModel",
+    "entityUrn": "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlPrimaryKey",
+    "entityUrn": "urn:li:mlPrimaryKey:(test_feature_table_all_feature_dtypes,dummy_entity_1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlFeatureTable",
+    "entityUrn": "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,user_features)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "mlModelGroup",
+    "entityUrn": "urn:li:mlModelGroup:(urn:li:dataPlatform:science,scienceGroup,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
+    }
+},
+{
+    "entityType": "notebook",
+    "entityUrn": "urn:li:notebook:(querybook,1234)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "test-csv-enricher"
     }
 }
 ]

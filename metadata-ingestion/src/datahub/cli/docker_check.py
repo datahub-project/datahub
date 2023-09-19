@@ -137,6 +137,17 @@ class QuickstartStatus:
     def is_ok(self) -> bool:
         return not self.errors()
 
+    def needs_up(self) -> bool:
+        return any(
+            container.status
+            in {
+                ContainerStatus.EXITED_WITH_FAILURE,
+                ContainerStatus.DIED,
+                ContainerStatus.MISSING,
+            }
+            for container in self.containers
+        )
+
     def to_exception(
         self, header: str, footer: Optional[str] = None
     ) -> QuickstartError:
@@ -169,6 +180,9 @@ def check_docker_quickstart() -> QuickstartStatus:
         containers = client.containers.list(
             all=True,
             filters=DATAHUB_COMPOSE_PROJECT_FILTER,
+            # We can get race conditions between docker running up / recreating
+            # containers and our status checks.
+            ignore_removed=True,
         )
         if len(containers) == 0:
             return QuickstartStatus([])

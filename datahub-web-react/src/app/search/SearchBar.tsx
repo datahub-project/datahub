@@ -1,16 +1,16 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
-import { Input, AutoComplete, Typography } from 'antd';
+import React, { useEffect, useMemo, useState, useRef, useCallback, EventHandler, SyntheticEvent } from 'react';
+import { Input, AutoComplete, Button } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { AutoCompleteResultForEntity, Entity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
+import { AutoCompleteResultForEntity, EntityType, FacetFilterInput, ScenarioType } from '../../types.generated';
 import EntityRegistry from '../entity/EntityRegistry';
 import filterSearchQuery from './utils/filterSearchQuery';
-import { ANTD_GRAY } from '../entity/shared/constants';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../entity/shared/constants';
 import { getEntityPath } from '../entity/shared/containers/profile/utils';
 import { EXACT_SEARCH_PREFIX } from './utils/constants';
 import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import AutoCompleteItem, { SuggestionContainer } from './autoComplete/AutoCompleteItem';
+import AutoCompleteItem from './autoComplete/AutoCompleteItem';
 import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import QuickFilters from './autoComplete/quickFilters/QuickFilters';
 import { getFiltersWithQuickFilter } from './utils/filterUtils';
@@ -19,16 +19,11 @@ import analytics, { Event, EventType } from '../analytics';
 import RecommendedOption from './autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from './autoComplete/SectionHeader';
 import { useUserContext } from '../context/useUserContext';
-
-const ExploreForEntity = styled.span`
-    font-weight: light;
-    font-size: 16px;
-    padding: 5px 0;
-`;
-
-const ExploreForEntityText = styled.span`
-    margin-left: 10px;
-`;
+import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
+import { getQuickFilterDetails } from './autoComplete/quickFilters/utils';
+import ViewAllSearchItem from './ViewAllSearchItem';
+import { ViewSelect } from '../entity/view/select/ViewSelect';
+import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -46,9 +41,14 @@ const StyledSearchBar = styled(Input)`
         height: 40px;
         font-size: 20px;
         color: ${ANTD_GRAY[7]};
+        background-color: ${ANTD_GRAY_V2[2]};
     }
     > .ant-input {
         font-size: 14px;
+        background-color: ${ANTD_GRAY_V2[2]};
+    }
+    > .ant-input::placeholder {
+        color: ${ANTD_GRAY_V2[10]};
     }
     .ant-input-clear-icon {
         height: 15px;
@@ -63,37 +63,42 @@ const ClearIcon = styled(CloseCircleFilled)`
     }
 `;
 
+const ViewSelectContainer = styled.div`
+    &&& {
+        border-right: 1px solid ${ANTD_GRAY_V2[5]};
+    }
+`;
+
+const SearchIcon = styled(SearchOutlined)`
+    color: ${ANTD_GRAY_V2[8]};
+`;
+
 const EXACT_AUTOCOMPLETE_OPTION_TYPE = 'exact_query';
-const RECOMMENDED_QUERY_OPTION_TYPE = 'recommendation';
+const RELEVANCE_QUERY_OPTION_TYPE = 'recommendation';
 
 const QUICK_FILTER_AUTO_COMPLETE_OPTION = {
     label: <EntityTypeLabel>Filter by</EntityTypeLabel>,
     options: [
         {
-            value: '',
+            value: 'quick-filter-unique-key',
             type: '',
             label: <QuickFilters />,
-            style: { padding: '10px 12px 12px 16px', cursor: 'auto' },
+            style: { padding: '8px', cursor: 'auto' },
             disabled: true,
         },
     ],
-};
-
-const renderItem = (query: string, entity: Entity) => {
-    return {
-        value: entity.urn,
-        label: <AutoCompleteItem query={query} entity={entity} />,
-        type: entity.type,
-        style: { padding: '12px 12px 12px 16px' },
-    };
 };
 
 const renderRecommendedQuery = (query: string) => {
     return {
         value: query,
         label: <RecommendedOption text={query} />,
-        type: RECOMMENDED_QUERY_OPTION_TYPE,
+        type: RELEVANCE_QUERY_OPTION_TYPE,
     };
+};
+
+const handleStopPropagation: EventHandler<SyntheticEvent> = (e) => {
+    e.stopPropagation();
 };
 
 interface Props {
@@ -109,6 +114,8 @@ interface Props {
     fixAutoComplete?: boolean;
     hideRecommendations?: boolean;
     showQuickFilters?: boolean;
+    viewsEnabled?: boolean;
+    combineSiblings?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
     onFocus?: () => void;
     onBlur?: () => void;
@@ -134,6 +141,8 @@ export const SearchBar = ({
     fixAutoComplete,
     hideRecommendations,
     showQuickFilters,
+    viewsEnabled = false,
+    combineSiblings = false,
     setIsSearchBarFocused,
     onFocus,
     onBlur,
@@ -162,49 +171,76 @@ export const SearchBar = ({
 
     const effectiveQuery = searchQuery !== undefined ? searchQuery : initialQuery || '';
 
+    const onClickExploreAll = useCallback(() => {
+        analytics.event({ type: EventType.SearchBarExploreAllClickEvent });
+        navigateToSearchUrl({ query: '*', history });
+    }, [history]);
+
     const emptyQueryOptions = useMemo(() => {
-        // Map each module to a set of
-        return (
+        const moduleOptions =
             data?.listRecommendations?.modules.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
-            })) || []
-        );
-    }, [data]);
+            })) || [];
 
-    const autoCompleteQueryOptions = useMemo(
-        () =>
-            (suggestions?.length > 0 &&
-                effectiveQuery.length > 0 && [
-                    {
-                        value: `${EXACT_SEARCH_PREFIX}${effectiveQuery}`,
-                        label: (
-                            <SuggestionContainer key={EXACT_AUTOCOMPLETE_OPTION_TYPE}>
-                                <ExploreForEntity>
-                                    <SearchOutlined />
-                                    <ExploreForEntityText>
-                                        View all results for <Typography.Text strong>{effectiveQuery}</Typography.Text>
-                                    </ExploreForEntityText>
-                                </ExploreForEntity>
-                            </SuggestionContainer>
-                        ),
-                        type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
-                    },
-                ]) ||
-            [],
-        [suggestions, effectiveQuery],
-    );
+        const exploreAllOption = {
+            value: 'explore-all-unique-key',
+            type: '',
+            label: (
+                <Button type="link" onClick={onClickExploreAll}>
+                    Explore all →
+                </Button>
+            ),
+            style: { marginLeft: 'auto', cursor: 'auto' },
+            disabled: true,
+        };
 
-    const autoCompleteEntityOptions = useMemo(
-        () =>
-            suggestions.map((entity: AutoCompleteResultForEntity) => ({
-                label: <SectionHeader entityType={entity.type} />,
-                options: [...entity.entities.map((e: Entity) => renderItem(effectiveQuery, e))],
-            })),
-        [effectiveQuery, suggestions],
-    );
+        const tail = showQuickFilters ? [exploreAllOption] : [];
+
+        return [...moduleOptions, ...tail];
+    }, [data?.listRecommendations?.modules, onClickExploreAll, showQuickFilters]);
 
     const { quickFilters, selectedQuickFilter, setSelectedQuickFilter } = useQuickFiltersContext();
+
+    const autoCompleteQueryOptions = useMemo(() => {
+        const query = suggestions.length ? effectiveQuery : '';
+        const selectedQuickFilterLabel =
+            showQuickFilters && selectedQuickFilter
+                ? getQuickFilterDetails(selectedQuickFilter, entityRegistry).label
+                : '';
+        const text = query || selectedQuickFilterLabel;
+
+        if (!text) return [];
+
+        return [
+            {
+                value: `${EXACT_SEARCH_PREFIX}${text}`,
+                label: <ViewAllSearchItem searchTarget={text} />,
+                type: EXACT_AUTOCOMPLETE_OPTION_TYPE,
+            },
+        ];
+    }, [showQuickFilters, suggestions.length, effectiveQuery, selectedQuickFilter, entityRegistry]);
+
+    const autoCompleteEntityOptions = useMemo(() => {
+        return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
+            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combineSiblings });
+            return {
+                label: <SectionHeader entityType={combinedSuggestion.type} />,
+                options: combinedSuggestion.combinedEntities.map((combinedEntity) => ({
+                    value: combinedEntity.entity.urn,
+                    label: (
+                        <AutoCompleteItem
+                            query={effectiveQuery}
+                            entity={combinedEntity.entity}
+                            siblings={combineSiblings ? combinedEntity.matchedEntities : undefined}
+                        />
+                    ),
+                    type: combinedEntity.entity.type,
+                    style: { padding: '12px 12px 12px 16px' },
+                })),
+            };
+        });
+    }, [combineSiblings, effectiveQuery, suggestions]);
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {
@@ -227,10 +263,8 @@ export const SearchBar = ({
 
     const options = useMemo(() => {
         // Display recommendations when there is no search query, autocomplete suggestions otherwise.
-        if (autoCompleteEntityOptions.length > 0) {
-            return [...quickFilterOption, ...autoCompleteQueryOptions, ...autoCompleteEntityOptions];
-        }
-        return [...quickFilterOption, ...emptyQueryOptions];
+        const tail = autoCompleteEntityOptions.length ? autoCompleteEntityOptions : emptyQueryOptions;
+        return [...quickFilterOption, ...autoCompleteQueryOptions, ...tail];
     }, [emptyQueryOptions, autoCompleteEntityOptions, autoCompleteQueryOptions, quickFilterOption]);
 
     const searchBarWrapperRef = useRef<HTMLDivElement>(null);
@@ -239,7 +273,7 @@ export const SearchBar = ({
         if (
             setIsSearchBarFocused &&
             (!isSearchBarFocused ||
-                (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 590))
+                (searchBarWrapperRef && searchBarWrapperRef.current && searchBarWrapperRef.current.clientWidth < 650))
         ) {
             setIsSearchBarFocused(isSearchBarFocused);
         }
@@ -265,16 +299,14 @@ export const SearchBar = ({
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
             <StyledAutoComplete
+                data-testid="search-bar"
                 defaultActiveFirstOption={false}
                 style={autoCompleteStyle}
                 options={options}
                 filterOption={false}
                 onSelect={(value, option) => {
                     // If the autocomplete option type is NOT an entity, then render as a normal search query.
-                    if (
-                        option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE ||
-                        option.type === RECOMMENDED_QUERY_OPTION_TYPE
-                    ) {
+                    if (option.type === EXACT_AUTOCOMPLETE_OPTION_TYPE || option.type === RELEVANCE_QUERY_OPTION_TYPE) {
                         handleSearch(
                             `${filterSearchQuery(value as string)}`,
                             searchEntityTypes.indexOf(option.type) >= 0 ? option.type : undefined,
@@ -319,6 +351,7 @@ export const SearchBar = ({
                 listHeight={480}
             >
                 <StyledSearchBar
+                    bordered={false}
                     placeholder={placeholderText}
                     onPressEnter={() => {
                         handleSearch(
@@ -327,7 +360,7 @@ export const SearchBar = ({
                             getFiltersWithQuickFilter(selectedQuickFilter),
                         );
                     }}
-                    style={inputStyle}
+                    style={{ ...inputStyle, color: 'red' }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     data-testid="search-input"
@@ -335,15 +368,36 @@ export const SearchBar = ({
                     onBlur={handleBlur}
                     allowClear={{ clearIcon: <ClearIcon /> }}
                     prefix={
-                        <SearchOutlined
-                            onClick={() => {
-                                handleSearch(
-                                    filterSearchQuery(searchQuery || ''),
-                                    undefined,
-                                    getFiltersWithQuickFilter(selectedQuickFilter),
-                                );
-                            }}
-                        />
+                        <>
+                            {viewsEnabled && (
+                                <ViewSelectContainer
+                                    onClick={handleStopPropagation}
+                                    onFocus={handleStopPropagation}
+                                    onMouseDown={handleStopPropagation}
+                                    onKeyUp={handleStopPropagation}
+                                    onKeyDown={handleStopPropagation}
+                                >
+                                    <ViewSelect
+                                        dropdownStyle={
+                                            fixAutoComplete
+                                                ? {
+                                                      position: 'fixed',
+                                                  }
+                                                : {}
+                                        }
+                                    />
+                                </ViewSelectContainer>
+                            )}
+                            <SearchIcon
+                                onClick={() => {
+                                    handleSearch(
+                                        filterSearchQuery(searchQuery || ''),
+                                        undefined,
+                                        getFiltersWithQuickFilter(selectedQuickFilter),
+                                    );
+                                }}
+                            />
+                        </>
                     }
                 />
             </StyledAutoComplete>

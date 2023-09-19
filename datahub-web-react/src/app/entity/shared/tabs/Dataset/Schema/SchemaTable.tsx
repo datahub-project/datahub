@@ -100,10 +100,10 @@ export default function SchemaTable({
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
-    const onTagTermCell = (record: SchemaField, rowIndex: number | undefined) => ({
+    const onTagTermCell = (record: SchemaField) => ({
         onMouseEnter: () => {
             if (editMode) {
-                setTagHoveredIndex(`${record.fieldPath}-${rowIndex}`);
+                setTagHoveredIndex(record.fieldPath);
             }
         },
         onMouseLeave: () => {

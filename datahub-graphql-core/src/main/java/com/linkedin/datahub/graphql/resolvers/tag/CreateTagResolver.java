@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.tag;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
@@ -9,12 +10,9 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.TagKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.tag.TagProperties;
 import graphql.schema.DataFetcher;
@@ -25,6 +23,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
+
 
 /**
  * Resolver used for creating a new Tag on DataHub. Requires the CREATE_TAG or MANAGE_TAGS privilege.
@@ -56,20 +58,21 @@ public class CreateTagResolver implements DataFetcher<CompletableFuture<String>>
         final String id = input.getId() != null ? input.getId() : UUID.randomUUID().toString();
         key.setName(id);
 
-        if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, Constants.TAG_ENTITY_NAME), context.getAuthentication())) {
+        if (_entityClient.exists(EntityKeyUtils.convertEntityKeyToUrn(key, TAG_ENTITY_NAME), context.getAuthentication())) {
           throw new IllegalArgumentException("This Tag already exists!");
         }
 
         // Create the MCP
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
-        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
-        proposal.setEntityType(Constants.TAG_ENTITY_NAME);
-        proposal.setAspectName(Constants.TAG_PROPERTIES_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(mapTagProperties(input)));
-        proposal.setChangeType(ChangeType.UPSERT);
+        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, TAG_ENTITY_NAME,
+            TAG_PROPERTIES_ASPECT_NAME, mapTagProperties(input));
+        String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
+        OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
+        if (!_entityService.exists(UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())))) {
+          log.warn("Technical owner does not exist, defaulting to None ownership.");
+          ownershipType = OwnershipType.NONE;
+        }
 
-        String tagUrn = _entityClient.ingestProposal(proposal, context.getAuthentication());
-        OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER, _entityService);
+        OwnerUtils.addCreatorAsOwner(context, tagUrn, OwnerEntityType.CORP_USER, ownershipType, _entityService);
         return tagUrn;
       } catch (Exception e) {
         log.error("Failed to create Tag with id: {}, name: {}: {}", input.getId(), input.getName(), e.getMessage());

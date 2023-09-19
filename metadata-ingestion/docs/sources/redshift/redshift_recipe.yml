@@ -1,4 +1,3 @@
-source:
   type: redshift
   config:
     # Coordinates
@@ -13,10 +12,19 @@ source:
     options:
       # driver_option: some-option
 
-    include_views: True # whether to include views, defaults to True
-    include_tables: True # whether to include views, defaults to True
+    include_table_lineage: true
+    include_usage_statistics: true
+    # The following options are only used when include_usage_statistics is true
+    # it appends the domain after the resdhift username which is extracted from the Redshift audit history
+    # in the format username@email_domain
+    email_domain: mydomain.com
 
-sink:
+    profiling:
+      enabled: true
+      # Only collect table level profiling information
+      profile_table_level_only: true
+
+  sink:
   # sink configs
 
 #------------------------------------------------------------------------------

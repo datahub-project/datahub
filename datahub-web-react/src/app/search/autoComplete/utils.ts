@@ -15,5 +15,5 @@ export function getShouldDisplayTooltip(entity: Entity, entityRegistry: EntityRe
     const parentContainers = genericEntityProps?.parentContainers?.containers;
     const hasMoreThanTwoContainers = parentContainers && parentContainers.length > 2;
 
-    return hasDatasetStats || hasMoreThanTwoContainers;
+    return hasDatasetStats || !!hasMoreThanTwoContainers;
 }

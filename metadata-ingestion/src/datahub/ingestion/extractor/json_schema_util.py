@@ -1,6 +1,6 @@
 import json
 import logging
-import unittest
+import unittest.mock
 from hashlib import md5
 from typing import Any, Callable, Dict, Iterable, List, Optional, Type
 
@@ -254,11 +254,13 @@ class JsonSchemaTranslator:
                 isPartOfKey=field_path.is_key_schema,
             )
         elif datahub_field_type in [EnumTypeClass]:
+            # Convert enums to string representation
+            schema_enums = list(map(json.dumps, schema["enum"]))
             yield SchemaField(
                 fieldPath=field_path.expand_type("enum", schema).as_string(),
                 type=type_override or SchemaFieldDataTypeClass(type=EnumTypeClass()),
                 nativeDataType="Enum",
-                description=f"one of {','.join(schema['enum'])}",
+                description=f"One of: {', '.join(schema_enums)}",
                 nullable=nullable,
                 jsonProps=JsonSchemaTranslator._get_jsonprops_for_any_schema(
                     schema, required=required
@@ -433,6 +435,7 @@ class JsonSchemaTranslator:
             field_path._set_parent_type_if_not_exists(
                 DataHubType(type=MapTypeClass, nested_type=value_type)
             )
+            # FIXME: description not set. This is present in schema["description"].
             yield from JsonSchemaTranslator.get_fields(
                 JsonSchemaTranslator._get_type_from_schema(
                     schema["additionalProperties"]
@@ -455,7 +458,25 @@ class JsonSchemaTranslator:
             (union_category, union_category_schema) = [
                 (k, v) for k, v in union_category_map.items() if v
             ][0]
+            if not field_path.has_field_name() and len(union_category_schema) == 1:
+                # Special case: If this is a top-level field AND there is only one type in the
+                # union, we collapse down the union to avoid extra nesting.
+                union_schema = union_category_schema[0]
+                merged_union_schema = (
+                    JsonSchemaTranslator._retain_parent_schema_props_in_union(
+                        union_schema=union_schema, parent_schema=schema
+                    )
+                )
+                yield from JsonSchemaTranslator.get_fields(
+                    JsonSchemaTranslator._get_type_from_schema(merged_union_schema),
+                    merged_union_schema,
+                    required=required,
+                    base_field_path=field_path,
+                )
+                return  # this one is done
             if field_path.has_field_name():
+                # The frontend expects the top-level field to be a record, so we only
+                # include the UnionTypeClass if we're not at the top level.
                 yield SchemaField(
                     fieldPath=field_path.expand_type("union", schema).as_string(),
                     type=type_override or SchemaFieldDataTypeClass(UnionTypeClass()),
@@ -481,15 +502,40 @@ class JsonSchemaTranslator:
                 union_field_path._set_parent_type_if_not_exists(
                     DataHubType(type=UnionTypeClass, nested_type=union_type)
                 )
+                merged_union_schema = (
+                    JsonSchemaTranslator._retain_parent_schema_props_in_union(
+                        union_schema=union_schema, parent_schema=schema
+                    )
+                )
                 yield from JsonSchemaTranslator.get_fields(
-                    JsonSchemaTranslator._get_type_from_schema(union_schema),
-                    union_schema,
+                    JsonSchemaTranslator._get_type_from_schema(merged_union_schema),
+                    merged_union_schema,
                     required=required,
                     base_field_path=union_field_path,
                     specific_type=union_type,
                 )
         else:
             raise Exception(f"Unhandled type {datahub_field_type}")
+
+    @staticmethod
+    def _retain_parent_schema_props_in_union(
+        union_schema: Dict, parent_schema: Dict
+    ) -> Dict:
+        """Merge the "properties" and the "required" fields from the parent schema into the child union schema."""
+
+        union_schema = union_schema.copy()
+        if "properties" in parent_schema:
+            union_schema["properties"] = {
+                **parent_schema["properties"],
+                **union_schema.get("properties", {}),
+            }
+        if "required" in parent_schema:
+            union_schema["required"] = [
+                *parent_schema["required"],
+                *union_schema.get("required", []),
+            ]
+
+        return union_schema
 
     @staticmethod
     def get_type_mapping(json_type: str) -> Type:

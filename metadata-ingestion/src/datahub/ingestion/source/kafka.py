@@ -35,11 +35,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import SourceCapability
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -56,13 +55,10 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    KafkaSchemaClass,
     SubTypesClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +93,10 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
+    disable_topic_record_naming_strategy: bool = pydantic.Field(
+        default=False,
+        description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
+    )
 
 
 @dataclass
@@ -114,6 +114,10 @@ class KafkaSourceReport(StaleEntityRemovalSourceReport):
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(
+    SourceCapability.DESCRIPTIONS,
+    "Set dataset description to top level doc field for Avro schema",
+)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "For multiple Kafka clusters, use the platform_instance configuration",
@@ -138,7 +142,8 @@ class KafkaSource(StatefulIngestionSourceBase):
         try:
             schema_registry_class: Type = import_path(config.schema_registry_class)
             return schema_registry_class.create(config, report)
-        except (ImportError, AttributeError):
+        except Exception as e:
+            logger.debug(e, exc_info=e)
             raise ImportError(config.schema_registry_class)
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
@@ -161,14 +166,6 @@ class KafkaSource(StatefulIngestionSourceBase):
                 cached_domains=[k for k in self.source_config.domain],
                 graph=self.ctx.graph,
             )
-        # Create and register the stateful ingestion use-case handlers.
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.source_config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
 
     def init_kafka_admin_client(self) -> None:
         try:
@@ -192,11 +189,13 @@ class KafkaSource(StatefulIngestionSourceBase):
         config: KafkaSourceConfig = KafkaSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         topics = self.consumer.list_topics(
@@ -207,7 +206,15 @@ class KafkaSource(StatefulIngestionSourceBase):
         for t, t_detail in topics.items():
             self.report.report_topic_scanned(t)
             if self.source_config.topic_patterns.allowed(t):
-                yield from self._extract_record(t, t_detail, extra_topic_details.get(t))
+                try:
+                    yield from self._extract_record(
+                        t, t_detail, extra_topic_details.get(t)
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to extract topic {t}", exc_info=True)
+                    self.report.report_warning(
+                        "topic", f"Exception while extracting topic {t}: {e}"
+                    )
             else:
                 self.report.report_dropped(t)
 
@@ -218,6 +225,9 @@ class KafkaSource(StatefulIngestionSourceBase):
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[MetadataWorkUnit]:
         logger.debug(f"topic = {topic}")
+
+        AVRO = "AVRO"
+        DOC_KEY = "doc"
 
         # 1. Create the default dataset snapshot for the topic.
         dataset_name = topic
@@ -251,13 +261,26 @@ class KafkaSource(StatefulIngestionSourceBase):
             topic, topic_detail, extra_topic_config
         )
 
+        # 4. Set dataset's description as top level doc, if topic schema type is avro
+        description = None
+        if (
+            schema_metadata is not None
+            and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
+            and schema_metadata.platformSchema.documentSchemaType == AVRO
+        ):
+            # Point to note:
+            # In Kafka documentSchema and keySchema both contains "doc" field.
+            # DataHub Dataset "description" field is mapped to documentSchema's "doc" field.
+            schema = json.loads(schema_metadata.platformSchema.documentSchema)
+            if isinstance(schema, dict):
+                description = schema.get(DOC_KEY)
+
         dataset_properties = DatasetPropertiesClass(
-            name=topic,
-            customProperties=custom_props,
+            name=topic, customProperties=custom_props, description=description
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        # 4. Attach dataPlatformInstance aspect.
+        # 5. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
             dataset_snapshot.aspects.append(
                 DataPlatformInstanceClass(
@@ -268,26 +291,19 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
             )
 
-        # 5. Emit the datasetSnapshot MCE
+        # 6. Emit the datasetSnapshot MCE
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        wu = MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
-        self.report.report_workunit(wu)
-        yield wu
+        yield MetadataWorkUnit(id=f"kafka-{topic}", mce=mce)
 
-        # 5. Add the subtype aspect marking this as a "topic"
-        subtype_wu = MetadataWorkUnit(
-            id=f"{topic}-subtype",
-            mcp=MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
-            ),
-        )
-        self.report.report_workunit(subtype_wu)
-        yield subtype_wu
+        # 7. Add the subtype aspect marking this as a "topic"
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.TOPIC]),
+        ).as_workunit()
 
         domain_urn: Optional[str] = None
 
-        # 6. Emit domains aspect MCPW
+        # 8. Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
@@ -295,13 +311,10 @@ class KafkaSource(StatefulIngestionSourceBase):
                 )
 
         if domain_urn:
-            wus = add_domain_to_entity_wu(
+            yield from add_domain_to_entity_wu(
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
             )
-            for wu in wus:
-                self.report.report_workunit(wu)
-                yield wu
 
     def build_custom_properties(
         self,
@@ -415,8 +428,6 @@ class KafkaSource(StatefulIngestionSourceBase):
         topic_configurations: dict,
     ) -> None:
         try:
-            assert config_result_future.done()
-            assert config_result_future.exception() is None
             topic_configurations[config_resource.name] = config_result_future.result()
         except Exception as e:
             logger.warning(

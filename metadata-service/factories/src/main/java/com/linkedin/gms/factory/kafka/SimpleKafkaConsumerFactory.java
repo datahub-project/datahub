@@ -1,11 +1,13 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import java.time.Duration;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -17,15 +19,13 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 @Slf4j
 @Configuration
-@EnableConfigurationProperties(KafkaProperties.class)
+@EnableConfigurationProperties({KafkaProperties.class})
 public class SimpleKafkaConsumerFactory {
 
-  @Value("${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}")
-  private String kafkaBootstrapServers;
-
   @Bean(name = "simpleKafkaConsumer")
-  protected KafkaListenerContainerFactory<?> createInstance(KafkaProperties properties) {
-
+  protected KafkaListenerContainerFactory<?> createInstance(@Qualifier("configurationProvider") ConfigurationProvider
+      provider, KafkaProperties properties) {
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
     KafkaProperties.Consumer consumerProps = properties.getConsumer();
 
     // Specify (de)serializers for record keys and for record values.
@@ -36,8 +36,8 @@ public class SimpleKafkaConsumerFactory {
     consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
-    if (kafkaBootstrapServers != null && kafkaBootstrapServers.length() > 0) {
-      consumerProps.setBootstrapServers(Arrays.asList(kafkaBootstrapServers.split(",")));
+    if (kafkaConfiguration.getBootstrapServers() != null && kafkaConfiguration.getBootstrapServers().length() > 0) {
+      consumerProps.setBootstrapServers(Arrays.asList(kafkaConfiguration.getBootstrapServers().split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
     ConcurrentKafkaListenerContainerFactory<String, GenericRecord> factory =

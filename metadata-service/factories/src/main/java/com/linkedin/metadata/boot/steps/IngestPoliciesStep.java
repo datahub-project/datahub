@@ -1,6 +1,7 @@
 package com.linkedin.metadata.boot.steps;
 
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
@@ -12,6 +13,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
@@ -27,11 +29,15 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
+
+import static com.linkedin.metadata.Constants.*;
 
 
 @Slf4j
@@ -55,6 +61,9 @@ public class IngestPoliciesStep implements BootstrapStep {
   public void execute() throws IOException, URISyntaxException {
 
     final ObjectMapper mapper = new ObjectMapper();
+    int maxSize = Integer.parseInt(System.getenv().getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    mapper.getFactory().setStreamReadConstraints(StreamReadConstraints.builder()
+        .maxStringLength(maxSize).build());
 
     // 0. Execute preflight check to see whether we need to ingest policies
     log.info("Ingesting default access policies...");
@@ -166,9 +175,6 @@ public class IngestPoliciesStep implements BootstrapStep {
     keyAspectProposal.setChangeType(ChangeType.UPSERT);
     keyAspectProposal.setEntityUrn(urn);
 
-    _entityService.ingestProposal(keyAspectProposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
-
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);
     proposal.setEntityType(POLICY_ENTITY_NAME);
@@ -176,8 +182,11 @@ public class IngestPoliciesStep implements BootstrapStep {
     proposal.setAspect(GenericRecordUtils.serializeAspect(info));
     proposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(proposal,
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()), false);
+    _entityService.ingestProposal(AspectsBatchImpl.builder()
+                    .mcps(List.of(keyAspectProposal, proposal), _entityRegistry)
+                    .build(),
+            new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis()),
+            false);
   }
 
   private boolean hasPolicy(Urn policyUrn) {

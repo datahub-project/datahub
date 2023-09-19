@@ -10,10 +10,8 @@ from freezegun import freeze_time
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
-from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
@@ -26,6 +24,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
     validate_all_providers_have_committed_successfully,
 )
@@ -35,6 +34,7 @@ from tests.unit.test_glue_source_stubs import (
     databases_2,
     get_bucket_tagging,
     get_databases_response,
+    get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
     get_jobs_response,
@@ -45,8 +45,11 @@ from tests.unit.test_glue_source_stubs import (
     get_object_tagging,
     get_tables_response_1,
     get_tables_response_2,
+    get_tables_response_for_target_database,
+    resource_link_database,
     tables_1,
     tables_2,
+    target_database_tables,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -86,7 +89,7 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
     )
     schema_fields = avro_schema_to_mce_fields(json.dumps(avro_schema))
     actual_schema_field_type = schema_fields[0].type
-    assert type(actual_schema_field_type.type) == expected_type
+    assert isinstance(actual_schema_field_type.type, expected_type)
 
 
 @pytest.mark.parametrize(
@@ -189,6 +192,37 @@ def test_platform_config():
     assert source.platform == "athena"
 
 
+@pytest.mark.parametrize(
+    "ignore_resource_links, all_databases_and_tables_result",
+    [
+        (True, ({}, [])),
+        (False, ({"test-database": resource_link_database}, target_database_tables)),
+    ],
+)
+def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_result):
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            ignore_resource_links=ignore_resource_links,
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            get_databases_response_with_resource_link,
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_target_database,
+            {"DatabaseName": "test-database"},
+        )
+
+        assert source.get_all_databases_and_tables() == all_databases_and_tables_result
+
+
 def test_platform_must_be_valid():
     with pytest.raises(pydantic.ValidationError):
         GlueSource(
@@ -203,15 +237,6 @@ def test_config_without_platform():
         config=GlueSourceConfig(aws_region="us-west-2"),
     )
     assert source.platform == "glue"
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint]:
-    glue_source = cast(GlueSource, pipeline.source)
-    return glue_source.get_current_checkpoint(
-        glue_source.stale_entity_removal_handler.job_id
-    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -258,11 +283,11 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     ) as mock_checkpoint:
         mock_checkpoint.return_value = mock_datahub_graph
         with patch(
-            "datahub.ingestion.source.aws.glue.GlueSource.get_all_tables_and_databases",
-        ) as mock_get_all_tables_and_databases:
+            "datahub.ingestion.source.aws.glue.GlueSource.get_all_databases_and_tables",
+        ) as mock_get_all_databases_and_tables:
             tables_on_first_call = tables_1
             tables_on_second_call = tables_2
-            mock_get_all_tables_and_databases.side_effect = [
+            mock_get_all_databases_and_tables.side_effect = [
                 (databases_1, tables_on_first_call),
                 (databases_2, tables_on_second_call),
             ]

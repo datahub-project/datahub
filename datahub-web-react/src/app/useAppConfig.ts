@@ -7,3 +7,13 @@ import { AppConfigContext } from '../appConfigContext';
 export function useAppConfig() {
     return useContext(AppConfigContext);
 }
+
+export function useIsShowAcrylInfoEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.showAcrylInfo;
+}
+
+export function useIsNestedDomainsEnabled() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.nestedDomainsEnabled;
+}

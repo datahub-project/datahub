@@ -1,3 +1,4 @@
+import os
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -31,6 +32,16 @@ class ClassificationConfig(ConfigModel):
         default=False,
         description="Whether classification should be used to auto-detect glossary terms",
     )
+
+    sample_size: int = Field(
+        default=100, description="Number of sample values used for classification."
+    )
+
+    max_workers: int = Field(
+        default=(os.cpu_count() or 4),
+        description="Number of worker threads to use for classification. Set to 1 to disable.",
+    )
+
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter tables for classification. This is used in combination with other patterns in parent config. Specify regex to match the entire table name in `database.schema.table` format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",

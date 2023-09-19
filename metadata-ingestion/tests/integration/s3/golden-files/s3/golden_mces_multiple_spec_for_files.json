@@ -1,122 +1,155 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro",
+                "number_of_files": "1",
+                "size_in_bytes": "619"
+            },
+            "name": "chord_progressions_avro.avro",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "chord_progressions_avro.avro",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FirstChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FirstChord",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "number_of_files": "1",
-                            "size_in_bytes": "1024",
-                            "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro"
-                        },
-                        "name": "chord_progressions_avro.avro",
-                        "description": "",
-                        "tags": []
-                    }
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FourthChord",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "chord_progressions_avro.avro",
-                        "platform": "urn:li:dataPlatform:s3",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=Root].[type=double].Progression Quality",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "double",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=Root].[type=long].1st chord",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "long",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=Root].[type=long].2nd chord",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "long",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=Root].[type=long].3rd chord",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "long",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=Root].[type=string].4th chord",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "SecondChord",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:baz:bob"
-                            },
-                            {
-                                "tag": "urn:li:tag:foo:bar"
-                            }
-                        ]
-                    }
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].ThirdChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "ThirdChord",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=Record].[type=string].ProgressionQuality",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "ProgressionQuality",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:baz:bob"
+                },
+                {
+                    "tag": "urn:li:tag:foo:bar"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847620000
         }
     },
     "systemMetadata": {
@@ -130,8 +163,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"bucket_name\": \"my-test-bucket\"}, \"name\": \"my-test-bucket\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "bucket_name": "my-test-bucket"
+            },
+            "name": "my-test-bucket"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -144,8 +183,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -158,8 +198,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -172,8 +213,26 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"S3 bucket\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "S3 bucket"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -186,8 +245,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a\"}, \"name\": \"folder_a\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/folder_a"
+            },
+            "name": "folder_a"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -200,8 +265,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -214,8 +280,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -228,8 +295,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -242,8 +312,29 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:2151647ff17bde0f948909d19fa91b9b\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -256,8 +347,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa"
+            },
+            "name": "folder_aa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -270,8 +367,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -284,8 +382,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -298,8 +397,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -312,8 +414,33 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+                },
+                {
+                    "id": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
+                    "urn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -326,8 +453,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"s3\", \"instance\": \"PROD\", \"folder_abs_path\": \"my-test-bucket/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "s3",
+                "env": "PROD",
+                "folder_abs_path": "my-test-bucket/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -340,8 +473,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -354,8 +488,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -368,8 +503,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -382,8 +520,37 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+                },
+                {
+                    "id": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
+                    "urn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
+                },
+                {
+                    "id": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
+                    "urn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -396,8 +563,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -405,121 +573,28 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "number_of_files": "1",
-                            "size_in_bytes": "604",
-                            "table_path": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv"
-                        },
-                        "name": "chord_progressions_csv.csv",
-                        "description": "",
-                        "tags": []
-                    }
+                    "id": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
+                    "urn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "chord_progressions_csv.csv",
-                        "platform": "urn:li:dataPlatform:s3",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "1st chord",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "2nd chord",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "3rd chord",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "4th chord",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "integer",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "Progression Quality",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "id": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
+                    "urn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
                 },
                 {
-                    "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:baz:bob"
-                            },
-                            {
-                                "tag": "urn:li:tag:foo:bar"
-                            }
-                        ]
-                    }
+                    "id": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
+                    "urn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0"
                 }
             ]
         }
@@ -533,10 +608,261 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv",
+                "number_of_files": "1",
+                "size_in_bytes": "604"
+            },
+            "name": "chord_progressions_csv.csv",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "chord_progressions_csv.csv",
+            "platform": "urn:li:dataPlatform:s3",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "1st chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "2nd chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "3rd chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "4th chord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Progression Quality",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:baz:bob"
+                },
+                {
+                    "tag": "urn:li:tag:foo:bar"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1586847630000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:2151647ff17bde0f948909d19fa91b9b",
+                    "urn": "urn:li:container:2151647ff17bde0f948909d19fa91b9b"
+                },
+                {
+                    "id": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c",
+                    "urn": "urn:li:container:a8aa32e8169b2ecc7ab4f3389c79124c"
+                },
+                {
+                    "id": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15",
+                    "urn": "urn:li:container:4f62b9a3e6794ee2cd4160bc0bbd8e15"
+                },
+                {
+                    "id": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0",
+                    "urn": "urn:li:container:5abb7acbb8783b9e2d266c15bf7cebc0"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,my-test-bucket/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:baz:bob",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "baz:bob"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_spec_for_files.json"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:foo:bar",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "foo:bar"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

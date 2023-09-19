@@ -1,17 +1,16 @@
 import json
 import pathlib
 from functools import partial
-from typing import List, Optional, cast
+from typing import List
 from unittest.mock import patch
 
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.identity.azure_ad import AzureADConfig, AzureADSource
-from datahub.ingestion.source.state.checkpoint import Checkpoint
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
+from datahub.ingestion.source.identity.azure_ad import AzureADConfig
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
+    get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
 )
 
@@ -325,15 +324,6 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
         pytestconfig,
         output_path=f"{tmp_path}/{output_file_name}",
         golden_path=test_resources_dir / "azure_ad_mces_golden_ingestion_disabled.json",
-    )
-
-
-def get_current_checkpoint_from_pipeline(
-    pipeline: Pipeline,
-) -> Optional[Checkpoint[GenericCheckpointState]]:
-    azure_ad_source = cast(AzureADSource, pipeline.source)
-    return azure_ad_source.get_current_checkpoint(
-        azure_ad_source.stale_entity_removal_handler.job_id
     )
 
 

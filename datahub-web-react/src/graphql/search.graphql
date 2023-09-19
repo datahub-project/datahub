@@ -2,6 +2,7 @@ fragment autoCompleteFields on Entity {
     urn
     type
     ... on Dataset {
+        exists
         name
         platform {
             ...platformFields
@@ -19,7 +20,40 @@ fragment autoCompleteFields on Entity {
         subTypes {
             typeNames
         }
+        siblings {
+            isPrimary
+            siblings {
+                urn
+                type
+                ... on Dataset {
+                    exists
+                    platform {
+                        ...platformFields
+                    }
+                    parentContainers {
+                        ...parentContainersFields
+                    }
+                    name
+                    properties {
+                        name
+                        description
+                        qualifiedName
+                        externalUrl
+                    }
+                }
+            }
+        }
         ...datasetStatsFields
+        access {
+            ...getAccess
+        }
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
     }
     ... on CorpUser {
         username
@@ -108,6 +142,9 @@ fragment autoCompleteFields on Entity {
         properties {
             name
         }
+        parentNodes {
+            ...parentNodesFields
+        }
     }
     ... on GlossaryNode {
         properties {
@@ -115,6 +152,14 @@ fragment autoCompleteFields on Entity {
         }
     }
     ... on Domain {
+        properties {
+            name
+        }
+        parentDomains {
+            ...parentDomainsFields
+        }
+    }
+    ... on DataProduct {
         properties {
             name
         }
@@ -140,6 +185,7 @@ fragment autoCompleteFields on Entity {
         name
         properties {
             name
+            colorHex
         }
     }
     ... on MLFeatureTable {
@@ -209,6 +255,25 @@ query getAutoCompleteMultipleResults($input: AutoCompleteMultipleInput!) {
     }
 }
 
+fragment getAccess on Access {
+    roles {
+        role {
+            ...getRolesName
+        }
+    }
+}
+
+fragment getRolesName on Role {
+    urn
+    type
+    id
+    properties {
+        name
+        description
+        type
+    }
+}
+
 fragment datasetStatsFields on Dataset {
     lastProfile: datasetProfiles(limit: 1) {
         rowCount
@@ -241,74 +306,87 @@ fragment datasetStatsFields on Dataset {
     }
 }
 
+fragment nonSiblingsDatasetSearchFields on Dataset {
+    exists
+    name
+    origin
+    uri
+    platform {
+        ...platformFields
+    }
+    dataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
+    editableProperties {
+        description
+    }
+    access {
+        ...getAccess
+    }
+    platformNativeType
+    properties {
+        name
+        description
+        qualifiedName
+        customProperties {
+            key
+            value
+        }
+        externalUrl
+    }
+    ownership {
+        ...ownershipFields
+    }
+    globalTags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    subTypes {
+        typeNames
+    }
+    domain {
+        ...entityDomain
+    }
+    ...entityDataProduct
+    parentContainers {
+        ...parentContainersFields
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    health {
+        type
+        status
+        message
+        causes
+    }
+    ...datasetStatsFields
+}
+
 fragment searchResultFields on Entity {
     urn
     type
     ... on Dataset {
-        name
-        origin
-        uri
-        platform {
-            ...platformFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        editableProperties {
-            description
-        }
-        platformNativeType
-        properties {
-            name
-            description
-            qualifiedName
-            customProperties {
-                key
-                value
-            }
-            externalUrl
-        }
-        ownership {
-            ...ownershipFields
-        }
-        globalTags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
+        ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
             siblings {
                 urn
                 type
                 ... on Dataset {
-                    platform {
-                        ...platformFields
-                    }
-                    name
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                    }
+                    ...nonSiblingsDatasetSearchFields
                 }
             }
         }
-        ...datasetStatsFields
+    }
+    ... on Role {
+        id
+        properties {
+            name
+            description
+        }
     }
     ... on CorpUser {
         username
@@ -380,6 +458,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -445,6 +524,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -501,6 +581,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -533,6 +614,7 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -592,6 +674,10 @@ fragment searchResultFields on Entity {
         ownership {
             ...ownershipFields
         }
+        parentDomains {
+            ...parentDomainsFields
+        }
+        ...domainEntitiesFields
     }
     ... on Container {
         properties {
@@ -699,11 +785,15 @@ fragment searchResultFields on Entity {
         name
         properties {
             name
+            colorHex
         }
         description
     }
     ... on DataPlatform {
         ...nonConflictingPlatformFields
+    }
+    ... on DataProduct {
+        ...dataProductSearchFields
     }
 }
 
@@ -719,6 +809,7 @@ fragment facetFields on FacetMetadata {
             ... on Tag {
                 name
                 properties {
+                    name
                     colorHex
                 }
             }
@@ -726,6 +817,9 @@ fragment facetFields on FacetMetadata {
                 name
                 properties {
                     name
+                }
+                parentNodes {
+                    ...parentNodesFields
                 }
             }
             ... on DataPlatform {
@@ -737,6 +831,9 @@ fragment facetFields on FacetMetadata {
             ... on Domain {
                 properties {
                     name
+                }
+                parentDomains {
+                    ...parentDomainsFields
                 }
             }
             ... on Container {
@@ -764,6 +861,11 @@ fragment facetFields on FacetMetadata {
                     displayName
                 }
             }
+            ... on DataProduct {
+                properties {
+                    name
+                }
+            }
         }
     }
 }
@@ -779,6 +881,11 @@ fragment searchResults on SearchResults {
         matchedFields {
             name
             value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
         }
         insights {
             text
@@ -787,6 +894,11 @@ fragment searchResults on SearchResults {
     }
     facets {
         ...facetFields
+    }
+    suggestions {
+        text
+        frequency
+        score
     }
 }
 
@@ -807,9 +919,9 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         entity {
             ...searchResultFields
             ... on Dataset {
-                assertions @include(if: $includeAssertions) {
+                assertions(start: 0, count: 1000) @include(if: $includeAssertions) {
                     assertions {
-                        runEvents(limit: 1) {
+                        runEvents(status: COMPLETE, limit: 1) {
                             total
                             failed
                             succeeded
@@ -864,5 +976,27 @@ query getEntityMentionNode($urn: String!) {
         urn
         type
         ...searchResultFields
+    }
+}
+
+query getEntityDisplayName($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...entityDisplayNameFields
+    }
+}
+
+query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
+    aggregateAcrossEntities(input: $input) {
+        facets {
+            ...facetFields
+        }
+    }
+}
+
+query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
+    listDataProductAssets(urn: $urn, input: $input) {
+        ...searchResults
     }
 }

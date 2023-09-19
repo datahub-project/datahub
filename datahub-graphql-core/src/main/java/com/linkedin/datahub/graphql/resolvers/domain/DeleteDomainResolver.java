@@ -4,8 +4,8 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +33,11 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
 
       if (AuthorizationUtils.canManageDomains(context) || AuthorizationUtils.canDeleteEntity(urn, context)) {
         try {
+          // Make sure there are no child domains
+          if (DomainUtils.hasChildDomains(urn, context, _entityClient)) {
+            throw new RuntimeException(String.format("Cannot delete domain %s which has child domains", domainUrn));
+          }
+
           _entityClient.deleteEntity(urn, context.getAuthentication());
           log.info(String.format("I've successfully deleted the entity %s with urn", domainUrn));
 
@@ -40,7 +45,7 @@ public class DeleteDomainResolver implements DataFetcher<CompletableFuture<Boole
           CompletableFuture.runAsync(() -> {
             try {
               _entityClient.deleteEntityReferences(urn, context.getAuthentication());
-            } catch (RemoteInvocationException e) {
+            } catch (Exception e) {
               log.error(String.format("Caught exception while attempting to clear all entity references for Domain with urn %s", urn), e);
             }
           });

@@ -710,3 +710,126 @@ def test_required_field():
     assert fields[1].nullable is True
     assert json.loads(fields[1].jsonProps or "{}")["required"] is True
     assert json.loads(fields[0].jsonProps or "{}")["required"] is False
+
+
+def test_non_str_enums():
+    schema = {
+        "$id": "test",
+        "$schema": "http://json-schema.org/draft-06/schema#",
+        "properties": {"bar": {"description": "Mixed enum", "enum": ["baz", 1, None]}},
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = ["[version=2.0].[type=object].[type=enum].bar"]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert fields[0].description == 'One of: "baz", 1, null'
+
+
+def test_anyof_with_properties():
+    # We expect the event / timestamp fields to be included in both branches of the anyOf.
+
+    schema = {
+        "$id": "test",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": False,
+        "anyOf": [{"required": ["anonymousId"]}, {"required": ["userId"]}],
+        "properties": {
+            "anonymousId": {
+                "description": "A temporary user id, used before a user logs in.",
+                "format": "uuid",
+                "type": "string",
+            },
+            "userId": {
+                "description": "Unique user id.",
+                "type": "string",
+            },
+            "event": {"description": "Unique name of the event.", "type": "string"},
+            "timestamp": {
+                "description": "Timestamp of when the message itself took place.",
+                "type": "string",
+            },
+        },
+        "required": ["event"],
+        "type": "object",
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=union].[type=union_0].[type=string(uuid)].anonymousId",
+        "[version=2.0].[type=union].[type=union_0].[type=string].userId",
+        "[version=2.0].[type=union].[type=union_0].[type=string].event",
+        "[version=2.0].[type=union].[type=union_0].[type=string].timestamp",
+        "[version=2.0].[type=union].[type=union_1].[type=string(uuid)].anonymousId",
+        "[version=2.0].[type=union].[type=union_1].[type=string].userId",
+        "[version=2.0].[type=union].[type=union_1].[type=string].event",
+        "[version=2.0].[type=union].[type=union_1].[type=string].timestamp",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+    # In the first one, the anonymousId is required, but the userId is not.
+    assert json.loads(fields[0].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[1].jsonProps or "{}")["required"] is False
+
+    # In the second one, the userId is required, but the anonymousId is not.
+    assert json.loads(fields[4].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[5].jsonProps or "{}")["required"] is True
+
+    # The event field is required in both branches.
+    assert json.loads(fields[2].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[6].jsonProps or "{}")["required"] is True
+
+    # The timestamp field is not required in either branch.
+    assert json.loads(fields[3].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[7].jsonProps or "{}")["required"] is False
+
+
+def test_top_level_trival_allof():
+    schema = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "event-wrapper",
+        "type": "object",
+        "allOf": [
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "event",
+                "properties": {
+                    "userId": {
+                        "description": "Unique user id.",
+                        "type": "string",
+                    },
+                    "event": {
+                        "description": "Unique name of the event.",
+                        "type": "string",
+                    },
+                    "timestamp": {
+                        "description": "Timestamp of when the message itself took place.",
+                        "type": "string",
+                    },
+                },
+                "required": ["event"],
+                "type": "object",
+                "additionalProperties": False,
+            },
+        ],
+        "properties": {
+            "extra-top-level-property": {
+                "type": "string",
+            },
+        },
+    }
+
+    fields = list(JsonSchemaTranslator.get_fields_from_schema(schema))
+    expected_field_paths: List[str] = [
+        "[version=2.0].[type=object].[type=string].extra-top-level-property",
+        "[version=2.0].[type=object].[type=string].userId",
+        "[version=2.0].[type=object].[type=string].event",
+        "[version=2.0].[type=object].[type=string].timestamp",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+    assert json.loads(fields[0].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[1].jsonProps or "{}")["required"] is False
+    assert json.loads(fields[2].jsonProps or "{}")["required"] is True
+    assert json.loads(fields[3].jsonProps or "{}")["required"] is False

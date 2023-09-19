@@ -11,6 +11,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
@@ -112,6 +113,22 @@ public interface EntityClient {
       @Nullable Map<String, String> requestFilters, int start, int limit, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
+  /**
+   * Gets browse snapshot of a given path
+   *
+   * @param entityName entity being browsed
+   * @param path path being browsed
+   * @param filter browse filter
+   * @param input search query
+   * @param start start offset of first group
+   * @param count max number of results requested
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public BrowseResultV2 browseV2(@Nonnull String entityName, @Nonnull String path, @Nullable Filter filter,
+                                 @Nonnull String input, int start, int count, @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
   @Deprecated
   public void update(@Nonnull final Entity entity, @Nonnull final Authentication authentication)
       throws RemoteInvocationException;
@@ -188,7 +205,26 @@ public interface EntityClient {
   @Nonnull
   public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
       @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
-      @Nonnull Authentication authentication)
+      @Nullable SortCriterion sortCriterion, @Nonnull Authentication authentication)
+      throws RemoteInvocationException;
+
+  /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
+   * @param start start offset for search results
+   * @param count max number of search results requested
+   * @param searchFlags configuration flags for the search request
+   * @param facets list of facets we want aggregations for
+   * @return Snapshot key
+   * @throws RemoteInvocationException
+   */
+  @Nonnull
+  public SearchResult searchAcrossEntities(@Nonnull List<String> entities, @Nonnull String input,
+      @Nullable Filter filter, int start, int count, @Nullable SearchFlags searchFlags,
+      @Nullable SortCriterion sortCriterion, @Nonnull Authentication authentication, List<String> facets)
       throws RemoteInvocationException;
 
   /**
@@ -357,9 +393,25 @@ public interface EntityClient {
   public VersionedAspect getAspectOrNull(@Nonnull String urn, @Nonnull String aspect, @Nonnull Long version,
       @Nonnull Authentication authentication) throws RemoteInvocationException;
 
+  default List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
+      @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
+      @Nullable Filter filter, @Nonnull Authentication authentication)
+      throws RemoteInvocationException {
+    return getTimeseriesAspectValues(
+        urn,
+        entity,
+        aspect,
+        startTimeMillis,
+        endTimeMillis,
+        limit,
+        filter,
+        null,
+        authentication);
+  }
+
   public List<EnvelopedAspect> getTimeseriesAspectValues(@Nonnull String urn, @Nonnull String entity,
       @Nonnull String aspect, @Nullable Long startTimeMillis, @Nullable Long endTimeMillis, @Nullable Integer limit,
-      @Nullable Boolean getLatestValue, @Nullable Filter filter, @Nonnull Authentication authentication)
+      @Nullable Filter filter, @Nullable SortCriterion sort, @Nonnull Authentication authentication)
       throws RemoteInvocationException;
 
   @Deprecated

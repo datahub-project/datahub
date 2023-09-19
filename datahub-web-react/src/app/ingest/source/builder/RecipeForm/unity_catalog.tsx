@@ -94,7 +94,7 @@ export const UNITY_CATALOG_ALLOW: RecipeField = {
     label: 'Allow Patterns',
     tooltip:
         'Only include specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to include specific Catalogs. If not provided, all Catalogs will be included.',
-    placeholder: 'my_catalog',
+    placeholder: 'metastore.my_catalog',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: catalogAllowFieldPath,
@@ -106,11 +106,11 @@ export const UNITY_CATALOG_ALLOW: RecipeField = {
 
 const catalogDenyFieldPath = 'source.config.catalog_pattern.deny';
 export const UNITY_CATALOG_DENY: RecipeField = {
-    name: 'catalog_pattern.allow',
-    label: 'Allow Patterns',
+    name: 'catalog_pattern.deny',
+    label: 'Deny Patterns',
     tooltip:
         'Exclude specific Catalogs by providing the name of a Catalog, or a Regular Expression (REGEX) to exclude specific Catalogs. If not provided, all Catalogs will be included. Deny patterns always take precedence over Allow patterns.',
-    placeholder: 'my_catalog',
+    placeholder: 'metastore.my_catalog',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
     fieldPath: catalogDenyFieldPath,
@@ -120,9 +120,9 @@ export const UNITY_CATALOG_DENY: RecipeField = {
         setListValuesOnRecipe(recipe, values, catalogDenyFieldPath),
 };
 
-const tableAllowFieldPath = 'source.config.metastore_id_pattern.allow';
+const tableAllowFieldPath = 'source.config.table_pattern.allow';
 export const UNITY_TABLE_ALLOW: RecipeField = {
-    name: 'catalog_pattern.allow',
+    name: 'table_pattern.allow',
     label: 'Allow Patterns',
     tooltip:
         'Only include specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to include specific Tables. If not provided, all Tables will be included.',
@@ -136,10 +136,10 @@ export const UNITY_TABLE_ALLOW: RecipeField = {
         setListValuesOnRecipe(recipe, values, tableAllowFieldPath),
 };
 
-const tableDenyFieldPath = 'source.config.metastore_id_pattern.deny';
+const tableDenyFieldPath = 'source.config.table_pattern.deny';
 export const UNITY_TABLE_DENY: RecipeField = {
-    name: 'catalog_pattern.allow',
-    label: 'Allow Patterns',
+    name: 'table_pattern.deny',
+    label: 'Deny Patterns',
     tooltip:
         'Exclude specific Tables by providing the fully-qualified name of a Table, or a Regular Expression (REGEX) to exclude specific Tables. If not provided, all Tables will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'catalog.schema.table',

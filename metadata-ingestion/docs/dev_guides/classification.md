@@ -6,19 +6,21 @@ The classification feature enables sources to be configured to automatically pre
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field | Required | Type | Description | Default |
-| ---   | ---      | ---  | --- | -- |
-| enabled |  | boolean | Whether classification should be used to auto-detect glossary terms | False |
-| info_type_to_term |  | Dict[str,string] | Optional mapping to provide glossary term identifier for info type.  | By default, info type is used as glossary term identifier. |
-| classifiers |  | Array of object | Classifiers to use to auto-detect glossary terms. If more than one classifier, infotype predictions from the classifier defined later in sequence take precedance. | [{'type': 'datahub', 'config': None}] |
-| table_pattern |  | AllowDenyPattern (see below for fields) | Regex patterns to filter tables for classification. This is used in combination with other patterns in parent config. Specify regex to match the entire table name in `database.schema.table` format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*' | {'allow': ['.*'], 'deny': [], 'ignoreCase': True} |
-| table_pattern.allow |  | Array of string | List of regex patterns to include in ingestion | ['.*'] |
-| table_pattern.deny |  | Array of string | List of regex patterns to exclude from ingestion. | [] |
-| table_pattern.ignoreCase |  | boolean | Whether to ignore case sensitivity during pattern matching. | True |
-| column_pattern |  | AllowDenyPattern (see below for fields) | Regex patterns to filter columns for classification. This is used in combination with other patterns in parent config. Specify regex to match the column name in `database.schema.table.column` format. | {'allow': ['.*'], 'deny': [], 'ignoreCase': True} |
-| column_pattern.allow |  | Array of string | List of regex patterns to include in ingestion | ['.*'] |
-| column_pattern.deny |  | Array of string | List of regex patterns to exclude from ingestion. | [] |
-| column_pattern.ignoreCase |  | boolean | Whether to ignore case sensitivity during pattern matching. | True |
+| Field                     | Required | Type                                    | Description                                                                                                                                                                                                                                                                                                                              | Default                                                    |
+| ------------------------- | -------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| enabled                   |          | boolean                                 | Whether classification should be used to auto-detect glossary terms                                                                                                                                                                                                                                                                      | False                                                      |
+| sample_size               |          | int                                     | Number of sample values used for classification.                                                                                                                                                                                                                                                                                         | 100                                                        |
+| max_workers               |          | int                                     | Number of worker threads to use for classification. Set to 1 to disable.                                                                                                                                                                                                                                                                 | Number of cpu cores or 4                                   |
+| info_type_to_term         |          | Dict[str,string]                        | Optional mapping to provide glossary term identifier for info type.                                                                                                                                                                                                                                                                      | By default, info type is used as glossary term identifier. |
+| classifiers               |          | Array of object                         | Classifiers to use to auto-detect glossary terms. If more than one classifier, infotype predictions from the classifier defined later in sequence take precedance.                                                                                                                                                                       | [{'type': 'datahub', 'config': None}]                      |
+| table_pattern             |          | AllowDenyPattern (see below for fields) | Regex patterns to filter tables for classification. This is used in combination with other patterns in parent config. Specify regex to match the entire table name in `database.schema.table` format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*' | {'allow': ['.*'], 'deny': [], 'ignoreCase': True}          |
+| table_pattern.allow       |          | Array of string                         | List of regex patterns to include in ingestion                                                                                                                                                                                                                                                                                           | ['.*']                                                     |
+| table_pattern.deny        |          | Array of string                         | List of regex patterns to exclude from ingestion.                                                                                                                                                                                                                                                                                        | []                                                         |
+| table_pattern.ignoreCase  |          | boolean                                 | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                                                                              | True                                                       |
+| column_pattern            |          | AllowDenyPattern (see below for fields) | Regex patterns to filter columns for classification. This is used in combination with other patterns in parent config. Specify regex to match the column name in `database.schema.table.column` format.                                                                                                                                  | {'allow': ['.*'], 'deny': [], 'ignoreCase': True}          |
+| column_pattern.allow      |          | Array of string                         | List of regex patterns to include in ingestion                                                                                                                                                                                                                                                                                           | ['.*']                                                     |
+| column_pattern.deny       |          | Array of string                         | List of regex patterns to exclude from ingestion.                                                                                                                                                                                                                                                                                        | []                                                         |
+| column_pattern.ignoreCase |          | boolean                                 | Whether to ignore case sensitivity during pattern matching.                                                                                                                                                                                                                                                                              | True                                                       |
 
 ## DataHub Classifier
 
@@ -26,22 +28,39 @@ DataHub Classifier is the default classifier implementation, which uses [acryl-d
 
 ### Config Details
 
-| Field | Required | Type | Description | Default |
-| ---   | ---      | ---  | --- | -- |
-| confidence_level_threshold |  | number |  | 0.6 |
-| info_types |  | list[string] | List of infotypes to be predicted. By default, all supported infotypes are considered. If specified. this should be subset of ['Email_Address', 'Gender', 'Credit_Debit_Card_Number', 'Phone_Number', 'Street_Address', 'Full_Name', 'Age', 'IBAN', 'US_Social_Security_Number', 'Vehicle_Identification_Number', 'IP_Address_v4', 'IP_Address_v6', 'US_Driving_License_Number', 'Swift_Code'] | None |
-| info_types_config | Configuration details for infotypes | Dict[str, InfoTypeConfig] |  | See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration. |
-| info_types_config.`key`.prediction_factors_and_weights | ❓ (required if info_types_config.`key` is set) | Dict[str,number] | Factors and their weights to consider when predicting info types |  |
-| info_types_config.`key`.name |  | NameFactorConfig (see below for fields) |  |  |
-| info_types_config.`key`.name.regex |  | Array of string | List of regex patterns the column name follows for the info type | ['.*'] |
-| info_types_config.`key`.description |  | DescriptionFactorConfig (see below for fields) |  |  |
-| info_types_config.`key`.description.regex |  | Array of string | List of regex patterns the column description follows for the info type | ['.*'] |
-| info_types_config.`key`.datatype |  | DataTypeFactorConfig (see below for fields) |  |  |
-| info_types_config.`key`.datatype.type |  | Array of string | List of data types for the info type | ['.*'] |
-| info_types_config.`key`.values |  | ValuesFactorConfig (see below for fields) |  |  |
-| info_types_config.`key`.values.prediction_type | ❓ (required if info_types_config.`key`.values is set) | string |  | None |
-| info_types_config.`key`.values.regex |  | Array of string | List of regex patterns the column value follows for the info type | None |
-| info_types_config.`key`.values.library |  | Array of string | Library used for prediction | None |
+| Field                                                  | Required                                              | Type                                           | Description                                                                                                                                               | Default                                                                                                                                                               |
+| ------------------------------------------------------ | ----------------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| confidence_level_threshold                             |                                                       | number                                         |                                                                                                                                                           | 0.68                                                                                                                                                                  |
+| info_types                                             |                                                       | list[string]                                   | List of infotypes to be predicted. By default, all supported infotypes are considered, along with any custom infotypes configured in `info_types_config`. | None                                                                                                                                                                  |
+| info_types_config                                      | Configuration details for infotypes                   | Dict[str, InfoTypeConfig]                      |                                                                                                                                                           | See [reference_input.py](https://github.com/acryldata/datahub-classify/blob/main/datahub-classify/src/datahub_classify/reference_input.py) for default configuration. |
+| info_types_config.`key`.prediction_factors_and_weights | ❓ (required if info_types_config.`key` is set)        | Dict[str,number]                               | Factors and their weights to consider when predicting info types                                                                                          |                                                                                                                                                                       |
+| info_types_config.`key`.name                           |                                                       | NameFactorConfig (see below for fields)        |                                                                                                                                                           |                                                                                                                                                                       |
+| info_types_config.`key`.name.regex                     |                                                       | Array of string                                | List of regex patterns the column name follows for the info type                                                                                          | ['.*']                                                                                                                                                                |
+| info_types_config.`key`.description                    |                                                       | DescriptionFactorConfig (see below for fields) |                                                                                                                                                           |                                                                                                                                                                       |
+| info_types_config.`key`.description.regex              |                                                       | Array of string                                | List of regex patterns the column description follows for the info type                                                                                   | ['.*']                                                                                                                                                                |
+| info_types_config.`key`.datatype                       |                                                       | DataTypeFactorConfig (see below for fields)    |                                                                                                                                                           |                                                                                                                                                                       |
+| info_types_config.`key`.datatype.type                  |                                                       | Array of string                                | List of data types for the info type                                                                                                                      | ['.*']                                                                                                                                                                |
+| info_types_config.`key`.values                         |                                                       | ValuesFactorConfig (see below for fields)      |                                                                                                                                                           |                                                                                                                                                                       |
+| info_types_config.`key`.values.prediction_type         | ❓ (required if info_types_config.`key`.values is set) | string                                         |                                                                                                                                                           | None                                                                                                                                                                  |
+| info_types_config.`key`.values.regex                   |                                                       | Array of string                                | List of regex patterns the column value follows for the info type                                                                                         | None                                                                                                                                                                  |
+| info_types_config.`key`.values.library                 |                                                       | Array of string                                | Library used for prediction                                                                                                                               | None                                                                                                                                                                  |
+| minimum_values_threshold                               |                                                       | number                                         | Minimum number of non-null column values required to process `values` prediction factor.                                                                  | 50                                                                                                                                                                    |
+|                                                        |
+### Supported infotypes
+- `Email_Address`
+- `Gender`
+- `Credit_Debit_Card_Number`
+- `Phone_Number`
+- `Street_Address`
+- `Full_Name`
+- `Age`
+- `IBAN`
+- `US_Social_Security_Number`
+- `Vehicle_Identification_Number`
+- `IP_Address_v4`
+- `IP_Address_v6`
+- `US_Driving_License_Number`
+- `Swift_Code`
 
 ### Supported sources
 
@@ -73,7 +92,7 @@ source:
         - type: datahub          
 ```
 
-#### Example with Advanced Configuration: Specifying custom info_types_config
+#### Example with Advanced Configuration: Customizing configuration for supported info types
 
 ```yml
 source:
@@ -376,3 +395,44 @@ source:
                     - rule_based_logic
 
 ```
+
+
+#### Example with Advanced Configuration: Specifying custom info type
+
+```yml
+source:
+  type: snowflake
+  config:
+    env: PROD
+    # Coordinates
+    account_id: account_name
+    warehouse: "COMPUTE_WH"
+
+    # Credentials
+    username: user
+    password: pass
+    role: "sysadmin"
+
+    # Options
+    top_n_queries: 10
+    email_domain: mycompany.com
+
+    classification:
+      enabled: True
+      classifiers:
+        - type: datahub          
+          config:
+            confidence_level_threshold: 0.7
+            minimum_values_threshold: 10
+            info_types_config:
+              CloudRegion:
+                prediction_factors_and_weights:
+                  name: 0
+                  description: 0
+                  datatype: 0
+                  values: 1
+                values:
+                  prediction_type: regex
+                  regex:
+                    - "(af|ap|ca|eu|me|sa|us)-(central|north|(north(?:east|west))|south|south(?:east|west)|east|west)-\\d+"
+                  library: []

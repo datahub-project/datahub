@@ -1,13 +1,15 @@
 package com.linkedin.metadata;
 
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
+import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ESGraphQueryDAO;
 import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -15,8 +17,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.search.LineageSearchService;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.util.Map;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.ESTestConfiguration.REFRESH_INTERVAL_SECONDS;
 
 
 @TestConfiguration
@@ -62,6 +63,9 @@ public class ESSearchLineageFixture {
 
     @Autowired
     private SearchConfiguration _searchConfiguration;
+
+    @Autowired
+    private CustomSearchConfiguration _customSearchConfiguration;
 
     @Bean(name = "searchLineagePrefix")
     protected String indexPrefix() {
@@ -106,8 +110,8 @@ public class ESSearchLineageFixture {
             @Qualifier("searchLineageIndexConvention") IndexConvention indexConvention
     ) {
         ESSearchDAO searchDAO = new ESSearchDAO(entityRegistry, _searchClient, indexConvention, false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
-        ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention);
+            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, null);
+        ESBrowseDAO browseDAO = new ESBrowseDAO(entityRegistry, _searchClient, indexConvention, _searchConfiguration, _customSearchConfiguration);
         ESWriteDAO writeDAO = new ESWriteDAO(entityRegistry, _searchClient, indexConvention, _bulkProcessor, 1);
         return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
     }
@@ -151,6 +155,7 @@ public class ESSearchLineageFixture {
                 .bulkProcessor(_bulkProcessor)
                 .fixtureName(fixtureName)
                 .targetIndexPrefix(prefix)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .build()
                 .read();
 
@@ -179,23 +184,6 @@ public class ESSearchLineageFixture {
                         batchSize,
                         false
                 ),
-                new CachingAllEntitiesSearchAggregator(
-                        cacheManager,
-                        new AllEntitiesSearchAggregator(
-                                entityRegistry,
-                                entitySearchService,
-                                new CachingEntitySearchService(
-                                        cacheManager,
-                                        entitySearchService,
-                                        batchSize,
-                                        false
-                                ),
-                                ranker,
-                                entityDocCountCacheConfiguration
-                        ),
-                        batchSize,
-                        false
-                ),
                 ranker
         );
 
@@ -218,8 +206,11 @@ public class ESSearchLineageFixture {
                 1,
                 false);
 
+        PreProcessHooks preProcessHooks = new PreProcessHooks();
+        preProcessHooks.setUiEnabled(true);
         return new JavaEntityClient(
-                new EntityService(null, null, entityRegistry, true),
+                new EntityServiceImpl(null, null, entityRegistry, true, null,
+                    preProcessHooks),
                 null,
                 entitySearchService,
                 cachingEntitySearchService,

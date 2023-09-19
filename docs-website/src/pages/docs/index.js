@@ -18,6 +18,9 @@ import {
   LockTwoTone,
   SlackOutlined,
   HistoryOutlined,
+  InteractionOutlined,
+  GlobalOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 
 //quickLinkCards
@@ -154,7 +157,7 @@ const quickLinkContent = [
     title: "Get Started",
     icon: <ThunderboltTwoTone />,
     description: "Details on how to get DataHub up and running",
-    to: "/docs/get-started-with-datahub",
+    to: "/docs/quickstart",
   },
   {
     title: "Ingest Metadata",
@@ -163,10 +166,10 @@ const quickLinkContent = [
     to: "/docs/metadata-ingestion",
   },
   {
-    title: "Enrich Metadata",
+    title: "API",
     icon: <DeploymentUnitOutlined />,
-    description: "Improve the quality and coverage of Metadata",
-    to: "docs/enrich-metadata",
+    description: "Details on how to utilize Metadata programmatically",
+    to: "docs/api/datahub-apis",
   },
   {
     title: "Act on Metadata",
@@ -197,6 +200,39 @@ const quickLinkContent = [
     icon: <HeartTwoTone />,
     description: "Collaborate, learn, and grow with us",
     to: "/docs/slack",
+  },
+];
+
+const gitLinkContent = [
+  {
+    title: "datahub",
+    icon: <ThunderboltTwoTone />,
+    to: "https://github.com/datahub-project/datahub",
+  },
+  {
+    title: "datahub-actions",
+    icon: <ApiTwoTone />,
+    to: "https://github.com/acryldata/datahub-actions",
+  },
+  {
+    title: "datahub-helm",
+    icon: <FileTextOutlined />,
+    to: "https://github.com/acryldata/datahub-helm",
+  },
+  {
+    title: "meta-world",
+    icon: <GlobalOutlined />,
+    to: "https://github.com/acryldata/meta-world",
+  },
+  {
+    title: "business-glossary-sync-action",
+    icon: <InteractionOutlined />,
+    to: "https://github.com/acryldata/business-glossary-sync-action",
+  },
+  {
+    title: "dbt-impact-action",
+    icon: <NodeExpandOutlined />,
+    to: "https://github.com/acryldata/dbt-impact-action",
   },
 ];
 
@@ -234,6 +270,14 @@ function Docs() {
             title="Feature Guides"
             content={featureGuideContent}
             seeMoreLink={{ label: "See all guides", to: "/docs/how/search" }}
+          />
+          <GuideList
+            title="Github Repositories"
+            content={gitLinkContent}
+            seeMoreLink={{
+              label: "See all repositories",
+              to: "https://github.com/datahub-project/datahub#source-code-and-repositories",
+            }}
           />
         </div>
       </header>

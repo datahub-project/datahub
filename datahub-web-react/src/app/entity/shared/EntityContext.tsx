@@ -18,6 +18,10 @@ const EntityContext = React.createContext<EntityContextType>({
 
 export default EntityContext;
 
+export function useEntityContext() {
+    return useContext(EntityContext);
+}
+
 export const useBaseEntity = <T,>(): T => {
     const { baseEntity } = useContext(EntityContext);
     return baseEntity as T;

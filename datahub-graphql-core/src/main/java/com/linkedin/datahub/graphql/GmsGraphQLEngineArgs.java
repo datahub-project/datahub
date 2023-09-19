@@ -16,17 +16,19 @@ import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
+import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.secret.SecretService;
+import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.service.LineageService;
+import com.linkedin.metadata.service.OwnershipTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
-import com.linkedin.metadata.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
@@ -63,10 +65,12 @@ public class GmsGraphQLEngineArgs {
     InviteTokenService inviteTokenService;
     PostService postService;
     ViewService viewService;
+    OwnershipTypeService ownershipTypeService;
     SettingsService settingsService;
     LineageService lineageService;
     QueryService queryService;
     FeatureFlags featureFlags;
+    DataProductService dataProductService;
 
     //any fork specific args should go below this line
 }

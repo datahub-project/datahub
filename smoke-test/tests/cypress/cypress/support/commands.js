@@ -34,6 +34,19 @@ Cypress.Commands.add('login', () => {
     });
 })
 
+Cypress.Commands.add("loginWithCredentials", (username, password) => {
+  cy.visit('/');
+  if (username,password) {
+    cy.get('input[data-testid=username]').type(username);
+    cy.get('input[data-testid=password]').type(password);
+  } else {
+    cy.get('input[data-testid=username]').type(Cypress.env('ADMIN_USERNAME'));
+    cy.get('input[data-testid=password]').type(Cypress.env('ADMIN_PASSWORD'));
+  }
+  cy.contains('Sign In').click();
+  cy.contains('Welcome back');
+});
+
 Cypress.Commands.add('deleteUrn', (urn) => {
     cy.request({ method: 'POST', url: 'http://localhost:8080/entities?action=delete', body: {
         urn
@@ -64,6 +77,11 @@ Cypress.Commands.add("goToDomainList", () => {
 Cypress.Commands.add("goToViewsSettings", () => {
   cy.visit("/settings/views");
   cy.waitTextVisible("Manage Views");
+});
+
+Cypress.Commands.add("goToOwnershipTypesSettings", () => {
+  cy.visit("/settings/ownership");
+  cy.waitTextVisible("Manage Ownership");
 });
 
 Cypress.Commands.add("goToIngestionPage", () => {
@@ -251,6 +269,59 @@ Cypress.Commands.add("mouseover", (selector) => {
     "mouseover",
     { force: true }
   );
+})
+
+Cypress.Commands.add("createUser", (name, password, email) => {
+  cy.visit("/settings/identities/users");
+  cy.clickOptionWithText("Invite Users");
+  cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
+    const inviteLink = $elem.text();
+    cy.visit("/settings/identities/users");
+    cy.logout();
+    cy.visit(inviteLink);
+    cy.enterTextInTestId("email", email);
+    cy.enterTextInTestId("name", name);
+    cy.enterTextInTestId("password", password);
+    cy.enterTextInTestId("confirmPassword", password);
+    cy.mouseover("#title").click();
+    cy.waitTextVisible("Other").click();
+    cy.get("[type=submit]").click();
+    cy.waitTextVisible("Welcome to DataHub");
+    cy.hideOnboardingTour();
+    cy.waitTextVisible(name);
+    cy.logout()
+    cy.loginWithCredentials();
+  })
+})
+
+Cypress.Commands.add("createGroup", (name, description, group_id) => {
+  cy.visit("/settings/identities/groups")
+  cy.clickOptionWithText("Create group");
+  cy.waitTextVisible("Create new group");
+  cy.get("#name").type(name);
+  cy.get("#description").type(description);
+  cy.contains("Advanced").click();
+  cy.waitTextVisible("Group Id");
+  cy.get("#groupId").type(group_id);
+  cy.get("#createGroupButton").click();
+  cy.waitTextVisible("Created group!");
+  cy.waitTextVisible(name);
+})
+
+Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
+  cy.visit(group_urn)
+  cy.clickOptionWithText(group_name);
+  cy.contains(group_name).should("be.visible");
+  cy.get('[role="tab"]').contains("Members").click();
+  cy.clickOptionWithText("Add Member");
+  cy.contains("Search for users...").click({ force: true });
+  cy.focused().type(member_name);
+  cy.contains(member_name).click();
+  cy.focused().blur();
+  cy.contains(member_name).should("have.length", 1);
+  cy.get('[role="dialog"] button').contains("Add").click({ force: true });
+  cy.waitTextVisible("Group members added!");
+  cy.contains(member_name, {timeout: 10000}).should("be.visible");
 })
 
 //

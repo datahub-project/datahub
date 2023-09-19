@@ -5,8 +5,13 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.ResourceSpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.aspect.GetTimeseriesAspectValuesResponse;
+import com.linkedin.metadata.entity.IngestResult;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
+import com.linkedin.metadata.entity.transactions.AspectsBatch;
+import com.linkedin.metadata.resources.operations.Utils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -14,10 +19,10 @@ import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.restli.RestliUtil;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -38,8 +43,10 @@ import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.time.Clock;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
@@ -47,6 +54,7 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.resources.restli.RestliUtils.*;
 
@@ -61,8 +69,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   private static final String ACTION_GET_TIMESERIES_ASPECT = "getTimeseriesAspectValues";
   private static final String ACTION_INGEST_PROPOSAL = "ingestProposal";
   private static final String ACTION_GET_COUNT = "getCount";
-  private static final String ACTION_RESTORE_INDICES = "restoreIndices";
-
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ASPECT = "aspect";
   private static final String PARAM_PROPOSAL = "proposal";
@@ -80,6 +86,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Named("entityService")
   private EntityService _entityService;
 
+  @VisibleForTesting
+  void setEntityService(EntityService entityService) {
+    _entityService = entityService;
+  }
+
   @Inject
   @Named("entitySearchService")
   private EntitySearchService _entitySearchService;
@@ -91,6 +102,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @Inject
   @Named("authorizerChain")
   private Authorizer _authorizer;
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    _authorizer = authorizer;
+  }
 
   /**
    * Retrieves the value for an entity that is made up of latest versions of specified aspects.
@@ -127,8 +143,9 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_START_TIME_MILLIS) @Optional @Nullable Long startTimeMillis,
       @ActionParam(PARAM_END_TIME_MILLIS) @Optional @Nullable Long endTimeMillis,
       @ActionParam(PARAM_LIMIT) @Optional("10000") int limit,
-      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue,
-      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter) throws URISyntaxException {
+      @ActionParam(PARAM_LATEST_VALUE) @Optional("false") boolean latestValue, // This field is deprecated.
+      @ActionParam(PARAM_FILTER) @Optional @Nullable Filter filter,
+      @ActionParam(PARAM_SORT) @Optional @Nullable SortCriterion sort) throws URISyntaxException {
     log.info(
         "Get Timeseries Aspect values for aspect {} for entity {} with startTimeMillis {}, endTimeMillis {} and limit {}.",
         aspectName, entityName, startTimeMillis, endTimeMillis, limit);
@@ -149,10 +166,13 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       if (endTimeMillis != null) {
         response.setEndTimeMillis(endTimeMillis);
       }
-      response.setLimit(limit);
+      if (latestValue) {
+        response.setLimit(1);
+      } else {
+        response.setLimit(limit);
+      }
       response.setValues(new EnvelopedAspectArray(
-          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit,
-              latestValue, filter)));
+          _timeseriesAspectService.getAspectValues(urn, entityName, aspectName, startTimeMillis, endTimeMillis, limit, filter, sort)));
       return response;
     }, MetricRegistry.name(this.getClass(), "getTimeseriesAspectValues"));
   }
@@ -165,7 +185,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async) throws URISyntaxException {
     log.info("INGEST PROPOSAL proposal: {}", metadataChangeProposal);
 
-    boolean asyncBool;
+    final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
     } else {
@@ -186,16 +206,34 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
     return RestliUtil.toTask(() -> {
       log.debug("Proposal: {}", metadataChangeProposal);
       try {
-        EntityService.IngestProposalResult result = _entityService.ingestProposal(metadataChangeProposal, auditStamp, asyncBool);
-        Urn responseUrn = result.getUrn();
+        final AspectsBatch batch;
+        if (asyncBool) {
+          // if async we'll expand the getAdditionalChanges later, no need to do this early
+          batch = AspectsBatchImpl.builder()
+                  .mcps(List.of(metadataChangeProposal), _entityService.getEntityRegistry())
+                  .build();
+        } else {
+          Stream<MetadataChangeProposal> proposalStream = Stream.concat(Stream.of(metadataChangeProposal),
+                  AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService).stream());
 
-        AspectUtils.getAdditionalChanges(metadataChangeProposal, _entityService)
-                .forEach(proposal -> _entityService.ingestProposal(proposal, auditStamp, asyncBool));
-
-        if (!result.isQueued()) {
-          tryIndexRunId(responseUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+          batch = AspectsBatchImpl.builder()
+                  .mcps(proposalStream.collect(Collectors.toList()), _entityService.getEntityRegistry())
+                  .build();
         }
-        return responseUrn.toString();
+
+        Set<IngestResult> results =
+                _entityService.ingestProposal(batch, auditStamp, asyncBool);
+
+        IngestResult one = results.stream()
+                .findFirst()
+                .get();
+
+        // Update runIds, only works for existing documents, so ES document must exist
+        Urn resultUrn = one.getUrn();
+        if (one.isProcessedMCL() || one.isUpdate()) {
+          tryIndexRunId(resultUrn, metadataChangeProposal.getSystemMetadata(), _entitySearchService);
+        }
+        return resultUrn.toString();
       } catch (ValidationException e) {
         throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
       }
@@ -228,22 +266,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                                      @ActionParam("batchSize") @Optional @Nullable Integer batchSize
   ) {
     return RestliUtil.toTask(() -> {
-      Authentication authentication = AuthenticationContext.getAuthentication();
-      if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-          && !isAuthorized(authentication, _authorizer, ImmutableList.of(PoliciesConfig.RESTORE_INDICES_PRIVILEGE),
-          (ResourceSpec) null)) {
-        throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED, "User is unauthorized to restore indices.");
-      }
-      RestoreIndicesArgs args = new RestoreIndicesArgs()
-              .setAspectName(aspectName)
-              .setUrnLike(urnLike)
-              .setUrn(urn)
-              .setStart(start)
-              .setBatchSize(batchSize);
-      Map<String, Object> result = new HashMap<>();
-      result.put("args", args);
-      result.put("result", _entityService.restoreIndices(args, log::info));
-      return result.toString();
+      return Utils.restoreIndices(aspectName, urn, urnLike, start, batchSize, _authorizer, _entityService);
     }, MetricRegistry.name(this.getClass(), "restoreIndices"));
   }
 

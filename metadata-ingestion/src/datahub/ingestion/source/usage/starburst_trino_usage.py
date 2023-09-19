@@ -112,9 +112,6 @@ class TrinoUsageSource(Source):
 
     #### Prerequsities
     1. You need to setup Event Logger which saves audit logs into a Postgres db and setup this db as a catalog in Trino
-    Here you can find more info about how to setup:
-    https://docs.starburst.io/354-e/security/event-logger.html#security-event-logger--page-root
-    https://docs.starburst.io/354-e/security/event-logger.html#analyzing-the-event-log
 
     2. Install starbust-trino-usage plugin
     Run pip install 'acryl-datahub[starburst-trino-usage]'.
@@ -129,7 +126,7 @@ class TrinoUsageSource(Source):
         config = TrinoUsageConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         access_events = self._get_trino_history()
         # If the query results is empty, we don't want to proceed
         if not access_events:
@@ -140,9 +137,7 @@ class TrinoUsageSource(Source):
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
-                wu = self._make_usage_stat(aggregate)
-                self.report.report_workunit(wu)
-                yield wu
+                yield self._make_usage_stat(aggregate)
 
     def _make_usage_query(self) -> str:
         return trino_usage_sql_comment.format(
@@ -164,11 +159,7 @@ class TrinoUsageSource(Source):
         results = engine.execute(query)
         events = []
         for row in results:
-            # minor type conversion
-            if hasattr(row, "_asdict"):
-                event_dict = row._asdict()
-            else:
-                event_dict = dict(row)
+            event_dict = row._asdict()
 
             # stripping extra spaces caused by above _asdict() conversion
             for k, v in event_dict.items():
@@ -284,6 +275,7 @@ class TrinoUsageSource(Source):
             self.config.top_n_queries,
             self.config.format_sql_queries,
             self.config.include_top_n_queries,
+            self.config.queries_character_limit,
         )
 
     def get_report(self) -> SourceReport:

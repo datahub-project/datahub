@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -15,6 +16,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 
 public class AutocompleteUtils {
@@ -28,17 +31,22 @@ public class AutocompleteUtils {
       List<SearchableEntityType<?, ?>> entities,
       String sanitizedQuery,
       AutoCompleteMultipleInput input,
-      DataFetchingEnvironment environment
+      DataFetchingEnvironment environment,
+      @Nullable DataHubViewInfo view
   ) {
     final int limit = input.getLimit() != null ? input.getLimit() : DEFAULT_LIMIT;
 
     final List<CompletableFuture<AutoCompleteResultForEntity>> autoCompletesFuture = entities.stream().map(entity -> CompletableFuture.supplyAsync(() -> {
       final Filter filter = ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
+      final Filter finalFilter = view != null
+          ? SearchUtils.combineFilters(filter, view.getDefinition().getFilter())
+          : filter;
+
       try {
         final AutoCompleteResults searchResult = entity.autoComplete(
             sanitizedQuery,
             input.getField(),
-            filter,
+            finalFilter,
             limit,
             environment.getContext()
         );

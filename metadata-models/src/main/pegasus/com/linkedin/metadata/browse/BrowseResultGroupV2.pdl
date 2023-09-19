@@ -1,0 +1,29 @@
+namespace com.linkedin.metadata.browse
+
+import com.linkedin.common.Urn
+
+/**
+ * The model for the result of a browse query
+ */
+record BrowseResultGroupV2 {
+
+  /**
+   * Name of the group
+   */
+  name: string
+
+  /**
+   * Urn of the group if this is an entity
+   */
+  urn: optional Urn
+
+  /**
+   * Number of entities that can be reached from this path
+   */
+  count: long
+
+  /**
+   * Whether or not this group has any sub-groups underneath it
+   */
+  hasSubGroups: boolean
+}

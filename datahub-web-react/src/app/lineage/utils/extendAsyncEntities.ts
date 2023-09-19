@@ -1,10 +1,11 @@
-import { SchemaFieldRef } from '../../../types.generated';
+import { EntityType, SchemaFieldRef } from '../../../types.generated';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { EntityAndType, FetchedEntities, FetchedEntity } from '../types';
 import {
     decodeSchemaField,
     getFieldPathFromSchemaFieldUrn,
     getSourceUrnFromSchemaFieldUrn,
+    isSameColumn,
 } from './columnLineageUtils';
 
 const breakFieldUrn = (ref: SchemaFieldRef) => {
@@ -21,9 +22,20 @@ function updateFineGrainedMap(
     downstreamEntityUrn: string,
     downstreamField: string,
 ) {
+    // ignore self-referential CLL fields
+    if (
+        isSameColumn({
+            sourceUrn: upstreamEntityUrn,
+            targetUrn: downstreamEntityUrn,
+            sourceField: upstreamField,
+            targetField: downstreamField,
+        })
+    ) {
+        return;
+    }
     const mapForUrn = fineGrainedMap.forward[upstreamEntityUrn] || {};
     const mapForField = mapForUrn[upstreamField] || {};
-    const listForDownstream = mapForField[downstreamEntityUrn] || [];
+    const listForDownstream = [...(mapForField[downstreamEntityUrn] || [])];
     listForDownstream.push(downstreamField);
 
     // eslint-disable-next-line no-param-reassign
@@ -33,7 +45,7 @@ function updateFineGrainedMap(
 
     const mapForUrnReverse = fineGrainedMap.reverse[downstreamEntityUrn] || {};
     const mapForFieldReverse = mapForUrnReverse[downstreamField] || {};
-    const listForDownstreamReverse = mapForFieldReverse[upstreamEntityUrn] || [];
+    const listForDownstreamReverse = [...(mapForFieldReverse[upstreamEntityUrn] || [])];
     listForDownstreamReverse.push(upstreamField);
 
     // eslint-disable-next-line no-param-reassign
@@ -42,24 +54,102 @@ function updateFineGrainedMap(
     mapForFieldReverse[upstreamEntityUrn] = listForDownstreamReverse;
 }
 
-function extendColumnLineage(lineageVizConfig: FetchedEntity, fineGrainedMap: any) {
+export function extendColumnLineage(
+    lineageVizConfig: FetchedEntity,
+    fineGrainedMap: any,
+    fineGrainedMapForSiblings: any,
+    fetchedEntities: FetchedEntities,
+) {
     if (lineageVizConfig.fineGrainedLineages && lineageVizConfig.fineGrainedLineages.length > 0) {
         lineageVizConfig.fineGrainedLineages.forEach((fineGrainedLineage) => {
             fineGrainedLineage.upstreams?.forEach((upstream) => {
                 const [upstreamEntityUrn, upstreamField] = breakFieldUrn(upstream);
-                fineGrainedLineage.downstreams?.forEach((downstream) => {
-                    const [downstreamEntityUrn, downstreamField] = breakFieldUrn(downstream);
+
+                if (lineageVizConfig.type === EntityType.DataJob) {
+                    // draw a line from upstream dataset field to datajob
                     updateFineGrainedMap(
                         fineGrainedMap,
                         upstreamEntityUrn,
                         upstreamField,
-                        downstreamEntityUrn,
-                        downstreamField,
+                        lineageVizConfig.urn,
+                        upstreamField,
                     );
+                }
+
+                fineGrainedLineage.downstreams?.forEach((downstream) => {
+                    const [downstreamEntityUrn, downstreamField] = breakFieldUrn(downstream);
+
+                    if (lineageVizConfig.type === EntityType.DataJob) {
+                        // draw line from datajob upstream field to downstream fields
+                        updateFineGrainedMap(
+                            fineGrainedMap,
+                            lineageVizConfig.urn,
+                            upstreamField,
+                            downstreamEntityUrn,
+                            downstreamField,
+                        );
+                    } else {
+                        // fineGrainedLineage always belongs on the downstream urn with upstreams pointing to another entity
+                        // pass in the visualized node's urn and not the urn from the schema field as the downstream urn,
+                        // as they will either be the same or if they are different, it belongs to a "hidden" sibling
+                        updateFineGrainedMap(
+                            fineGrainedMap,
+                            upstreamEntityUrn,
+                            upstreamField,
+                            lineageVizConfig.urn,
+                            downstreamField,
+                        );
+                    }
+
+                    // upstreamEntityUrn could belong to a sibling we don't "render", so store its inputs to updateFineGrainedMap
+                    // and update the fine grained map later when we see the entity with these siblings
+                    // eslint-disable-next-line no-param-reassign
+                    fineGrainedMapForSiblings[upstreamEntityUrn] = [
+                        ...(fineGrainedMapForSiblings[upstreamEntityUrn] || []),
+                        {
+                            upstreamField,
+                            downstreamEntityUrn: lineageVizConfig.urn,
+                            downstreamField,
+                        },
+                    ];
+
+                    // if this upstreamEntityUrn is a sibling of one of the already rendered nodes,
+                    // update the fine grained map with the rendered node instead of its sibling
+                    Object.keys(fetchedEntities).forEach((urn) => {
+                        fetchedEntities[urn].siblings?.siblings?.forEach((sibling) => {
+                            if (sibling && sibling.urn === upstreamEntityUrn) {
+                                updateFineGrainedMap(
+                                    fineGrainedMap,
+                                    urn,
+                                    upstreamField,
+                                    lineageVizConfig.urn,
+                                    downstreamField,
+                                );
+                            }
+                        });
+                    });
                 });
             });
         });
     }
+
+    // if we've seen fineGrainedMappings for this current entity's siblings, update the
+    // fine grained map with the rendered urn instead of the "hidden" sibling urn
+    lineageVizConfig.siblings?.siblings?.forEach((sibling) => {
+        if (sibling && fineGrainedMapForSiblings[sibling.urn]) {
+            fineGrainedMapForSiblings[sibling.urn].forEach((entry) => {
+                updateFineGrainedMap(
+                    fineGrainedMap,
+                    lineageVizConfig.urn,
+                    entry.upstreamField,
+                    entry.downstreamEntityUrn,
+                    entry.downstreamField,
+                );
+            });
+        }
+    });
+
+    // below is to update the fineGrainedMap for Data Jobs
     if (lineageVizConfig.inputFields?.fields && lineageVizConfig.inputFields.fields.length > 0) {
         lineageVizConfig.inputFields.fields.forEach((inputField) => {
             if (inputField?.schemaFieldUrn && inputField.schemaField) {
@@ -80,6 +170,7 @@ function extendColumnLineage(lineageVizConfig: FetchedEntity, fineGrainedMap: an
 
 export default function extendAsyncEntities(
     fineGrainedMap: any,
+    fineGrainedMapForSiblings: any,
     fetchedEntities: FetchedEntities,
     entityRegistry: EntityRegistry,
     entityAndType: EntityAndType,
@@ -93,7 +184,7 @@ export default function extendAsyncEntities(
 
     if (!lineageVizConfig) return fetchedEntities;
 
-    extendColumnLineage(lineageVizConfig, fineGrainedMap);
+    extendColumnLineage(lineageVizConfig, fineGrainedMap, fineGrainedMapForSiblings, fetchedEntities);
 
     return {
         ...fetchedEntities,

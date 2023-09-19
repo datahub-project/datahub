@@ -5,6 +5,7 @@ import TagsDropdown from './action/TagsDropdown';
 import DomainDropdown from './action/DomainsDropdown';
 import DeprecationDropdown from './action/DeprecationDropdown';
 import DeleteDropdown from './action/DeleteDropdown';
+import DataProductsDropdown from './action/DataProductsDropdown';
 import { EntityType } from '../../../../../../types.generated';
 import { EntityCapabilityType } from '../../../../Entity';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -23,6 +24,7 @@ const DEFAULT_ACTION_GROUPS = [
     SelectActionGroups.CHANGE_OWNERS,
     SelectActionGroups.CHANGE_DEPRECATION,
     SelectActionGroups.DELETE,
+    SelectActionGroups.CHANGE_DATA_PRODUCTS,
 ];
 
 type Props = {
@@ -116,6 +118,16 @@ export const SearchSelectActions = ({
                     disabled={
                         selectedEntityUrns.length === 0 ||
                         !isEntityCapabilitySupported(EntityCapabilityType.SOFT_DELETE, selectedEntityTypes)
+                    }
+                    refetch={refetch}
+                />
+            )}
+            {visibleActionGroups.has(SelectActionGroups.CHANGE_DATA_PRODUCTS) && (
+                <DataProductsDropdown
+                    urns={selectedEntityUrns}
+                    disabled={
+                        selectedEntityUrns.length === 0 ||
+                        !isEntityCapabilitySupported(EntityCapabilityType.DATA_PRODUCTS, selectedEntityTypes)
                     }
                     refetch={refetch}
                 />

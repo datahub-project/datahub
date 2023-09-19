@@ -1,12 +1,22 @@
 import React from 'react';
-import { EntityType, MlModel } from '../../../../types.generated';
+import { EntityPath, EntityType, MlModel } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
+import { getDataProduct } from '../../shared/utils';
 
-export const Preview = ({ model }: { model: MlModel }): JSX.Element => {
+export const Preview = ({
+    model,
+    degree,
+    paths,
+}: {
+    model: MlModel;
+    degree?: number;
+    paths?: EntityPath[];
+}): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const genericProperties = entityRegistry.getGenericEntityProperties(EntityType.Mlmodel, model);
 
     return (
         <DefaultPreviewCard
@@ -21,6 +31,9 @@ export const Preview = ({ model }: { model: MlModel }): JSX.Element => {
             qualifier={model.origin}
             tags={model.globalTags || undefined}
             owners={model?.ownership?.owners}
+            dataProduct={getDataProduct(genericProperties?.dataProduct)}
+            degree={degree}
+            paths={paths}
         />
     );
 };

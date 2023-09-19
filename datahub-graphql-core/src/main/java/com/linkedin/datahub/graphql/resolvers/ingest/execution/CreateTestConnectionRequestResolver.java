@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 
+import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -7,14 +8,10 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateTestConnectionRequestInput;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
-import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
@@ -26,6 +23,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -61,14 +60,11 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
           bindArgument(environment.getArgument("input"), CreateTestConnectionRequestInput.class);
 
       try {
-
-        final MetadataChangeProposal proposal = new MetadataChangeProposal();
         final ExecutionRequestKey key = new ExecutionRequestKey();
         final UUID uuid = UUID.randomUUID();
         final String uuidStr = uuid.toString();
         key.setId(uuidStr);
-        final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(key, Constants.EXECUTION_REQUEST_ENTITY_NAME);
-        proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+        final Urn executionRequestUrn = EntityKeyUtils.convertEntityKeyToUrn(key, EXECUTION_REQUEST_ENTITY_NAME);
 
         final ExecutionRequestInput execInput = new ExecutionRequestInput();
         execInput.setTask(TEST_CONNECTION_TASK_NAME);
@@ -83,12 +79,9 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         }
         execInput.setArgs(new StringMap(arguments));
 
-        proposal.setEntityType(Constants.EXECUTION_REQUEST_ENTITY_NAME);
-        proposal.setAspectName(Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME);
-        proposal.setAspect(GenericRecordUtils.serializeAspect(execInput));
-        proposal.setChangeType(ChangeType.UPSERT);
-
-        return _entityClient.ingestProposal(proposal, context.getAuthentication());
+        final MetadataChangeProposal proposal = buildMetadataChangeProposalWithKey(key, EXECUTION_REQUEST_ENTITY_NAME,
+            EXECUTION_REQUEST_INPUT_ASPECT_NAME, execInput);
+        return _entityClient.ingestProposal(proposal, context.getAuthentication(), false);
       } catch (Exception e) {
         throw new RuntimeException(String.format("Failed to create new test ingestion connection request %s", input.toString()), e);
       }

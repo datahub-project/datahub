@@ -10,8 +10,10 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.resolvers.mutate.AddOwnersResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -29,7 +31,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessNoExistingOwners() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -41,14 +43,20 @@ public class AddOwnersResolverTest {
     Mockito.when(mockService.exists(Urn.createFromString(TEST_OWNER_1_URN))).thenReturn(true);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_OWNER_2_URN))).thenReturn(true);
 
+    Mockito.when(mockService.exists(Urn.createFromString(
+        OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name()))))
+        .thenReturn(true);
+
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     AddOwnersInput input = new AddOwnersInput(ImmutableList.of(
-        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER),
-        new OwnerInput(TEST_OWNER_2_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)
+        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name())),
+        new OwnerInput(TEST_OWNER_2_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))
     ), TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -68,7 +76,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetSuccessExistingOwners() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -80,14 +88,20 @@ public class AddOwnersResolverTest {
     Mockito.when(mockService.exists(Urn.createFromString(TEST_OWNER_1_URN))).thenReturn(true);
     Mockito.when(mockService.exists(Urn.createFromString(TEST_OWNER_2_URN))).thenReturn(true);
 
+    Mockito.when(mockService.exists(Urn.createFromString(
+            OwnerUtils.mapOwnershipTypeToEntity(com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER.name()))))
+        .thenReturn(true);
+
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     AddOwnersInput input = new AddOwnersInput(ImmutableList.of(
-        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER),
-        new OwnerInput(TEST_OWNER_2_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)
+        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name())),
+        new OwnerInput(TEST_OWNER_2_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))
     ), TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -107,7 +121,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetFailureOwnerDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -124,7 +138,8 @@ public class AddOwnersResolverTest {
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     AddOwnersInput input = new AddOwnersInput(ImmutableList.of(
-        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)), TEST_ENTITY_URN);
+        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))), TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -134,7 +149,7 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN)),
@@ -151,7 +166,8 @@ public class AddOwnersResolverTest {
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     AddOwnersInput input = new AddOwnersInput(ImmutableList.of(
-        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)), TEST_ENTITY_URN);
+        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))), TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -161,14 +177,15 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     AddOwnersResolver resolver = new AddOwnersResolver(mockService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     AddOwnersInput input = new AddOwnersInput(ImmutableList.of(
-        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)), TEST_ENTITY_URN);
+        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))), TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     QueryContext mockContext = getMockDenyContext();
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
@@ -179,10 +196,10 @@ public class AddOwnersResolverTest {
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     AddOwnersResolver resolver = new AddOwnersResolver(Mockito.mock(EntityService.class));
@@ -191,7 +208,8 @@ public class AddOwnersResolverTest {
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     AddOwnersInput input = new AddOwnersInput(ImmutableList.of(
-        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER)), TEST_ENTITY_URN);
+        new OwnerInput(TEST_OWNER_1_URN, OwnerEntityType.CORP_USER, OwnershipType.TECHNICAL_OWNER,
+            OwnerUtils.mapOwnershipTypeToEntity(OwnershipType.TECHNICAL_OWNER.name()))), TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 

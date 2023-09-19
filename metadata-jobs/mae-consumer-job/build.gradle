@@ -11,19 +11,31 @@ ext {
 }
 
 dependencies {
-    compile project(':metadata-jobs:mae-consumer')
+    implementation project(':metadata-service:factories')
+    implementation project(':metadata-jobs:mae-consumer')
     // TODO: Extract PE consumer into separate pod.
-    compile project(':metadata-jobs:pe-consumer')
+    implementation project(':metadata-jobs:pe-consumer')
 
-    compile(externalDependency.springBootStarterWeb) {
+    implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
-    compile externalDependency.springBootStarterJetty
-    compile externalDependency.springKafka
+    implementation externalDependency.springBootStarterJetty
+    implementation externalDependency.springKafka
+    implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.springActuator
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.log4j2Api
+    compileOnly externalDependency.lombok
+    implementation externalDependency.logbackClassic
+
+    testImplementation project(':metadata-dao-impl:kafka-producer')
+    testImplementation externalDependency.springBootTest
+    testImplementation externalDependency.mockito
+    testImplementation externalDependency.testng
 }
 
 bootJar {
-    mainClassName = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
+    mainClass = 'com.linkedin.metadata.kafka.MaeConsumerApplication'
     archiveFileName = "${project.name}.jar"
 }
 
@@ -36,6 +48,8 @@ docker {
         include 'docker/monitoring/*'
         include "docker/${docker_repo}/*"
         include 'metadata-models/src/main/resources/*'
+    }.exclude {
+        i -> i.file.isHidden() || i.file == buildDir
     }
     tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -44,11 +58,11 @@ docker {
     load(true)
     push(false)
 }
-tasks.getByName("docker").dependsOn([bootJar])
+tasks.getByPath(":metadata-jobs:mae-consumer-job:docker").dependsOn([bootJar])
 
 task cleanLocalDockerImages {
     doLast {
-        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "v${version}".toString())
+        rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
     }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)

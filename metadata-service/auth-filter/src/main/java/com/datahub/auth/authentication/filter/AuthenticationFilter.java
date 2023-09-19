@@ -44,6 +44,7 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.context.support.SpringBeanAutowiringSupport;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
@@ -67,6 +68,9 @@ public class AuthenticationFilter implements Filter {
   @Named("dataHubTokenService")
   private StatefulTokenService _tokenService;
 
+  @Value("#{new Boolean('${authentication.logAuthenticatorExceptions}')}")
+  private boolean _logAuthenticatorExceptions;
+
   private AuthenticatorChain authenticatorChain;
 
   @Override
@@ -81,7 +85,7 @@ public class AuthenticationFilter implements Filter {
     AuthenticationRequest context = buildAuthContext((HttpServletRequest) request);
     Authentication authentication = null;
     try {
-      authentication = this.authenticatorChain.authenticate(context);
+      authentication = this.authenticatorChain.authenticate(context, _logAuthenticatorExceptions);
     } catch (AuthenticationException e) {
       // For AuthenticationExpiredExceptions, terminate and provide that feedback to the user
       log.debug("Failed to authenticate request. Received an AuthenticationExpiredException from authenticator chain.",

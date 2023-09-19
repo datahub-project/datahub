@@ -65,24 +65,32 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   public static final String SIBLING_ASSOCIATION_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system_sibling_hook";
   public static final String DBT_PLATFORM_NAME = "dbt";
-  public static final String SOURCE_SUBTYPE = "source";
+
+  // Older dbt sources produced lowercase subtypes, whereas we now
+  // produce titlecase subtypes. We need to handle both cases to
+  // maintain backwards compatibility.
+  public static final String SOURCE_SUBTYPE_V1 = "source";
+  public static final String SOURCE_SUBTYPE_V2 = "Source";
 
   private final EntityRegistry _entityRegistry;
   private final RestliEntityClient _entityClient;
   private final EntitySearchService _searchService;
   private final Authentication _systemAuthentication;
+  private final boolean _isEnabled;
 
   @Autowired
   public SiblingAssociationHook(
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final RestliEntityClient entityClient,
       @Nonnull final EntitySearchService searchService,
-      @Nonnull final Authentication systemAuthentication
+      @Nonnull final Authentication systemAuthentication,
+      @Nonnull @Value("${siblings.enabled:true}") Boolean isEnabled
   ) {
     _entityRegistry = entityRegistry;
     _entityClient = entityClient;
     _searchService = searchService;
     _systemAuthentication = systemAuthentication;
+    _isEnabled = isEnabled;
   }
 
   @Value("${siblings.enabled:false}")
@@ -95,6 +103,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public void init() {
+  }
+
+  @Override
+  public boolean isEnabled() {
+    return _isEnabled;
   }
 
   @Override
@@ -128,7 +141,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private void handleEntityKeyEvent(DatasetUrn datasetUrn) {
     Filter entitiesWithYouAsSiblingFilter = createFilterForEntitiesWithYouAsSibling(datasetUrn);
     final SearchResult searchResult = _searchService.search(
-        "dataset",
+        List.of(DATASET_ENTITY_NAME),
         "*",
         entitiesWithYouAsSiblingFilter,
         null,
@@ -169,7 +182,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             && subTypesAspectOfEntity != null
             && upstreamLineage.hasUpstreams()
             && subTypesAspectOfEntity.hasTypeNames()
-            && subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE)
+            && (subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE_V1)
+            || subTypesAspectOfEntity.getTypeNames().contains(SOURCE_SUBTYPE_V2))
     ) {
       UpstreamArray upstreams = upstreamLineage.getUpstreams();
       if (
@@ -186,10 +200,19 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
-        if (
-            upstreams.size() == 1
-                && upstreams.get(0).getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-          setSiblingsAndSoftDeleteSibling(upstreams.get(0).getDataset(), sourceUrn);
+
+        // an entity can have merged lineage (eg. dbt + snowflake), but by default siblings are only between dbt <> non-dbt
+        UpstreamArray dbtUpstreams = new UpstreamArray(
+          upstreams.stream()
+          .filter(obj -> obj.getDataset().getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME))
+          .collect(Collectors.toList())
+        );
+        // We're assuming a data asset (eg. snowflake table) will only ever be downstream of 1 dbt model
+        if (dbtUpstreams.size() == 1) {
+          setSiblingsAndSoftDeleteSibling(dbtUpstreams.get(0).getDataset(), sourceUrn);
+        } else {
+          log.error("{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.", sourceUrn.toString(), dbtUpstreams.size());
+ 
         }
       }
     }
@@ -205,7 +228,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         existingDbtSiblingAspect != null
             && existingSourceSiblingAspect != null
             && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
-            && existingDbtSiblingAspect.getSiblings().contains(dbtUrn.toString())
+            && existingSourceSiblingAspect.getSiblings().contains(dbtUrn.toString())
     ) {
       // we have already connected them- we can abort here
       return;

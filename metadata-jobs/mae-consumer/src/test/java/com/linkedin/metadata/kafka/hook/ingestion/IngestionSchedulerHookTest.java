@@ -6,8 +6,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import org.mockito.Mockito;
@@ -16,6 +14,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.kafka.hook.EntityRegistryTestUtil.ENTITY_REGISTRY;
 
 
 public class IngestionSchedulerHookTest {
@@ -23,10 +22,8 @@ public class IngestionSchedulerHookTest {
 
   @BeforeMethod
   public void setupTest() {
-    EntityRegistry registry = new ConfigEntityRegistry(
-        IngestionSchedulerHookTest.class.getClassLoader().getResourceAsStream("test-entity-registry.yml"));
     IngestionScheduler mockScheduler = Mockito.mock(IngestionScheduler.class);
-    _ingestionSchedulerHook = new IngestionSchedulerHook(registry, mockScheduler);
+    _ingestionSchedulerHook = new IngestionSchedulerHook(ENTITY_REGISTRY, mockScheduler, true);
   }
 
   @Test
@@ -78,7 +75,7 @@ public class IngestionSchedulerHookTest {
     event.setAspectName(SECRET_VALUE_ASPECT_NAME);
     event.setChangeType(ChangeType.UPSERT);
     _ingestionSchedulerHook.invoke(event);
-    Mockito.verifyZeroInteractions(_ingestionSchedulerHook.scheduler());
+    Mockito.verifyNoInteractions(_ingestionSchedulerHook.scheduler());
   }
 }
 

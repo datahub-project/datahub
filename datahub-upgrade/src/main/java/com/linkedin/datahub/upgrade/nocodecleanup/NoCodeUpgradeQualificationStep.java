@@ -5,15 +5,15 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.AspectStorageValidationUtil;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.function.Function;
 
 
 public class NoCodeUpgradeQualificationStep implements UpgradeStep {
 
-  private final EbeanServer _server;
+  private final Database _server;
 
-  NoCodeUpgradeQualificationStep(EbeanServer server) {
+  NoCodeUpgradeQualificationStep(Database server) {
     _server = server;
   }
 
@@ -46,7 +46,7 @@ public class NoCodeUpgradeQualificationStep implements UpgradeStep {
               UpgradeStepResult.Result.SUCCEEDED);
         }
       } catch (Exception e) {
-        context.report().addLine(String.format("Failed to check if metadata_aspect_v2 table exists: %s", e.toString()));
+        context.report().addLine("Failed to check if metadata_aspect_v2 table exists: %s", e);
         return new DefaultUpgradeStepResult(
             id(),
             UpgradeStepResult.Result.FAILED);

@@ -60,8 +60,13 @@ public interface ArrayMergingTemplate<T extends RecordTemplate> extends Template
    * @return the modified {@link JsonNode} formatted consistent with the original schema
    */
   default JsonNode transformedMapToArray(JsonNode transformedNode, String arrayFieldName, List<String> keyFields) {
+    JsonNode fieldNode = transformedNode.get(arrayFieldName);
+    if (fieldNode instanceof ArrayNode) {
+      // We already have an ArrayNode, no need to transform. This happens during `replace` operations
+      return transformedNode;
+    }
     ObjectNode rebasedNode = transformedNode.deepCopy();
-    ObjectNode mapNode = (ObjectNode) transformedNode.get(arrayFieldName);
+    ObjectNode mapNode = (ObjectNode) fieldNode;
     ArrayNode arrayNode;
 
     if (!keyFields.isEmpty()) {

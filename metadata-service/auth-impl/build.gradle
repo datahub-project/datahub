@@ -6,11 +6,14 @@ compileJava {
 }
 
 dependencies {
-  compile project(path: ':metadata-models')
-  compile project(path: ':metadata-auth:auth-api')
-  compile project(path: ':metadata-service:auth-config')
-  compile project(path: ':metadata-io')
+  implementation project(path: ':metadata-models')
+  implementation project(path: ':metadata-auth:auth-api')
+  implementation project(path: ':metadata-service:auth-config')
+  implementation project(path: ':metadata-io')
 
+  implementation(externalDependency.mixpanel) {
+    exclude group: 'org.json', module: 'json'
+  }
   implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
   runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.2',
       'io.jsonwebtoken:jjwt-jackson:0.11.2'
@@ -20,6 +23,5 @@ dependencies {
 
   annotationProcessor externalDependency.lombok
 
-  testCompile externalDependency.mockito
-
+  testImplementation externalDependency.mockito
 }

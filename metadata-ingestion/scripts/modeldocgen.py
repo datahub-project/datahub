@@ -8,7 +8,7 @@ import unittest.mock
 from dataclasses import Field, dataclass, field
 from enum import auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 import avro.schema
 import click
@@ -27,7 +27,6 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     ForeignKeyConstraintClass,
     GlobalTagsClass,
-    MetadataChangeEventClass,
     OtherSchemaClass,
     SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
@@ -35,6 +34,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    BrowsePathsV2Class,
+    BrowsePathEntryClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -304,7 +305,7 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
             )
 
         # create global metadata graph
-        global_graph_url = "https://github.com/datahub-project/datahub/raw/master/docs/imgs/datahub-metadata-model.png"
+        global_graph_url = "https://github.com/datahub-project/static-assets/raw/main/imgs/datahub-metadata-model.png"
         global_graph_section = (
             f"\n## [Global Metadata Model]({global_graph_url})"
             + f"\n![Global Graph]({global_graph_url})"
@@ -316,9 +317,10 @@ def make_entity_docs(entity_display_name: str, graph: RelationshipGraph) -> str:
         raise Exception(f"Failed to find information for entity: {entity_name}")
 
 
-def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
+def generate_stitched_record(
+    relnships_graph: RelationshipGraph,
+) -> Iterable[MetadataChangeProposalWrapper]:
     def strip_types(field_path: str) -> str:
-
         final_path = field_path
         final_path = re.sub(r"(\[type=[a-zA-Z]+\]\.)", "", final_path)
         final_path = re.sub(r"^\[version=2.0\]\.", "", final_path)
@@ -455,52 +457,41 @@ def generate_stitched_record(relnships_graph: RelationshipGraph) -> List[Any]:
                                 edge_id=f"{entity_display_name}:{fkey.name}:{destination_entity_name}:{strip_types(f_field.fieldPath)}",
                             )
 
-            schemaMetadata = SchemaMetadataClass(
-                schemaName=f"{entity_name}",
-                platform=make_data_platform_urn("datahub"),
-                platformSchema=OtherSchemaClass(rawSchema=rawSchema),
-                fields=schema_fields,
-                version=0,
-                hash="",
-                foreignKeys=foreign_keys if foreign_keys else None,
+            dataset_urn = make_dataset_urn(
+                platform="datahub",
+                name=entity_display_name,
             )
 
-            dataset = DatasetSnapshotClass(
-                urn=make_dataset_urn(
-                    platform="datahub",
-                    name=f"{entity_display_name}",
-                ),
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=dataset_urn,
                 aspects=[
-                    schemaMetadata,
+                    SchemaMetadataClass(
+                        schemaName=str(entity_name),
+                        platform=make_data_platform_urn("datahub"),
+                        platformSchema=OtherSchemaClass(rawSchema=rawSchema),
+                        fields=schema_fields,
+                        version=0,
+                        hash="",
+                        foreignKeys=foreign_keys if foreign_keys else None,
+                    ),
                     GlobalTagsClass(
                         tags=[TagAssociationClass(tag="urn:li:tag:Entity")]
                     ),
                     BrowsePathsClass([f"/prod/datahub/entities/{entity_display_name}"]),
+                    BrowsePathsV2Class(
+                        [
+                            BrowsePathEntryClass(id="entities"),
+                            BrowsePathEntryClass(id=entity_display_name),
+                        ]
+                    ),
+                    DatasetPropertiesClass(
+                        description=make_entity_docs(
+                            dataset_urn.split(":")[-1].split(",")[1], relnships_graph
+                        )
+                    ),
+                    SubTypesClass(typeNames=["entity"]),
                 ],
             )
-            datasets.append(dataset)
-
-    events: List[Union[MetadataChangeEventClass, MetadataChangeProposalWrapper]] = []
-
-    for d in datasets:
-        entity_name = d.urn.split(":")[-1].split(",")[1]
-        d.aspects.append(
-            DatasetPropertiesClass(
-                description=make_entity_docs(entity_name, relnships_graph)
-            )
-        )
-
-        mce = MetadataChangeEventClass(
-            proposedSnapshot=d,
-        )
-        events.append(mce)
-
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=d.urn,
-            aspect=SubTypesClass(typeNames=["entity"]),
-        )
-        events.append(mcp)
-    return events
 
 
 class EntityRegistry(ConfigModel):
@@ -614,7 +605,7 @@ def generate(
             ]
 
     relationship_graph = RelationshipGraph()
-    events = generate_stitched_record(relationship_graph)
+    mcps = list(generate_stitched_record(relationship_graph))
 
     shutil.rmtree(f"{generated_docs_dir}/entities", ignore_errors=True)
     entity_names = [(x, entity_registry[x]) for x in generated_documentation]
@@ -645,7 +636,7 @@ def generate(
             PipelineContext(run_id="generated-metaModel"),
             FileSinkConfig(filename=file),
         )
-        for e in events:
+        for e in mcps:
             fileSink.write_record_async(
                 RecordEnvelope(e, metadata={}), write_callback=NoopWriteCallback()
             )
@@ -674,7 +665,7 @@ def generate(
         assert server.startswith("http://"), "server address must start with http://"
         emitter = DatahubRestEmitter(gms_server=server)
         emitter.test_connection()
-        for e in events:
+        for e in mcps:
             emitter.emit(e)
 
     if dot:

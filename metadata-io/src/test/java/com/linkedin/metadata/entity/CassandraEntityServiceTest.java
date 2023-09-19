@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity;
 
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -14,6 +15,7 @@ import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ListUrnsResult;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +35,7 @@ import static org.testng.Assert.*;
  * A class that knows how to configure {@link EntityServiceTest} to run integration tests against a Cassandra database.
  *
  * This class also contains all the test methods where realities of an underlying storage leak into the
- * {@link EntityService} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
+ * {@link EntityServiceImpl} in the form of subtle behavior differences. Ideally that should never happen, and it'd be
  * great to address captured differences.
  */
 public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspectDao, CassandraRetentionService> {
@@ -64,9 +66,13 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     _aspectDao = new CassandraAspectDao(session);
     _aspectDao.setConnectionValidated(true);
     _mockProducer = mock(EventProducer.class);
-    _entityService = new EntityService(_aspectDao, _mockProducer, _testEntityRegistry, true);
-    _retentionService = new CassandraRetentionService(_entityService, session, 1000);
-    _entityService.setRetentionService(_retentionService);
+    _mockUpdateIndicesService = mock(UpdateIndicesService.class);
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(true);
+    _entityServiceImpl = new EntityServiceImpl(_aspectDao, _mockProducer, _testEntityRegistry, true,
+        _mockUpdateIndicesService, preProcessHooks);
+    _retentionService = new CassandraRetentionService(_entityServiceImpl, session, 1000);
+    _entityServiceImpl.setRetentionService(_retentionService);
   }
 
   /**
@@ -93,7 +99,7 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     final int expectedTotalPages = 4;
     final int expectedEntitiesInLastPage = 10;
 
-    Map<Urn, CorpUserInfo> writtenAspects = AspectIngestionUtils.ingestCorpUserInfoAspects(_entityService, totalEntities);
+    Map<Urn, CorpUserInfo> writtenAspects = AspectIngestionUtils.ingestCorpUserInfoAspects(_entityServiceImpl, totalEntities);
     Set<Urn> writtenUrns = writtenAspects.keySet();
     String entity = writtenUrns.stream().findFirst().get().getEntityType();
     String aspect = AspectGenerationUtils.getAspectName(new CorpUserInfo());
@@ -105,7 +111,7 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
       int expectedEntityCount = isLastPage ? expectedEntitiesInLastPage : pageSize;
       int expectedNextStart = isLastPage ? -1 : pageStart + pageSize;
 
-      ListResult<RecordTemplate> page = _entityService.listLatestAspects(entity, aspect, pageStart, pageSize);
+      ListResult<RecordTemplate> page = _entityServiceImpl.listLatestAspects(entity, aspect, pageStart, pageSize);
 
       // Check paging metadata works as expected
       assertEquals(page.getNextStart(), expectedNextStart);
@@ -141,7 +147,7 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
     final int expectedTotalPages = 4;
     final int expectedEntitiesInLastPage = 10;
 
-    Map<Urn, CorpUserKey> writtenAspects = AspectIngestionUtils.ingestCorpUserKeyAspects(_entityService, totalEntities);
+    Map<Urn, CorpUserKey> writtenAspects = AspectIngestionUtils.ingestCorpUserKeyAspects(_entityServiceImpl, totalEntities);
     Set<Urn> writtenUrns = writtenAspects.keySet();
     String entity = writtenUrns.stream().findFirst().get().getEntityType();
 
@@ -151,7 +157,7 @@ public class CassandraEntityServiceTest extends EntityServiceTest<CassandraAspec
       int pageStart = pageNo * pageSize;
       int expectedEntityCount = isLastPage ? expectedEntitiesInLastPage : pageSize;
 
-      ListUrnsResult page = _entityService.listUrns(entity, pageStart, pageSize);
+      ListUrnsResult page = _entityServiceImpl.listUrns(entity, pageStart, pageSize);
 
       // Check paging metadata works as expected
       assertEquals(page.getStart().intValue(), pageStart);
