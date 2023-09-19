@@ -81,6 +81,7 @@ from datahub.ingestion.source.tableau_common import (
     dashboard_graphql_query,
     database_tables_graphql_query,
     embedded_datasource_graphql_query,
+    get_dataset_platform_from_urn,
     get_overridden_info,
     get_unique_custom_sql,
     make_fine_grained_lineage_class,
@@ -120,7 +121,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaMetadata,
 )
 from datahub.metadata.schema_classes import (
+    BrowsePathEntryClass,
     BrowsePathsClass,
+    BrowsePathsV2Class,
     ChangeTypeClass,
     ChartInfoClass,
     ChartUsageStatisticsClass,
@@ -1957,6 +1960,30 @@ class TableauSource(StatefulIngestionSourceBase):
                 ]
             )
             dataset_snapshot.aspects.append(browse_paths)
+
+            # Browse path V2
+            platform = get_dataset_platform_from_urn(database_table.urn)
+            platform_instance = self.config.platform_instance_map.get(
+                platform, self.config.platform_instance
+            )
+            browse_paths_V2_path = []
+            if platform_instance:
+                platform_instance_urn = builder.make_dataplatform_instance_urn(
+                    platform, platform_instance
+                )
+                browse_paths_V2_path.append(
+                    BrowsePathEntryClass(
+                        id=platform_instance_urn, urn=platform_instance_urn
+                    )
+                )
+            browse_paths_V2_path.extend(
+                [
+                    BrowsePathEntryClass(id=path)
+                    for path in list(database_table.paths)[0].strip("/").split("/")
+                ]
+            )
+            browse_paths_V2 = BrowsePathsV2Class(path=browse_paths_V2_path)
+            dataset_snapshot.aspects.append(browse_paths_V2)
         else:
             logger.debug(f"Browse path not set for table {database_table.urn}")
 

@@ -90,6 +90,8 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
@@ -1039,6 +1041,20 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             )
                     else:
                         aspects.append(upstreams_lineage_class)
+
+            # add browsePathsV2 aspect
+            browse_paths_v2_path = []
+            if mce_platform_instance:
+                platform_instance_urn = mce_builder.make_dataplatform_instance_urn(
+                    mce_platform, mce_platform_instance
+                )
+                browse_paths_v2_path.append(
+                    BrowsePathEntryClass(
+                        id=platform_instance_urn, urn=platform_instance_urn
+                    )
+                )
+            browse_paths_v2_path.append(BrowsePathEntryClass(id=node.schema))
+            aspects.append(BrowsePathsV2Class(path=browse_paths_v2_path))
 
             if len(aspects) == 0:
                 continue
