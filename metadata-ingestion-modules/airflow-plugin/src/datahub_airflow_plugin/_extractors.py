@@ -66,6 +66,8 @@ class ExtractorManager(OLExtractorManager):
             # TODO: Override the BigQuery extractor to use the DataHub SQL parser.
             # self.extractor_manager.add_extractor()
 
+            # TODO: Override the Athena extractor to use the DataHub SQL parser.
+
             yield
 
     def extract_metadata(

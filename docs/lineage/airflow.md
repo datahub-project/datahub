@@ -1,10 +1,11 @@
 # Airflow Integration
 
-DataHub supports integration of
+The DataHub Airflow plugin supports:
 
-- Airflow Pipeline (DAG) metadata
-- DAG and Task run information as well as
-- Lineage information when present
+- Automatic lineage extraction from various operators e.g. `SqlOperator` (including `MySqlOperator`, `PostgresOperator`, `SnowflakeOperator`, and more), `S3FileTransformOperator`, and a few others.
+- Airflow DAG metadata
+- Extracting DAG and Task run information
+- Manual lineage annotations using `inlets` and `outlets` on Airflow operators
 
 You can use either the DataHub Airflow lineage plugin (recommended) or the Airflow lineage backend (deprecated).
 
