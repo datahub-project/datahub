@@ -110,6 +110,7 @@ public class GetQuickFiltersResolverTest {
         Mockito.anyInt(),
         Mockito.anyInt(),
         Mockito.eq(null),
+        Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenThrow(new RemoteInvocationException());
 
@@ -156,7 +157,7 @@ public class GetQuickFiltersResolverTest {
 
     AggregationMetadataArray aggregationMetadataArray = new AggregationMetadataArray();
     aggregationMetadataArray.add(createAggregationMetadata("platform", platformFilterValues));
-    aggregationMetadataArray.add(createAggregationMetadata("entity", entityTypeFilters));
+    aggregationMetadataArray.add(createAggregationMetadata("_entityType", entityTypeFilters));
 
     SearchResultMetadata resultMetadata = new SearchResultMetadata();
     resultMetadata.setAggregations(aggregationMetadataArray);
@@ -172,11 +173,11 @@ public class GetQuickFiltersResolverTest {
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:dbt", "urn:li:dataPlatform:dbt"));
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"));
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"));
-    quickFilters.add(createQuickFilter("entity", "DATASET", null));
-    quickFilters.add(createQuickFilter("entity", "DASHBOARD", null));
-    quickFilters.add(createQuickFilter("entity", "DATA_FLOW", null));
-    quickFilters.add(createQuickFilter("entity", "DOMAIN", null));
-    quickFilters.add(createQuickFilter("entity", "GLOSSARY_TERM", null));
+    quickFilters.add(createQuickFilter("_entityType", "DATASET", null));
+    quickFilters.add(createQuickFilter("_entityType", "DASHBOARD", null));
+    quickFilters.add(createQuickFilter("_entityType", "DATA_FLOW", null));
+    quickFilters.add(createQuickFilter("_entityType", "DOMAIN", null));
+    quickFilters.add(createQuickFilter("_entityType", "GLOSSARY_TERM", null));
     result.setQuickFilters(quickFilters);
 
     return result;
@@ -199,7 +200,7 @@ public class GetQuickFiltersResolverTest {
 
     AggregationMetadataArray aggregationMetadataArray = new AggregationMetadataArray();
     aggregationMetadataArray.add(createAggregationMetadata("platform", platformFilterValues));
-    aggregationMetadataArray.add(createAggregationMetadata("entity", entityTypeFilters));
+    aggregationMetadataArray.add(createAggregationMetadata("_entityType", entityTypeFilters));
 
     SearchResultMetadata resultMetadata = new SearchResultMetadata();
     resultMetadata.setAggregations(aggregationMetadataArray);
@@ -213,11 +214,11 @@ public class GetQuickFiltersResolverTest {
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:dbt", "urn:li:dataPlatform:dbt"));
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:looker", "urn:li:dataPlatform:looker"));
     quickFilters.add(createQuickFilter("platform", "urn:li:dataPlatform:snowflake", "urn:li:dataPlatform:snowflake"));
-    quickFilters.add(createQuickFilter("entity", "DATASET", null));
-    quickFilters.add(createQuickFilter("entity", "DATA_JOB", null));
-    quickFilters.add(createQuickFilter("entity", "CHART", null));
-    quickFilters.add(createQuickFilter("entity", "DOMAIN", null));
-    quickFilters.add(createQuickFilter("entity", "CORP_USER", null));
+    quickFilters.add(createQuickFilter("_entityType", "DATASET", null));
+    quickFilters.add(createQuickFilter("_entityType", "DATA_JOB", null));
+    quickFilters.add(createQuickFilter("_entityType", "CHART", null));
+    quickFilters.add(createQuickFilter("_entityType", "DOMAIN", null));
+    quickFilters.add(createQuickFilter("_entityType", "CORP_USER", null));
     result.setQuickFilters(quickFilters);
 
     return result;
@@ -265,6 +266,7 @@ public class GetQuickFiltersResolverTest {
         Mockito.eq(filter),
         Mockito.eq(start),
         Mockito.eq(limit),
+        Mockito.eq(null),
         Mockito.eq(null),
         Mockito.any(Authentication.class)
     )).thenReturn(

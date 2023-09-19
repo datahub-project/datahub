@@ -5,8 +5,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"hive\", \"instance\": \"PROD\", \"database\": \"db1\"}, \"name\": \"db1\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "hive",
+                "env": "PROD",
+                "database": "db1"
+            },
+            "name": "db1"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -19,8 +25,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -33,8 +40,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:hive\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:hive"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -47,8 +55,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Database\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -57,68 +68,13 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37",
+    "entityUrn": "urn:li:container:ded36d15fcfbbb939830549697122661",
     "changeType": "UPSERT",
-    "aspectName": "containerProperties",
+    "aspectName": "browsePathsV2",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"hive\", \"instance\": \"PROD\", \"database\": \"db1\", \"schema\": \"db1\"}, \"name\": \"db1\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "hive-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "hive-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:hive\"}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "hive-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "value": "{\"typeNames\": [\"Schema\"]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "hive-test"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "value": "{\"container\": \"urn:li:container:ded36d15fcfbbb939830549697122661\"}",
-        "contentType": "application/json"
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -131,8 +87,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -154,7 +111,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:09:04 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:26 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
@@ -164,7 +121,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1665191344",
+                            "Table Parameters: transient_lastDdlTime": "1688578706",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -239,8 +196,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1._test_table_underscore,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -253,8 +233,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -276,7 +257,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:09:05 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:26 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
@@ -286,7 +267,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1665191650",
+                            "Table Parameters: transient_lastDdlTime": "1688578710",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -396,8 +377,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -410,8 +414,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -433,7 +438,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:14:11 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:30 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
@@ -443,7 +448,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1665191651",
+                            "Table Parameters: transient_lastDdlTime": "1688578710",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -522,8 +527,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.map_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -536,8 +564,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -559,7 +588,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:14:11 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:30 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
@@ -569,7 +598,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1665191651",
+                            "Table Parameters: transient_lastDdlTime": "1688578710",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -697,8 +726,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.nested_struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -711,8 +763,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -734,7 +787,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:08:44 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:22 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
@@ -743,7 +796,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1665191333",
+                            "Table Parameters: transient_lastDdlTime": "1688578704",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -818,8 +871,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.pokes,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -832,8 +908,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -855,7 +932,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:09:04 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:26 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
@@ -865,7 +942,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1665191344",
+                            "Table Parameters: transient_lastDdlTime": "1688578706",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -971,8 +1048,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.struct_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -985,8 +1085,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d4ee8f0f53fee8e83d4188d0497bfe37\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:ded36d15fcfbbb939830549697122661"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -1008,7 +1109,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Sat Oct 08 01:14:11 UTC 2022",
+                            "CreateTime:": "Wed Jul 05 17:38:30 UTC 2023",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
@@ -1018,7 +1119,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1665191651",
+                            "Table Parameters: transient_lastDdlTime": "1688578710",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -1193,8 +1294,31 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "hive-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.union_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:ded36d15fcfbbb939830549697122661",
+                    "urn": "urn:li:container:ded36d15fcfbbb939830549697122661"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

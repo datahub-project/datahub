@@ -4,158 +4,206 @@
 
 # NOTE: This file does not build! No dockerfiles are set. See the README.md in this directory.
 ---
-version: '3.8'
+version: '3.9'
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.2.2
-    env_file: zookeeper/env/docker.env
-    hostname: zookeeper
-    container_name: zookeeper
+  datahub-frontend-react:
+    container_name: datahub-frontend-react
+    hostname: datahub-frontend-react
+    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
     ports:
-      - "2181:2181"
-    volumes:
-      - zkdata:/var/lib/zookeeper
-
-  broker:
-    image: confluentinc/cp-kafka:7.2.2
-    env_file: broker/env/docker.env
-    hostname: broker
-    container_name: broker
-    depends_on:
-      - zookeeper
-    ports:
-      - "29092:29092"
-      - "9092:9092"
-    volumes:
-      - broker:/var/lib/kafka/data/
-
-  schema-registry:
-    image: confluentinc/cp-schema-registry:7.2.2
-    env_file: schema-registry/env/docker.env
-    hostname: schema-registry
-    container_name: schema-registry
-    depends_on:
-      - broker
-    ports:
-      - "8081:8081"
-
-  elasticsearch:
-    image: elasticsearch:7.10.1
-    env_file: elasticsearch/env/docker.env
-    container_name: elasticsearch
-    hostname: elasticsearch
-    ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-    volumes:
-      - esdata:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sS --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=0s' || exit 1"]
-      start_period: 2m
-      retries: 4
-
-  neo4j:
-    image: neo4j:4.0.6
-    env_file: neo4j/env/docker.env
-    hostname: neo4j
-    container_name: neo4j
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4jdata:/data
-
-  # This "container" is a workaround to pre-create search indices
-  elasticsearch-setup:
+      - 9002:9002
     build:
       context: ../
-      dockerfile: docker/elasticsearch-setup/Dockerfile
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
-    env_file: elasticsearch-setup/env/docker.env
-    hostname: elasticsearch-setup
-    container_name: elasticsearch-setup
+      dockerfile: docker/datahub-frontend/Dockerfile
+    env_file: datahub-frontend/env/docker.env
     depends_on:
-      - elasticsearch
-
-  cassandra:
-    container_name: cassandra
-    hostname: cassandra
-    image: cassandra:3.11
-    ports:
-      - '9042:9042'
-    healthcheck:
-      test: ["CMD", "cqlsh", "-u cassandra", "-p cassandra" ,"-e describe keyspaces"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
+      datahub-gms:
+        condition: service_healthy
     volumes:
-      - cassandradata:/var/lib/cassandra
-
+      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+  datahub-actions:
+    container_name: datahub-actions
+    hostname: actions
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    env_file: datahub-actions/env/docker.env
+    environment:
+    - ACTIONS_EXTRA_PACKAGES=${ACTIONS_EXTRA_PACKAGES:-}
+    - ACTIONS_CONFIG=${ACTIONS_CONFIG:-}
+    depends_on:
+      datahub-gms:
+        condition: service_healthy
+  datahub-gms:
+    container_name: datahub-gms
+    hostname: datahub-gms
+    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
+    ports:
+      - 8080:8080
+    build:
+        context: ../
+        dockerfile: docker/datahub-gms/Dockerfile
+    env_file: ./datahub-gms/env/docker.cassandra.env
+    healthcheck:
+      test: curl -sS --fail http://datahub-gms:${DATAHUB_MAPPED_GMS_PORT:-8080}/health
+      start_period: 20s
+      interval: 1s
+      retries: 20
+      timeout: 5s
+    depends_on:
+      datahub-upgrade:
+        condition: service_completed_successfully
+    volumes:
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+  datahub-upgrade:
+    container_name: datahub-upgrade
+    hostname: datahub-upgrade
+    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
+    command:
+    - -u
+    - SystemUpdate
+    build:
+      context: ../
+      dockerfile: docker/datahub-upgrade/Dockerfile
+    env_file: datahub-upgrade/env/docker-without-neo4j.env
+    depends_on:
+      cassandra-setup:
+        condition: service_completed_successfully
+      elasticsearch-setup:
+        condition: service_completed_successfully
+      neo4j:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
   cassandra-setup:
     container_name: cassandra-setup
+    hostname: cassandra-setup
     image: cassandra:3.11
+    command: /bin/bash -c "cqlsh cassandra -f /init.cql"
     depends_on:
       cassandra:
         condition: service_healthy
     volumes:
       - ./cassandra/init.cql:/init.cql
-    command: /bin/bash -c "cqlsh cassandra -f /init.cql"
-
-  datahub-gms:
-    build:
-        context: ../
-        dockerfile: docker/datahub-gms/Dockerfile
-    image: ${DATAHUB_GMS_IMAGE:-linkedin/datahub-gms}:${DATAHUB_VERSION:-head}
-    env_file: ./datahub-gms/env/docker.cassandra.env
-    hostname: datahub-gms
-    container_name: datahub-gms
-    ports:
-      - "8080:8080"
-    depends_on:
-      - neo4j
-
-  datahub-frontend-react:
+    labels:
+      datahub_setup_job: true
+  # This "container" is a workaround to pre-create search indices
+  elasticsearch-setup:
+    container_name: elasticsearch-setup
+    hostname: elasticsearch-setup
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-linkedin/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
     build:
       context: ../
-      dockerfile: docker/datahub-frontend/Dockerfile
-    image: ${DATAHUB_FRONTEND_IMAGE:-linkedin/datahub-frontend-react}:${DATAHUB_VERSION:-head}
-    env_file: datahub-frontend/env/docker.env
-    hostname: datahub-frontend-react
-    container_name: datahub-frontend-react
-    ports:
-      - "9002:9002"
+      dockerfile: docker/elasticsearch-setup/Dockerfile
+    env_file: elasticsearch-setup/env/docker.env
     depends_on:
-      - datahub-gms
+      elasticsearch:
+        condition: service_healthy
+    labels:
+      datahub_setup_job: true
+  cassandra:
+    container_name: cassandra
+    hostname: cassandra
+    image: cassandra:3.11
+    ports:
+      - 9042:9042
+    healthcheck:
+      test: cqlsh -u cassandra -p cassandra -e describe keyspaces
+      interval: 15s
+      timeout: 10s
+      retries: 10
     volumes:
-      - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-
-  datahub-actions:
-    image: acryldata/datahub-actions:${ACTIONS_VERSION:-head}
-    hostname: actions
-    env_file: datahub-actions/env/docker.env
-    restart: on-failure:5
+      - cassandradata:/var/lib/cassandra
+  elasticsearch:
+    container_name: elasticsearch
+    hostname: elasticsearch
+    image: elasticsearch:7.10.1
+    ports:
+      - 9200:9200
+    env_file: elasticsearch/env/docker.env
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    healthcheck:
+      test: curl -sS --fail http://elasticsearch:9200/_cluster/health?wait_for_status=yellow&timeout=0s
+      start_period: 5s
+      interval: 1s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+  neo4j:
+    container_name: neo4j
+    hostname: neo4j
+    image: neo4j:4.0.6
+    ports:
+      - 7474:7474
+      - 7687:7687
+    env_file: neo4j/env/docker.env
+    healthcheck:
+      test: wget http://neo4j:7474
+      start_period: 5s
+      interval: 1s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - neo4jdata:/data
+  schema-registry:
+    container_name: schema-registry
+    hostname: schema-registry
+    image: confluentinc/cp-schema-registry:7.4.0
+    ports:
+      - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
+    env_file: schema-registry/env/docker.env
+    healthcheck:
+      test: nc -z schema-registry 8081
+      start_period: 5s
+      interval: 1s
+      retries: 5
+      timeout: 5s
     depends_on:
-      - datahub-gms
-
-  datahub-upgrade:
-    build:
-      context: ../
-      dockerfile: docker/datahub-upgrade/Dockerfile
-    image: ${DATAHUB_UPGRADE_IMAGE:-acryldata/datahub-upgrade}:${DATAHUB_VERSION:-head}
-    env_file: datahub-upgrade/env/docker-without-neo4j.env
-    hostname: datahub-upgrade
-    container_name: datahub-upgrade
-    command: [ "-u", "SystemUpdate" ]
-
+      broker:
+        condition: service_healthy
+  broker:
+    container_name: broker
+    hostname: broker
+    image: confluentinc/cp-kafka:7.4.0
+    ports:
+      - 29092:29092
+      - 9092:9092
+    env_file: broker/env/docker.env
+    healthcheck:
+      test: nc -z broker 9092
+      start_period: 5s
+      interval: 1s
+      retries: 5
+      timeout: 5s
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    volumes:
+      - broker:/var/lib/kafka/data/
+  zookeeper:
+    container_name: zookeeper
+    hostname: zookeeper
+    image: confluentinc/cp-zookeeper:7.4.0
+    ports:
+      - 2181:2181
+    env_file: zookeeper/env/docker.env
+    healthcheck:
+      test: echo srvr | nc zookeeper 2181
+      start_period: 45s
+      interval: 5s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - zkdata:/var/lib/zookeeper
 networks:
   default:
     name: datahub_network
-
 volumes:
   cassandradata:
   esdata:
   neo4jdata:
-  zkdata:
   broker:
+  zkdata:

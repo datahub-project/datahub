@@ -1,5 +1,7 @@
 import importlib
 import inspect
+import sys
+import unittest.mock
 from typing import (
     Any,
     Callable,
@@ -33,10 +35,15 @@ def _is_importable(path: str) -> bool:
 
 def import_path(path: str) -> Any:
     """
-    Import an item from a package, where the path is formatted as 'package.module.submodule.ClassName'
+    Import an item from a package, as specified by the import path.
+
+    The path is formatted as 'package.module.submodule.ClassName'
     or 'package.module.submodule:ClassName.classmethod'. The dot-based format assumes that the bit
     after the last dot is the item to be fetched. In cases where the item to be imported is embedded
     within another type, the colon-based syntax can be used to disambiguate.
+
+    This method also adds the current working directory to the path so that we can import local
+    modules. We add it to the end of the path so that global modules take precedence.
     """
     assert _is_importable(path), "path must be in the appropriate format"
 
@@ -45,7 +52,10 @@ def import_path(path: str) -> Any:
     else:
         module_name, object_name = path.rsplit(".", 1)
 
-    item = importlib.import_module(module_name)
+    # Add the current working directory to the path so that we can import local modules.
+    with unittest.mock.patch("sys.path", [*sys.path, ""]):
+        item = importlib.import_module(module_name)
+
     for attr in object_name.split("."):
         item = getattr(item, attr)
     return item
@@ -117,7 +127,7 @@ class PluginRegistry(Generic[T]):
             plugin_class = import_path(path)
             self.register(key, plugin_class, override=True)
             return plugin_class
-        except (AssertionError, ImportError) as e:
+        except Exception as e:
             self.register_disabled(key, e, override=True)
             return e
 

@@ -1,70 +1,13 @@
-import contextlib
 import logging
 import multiprocessing
-import re
-import sys
 import traceback
 from multiprocessing import Process, Queue
-from typing import Any, List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
 from datahub.utilities.sql_parser_base import SQLParser
 
-with contextlib.suppress(ImportError):
-    from sql_metadata import Parser as MetadataSQLParser
 logger = logging.getLogger(__name__)
-
-
-class MetadataSQLSQLParser(SQLParser):
-    _DATE_SWAP_TOKEN = "__d_a_t_e"
-
-    def __init__(self, sql_query: str, use_external_process: bool = True) -> None:
-        super().__init__(sql_query, use_external_process)
-
-        original_sql_query = sql_query
-
-        # MetadataSQLParser makes mistakes on lateral flatten queries, use the prefix
-        if "lateral flatten" in sql_query:
-            sql_query = sql_query[: sql_query.find("lateral flatten")]
-
-        # MetadataSQLParser also makes mistakes on columns called "date", rename them
-        sql_query = re.sub(r"\sdate\s", f" {self._DATE_SWAP_TOKEN} ", sql_query)
-
-        # MetadataSQLParser does not handle "encode" directives well. Remove them
-        sql_query = re.sub(r"\sencode [a-zA-Z]*", "", sql_query)
-
-        if sql_query != original_sql_query:
-            logger.debug(f"rewrote original query {original_sql_query} as {sql_query}")
-
-        self._parser = MetadataSQLParser(sql_query)
-
-    def get_tables(self) -> List[str]:
-        result = self._parser.tables
-        # Sort tables to make the list deterministic
-        result.sort()
-        return result
-
-    def get_columns(self) -> List[str]:
-        columns_dict = self._parser.columns_dict
-        # don't attempt to parse columns if there are joins involved
-        if columns_dict.get("join", {}) != {}:
-            return []
-
-        columns_alias_dict = self._parser.columns_aliases_dict
-        filtered_cols = [
-            c
-            for c in columns_dict.get("select", {})
-            if c != "NULL" and not isinstance(c, list)
-        ]
-        if columns_alias_dict is not None:
-            for col_alias in columns_alias_dict.get("select", []):
-                if col_alias in self._parser.columns_aliases:
-                    col_name = self._parser.columns_aliases[col_alias]
-                    filtered_cols = [
-                        col_alias if c == col_name else c for c in filtered_cols
-                    ]
-        # swap back renamed date column
-        return ["date" if c == self._DATE_SWAP_TOKEN else c for c in filtered_cols]
 
 
 def sql_lineage_parser_impl_func_wrapper(
@@ -80,24 +23,23 @@ def sql_lineage_parser_impl_func_wrapper(
     :param use_raw_names: Parameter used to ignore sqllineage's default lowercasing.
     :return: None.
     """
-    exception_details: Optional[Tuple[Optional[Type[BaseException]], str]] = None
+    exception_details: Optional[Tuple[BaseException, str]] = None
     tables: List[str] = []
     columns: List[str] = []
     try:
         parser = SqlLineageSQLParserImpl(sql_query, use_raw_names)
         tables = parser.get_tables()
         columns = parser.get_columns()
-    except BaseException:
-        exc_info = sys.exc_info()
-        exc_msg: str = str(exc_info[1]) + "".join(traceback.format_tb(exc_info[2]))
-        exception_details = (exc_info[0], exc_msg)
+    except BaseException as e:
+        exc_msg = traceback.format_exc()
+        exception_details = (e, exc_msg)
         logger.debug(exc_msg)
-    finally:
-        if queue is not None:
-            queue.put((tables, columns, exception_details))
-            return None
-        else:
-            return (tables, columns, exception_details)
+
+    if queue is not None:
+        queue.put((tables, columns, exception_details))
+        return None
+    else:
+        return (tables, columns, exception_details)
 
 
 class SqlLineageSQLParser(SQLParser):

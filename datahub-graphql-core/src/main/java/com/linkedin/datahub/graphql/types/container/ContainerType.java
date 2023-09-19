@@ -49,7 +49,8 @@ public class ContainerType implements SearchableEntityType<Container, String>,
       Constants.GLOSSARY_TERMS_ASPECT_NAME,
       Constants.CONTAINER_ASPECT_NAME,
       Constants.DOMAINS_ASPECT_NAME,
-      Constants.DEPRECATION_ASPECT_NAME
+      Constants.DEPRECATION_ASPECT_NAME,
+      Constants.DATA_PRODUCTS_ASPECT_NAME
   );
 
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");

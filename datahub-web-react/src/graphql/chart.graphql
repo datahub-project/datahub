@@ -49,6 +49,7 @@ query getChart($urn: String!) {
         domain {
             ...entityDomain
         }
+        ...entityDataProduct
         deprecation {
             ...deprecationFields
         }
@@ -69,6 +70,9 @@ query getChart($urn: String!) {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         statsSummary {
             viewCount

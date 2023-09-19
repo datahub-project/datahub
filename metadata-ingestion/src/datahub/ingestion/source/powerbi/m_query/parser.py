@@ -6,7 +6,14 @@ from typing import Dict, List
 import lark
 from lark import Lark, Tree
 
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+)
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
@@ -45,7 +52,9 @@ def _parse_expression(expression: str) -> Tree:
 def get_upstream_tables(
     table: Table,
     reporter: PowerBiDashboardSourceReport,
-    native_query_enabled: bool = True,
+    platform_instance_resolver: AbstractDataPlatformInstanceResolver,
+    ctx: PipelineContext,
+    config: PowerBiDashboardSourceConfig,
     parameters: Dict[str, str] = {},
 ) -> List[resolver.DataPlatformTable]:
     if table.expression is None:
@@ -58,7 +67,7 @@ def get_upstream_tables(
         parse_tree: Tree = _parse_expression(table.expression)
 
         valid, message = validator.validate_parse_tree(
-            parse_tree, native_query_enabled=native_query_enabled
+            parse_tree, native_query_enabled=config.native_query_parsing
         )
         if valid is False:
             assert message is not None
@@ -74,7 +83,7 @@ def get_upstream_tables(
             message = "Failed to parse m-query expression"
 
         reporter.report_warning(table.full_name, message)
-        logger.info(f"{message} for table {table.full_name}: {str(e)}")
+        logger.info(f"{message} for table {table.full_name}")
         logger.debug(f"Stack trace for {table.full_name}:", exc_info=e)
         return []
 
@@ -84,7 +93,11 @@ def get_upstream_tables(
             parse_tree=parse_tree,
             reporter=reporter,
             parameters=parameters,
-        ).resolve_to_data_platform_table_list()
+        ).resolve_to_data_platform_table_list(
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
 
     except BaseException as e:
         reporter.report_warning(table.full_name, "Failed to process m-query expression")

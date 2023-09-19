@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import platform
+import sys
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -15,6 +16,7 @@ import datahub as datahub_package
 from datahub.cli.cli_utils import DATAHUB_ROOT_FOLDER, get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +92,8 @@ if any(var in os.environ for var in CI_ENV_VARS):
 TIMEOUT = int(os.environ.get("DATAHUB_TELEMETRY_TIMEOUT", "10"))
 MIXPANEL_ENDPOINT = "track.datahubproject.io/mp"
 MIXPANEL_TOKEN = "5ee83d940754d63cacbf7d34daa6f44a"
+SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
+SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
 
 
 def _default_telemetry_properties() -> Dict[str, Any]:
@@ -105,8 +109,24 @@ class Telemetry:
     client_id: str
     enabled: bool = True
     tracking_init: bool = False
+    sentry_enabled: bool = False
 
     def __init__(self):
+        if SENTRY_DSN:
+            self.sentry_enabled = True
+            try:
+                import sentry_sdk
+
+                sentry_sdk.init(
+                    dsn=SENTRY_DSN,
+                    environment=SENTRY_ENVIRONMENT,
+                    release=datahub_package.__version__,
+                )
+            except Exception as e:
+                # We need to print initialization errors to stderr, since logger is not initialized yet
+                print(f"Error initializing Sentry: {e}", file=sys.stderr)
+                logger.info(f"Error initializing Sentry: {e}")
+
         # try loading the config if it exists, update it if that fails
         if not CONFIG_FILE.exists() or not self.load_config():
             # set up defaults
@@ -212,6 +232,47 @@ class Telemetry:
 
         return False
 
+    def update_capture_exception_context(
+        self,
+        server: Optional[DataHubGraph] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if self.sentry_enabled:
+            from sentry_sdk import set_tag
+
+            properties = {
+                **_default_telemetry_properties(),
+                **self._server_props(server),
+                **(properties or {}),
+            }
+
+            for key in properties:
+                set_tag(key, properties[key])
+
+    def init_capture_exception(self) -> None:
+        if self.sentry_enabled:
+            import sentry_sdk
+
+            sentry_sdk.set_user({"client_id": self.client_id})
+            sentry_sdk.set_context(
+                "environment",
+                {
+                    "environment": SENTRY_ENVIRONMENT,
+                    "datahub_version": datahub_package.nice_version_name(),
+                    "os": platform.system(),
+                    "python_version": platform.python_version(),
+                },
+            )
+
+    def capture_exception(self, e: BaseException) -> None:
+        try:
+            if self.sentry_enabled:
+                import sentry_sdk
+
+                sentry_sdk.capture_exception(e)
+        except Exception as e:
+            logger.warning("Failed to capture exception in Sentry.", exc_info=e)
+
     def init_tracking(self) -> None:
         if not self.enabled or self.mp is None or self.tracking_init is True:
             return
@@ -246,7 +307,6 @@ class Telemetry:
         # send event
         try:
             logger.debug(f"Sending telemetry for {event_name}")
-
             properties = {
                 **_default_telemetry_properties(),
                 **self._server_props(server),
@@ -321,6 +381,7 @@ def with_telemetry(
         @wraps(func)
         def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _T:
             telemetry_instance.init_tracking()
+            telemetry_instance.init_capture_exception()
 
             call_props: Dict[str, Any] = {"function": function}
             for kwarg in kwargs_to_track:
@@ -331,7 +392,12 @@ def with_telemetry(
                 {**call_props, "status": "start"},
             )
             try:
-                res = func(*args, **kwargs)
+                try:
+                    with PerfTimer() as timer:
+                        res = func(*args, **kwargs)
+                finally:
+                    call_props["duration"] = timer.elapsed_seconds()
+
                 telemetry_instance.ping(
                     "function-call",
                     {**call_props, "status": "completed"},
@@ -357,6 +423,7 @@ def with_telemetry(
                             **_error_props(e),
                         },
                     )
+                telemetry_instance.capture_exception(e)
                 raise e
             # Catch SIGINTs
             except KeyboardInterrupt as e:
@@ -364,6 +431,7 @@ def with_telemetry(
                     "function-call",
                     {**call_props, "status": "cancelled"},
                 )
+                telemetry_instance.capture_exception(e)
                 raise e
 
             # Catch general exceptions
@@ -376,6 +444,7 @@ def with_telemetry(
                         **_error_props(e),
                     },
                 )
+                telemetry_instance.capture_exception(e)
                 raise e
 
         return wrapper

@@ -12,18 +12,22 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchRemoveTagsInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.BatchRemoveTagsResolver;
+import com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.ebean.transactions.AspectsBatchImpl;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.Constants.*;
 import static org.testng.Assert.*;
 
 
@@ -36,7 +40,7 @@ public class BatchRemoveTagsResolverTest {
 
   @Test
   public void testGetSuccessNoExistingTags() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -72,31 +76,22 @@ public class BatchRemoveTagsResolverTest {
 
     final GlobalTags emptyTags = new GlobalTags().setTags(new TagAssociationArray(Collections.emptyList()));
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.GLOBAL_TAGS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
-    proposal1.setChangeType(ChangeType.UPSERT);
-
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class), Mockito.eq(false)
-    );
-
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        GLOBAL_TAGS_ASPECT_NAME, emptyTags);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        GLOBAL_TAGS_ASPECT_NAME, emptyTags);
     proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
     proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
     proposal2.setAspectName(Constants.GLOBAL_TAGS_ASPECT_NAME);
     proposal2.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
     proposal2.setChangeType(ChangeType.UPSERT);
 
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetSuccessExistingTags() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     final GlobalTags oldTags1 = new GlobalTags().setTags(new TagAssociationArray(ImmutableList.of(
         new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_1_URN)),
@@ -142,31 +137,17 @@ public class BatchRemoveTagsResolverTest {
 
     final GlobalTags emptyTags = new GlobalTags().setTags(new TagAssociationArray(Collections.emptyList()));
 
-    final MetadataChangeProposal proposal1 = new MetadataChangeProposal();
-    proposal1.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_1));
-    proposal1.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal1.setAspectName(Constants.GLOBAL_TAGS_ASPECT_NAME);
-    proposal1.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
-    proposal1.setChangeType(ChangeType.UPSERT);
+    final MetadataChangeProposal proposal1 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_1),
+        GLOBAL_TAGS_ASPECT_NAME, emptyTags);
+    final MetadataChangeProposal proposal2 = MutationUtils.buildMetadataChangeProposalWithUrn(Urn.createFromString(TEST_ENTITY_URN_2),
+        GLOBAL_TAGS_ASPECT_NAME, emptyTags);
 
-    Mockito.verify(mockService, Mockito.times(1)).ingestProposal(
-        Mockito.eq(proposal1),
-        Mockito.any(AuditStamp.class), Mockito.eq(false)
-    );
-
-    final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
-    proposal2.setEntityUrn(Urn.createFromString(TEST_ENTITY_URN_2));
-    proposal2.setEntityType(Constants.DATASET_ENTITY_NAME);
-    proposal2.setAspectName(Constants.GLOBAL_TAGS_ASPECT_NAME);
-    proposal2.setAspect(GenericRecordUtils.serializeAspect(emptyTags));
-    proposal2.setChangeType(ChangeType.UPSERT);
-
-    verifyIngestProposal(mockService, 1, proposal2);
+    verifyIngestProposal(mockService, 1, List.of(proposal1, proposal2));
   }
 
   @Test
   public void testGetFailureResourceDoesNotExist() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.when(mockService.getAspect(
         Mockito.eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)),
@@ -199,13 +180,13 @@ public class BatchRemoveTagsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   @Test
   public void testGetUnauthorized() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);
 
@@ -223,16 +204,16 @@ public class BatchRemoveTagsResolverTest {
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockService, Mockito.times(0)).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
 
     Mockito.doThrow(RuntimeException.class).when(mockService).ingestProposal(
-        Mockito.any(),
+        Mockito.any(AspectsBatchImpl.class),
         Mockito.any(AuditStamp.class), Mockito.anyBoolean());
 
     BatchRemoveTagsResolver resolver = new BatchRemoveTagsResolver(mockService);

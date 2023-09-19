@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from enum import auto
 from threading import BoundedSemaphore
-from typing import Union, cast
+from typing import Union
 
 from datahub.cli.cli_utils import set_env_variables_override_config
 from datahub.configuration.common import (
@@ -25,7 +25,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 from datahub.utilities.server_config_util import set_gms_config
 
 logger = logging.getLogger(__name__)
@@ -37,8 +36,11 @@ class SyncOrAsync(ConfigEnum):
 
 
 class DatahubRestSinkConfig(DatahubClientConfig):
-    max_pending_requests: int = 1000
     mode: SyncOrAsync = SyncOrAsync.ASYNC
+
+    # These only apply in async mode.
+    max_threads: int = 15
+    max_pending_requests: int = 1000
 
 
 @dataclass
@@ -98,6 +100,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             retry_max_times=self.config.retry_max_times,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
+            client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
         )
         try:
@@ -124,8 +127,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         if isinstance(workunit, MetadataWorkUnit):
-            mwu: MetadataWorkUnit = cast(MetadataWorkUnit, workunit)
-            self.treat_errors_as_warnings = mwu.treat_errors_as_warnings
+            self.treat_errors_as_warnings = workunit.treat_errors_as_warnings
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
         pass
@@ -186,7 +188,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregation,
             ]
         ],
         write_callback: WriteCallback,

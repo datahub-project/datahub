@@ -3,7 +3,16 @@ import styled from 'styled-components';
 import { Typography } from 'antd';
 import { ClockCircleOutlined } from '@ant-design/icons';
 
-import { Deprecation, Domain, EntityType, GlobalTags, Owner, SearchInsight } from '../../../../types.generated';
+import {
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityPath,
+    EntityType,
+    GlobalTags,
+    Owner,
+    SearchInsight,
+} from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
@@ -23,12 +32,15 @@ export const Preview = ({
     platformInstanceId,
     owners,
     domain,
+    dataProduct,
     deprecation,
     globalTags,
     snippet,
     insights,
     lastRunTimeMs,
     externalUrl,
+    degree,
+    paths,
 }: {
     urn: string;
     name: string;
@@ -38,12 +50,15 @@ export const Preview = ({
     platformInstanceId?: string;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     deprecation?: Deprecation | null;
     globalTags?: GlobalTags | null;
     snippet?: React.ReactNode | null;
     insights?: Array<SearchInsight> | null;
     lastRunTimeMs?: number | null;
     externalUrl?: string | null;
+    degree?: number;
+    paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -60,6 +75,7 @@ export const Preview = ({
             owners={owners}
             tags={globalTags || undefined}
             domain={domain}
+            dataProduct={dataProduct}
             snippet={snippet}
             deprecation={deprecation}
             dataTestID="datajob-item-preview"
@@ -74,6 +90,8 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
         />
     );
 };

@@ -64,8 +64,9 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 | `retry_status_codes`       |          | [429, 502, 503, 504] | Retry HTTP request also on these status codes                                                      |
 | `token`                    |          |                      | Bearer token used for authentication.                                                              |
 | `extra_headers`            |          |                      | Extra headers which will be added to the request.                                                  |
-| `max_threads`              |          | `1`                  | Experimental: Max parallelism for REST API calls                                                   |
-| `ca_certificate_path`      |          |                      | Path to CA certificate for HTTPS communications                                                    |
+| `max_threads`              |          | `15`                 | Experimental: Max parallelism for REST API calls                                                   |
+| `ca_certificate_path`      |          |                      | Path to server's CA certificate for verification of HTTPS communications                                                    |
+| `client_certificate_path`      |          |                      | Path to client's CA certificate for HTTPS communications                                                    |
 | `disable_ssl_verification` |          | false                | Disable ssl certificate validation                                                                 |
 
 ## DataHub Kafka

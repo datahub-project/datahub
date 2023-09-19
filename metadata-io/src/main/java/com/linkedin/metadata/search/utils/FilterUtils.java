@@ -15,7 +15,7 @@ public class FilterUtils {
   }
 
   private static final List<String> FILTER_RANKING =
-      ImmutableList.of("entity", "typeNames", "platform", "domains", "tags", "glossaryTerms", "container", "owners",
+      ImmutableList.of("_entityType", "typeNames", "platform", "domains", "tags", "glossaryTerms", "container", "owners",
           "origin");
 
   public static List<AggregationMetadata> rankFilterGroups(Map<String, AggregationMetadata> aggregations) {

@@ -7,13 +7,14 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
@@ -34,6 +35,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import static org.mockito.Mockito.*;
 
 
 /**
@@ -58,8 +61,9 @@ abstract public class TimelineServiceTest<T_AD extends AspectDao> {
   protected final EntityRegistry _testEntityRegistry =
       new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
   protected TimelineServiceImpl _entityTimelineService;
-  protected EntityService _entityService;
+  protected EntityServiceImpl _entityServiceImpl;
   protected EventProducer _mockProducer;
+  protected UpdateIndicesService _mockUpdateIndicesService = mock(UpdateIndicesService.class);
 
   protected TimelineServiceTest() throws EntityRegistryException {
   }
@@ -78,12 +82,12 @@ abstract public class TimelineServiceTest<T_AD extends AspectDao> {
       SchemaMetadata schemaMetadata = getSchemaMetadata("This is the new description for day " + i);
       AuditStamp daysAgo = createTestAuditStamp(i);
       timestamps.add(daysAgo);
-      _entityService.ingestAspects(entityUrn, Collections.singletonList(new Pair<>(aspectName, schemaMetadata)),
+      _entityServiceImpl.ingestAspects(entityUrn, Collections.singletonList(new Pair<>(aspectName, schemaMetadata)),
           daysAgo, getSystemMetadata(daysAgo, "run-" + i));
     }
 
     Map<String, RecordTemplate> latestAspects =
-        _entityService.getLatestAspectsForUrn(entityUrn, new HashSet<>(Arrays.asList(aspectName)));
+        _entityServiceImpl.getLatestAspectsForUrn(entityUrn, new HashSet<>(Arrays.asList(aspectName)));
 
     Set<ChangeCategory> elements = new HashSet<>();
     elements.add(ChangeCategory.TECHNICAL_SCHEMA);

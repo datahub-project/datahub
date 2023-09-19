@@ -13,7 +13,10 @@ from looker_sdk.sdk.api40.models import (
     DashboardBase,
     DBConnection,
     Folder,
+    Look,
     LookmlModel,
+    LookmlModelExplore,
+    Query,
     User,
     WriteQuery,
 )
@@ -55,6 +58,9 @@ class LookerAPIStats(BaseModel):
     connection_calls: int = 0
     lookml_model_calls: int = 0
     all_dashboards_calls: int = 0
+    all_looks_calls: int = 0
+    get_query_calls: int = 0
+    search_looks_calls: int = 0
     search_dashboards_calls: int = 0
 
 
@@ -145,7 +151,7 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
-    def lookml_model_explore(self, model, explore_name):
+    def lookml_model_explore(self, model: str, explore_name: str) -> LookmlModelExplore:
         self.client_stats.explore_calls += 1
         return self.client.lookml_model_explore(
             model, explore_name, transport_options=self.transport_options
@@ -196,6 +202,31 @@ class LookerAPI:
             transport_options=self.transport_options,
         )
 
+    def all_looks(
+        self, fields: Union[str, List[str]], soft_deleted: bool
+    ) -> List[Look]:
+        self.client_stats.all_looks_calls += 1
+        looks: List[Look] = list(
+            self.client.all_looks(
+                fields=self.__fields_mapper(fields),
+                transport_options=self.transport_options,
+            )
+        )
+
+        if soft_deleted:
+            # Add soft deleted looks
+            looks.extend(self.search_looks(fields=fields, deleted=True))
+
+        return looks
+
+    def get_query(self, query_id: str, fields: Union[str, List[str]]) -> Query:
+        self.client_stats.get_query_calls += 1
+        return self.client.query(
+            query_id=query_id,
+            fields=self.__fields_mapper(fields),
+            transport_options=self.transport_options,
+        )
+
     def search_dashboards(
         self, fields: Union[str, List[str]], deleted: str
     ) -> Sequence[Dashboard]:
@@ -204,4 +235,16 @@ class LookerAPI:
             fields=self.__fields_mapper(fields),
             deleted=deleted,
             transport_options=self.transport_options,
+        )
+
+    def search_looks(
+        self, fields: Union[str, List[str]], deleted: Optional[bool]
+    ) -> List[Look]:
+        self.client_stats.search_looks_calls += 1
+        return list(
+            self.client.search_looks(
+                fields=self.__fields_mapper(fields),
+                deleted=deleted,
+                transport_options=self.transport_options,
+            )
         )

@@ -1,230 +1,215 @@
 """
 Manage the communication with DataBricks Server and provide equivalent dataclasses for dependent modules
 """
-import datetime
+import dataclasses
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable, List, Optional, Union
+from unittest.mock import patch
 
-from databricks_cli.sdk.api_client import ApiClient
-from databricks_cli.unity_catalog.api import UnityCatalogApi
-
-from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    MapTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-    TimeTypeClass,
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import (
+    CatalogInfo,
+    ColumnInfo,
+    GetMetastoreSummaryResponse,
+    MetastoreInfo,
+    SchemaInfo,
+    TableInfo,
 )
+from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
+from databricks.sdk.service.sql import (
+    QueryFilter,
+    QueryInfo,
+    QueryStatementType,
+    QueryStatus,
+)
+
+import datahub
+from datahub.ingestion.source.unity.proxy_profiling import (
+    UnityCatalogProxyProfilingMixin,
+)
+from datahub.ingestion.source.unity.proxy_types import (
+    ALLOWED_STATEMENT_TYPES,
+    Catalog,
+    Column,
+    Metastore,
+    Query,
+    Schema,
+    ServicePrincipal,
+    Table,
+    TableReference,
+)
+from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# Supported types are available at
-# https://api-docs.databricks.com/rest/latest/unity-catalog-api-specification-2-1.html?_ga=2.151019001.1795147704.1666247755-2119235717.1666247755
 
-DATA_TYPE_REGISTRY: dict = {
-    "BOOLEAN": BooleanTypeClass,
-    "BYTE": BytesTypeClass,
-    "DATE": DateTypeClass,
-    "SHORT": NumberTypeClass,
-    "INT": NumberTypeClass,
-    "LONG": NumberTypeClass,
-    "FLOAT": NumberTypeClass,
-    "DOUBLE": NumberTypeClass,
-    "TIMESTAMP": TimeTypeClass,
-    "STRING": StringTypeClass,
-    "BINARY": BytesTypeClass,
-    "DECIMAL": NumberTypeClass,
-    "INTERVAL": TimeTypeClass,
-    "ARRAY": ArrayTypeClass,
-    "STRUCT": RecordTypeClass,
-    "MAP": MapTypeClass,
-    "CHAR": StringTypeClass,
-    "NULL": NullTypeClass,
-}
+class TableInfoWithGeneration(TableInfo):
+    generation: Optional[int] = None
+
+    @classmethod
+    def as_dict(self) -> dict:
+        return {**super().as_dict(), "generation": self.generation}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "TableInfoWithGeneration":
+        table_info = super().from_dict(d)
+        table_info.generation = d.get("generation")
+        return table_info
 
 
-@dataclass
-class CommonProperty:
-    id: str
-    name: str
-    type: str
-    comment: Optional[str]
+@dataclasses.dataclass
+class QueryFilterWithStatementTypes(QueryFilter):
+    statement_types: List[QueryStatementType] = dataclasses.field(default_factory=list)
+
+    def as_dict(self) -> dict:
+        return {**super().as_dict(), "statement_types": self.statement_types}
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
+        v = super().from_dict(d)
+        v.statement_types = d["statement_types"]
+        return v
 
 
-@dataclass
-class Metastore(CommonProperty):
-    metastore_id: str
-
-
-@dataclass
-class Catalog(CommonProperty):
-    metastore: Metastore
-
-
-@dataclass
-class Schema(CommonProperty):
-    catalog: Catalog
-
-
-@dataclass
-class Column(CommonProperty):
-    type_text: str
-    type_name: SchemaFieldDataTypeClass
-    type_precision: int
-    type_scale: int
-    position: int
-    nullable: bool
-    comment: Optional[str]
-
-
-@dataclass
-class ColumnLineage:
-    source: str
-    destination: str
-
-
-@dataclass
-class Table(CommonProperty):
-    schema: Schema
-    columns: List[Column]
-    storage_location: Optional[str]
-    data_source_format: Optional[str]
-    comment: Optional[str]
-    table_type: str
-    owner: str
-    generation: int
-    created_at: datetime.datetime
-    created_by: str
-    updated_at: Optional[datetime.datetime]
-    updated_by: Optional[str]
-    table_id: str
-    view_definition: Optional[str]
-    properties: Dict[str, str]
-    upstreams: Dict[str, Dict[str, List[str]]] = field(default_factory=dict)
-
-    # lineage: Optional[Lineage]
-
-
-class UnityCatalogApiProxy:
-    _unity_catalog_api: UnityCatalogApi
+class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
+    _workspace_client: WorkspaceClient
     _workspace_url: str
     report: UnityCatalogReport
+    warehouse_id: str
 
     def __init__(
-        self, workspace_url: str, personal_access_token: str, report: UnityCatalogReport
+        self,
+        workspace_url: str,
+        personal_access_token: str,
+        warehouse_id: Optional[str],
+        report: UnityCatalogReport,
     ):
-        self._unity_catalog_api = UnityCatalogApi(
-            ApiClient(
-                host=workspace_url,
-                token=personal_access_token,
-            )
+        self._workspace_client = WorkspaceClient(
+            host=workspace_url,
+            token=personal_access_token,
+            product="datahub",
+            product_version=datahub.nice_version_name(),
         )
-        self._workspace_url = workspace_url
+        self.warehouse_id = warehouse_id or ""
         self.report = report
 
-    def check_connectivity(self) -> bool:
-        self._unity_catalog_api.list_metastores()
+    def check_basic_connectivity(self) -> bool:
+        self._workspace_client.metastores.summary()
         return True
 
-    def assigned_metastore(self) -> Optional[Metastore]:
-        response: dict = self._unity_catalog_api.get_metastore_summary()
-        if response.get("metastore_id") is None:
-            logger.info("Not found assigned metastore")
-            return None
+    def assigned_metastore(self) -> Metastore:
+        response = self._workspace_client.metastores.summary()
         return self._create_metastore(response)
 
-    def metastores(self) -> Iterable[Metastore]:
-        response: dict = self._unity_catalog_api.list_metastores()
-        if response.get("metastores") is None:
-            logger.info("Metastores not found")
-            return []
-        # yield here to support paginated response later
-        for metastore in response["metastores"]:
-            yield self._create_metastore(metastore)
-
     def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
-        response: dict = self._unity_catalog_api.list_catalogs()
-        num_catalogs: int = 0
-        if response.get("catalogs") is None:
-            logger.info(f"Catalogs not found for metastore {metastore.name}")
+        response = self._workspace_client.catalogs.list()
+        if not response:
+            logger.info("Catalogs not found")
             return []
-
-        for obj in response["catalogs"]:
-            if obj["metastore_id"] == metastore.metastore_id:
-                yield self._create_catalog(metastore, obj)
-                num_catalogs += 1
-
-        if num_catalogs == 0:
-            logger.info(
-                f"Catalogs not found for metastore where metastore_id is {metastore.metastore_id}"
-            )
+        for catalog in response:
+            yield self._create_catalog(metastore, catalog)
 
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
-        response: dict = self._unity_catalog_api.list_schemas(
-            catalog_name=catalog.name, name_pattern=None
-        )
-        if response.get("schemas") is None:
-            logger.info(f"Schemas not found for catalog {catalog.name}")
+        response = self._workspace_client.schemas.list(catalog_name=catalog.name)
+        if not response:
+            logger.info(f"Schemas not found for catalog {catalog.id}")
             return []
-
-        for schema in response["schemas"]:
+        for schema in response:
             yield self._create_schema(catalog, schema)
 
     def tables(self, schema: Schema) -> Iterable[Table]:
-        response: dict = self._unity_catalog_api.list_tables(
-            catalog_name=schema.catalog.name,
-            schema_name=schema.name,
-            name_pattern=None,
+        with patch("databricks.sdk.service.catalog.TableInfo", TableInfoWithGeneration):
+            response = self._workspace_client.tables.list(
+                catalog_name=schema.catalog.name, schema_name=schema.name
+            )
+            if not response:
+                logger.info(f"Tables not found for schema {schema.id}")
+                return []
+            for table in response:
+                try:
+                    yield self._create_table(schema, table)
+                except Exception as e:
+                    logger.warning(f"Error parsing table: {e}")
+                    self.report.report_warning("table-parse", str(e))
+
+    def service_principals(self) -> Iterable[ServicePrincipal]:
+        for principal in self._workspace_client.service_principals.list():
+            yield self._create_service_principal(principal)
+
+    def query_history(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> Iterable[Query]:
+        """Returns all queries that were run between start_time and end_time with relevant statement_type.
+
+        Raises:
+            DatabricksError: If the query history API returns an error.
+        """
+        filter_by = QueryFilterWithStatementTypes.from_dict(
+            {
+                "query_start_time_range": {
+                    "start_time_ms": start_time.timestamp() * 1000,
+                    "end_time_ms": end_time.timestamp() * 1000,
+                },
+                "statuses": [QueryStatus.FINISHED.value],
+                "statement_types": [typ.value for typ in ALLOWED_STATEMENT_TYPES],
+            }
+        )
+        for query_info in self._query_history(filter_by=filter_by):
+            try:
+                yield self._create_query(query_info)
+            except Exception as e:
+                logger.warning(f"Error parsing query: {e}")
+                self.report.report_warning("query-parse", str(e))
+
+    def _query_history(
+        self,
+        filter_by: QueryFilterWithStatementTypes,
+        max_results: int = 1000,
+        include_metrics: bool = False,
+    ) -> Iterable[QueryInfo]:
+        """Manual implementation of the query_history.list() endpoint.
+
+        Needed because:
+        - WorkspaceClient incorrectly passes params as query params, not body
+        - It does not paginate correctly -- needs to remove filter_by argument
+        Remove if these issues are fixed.
+        """
+        method = "GET"
+        path = "/api/2.0/sql/history/queries"
+        body: Dict[str, Any] = {
+            "include_metrics": include_metrics,
+            "max_results": max_results,  # Max batch size
+        }
+
+        response: dict = self._workspace_client.api_client.do(
+            method, path, body={**body, "filter_by": filter_by.as_dict()}
+        )
+        while True:
+            if "res" not in response or not response["res"]:
+                return
+            for v in response["res"]:
+                yield QueryInfo.from_dict(v)
+            response = self._workspace_client.api_client.do(
+                method, path, body={**body, "page_token": response["next_page_token"]}
+            )
+
+    def list_lineages_by_table(self, table_name: str) -> dict:
+        """List table lineage by table name."""
+        return self._workspace_client.api_client.do(
+            method="GET",
+            path="/api/2.0/lineage-tracking/table-lineage/get",
+            body={"table_name": table_name},
         )
 
-        if response.get("tables") is None:
-            logger.info(f"Tables not found for schema {schema.name}")
-            return []
-
-        for table in response["tables"]:
-            yield self._create_table(schema=schema, obj=table)
-
-    def list_lineages_by_table(self, table_name=None, headers=None):
-        """
-        List table lineage by table name
-        """
-        _data = {}
-        if table_name is not None:
-            _data["table_name"] = table_name
-
-        return self._unity_catalog_api.client.client.perform_query(
+    def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
+        """List column lineage by table name and column name."""
+        return self._workspace_client.api_client.do(
             "GET",
-            "/lineage-tracking/table-lineage/get",
-            data=_data,
-            headers=headers,
-            version="2.0",
-        )
-
-    def list_lineages_by_column(self, table_name=None, column_name=None, headers=None):
-        """
-        List column lineage by table name and comlumn name
-        """
-        # Lineage endpoint doesn't exists on 2.1 version
-        _data = {}
-        if table_name is not None:
-            _data["table_name"] = table_name
-        if column_name is not None:
-            _data["column_name"] = column_name
-
-        return self._unity_catalog_api.client.client.perform_query(
-            "GET",
-            "/lineage-tracking/column-lineage/get",
-            data=_data,
-            headers=headers,
-            version="2.0",
+            "/api/2.0/lineage-tracking/column-lineage/get",
+            body={"table_name": table_name, "column_name": column_name},
         )
 
     def table_lineage(self, table: Table) -> None:
@@ -234,7 +219,12 @@ class UnityCatalogApiProxy:
                 table_name=f"{table.schema.catalog.name}.{table.schema.name}.{table.name}"
             )
             table.upstreams = {
-                f"{item['catalog_name']}.{item['schema_name']}.{item['name']}": {}
+                TableReference(
+                    table.schema.catalog.metastore.id,
+                    item["catalog_name"],
+                    item["schema_name"],
+                    item["name"],
+                ): {}
                 for item in response.get("upstream_tables", [])
             }
         except Exception as e:
@@ -252,17 +242,15 @@ class UnityCatalogApiProxy:
                         column_name=column.name,
                     )
                     for item in response.get("upstream_cols", []):
-                        table_name = f"{item['catalog_name']}.{item['schema_name']}.{item['table_name']}"
-                        col_name = item["name"]
-                        if not table.upstreams.get(table_name):
-                            table.upstreams[table_name] = {column.name: [col_name]}
-                        else:
-                            if column.name in table.upstreams[table_name]:
-                                table.upstreams[table_name][column.name].append(
-                                    col_name
-                                )
-                            else:
-                                table.upstreams[table_name][column.name] = [col_name]
+                        table_ref = TableReference(
+                            table.schema.catalog.metastore.id,
+                            item["catalog_name"],
+                            item["schema_name"],
+                            item["table_name"],
+                        )
+                        table.upstreams.setdefault(table_ref, {}).setdefault(
+                            column.name, []
+                        ).append(item["name"])
 
         except Exception as e:
             logger.error(f"Error getting lineage: {e}")
@@ -272,78 +260,102 @@ class UnityCatalogApiProxy:
         return value.replace(" ", "_")
 
     @staticmethod
-    def _create_metastore(obj: Any) -> Metastore:
+    def _create_metastore(
+        obj: Union[GetMetastoreSummaryResponse, MetastoreInfo]
+    ) -> Metastore:
         return Metastore(
-            name=obj["name"],
-            id=UnityCatalogApiProxy._escape_sequence(obj["name"]),
-            metastore_id=obj["metastore_id"],
-            type="Metastore",
-            comment=obj.get("comment"),
+            name=obj.name,
+            id=UnityCatalogApiProxy._escape_sequence(obj.name),
+            global_metastore_id=obj.global_metastore_id,
+            metastore_id=obj.metastore_id,
+            owner=obj.owner,
+            region=obj.region,
+            cloud=obj.cloud,
+            comment=None,
         )
 
-    def _create_catalog(self, metastore: Metastore, obj: Any) -> Catalog:
+    def _create_catalog(self, metastore: Metastore, obj: CatalogInfo) -> Catalog:
         return Catalog(
-            name=obj["name"],
-            id="{}.{}".format(
-                metastore.id,
-                self._escape_sequence(obj["name"]),
-            ),
+            name=obj.name,
+            id=f"{metastore.id}.{self._escape_sequence(obj.name)}",
             metastore=metastore,
-            type="Catalog",
-            comment=obj.get("comment"),
+            comment=obj.comment,
+            owner=obj.owner,
+            type=obj.catalog_type,
         )
 
-    def _create_schema(self, catalog: Catalog, obj: Any) -> Schema:
+    def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Schema:
         return Schema(
-            name=obj["name"],
-            id="{}.{}".format(
-                catalog.id,
-                self._escape_sequence(obj["name"]),
-            ),
+            name=obj.name,
+            id=f"{catalog.id}.{self._escape_sequence(obj.name)}",
             catalog=catalog,
-            type="Schema",
-            comment=obj.get("comment"),
+            comment=obj.comment,
+            owner=obj.owner,
         )
 
-    def _create_column(self, table_id: str, obj: Any) -> Column:
+    def _create_column(self, table_id: str, obj: ColumnInfo) -> Column:
         return Column(
-            name=obj["name"],
-            id="{}.{}".format(table_id, self._escape_sequence(obj["name"])),
-            type_text=obj["type_text"],
-            type_name=SchemaFieldDataTypeClass(
-                type=DATA_TYPE_REGISTRY[obj["type_name"]]()
-            ),
-            type_scale=obj["type_scale"],
-            type_precision=obj["type_precision"],
-            position=obj["position"],
-            nullable=obj["nullable"],
-            comment=obj.get("comment"),
-            type="Column",
+            name=obj.name,
+            id=f"{table_id}.{self._escape_sequence(obj.name)}",
+            type_text=obj.type_text,
+            type_name=obj.type_name,
+            type_scale=obj.type_scale,
+            type_precision=obj.type_precision,
+            position=obj.position,
+            nullable=obj.nullable,
+            comment=obj.comment,
         )
 
-    def _create_table(self, schema: Schema, obj: Any) -> Table:
-        table_id: str = "{}.{}".format(schema.id, self._escape_sequence(obj["name"]))
+    def _create_table(self, schema: Schema, obj: TableInfoWithGeneration) -> Table:
+        table_id = f"{schema.id}.{self._escape_sequence(obj.name)}"
         return Table(
-            name=obj["name"],
+            name=obj.name,
             id=table_id,
-            table_type=obj["table_type"],
+            table_type=obj.table_type,
             schema=schema,
-            storage_location=obj.get("storage_location"),
-            data_source_format=obj.get("data_source_format"),
-            columns=[self._create_column(table_id, column) for column in obj["columns"]]
-            if obj.get("columns") is not None
-            else [],
-            type="view" if str(obj["table_type"]).lower() == "view" else "table",
-            view_definition=obj.get("view_definition", None),
-            properties=obj.get("properties", {}),
-            owner=obj["owner"],
-            generation=obj["generation"],
-            created_at=datetime.datetime.utcfromtimestamp(obj["created_at"] / 1000),
-            created_by=obj["created_by"],
-            updated_at=datetime.datetime.utcfromtimestamp(obj["updated_at"] / 1000)
-            if "updated_at" in obj
+            storage_location=obj.storage_location,
+            data_source_format=obj.data_source_format,
+            columns=[
+                self._create_column(table_id, column) for column in obj.columns or []
+            ],
+            view_definition=obj.view_definition or None,
+            properties=obj.properties or {},
+            owner=obj.owner,
+            generation=obj.generation,
+            created_at=datetime.fromtimestamp(obj.created_at / 1000, tz=timezone.utc),
+            created_by=obj.created_by,
+            updated_at=datetime.fromtimestamp(obj.updated_at / 1000, tz=timezone.utc)
+            if obj.updated_at
             else None,
-            updated_by=obj.get("updated_by", None),
-            table_id=obj["table_id"],
-            comment=obj.get("comment"),
+            updated_by=obj.updated_by,
+            table_id=obj.table_id,
+            comment=obj.comment,
+        )
+
+    def _create_service_principal(
+        self, obj: DatabricksServicePrincipal
+    ) -> ServicePrincipal:
+        return ServicePrincipal(
+            id=f"{obj.id}.{self._escape_sequence(obj.display_name)}",
+            display_name=obj.display_name,
+            application_id=obj.application_id,
+            active=obj.active,
+        )
+
+    @staticmethod
+    def _create_query(info: QueryInfo) -> Query:
+        return Query(
+            query_id=info.query_id,
+            query_text=info.query_text,
+            statement_type=info.statement_type,
+            start_time=datetime.fromtimestamp(
+                info.query_start_time_ms / 1000, tz=timezone.utc
+            ),
+            end_time=datetime.fromtimestamp(
+                info.query_end_time_ms / 1000, tz=timezone.utc
+            ),
+            user_id=info.user_id,
+            user_name=info.user_name,
+            executed_as_user_id=info.executed_as_user_id,
+            executed_as_user_name=info.executed_as_user_name,
         )

@@ -11,7 +11,11 @@ these two concepts prior to making changes.
 ## To fork or not to fork?
 
 An important question that will arise once you've decided to extend the metadata model is whether you need to fork the main repo or not. Use the diagram below to understand how to make this decision.
-![Metadata Model To Fork or Not](../imgs/metadata-model-to-fork-or-not-to.png)
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-model-to-fork-or-not-to.png"/>
+</p>
+
 
 The green lines represent pathways that will lead to lesser friction for you to maintain your code long term. The red lines represent higher risk of conflicts in the future. We are working hard to move the majority of model extension use-cases to no-code / low-code pathways to ensure that you can extend the core metadata model without having to maintain a custom fork of DataHub.
 
@@ -20,7 +24,7 @@ We will refer to the two options as the **open-source fork** and **custom reposi
 ## This Guide
 
 This guide will outline what the experience of adding a new Entity should look like through a real example of adding the
-Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 3](#step_3).
+Dashboard Entity. If you want to extend an existing Entity, you can skip directly to [Step 3](#step-3-define-custom-aspects-or-attach-existing-aspects-to-your-entity).
 
 At a high level, an entity is made up of:
 
@@ -78,14 +82,14 @@ Because they are aspects, keys need to be annotated with an @Aspect annotation, 
 can be a part of.
 
 The key can also be annotated with the two index annotations: @Relationship and @Searchable. This instructs DataHub
-infra to use the fields in the key to create relationships and index fields for search. See [Step 3](#step_3) for more details on
+infra to use the fields in the key to create relationships and index fields for search. See [Step 3](#step-3-define-custom-aspects-or-attach-existing-aspects-to-your-entity) for more details on
 the annotation model.
 
 **Constraints**: Note that each field in a Key Aspect MUST be of String or Enum type.
 
 ### <a name="step_2"></a>Step 2: Create the new entity with its key aspect
 
-Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step_4) and [5](#step_5).
+Define the entity within an `entity-registry.yml` file. Depending on your approach, the location of this file may vary. More on that in steps [4](#step-4-choose-a-place-to-store-your-model-extension) and [5](#step-5-attaching-your-non-key-aspects-to-the-entity).
 
 Example:
 ```yaml
@@ -208,11 +212,11 @@ After you create your Aspect, you need to attach to all the entities that it app
 
 **Constraints**: Note that all aspects MUST be of type Record.
 
-### <a name="step_4"></a> Step 4: Choose a place to store your model extension
+### <a name="step_4"></a>Step 4: Choose a place to store your model extension
 
 At the beginning of this document, we walked you through a flow-chart that should help you decide whether you need to maintain a fork of the open source DataHub repo for your model extensions, or whether you can just use a model extension repository that can stay independent of the DataHub repo. Depending on what path you took, the place you store your aspect model files (the .pdl files) and the entity-registry files (the yaml file called `entity-registry.yaml` or `entity-registry.yml`) will vary.
 
-- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step_5).
+- Open source Fork: Aspect files go under [`metadata-models`](../../metadata-models) module in the main repo, entity registry goes into [`metadata-models/src/main/resources/entity-registry.yml`](../../metadata-models/src/main/resources/entity-registry.yml). Read on for more details in [Step 5](#step-5-attaching-your-non-key-aspects-to-the-entity).
 - Custom repository: Read the [metadata-models-custom](../../metadata-models-custom/README.md) documentation to learn how to store and version your aspect models and registry.
 
 ### <a name="step_5"></a>Step 5: Attaching your non-key Aspect(s) to the Entity
@@ -239,7 +243,7 @@ If you opted for the open-source fork approach, where you are editing models in 
 Read on to understand how to re-build DataHub for the oss-fork option.
 
 **_NOTE_**: If you have updated any existing types or see an `Incompatible changes` warning when building, you will need to run
-`./gradlew :gms:impl:build -Prest.model.compatibility=ignore`
+`./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore`
 before running `build`.
 
 Then, run `./gradlew build` from the repository root to rebuild Datahub with access to your new entity.
@@ -323,7 +327,7 @@ It takes the following parameters:
   annotations. To customize the set of analyzers used to index a certain field, you must add a new field type and define
   the set of mappings to be applied in the MappingsBuilder.
 
-  Thus far, we have implemented 10 fieldTypes:
+  Thus far, we have implemented 11 fieldTypes:
 
     1. *KEYWORD* - Short text fields that only support exact matches, often used only for filtering
 
@@ -332,20 +336,25 @@ It takes the following parameters:
     3. *TEXT_PARTIAL* - Text fields delimited by spaces/slashes/periods with partial matching support. Note, partial
        matching is expensive, so this field type should not be applied to fields with long values (like description)
 
-    4. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+    4. *WORD_GRAM* - Text fields delimited by spaces, slashes, periods, dashes, or underscores with partial matching AND 
+       word gram support. That is, the text will be split by the delimiters and can be matched with delimited queries
+       matching two, three, or four length tokens in addition to single tokens. As with partial match, this type is 
+       expensive, so should not be applied to fields with long values such as description.
 
-    5. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
+    5. *BROWSE_PATH* - Field type for browse paths. Applies specific mappings for slash delimited paths.
+
+    6. *URN* - Urn fields where each sub-component inside the urn is indexed. For instance, for a data platform urn like
        "urn:li:dataplatform:kafka", it will index the platform name "kafka" and ignore the common components
 
-    6. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
+    7. *URN_PARTIAL* - Urn fields where each sub-component inside the urn is indexed with partial matching support.
 
-    7. *BOOLEAN* - Boolean fields used for filtering.
+    8. *BOOLEAN* - Boolean fields used for filtering.
 
-    8. *COUNT* - Count fields used for filtering.
+    9. *COUNT* - Count fields used for filtering.
   
-    9. *DATETIME* - Datetime fields used to represent timestamps.
+    10. *DATETIME* - Datetime fields used to represent timestamps.
 
-    10. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
+    11. *OBJECT* - Each property in an object will become an extra column in Elasticsearch and can be referenced as 
     `field.property` in queries. You should be careful to not use it on objects with many properties as it can cause a
     mapping explosion in Elasticsearch.
 

@@ -12,6 +12,8 @@ import {
     GlobalTags,
     Deprecation,
     GlossaryTerms,
+    DataProduct,
+    EntityPath,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
@@ -39,9 +41,12 @@ export const Preview = ({
     container,
     entityCount,
     domain,
+    dataProduct,
     parentContainers,
     externalUrl,
     deprecation,
+    degree,
+    paths,
 }: {
     urn: string;
     name: string;
@@ -58,9 +63,12 @@ export const Preview = ({
     container?: Container | null;
     entityCount?: number;
     domain?: Domain | null;
+    dataProduct?: DataProduct | null;
     deprecation?: Deprecation | null;
     parentContainers?: ParentContainersResult | null;
     externalUrl?: string | null;
+    degree?: number;
+    paths?: EntityPath[];
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const typeName = capitalizeFirstLetterOnly(subTypes?.typeNames?.[0]) || 'Container';
@@ -81,6 +89,7 @@ export const Preview = ({
             container={container || undefined}
             typeIcon={entityRegistry.getIcon(EntityType.Container, 12, IconStyleType.ACCENT)}
             domain={domain || undefined}
+            dataProduct={dataProduct}
             parentContainers={parentContainers}
             tags={tags || undefined}
             glossaryTerms={glossaryTerms || undefined}
@@ -93,6 +102,8 @@ export const Preview = ({
                 ]) ||
                 undefined
             }
+            degree={degree}
+            paths={paths}
         />
     );
 };

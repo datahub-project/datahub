@@ -43,8 +43,9 @@
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
-        "value": "{\"renderUrl\": \"https://looker.company.com/embed/dashboards/11\"}",
-        "contentType": "application/json"
+        "json": {
+            "renderUrl": "https://looker.company.com/embed/dashboards/11"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -57,8 +58,54 @@
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
-        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}, {\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)\", \"schemaField\": {\"fieldPath\": \"dim1\", \"nullable\": false, \"description\": \"dimension one description\", \"label\": \"Dimensions One Label\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Dimension\"}]}, \"isPartOfKey\": false}}]}",
-        "contentType": "application/json"
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)",
+                    "schemaField": {
+                        "fieldPath": "calc",
+                        "nullable": false,
+                        "description": "",
+                        "label": "foobar",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": []
+                        },
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)",
+                    "schemaField": {
+                        "fieldPath": "dim1",
+                        "nullable": false,
+                        "description": "dimension one description",
+                        "label": "Dimensions One Label",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                }
+                            ]
+                        },
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -71,8 +118,30 @@
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
-        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.10),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}]}",
-        "contentType": "application/json"
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.10),calc)",
+                    "schemaField": {
+                        "fieldPath": "calc",
+                        "nullable": false,
+                        "description": "",
+                        "label": "foobar",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": []
+                        },
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -85,8 +154,74 @@
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
-        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}, {\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)\", \"schemaField\": {\"fieldPath\": \"dim1\", \"nullable\": false, \"description\": \"dimension one description\", \"label\": \"Dimensions One Label\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": [{\"tag\": \"urn:li:tag:Dimension\"}]}, \"isPartOfKey\": false}}, {\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.10),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}]}",
-        "contentType": "application/json"
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)",
+                    "schemaField": {
+                        "fieldPath": "calc",
+                        "nullable": false,
+                        "description": "",
+                        "label": "foobar",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": []
+                        },
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD),dim1)",
+                    "schemaField": {
+                        "fieldPath": "dim1",
+                        "nullable": false,
+                        "description": "dimension one description",
+                        "label": "Dimensions One Label",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": [
+                                {
+                                    "tag": "urn:li:tag:Dimension"
+                                }
+                            ]
+                        },
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.10),calc)",
+                    "schemaField": {
+                        "fieldPath": "calc",
+                        "nullable": false,
+                        "description": "",
+                        "label": "foobar",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": []
+                        },
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -127,8 +262,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
@@ -195,8 +330,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Explore\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Explore"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -209,8 +347,31 @@
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
-        "value": "{\"renderUrl\": \"https://looker.company.com/embed/explore/data/my_view\"}",
-        "contentType": "application/json"
+        "json": {
+            "renderUrl": "https://looker.company.com/embed/explore/data/my_view"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "explores"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -251,8 +412,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
@@ -319,8 +480,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Explore\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Explore"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -333,8 +497,31 @@
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
-        "value": "{\"renderUrl\": \"https://looker.company.com/embed/explore/bogus data/my_view\"}",
-        "contentType": "application/json"
+        "json": {
+            "renderUrl": "https://looker.company.com/embed/explore/bogus data/my_view"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,bogus data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "explores"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -446,8 +633,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -460,8 +648,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -474,8 +663,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -488,8 +678,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -502,8 +693,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

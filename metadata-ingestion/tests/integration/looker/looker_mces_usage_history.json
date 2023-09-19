@@ -43,8 +43,9 @@
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
-        "value": "{\"renderUrl\": \"https://looker.company.com/embed/dashboards/1\"}",
-        "contentType": "application/json"
+        "json": {
+            "renderUrl": "https://looker.company.com/embed/dashboards/1"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -57,8 +58,30 @@
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
-        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}]}",
-        "contentType": "application/json"
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)",
+                    "schemaField": {
+                        "fieldPath": "calc",
+                        "nullable": false,
+                        "description": "",
+                        "label": "foobar",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": []
+                        },
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -71,8 +94,30 @@
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
-        "value": "{\"fields\": [{\"schemaFieldUrn\": \"urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)\", \"schemaField\": {\"fieldPath\": \"calc\", \"nullable\": false, \"description\": \"\", \"label\": \"foobar\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"string\", \"recursive\": false, \"globalTags\": {\"tags\": []}, \"isPartOfKey\": false}}]}",
-        "contentType": "application/json"
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(looker,dashboard_elements.2),calc)",
+                    "schemaField": {
+                        "fieldPath": "calc",
+                        "nullable": false,
+                        "description": "",
+                        "label": "foobar",
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "globalTags": {
+                            "tags": []
+                        },
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -113,8 +158,8 @@
                         "upstreams": [
                             {
                                 "auditStamp": {
-                                    "time": 0,
-                                    "actor": "urn:li:corpuser:unknown"
+                                    "time": 1586847600000,
+                                    "actor": "urn:li:corpuser:datahub"
                                 },
                                 "dataset": "urn:li:dataset:(urn:li:dataPlatform:looker,lkml_samples.view.underlying_view,PROD)",
                                 "type": "VIEW"
@@ -181,8 +226,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Explore\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Explore"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -195,8 +243,31 @@
     "changeType": "UPSERT",
     "aspectName": "embed",
     "aspect": {
-        "value": "{\"renderUrl\": \"https://looker.company.com/embed/explore/data/my_view\"}",
-        "contentType": "application/json"
+        "json": {
+            "renderUrl": "https://looker.company.com/embed/explore/data/my_view"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "looker-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:looker,data.explore.my_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "lkml_samples"
+                },
+                {
+                    "id": "explores"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -308,8 +379,16 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 25, \"favoritesCount\": 5, \"lastViewedAt\": 1586847600000}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 25,
+            "favoritesCount": 5,
+            "lastViewedAt": 1586847600000
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -322,8 +401,33 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test-1@looker.com\", \"executionsCount\": 16, \"usageCount\": 16, \"userEmail\": \"test-1@looker.com\"}, {\"user\": \"urn:li:corpuser:test-2@looker.com\", \"executionsCount\": 14, \"usageCount\": 14, \"userEmail\": \"test-2@looker.com\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1656979200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "executionsCount": 14,
+            "uniqueUserCount": 1,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:test-1@looker.com",
+                    "executionsCount": 16,
+                    "usageCount": 16,
+                    "userEmail": "test-1@looker.com"
+                },
+                {
+                    "user": "urn:li:corpuser:test-2@looker.com",
+                    "executionsCount": 14,
+                    "usageCount": 14,
+                    "userEmail": "test-2@looker.com"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -336,8 +440,19 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1657065600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 14, \"uniqueUserCount\": 1}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1657065600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "executionsCount": 14,
+            "uniqueUserCount": 1
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -350,8 +465,27 @@
     "changeType": "UPSERT",
     "aspectName": "dashboardUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1657152000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"executionsCount\": 5, \"uniqueUserCount\": 1, \"userCounts\": [{\"user\": \"urn:li:corpuser:test-1@looker.com\", \"executionsCount\": 5, \"usageCount\": 5, \"userEmail\": \"test-1@looker.com\"}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1657152000000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "executionsCount": 5,
+            "uniqueUserCount": 1,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:test-1@looker.com",
+                    "executionsCount": 5,
+                    "usageCount": 5,
+                    "userEmail": "test-1@looker.com"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -364,8 +498,14 @@
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 30}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 30
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -378,8 +518,28 @@
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1656979200000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 10, \"userCounts\": [{\"user\": \"urn:li:corpuser:test-1@looker.com\", \"viewsCount\": 10}, {\"user\": \"urn:li:corpuser:test-2@looker.com\", \"viewsCount\": 20}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1656979200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 10,
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:test-1@looker.com",
+                    "viewsCount": 10
+                },
+                {
+                    "user": "urn:li:corpuser:test-2@looker.com",
+                    "viewsCount": 20
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -392,8 +552,18 @@
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1657065600000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 20}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1657065600000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 20
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -406,8 +576,18 @@
     "changeType": "UPSERT",
     "aspectName": "chartUsageStatistics",
     "aspect": {
-        "value": "{\"timestampMillis\": 1657152000000, \"eventGranularity\": {\"unit\": \"DAY\", \"multiple\": 1}, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"viewsCount\": 35}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1657152000000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "viewsCount": 35
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -420,8 +600,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -434,8 +615,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -448,8 +630,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -462,8 +645,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -476,8 +660,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

@@ -76,6 +76,10 @@ export enum EntityCapabilityType {
      * Assigning a role to an entity. Currently only supported for users.
      */
     ROLES,
+    /**
+     * Assigning the entity to a data product
+     */
+    DATA_PRODUCTS,
 }
 
 /**

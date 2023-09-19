@@ -25,6 +25,7 @@ from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DockerComposeVersionError,
+    QuickstartStatus,
     check_docker_quickstart,
     get_docker_client,
     run_quickstart_preflight_checks,
@@ -33,6 +34,7 @@ from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sample_data import BOOTSTRAP_MCES_FILE, download_sample_data
 
 logger = logging.getLogger(__name__)
@@ -58,6 +60,11 @@ ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
 KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
     "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
 )
+
+
+_QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
+_QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
+_QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
 
 
 class Architectures(Enum):
@@ -697,14 +704,28 @@ def quickstart(
             # As such, we'll only use the quiet flag if we're in an interactive environment.
             # If we're in quiet mode, then we'll show a spinner instead.
             quiet = not sys.stderr.isatty()
-            with click_spinner.spinner(disable=not quiet):
+            with PerfTimer() as timer, click_spinner.spinner(disable=not quiet):
                 subprocess.run(
                     [*base_command, "pull", *(("-q",) if quiet else ())],
                     check=True,
                     env=_docker_subprocess_env(),
                 )
+
+            telemetry.telemetry_instance.ping(
+                "quickstart-image-pull",
+                {
+                    "status": "success",
+                    "duration": timer.elapsed_seconds(),
+                },
+            )
             click.secho("Finished pulling docker images!")
     except subprocess.CalledProcessError:
+        telemetry.telemetry_instance.ping(
+            "quickstart-image-pull",
+            {
+                "status": "failure",
+            },
+        )
         click.secho(
             "Error while pulling images. Going to attempt to move on to docker compose up assuming the images have "
             "been built locally",
@@ -714,12 +735,7 @@ def quickstart(
     if build_locally:
         logger.info("Building docker images locally...")
         subprocess.run(
-            [
-                *base_command,
-                "build",
-                "--pull",
-                "-q",
-            ],
+            base_command + ["build", "--pull", "-q"],
             check=True,
             env=_docker_subprocess_env(),
         )
@@ -727,21 +743,26 @@ def quickstart(
 
     # Start it up! (with retries)
     click.echo("\nStarting up DataHub...")
-    max_wait_time = datetime.timedelta(minutes=8)
     start_time = datetime.datetime.now()
-    sleep_interval = datetime.timedelta(seconds=2)
-    up_interval = datetime.timedelta(seconds=30)
+    status: Optional[QuickstartStatus] = None
     up_attempts = 0
-    while (datetime.datetime.now() - start_time) < max_wait_time:
-        # Attempt to run docker compose up every `up_interval`.
-        if (datetime.datetime.now() - start_time) > up_attempts * up_interval:
+    while (datetime.datetime.now() - start_time) < _QUICKSTART_MAX_WAIT_TIME:
+        # We must run docker-compose up at least once.
+        # Beyond that, we should run it again if something goes wrong.
+        if up_attempts == 0 or (status and status.needs_up()):
             if up_attempts > 0:
                 click.echo()
-            subprocess.run(
-                base_command + ["up", "-d", "--remove-orphans"],
-                env=_docker_subprocess_env(),
-            )
             up_attempts += 1
+
+            logger.debug(f"Executing docker compose up command, attempt #{up_attempts}")
+            try:
+                subprocess.run(
+                    base_command + ["up", "-d", "--remove-orphans"],
+                    env=_docker_subprocess_env(),
+                    timeout=_QUICKSTART_UP_TIMEOUT.total_seconds(),
+                )
+            except subprocess.TimeoutExpired:
+                logger.debug("docker compose up timed out, will retry")
 
         # Check docker health every few seconds.
         status = check_docker_quickstart()
@@ -750,8 +771,10 @@ def quickstart(
 
         # Wait until next iteration.
         click.echo(".", nl=False)
-        time.sleep(sleep_interval.total_seconds())
+        time.sleep(_QUICKSTART_STATUS_CHECK_INTERVAL.total_seconds())
     else:
+        assert status
+
         # Falls through if the while loop doesn't exit via break.
         click.echo()
         with tempfile.NamedTemporaryFile(suffix=".log", delete=False) as log_file:
@@ -869,6 +892,28 @@ def download_compose_files(
             quickstart_download_response.raise_for_status()
             tmp_file.write(quickstart_download_response.content)
             logger.debug(f"Copied to {path}")
+    if kafka_setup:
+        base_url = get_docker_compose_base_url(compose_git_ref)
+        kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
+
+        default_kafka_compose_file = (
+            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
+        )
+        with open(
+            default_kafka_compose_file, "wb"
+        ) if default_kafka_compose_file else tempfile.NamedTemporaryFile(
+            suffix=".yml", delete=False
+        ) as tmp_file:
+            path = pathlib.Path(tmp_file.name)
+            quickstart_compose_file_list.append(path)
+            click.echo(
+                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
+            )
+            # Download the quickstart docker-compose file from GitHub.
+            quickstart_download_response = request_session.get(kafka_setup_github_file)
+            quickstart_download_response.raise_for_status()
+            tmp_file.write(quickstart_download_response.content)
+            logger.debug(f"Copied to {path}")
 
 
 def valid_restore_options(
@@ -929,7 +974,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
         "source": {
             "type": "file",
             "config": {
-                "filename": path,
+                "path": path,
             },
         },
         "sink": {
@@ -941,7 +986,7 @@ def ingest_sample_data(path: Optional[str], token: Optional[str]) -> None:
     if token is not None:
         recipe["sink"]["config"]["token"] = token
 
-    pipeline = Pipeline.create(recipe)
+    pipeline = Pipeline.create(recipe, no_default_report=True)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)

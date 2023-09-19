@@ -30,6 +30,7 @@ dependencies {
     implementation project(':metadata-models')
     implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
 
+    implementation externalDependency.guava
     implementation externalDependency.protobuf
     implementation externalDependency.jgrapht
     implementation externalDependency.gson
@@ -122,6 +123,7 @@ shadowJar {
     relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
     relocate 'org.jgrapht', 'datahub.shaded.org.jgrapht'
     relocate 'org.jheaps', 'datahub.shaded.org.jheaps'
+    relocate 'ch.randelshofer', 'datahub.shaded.ch.randelshofer'
  
   finalizedBy checkShadowJar
 }

@@ -3,11 +3,14 @@ import os
 from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, PositiveInt, PrivateAttr, root_validator
+import pydantic
+from google.cloud import bigquery
+from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.ingestion.source.sql.sql_config import SQLAlchemyConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -21,20 +24,67 @@ logger = logging.getLogger(__name__)
 
 
 class BigQueryUsageConfig(BaseUsageConfig):
-    query_log_delay: Optional[PositiveInt] = Field(
-        default=None,
-        description="To account for the possibility that the query event arrives after the read event in the audit logs, we wait for at least query_log_delay additional events to be processed before attempting to resolve BigQuery job information from the logs. If query_log_delay is None, it gets treated as an unlimited delay, which prioritizes correctness at the expense of memory usage.",
-    )
+    _query_log_delay_removed = pydantic_removed_field("query_log_delay")
 
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
     )
 
+    apply_view_usage_to_tables: bool = Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to False, uses sql parser and applies usage to views / tables mentioned in the query. If set to True, usage is applied to base tables only.",
+    )
+
+
+class BigQueryConnectionConfig(ConfigModel):
+    credential: Optional[BigQueryCredential] = Field(
+        default=None, description="BigQuery credential informations"
+    )
+
+    _credentials_path: Optional[str] = PrivateAttr(None)
+
+    extra_client_options: Dict[str, Any] = Field(
+        default={},
+        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
+    )
+
+    project_on_behalf: Optional[str] = Field(
+        default=None,
+        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
+    )
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.credential:
+            self._credentials_path = self.credential.create_credential_temp_file()
+            logger.debug(
+                f"Creating temporary credential file at {self._credentials_path}"
+            )
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+
+    def get_bigquery_client(config) -> bigquery.Client:
+        client_options = config.extra_client_options
+        return bigquery.Client(config.project_on_behalf, **client_options)
+
+    def make_gcp_logging_client(
+        self, project_id: Optional[str] = None
+    ) -> GCPLoggingClient:
+        # See https://github.com/googleapis/google-cloud-python/issues/2674 for
+        # why we disable gRPC here.
+        client_options = self.extra_client_options.copy()
+        client_options["_use_grpc"] = False
+        if project_id is not None:
+            return GCPLoggingClient(**client_options, project=project_id)
+        else:
+            return GCPLoggingClient(**client_options)
+
 
 class BigQueryV2Config(
+    BigQueryConnectionConfig,
     BigQueryBaseConfig,
-    SQLAlchemyConfig,
+    SQLCommonConfig,
     StatefulUsageConfigMixin,
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -78,6 +128,13 @@ class BigQueryV2Config(
         description="Whether to populate BigQuery Console url to Datasets/Tables",
     )
 
+    include_data_platform_instance: bool = Field(
+        default=False,
+        description="Whether to create a DataPlatformInstance aspect, equal to the BigQuery project id."
+        " If enabled, will cause redundancy in the browse path for BigQuery entities in the UI,"
+        " because the project id is represented as the top-level container.",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
@@ -105,19 +162,18 @@ class BigQueryV2Config(
     )
     project_ids: List[str] = Field(
         default_factory=list,
-        description="Ingests specified project_ids. Use this property if you only want to ingest one project and don't want to give project resourcemanager.projects.list to your service account.",
-    )
-
-    project_on_behalf: Optional[str] = Field(
-        default=None,
-        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
+        description=(
+            "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
+            "don't want to give project resourcemanager.projects.list to your service account. "
+            "Overrides `project_id_pattern`."
+        ),
     )
 
     storage_project_id: None = Field(default=None, hidden_from_docs=True)
 
     lineage_use_sql_parser: bool = Field(
-        default=False,
-        description="Experimental. Use sql parser to resolve view/table lineage. If there is a view being referenced then bigquery sends both the view as well as underlying tablein the references. There is no distinction between direct/base objects accessed. So doing sql parsing to ensure we only use direct objects accessed for lineage.",
+        default=True,
+        description="Use sql parser to resolve view/table lineage.",
     )
     lineage_parse_view_ddl: bool = Field(
         default=True,
@@ -128,6 +184,22 @@ class BigQueryV2Config(
         default=False,
         description="This parameter ignores the lowercase pattern stipulated in the SQLParser. NOTE: Ignored if lineage_use_sql_parser is False.",
     )
+
+    extract_column_lineage: bool = Field(
+        # TODO: Flip this default to True once we support patching column-level lineage.
+        default=False,
+        description="If enabled, generate column level lineage. "
+        "Requires lineage_use_sql_parser to be enabled. "
+        "This and `incremental_lineage` cannot both be enabled.",
+    )
+
+    @pydantic.validator("extract_column_lineage")
+    def validate_column_lineage(cls, v: bool, values: Dict[str, Any]) -> bool:
+        if v and values.get("incremental_lineage"):
+            raise ValueError(
+                "Cannot enable `extract_column_lineage` and `incremental_lineage` at the same time."
+            )
+        return v
 
     extract_lineage_from_catalog: bool = Field(
         default=False,
@@ -150,14 +222,8 @@ class BigQueryV2Config(
         default=1000,
         description="The number of log item will be queried per page for lineage collection",
     )
-    credential: Optional[BigQueryCredential] = Field(
-        description="BigQuery credential informations"
-    )
+
     # extra_client_options, include_table_lineage and max_query_duration are relevant only when computing the lineage.
-    extra_client_options: Dict[str, Any] = Field(
-        default={},
-        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
-    )
     include_table_lineage: Optional[bool] = Field(
         default=True,
         description="Option to enable/disable lineage generation. Is enabled by default.",
@@ -179,7 +245,6 @@ class BigQueryV2Config(
         default=False,
         description="Whether to read date sharded tables or time partitioned tables when extracting usage from exported audit logs.",
     )
-    _credentials_path: Optional[str] = PrivateAttr(None)
 
     _cache_path: Optional[str] = PrivateAttr(None)
 
@@ -194,15 +259,11 @@ class BigQueryV2Config(
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
+    file_backed_cache_size: int = Field(
+        hidden_from_docs=True,
+        default=2000,
+        description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
+    )
 
     @root_validator(pre=False)
     def profile_default_settings(cls, values: Dict) -> Dict:
@@ -211,6 +272,17 @@ class BigQueryV2Config(
         values["options"].setdefault("max_overflow", values["profiling"].max_workers)
 
         return values
+
+    @validator("bigquery_audit_metadata_datasets")
+    def validate_bigquery_audit_metadata_datasets(
+        cls, v: Optional[List[str]], values: Dict
+    ) -> Optional[List[str]]:
+        if values.get("use_exported_bigquery_audit_metadata"):
+            assert (
+                v and len(v) > 0
+            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+
+        return v
 
     @root_validator(pre=False)
     def backward_compatibility_configs_set(cls, values: Dict) -> Dict:
@@ -261,10 +333,9 @@ class BigQueryV2Config(
         return values
 
     def get_table_pattern(self, pattern: List[str]) -> str:
-        return "|".join(pattern) if self.table_pattern else ""
+        return "|".join(pattern) if pattern else ""
 
-    # TODO: remove run_on_compute when the legacy bigquery source will be deprecated
-    def get_sql_alchemy_url(self, run_on_compute: bool = False) -> str:
+    def get_sql_alchemy_url(self) -> str:
         if self.project_on_behalf:
             return f"bigquery://{self.project_on_behalf}"
         # When project_id is not set, we will attempt to detect the project ID

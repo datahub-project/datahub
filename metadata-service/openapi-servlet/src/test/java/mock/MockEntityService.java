@@ -1,5 +1,6 @@
 package mock;
 
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
@@ -20,14 +21,14 @@ import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.event.EventProducer;
-import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.ForeignKeyConstraint;
 import com.linkedin.schema.ForeignKeyConstraintArray;
@@ -37,16 +38,13 @@ import com.linkedin.schema.SchemaFieldArray;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.schema.StringType;
-import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import javax.annotation.Nonnull;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -54,9 +52,10 @@ import org.jetbrains.annotations.Nullable;
 import static entities.EntitiesControllerTest.*;
 
 
-public class MockEntityService extends EntityService {
-  public MockEntityService(@Nonnull AspectDao aspectDao, @Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry) {
-    super(aspectDao, producer, entityRegistry, true);
+public class MockEntityService extends EntityServiceImpl {
+  public MockEntityService(@Nonnull AspectDao aspectDao, @Nonnull EventProducer producer, @Nonnull EntityRegistry entityRegistry, @Nonnull
+      UpdateIndicesService updateIndicesService, PreProcessHooks preProcessHooks) {
+    super(aspectDao, producer, entityRegistry, true, updateIndicesService, preProcessHooks);
   }
 
   @Override
@@ -133,12 +132,6 @@ public class MockEntityService extends EntityService {
   }
 
   @Override
-  public EnvelopedAspect getEnvelopedAspect(@Nonnull String entityName, @Nonnull Urn urn, @Nonnull String aspectName,
-      long version) throws Exception {
-    return null;
-  }
-
-  @Override
   public VersionedAspect getVersionedAspect(@Nonnull Urn urn, @Nonnull String aspectName, long version) {
     return null;
   }
@@ -149,7 +142,7 @@ public class MockEntityService extends EntityService {
     return null;
   }
 
-  @Nonnull
+/*  @Nonnull
   @Override
   protected UpdateAspectResult ingestAspectToLocalDB(@Nonnull Urn urn, @Nonnull String aspectName,
       @Nonnull Function<Optional<RecordTemplate>, RecordTemplate> updateLambda, @Nonnull AuditStamp auditStamp,
@@ -164,19 +157,12 @@ public class MockEntityService extends EntityService {
       @Nonnull List<Pair<String, RecordTemplate>> aspectRecordsToIngest, @Nonnull AuditStamp auditStamp,
       @Nonnull SystemMetadata providedSystemMetadata) {
     return Collections.emptyList();
-  }
+  }*/
 
   @Nullable
   @Override
   public RecordTemplate ingestAspectIfNotPresent(@NotNull Urn urn, @NotNull String aspectName,
       @NotNull RecordTemplate newValue, @NotNull AuditStamp auditStamp, @Nullable SystemMetadata systemMetadata) {
-    return null;
-  }
-
-  @Override
-  public RecordTemplate updateAspect(@Nonnull Urn urn, @Nonnull String entityName, @Nonnull String aspectName,
-      @Nonnull AspectSpec aspectSpec, @Nonnull RecordTemplate newValue, @Nonnull AuditStamp auditStamp,
-      @Nonnull long version, @Nonnull boolean emitMae) {
     return null;
   }
 

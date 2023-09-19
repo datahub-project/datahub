@@ -1,8 +1,10 @@
 package com.linkedin.gms.factory.secret;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.secret.SecretService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -16,6 +18,7 @@ import static org.testng.Assert.assertNotNull;
 
 @TestPropertySource(locations = "classpath:/application.yml")
 @SpringBootTest(classes = {SecretServiceFactory.class})
+@EnableConfigurationProperties(ConfigurationProvider.class)
 public class SecretServiceFactoryTest extends AbstractTestNGSpringContextTests {
 
     @Value("${secretService.encryptionKey}")

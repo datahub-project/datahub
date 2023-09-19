@@ -31,7 +31,7 @@ public class DeleteAssertionResolverTest {
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
     Mockito.when(mockService.getAspect(
         Urn.createFromString(TEST_ASSERTION_URN),
@@ -78,7 +78,7 @@ public class DeleteAssertionResolverTest {
   public void testGetSuccessNoAssertionInfoFound() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
     Mockito.when(mockService.getAspect(
         Urn.createFromString(TEST_ASSERTION_URN),
@@ -117,7 +117,7 @@ public class DeleteAssertionResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(false);
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);
@@ -151,7 +151,7 @@ public class DeleteAssertionResolverTest {
   public void testGetUnauthorized() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
     Mockito.when(mockService.getAspect(
         Urn.createFromString(TEST_ASSERTION_URN),
@@ -189,7 +189,7 @@ public class DeleteAssertionResolverTest {
         Mockito.any(),
         Mockito.any(Authentication.class));
 
-    EntityService mockService = Mockito.mock(EntityService.class);
+    EntityService mockService = getMockEntityService();
     Mockito.when(mockService.exists(Urn.createFromString(TEST_ASSERTION_URN))).thenReturn(true);
 
     DeleteAssertionResolver resolver = new DeleteAssertionResolver(mockClient, mockService);

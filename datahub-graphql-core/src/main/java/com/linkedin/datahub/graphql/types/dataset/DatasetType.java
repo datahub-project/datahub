@@ -83,7 +83,10 @@ public class DatasetType implements SearchableEntityType<Dataset, String>, Brows
         SCHEMA_METADATA_ASPECT_NAME,
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         SIBLINGS_ASPECT_NAME,
-        EMBED_ASPECT_NAME
+        EMBED_ASPECT_NAME,
+        DATA_PRODUCTS_ASPECT_NAME,
+        BROWSE_PATHS_V2_ASPECT_NAME,
+        ACCESS_DATASET_ASPECT_NAME
     );
 
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");

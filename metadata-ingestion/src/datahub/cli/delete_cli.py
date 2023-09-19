@@ -1,98 +1,111 @@
 import logging
-import time
 from dataclasses import dataclass
 from datetime import datetime
 from random import choices
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import click
+import humanfriendly
 import progressbar
-from requests import sessions
+from click_default_group import DefaultGroup
 from tabulate import tabulate
 
 from datahub.cli import cli_utils
-from datahub.emitter import rest_emitter
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata.schema_classes import StatusClass, SystemMetadataClass
+from datahub.configuration.datetimes import ClickDatetime
+from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
+from datahub.ingestion.graph.client import (
+    DataHubGraph,
+    RemovedStatusFilter,
+    get_default_graph,
+)
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
-RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
+_RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
+_UNKNOWN_NUM_RECORDS = -1
 
-UNKNOWN_NUM_RECORDS = -1
+_DELETE_WITH_REFERENCES_TYPES = {
+    "tag",
+    "corpuser",
+    "corpGroup",
+    "domain",
+    "glossaryTerm",
+    "glossaryNode",
+}
+
+_RECURSIVE_DELETE_TYPES = {
+    "container",
+    "dataPlatformInstance",
+}
+
+
+@click.group(cls=DefaultGroup, default="by-filter")
+def delete() -> None:
+    """Delete metadata from DataHub.
+
+    See `datahub delete by-filter` for the list of available filters.
+
+    See https://datahubproject.io/docs/how/delete-metadata for more detailed docs.
+    """
+    pass
 
 
 @dataclass
 class DeletionResult:
-    start_time: int = int(time.time() * 1000.0)
-    end_time: int = 0
     num_records: int = 0
     num_timeseries_records: int = 0
     num_entities: int = 0
-    sample_records: Optional[List[List[str]]] = None
-
-    def start(self) -> None:
-        self.start_time = int(time.time() * 1000.0)
-
-    def end(self) -> None:
-        self.end_time = int(time.time() * 1000.0)
+    num_referenced_entities: int = 0
 
     def merge(self, another_result: "DeletionResult") -> None:
-        self.end_time = another_result.end_time
-        self.num_records = (
-            self.num_records + another_result.num_records
-            if another_result.num_records != UNKNOWN_NUM_RECORDS
-            else UNKNOWN_NUM_RECORDS
+        self.num_records = self._sum_handle_unknown(
+            self.num_records, another_result.num_records
         )
-        self.num_timeseries_records += another_result.num_timeseries_records
-        self.num_entities += another_result.num_entities
-        if another_result.sample_records:
-            if not self.sample_records:
-                self.sample_records = []
-            self.sample_records.extend(another_result.sample_records)
+        self.num_timeseries_records = self._sum_handle_unknown(
+            self.num_timeseries_records, another_result.num_timeseries_records
+        )
+        self.num_entities = self._sum_handle_unknown(
+            self.num_entities, another_result.num_entities
+        )
+        self.num_referenced_entities = self._sum_handle_unknown(
+            self.num_referenced_entities, another_result.num_referenced_entities
+        )
+
+    def format_message(self, *, dry_run: bool, soft: bool, time_sec: float) -> str:
+        counters = (
+            f"{self.num_entities} entities"
+            f" (impacts {self._value_or_unknown(self.num_records)} versioned rows"
+            f" and {self._value_or_unknown(self.num_timeseries_records)} timeseries aspect rows)"
+        )
+        if self.num_referenced_entities > 0:
+            counters += (
+                f" and cleaned up {self.num_referenced_entities} referenced entities"
+            )
+
+        if not dry_run:
+            delete_type = "Soft deleted" if soft else "Hard deleted"
+            return f"{delete_type} {counters} in {humanfriendly.format_timespan(time_sec)}."
+        else:
+            return f"[Dry-run] Would delete {counters}."
+
+    @classmethod
+    def _value_or_unknown(cls, value: int) -> str:
+        return str(value) if value != _UNKNOWN_NUM_RECORDS else "an unknown number of"
+
+    @classmethod
+    def _sum_handle_unknown(cls, value1: int, value2: int) -> int:
+        if value1 == _UNKNOWN_NUM_RECORDS or value2 == _UNKNOWN_NUM_RECORDS:
+            return _UNKNOWN_NUM_RECORDS
+        return value1 + value2
 
 
-@telemetry.with_telemetry()
-def delete_for_registry(
-    registry_id: str,
-    soft: bool,
-    dry_run: bool,
-) -> DeletionResult:
-    deletion_result = DeletionResult()
-    deletion_result.num_entities = 1
-    deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
-    registry_delete = {"registryId": registry_id, "dryRun": dry_run, "soft": soft}
-    (
-        structured_rows,
-        entities_affected,
-        aspects_affected,
-        unsafe_aspects,
-        unsafe_entity_count,
-        unsafe_entities,
-    ) = cli_utils.post_rollback_endpoint(registry_delete, "/entities?action=deleteAll")
-    deletion_result.num_entities = entities_affected
-    deletion_result.num_records = aspects_affected
-    deletion_result.sample_records = structured_rows
-    deletion_result.end()
-    return deletion_result
-
-
-@click.command()
-@click.option("--urn", required=False, type=str, help="the urn of the entity")
+@delete.command(no_args_is_help=True)
 @click.option(
-    "-a",
-    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
-    "--aspect_name",
-    "--aspect-name",
-    required=False,
-    type=str,
-    help="the aspect name associated with the entity(only for timeseries aspects)",
-)
-@click.option(
-    "-f", "--force", required=False, is_flag=True, help="force the delete if set"
+    "--registry-id", required=True, type=str, help="e.g. mycompany-dq-model:0.0.1"
 )
 @click.option(
     "--soft/--hard",
@@ -101,73 +114,225 @@ def delete_for_registry(
     default=True,
     help="specifies soft/hard deletion",
 )
+@click.option("-n", "--dry-run", required=False, is_flag=True)
+@telemetry.with_telemetry()
+def by_registry(
+    registry_id: str,
+    soft: bool,
+    dry_run: bool,
+) -> None:
+    """
+    Delete all metadata written using the given registry id and version pair.
+    """
+
+    if soft and not dry_run:
+        raise click.UsageError(
+            "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
+        )
+
+    with PerfTimer() as timer:
+        registry_delete = {"registryId": registry_id, "dryRun": dry_run, "soft": soft}
+        (
+            structured_rows,
+            entities_affected,
+            aspects_affected,
+            unsafe_aspects,
+            unsafe_entity_count,
+            unsafe_entities,
+        ) = cli_utils.post_rollback_endpoint(
+            registry_delete, "/entities?action=deleteAll"
+        )
+
+    if not dry_run:
+        message = "soft delete" if soft else "hard delete"
+        click.echo(
+            f"Took {timer.elapsed_seconds()} seconds to {message}"
+            f" {aspects_affected} versioned rows"
+            f" for {entities_affected} entities."
+        )
+    else:
+        click.echo(
+            f"{entities_affected} entities with {aspects_affected} rows will be affected. "
+            f"Took {timer.elapsed_seconds()} seconds to evaluate."
+        )
+    if structured_rows:
+        click.echo(tabulate(structured_rows, _RUN_TABLE_COLUMNS, tablefmt="grid"))
+
+
+@delete.command(no_args_is_help=True)
+@click.option("--urn", required=True, type=str, help="the urn of the entity")
+@click.option("-n", "--dry-run", required=False, is_flag=True)
 @click.option(
-    "-e", "--env", required=False, type=str, help="the environment of the entity"
+    "-f", "--force", required=False, is_flag=True, help="force the delete if set"
+)
+@telemetry.with_telemetry()
+def references(urn: str, dry_run: bool, force: bool) -> None:
+    """
+    Delete all references to an entity (but not the entity itself).
+    """
+
+    graph = get_default_graph()
+    logger.info(f"Using graph: {graph}")
+
+    references_count, related_aspects = graph.delete_references_to_urn(
+        urn=urn,
+        dry_run=True,
+    )
+
+    if references_count == 0:
+        click.echo(f"No references to {urn} found")
+        return
+
+    click.echo(f"Found {references_count} references to {urn}")
+    sample_msg = (
+        "\nSample of references\n"
+        + tabulate(
+            [x.values() for x in related_aspects],
+            ["relationship", "entity", "aspect"],
+        )
+        + "\n"
+    )
+    click.echo(sample_msg)
+
+    if dry_run:
+        logger.info(f"[Dry-run] Would remove {references_count} references to {urn}")
+    else:
+        if not force:
+            click.confirm(
+                f"This will delete {references_count} references to {urn} from DataHub. Do you want to continue?",
+                abort=True,
+            )
+
+        references_count, _ = graph.delete_references_to_urn(
+            urn=urn,
+            dry_run=False,
+        )
+        logger.info(f"Deleted {references_count} references to {urn}")
+
+
+@delete.command(no_args_is_help=True)
+@click.option(
+    "--urn",
+    required=False,
+    type=str,
+    help="Urn of the entity to delete, for single entity deletion",
 )
 @click.option(
-    "-p", "--platform", required=False, type=str, help="the platform of the entity"
+    "-a",
+    "--aspect",
+    # This option is inconsistent with rest of CLI but kept for backward compatibility
+    "--aspect-name",
+    required=False,
+    type=str,
+    help="The aspect to delete for specified entity(s)",
 )
 @click.option(
-    # option with `_` is inconsistent with rest of CLI but kept for backward compatibility
-    "--entity_type",
+    "-f",
+    "--force",
+    required=False,
+    is_flag=True,
+    help="Force deletion, with no confirmation prompts",
+)
+@click.option(
+    "--soft/--hard",
+    required=False,
+    is_flag=True,
+    default=True,
+    help="Soft deletion can be undone, while hard deletion removes from the database",
+)
+@click.option(
+    "-e", "--env", required=False, type=str, help="Environment filter (e.g. PROD)"
+)
+@click.option(
+    "-p",
+    "--platform",
+    required=False,
+    type=str,
+    help="Platform filter (e.g. snowflake)",
+)
+@click.option(
     "--entity-type",
     required=False,
     type=str,
-    default="dataset",
-    help="the entity type of the entity",
+    help="Entity type filter (e.g. dataset)",
 )
-@click.option("--query", required=False, type=str)
+@click.option("--query", required=False, type=str, help="Elasticsearch query string")
+@click.option(
+    "--recursive",
+    required=False,
+    is_flag=True,
+    help="Recursively delete all contained entities (only for containers and dataPlatformInstances)",
+)
 @click.option(
     "--start-time",
     required=False,
-    type=click.DateTime(),
-    help="the start time(only for timeseries aspects)",
+    type=ClickDatetime(),
+    help="Start time (only for timeseries aspects)",
 )
 @click.option(
     "--end-time",
     required=False,
-    type=click.DateTime(),
-    help="the end time(only for timeseries aspects)",
+    type=ClickDatetime(),
+    help="End time (only for timeseries aspects)",
 )
-@click.option("--registry-id", required=False, type=str)
-@click.option("-n", "--dry-run", required=False, is_flag=True)
-@click.option("--only-soft-deleted", required=False, is_flag=True, default=False)
+@click.option(
+    "-b",
+    "--batch-size",
+    required=False,
+    default=3000,
+    type=int,
+    help="Batch size when querying for entities to delete."
+    "Maximum 10000. Large batch sizes may cause timeouts.",
+)
+@click.option(
+    "-n",
+    "--dry-run",
+    required=False,
+    is_flag=True,
+    help="Print entities to be deleted; perform no deletion",
+)
+@click.option(
+    "--only-soft-deleted",
+    required=False,
+    is_flag=True,
+    default=False,
+    help="Only delete soft-deleted entities, for hard deletion",
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def delete(
-    urn: str,
-    aspect_name: Optional[str],
+def by_filter(
+    urn: Optional[str],
+    aspect: Optional[str],
     force: bool,
     soft: bool,
-    env: str,
-    platform: str,
-    entity_type: str,
-    query: str,
+    env: Optional[str],
+    platform: Optional[str],
+    entity_type: Optional[str],
+    query: Optional[str],
+    recursive: bool,
     start_time: Optional[datetime],
     end_time: Optional[datetime],
-    registry_id: str,
+    batch_size: int,
     dry_run: bool,
     only_soft_deleted: bool,
 ) -> None:
-    """Delete metadata from datahub using a single urn or a combination of filters"""
+    """Delete metadata from datahub using a single urn or a combination of filters."""
 
-    cli_utils.test_connectivity_complain_exit("delete")
-    # one of these must be provided
-    if not urn and not platform and not env and not query and not registry_id:
-        raise click.UsageError(
-            "You must provide one of urn / platform / env / query / registry_id in order to delete entities."
-        )
-
-    include_removed: bool
-    if soft:
-        # For soft-delete include-removed does not make any sense
-        include_removed = False
-    else:
-        # For hard-delete we always include the soft-deleted items
-        include_removed = True
-
-    # default query is set to "*" if not provided
-    query = "*" if query is None else query
+    # Validate the cli arguments.
+    _validate_user_urn_and_filters(
+        urn=urn,
+        entity_type=entity_type,
+        platform=platform,
+        env=env,
+        query=query,
+        recursive=recursive,
+    )
+    soft_delete_filter = _validate_user_soft_delete_flags(
+        soft=soft, aspect=aspect, only_soft_deleted=only_soft_deleted
+    )
+    _validate_user_aspect_flags(aspect=aspect, start_time=start_time, end_time=end_time)
+    _validate_batch_size(batch_size)
+    # TODO: add some validation on entity_type
 
     if not force and not soft and not dry_run:
         click.confirm(
@@ -175,314 +340,285 @@ def delete(
             abort=True,
         )
 
+    graph = get_default_graph()
+    logger.info(f"Using {graph}")
+
+    # Determine which urns to delete.
+    delete_by_urn = bool(urn) and not recursive
     if urn:
-        # Single urn based delete
-        session, host = cli_utils.get_session_and_host()
-        entity_type = guess_entity_type(urn=urn)
-        logger.info(f"DataHub configured with {host}")
+        urns = [urn]
 
-        if not aspect_name:
-            references_count, related_aspects = delete_references(
-                urn, dry_run=True, cached_session_host=(session, host)
-            )
-            remove_references: bool = False
-
-            if (not force) and references_count > 0:
-                click.echo(
-                    f"This urn was referenced in {references_count} other aspects across your metadata graph:"
-                )
-                click.echo(
-                    tabulate(
-                        [x.values() for x in related_aspects],
-                        ["relationship", "entity", "aspect"],
-                        tablefmt="grid",
+        if recursive:
+            # Add children urns to the list.
+            if guess_entity_type(urn) == "dataPlatformInstance":
+                urns.extend(
+                    graph.get_urns_by_filter(
+                        platform_instance=urn,
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
                     )
                 )
-                remove_references = click.confirm(
-                    "Do you want to delete these references?"
-                )
-
-            if force or remove_references:
-                delete_references(
-                    urn, dry_run=False, cached_session_host=(session, host)
-                )
-
-        deletion_result: DeletionResult = delete_one_urn_cmd(
-            urn,
-            aspect_name=aspect_name,
-            soft=soft,
-            dry_run=dry_run,
-            start_time=start_time,
-            end_time=end_time,
-            cached_session_host=(session, host),
-        )
-
-        if not dry_run:
-            if deletion_result.num_records == 0:
-                click.echo(f"Nothing deleted for {urn}")
             else:
-                click.echo(
-                    f"Successfully deleted {urn}. {deletion_result.num_records} rows deleted"
+                urns.extend(
+                    graph.get_urns_by_filter(
+                        container=urn,
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
+                    )
                 )
-
-    elif registry_id:
-        # Registry-id based delete
-        if soft and not dry_run:
-            raise click.UsageError(
-                "Soft-deleting with a registry-id is not yet supported. Try --dry-run to see what you will be deleting, before issuing a hard-delete using the --hard flag"
-            )
-        deletion_result = delete_for_registry(
-            registry_id=registry_id, soft=soft, dry_run=dry_run
-        )
     else:
-        # Filter based delete
-        deletion_result = delete_with_filters(
-            env=env,
-            platform=platform,
-            dry_run=dry_run,
-            soft=soft,
-            entity_type=entity_type,
-            search_query=query,
-            force=force,
-            include_removed=include_removed,
-            aspect_name=aspect_name,
-            only_soft_deleted=only_soft_deleted,
-        )
-
-    if not dry_run:
-        message = "soft delete" if soft else "hard delete"
-        click.echo(
-            f"Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to {message}"
-            f" {deletion_result.num_records} versioned rows"
-            f" and {deletion_result.num_timeseries_records} timeseries aspect rows"
-            f" for {deletion_result.num_entities} entities."
-        )
-    else:
-        click.echo(
-            f"{deletion_result.num_entities} entities with {deletion_result.num_records if deletion_result.num_records != UNKNOWN_NUM_RECORDS else 'unknown'} rows will be affected. Took {(deletion_result.end_time-deletion_result.start_time)/1000.0} seconds to evaluate."
-        )
-    if deletion_result.sample_records:
-        click.echo(
-            tabulate(deletion_result.sample_records, RUN_TABLE_COLUMNS, tablefmt="grid")
-        )
-
-
-def _get_current_time() -> int:
-    return int(time.time() * 1000.0)
-
-
-@telemetry.with_telemetry()
-def delete_with_filters(
-    dry_run: bool,
-    soft: bool,
-    force: bool,
-    include_removed: bool,
-    aspect_name: Optional[str] = None,
-    search_query: str = "*",
-    entity_type: str = "dataset",
-    env: Optional[str] = None,
-    platform: Optional[str] = None,
-    only_soft_deleted: Optional[bool] = False,
-) -> DeletionResult:
-    session, gms_host = cli_utils.get_session_and_host()
-    token = cli_utils.get_token()
-
-    logger.info(f"datahub configured with {gms_host}")
-    emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
-    batch_deletion_result = DeletionResult()
-
-    urns: List[str] = []
-    if not only_soft_deleted:
         urns = list(
-            cli_utils.get_urns_by_filter(
-                env=env,
+            graph.get_urns_by_filter(
+                entity_types=[entity_type] if entity_type else None,
                 platform=platform,
-                search_query=search_query,
-                entity_type=entity_type,
-                include_removed=False,
+                env=env,
+                query=query,
+                status=soft_delete_filter,
+                batch_size=batch_size,
             )
         )
-
-    soft_deleted_urns: List[str] = []
-    if include_removed or only_soft_deleted:
-        soft_deleted_urns = list(
-            cli_utils.get_urns_by_filter(
-                env=env,
-                platform=platform,
-                search_query=search_query,
-                entity_type=entity_type,
-                only_soft_deleted=True,
+        if len(urns) == 0:
+            click.echo(
+                "Found no urns to delete. Maybe you want to change your filters to be something different?"
             )
+            return
+
+    # Print out a summary of the urns to be deleted and confirm with the user.
+    if not delete_by_urn:
+        urns_by_type: Dict[str, List[str]] = {}
+        for urn in urns:
+            entity_type = guess_entity_type(urn)
+            urns_by_type.setdefault(entity_type, []).append(urn)
+        if len(urns_by_type) > 1:
+            # Display a breakdown of urns by entity type if there's multiple.
+            click.echo("Found urns of multiple entity types")
+            for entity_type, entity_urns in urns_by_type.items():
+                click.echo(
+                    f"- {len(entity_urns)} {entity_type} urn(s). Sample: {choices(entity_urns, k=min(5, len(entity_urns)))}"
+                )
+        else:
+            click.echo(
+                f"Found {len(urns)} {entity_type} urn(s). Sample: {choices(urns, k=min(5, len(urns)))}"
+            )
+
+        if not force and not dry_run:
+            click.confirm(
+                f"This will delete {len(urns)} entities from DataHub. Do you want to continue?",
+                abort=True,
+            )
+
+    urns_iter = urns
+    if not delete_by_urn and not dry_run:
+        urns_iter = progressbar.progressbar(urns, redirect_stdout=True)
+
+    # Run the deletion.
+    deletion_result = DeletionResult()
+    with PerfTimer() as timer:
+        for urn in urns_iter:
+            one_result = _delete_one_urn(
+                graph=graph,
+                urn=urn,
+                aspect_name=aspect,
+                soft=soft,
+                dry_run=dry_run,
+                start_time=start_time,
+                end_time=end_time,
+            )
+            deletion_result.merge(one_result)
+
+    # Report out a summary of the deletion result.
+    click.echo(
+        deletion_result.format_message(
+            dry_run=dry_run, soft=soft, time_sec=timer.elapsed_seconds()
         )
-
-    final_message = ""
-    if len(urns) > 0:
-        final_message = f"{len(urns)} "
-    if len(urns) > 0 and len(soft_deleted_urns) > 0:
-        final_message += "and "
-    if len(soft_deleted_urns) > 0:
-        final_message = f"{len(soft_deleted_urns)} (soft-deleted) "
-
-    logger.info(
-        f"Filter matched {final_message} {entity_type} entities of {platform}. Sample: {choices(urns, k=min(5, len(urns)))}"
     )
-    if len(urns) == 0 and len(soft_deleted_urns) == 0:
-        click.echo(
-            f"No urns to delete. Maybe you want to change entity_type={entity_type} or platform={platform} to be something different?"
-        )
-        return DeletionResult(end_time=int(time.time() * 1000.0))
 
-    if not force and not dry_run:
-        type_delete = "soft" if soft else "permanently"
-        click.confirm(
-            f"This will {type_delete} delete {len(urns)} entities. Are you sure?",
-            abort=True,
-        )
 
-    if len(urns) > 0:
-        for urn in progressbar.progressbar(urns, redirect_stdout=True):
-            one_result = _delete_one_urn(
-                urn,
-                soft=soft,
-                aspect_name=aspect_name,
-                dry_run=dry_run,
-                cached_session_host=(session, gms_host),
-                cached_emitter=emitter,
+def _validate_user_urn_and_filters(
+    urn: Optional[str],
+    entity_type: Optional[str],
+    platform: Optional[str],
+    env: Optional[str],
+    query: Optional[str],
+    recursive: bool,
+) -> None:
+    # Check urn / filters options.
+    if urn:
+        if entity_type or platform or env or query:
+            raise click.UsageError(
+                "You cannot provide both an urn and a filter rule (entity-type / platform / env / query)."
             )
-            batch_deletion_result.merge(one_result)
+    elif not urn and not (entity_type or platform or env or query):
+        raise click.UsageError(
+            "You must provide either an urn or at least one filter (entity-type / platform / env / query) in order to delete entities."
+        )
+    elif query:
+        logger.warning(
+            "Using --query is an advanced feature and can easily delete unintended entities. Please use with caution."
+        )
+    elif env and not (platform or entity_type):
+        logger.warning(
+            f"Using --env without other filters will delete all metadata in the {env} environment. Please use with caution."
+        )
 
-    if len(soft_deleted_urns) > 0 and not soft:
-        click.echo("Starting to delete soft-deleted URNs")
-        for urn in progressbar.progressbar(soft_deleted_urns, redirect_stdout=True):
-            one_result = _delete_one_urn(
-                urn,
-                soft=soft,
-                dry_run=dry_run,
-                cached_session_host=(session, gms_host),
-                cached_emitter=emitter,
-                is_soft_deleted=True,
+    # Check recursive flag.
+    if recursive:
+        if not urn:
+            raise click.UsageError(
+                "The --recursive flag can only be used with a single urn."
             )
-            batch_deletion_result.merge(one_result)
-    batch_deletion_result.end()
+        elif guess_entity_type(urn) not in _RECURSIVE_DELETE_TYPES:
+            raise click.UsageError(
+                f"The --recursive flag can only be used with these entity types: {_RECURSIVE_DELETE_TYPES}."
+            )
+    elif urn and guess_entity_type(urn) in _RECURSIVE_DELETE_TYPES:
+        logger.warning(
+            f"This will only delete {urn}. Use --recursive to delete all contained entities."
+        )
 
-    return batch_deletion_result
+
+def _validate_user_soft_delete_flags(
+    soft: bool, aspect: Optional[str], only_soft_deleted: bool
+) -> RemovedStatusFilter:
+    # Check soft / hard delete flags.
+    # Note: aspect not None ==> hard delete,
+    #    but aspect is None ==> could be either soft or hard delete
+
+    if soft:
+        if aspect:
+            raise click.UsageError(
+                "You cannot provide an aspect name when performing a soft delete. Use --hard to perform a hard delete."
+            )
+
+        if only_soft_deleted:
+            raise click.UsageError(
+                "You cannot provide --only-soft-deleted when performing a soft delete. Use --hard to perform a hard delete."
+            )
+
+        soft_delete_filter = RemovedStatusFilter.NOT_SOFT_DELETED
+    else:
+        # For hard deletes, we will always include the soft-deleted entities, and
+        # can optionally filter to exclude non-soft-deleted entities.
+        if only_soft_deleted:
+            soft_delete_filter = RemovedStatusFilter.ONLY_SOFT_DELETED
+        else:
+            soft_delete_filter = RemovedStatusFilter.ALL
+
+    return soft_delete_filter
+
+
+def _validate_user_aspect_flags(
+    aspect: Optional[str],
+    start_time: Optional[datetime],
+    end_time: Optional[datetime],
+) -> None:
+    # Check the aspect name.
+    if aspect and aspect not in ASPECT_MAP:
+        logger.info(f"Supported aspects: {list(sorted(ASPECT_MAP.keys()))}")
+        raise click.UsageError(
+            f"Unknown aspect {aspect}. Ensure the aspect is in the above list."
+        )
+
+    # Check that start/end time are set if and only if the aspect is a timeseries aspect.
+    if aspect and aspect in TIMESERIES_ASPECT_MAP:
+        if not start_time or not end_time:
+            raise click.UsageError(
+                "You must provide both --start-time and --end-time when deleting a timeseries aspect."
+            )
+    elif start_time or end_time:
+        raise click.UsageError(
+            "You can only provide --start-time and --end-time when deleting a timeseries aspect."
+        )
+    elif aspect:
+        raise click.UsageError(
+            "Aspect-specific deletion is only supported for timeseries aspects. Please delete the full entity or use a rollback instead."
+        )
+
+
+def _validate_batch_size(batch_size: int) -> None:
+    if batch_size <= 0:
+        raise click.UsageError("Batch size must be a positive integer.")
+    elif batch_size > 10000:
+        raise click.UsageError("Batch size cannot exceed 10,000.")
 
 
 def _delete_one_urn(
+    graph: DataHubGraph,
     urn: str,
     soft: bool = False,
     dry_run: bool = False,
     aspect_name: Optional[str] = None,
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
-    cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
-    cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
-    run_id: str = "delete-run-id",
-    deletion_timestamp: Optional[int] = None,
-    is_soft_deleted: Optional[bool] = None,
+    run_id: str = "__datahub-delete-cli",
 ) -> DeletionResult:
-    deletion_timestamp = deletion_timestamp or _get_current_time()
-    soft_delete_msg: str = ""
-    if dry_run and is_soft_deleted:
-        soft_delete_msg = "(soft-deleted)"
-
-    deletion_result = DeletionResult()
-    deletion_result.num_entities = 1
-    deletion_result.num_records = UNKNOWN_NUM_RECORDS  # Default is unknown
+    rows_affected: int = 0
+    ts_rows_affected: int = 0
+    referenced_entities_affected: int = 0
 
     if soft:
-        if aspect_name:
-            raise click.UsageError(
-                "Please provide --hard flag, as aspect values cannot be soft deleted."
-            )
-        # Add removed aspect
-        if cached_emitter:
-            emitter = cached_emitter
-        else:
-            _, gms_host = cli_utils.get_session_and_host()
-            token = cli_utils.get_token()
-            emitter = rest_emitter.DatahubRestEmitter(gms_server=gms_host, token=token)
+        # Soft delete of entity.
+        assert not aspect_name, "aspects cannot be soft deleted"
+
         if not dry_run:
-            emitter.emit_mcp(
-                MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=StatusClass(removed=True),
-                    systemMetadata=SystemMetadataClass(
-                        runId=run_id, lastObserved=deletion_timestamp
-                    ),
-                )
-            )
+            graph.soft_delete_entity(urn=urn, run_id=run_id)
         else:
             logger.info(f"[Dry-run] Would soft-delete {urn}")
-    elif not dry_run:
-        payload_obj: Dict[str, Any] = {"urn": urn}
-        if aspect_name:
-            payload_obj["aspectName"] = aspect_name
-        if start_time:
-            payload_obj["startTimeMillis"] = int(round(start_time.timestamp() * 1000))
-        if end_time:
-            payload_obj["endTimeMillis"] = int(round(end_time.timestamp() * 1000))
-        rows_affected: int
-        ts_rows_affected: int
-        urn, rows_affected, ts_rows_affected = cli_utils.post_delete_endpoint(
-            payload_obj,
-            "/entities?action=delete",
-            cached_session_host=cached_session_host,
-        )
-        deletion_result.num_records = rows_affected
-        deletion_result.num_timeseries_records = ts_rows_affected
-    else:
-        if aspect_name:
-            logger.info(
-                f"[Dry-run] Would hard-delete aspect {aspect_name} of {urn} {soft_delete_msg}"
+
+        rows_affected = 1
+        ts_rows_affected = 0
+
+    elif aspect_name and aspect_name in TIMESERIES_ASPECT_MAP:
+        # Hard delete of timeseries aspect.
+
+        if not dry_run:
+            ts_rows_affected = graph.hard_delete_timeseries_aspect(
+                urn=urn,
+                aspect_name=aspect_name,
+                start_time=start_time,
+                end_time=end_time,
             )
         else:
-            logger.info(f"[Dry-run] Would hard-delete {urn} {soft_delete_msg}")
-        deletion_result.num_records = (
-            UNKNOWN_NUM_RECORDS  # since we don't know how many rows will be affected
+            logger.info(
+                f"[Dry-run] Would hard-delete {urn} timeseries aspect {aspect_name}"
+            )
+            ts_rows_affected = _UNKNOWN_NUM_RECORDS
+
+    elif aspect_name:
+        # Hard delete of non-timeseries aspect.
+
+        # TODO: The backend doesn't support this yet.
+        raise NotImplementedError(
+            "Delete by aspect is not supported yet for non-timeseries aspects. Please delete the full entity or use rollback instead."
         )
 
-    deletion_result.end()
-    return deletion_result
+    else:
+        # Full entity hard delete.
+        assert not soft and not aspect_name
 
+        if not dry_run:
+            rows_affected, ts_rows_affected = graph.hard_delete_entity(
+                urn=urn,
+            )
+        else:
+            logger.info(f"[Dry-run] Would hard-delete {urn}")
+            rows_affected = _UNKNOWN_NUM_RECORDS
+            ts_rows_affected = _UNKNOWN_NUM_RECORDS
 
-@telemetry.with_telemetry()
-def delete_one_urn_cmd(
-    urn: str,
-    aspect_name: Optional[str] = None,
-    soft: bool = False,
-    dry_run: bool = False,
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
-    cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
-    cached_emitter: Optional[rest_emitter.DatahubRestEmitter] = None,
-) -> DeletionResult:
-    """
-    Wrapper around delete_one_urn because it is also called in a loop via delete_with_filters.
+        # For full entity deletes, we also might clean up references to the entity.
+        if guess_entity_type(urn) in _DELETE_WITH_REFERENCES_TYPES:
+            referenced_entities_affected, _ = graph.delete_references_to_urn(
+                urn=urn,
+                dry_run=dry_run,
+            )
+            if dry_run and referenced_entities_affected > 0:
+                logger.info(
+                    f"[Dry-run] Would remove {referenced_entities_affected} references to {urn}"
+                )
 
-    This is a separate function that is called only when a single URN is deleted via the CLI.
-    """
-
-    return _delete_one_urn(
-        urn,
-        soft,
-        dry_run,
-        aspect_name,
-        start_time,
-        end_time,
-        cached_session_host,
-        cached_emitter,
-    )
-
-
-def delete_references(
-    urn: str,
-    dry_run: bool = False,
-    cached_session_host: Optional[Tuple[sessions.Session, str]] = None,
-) -> Tuple[int, List[Dict]]:
-    payload_obj = {"urn": urn, "dryRun": dry_run}
-    return cli_utils.post_delete_references_endpoint(
-        payload_obj,
-        "/entities?action=deleteReferences",
-        cached_session_host=cached_session_host,
+    return DeletionResult(
+        num_entities=1,
+        num_records=rows_affected,
+        num_timeseries_records=ts_rows_affected,
+        num_referenced_entities=referenced_entities_affected,
     )

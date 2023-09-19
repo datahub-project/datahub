@@ -1,17 +1,22 @@
 import logging
 import sys
-from typing import List
+from typing import List, Tuple
 
 import pytest
 from lark import Tree
 
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceReport
-from datahub.ingestion.source.powerbi.m_query import parser, tree_function
-from datahub.ingestion.source.powerbi.m_query.resolver import (
-    DataPlatformTable,
-    SupportedDataPlatform,
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
 )
+from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
+    AbstractDataPlatformInstanceResolver,
+    create_dataplatform_instance_resolver,
+)
+from datahub.ingestion.source.powerbi.m_query import parser, tree_function
+from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable
 
 M_QUERIES = [
     'let\n    Source = Snowflake.Databases("bu10758.ap-unknown-2.fakecomputing.com","PBI_TEST_WAREHOUSE_PROD",[Role="PBI_TEST_MEMBER"]),\n    PBI_TEST_Database = Source{[Name="PBI_TEST",Kind="Database"]}[Data],\n    TEST_Schema = PBI_TEST_Database{[Name="TEST",Kind="Schema"]}[Data],\n    TESTTABLE_Table = TEST_Schema{[Name="TESTTABLE",Kind="Table"]}[Data]\nin\n    TESTTABLE_Table',
@@ -37,7 +42,30 @@ M_QUERIES = [
     'let\n Source = GoogleBigQuery.Database([BillingProject="dwh-prod"]),\ngcp_project = Source{[Name="dwh-prod"]}[Data],\ngcp_billing_Schema = gcp_project {[Name="gcp_billing",Kind="Schema"]}[Data],\nD_GCP_CUSTOM_LABEL_Table = gcp_billing_Schema{[Name="D_GCP_CUSTOM_LABEL",Kind="Table"]}[Data] \n in \n D_GCP_CUSTOM_LABEL_Table',
     'let\n    Source = AmazonRedshift.Database("redshift-url","dev"),\n    public = Source{[Name="public"]}[Data],\n    category1 = public{[Name="category"]}[Data]\nin\n    category1',
     'let\n Source = Value.NativeQuery(AmazonRedshift.Database("redshift-url","dev"), "select * from dev.public.category", null, [EnableFolding=true]) \n in Source',
+    'let\n    Source = Databricks.Catalogs("adb-123.azuredatabricks.net", "/sql/1.0/endpoints/12345dc91aa25844", [Catalog=null, Database=null]),\n    hive_metastore_Database = Source{[Name="hive_metastore",Kind="Database"]}[Data],\n    sandbox_revenue_Schema = hive_metastore_Database{[Name="sandbox_revenue",Kind="Schema"]}[Data],\n    public_consumer_price_index_Table = sandbox_revenue_Schema{[Name="public_consumer_price_index",Kind="Table"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(public_consumer_price_index_Table,{{"Country", "country"}, {"Metric", "metric"}}),\n #"Inserted Year" = Table.AddColumn(#"Renamed Columns", "ID", each Date.Year([date_id]) + Date.Month([date_id]), Text.Type),\n #"Added Custom" = Table.AddColumn(#"Inserted Year", "Custom", each Text.Combine({Number.ToText(Date.Year([date_id])), Number.ToText(Date.Month([date_id])), [country]})),\n    #"Removed Columns" = Table.RemoveColumns(#"Added Custom",{"ID"}),\n    #"Renamed Columns1" = Table.RenameColumns(#"Removed Columns",{{"Custom", "ID"}}),\n #"Filtered Rows" = Table.SelectRows(#"Renamed Columns1", each ([metric] = "Consumer Price Index") and (not Number.IsNaN([value])))\nin\n    #"Filtered Rows"',
+    "let\n    Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source",
 ]
+
+
+def get_default_instances(
+    override_config: dict = {},
+) -> Tuple[
+    PipelineContext, PowerBiDashboardSourceConfig, AbstractDataPlatformInstanceResolver
+]:
+    config: PowerBiDashboardSourceConfig = PowerBiDashboardSourceConfig.parse_obj(
+        {
+            "tenant_id": "fake",
+            "client_id": "foo",
+            "client_secret": "bar",
+            **override_config,
+        }
+    )
+
+    platform_instance_resolver: AbstractDataPlatformInstanceResolver = (
+        create_dataplatform_instance_resolver(config)
+    )
+
+    return PipelineContext(run_id="fake"), config, platform_instance_resolver
 
 
 @pytest.mark.integration
@@ -135,6 +163,8 @@ def test_parse_m_query13():
 def test_snowflake_regular_case():
     q: str = M_QUERIES[0]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -142,20 +172,20 @@ def test_snowflake_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "TESTTABLE"
-    assert data_platform_tables[0].full_name == "PBI_TEST.TEST.TESTTABLE"
     assert (
-        data_platform_tables[0].datasource_server
-        == "bu10758.ap-unknown-2.fakecomputing.com"
-    )
-    assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,pbi_test.test.testtable,PROD)"
     )
 
 
@@ -163,23 +193,59 @@ def test_snowflake_regular_case():
 def test_postgres_regular_case():
     q: str = M_QUERIES[13]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
 
     reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "order_date"
-    assert data_platform_tables[0].full_name == "mics.public.order_date"
-    assert data_platform_tables[0].datasource_server == "localhost"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.POSTGRES_SQL.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,mics.public.order_date,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_databricks_regular_case():
+    q: str = M_QUERIES[23]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="public_consumer_price_index",
+        full_name="hive_metastore.sandbox_revenue.public_consumer_price_index",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.sandbox_revenue.public_consumer_price_index,PROD)"
     )
 
 
@@ -187,23 +253,29 @@ def test_postgres_regular_case():
 def test_oracle_regular_case():
     q: str = M_QUERIES[14]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
 
     reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "EMPLOYEES"
-    assert data_platform_tables[0].full_name == "salesdb.HR.EMPLOYEES"
-    assert data_platform_tables[0].datasource_server == "localhost:1521"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.ORACLE.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:oracle,salesdb.hr.employees,PROD)"
     )
 
 
@@ -211,6 +283,8 @@ def test_oracle_regular_case():
 def test_mssql_regular_case():
     q: str = M_QUERIES[15]
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=q,
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -218,17 +292,20 @@ def test_mssql_regular_case():
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == "book_issue"
-    assert data_platform_tables[0].full_name == "library.dbo.book_issue"
-    assert data_platform_tables[0].datasource_server == "localhost"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.MS_SQL.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,library.dbo.book_issue,PROD)"
     )
 
 
@@ -243,16 +320,20 @@ def test_mssql_with_query():
         M_QUERIES[11],
     ]
     expected_tables = [
-        "COMMOPSDB.dbo.V_OIP_ENT_2022",
-        "COMMOPSDB.dbo.V_INVOICE_BOOKING_2022",
-        "COMMOPSDB.dbo.V_ARR_ADDS",
-        "COMMOPSDB.dbo.V_PS_CD_RETENTION",
-        "COMMOPSDB.dbo.V_TPV_LEADERBOARD",
-        "COMMOPSDB.dbo.V_ENTERPRISE_INVOICED_REVENUE",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_oip_ent_2022,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_invoice_booking_2022,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_arr_adds,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_ps_cd_retention,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_tpv_leaderboard,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_enterprise_invoiced_revenue,PROD)",
     ]
+
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     for index, query in enumerate(mssql_queries):
         table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -260,17 +341,15 @@ def test_mssql_with_query():
         reporter = PowerBiDashboardSourceReport()
 
         data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-            table, reporter, native_query_enabled=False
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
         )
 
         assert len(data_platform_tables) == 1
-        assert data_platform_tables[0].name == expected_tables[index].split(".")[2]
-        assert data_platform_tables[0].full_name == expected_tables[index]
-        assert data_platform_tables[0].datasource_server == "AUPRDWHDB"
-        assert (
-            data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-            == SupportedDataPlatform.MS_SQL.value.powerbi_data_platform_name
-        )
+        assert data_platform_tables[0].urn == expected_tables[index]
 
 
 @pytest.mark.integration
@@ -283,14 +362,18 @@ def test_snowflake_native_query():
     ]
 
     expected_tables = [
-        "OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4",
-        "OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS",
-        "OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS",
-        "OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_aps_sme_units_v4,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)",
     ]
+
+    ctx, config, platform_instance_resolver = get_default_instances()
 
     for index, query in enumerate(snowflake_queries):
         table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+            columns=[],
+            measures=[],
             expression=query,
             name="virtual_order_table",
             full_name="OrderDataSet.virtual_order_table",
@@ -298,20 +381,15 @@ def test_snowflake_native_query():
         reporter = PowerBiDashboardSourceReport()
 
         data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-            table, reporter
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
         )
 
         assert len(data_platform_tables) == 1
-        assert data_platform_tables[0].name == expected_tables[index].split(".")[2]
-        assert data_platform_tables[0].full_name == expected_tables[index]
-        assert (
-            data_platform_tables[0].datasource_server
-            == "bu10758.ap-unknown-2.fakecomputing.com"
-        )
-        assert (
-            data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-            == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
-        )
+        assert data_platform_tables[0].urn == expected_tables[index]
 
 
 def test_google_bigquery_1():
@@ -322,16 +400,20 @@ def test_google_bigquery_1():
     )
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
+
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == table.full_name.split(".")[2]
-    assert data_platform_tables[0].full_name == table.full_name
-    assert data_platform_tables[0].datasource_server == "seraphic-music-344307"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,seraphic-music-344307.school_dataset.first,PROD)"
     )
 
 
@@ -346,23 +428,24 @@ def test_google_bigquery_2():
     )
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
-        native_query_enabled=False,
         parameters={
             "Parameter - Source": "my-test-project",
             "My bq project": "gcp_billing",
         },
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == table.full_name.split(".")[2]
-    assert data_platform_tables[0].full_name == table.full_name
-    assert data_platform_tables[0].datasource_server == "my-test-project"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-test-project.gcp_billing.gcp_table,PROD)"
     )
 
 
@@ -375,23 +458,24 @@ def test_for_each_expression_1():
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
-        native_query_enabled=False,
         parameters={
             "Parameter - Source": "my-test-project",
             "My bq project": "gcp_billing",
         },
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == table.full_name.split(".")[2]
-    assert data_platform_tables[0].datasource_server == "my-test-project"
-    assert data_platform_tables[0].full_name == table.full_name
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-test-project.universal.d_wh_date,PROD)"
     )
 
 
@@ -404,28 +488,31 @@ def test_for_each_expression_2():
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
         table,
         reporter,
-        native_query_enabled=False,
         parameters={
             "dwh-prod": "originally-not-a-variable-ref-and-not-resolved",
         },
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == table.full_name.split(".")[2]
-    assert data_platform_tables[0].full_name == table.full_name
-    assert data_platform_tables[0].datasource_server == "dwh-prod"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.GOOGLE_BIGQUERY.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:bigquery,dwh-prod.gcp_billing.d_gcp_custom_label,PROD)"
     )
 
 
 @pytest.mark.integration
 def test_native_query_disabled():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=M_QUERIES[1],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -433,8 +520,14 @@ def test_native_query_disabled():
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+    config.native_query_parsing = False
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
     assert len(data_platform_tables) == 0
 
@@ -442,68 +535,68 @@ def test_native_query_disabled():
 @pytest.mark.integration
 def test_multi_source_table():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=M_QUERIES[12],  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
 
     reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 2
-    assert data_platform_tables[0].full_name == "mics.public.order_date"
-    assert data_platform_tables[0].datasource_server == "localhost"
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.POSTGRES_SQL.value.powerbi_data_platform_name
-    )
-
-    assert data_platform_tables[1].full_name == "GSL_TEST_DB.PUBLIC.SALES_ANALYST_VIEW"
-    assert (
-        data_platform_tables[1].datasource_server
-        == "ghh48144.snowflakefakecomputing.com"
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,mics.public.order_date,PROD)"
     )
     assert (
-        data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+        data_platform_tables[1].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,gsl_test_db.public.sales_analyst_view,PROD)"
     )
 
 
 @pytest.mark.integration
 def test_table_combine():
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[16],  # 1st index has the native query
+        columns=[],
+        measures=[],
+        expression=M_QUERIES[16],
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
     )
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 2
-    assert data_platform_tables[0].full_name == "GSL_TEST_DB.PUBLIC.SALES_FORECAST"
+
     assert (
-        data_platform_tables[0].datasource_server
-        == "ghh48144.snowflakefakecomputing.com"
-    )
-    assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,gsl_test_db.public.sales_forecast,PROD)"
     )
 
-    assert data_platform_tables[1].full_name == "GSL_TEST_DB.PUBLIC.SALES_ANALYST"
     assert (
-        data_platform_tables[1].datasource_server
-        == "ghh48144.snowflakefakecomputing.com"
-    )
-    assert (
-        data_platform_tables[1].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name
+        data_platform_tables[1].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,gsl_test_db.public.sales_analyst,PROD)"
     )
 
 
@@ -518,6 +611,8 @@ def test_expression_is_none():
     logging.getLogger().setLevel(logging.DEBUG)
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
         expression=None,  # 1st index has the native query
         name="virtual_order_table",
         full_name="OrderDataSet.virtual_order_table",
@@ -525,8 +620,14 @@ def test_expression_is_none():
 
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
 
     assert len(data_platform_tables) == 0
@@ -540,15 +641,20 @@ def test_redshift_regular_case():
     )
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=False
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
+
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == table.full_name.split(".")[2]
-    assert data_platform_tables[0].full_name == table.full_name
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.category,PROD)"
     )
 
 
@@ -560,13 +666,60 @@ def test_redshift_native_query():
     )
     reporter = PowerBiDashboardSourceReport()
 
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.native_query_parsing = True
+
     data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table, reporter, native_query_enabled=True
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
     )
+
     assert len(data_platform_tables) == 1
-    assert data_platform_tables[0].name == table.full_name.split(".")[2]
-    assert data_platform_tables[0].full_name == table.full_name
     assert (
-        data_platform_tables[0].data_platform_pair.powerbi_data_platform_name
-        == SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.category,PROD)"
+    )
+
+
+def test_sqlglot_parser():
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        expression=M_QUERIES[24],
+        name="SALES_TARGET",
+        full_name="dev.public.sales",
+    )
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "server_to_platform_instance": {
+                "bu10758.ap-unknown-2.fakecomputing.com": {
+                    "platform_instance": "sales_deployment",
+                    "env": "PROD",
+                }
+            },
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert len(data_platform_tables) == 2
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit,PROD)"
+    )
+    assert (
+        data_platform_tables[1].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_deployment.operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
     )

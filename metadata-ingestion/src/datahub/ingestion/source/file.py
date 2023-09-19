@@ -3,11 +3,11 @@ import json
 import logging
 import os.path
 import pathlib
-from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import auto
+from functools import partial
 from io import BufferedReader
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 from urllib import parse
 
 import ijson
@@ -28,17 +28,18 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
+    MetadataWorkUnitProcessor,
     SourceReport,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.workunit import MetadataWorkUnit, UsageStatsWorkUnit
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import UsageAggregationClass
-from datahub.utilities.source_helpers import auto_workunit_reporter
 
 logger = logging.getLogger(__name__)
 
@@ -106,8 +107,6 @@ class FileSourceReport(SourceReport):
     total_parse_time_in_seconds: float = 0
     total_count_time_in_seconds: float = 0
     total_deserialize_time_in_seconds: float = 0
-    aspect_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
-    entity_type_counts: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
 
     def add_deserialize_time(self, delta: datetime.timedelta) -> None:
         self.total_deserialize_time_in_seconds += round(delta.total_seconds(), 2)
@@ -205,29 +204,25 @@ class GenericFileSource(TestableSource):
             self.report.total_num_files = 1
             return [str(self.config.path)]
 
-    def get_workunits(self) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
-        return auto_workunit_reporter(self.report, self.get_workunits_internal())
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # No super() call, as we don't want helpers that create / remove workunits
+        return [partial(auto_workunit_reporter, self.report)]
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, UsageStatsWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
                 id = f"file://{f}:{i}"
-                if isinstance(obj, UsageAggregationClass):
-                    yield UsageStatsWorkUnit(id, obj)
-                elif isinstance(
+                if isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
-                    self.report.entity_type_counts[obj.entityType] += 1
-                    if obj.aspectName is not None:
-                        cur_aspect_name = str(obj.aspectName)
-                        self.report.aspect_counts[cur_aspect_name] += 1
-                        if (
-                            self.config.aspect is not None
-                            and cur_aspect_name != self.config.aspect
-                        ):
-                            continue
+                    if (
+                        self.config.aspect is not None
+                        and obj.aspectName is not None
+                        and obj.aspectName != self.config.aspect
+                    ):
+                        continue
 
                     if isinstance(obj, MetadataChangeProposalWrapper):
                         yield MetadataWorkUnit(id, mcp=obj)
@@ -247,23 +242,7 @@ class GenericFileSource(TestableSource):
     def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
         self.report.current_file_name = path
         path_parsed = parse.urlparse(path)
-        if path_parsed.scheme not in ("file", ""):  # A remote file
-            try:
-                response = requests.get(path)
-                parse_start_time = datetime.datetime.now()
-                data = response.json()
-            except Exception as e:
-                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
-            if not isinstance(data, list):
-                data = [data]
-            parse_end_time = datetime.datetime.now()
-            self.report.add_parse_time(parse_end_time - parse_start_time)
-            self.report.current_file_size = len(response.content)
-            self.report.current_file_elements_read = 0
-            for i, obj in enumerate(data):
-                yield i, obj
-                self.report.current_file_elements_read += 1
-        else:
+        if path_parsed.scheme not in ("http", "https"):  # A local file
             self.report.current_file_size = os.path.getsize(path)
             if self.config.read_mode == FileReadMode.AUTO:
                 file_read_mode = (
@@ -314,6 +293,22 @@ class GenericFileSource(TestableSource):
                     self.report.current_file_elements_read += 1
                     yield rows_yielded, row
                     parse_start_time = datetime.datetime.now()
+        else:
+            try:
+                response = requests.get(path)
+                parse_start_time = datetime.datetime.now()
+                data = response.json()
+            except Exception as e:
+                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
+            if not isinstance(data, list):
+                data = [data]
+            parse_end_time = datetime.datetime.now()
+            self.report.add_parse_time(parse_end_time - parse_start_time)
+            self.report.current_file_size = len(response.content)
+            self.report.current_file_elements_read = 0
+            for i, obj in enumerate(data):
+                yield i, obj
+                self.report.current_file_elements_read += 1
 
         self.report.files_completed.append(path)
         self.report.num_files_completed += 1
@@ -335,7 +330,6 @@ class GenericFileSource(TestableSource):
                 MetadataChangeEvent,
                 MetadataChangeProposalWrapper,
                 MetadataChangeProposal,
-                UsageAggregationClass,
             ],
         ]
     ]:
@@ -343,9 +337,12 @@ class GenericFileSource(TestableSource):
             try:
                 deserialize_start_time = datetime.datetime.now()
                 item = _from_obj_for_file(obj)
-                deserialize_duration = datetime.datetime.now() - deserialize_start_time
-                self.report.add_deserialize_time(deserialize_duration)
-                yield i, item
+                if item is not None:
+                    deserialize_duration = (
+                        datetime.datetime.now() - deserialize_start_time
+                    )
+                    self.report.add_deserialize_time(deserialize_duration)
+                    yield i, item
             except Exception as e:
                 self.report.report_failure(f"path-{i}", str(e))
 
@@ -388,7 +385,7 @@ def _from_obj_for_file(
     MetadataChangeEvent,
     MetadataChangeProposal,
     MetadataChangeProposalWrapper,
-    UsageAggregationClass,
+    None,
 ]:
     item: Union[
         MetadataChangeEvent,
@@ -406,22 +403,25 @@ def _from_obj_for_file(
     if not item.validate():
         raise ValueError(f"failed to parse: {obj}")
 
-    return item
+    if isinstance(item, UsageAggregationClass):
+        logger.warning(f"Dropping deprecated UsageAggregationClass: {item}")
+        return None
+    else:
+        return item
 
 
 def read_metadata_file(
     file: pathlib.Path,
-) -> List[
+) -> Iterable[
     Union[
         MetadataChangeEvent,
         MetadataChangeProposal,
         MetadataChangeProposalWrapper,
-        UsageAggregationClass,
     ]
 ]:
     # This simplified version of the FileSource can be used for testing purposes.
-    records = []
     with file.open("r") as f:
         for obj in json.load(f):
-            records.append(_from_obj_for_file(obj))
-    return records
+            item = _from_obj_for_file(obj)
+            if item:
+                yield item

@@ -2,7 +2,7 @@ import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
-from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar
+from typing import IO, Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
 
 import pydantic
 from cached_property import cached_property
@@ -31,8 +31,10 @@ REDACT_SUFFIXES = {
 }
 
 
-def _should_redact_key(key: str) -> bool:
-    return key in REDACT_KEYS or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+def _should_redact_key(key: Union[str, int]) -> bool:
+    return isinstance(key, str) and (
+        key in REDACT_KEYS or any(key.endswith(suffix) for suffix in REDACT_SUFFIXES)
+    )
 
 
 def _redact_value(value: Any) -> Any:
@@ -185,34 +187,6 @@ class ConfigurationMechanism(ABC):
     @abstractmethod
     def load_config(self, config_fp: IO) -> dict:
         pass
-
-
-class OauthConfiguration(ConfigModel):
-    provider: Optional[str] = Field(
-        description="Identity provider for oauth, e.g- microsoft"
-    )
-    client_id: Optional[str] = Field(
-        description="client id of your registered application"
-    )
-    scopes: Optional[List[str]] = Field(
-        description="scopes required to connect to snowflake"
-    )
-    use_certificate: bool = Field(
-        description="Do you want to use certificate and private key to authenticate using oauth",
-        default=False,
-    )
-    client_secret: Optional[str] = Field(
-        description="client secret of the application if use_certificate = false"
-    )
-    authority_url: Optional[str] = Field(
-        description="Authority url of your identity provider"
-    )
-    encoded_oauth_public_key: Optional[str] = Field(
-        description="base64 encoded certificate content if use_certificate = true"
-    )
-    encoded_oauth_private_key: Optional[str] = Field(
-        description="base64 encoded private key content if use_certificate = true"
-    )
 
 
 class AllowDenyPattern(ConfigModel):

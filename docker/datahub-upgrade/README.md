@@ -57,6 +57,9 @@ NEO4J_PASSWORD=datahub
 DATAHUB_GMS_HOST=<your-gms-host>>
 DATAHUB_GMS_PORT=8080
 
+# Datahub protocol (default http)
+# DATAHUB_GMS_PROTOCOL=http
+
 DATAHUB_MAE_CONSUMER_HOST=<your-mae-consumer-host>
 DATAHUB_MAE_CONSUMER_PORT=9091
 

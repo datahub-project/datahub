@@ -11,7 +11,7 @@ sourceSets {
 idea {
   module {
     testSourceDirs += file('src/integTest/java')
-    scopes.TEST.plus += [ configurations.integTestCompile ]
+    scopes.TEST.plus += [ configurations.integTestCompileOnly ]
   }
 }
 
@@ -19,6 +19,10 @@ idea {
 configurations {
   integTestImplementation.extendsFrom implementation
   integTestRuntimeOnly.extendsFrom runtimeOnly
+  integTestCompileOnly {
+    extendsFrom compileOnly
+    canBeResolved = true
+  }
   modelValidation
 }
 
@@ -32,33 +36,37 @@ dependencies {
     }
   }
 
-  compile project(':metadata-service:restli-api')
-  compile project(':metadata-auth:auth-api')
-  compile project(path: ':metadata-service:restli-api', configuration: 'dataTemplate')
-  compile project(':li-utils')
-  compile project(':metadata-models')
-  compile project(':metadata-utils')
-  compile project(':metadata-io')
-  compile spec.product.pegasus.restliServer
+  implementation project(':metadata-service:restli-api')
+  implementation project(':metadata-auth:auth-api')
+  implementation project(path: ':metadata-service:restli-api', configuration: 'dataTemplate')
+  implementation project(':li-utils')
+  implementation project(':metadata-models')
+  implementation project(':metadata-utils')
+  implementation project(':metadata-io')
+  implementation spec.product.pegasus.restliServer
   implementation externalDependency.slf4jApi
-  // This is compile and not compileOnly because of restli
-  compile externalDependency.lombok
-  compile externalDependency.neo4jJavaDriver
-  compile externalDependency.opentelemetryAnnotations
+  implementation externalDependency.dropwizardMetricsCore
+  implementation externalDependency.dropwizardMetricsJmx
+
+  compileOnly externalDependency.lombok
+  implementation externalDependency.neo4jJavaDriver
+  implementation externalDependency.opentelemetryAnnotations
 
   runtimeOnly externalDependency.logbackClassic
 
   annotationProcessor externalDependency.lombok
 
-  testCompile project(':test-models')
-  testCompile externalDependency.mockito
-  testCompile externalDependency.testng
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation project(':mock-entity-registry')
+  testImplementation externalDependency.mockito
+  testImplementation externalDependency.testng
 
   integTestImplementation externalDependency.junitJupiterApi
   integTestRuntimeOnly externalDependency.junitJupiterEngine
 
-  integTestCompile externalDependency.junitJupiterApi
-  integTestCompile externalDependency.junitJupiterParams
+  integTestCompileOnly externalDependency.junitJupiterApi
+  integTestCompileOnly externalDependency.junitJupiterParams
 
   modelValidation project(path: ':metadata-models-validator')
   dataModel project(path: ':metadata-models', configuration: 'dataTemplate')

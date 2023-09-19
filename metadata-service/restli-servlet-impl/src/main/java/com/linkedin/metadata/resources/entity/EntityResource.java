@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.maven.artifact.versioning.ComparableVersion;
 
 import static com.linkedin.metadata.Constants.*;
@@ -117,7 +118,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_URN = "urn";
   private static final String SYSTEM_METADATA = "systemMetadata";
-  private static final String ES_FILED_TIMESTAMP = "timestampMillis";
+  private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
   private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
   private final Clock _clock = Clock.systemUTC();
   @Inject
@@ -331,7 +332,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             () -> {
               final SearchResult result;
               // This API is not used by the frontend for search bars so we default to structured
-              result = _entitySearchService.search(entityName, input, filter, sortCriterion, start, count, searchFlags);
+              result = _entitySearchService.search(List.of(entityName), input, filter, sortCriterion, start, count, searchFlags);
               return validateSearchResult(result, _entityService);
             },
             MetricRegistry.name(this.getClass(), "search"));
@@ -427,7 +428,8 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final SearchFlags finalFlags = searchFlags != null ? searchFlags : new SearchFlags().setSkipCache(true);
     return RestliUtil.toTask(() -> validateLineageScrollResult(
         _lineageSearchService.scrollAcrossLineage(urn, LineageDirection.valueOf(direction), entityList, input, maxHops,
-            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags), _entityService),
+            filter, sortCriterion, scrollId, keepAlive, count, startTimeMillis, endTimeMillis, finalFlags),
+            _entityService),
         "scrollAcrossLineage");
   }
 
@@ -645,11 +647,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     criteria.add(QueryUtils.newCriterion("urn", urn.toString()));
     if (startTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(ES_FILED_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
+          QueryUtils.newCriterion(ES_FIELD_TIMESTAMP, startTimeMillis.toString(), Condition.GREATER_THAN_OR_EQUAL_TO));
     }
     if (endTimeMillis != null) {
       criteria.add(
-          QueryUtils.newCriterion(ES_FILED_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
+          QueryUtils.newCriterion(ES_FIELD_TIMESTAMP, endTimeMillis.toString(), Condition.LESS_THAN_OR_EQUAL_TO));
     }
     final Filter filter = QueryUtils.getFilterFromCriteria(criteria);
 
@@ -755,8 +757,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                                      @ActionParam(PARAM_URN) @Optional @Nullable String urn
                                      ) {
     Authentication auth = AuthenticationContext.getAuthentication();
+    ResourceSpec resourceSpec = null;
+    if (StringUtils.isNotBlank(urn)) {
+      Urn resource = UrnUtils.getUrn(urn);
+      resourceSpec = new ResourceSpec(resource.getEntityType(), resource.toString());
+    }
     if (Boolean.parseBoolean(System.getenv(REST_API_AUTHORIZATION_ENABLED_ENV))
-        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.APPLY_RETENTION_PRIVILEGE), (ResourceSpec) null)) {
+        && !isAuthorized(auth, _authorizer, ImmutableList.of(PoliciesConfig.APPLY_RETENTION_PRIVILEGE), resourceSpec)) {
       throw new RestLiServiceException(HttpStatus.S_401_UNAUTHORIZED,
           "User is unauthorized to apply retention.");
     }

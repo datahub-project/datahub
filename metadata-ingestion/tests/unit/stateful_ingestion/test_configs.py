@@ -19,7 +19,7 @@ datahub_client_configs: Dict[str, Any] = {
         "token": "dummy_test_tok",
         "timeout_sec": 10,
         "extra_headers": {},
-        "max_threads": 1,
+        "max_threads": 10,
     },
     "simple": {},
     "default": {},
@@ -44,12 +44,15 @@ checkpointing_provider_config_test_params: Dict[
             "datahub_api": datahub_client_configs["full"],
         },
         DatahubIngestionStateProviderConfig(
-            datahub_api=DatahubClientConfig(
-                server="http://localhost:8080",
-                token="dummy_test_tok",
-                timeout_sec=10,
-                extra_headers={},
-                max_threads=1,
+            # This test verifies that the max_threads arg is ignored.
+            datahub_api=DatahubClientConfig.parse_obj_allow_extras(
+                dict(
+                    server="http://localhost:8080",
+                    token="dummy_test_tok",
+                    timeout_sec=10,
+                    extra_headers={},
+                    max_threads=10,
+                )
             ),
         ),
         False,
@@ -129,9 +132,7 @@ stateful_ingestion_config_test_params: Dict[
         {},
         StatefulIngestionConfig(
             enabled=False,
-            # fmt: off
             max_checkpoint_state_size=2**24,
-            # fmt: on
             ignore_old_state=False,
             ignore_new_state=False,
             state_provider=None,
@@ -144,9 +145,7 @@ stateful_ingestion_config_test_params: Dict[
         {"enabled": True},
         StatefulIngestionConfig(
             enabled=True,
-            # fmt: off
             max_checkpoint_state_size=2**24,
-            # fmt: on
             ignore_old_state=False,
             ignore_new_state=False,
             state_provider=DynamicTypedConfig(type="datahub", config=None),
@@ -193,7 +192,7 @@ def test_state_provider_configs(
     if raises_exception:
         with pytest.raises(ValidationError):
             assert expected is None
-            config_class.parse_obj(config_dict)
+            config_class.parse_obj_allow_extras(config_dict)
     else:
-        config = config_class.parse_obj(config_dict)
+        config = config_class.parse_obj_allow_extras(config_dict)
         assert config == expected

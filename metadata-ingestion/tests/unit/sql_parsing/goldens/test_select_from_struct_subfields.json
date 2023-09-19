@@ -1,0 +1,49 @@
+{
+    "query_type": "SELECT",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "post_id"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "post_id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "id"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.asset.id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "min_metric"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.metric.metricA"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)",
+                    "column": "widget.metric.metric_b"
+                }
+            ]
+        }
+    ]
+}

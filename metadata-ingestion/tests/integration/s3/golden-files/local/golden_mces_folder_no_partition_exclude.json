@@ -1,109 +1,133 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet",
+                "number_of_files": "2",
+                "size_in_bytes": "8412"
+            },
+            "name": "food_parquet",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "food_parquet",
+            "platform": "urn:li:dataPlatform:file",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "number_of_files": "2",
-                            "size_in_bytes": "8412"
-                        },
-                        "name": "food_parquet",
-                        "description": "",
-                        "tags": []
-                    }
+                    "fieldPath": "healthy",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "bool",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "food_parquet",
-                        "platform": "urn:li:dataPlatform:file",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.OtherSchema": {
-                                "rawSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "color",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "healthy",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                                    }
-                                },
-                                "nativeDataType": "bool",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "height",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "weight",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int64",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "weight",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "operationType": "UPDATE",
+            "lastUpdatedTimestamp": 1688445119021
         }
     },
     "systemMetadata": {
@@ -117,8 +141,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests\"}, \"name\": \"tests\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests"
+            },
+            "name": "tests"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -131,8 +161,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -145,8 +176,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -159,8 +191,26 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -173,8 +223,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration\"}, \"name\": \"integration\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration"
+            },
+            "name": "integration"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -187,8 +243,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -201,8 +258,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -215,8 +273,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -229,8 +290,29 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:583fb3ef3a2b226ea2630157568eb7dc\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -243,8 +325,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3\"}, \"name\": \"s3\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration/s3"
+            },
+            "name": "s3"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -257,8 +345,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -271,8 +360,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -285,8 +375,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -299,8 +392,33 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:bc816cf2df9acd90fcefa42dc425d886\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -313,8 +431,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data\"}, \"name\": \"test_data\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration/s3/test_data"
+            },
+            "name": "test_data"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -327,8 +451,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -341,8 +466,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -355,8 +481,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -369,8 +498,37 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:d20e88ff88a6de6e53e437d342e218f4\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -383,8 +541,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system\"}, \"name\": \"local_system\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system"
+            },
+            "name": "local_system"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -397,8 +561,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -411,8 +576,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -425,8 +591,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -439,8 +608,41 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -453,8 +655,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a\"}, \"name\": \"folder_a\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
+            },
+            "name": "folder_a"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -467,8 +675,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -481,8 +690,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -495,8 +705,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -509,8 +722,45 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:93525defb812252106d3b0c08a55e39a\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -523,8 +773,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa\"}, \"name\": \"folder_aa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
+            },
+            "name": "folder_aa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -537,8 +793,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -551,8 +808,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -565,8 +823,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -579,8 +840,49 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:48a8653fc4afb55b12cd8d0280e09156\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:98a716614da5246426edd48260406364",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                },
+                {
+                    "id": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+                    "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -593,8 +895,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"file\", \"instance\": \"UAT\", \"folder_abs_path\": \"tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa\"}, \"name\": \"folder_aaa\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "file",
+                "env": "UAT",
+                "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
+            },
+            "name": "folder_aaa"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -607,8 +915,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -621,8 +930,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:file\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:file"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -635,8 +945,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Folder\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -649,8 +962,53 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:98a716614da5246426edd48260406364\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:98a716614da5246426edd48260406364"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                },
+                {
+                    "id": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+                    "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+                },
+                {
+                    "id": "urn:li:container:98a716614da5246426edd48260406364",
+                    "urn": "urn:li:container:98a716614da5246426edd48260406364"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -663,8 +1021,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
@@ -677,8 +1036,361 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1615443388097, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 70, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"name\", \"uniqueCount\": 9, \"uniqueProportion\": 0.13043478260869565, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285, \"distinctValueFrequencies\": [{\"value\": \"NullValue\", \"frequency\": 1}, {\"value\": \"apple\", \"frequency\": 7}, {\"value\": \"chicken\", \"frequency\": 7}, {\"value\": \"cookie\", \"frequency\": 6}, {\"value\": \"hamburger\", \"frequency\": 7}, {\"value\": \"lasagna\", \"frequency\": 7}, {\"value\": \"orange\", \"frequency\": 7}, {\"value\": \"pasta\", \"frequency\": 7}, {\"value\": \"spinach\", \"frequency\": 7}, {\"value\": \"sushi\", \"frequency\": 7}, {\"value\": \"water\", \"frequency\": 7}], \"sampleValues\": [\"apple\", \"apple\", \"apple\", \"chicken\", \"cookie\", \"cookie\", \"cookie\", \"lasagna\", \"lasagna\", \"orange\", \"orange\", \"pasta\", \"pasta\", \"pasta\", \"pasta\", \"spinach\", \"spinach\", \"spinach\", \"water\", \"water\"]}, {\"fieldPath\": \"weight\", \"uniqueCount\": 10, \"uniqueProportion\": 0.14285714285714285, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"10\", \"frequency\": 7}, {\"value\": \"2\", \"frequency\": 7}, {\"value\": \"23\", \"frequency\": 7}, {\"value\": \"32\", \"frequency\": 7}, {\"value\": \"36\", \"frequency\": 7}, {\"value\": \"43\", \"frequency\": 7}, {\"value\": \"49\", \"frequency\": 7}, {\"value\": \"50\", \"frequency\": 7}, {\"value\": \"53\", \"frequency\": 7}, {\"value\": \"72\", \"frequency\": 7}], \"sampleValues\": [\"10\", \"10\", \"10\", \"23\", \"23\", \"23\", \"32\", \"32\", \"36\", \"43\", \"43\", \"49\", \"49\", \"50\", \"50\", \"50\", \"72\", \"72\", \"72\", \"72\"]}, {\"fieldPath\": \"height\", \"uniqueCount\": 4, \"uniqueProportion\": 0.05714285714285714, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"4\", \"frequency\": 24}, {\"value\": \"5\", \"frequency\": 15}, {\"value\": \"6\", \"frequency\": 23}, {\"value\": \"7\", \"frequency\": 8}], \"sampleValues\": [\"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"4\", \"5\", \"5\", \"5\", \"5\", \"5\", \"6\", \"6\", \"6\", \"6\", \"6\", \"6\", \"7\", \"7\"]}, {\"fieldPath\": \"color\", \"uniqueCount\": 7, \"uniqueProportion\": 0.1, \"nullCount\": 0, \"nullProportion\": 0.0, \"distinctValueFrequencies\": [{\"value\": \"blue\", \"frequency\": 7}, {\"value\": \"brown\", \"frequency\": 14}, {\"value\": \"green\", \"frequency\": 7}, {\"value\": \"orange\", \"frequency\": 14}, {\"value\": \"red\", \"frequency\": 14}, {\"value\": \"white\", \"frequency\": 7}, {\"value\": \"yellow\", \"frequency\": 7}], \"sampleValues\": [\"blue\", \"blue\", \"brown\", \"brown\", \"brown\", \"green\", \"green\", \"green\", \"orange\", \"orange\", \"red\", \"red\", \"red\", \"red\", \"red\", \"white\", \"yellow\", \"yellow\", \"yellow\", \"yellow\"]}, {\"fieldPath\": \"healthy\", \"uniqueCount\": 2, \"uniqueProportion\": 0.028985507246376812, \"nullCount\": 1, \"nullProportion\": 0.014285714285714285, \"sampleValues\": [\"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"False\", \"None\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\", \"True\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1615443388097,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 70,
+            "columnCount": 5,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "name",
+                    "uniqueCount": 9,
+                    "uniqueProportion": 0.13043478260869565,
+                    "nullCount": 1,
+                    "nullProportion": 0.014285714285714285,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "NullValue",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "apple",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "chicken",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "cookie",
+                            "frequency": 6
+                        },
+                        {
+                            "value": "hamburger",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "lasagna",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "orange",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "pasta",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "spinach",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "sushi",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "water",
+                            "frequency": 7
+                        }
+                    ],
+                    "sampleValues": [
+                        "apple",
+                        "apple",
+                        "apple",
+                        "chicken",
+                        "cookie",
+                        "cookie",
+                        "cookie",
+                        "lasagna",
+                        "lasagna",
+                        "orange",
+                        "orange",
+                        "pasta",
+                        "pasta",
+                        "pasta",
+                        "pasta",
+                        "spinach",
+                        "spinach",
+                        "spinach",
+                        "water",
+                        "water"
+                    ]
+                },
+                {
+                    "fieldPath": "weight",
+                    "uniqueCount": 10,
+                    "uniqueProportion": 0.14285714285714285,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "10",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "2",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "23",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "32",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "36",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "43",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "49",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "50",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "53",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "72",
+                            "frequency": 7
+                        }
+                    ],
+                    "sampleValues": [
+                        "10",
+                        "10",
+                        "10",
+                        "23",
+                        "23",
+                        "23",
+                        "32",
+                        "32",
+                        "36",
+                        "43",
+                        "43",
+                        "49",
+                        "49",
+                        "50",
+                        "50",
+                        "50",
+                        "72",
+                        "72",
+                        "72",
+                        "72"
+                    ]
+                },
+                {
+                    "fieldPath": "height",
+                    "uniqueCount": 4,
+                    "uniqueProportion": 0.05714285714285714,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "4",
+                            "frequency": 24
+                        },
+                        {
+                            "value": "5",
+                            "frequency": 15
+                        },
+                        {
+                            "value": "6",
+                            "frequency": 23
+                        },
+                        {
+                            "value": "7",
+                            "frequency": 8
+                        }
+                    ],
+                    "sampleValues": [
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "4",
+                        "5",
+                        "5",
+                        "5",
+                        "5",
+                        "5",
+                        "6",
+                        "6",
+                        "6",
+                        "6",
+                        "6",
+                        "6",
+                        "7",
+                        "7"
+                    ]
+                },
+                {
+                    "fieldPath": "color",
+                    "uniqueCount": 7,
+                    "uniqueProportion": 0.1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "blue",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "brown",
+                            "frequency": 14
+                        },
+                        {
+                            "value": "green",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "orange",
+                            "frequency": 14
+                        },
+                        {
+                            "value": "red",
+                            "frequency": 14
+                        },
+                        {
+                            "value": "white",
+                            "frequency": 7
+                        },
+                        {
+                            "value": "yellow",
+                            "frequency": 7
+                        }
+                    ],
+                    "sampleValues": [
+                        "blue",
+                        "blue",
+                        "brown",
+                        "brown",
+                        "brown",
+                        "green",
+                        "green",
+                        "green",
+                        "orange",
+                        "orange",
+                        "red",
+                        "red",
+                        "red",
+                        "red",
+                        "red",
+                        "white",
+                        "yellow",
+                        "yellow",
+                        "yellow",
+                        "yellow"
+                    ]
+                },
+                {
+                    "fieldPath": "healthy",
+                    "uniqueCount": 2,
+                    "uniqueProportion": 0.028985507246376812,
+                    "nullCount": 1,
+                    "nullProportion": 0.014285714285714285,
+                    "sampleValues": [
+                        "False",
+                        "False",
+                        "False",
+                        "False",
+                        "False",
+                        "False",
+                        "False",
+                        "False",
+                        "False",
+                        "None",
+                        "True",
+                        "True",
+                        "True",
+                        "True",
+                        "True",
+                        "True",
+                        "True",
+                        "True",
+                        "True",
+                        "True"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "folder_no_partition_exclude.json"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet,UAT)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc",
+                    "urn": "urn:li:container:583fb3ef3a2b226ea2630157568eb7dc"
+                },
+                {
+                    "id": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886",
+                    "urn": "urn:li:container:bc816cf2df9acd90fcefa42dc425d886"
+                },
+                {
+                    "id": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4",
+                    "urn": "urn:li:container:d20e88ff88a6de6e53e437d342e218f4"
+                },
+                {
+                    "id": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50",
+                    "urn": "urn:li:container:f6ff9cd64806a7bb00e2e3bf37acca50"
+                },
+                {
+                    "id": "urn:li:container:93525defb812252106d3b0c08a55e39a",
+                    "urn": "urn:li:container:93525defb812252106d3b0c08a55e39a"
+                },
+                {
+                    "id": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156",
+                    "urn": "urn:li:container:48a8653fc4afb55b12cd8d0280e09156"
+                },
+                {
+                    "id": "urn:li:container:98a716614da5246426edd48260406364",
+                    "urn": "urn:li:container:98a716614da5246426edd48260406364"
+                },
+                {
+                    "id": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec",
+                    "urn": "urn:li:container:a0904d16a673fde8cbc8d0f2e167ecec"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,

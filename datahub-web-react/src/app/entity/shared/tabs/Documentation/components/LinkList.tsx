@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { message, Button, List, Typography } from 'antd';
 import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
-import { EntityType } from '../../../../../../types.generated';
+import { EntityType, InstitutionalMemoryMetadata } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
@@ -33,15 +33,15 @@ type LinkListProps = {
 };
 
 export const LinkList = ({ refetch }: LinkListProps) => {
-    const { urn, entityData } = useEntityData();
+    const { urn: entityUrn, entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [removeLinkMutation] = useRemoveLinkMutation();
     const links = entityData?.institutionalMemory?.elements || [];
 
-    const handleDeleteLink = async (linkUrl: string) => {
+    const handleDeleteLink = async (metadata: InstitutionalMemoryMetadata) => {
         try {
             await removeLinkMutation({
-                variables: { input: { linkUrl, resourceUrn: urn } },
+                variables: { input: { linkUrl: metadata.url, resourceUrn: metadata.associatedUrn || entityUrn } },
             });
             message.success({ content: 'Link Removed', duration: 2 });
         } catch (e: unknown) {
@@ -62,7 +62,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                     renderItem={(link) => (
                         <LinkListItem
                             extra={
-                                <Button onClick={() => handleDeleteLink(link.url)} type="text" shape="circle" danger>
+                                <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
                                     <DeleteOutlined />
                                 </Button>
                             }

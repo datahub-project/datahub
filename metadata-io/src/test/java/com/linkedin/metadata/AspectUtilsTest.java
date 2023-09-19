@@ -1,12 +1,13 @@
 package com.linkedin.metadata;
 
+import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.entity.AspectUtils;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
@@ -17,7 +18,7 @@ import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import io.ebean.EbeanServer;
+import io.ebean.Database;
 import java.util.List;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -38,11 +39,14 @@ public class AspectUtilsTest {
 
   @Test
   public void testAdditionalChanges() {
-    EbeanServer server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer();
     EbeanAspectDao aspectDao = new EbeanAspectDao(server);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
-    EntityService entityService = new EntityService(aspectDao, mockProducer, _testEntityRegistry, true);
+    PreProcessHooks preProcessHooks = new PreProcessHooks();
+    preProcessHooks.setUiEnabled(true);
+    EntityServiceImpl entityServiceImpl = new EntityServiceImpl(aspectDao, mockProducer, _testEntityRegistry, true,
+        null, preProcessHooks);
 
     MetadataChangeProposal proposal1 = new MetadataChangeProposal();
     proposal1.setEntityUrn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD));
@@ -52,8 +56,9 @@ public class AspectUtilsTest {
     proposal1.setEntityType("dataset");
     proposal1.setChangeType(ChangeType.PATCH);
 
-    List<MetadataChangeProposal> proposalList = AspectUtils.getAdditionalChanges(proposal1, entityService);
-    Assert.assertEquals(proposalList.size(), 3);
+    List<MetadataChangeProposal> proposalList = AspectUtils.getAdditionalChanges(proposal1, entityServiceImpl);
+    // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
+    Assert.assertEquals(proposalList.size(), 4);
     Assert.assertEquals(proposalList.get(0).getChangeType(), ChangeType.UPSERT);
   }
 }

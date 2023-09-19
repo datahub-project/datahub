@@ -9,7 +9,7 @@ from tests.test_helpers import mce_helpers
 
 FROZEN_TIME = "2022-05-12 11:00:00"
 
-test_resources_dir = None
+test_resources_dir = pathlib.Path(__file__).parent
 
 
 def _read_response(file_name: str) -> dict:
@@ -57,11 +57,6 @@ def side_effect_call_salesforce(type, url):
 
 @freeze_time(FROZEN_TIME)
 def test_salesforce_ingest(pytestconfig, tmp_path):
-    global test_resources_dir
-    test_resources_dir = pathlib.Path(
-        pytestconfig.rootpath / "tests/integration/salesforce"
-    )
-
     with mock.patch("simple_salesforce.Salesforce") as mock_sdk:
         mock_sf = mock.Mock()
         mocked_call = mock.Mock()

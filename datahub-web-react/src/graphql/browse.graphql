@@ -37,6 +37,7 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                ...entityDataProduct
             }
             ... on Dashboard {
                 urn
@@ -70,6 +71,7 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                ...entityDataProduct
                 subTypes {
                     typeNames
                 }
@@ -124,6 +126,7 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                ...entityDataProduct
             }
             ... on DataFlow {
                 urn
@@ -154,6 +157,7 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                ...entityDataProduct
             }
             ... on DataJob {
                 urn
@@ -181,6 +185,7 @@ query getBrowseResults($input: BrowseInput!) {
                 domain {
                     ...entityDomain
                 }
+                ...entityDataProduct
             }
             ... on MLFeatureTable {
                 urn

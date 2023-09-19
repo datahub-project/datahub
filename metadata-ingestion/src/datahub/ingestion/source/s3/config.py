@@ -5,24 +5,29 @@ import pydantic
 from pydantic.fields import Field
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
-)
+from datahub.configuration.pydantic_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws.path_spec import PathSpec
-from datahub.ingestion.source.s3.profiling import DataLakeProfilerConfig
+from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+)
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
-    path_specs: List[PathSpec] = Field(
-        description="List of PathSpec. See [below](#path-spec) the details about PathSpec"
-    )
+class DataLakeSourceConfig(
+    StatefulIngestionConfigBase, DatasetSourceConfigMixin, PathSpecsConfigMixin
+):
     platform: str = Field(
         default="",
         description="The platform that this source connects to (either 's3' or 'file'). "
@@ -32,6 +37,7 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         default=None, description="AWS configuration"
     )
 
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
     # Whether or not to create in datahub from the s3 bucket
     use_s3_bucket_tags: Optional[bool] = Field(
         None, description="Whether or not to create tags in datahub from the s3 bucket"
@@ -39,13 +45,13 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     # Whether or not to create in datahub from the s3 object
     use_s3_object_tags: Optional[bool] = Field(
         None,
-        description="# Whether or not to create tags in datahub from the s3 object",
+        description="Whether or not to create tags in datahub from the s3 object",
     )
 
     # Whether to update the table schema when schema in files within the partitions are updated
-    update_schema_on_partition_file_updates: Optional[bool] = Field(
-        default=False,
-        description="Whether to update the table schema when schema in files within the partitions are updated.",
+    _update_schema_on_partition_file_updates_deprecation = pydantic_field_deprecated(
+        "update_schema_on_partition_file_updates",
+        message="update_schema_on_partition_file_updates is deprecated. This behaviour is the default now.",
     )
 
     profile_patterns: AllowDenyPattern = Field(
@@ -60,6 +66,11 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         default="4g", description="Max amount of memory to grant Spark."
     )
 
+    spark_config: Dict[str, Any] = Field(
+        description='Spark configuration properties to set on the SparkSession. Put config property names into quotes. For example: \'"spark.executor.memory": "2g"\'',
+        default={},
+    )
+
     max_rows: int = Field(
         default=100,
         description="Maximum number of rows to use when inferring schemas for TSV and CSV files.",
@@ -70,9 +81,19 @@ class DataLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="Either a boolean, in which case it controls whether we verify the server's TLS certificate, or a string, in which case it must be a path to a CA bundle to use.",
     )
 
+    number_of_files_to_sample: int = Field(
+        default=100,
+        description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
+    )
+
     _rename_path_spec_to_plural = pydantic_renamed_field(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
+
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
     @pydantic.validator("path_specs", always=True)
     def check_path_specs_and_infer_platform(

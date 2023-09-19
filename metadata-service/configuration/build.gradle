@@ -1,0 +1,14 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation externalDependency.jacksonDataBind
+
+    implementation externalDependency.slf4jApi
+    implementation externalDependency.springCore
+
+    compileOnly externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+}

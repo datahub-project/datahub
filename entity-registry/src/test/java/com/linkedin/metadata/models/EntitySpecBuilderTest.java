@@ -1,6 +1,6 @@
 package com.linkedin.metadata.models;
 
-import com.datahub.test.BrowsePaths;
+import com.datahub.test.TestBrowsePaths;
 import com.datahub.test.SearchFeatures;
 import com.datahub.test.Snapshot;
 import com.datahub.test.TestEntityInfo;
@@ -89,9 +89,9 @@ public class EntitySpecBuilderTest {
 
     // Assert on Aspect Specs
     final Map<String, AspectSpec> aspectSpecMap = testEntitySpec.getAspectSpecMap();
-    assertEquals(4, aspectSpecMap.size());
+    assertEquals(5, aspectSpecMap.size());
     assertTrue(aspectSpecMap.containsKey("testEntityKey"));
-    assertTrue(aspectSpecMap.containsKey("browsePaths"));
+    assertTrue(aspectSpecMap.containsKey("testBrowsePaths"));
     assertTrue(aspectSpecMap.containsKey("testEntityInfo"));
     assertTrue(aspectSpecMap.containsKey("searchFeatures"));
 
@@ -99,7 +99,7 @@ public class EntitySpecBuilderTest {
     validateTestEntityKey(aspectSpecMap.get("testEntityKey"));
 
     // Assert on BrowsePaths Aspect
-    validateBrowsePaths(aspectSpecMap.get("browsePaths"));
+    validateBrowsePaths(aspectSpecMap.get("testBrowsePaths"));
 
     // Assert on TestEntityInfo Aspect
     validateTestEntityInfo(aspectSpecMap.get("testEntityInfo"));
@@ -130,8 +130,8 @@ public class EntitySpecBuilderTest {
 
 
   private void validateBrowsePaths(final AspectSpec browsePathAspectSpec) {
-    assertEquals("browsePaths", browsePathAspectSpec.getName());
-    assertEquals(new BrowsePaths().schema().getFullName(), browsePathAspectSpec.getPegasusSchema().getFullName());
+    assertEquals("testBrowsePaths", browsePathAspectSpec.getName());
+    assertEquals(new TestBrowsePaths().schema().getFullName(), browsePathAspectSpec.getPegasusSchema().getFullName());
     assertEquals(1, browsePathAspectSpec.getSearchableFieldSpecs().size());
     assertEquals(SearchableAnnotation.FieldType.BROWSE_PATH, browsePathAspectSpec.getSearchableFieldSpecs().get(0)
         .getSearchableAnnotation().getFieldType());
@@ -142,7 +142,7 @@ public class EntitySpecBuilderTest {
     assertEquals(new TestEntityInfo().schema().getFullName(), testEntityInfo.getPegasusSchema().getFullName());
 
     // Assert on Searchable Fields
-    assertEquals(9, testEntityInfo.getSearchableFieldSpecs().size());
+    assertEquals(testEntityInfo.getSearchableFieldSpecs().size(), 10);
     assertEquals("customProperties", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("customProperties").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.KEYWORD, testEntityInfo.getSearchableFieldSpecMap().get(
@@ -157,6 +157,11 @@ public class EntitySpecBuilderTest {
         new PathSpec("textArrayField", "*").toString()).getSearchableAnnotation().getFieldName());
     assertEquals(SearchableAnnotation.FieldType.TEXT_PARTIAL, testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("textArrayField", "*").toString())
+        .getSearchableAnnotation().getFieldType());
+    assertEquals("wordGramField", testEntityInfo.getSearchableFieldSpecMap().get(
+        new PathSpec("wordGramField").toString()).getSearchableAnnotation().getFieldName());
+    assertEquals(SearchableAnnotation.FieldType.WORD_GRAM, testEntityInfo.getSearchableFieldSpecMap().get(
+            new PathSpec("wordGramField").toString())
         .getSearchableAnnotation().getFieldType());
     assertEquals("nestedIntegerField", testEntityInfo.getSearchableFieldSpecMap().get(
         new PathSpec("nestedRecordField", "nestedIntegerField").toString()).getSearchableAnnotation().getFieldName());

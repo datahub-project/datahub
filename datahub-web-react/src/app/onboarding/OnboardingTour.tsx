@@ -5,7 +5,7 @@ import { useBatchUpdateStepStatesMutation } from '../../graphql/step.generated';
 import { EducationStepsContext } from '../../providers/EducationStepsContext';
 import { StepStateResult } from '../../types.generated';
 import { useUserContext } from '../context/useUserContext';
-import { convertStepId, getStepsToRender } from './utils';
+import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from './utils';
 
 type Props = {
     stepIds: string[];
@@ -42,7 +42,10 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     function closeTour() {
         setIsOpen(false);
         setReshow(false);
-        const convertedIds = filteredStepIds.map((id) => convertStepId(id, userUrn || ''));
+        // add conditional steps where its pre-requisite step ID is in our list of IDs we mark as completed
+        const conditionalStepIds = getConditionalStepIdsToAdd(stepIds, filteredStepIds);
+        const finalStepIds = [...filteredStepIds, ...conditionalStepIds];
+        const convertedIds = finalStepIds.map((id) => convertStepId(id, userUrn || ''));
         const stepStates = convertedIds.map((id) => ({ id, properties: [] }));
         batchUpdateStepStates({ variables: { input: { states: stepStates } } }).then(() => {
             const results = convertedIds.map((id) => ({ id, properties: [{}] } as StepStateResult));

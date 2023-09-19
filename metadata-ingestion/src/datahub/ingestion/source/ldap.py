@@ -1,6 +1,5 @@
 """LDAP Source"""
 import dataclasses
-import re
 from typing import Any, Dict, Iterable, List, Optional
 
 import ldap
@@ -9,6 +8,7 @@ from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigurationError
 from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -16,8 +16,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -34,10 +34,6 @@ from datahub.metadata.schema_classes import (
     CorpUserInfoClass,
     CorpUserSnapshotClass,
     GroupMembershipClass,
-)
-from datahub.utilities.source_helpers import (
-    auto_stale_entity_removal,
-    auto_status_aspect,
 )
 
 # default mapping for attrs
@@ -133,6 +129,28 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=20, description="Size of each page to fetch when extracting metadata."
     )
 
+    manager_filter_enabled: bool = Field(
+        default=True,
+        description="Use LDAP extractor filter to search managers.",
+    )
+
+    manager_pagination_enabled: bool = Field(
+        default=True,
+        description="[deprecated] Use pagination_enabled ",
+    )
+    _deprecate_manager_pagination_enabled = pydantic_renamed_field(
+        "manager_pagination_enabled", "pagination_enabled"
+    )
+    pagination_enabled: bool = Field(
+        default=True,
+        description="Use pagination while do search query (enabled by default).",
+    )
+
+    use_email_as_username: bool = Field(
+        default=False,
+        description="Use email for users' usernames instead of username (disabled by default). \
+            If enabled, the user and group urn would be having email as the id part of the urn.",
+    )
     # default mapping for attrs
     user_attrs_map: Dict[str, Any] = {}
     group_attrs_map: Dict[str, Any] = {}
@@ -189,14 +207,6 @@ class LDAPSource(StatefulIngestionSourceBase):
         super(LDAPSource, self).__init__(config, ctx)
         self.config = config
 
-        self.stale_entity_removal_handler = StaleEntityRemovalHandler(
-            source=self,
-            config=self.config,
-            state_type_class=GenericCheckpointState,
-            pipeline_name=self.ctx.pipeline_name,
-            run_id=self.ctx.run_id,
-        )
-
         # ensure prior defaults are in place
         for k in user_attrs_map:
             if k not in self.config.user_attrs_map:
@@ -221,7 +231,10 @@ class LDAPSource(StatefulIngestionSourceBase):
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e
 
-        self.lc = create_controls(self.config.page_size)
+        if self.config.pagination_enabled:
+            self.lc = create_controls(self.config.page_size)
+        else:
+            self.lc = None
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "LDAPSource":
@@ -229,11 +242,13 @@ class LDAPSource(StatefulIngestionSourceBase):
         config = LDAPSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        return auto_stale_entity_removal(
-            self.stale_entity_removal_handler,
-            auto_status_aspect(self.get_workunits_internal()),
-        )
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
@@ -245,7 +260,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                     ldap.SCOPE_SUBTREE,
                     self.config.filter,
                     self.config.attrs_list,
-                    serverctrls=[self.lc],
+                    serverctrls=[self.lc] if self.lc else [],
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
@@ -256,10 +271,11 @@ class LDAPSource(StatefulIngestionSourceBase):
                 if dn is None:
                     continue
 
-                if not attrs:
+                if not attrs or "objectClass" not in attrs:
                     self.report.report_warning(
                         "<general>",
-                        f"skipping {dn} because attrs is empty; check your permissions if this is unexpected",
+                        f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
+                        f"check your permissions if this is unexpected",
                     )
                     continue
 
@@ -279,14 +295,16 @@ class LDAPSource(StatefulIngestionSourceBase):
                 else:
                     self.report.report_dropped(dn)
 
-            pctrls = get_pctrls(serverctrls)
-            if not pctrls:
-                self.report.report_failure(
-                    "ldap-control", "Server ignores RFC 2696 control."
-                )
+            if self.lc:
+                pctrls = get_pctrls(serverctrls)
+                if not pctrls:
+                    self.report.report_failure(
+                        "ldap-control", "Server ignores RFC 2696 control."
+                    )
+                    break
+                cookie = set_cookie(self.lc, pctrls)
+            else:
                 break
-
-            cookie = set_cookie(self.lc, pctrls)
 
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
         """
@@ -294,26 +312,38 @@ class LDAPSource(StatefulIngestionSourceBase):
         work unit based on the information.
         """
         manager_ldap = None
+        make_manager_urn = None
         if self.config.user_attrs_map["managerUrn"] in attrs:
             try:
                 m_cn = attrs[self.config.user_attrs_map["managerUrn"]][0].decode()
+                if self.config.manager_filter_enabled:
+                    manager_filter = self.config.filter
+                else:
+                    manager_filter = None
                 manager_msgid = self.ldap_client.search_ext(
                     m_cn,
                     ldap.SCOPE_BASE,
-                    self.config.filter,
-                    serverctrls=[self.lc],
+                    manager_filter,
+                    serverctrls=[self.lc] if self.lc else [],
                 )
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
                     _m_dn, m_attrs = result[1][0]
+
                     manager_ldap = guess_person_ldap(m_attrs, self.config, self.report)
+
+                    m_email = get_attr_or_none(
+                        m_attrs, self.config.user_attrs_map["email"], manager_ldap
+                    )
+                    make_manager_urn = (
+                        m_email if self.config.use_email_as_username else manager_ldap
+                    )
+
             except ldap.LDAPError as e:
                 self.report.report_warning(dn, f"manager LDAP search failed: {e}")
-        mce = self.build_corp_user_mce(dn, attrs, manager_ldap)
+        mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
         if mce:
-            wu = MetadataWorkUnit(dn, mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(dn, mce)
         else:
             self.report.report_dropped(dn)
 
@@ -324,9 +354,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         mce = self.build_corp_group_mce(attrs)
         if mce:
-            wu = MetadataWorkUnit(dn, mce)
-            self.report.report_workunit(wu)
-            yield wu
+            yield MetadataWorkUnit(dn, mce)
         else:
             self.report.report_dropped(dn)
 
@@ -348,36 +376,25 @@ class LDAPSource(StatefulIngestionSourceBase):
         last_name = attrs[self.config.user_attrs_map["lastName"]][0].decode()
         groups = parse_groups(attrs, self.config.user_attrs_map["memberOf"])
 
-        email = (
-            (attrs[self.config.user_attrs_map["email"]][0]).decode()
-            if self.config.user_attrs_map["email"] in attrs
-            else ldap_user
+        email = get_attr_or_none(attrs, self.config.user_attrs_map["email"], ldap_user)
+        display_name = get_attr_or_none(
+            attrs, self.config.user_attrs_map["displayName"], full_name
         )
-        display_name = (
-            (attrs[self.config.user_attrs_map["displayName"]][0]).decode()
-            if self.config.user_attrs_map["displayName"] in attrs
-            else full_name
+        title = get_attr_or_none(attrs, self.config.user_attrs_map["title"])
+        department_id_str = get_attr_or_none(
+            attrs, self.config.user_attrs_map["departmentId"]
         )
-        department_id = (
-            int(attrs[self.config.user_attrs_map["departmentId"]][0].decode())
-            if self.config.user_attrs_map["departmentId"] in attrs
-            else None
+        department_name = get_attr_or_none(
+            attrs, self.config.user_attrs_map["departmentName"]
         )
-        department_name = (
-            (attrs[self.config.user_attrs_map["departmentName"]][0]).decode()
-            if self.config.user_attrs_map["departmentName"] in attrs
-            else None
+        country_code = get_attr_or_none(
+            attrs, self.config.user_attrs_map["countryCode"]
         )
-        country_code = (
-            (attrs[self.config.user_attrs_map["countryCode"]][0]).decode()
-            if self.config.user_attrs_map["countryCode"] in attrs
-            else None
-        )
-        title = (
-            attrs[self.config.user_attrs_map["title"]][0].decode()
-            if self.config.user_attrs_map["title"] in attrs
-            else None
-        )
+        if department_id_str:
+            department_id = int(department_id_str)
+        else:
+            department_id = None
+
         custom_props_map = {}
         if self.config.custom_props_list:
             for prop in self.config.custom_props_list:
@@ -386,8 +403,10 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         manager_urn = f"urn:li:corpuser:{manager_ldap}" if manager_ldap else None
 
+        make_user_urn = email if self.config.use_email_as_username else ldap_user
+
         user_snapshot = CorpUserSnapshotClass(
-            urn=f"urn:li:corpuser:{ldap_user}",
+            urn=f"urn:li:corpuser:{make_user_urn}",
             aspects=[
                 CorpUserInfoClass(
                     active=True,
@@ -415,25 +434,23 @@ class LDAPSource(StatefulIngestionSourceBase):
         cn = attrs.get(self.config.group_attrs_map["urn"])
         if cn:
             full_name = cn[0].decode()
-            admins = parse_from_attrs(attrs, self.config.group_attrs_map["admins"])
-            members = parse_from_attrs(attrs, self.config.group_attrs_map["members"])
-            email = (
-                attrs[self.config.group_attrs_map["email"]][0].decode()
-                if self.config.group_attrs_map["email"] in attrs
-                else full_name
+            admins = parse_users(attrs, self.config.group_attrs_map["admins"])
+            members = parse_users(attrs, self.config.group_attrs_map["members"])
+
+            email = get_attr_or_none(
+                attrs, self.config.group_attrs_map["email"], full_name
             )
-            description = (
-                attrs[self.config.group_attrs_map["description"]][0].decode()
-                if self.config.group_attrs_map["description"] in attrs
-                else None
+            description = get_attr_or_none(
+                attrs, self.config.group_attrs_map["description"]
             )
-            displayName = (
-                attrs[self.config.group_attrs_map["displayName"]][0].decode()
-                if self.config.group_attrs_map["displayName"] in attrs
-                else None
+            displayName = get_attr_or_none(
+                attrs, self.config.group_attrs_map["displayName"]
             )
+
+            make_group_urn = email if self.config.use_email_as_username else full_name
+
             group_snapshot = CorpGroupSnapshotClass(
-                urn=f"urn:li:corpGroup:{full_name}",
+                urn=f"urn:li:corpGroup:{make_group_urn}",
                 aspects=[
                     CorpGroupInfoClass(
                         email=email,
@@ -457,33 +474,39 @@ class LDAPSource(StatefulIngestionSourceBase):
         super().close()
 
 
-def parse_from_attrs(attrs: Dict[str, Any], filter_key: str) -> List[str]:
-    """Converts a list of LDAP formats to Datahub corpuser strings."""
+def parse_users(attrs: Dict[str, Any], filter_key: str) -> List[str]:
+    """Converts a list of LDAP DNs to Datahub corpuser strings."""
     if filter_key in attrs:
         return [
-            f"urn:li:corpuser:{strip_ldap_info(ldap_user)}"
+            f"urn:li:corpuser:{parse_ldap_dn(ldap_user)}"
             for ldap_user in attrs[filter_key]
         ]
     return []
 
 
-def strip_ldap_info(input_clean: bytes) -> str:
-    """Converts a b'uid=username,ou=Groups,dc=internal,dc=machines'
-    format to username"""
-    return input_clean.decode().split(",")[0].lstrip("uid=")
-
-
 def parse_groups(attrs: Dict[str, Any], filter_key: str) -> List[str]:
-    """Converts a list of LDAP groups to Datahub corpgroup strings"""
+    """Converts a list of LDAP DNs to Datahub corpgroup strings"""
     if filter_key in attrs:
         return [
-            f"urn:li:corpGroup:{strip_ldap_group_cn(ldap_group)}"
+            f"urn:li:corpGroup:{parse_ldap_dn(ldap_group)}"
             for ldap_group in attrs[filter_key]
         ]
     return []
 
 
-def strip_ldap_group_cn(input_clean: bytes) -> str:
-    """Converts a b'cn=group_name,ou=Groups,dc=internal,dc=machines'
-    format to group name"""
-    return re.sub("cn=", "", input_clean.decode().split(",")[0], flags=re.IGNORECASE)
+def parse_ldap_dn(input_clean: bytes) -> str:
+    """
+    Converts an LDAP DN of format b'cn=group_name,ou=Groups,dc=internal,dc=machines'
+    or b'uid=username,ou=Groups,dc=internal,dc=machines' to group name or username.
+    Inputs which are not valid LDAP DNs are simply decoded and returned as strings.
+    """
+    if ldap.dn.is_dn(input_clean):
+        return ldap.dn.str2dn(input_clean, flags=ldap.DN_FORMAT_LDAPV3)[0][0][1]
+    else:
+        return input_clean.decode()
+
+
+def get_attr_or_none(
+    attrs: Dict[str, Any], key: str, default: Optional[str] = None
+) -> str:
+    return attrs[key][0].decode() if attrs.get(key) else default

@@ -35,6 +35,7 @@ class Constant:
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
     DATASET_GET = "DATASET_GET"
     DATASET_LIST = "DATASET_LIST"
+    WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
     REPORT_GET = "REPORT_GET"
     DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
@@ -70,6 +71,9 @@ class Constant:
     DATASETS = "datasets"
     DATASET_KEY = "datasetKey"
     DATASET_PROPERTIES = "datasetProperties"
+    VIEW_PROPERTIES = "viewProperties"
+    SCHEMA_METADATA = "schemaMetadata"
+    SUBTYPES = "subTypes"
     VALUE = "value"
     ENTITY = "ENTITY"
     ID = "id"
@@ -82,6 +86,10 @@ class Constant:
     IDENTIFIER = "identifier"
     EMAIL_ADDRESS = "emailAddress"
     PRINCIPAL_TYPE = "principalType"
+    DATASET_USER_ACCESS_RIGHT = "datasetUserAccessRight"
+    REPORT_USER_ACCESS_RIGHT = "reportUserAccessRight"
+    DASHBOARD_USER_ACCESS_RIGHT = "dashboardUserAccessRight"
+    GROUP_USER_ACCESS_RIGHT = "groupUserAccessRight"
     GRAPH_ID = "graphId"
     WORKSPACES = "workspaces"
     TITLE = "title"
@@ -113,6 +121,12 @@ class DataPlatformPair:
     powerbi_data_platform_name: str
 
 
+@dataclass
+class PowerBIPlatformDetail:
+    data_platform_pair: DataPlatformPair
+    data_platform_server: str
+
+
 class SupportedDataPlatform(Enum):
     POSTGRES_SQL = DataPlatformPair(
         powerbi_data_platform_name="PostgreSQL", datahub_data_platform_name="postgres"
@@ -138,6 +152,10 @@ class SupportedDataPlatform(Enum):
     AMAZON_REDSHIFT = DataPlatformPair(
         powerbi_data_platform_name="AmazonRedshift",
         datahub_data_platform_name="redshift",
+    )
+
+    DATABRICK_SQL = DataPlatformPair(
+        powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
     )
 
 
@@ -179,12 +197,34 @@ class PlatformDetail(ConfigModel):
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-        "with platform instance name used in ingestion"
+        "with platform instance name used in ingestion "
         "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
         default=DEFAULT_ENV,
-        description="The environment that the platform is located in. It is default to PROD",
+        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+    )
+
+
+class OwnershipMapping(ConfigModel):
+    create_corp_user: bool = pydantic.Field(
+        default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
+    )
+    use_powerbi_email: bool = pydantic.Field(
+        default=False,
+        description="Use PowerBI User email to ingest as corpuser, default is powerbi user identifier",
+    )
+    remove_email_suffix: bool = pydantic.Field(
+        default=False,
+        description="Remove PowerBI User email suffix for example, @acryl.io",
+    )
+    dataset_configured_by_as_owner: bool = pydantic.Field(
+        default=False,
+        description="Take PBI dataset configuredBy as dataset owner if exist",
+    )
+    owner_criteria: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description="Need to have certain authority to qualify as owner for example ['ReadWriteReshareExplore','Owner','Admin']",
     )
 
 
@@ -200,7 +240,7 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
 
-    # Organisation Identifier
+    # Organization Identifier
     tenant_id: str = pydantic.Field(description="PowerBI tenant identifier")
     # PowerBi workspace identifier
     workspace_id: Optional[str] = pydantic.Field(
@@ -247,6 +287,17 @@ class PowerBiDashboardSourceConfig(
     scan_timeout: int = pydantic.Field(
         default=60, description="timeout for PowerBI metadata scanning"
     )
+    scan_batch_size: int = pydantic.Field(
+        default=1,
+        gt=0,
+        le=100,
+        description="batch size for sending workspace_ids to PBI, 100 is the limit",
+    )
+    workspace_id_as_urn_part: bool = pydantic.Field(
+        default=False,
+        description="Highly recommend changing this to True, as you can have the same workspace name"
+        "To maintain backward compatability, this is set to False which uses workspace name",
+    )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
         default=False,
@@ -256,6 +307,23 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting report information
     extract_reports: bool = pydantic.Field(
         default=True, description="Whether reports should be ingested"
+    )
+    # Configure ingestion of ownership
+    ownership: OwnershipMapping = pydantic.Field(
+        default=OwnershipMapping(),
+        description="Configure how is ownership ingested",
+    )
+    modified_since: Optional[str] = pydantic.Field(
+        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
+    )
+    extract_dashboards: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+    )
+    # Enable/Disable extracting dataset schema
+    extract_dataset_schema: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest PBI Dataset Table columns and measures",
     )
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
@@ -269,9 +337,18 @@ class PowerBiDashboardSourceConfig(
         description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
         "access is required is this setting is enabled",
     )
+    filter_dataset_endorsements: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter and ingest datasets which are 'Certified' or 'Promoted' endorsement. If both are added, dataset which are 'Certified' or 'Promoted' will be ingested . Default setting allows all dataset to be ingested",
+    )
     # Enable/Disable extracting workspace information to DataHub containers
     extract_workspaces_to_containers: bool = pydantic.Field(
         default=True, description="Extract workspaces to DataHub containers"
+    )
+    # Enable/Disable grouping PBI dataset tables into Datahub container (PBI Dataset)
+    extract_datasets_to_containers: bool = pydantic.Field(
+        default=False,
+        description="PBI tables will be grouped under a Datahub Container, the container reflect a PBI Dataset",
     )
     # Enable/Disable extracting lineage information from PowerBI Native query
     native_query_parsing: bool = pydantic.Field(
@@ -300,10 +377,24 @@ class PowerBiDashboardSourceConfig(
         description="Retrieve metadata using PowerBI Admin API only. If this is enabled, then Report Pages will not "
         "be extracted. Admin API access is required if this setting is enabled",
     )
+    # Extract independent datasets
+    extract_independent_datasets: bool = pydantic.Field(
+        default=False,
+        description="Whether to extract datasets not used in any PowerBI visualization",
+    )
 
     platform_instance: Optional[str] = pydantic.Field(
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to",
+    )
+
+    # Enable advance sql construct
+    enable_advance_lineage_sql_construct: bool = pydantic.Field(
+        default=False,
+        description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
+        "along this flag , the native_query_parsing should be enabled. "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "as this option generates the upstream datasets URN in lowercase.",
     )
 
     @validator("dataset_type_mapping")

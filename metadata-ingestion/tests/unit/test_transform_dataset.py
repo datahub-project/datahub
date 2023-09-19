@@ -61,6 +61,7 @@ from datahub.ingestion.transformer.dataset_domain import (
     SimpleAddDatasetDomain,
 )
 from datahub.ingestion.transformer.dataset_transformer import DatasetTransformer
+from datahub.ingestion.transformer.extract_dataset_tags import ExtractDatasetTags
 from datahub.ingestion.transformer.mark_dataset_status import MarkDatasetStatus
 from datahub.ingestion.transformer.remove_dataset_ownership import (
     SimpleRemoveDatasetOwnership,
@@ -80,8 +81,11 @@ from datahub.utilities.urns.urn import Urn
 
 def make_generic_dataset(
     entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-    aspects: List[Any] = [models.StatusClass(removed=False)],
+    aspects: Optional[List[Any]] = None,
 ) -> models.MetadataChangeEventClass:
+    if aspects is None:
+        # Default to a status aspect if none is provided.
+        aspects = [models.StatusClass(removed=False)]
     return models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn=entity_urn,
@@ -283,6 +287,56 @@ def test_simple_dataset_ownership_with_type_transformation(mock_time):
     assert isinstance(ownership_aspect, OwnershipClass)
     assert len(ownership_aspect.owners) == 1
     assert ownership_aspect.owners[0].type == models.OwnershipTypeClass.PRODUCER
+
+
+def _test_extract_tags(in_urn: str, regex_str: str, out_tag: str) -> None:
+    input = make_generic_dataset(entity_urn=in_urn)
+    transformer = ExtractDatasetTags.create(
+        {
+            "extract_tags_from": "urn",
+            "extract_tags_regex": regex_str,
+            "semantics": "overwrite",
+        },
+        PipelineContext(run_id="test"),
+    )
+    output = list(
+        transformer.transform(
+            [
+                RecordEnvelope(input, metadata={}),
+                RecordEnvelope(EndOfStream(), metadata={}),
+            ]
+        )
+    )
+
+    assert len(output) == 3
+    assert output[0].record == input
+    tags_aspect = output[1].record.aspect
+    assert isinstance(tags_aspect, GlobalTagsClass)
+    assert len(tags_aspect.tags) == 1
+    assert tags_aspect.tags[0].tag == out_tag
+
+
+def test_extract_dataset_tags(mock_time):
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.part1-part2-part3_part4,PROD)",
+        regex_str="(.*)",
+        out_tag="urn:li:tag:clusterid.part1-part2-part3_part4",
+    )
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.USA-ops-team_table1,PROD)",
+        regex_str=".([^._]*)_",
+        out_tag="urn:li:tag:USA-ops-team",
+    )
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:kafka,clusterid.Canada-marketing_table1,PROD)",
+        regex_str=".([^._]*)_",
+        out_tag="urn:li:tag:Canada-marketing",
+    )
+    _test_extract_tags(
+        in_urn="urn:li:dataset:(urn:li:dataPlatform:elasticsearch,abcdef-prefix_datahub_usage_event-000027,PROD)",
+        regex_str="([^._]*)_",
+        out_tag="urn:li:tag:abcdef-prefix",
+    )
 
 
 def test_simple_dataset_ownership_with_invalid_type_transformation(mock_time):
@@ -1382,20 +1436,23 @@ def test_mcp_multiple_transformers_replace(mock_time, tmp_path):
 
     # check on browsePaths aspect
     for i in range(0, 10):
-        tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
-            entity_urn=str(
-                DatasetUrn.create_from_ids(
-                    platform_id="elasticsearch",
-                    table_name=f"fooBarIndex{i}",
-                    env="PROD",
-                )
-            ),
-            aspect_name="browsePaths",
-            aspect_field_matcher={
-                "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
-            },
-            file=events_file,
-        ) == 1
+        assert (
+            tests.test_helpers.mce_helpers.assert_entity_mcp_aspect(
+                entity_urn=str(
+                    DatasetUrn.create_from_ids(
+                        platform_id="elasticsearch",
+                        table_name=f"fooBarIndex{i}",
+                        env="PROD",
+                    )
+                ),
+                aspect_name="browsePaths",
+                aspect_field_matcher={
+                    "paths": [f"/prod/elasticsearch/EsComments/fooBarIndex{i}"]
+                },
+                file=events_file,
+            )
+            == 1
+        )
 
 
 class SuppressingTransformer(BaseTransformer, SingleAspectTransformer):

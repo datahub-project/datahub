@@ -2,133 +2,6 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "value_topic",
-                        "platform": "urn:li:dataPlatform:kafka",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "f3017ce3487a1d97592c0acfd3b1028d",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"fields\":[{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}",
-                                "keySchema": "\"string\""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[key=True].[type=string]",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "string",
-                                "recursive": false,
-                                "isPartOfKey": true
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "email",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].firstName",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "firstName",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "lastName",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
-                        "paths": [
-                            "/prod/kafka"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "Partitions": "1",
-                            "Replication Factor": "1",
-                            "min.insync.replicas": "1",
-                            "retention.bytes": "-1",
-                            "retention.ms": "604800000",
-                            "cleanup.policy": "delete",
-                            "max.message.bytes": "1048588",
-                            "unclean.leader.election.enable": "false"
-                        },
-                        "name": "value_topic",
-                        "tags": []
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "value": "{\"typeNames\": [\"Topic\"]}",
-        "contentType": "application/json"
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "kafka-test"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
             "aspects": [
                 {
@@ -149,11 +22,12 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "23fde854552567e9e04e9cfcf38265e6",
+                        "hash": "44fd7a7b325d6fdd4275b1f02a79c1a8",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
                                 "documentSchema": "",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}"
+                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
+                                "keySchemaType": "AVRO"
                             }
                         },
                         "fields": [
@@ -221,8 +95,26 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Topic\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Topic"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -252,11 +144,13 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         },
-                        "hash": "cb43b8357c853e8b5dde2503b76c3a25",
+                        "hash": "cc452cf58242cdb9d09cf33d657497d8",
                         "platformSchema": {
                             "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"fields\":[{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}",
-                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}"
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}",
+                                "documentSchemaType": "AVRO",
+                                "keySchema": "{\"type\":\"record\",\"name\":\"UserKey\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Key schema for kafka topic\",\"fields\":[{\"name\":\"id\",\"type\":\"long\"},{\"name\":\"namespace\",\"type\":\"string\"}]}",
+                                "keySchemaType": "AVRO"
                             }
                         },
                         "fields": [
@@ -343,6 +237,7 @@
                             "unclean.leader.election.enable": "false"
                         },
                         "name": "key_value_topic",
+                        "description": "Value schema for kafka topic",
                         "tags": []
                     }
                 }
@@ -360,8 +255,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Topic\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Topic"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -374,8 +272,174 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:sales"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,key_value_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "value_topic",
+                        "platform": "urn:li:dataPlatform:kafka",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "dc1cf32c2688cc3d2d27fe6e856f06d2",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                                "documentSchema": "{\"type\":\"record\",\"name\":\"CreateUserRequest\",\"namespace\":\"io.codebrews.createuserrequest\",\"doc\":\"Value schema for kafka topic\",\"fields\":[{\"name\":\"email\",\"type\":\"string\"},{\"name\":\"firstName\",\"type\":\"string\"},{\"name\":\"lastName\",\"type\":\"string\"}]}",
+                                "documentSchemaType": "AVRO",
+                                "keySchema": "\"string\"",
+                                "keySchemaType": "AVRO"
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[key=True].[type=string]",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].email",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "email",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].firstName",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "firstName",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=CreateUserRequest].[type=string].lastName",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "lastName",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePaths": {
+                        "paths": [
+                            "/prod/kafka"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "Partitions": "1",
+                            "Replication Factor": "1",
+                            "min.insync.replicas": "1",
+                            "retention.bytes": "-1",
+                            "retention.ms": "604800000",
+                            "cleanup.policy": "delete",
+                            "max.message.bytes": "1048588",
+                            "unclean.leader.election.enable": "false"
+                        },
+                        "name": "value_topic",
+                        "description": "Value schema for kafka topic",
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Topic"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "kafka-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,value_topic,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,

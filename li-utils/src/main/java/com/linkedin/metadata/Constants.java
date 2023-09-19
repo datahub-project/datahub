@@ -16,12 +16,23 @@ public class Constants {
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
 
+  // !!!!!!! IMPORTANT !!!!!!!
+  // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages. Without this the limit is
+  // whatever Jackson is defaulting to (5 MB currently).
+  public static final String MAX_JACKSON_STRING_SIZE = "16000000";
+  public static final String INGESTION_MAX_SERIALIZED_STRING_LENGTH = "INGESTION_MAX_SERIALIZED_STRING_LENGTH";
+
   /**
    * System Metadata
    */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
   // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op case
   public static final String FORCE_INDEXING_KEY = "forceIndexing";
+  // Indicates an event source from an application with hooks that have already been processed and should not be reprocessed
+  public static final String APP_SOURCE = "appSource";
+
+  // App sources
+  public static final String UI_SOURCE = "ui";
 
   /**
    * Entities
@@ -60,6 +71,8 @@ public class Constants {
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
+  public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
 
   /**
    * Aspects
@@ -69,12 +82,14 @@ public class Constants {
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
   public static final String BROWSE_PATHS_ASPECT_NAME = "browsePaths";
+  public static final String BROWSE_PATHS_V2_ASPECT_NAME = "browsePathsV2";
   public static final String GLOBAL_TAGS_ASPECT_NAME = "globalTags";
   public static final String GLOSSARY_TERMS_ASPECT_NAME = "glossaryTerms";
   public static final String STATUS_ASPECT_NAME = "status";
   public static final String SUB_TYPES_ASPECT_NAME = "subTypes";
   public static final String DEPRECATION_ASPECT_NAME = "deprecation";
   public static final String OPERATION_ASPECT_NAME = "operation";
+  public static final String OPERATION_EVENT_TIME_FIELD_NAME = "lastUpdatedTimestamp"; // :(
   public static final String SIBLINGS_ASPECT_NAME = "siblings";
   public static final String ORIGIN_ASPECT_NAME = "origin";
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
@@ -213,6 +228,14 @@ public class Constants {
   public static final String DOMAIN_KEY_ASPECT_NAME = "domainKey";
   public static final String DOMAIN_PROPERTIES_ASPECT_NAME = "domainProperties";
   public static final String DOMAINS_ASPECT_NAME = "domains";
+
+  // ExternalRoleMetadata
+  public static final String ROLE_ENTITY_NAME = "role";
+  public static final String ACCESS_DATASET_ASPECT_NAME = "access";
+  public static final String ROLE_KEY = "roleKey";
+  public static final String ROLE_PROPERTIES_ASPECT_NAME = "roleProperties";
+  public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
+
   public static final String DOMAIN_CREATED_TIME_INDEX_FIELD_NAME = "createdTime";
 
   // Assertion
@@ -261,6 +284,14 @@ public class Constants {
   // Query
   public static final String QUERY_PROPERTIES_ASPECT_NAME = "queryProperties";
   public static final String QUERY_SUBJECTS_ASPECT_NAME = "querySubjects";
+
+  // DataProduct
+  public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
+  public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
+
+  // Ownership Types
+  public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
+  public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
 
   // Settings
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
@@ -322,6 +353,9 @@ public class Constants {
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
+
+  // DAO
+  public static final long LATEST_VERSION = 0;
 
   private Constants() {
   }

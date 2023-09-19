@@ -31,8 +31,7 @@ import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVE
 
 
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, ConfigurationProvider.class,
-        GitVersionFactory.class})
+@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, GitVersionFactory.class})
 @PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class ElasticSearchIndexBuilderFactory {
 

@@ -1,41 +1,41 @@
 # Service definitions for standalone Kafka consumer containers.
-version: '3.8'
+version: '3.9'
 services:
   datahub-gms:
     environment:
-      - MAE_CONSUMER_ENABLED=false
-      - MCE_CONSUMER_ENABLED=false
-
+    - MAE_CONSUMER_ENABLED=false
+    - MCE_CONSUMER_ENABLED=false
   datahub-mae-consumer:
+    container_name: datahub-mae-consumer
+    hostname: datahub-mae-consumer
+    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+    ports:
+    - 9091:9091
     build:
       context: ../
       dockerfile: docker/datahub-mae-consumer/Dockerfile
-    image: ${DATAHUB_MAE_CONSUMER_IMAGE:-linkedin/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
     env_file: datahub-mae-consumer/env/docker.env
-    hostname: datahub-mae-consumer
-    container_name: datahub-mae-consumer
-    ports:
-      - "9091:9091"
     depends_on:
-      - neo4j
-
+      neo4j:
+        condition: service_healthy
   datahub-mce-consumer:
+    container_name: datahub-mce-consumer
+    hostname: datahub-mce-consumer
+    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+    ports:
+    - 9090:9090
     build:
       context: ../
       dockerfile: docker/datahub-mce-consumer/Dockerfile
-    image: ${DATAHUB_MCE_CONSUMER_IMAGE:-linkedin/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
     env_file: datahub-mce-consumer/env/docker.env
-    hostname: datahub-mce-consumer
-    container_name: datahub-mce-consumer
     environment:
-      - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
-      - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
-      - NEO4J_HOST=http://neo4j:7474
-      - NEO4J_URI=bolt://neo4j
-      - NEO4J_USERNAME=neo4j
-      - NEO4J_PASSWORD=datahub
-      - GRAPH_SERVICE_IMPL=neo4j
-    ports:
-      - "9090:9090"
+    - DATAHUB_SERVER_TYPE=${DATAHUB_SERVER_TYPE:-quickstart}
+    - DATAHUB_TELEMETRY_ENABLED=${DATAHUB_TELEMETRY_ENABLED:-true}
+    - NEO4J_HOST=http://neo4j:7474
+    - NEO4J_URI=bolt://neo4j
+    - NEO4J_USERNAME=neo4j
+    - NEO4J_PASSWORD=datahub
+    - GRAPH_SERVICE_IMPL=neo4j
     depends_on:
-      - neo4j
+      neo4j:
+        condition: service_healthy

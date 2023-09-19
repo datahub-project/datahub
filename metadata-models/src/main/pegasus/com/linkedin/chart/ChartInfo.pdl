@@ -20,8 +20,9 @@ record ChartInfo includes CustomProperties, ExternalReference {
    * Title of the chart
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
-    "enableAutocomplete": true
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "fieldNameAliases": [ "_entityName" ]
   }
   title: string
 
@@ -39,6 +40,9 @@ record ChartInfo includes CustomProperties, ExternalReference {
   /**
    * URL for the chart. This could be used as an external link on DataHub to allow users access/view the chart
    */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
   chartUrl: optional Url
 
   /**

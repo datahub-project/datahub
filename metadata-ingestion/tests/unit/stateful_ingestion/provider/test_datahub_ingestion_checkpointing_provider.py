@@ -15,7 +15,9 @@ from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
 )
-from datahub.ingestion.source.state.usage_common_state import BaseUsageCheckpointState
+from datahub.ingestion.source.state.usage_common_state import (
+    BaseTimeWindowCheckpointState,
+)
 from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
     DatahubIngestionCheckpointingProvider,
 )
@@ -71,8 +73,9 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
         Mockey patched implementation of DatahubGraph.emit_mcp that caches the mcp locally in memory.
         """
         self.assertIsNotNone(graph_ref)
-        self.assertEqual(mcpw.entityType, "dataJob")
-        self.assertEqual(mcpw.aspectName, "datahubIngestionCheckpoint")
+        if mcpw.aspectName != "status":
+            self.assertEqual(mcpw.entityType, "dataJob")
+            self.assertEqual(mcpw.aspectName, "datahubIngestionCheckpoint")
         # Cache the mcpw against the entityUrn
         assert mcpw.entityUrn is not None
         self.mcps_emitted[mcpw.entityUrn] = mcpw
@@ -112,8 +115,8 @@ class TestDatahubIngestionCheckpointProvider(unittest.TestCase):
             run_id=self.run_id,
             state=job1_state_obj,
         )
-        # Job2 - Checkpoint with a BaseUsageCheckpointState state
-        job2_state_obj = BaseUsageCheckpointState(
+        # Job2 - Checkpoint with a BaseTimeWindowCheckpointState state
+        job2_state_obj = BaseTimeWindowCheckpointState(
             begin_timestamp_millis=10, end_timestamp_millis=100
         )
         job2_checkpoint = Checkpoint(

@@ -1,26 +1,21 @@
-import os
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-import pydantic
-from azure.storage.filedatalake import FileSystemClient, PathProperties
-from iceberg.core.filesystem.abfss_filesystem import AbfssFileSystem
-from iceberg.core.filesystem.filesystem_tables import FilesystemTables
-from pydantic import Field, root_validator
+from pydantic import Field
+from pyiceberg.catalog import Catalog, load_catalog
 
-from datahub.configuration.common import (
-    AllowDenyPattern,
-    ConfigModel,
-    ConfigurationError,
-)
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
-from datahub.ingestion.source.azure.azure_common import AdlsSourceConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
+)
+from datahub.ingestion.source_config.operation_config import (
+    OperationConfig,
+    is_profiling_enabled,
 )
 
 
@@ -41,6 +36,10 @@ class IcebergProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the max value of numeric columns.",
     )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
+    )
     # Stats we cannot compute without looking at data
     # include_field_mean_value: bool = True
     # include_field_median_value: bool = True
@@ -51,22 +50,32 @@ class IcebergProfilingConfig(ConfigModel):
     # include_field_sample_values: bool = True
 
 
+class IcebergCatalogConfig(ConfigModel):
+    """
+    Iceberg catalog config.
+
+    https://py.iceberg.apache.org/configuration/
+    """
+
+    name: str = Field(
+        default="default",
+        description="Name of catalog",
+    )
+    type: str = Field(
+        description="Type of catalog.  See [PyIceberg](https://py.iceberg.apache.org/configuration/) for list of possible values.",
+    )
+    config: Dict[str, str] = Field(
+        description="Catalog specific configuration.  See [PyIceberg documentation](https://py.iceberg.apache.org/configuration/) for details.",
+    )
+
+
 class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Override the stateful_ingestion config param with the Iceberg custom stateful ingestion config in the IcebergSourceConfig
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Iceberg Stateful Ingestion Config."
     )
-    adls: Optional[AdlsSourceConfig] = Field(
-        default=None,
-        description="[Azure Data Lake Storage](https://docs.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction) to crawl for Iceberg tables.  This is one filesystem type supported by this source and **only one can be configured**.",
-    )
-    localfs: Optional[str] = Field(
-        default=None,
-        description="Local path to crawl for Iceberg tables. This is one filesystem type supported by this source and **only one can be configured**.",
-    )
-    max_path_depth: int = Field(
-        default=2,
-        description="Maximum folder depth to crawl for Iceberg tables.  Folders deeper than this value will be silently ignored.",
+    catalog: IcebergCatalogConfig = Field(
+        description="Catalog configuration where to find Iceberg tables.  See [pyiceberg's catalog configuration details](https://py.iceberg.apache.org/configuration/).",
     )
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -82,92 +91,20 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
 
-    @root_validator()
-    def _ensure_one_filesystem_is_configured(
-        cls: "IcebergSourceConfig", values: Dict
-    ) -> Dict:
-        if values.get("adls") and values.get("localfs"):
-            raise ConfigurationError(
-                "Only one filesystem can be configured: adls or localfs"
-            )
-        elif not values.get("adls") and not values.get("localfs"):
-            raise ConfigurationError(
-                "One filesystem (adls or localfs) needs to be configured."
-            )
-        return values
+    def is_profiling_enabled(self) -> bool:
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )
 
-    @property
-    def adls_filesystem_client(self) -> FileSystemClient:
-        """Azure Filesystem client if configured.
-
-        Raises:
-            ConfigurationError: If ADLS is not configured.
+    def get_catalog(self) -> Catalog:
+        """Returns the Iceberg catalog instance as configured by the `catalog` dictionary.
 
         Returns:
-            FileSystemClient: Azure Filesystem client instance to access storage account files and folders.
+            Catalog: Iceberg catalog instance.
         """
-        if self.adls:  # TODO Use local imports for abfss
-            AbfssFileSystem.get_instance().set_conf(self.adls.dict())
-            return self.adls.get_filesystem_client()
-        raise ConfigurationError("No ADLS filesystem client configured")
-
-    @property
-    def filesystem_tables(self) -> FilesystemTables:
-        """Iceberg FilesystemTables abstraction to access tables on a filesystem.
-        Currently supporting ADLS (Azure Storage Account) and local filesystem.
-
-        Raises:
-            ConfigurationError: If no filesystem was configured.
-
-        Returns:
-            FilesystemTables: An Iceberg FilesystemTables abstraction instance to access tables on a filesystem
-        """
-        if self.adls:
-            return FilesystemTables(self.adls.dict())
-        elif self.localfs:
-            return FilesystemTables()
-        raise ConfigurationError("No filesystem client configured")
-
-    def _get_adls_paths(self, root_path: str, depth: int) -> Iterable[Tuple[str, str]]:
-        if self.adls and depth < self.max_path_depth:
-            sub_paths = self.adls_filesystem_client.get_paths(
-                path=root_path, recursive=False
-            )
-            sub_path: PathProperties
-            for sub_path in sub_paths:
-                if sub_path.is_directory:
-                    dataset_name = ".".join(
-                        sub_path.name[len(self.adls.base_path) + 1 :].split("/")
-                    )
-                    yield self.adls.get_abfss_url(sub_path.name), dataset_name
-                    yield from self._get_adls_paths(sub_path.name, depth + 1)
-
-    def _get_localfs_paths(
-        self, root_path: str, depth: int
-    ) -> Iterable[Tuple[str, str]]:
-        if self.localfs and depth < self.max_path_depth:
-            for f in os.scandir(root_path):
-                if f.is_dir():
-                    dataset_name = ".".join(f.path[len(self.localfs) + 1 :].split("/"))
-                    yield f.path, dataset_name
-                    yield from self._get_localfs_paths(f.path, depth + 1)
-
-    def get_paths(self) -> Iterable[Tuple[str, str]]:
-        """Generates a sequence of data paths and dataset names.
-
-        Raises:
-            ConfigurationError: If no filesystem configured.
-
-        Yields:
-            Iterator[Iterable[Tuple[str, str]]]: A sequence of tuples where the first item is the location of the dataset
-            and the second item is the associated dataset name.
-        """
-        if self.adls:
-            yield from self._get_adls_paths(self.adls.base_path, 0)
-        elif self.localfs:
-            yield from self._get_localfs_paths(self.localfs, 0)
-        else:
-            raise ConfigurationError("No filesystem client configured")
+        return load_catalog(
+            name=self.catalog.name, **{"type": self.catalog.type, **self.catalog.config}
+        )
 
 
 @dataclass
@@ -181,6 +118,3 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
 
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
-
-    def report_entity_profiled(self, name: str) -> None:
-        self.entities_profiled += 1

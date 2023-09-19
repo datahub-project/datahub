@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search;
 
+import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.datahub.test.Snapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -8,8 +10,7 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.ESTestConfiguration;
-import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
@@ -19,8 +20,6 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.search.aggregator.AllEntitiesSearchAggregator;
-import com.linkedin.metadata.search.cache.CachingAllEntitiesSearchAggregator;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -61,6 +60,8 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
   private ESIndexBuilder _esIndexBuilder;
   @Autowired
   private SearchConfiguration _searchConfiguration;
+  @Autowired
+  private CustomSearchConfiguration _customSearchConfiguration;
   private EntityRegistry _entityRegistry;
   private IndexConvention _indexConvention;
   private SettingsBuilder _settingsBuilder;
@@ -93,15 +94,6 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
     _searchService = new SearchService(
       new EntityDocCountCache(_entityRegistry, _elasticSearchService, entityDocCountCacheConfiguration),
       cachingEntitySearchService,
-      new CachingAllEntitiesSearchAggregator(
-          _cacheManager,
-          new AllEntitiesSearchAggregator(
-              _entityRegistry,
-              _elasticSearchService,
-              cachingEntitySearchService,
-              new SimpleRanker(), entityDocCountCacheConfiguration),
-          100,
-          true),
       new SimpleRanker());
   }
 
@@ -117,8 +109,8 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
         new EntityIndexBuilders(_esIndexBuilder, _entityRegistry,
             _indexConvention, _settingsBuilder);
     ESSearchDAO searchDAO = new ESSearchDAO(_entityRegistry, _searchClient, _indexConvention, false,
-        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration);
-    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention);
+        ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH, _searchConfiguration, null);
+    ESBrowseDAO browseDAO = new ESBrowseDAO(_entityRegistry, _searchClient, _indexConvention, _searchConfiguration, _customSearchConfiguration);
     ESWriteDAO writeDAO = new ESWriteDAO(_entityRegistry, _searchClient, _indexConvention,
         _bulkProcessor, 1);
     return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
@@ -133,7 +125,7 @@ public class SearchServiceTest extends AbstractTestNGSpringContextTests {
   public void testSearchService() throws Exception {
     SearchResult searchResult =
         _searchService.searchAcrossEntities(ImmutableList.of(ENTITY_NAME), "test", null,
-                null, 0, 10, new SearchFlags().setFulltext(true));
+                null, 0, 10, new SearchFlags().setFulltext(true).setSkipCache(true));
     assertEquals(searchResult.getNumEntities().intValue(), 0);
     searchResult = _searchService.searchAcrossEntities(ImmutableList.of(), "test", null,
             null, 0, 10, new SearchFlags().setFulltext(true));

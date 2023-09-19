@@ -77,7 +77,9 @@ public class DashboardType implements SearchableEntityType<Dashboard, String>, B
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         INPUT_FIELDS_ASPECT_NAME,
         SUB_TYPES_ASPECT_NAME,
-        EMBED_ASPECT_NAME
+        EMBED_ASPECT_NAME,
+        DATA_PRODUCTS_ASPECT_NAME,
+        BROWSE_PATHS_V2_ASPECT_NAME
     );
     private static final Set<String> FACET_FIELDS = ImmutableSet.of("access", "tool");
 

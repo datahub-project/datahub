@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, Union
 
 from datahub.configuration.common import ConfigModel
@@ -11,7 +12,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
     SystemMetadata,
 )
-from datahub.metadata.schema_classes import UsageAggregationClass
+
+logger = logging.getLogger(__name__)
 
 
 def _try_reformat_with_black(code: str) -> str:
@@ -25,6 +27,9 @@ def _try_reformat_with_black(code: str) -> str:
 
 class WorkUnitRecordExtractorConfig(ConfigModel):
     set_system_metadata = True
+    set_system_metadata_pipeline_name = (
+        False  # false for now until the models are available in OSS
+    )
     unpack_mces_into_mcps = False
 
 
@@ -41,7 +46,6 @@ class WorkUnitRecordExtractor(
                 MetadataChangeEvent,
                 MetadataChangeProposal,
                 MetadataChangeProposalWrapper,
-                UsageAggregationClass,
             ]
         ]
     ]:
@@ -65,6 +69,10 @@ class WorkUnitRecordExtractor(
                     workunit.metadata.systemMetadata = SystemMetadata(
                         lastObserved=get_sys_time(), runId=self.ctx.run_id
                     )
+                    if self.config.set_system_metadata_pipeline_name:
+                        workunit.metadata.systemMetadata.pipelineName = (
+                            self.ctx.pipeline_name
+                        )
                 if (
                     isinstance(workunit.metadata, MetadataChangeEvent)
                     and len(workunit.metadata.proposedSnapshot.aspects) == 0
@@ -85,18 +93,9 @@ class WorkUnitRecordExtractor(
                 },
             )
         elif isinstance(workunit, UsageStatsWorkUnit):
-            if not workunit.usageStats.validate():
-                invalid_usage_stats = str(workunit.usageStats)
-                invalid_usage_stats = _try_reformat_with_black(invalid_usage_stats)
-
-                raise ValueError(
-                    f"source produced an invalid usage stat: {invalid_usage_stats}"
-                )
-            yield RecordEnvelope(
-                workunit.usageStats,
-                {
-                    "workunit_id": workunit.id,
-                },
+            logger.error(
+                "Dropping deprecated `UsageStatsWorkUnit`. "
+                "Emit a `MetadataWorkUnit` with the `datasetUsageStatistics` aspect instead."
             )
         else:
             raise ValueError(f"unknown WorkUnit type {type(workunit)}")

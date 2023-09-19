@@ -43,7 +43,7 @@ public class SiblingGraphService {
             new HashSet<>(),
             null,
             null),
-        _entityService);
+            _entityService);
   }
 
   /**
@@ -122,11 +122,16 @@ public class SiblingGraphService {
         offset = Math.max(0, offset - nextEntityLineage.getTotal());
         count = Math.max(0, count - nextEntityLineage.getCount() - entityLineage.getCount());
 
+        entityLineage.setFiltered(getFiltered(entityLineage) + getFiltered(nextEntityLineage));
         entityLineage = nextEntityLineage;
       };
     }
 
     return ValidationUtils.validateEntityLineageResult(entityLineage, _entityService);
+  }
+
+  private int getFiltered(@Nullable EntityLineageResult entityLineageResult) {
+    return (entityLineageResult != null && entityLineageResult.getFiltered() != null ? entityLineageResult.getFiltered() : 0);
   }
 
   // takes a lineage result and removes any nodes that are siblings of some other node already in the result
@@ -136,42 +141,49 @@ public class SiblingGraphService {
       @Nonnull final EntityLineageResult entityLineageResult,
       @Nullable final EntityLineageResult existingResult
   ) {
+    int numFiltered = 0;
+
     // 1) remove the source entities siblings from this entity's downstreams
-    final List<LineageRelationship> filteredRelationships = entityLineageResult.getRelationships()
-        .stream()
-        .filter(lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
-            || lineageRelationship.getEntity().equals(urn))
-        .collect(Collectors.toList());
+    final Map<Boolean, List<LineageRelationship>> partitionedFilteredRelationships = entityLineageResult.getRelationships()
+        .stream().collect(Collectors.partitioningBy(
+            lineageRelationship -> !allSiblingsInGroup.contains(lineageRelationship.getEntity())
+        || lineageRelationship.getEntity().equals(urn)));
+    numFiltered += partitionedFilteredRelationships.get(Boolean.FALSE).size();
+
+    final List<LineageRelationship> filteredRelationships = partitionedFilteredRelationships.get(Boolean.TRUE);
 
     // 2) filter out existing lineage to avoid duplicates in our combined result
     final Set<Urn> existingUrns = existingResult != null
         ? existingResult.getRelationships().stream().map(LineageRelationship::getEntity).collect(Collectors.toSet())
         : new HashSet<>();
-    List<LineageRelationship> uniqueFilteredRelationships = filteredRelationships.stream().filter(
-        lineageRelationship -> !existingUrns.contains(lineageRelationship.getEntity())).collect(Collectors.toList());
 
-    // 3) combine this entity's lineage with the lineage we've already seen and remove duplicates
+    Map<Boolean, List<LineageRelationship>> partitionedUniqueFilteredRelationships = filteredRelationships.stream().collect(
+        Collectors.partitioningBy(lineageRelationship -> !existingUrns.contains(lineageRelationship.getEntity())));
+    numFiltered += partitionedUniqueFilteredRelationships.get(Boolean.FALSE).size();
+
+    List<LineageRelationship> uniqueFilteredRelationships = partitionedUniqueFilteredRelationships.get(Boolean.TRUE);
+
+    // 3) combine this entity's lineage with the lineage we've already seen
     final List<LineageRelationship> combinedResults = Stream.concat(
             uniqueFilteredRelationships.stream(),
             existingResult != null ? existingResult.getRelationships().stream() : ImmutableList.<LineageRelationship>of().stream())
         .collect(Collectors.toList());
 
     // 4) fetch the siblings of each lineage result
-    final Set<Urn> combinedResultUrns = combinedResults.stream().map(result -> result.getEntity()).collect(Collectors.toSet());
+    final Set<Urn> combinedResultUrns = combinedResults.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
 
     final Map<Urn, List<RecordTemplate>> siblingAspects =
         _entityService.getLatestAspects(combinedResultUrns, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
     // 5) if you are not primary & your sibling is in the results, filter yourself out of the return set
-    uniqueFilteredRelationships = combinedResults.stream().filter(result -> {
+    Map<Boolean, List<LineageRelationship>> partitionedFilteredSiblings = combinedResults.stream().collect(Collectors.partitioningBy(result -> {
       Optional<RecordTemplate> optionalSiblingsAspect = siblingAspects.get(result.getEntity()).stream().filter(
           aspect -> aspect instanceof Siblings
       ).findAny();
 
-      if (!optionalSiblingsAspect.isPresent()) {
+      if (optionalSiblingsAspect.isEmpty()) {
         return true;
       }
-
 
       final Siblings siblingsAspect = (Siblings) optionalSiblingsAspect.get();
 
@@ -180,19 +192,18 @@ public class SiblingGraphService {
       }
 
       // if you are not primary and your sibling exists in the result set, filter yourself out
-      if (siblingsAspect.getSiblings().stream().anyMatch(
-          sibling -> combinedResultUrns.contains(sibling)
-      )) {
-        return false;
-      }
+      return siblingsAspect.getSiblings().stream().noneMatch(combinedResultUrns::contains);
+    }));
 
-      return true;
-    }).collect(Collectors.toList());
+    numFiltered += partitionedFilteredSiblings.get(Boolean.FALSE).size();
+    uniqueFilteredRelationships = partitionedFilteredSiblings.get(Boolean.TRUE);
 
-    entityLineageResult.setRelationships(new LineageRelationshipArray(uniqueFilteredRelationships));
-    entityLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
-    entityLineageResult.setCount(uniqueFilteredRelationships.size());
-    return ValidationUtils.validateEntityLineageResult(entityLineageResult, _entityService);
+    EntityLineageResult combinedLineageResult = new EntityLineageResult();
+    combinedLineageResult.setStart(entityLineageResult.getStart());
+    combinedLineageResult.setRelationships(new LineageRelationshipArray(uniqueFilteredRelationships));
+    combinedLineageResult.setTotal(entityLineageResult.getTotal() + (existingResult != null ? existingResult.getTotal() : 0));
+    combinedLineageResult.setCount(uniqueFilteredRelationships.size());
+    combinedLineageResult.setFiltered(numFiltered + getFiltered(existingResult) + getFiltered(entityLineageResult));
+    return ValidationUtils.validateEntityLineageResult(combinedLineageResult, _entityService);
   }
-
 }

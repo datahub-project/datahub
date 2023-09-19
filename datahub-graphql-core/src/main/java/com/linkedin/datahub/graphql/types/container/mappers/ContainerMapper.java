@@ -42,7 +42,7 @@ public class ContainerMapper {
     final Container result = new Container();
     final Urn entityUrn = entityResponse.getUrn();
     final EnvelopedAspectMap aspects = entityResponse.getAspects();
-    Long lastIngested = SystemMetadataUtils.getLastIngested(aspects);
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
     result.setLastIngested(lastIngested);
 
     result.setUrn(entityUrn.toString());
@@ -87,7 +87,7 @@ public class ContainerMapper {
 
     final EnvelopedAspect envelopedInstitutionalMemory = aspects.get(Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME);
     if (envelopedInstitutionalMemory != null) {
-      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data())));
+      result.setInstitutionalMemory(InstitutionalMemoryMapper.map(new InstitutionalMemory(envelopedInstitutionalMemory.getValue().data()), entityUrn));
     }
 
     final EnvelopedAspect statusAspect = aspects.get(Constants.STATUS_ASPECT_NAME);

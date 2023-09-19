@@ -51,10 +51,11 @@ def test_base_url_guessing():
         url_template="https://gitea.com/gitea/tea/src/branch/{branch}/{file_path}",
         repo_ssh_locator="https://gitea.com/gitea/tea.git",
     )
-    config.get_url_for_file_path(
-        "cmd/admin.go"
-    ) == "https://gitea.com/gitea/tea/src/branch/main/cmd/admin.go"
-    config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
+    assert (
+        config.get_url_for_file_path("cmd/admin.go")
+        == "https://gitea.com/gitea/tea/src/branch/main/cmd/admin.go"
+    )
+    assert config.repo_ssh_locator == "https://gitea.com/gitea/tea.git"
 
     # Deprecated: base_url.
     with pytest.warns(ConfigurationWarning, match="base_url is deprecated"):

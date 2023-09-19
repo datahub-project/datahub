@@ -5,8 +5,14 @@
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
-        "value": "{\"customProperties\": {\"platform\": \"mysql\", \"instance\": \"PROD\", \"database\": \"northwind\"}, \"name\": \"northwind\"}",
-        "contentType": "application/json"
+        "json": {
+            "customProperties": {
+                "platform": "mysql",
+                "env": "PROD",
+                "database": "northwind"
+            },
+            "name": "northwind"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -19,8 +25,9 @@
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
-        "value": "{\"removed\": false}",
-        "contentType": "application/json"
+        "json": {
+            "removed": false
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -33,8 +40,9 @@
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-        "value": "{\"platform\": \"urn:li:dataPlatform:mysql\"}",
-        "contentType": "application/json"
+        "json": {
+            "platform": "urn:li:dataPlatform:mysql"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -47,8 +55,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Database\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -61,8 +72,26 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:sales"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -75,8 +104,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -209,8 +239,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -223,8 +256,31 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:sales"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -237,8 +293,9 @@
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
-        "value": "{\"container\": \"urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f\"}",
-        "contentType": "application/json"
+        "json": {
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -347,8 +404,11 @@
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
-        "value": "{\"typeNames\": [\"Table\"]}",
-        "contentType": "application/json"
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -361,8 +421,31 @@
     "changeType": "UPSERT",
     "aspectName": "domains",
     "aspect": {
-        "value": "{\"domains\": [\"urn:li:domain:sales\"]}",
-        "contentType": "application/json"
+        "json": {
+            "domains": [
+                "urn:li:domain:sales"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -375,8 +458,117 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 5, \"columnCount\": 6, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"5\", \"mean\": \"3.0\", \"median\": \"3\", \"stdev\": \"1.5811388300841898\", \"sampleValues\": [\"1\", \"2\", \"3\", \"4\", \"5\"]}, {\"fieldPath\": \"company\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Company A\", \"Company B\", \"Company C\", \"Company D\", \"Company E\"]}, {\"fieldPath\": \"last_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Axen\", \"Bedecs\", \"Donnell\", \"Gratacos Solsona\", \"Lee\"]}, {\"fieldPath\": \"first_name\", \"uniqueCount\": 5, \"uniqueProportion\": 1, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"Anna\", \"Antonio\", \"Christina\", \"Martin\", \"Thomas\"]}, {\"fieldPath\": \"email_address\", \"uniqueCount\": 0, \"nullCount\": 5, \"nullProportion\": 1, \"sampleValues\": []}, {\"fieldPath\": \"priority\", \"uniqueCount\": 3, \"uniqueProportion\": 0.75, \"nullCount\": 1, \"nullProportion\": 0.2, \"min\": \"3.8\", \"max\": \"4.9\", \"mean\": \"4.175000011920929\", \"median\": \"4.0\", \"stdev\": \"0.49244294899530355\", \"distinctValueFrequencies\": [{\"value\": \"3.8\", \"frequency\": 1}, {\"value\": \"4.0\", \"frequency\": 2}, {\"value\": \"4.9\", \"frequency\": 1}], \"sampleValues\": [\"4.0\", \"4.9\", \"4.0\", \"3.8\"]}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 5,
+            "columnCount": 6,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "min": "1",
+                    "max": "5",
+                    "mean": "3.0",
+                    "median": "3",
+                    "stdev": "1.5811388300841898",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5"
+                    ]
+                },
+                {
+                    "fieldPath": "company",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Company A",
+                        "Company B",
+                        "Company C",
+                        "Company D",
+                        "Company E"
+                    ]
+                },
+                {
+                    "fieldPath": "last_name",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Axen",
+                        "Bedecs",
+                        "Donnell",
+                        "Gratacos Solsona",
+                        "Lee"
+                    ]
+                },
+                {
+                    "fieldPath": "first_name",
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Anna",
+                        "Antonio",
+                        "Christina",
+                        "Martin",
+                        "Thomas"
+                    ]
+                },
+                {
+                    "fieldPath": "email_address",
+                    "uniqueCount": 0,
+                    "nullCount": 5,
+                    "nullProportion": 1,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "priority",
+                    "uniqueCount": 3,
+                    "uniqueProportion": 0.75,
+                    "nullCount": 1,
+                    "nullProportion": 0.2,
+                    "min": "3.8",
+                    "max": "4.9",
+                    "mean": "4.175000011920929",
+                    "median": "4.0",
+                    "stdev": "0.49244294899530355",
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "3.8",
+                            "frequency": 1
+                        },
+                        {
+                            "value": "4.0",
+                            "frequency": 2
+                        },
+                        {
+                            "value": "4.9",
+                            "frequency": 1
+                        }
+                    ],
+                    "sampleValues": [
+                        "4.0",
+                        "4.9",
+                        "4.0",
+                        "3.8"
+                    ]
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
@@ -389,8 +581,45 @@
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
-        "value": "{\"timestampMillis\": 1586847600000, \"partitionSpec\": {\"type\": \"FULL_TABLE\", \"partition\": \"FULL_TABLE_SNAPSHOT\"}, \"rowCount\": 0, \"columnCount\": 3, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 0, \"nullCount\": 0, \"min\": \"None\", \"max\": \"None\", \"mean\": \"None\", \"median\": \"None\", \"stdev\": \"0.0\", \"sampleValues\": []}, {\"fieldPath\": \"description\", \"uniqueCount\": 0, \"nullCount\": 0, \"sampleValues\": []}, {\"fieldPath\": \"customer_id\", \"uniqueCount\": 0, \"nullCount\": 0, \"min\": \"None\", \"max\": \"None\", \"mean\": \"None\", \"median\": \"None\", \"stdev\": \"0.0\", \"sampleValues\": []}]}",
-        "contentType": "application/json"
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "type": "FULL_TABLE",
+                "partition": "FULL_TABLE_SNAPSHOT"
+            },
+            "rowCount": 0,
+            "columnCount": 3,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 0,
+                    "nullCount": 0,
+                    "min": "None",
+                    "max": "None",
+                    "mean": "None",
+                    "median": "None",
+                    "stdev": "0.0",
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "description",
+                    "uniqueCount": 0,
+                    "nullCount": 0,
+                    "sampleValues": []
+                },
+                {
+                    "fieldPath": "customer_id",
+                    "uniqueCount": 0,
+                    "nullCount": 0,
+                    "min": "None",
+                    "max": "None",
+                    "mean": "None",
+                    "median": "None",
+                    "stdev": "0.0",
+                    "sampleValues": []
+                }
+            ]
+        }
     },
     "systemMetadata": {
         "lastObserved": 1586847600000,
