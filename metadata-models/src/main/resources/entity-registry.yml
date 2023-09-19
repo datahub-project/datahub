@@ -464,4 +464,6 @@ entities:
     aspects:
       - dataContractProperties
       - dataContractStatus
+      - status
+
 events:
