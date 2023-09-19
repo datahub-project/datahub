@@ -1,11 +1,13 @@
 ---
 title: Configuration
 ---
-# Configuring Your Looker Connector to DataHub
+# Configuring Your Looker & LookerML Connector to DataHub
 
 Now that you have created a DataHub specific API key with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
-## Configure Secrets
+## Configure LookerML Ingestion 
+
+### Configure Secrets
 
 1. Within DataHub, navigate to the **Ingestion** tab in the top, right corner of your screen
 
@@ -49,7 +51,7 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    <img width="70%" alt="API Key client secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-client-secret.png"/>
 </p>
 
-## Configure Recipe
+### Configure Recipe
 1.  Navigate to the **Sources** tab and click **Create new source**
 
   <p align="center">
@@ -93,7 +95,7 @@ Your recipe should look something like this:
 
 After completing the recipe, click **Next**.    
 
-## Schedule Execution
+### Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your Looker instance.
 
@@ -110,7 +112,7 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 3. Click **Next** when you are done
 
-## Finish Up
+### Finish Up
 
 Name your ingestion source, then click **Save and Run**
 <p align="center">
@@ -123,7 +125,7 @@ You will now find your new ingestion source running
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-running.png"/>
 </p>  
 
-## Validate Ingestion Runs
+### Validate Ingestion Runs
 
 1. View the latest status of ingestion runs on the Ingestion page
 
@@ -149,11 +151,11 @@ You will now find your new ingestion source running
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-assets.png"/>
 </p>  
 
-# Configuring Your LookML Connector to DataHub
+## Configuring LookML Connector
 
 Now that you have created a DataHub specific API key and Deploy Key with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
-## Configure Recipe
+### Configure Recipe
 1.  Navigate to the **Sources** tab and click **Create new source**
 
   <p align="center">
@@ -189,7 +191,7 @@ Your recipe should look something like this:
 
 After completing the recipe, click **Next**.    
 
-## Schedule Execution
+### Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your Looker instance.
 
@@ -206,7 +208,7 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 3. Click **Next** when you are done
 
-## Finish Up
+### Finish Up
 
 1. Name your ingestion source, then click **Save and Run**
 <p align="center">
@@ -219,7 +221,7 @@ You will now find your new ingestion source running
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-running.png"/>
 </p>  
 
-## Validate Ingestion Runs
+### Validate Ingestion Runs
 
 1. View the latest status of ingestion runs on the Ingestion page
 

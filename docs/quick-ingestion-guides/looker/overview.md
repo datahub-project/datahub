@@ -18,11 +18,11 @@ Looker connector will ingest Looker asset types:
 * [Schemas](https://developers.looker.com/api/explorer/4.0/methods/Metadata/connection_schemas) 
 * [Owners of Dashboards](https://cloud.google.com/looker/docs/creating-user-defined-dashboards)
 
-    :::note
+:::note
 
-    To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [lookml](https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml) connector.
+To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [lookml](https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml) connector.
 
-    :::
+:::
 
 
 *To learn more about setting these advanced values, check out the [Looker Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/Looker).*
@@ -35,11 +35,11 @@ LookMl connector will include to following LookML asset types:
 * [Metadata for measures](https://cloud.google.com/looker/docs/reference/param-measure-types)
 * [Dimension Groups as tag](https://cloud.google.com/looker/docs/reference/param-field-dimension-group)
 
-    :::note
+:::note
 
-    To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [looker](https://datahubproject.io/docs/generated/ingestion/sources/looker#module-looker) connector.
+To get complete Looker metadata integration (including Looker views and lineage to the underlying warehouse tables), you must also use the [looker](https://datahubproject.io/docs/generated/ingestion/sources/looker#module-looker) connector.
 
-    :::
+:::
 
 ## Next Steps
 Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
