@@ -147,6 +147,7 @@ aws_common = {
     # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
     # See https://github.com/boto/botocore/pull/2563.
     "botocore!=1.23.0",
+    "aws-glue-schema-registry==1.1.2"
 }
 
 path_spec_common = {
