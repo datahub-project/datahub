@@ -9,24 +9,24 @@ emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={
 dataset_urn = builder.make_dataset_urn(
     name="fct_users_created", platform="hive", env="PROD"
 )
-feature_urn = builder.make_ml_feature_urn(
+primary_key_urn = builder.make_ml_primary_key_urn(
     feature_table_name="users_feature_table",
-    feature_name="user_signup_date",
+    primary_key_name="user_id",
 )
 
 #  Create feature
 metadata_change_proposal = MetadataChangeProposalWrapper(
-    entityType="mlFeature",
+    entityType="mlPrimaryKey",
     changeType=models.ChangeTypeClass.UPSERT,
-    entityUrn=feature_urn,
-    aspectName="mlFeatureProperties",
-    aspect=models.MLFeaturePropertiesClass(
-        description="Represents the date the user created their account",
-        # attaching a source to a feature creates lineage between the feature
+    entityUrn=primary_key_urn,
+    aspectName="mlPrimaryKeyProperties",
+    aspect=models.MLPrimaryKeyPropertiesClass(
+        description="Represents the id of the user the other features relate to.",
+        # attaching a source to a ml primary key creates lineage between the feature
         # and the upstream dataset. This is how lineage between your data warehouse
         # and machine learning ecosystem is established.
         sources=[dataset_urn],
-        dataType="TIME",
+        dataType="TEXT",
     ),
 )
 
