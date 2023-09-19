@@ -140,31 +140,4 @@ public class AuthUtils {
         }
     }
 
-    public static JWT parse(final String s) throws ParseException {
-        final int firstDotPos = s.indexOf(".");
-
-        if (firstDotPos == -1) {
-            throw new ParseException("Invalid JWT serialization: Missing dot delimiter(s)", 0);
-        }
-
-        Base64URL header = new Base64URL(s.substring(0, firstDotPos));
-        JSONObject jsonObject;
-
-        try {
-            jsonObject = JSONObjectUtils.parse(header.decodeToString());
-        } catch (ParseException e) {
-            throw new ParseException("Invalid unsecured/JWS/JWE header: " + e.getMessage(), 0);
-        }
-
-        Algorithm alg = Header.parseAlgorithm(jsonObject);
-
-        if (alg instanceof JWSAlgorithm) {
-            return SignedJWT.parse(s);
-        } else if (alg instanceof JWEAlgorithm) {
-            return EncryptedJWT.parse(s);
-        } else {
-            throw new AssertionError("Unexpected algorithm type: " + alg);
-        }
-    }
-
 }

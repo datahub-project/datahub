@@ -3,6 +3,7 @@ package app;
 import auth.AuthUtils;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.JWTParser;
 import controllers.routes;
 import java.text.ParseException;
 import java.util.Date;
@@ -161,7 +162,7 @@ public class ApplicationTest extends WithBrowser {
 
     Cookie sessionCookie = browser.getCookie("PLAY_SESSION");
     String jwtStr = sessionCookie.getValue();
-    JWT jwt = AuthUtils.parse(jwtStr);
+    JWT jwt = JWTParser.parse(jwtStr);
     JWTClaimsSet claims = jwt.getJWTClaimsSet();
     Map<String, String> data = (Map<String, String>) claims.getClaim("data");
     assertEquals(TEST_TOKEN, data.get("token"));
