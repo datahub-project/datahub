@@ -1,7 +1,18 @@
 package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import com.nimbusds.jose.Algorithm;
+import com.nimbusds.jose.Header;
+import com.nimbusds.jose.JWEAlgorithm;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.util.Base64URL;
+import com.nimbusds.jose.util.JSONObjectUtils;
+import com.nimbusds.jwt.EncryptedJWT;
+import com.nimbusds.jwt.JWT;
+import com.nimbusds.jwt.SignedJWT;
+import java.text.ParseException;
 import lombok.extern.slf4j.Slf4j;
+import net.minidev.json.JSONObject;
 import play.mvc.Http;
 
 import javax.annotation.Nonnull;
@@ -77,7 +88,9 @@ public class AuthUtils {
      * as well as their agreement to determine authentication status.
      */
     public static boolean hasValidSessionCookie(final Http.Request req) {
-        return req.session().data().containsKey(ACTOR)
+        Map<String, String> sessionCookie = req.session().data();
+        return sessionCookie.containsKey(ACCESS_TOKEN)
+                && sessionCookie.containsKey(ACTOR)
                 && req.getCookie(ACTOR).isPresent()
                 && req.session().data().get(ACTOR).equals(req.getCookie(ACTOR).get().value());
     }
@@ -124,6 +137,33 @@ public class AuthUtils {
         } catch (IllegalArgumentException e) {
             log.warn(String.format("Invalid AUTH_COOKIE_SAME_SITE value: %s. Using LAX instead.", sameSiteValue), e);
             return Http.Cookie.SameSite.LAX;
+        }
+    }
+
+    public static JWT parse(final String s) throws ParseException {
+        final int firstDotPos = s.indexOf(".");
+
+        if (firstDotPos == -1) {
+            throw new ParseException("Invalid JWT serialization: Missing dot delimiter(s)", 0);
+        }
+
+        Base64URL header = new Base64URL(s.substring(0, firstDotPos));
+        JSONObject jsonObject;
+
+        try {
+            jsonObject = JSONObjectUtils.parse(header.decodeToString());
+        } catch (ParseException e) {
+            throw new ParseException("Invalid unsecured/JWS/JWE header: " + e.getMessage(), 0);
+        }
+
+        Algorithm alg = Header.parseAlgorithm(jsonObject);
+
+        if (alg instanceof JWSAlgorithm) {
+            return SignedJWT.parse(s);
+        } else if (alg instanceof JWEAlgorithm) {
+            return EncryptedJWT.parse(s);
+        } else {
+            throw new AssertionError("Unexpected algorithm type: " + alg);
         }
     }
 
