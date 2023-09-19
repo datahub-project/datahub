@@ -1,18 +1,7 @@
 package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
-import com.nimbusds.jose.Algorithm;
-import com.nimbusds.jose.Header;
-import com.nimbusds.jose.JWEAlgorithm;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.util.Base64URL;
-import com.nimbusds.jose.util.JSONObjectUtils;
-import com.nimbusds.jwt.EncryptedJWT;
-import com.nimbusds.jwt.JWT;
-import com.nimbusds.jwt.SignedJWT;
-import java.text.ParseException;
 import lombok.extern.slf4j.Slf4j;
-import net.minidev.json.JSONObject;
 import play.mvc.Http;
 
 import javax.annotation.Nonnull;
