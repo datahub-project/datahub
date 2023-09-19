@@ -44,8 +44,7 @@ task quickstart(type: Exec, dependsOn: ':metadata-ingestion:install') {
             '--no-pull-images',
             '--standalone_consumers',
             '--version', "v${version}",
-            '--dump-logs-on-failure',
-            '-f ../docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml'
+            '--dump-logs-on-failure'
     ]
 
     commandLine 'bash', '-c', cmd.join(" ")
@@ -68,8 +67,7 @@ task quickstartSlim(type: Exec, dependsOn: ':metadata-ingestion:install') {
             '--no-pull-images',
             '--standalone_consumers',
             '--version', "v${version}",
-            '--dump-logs-on-failure',
-            '-f ../docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml'
+            '--dump-logs-on-failure'
     ]
 
     commandLine 'bash', '-c', cmd.join(" ")
@@ -98,8 +96,7 @@ task quickstartDebug(type: Exec, dependsOn: ':metadata-ingestion:install') {
             'datahub docker quickstart',
             '--no-pull-images',
             '--version', "debug",
-            '--dump-logs-on-failure',
-            '-f ../docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml'
+            '--dump-logs-on-failure'
     ] + debug_compose_args
     commandLine 'bash', '-c', cmd.join(" ")
 }
