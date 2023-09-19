@@ -97,6 +97,14 @@ class KafkaSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
+    registry_name: str = pydantic.Field(
+        default={},
+        description="The name of the Glue Schema Registry from where the schema metadata will be ingested.",
+    )
+    aws_account_region: str = pydantic.Field(
+        default={},
+        description="The name of the Glue Schema Registry from where the schema metadata will be ingested.",
+    )
 
 
 @dataclass

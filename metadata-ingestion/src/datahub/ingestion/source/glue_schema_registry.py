@@ -26,7 +26,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 )
 
 logger = logging.getLogger(__name__)
-registry_name = 'agora'
 
 
 @dataclass
@@ -50,13 +49,10 @@ class GlueSchemaRegistry(KafkaSchemaRegistryBase):
         self.report: KafkaSourceReport = report
 
         # for dev/prod
-        self.glue_client = boto3.client(service_name='glue', region_name='eu-west-1')
-
-        # for local
-        # self.glue_client = session.client(service_name='glue', region_name='eu-west-1')
+        self.glue_client = boto3.client(service_name='glue', region_name=source_config.aws_account_region)
 
         # Create the schema registry client, which is a facade around the boto3 glue client
-        self.schema_registry_client = SchemaRegistryClient(self.glue_client, registry_name=registry_name)
+        self.schema_registry_client = SchemaRegistryClient(self.glue_client, registry_name=source_config.registry_name)
 
         self.known_schema_registry_subjects: List[str] = []
         logger.warning(f"Get subjects from schema registry will be empty as we are using Glue.")
