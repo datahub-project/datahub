@@ -53,6 +53,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    BrowsePathEntryClass,
+    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -282,12 +284,24 @@ class KafkaSource(StatefulIngestionSourceBase):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        # 3. Attach browsePaths aspect
+        # 3. Attach browsePaths and browsePathsV2 aspects
         browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
         if self.source_config.platform_instance:
             browse_path_str += f"/{self.source_config.platform_instance}"
         browse_path = BrowsePathsClass([browse_path_str])
         dataset_snapshot.aspects.append(browse_path)
+
+        browse_paths_v2_path = []
+        if self.source_config.platform_instance:
+            platform_instance_urn = make_dataplatform_instance_urn(
+                self.platform, self.source_config.platform_instance
+            )
+            browse_paths_v2_path.append(
+                BrowsePathEntryClass(
+                    id=platform_instance_urn, urn=platform_instance_urn
+                )
+            )
+        dataset_snapshot.aspects.append(BrowsePathsV2Class(path=browse_paths_v2_path))
 
         # 4. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
