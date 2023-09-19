@@ -1,3 +1,5 @@
+package com.datahub.auth.authentication;
+
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticatorConfiguration;
