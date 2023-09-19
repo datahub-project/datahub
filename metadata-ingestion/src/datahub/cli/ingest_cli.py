@@ -134,7 +134,7 @@ def run(
                 if pipeline.config.flags.generate_memory_profiles:
                     logger.info(pipeline)
                     with memray.Tracker(
-                        f"{pipeline.config.source.type}-{pipeline.config.pipeline_name}-{pipeline.config.run_id}.bin"
+                        f"/tmp/datahub/{pipeline.config.source.type}-{pipeline.config.pipeline_name}-{pipeline.config.run_id}.bin"
                     ):
                         pipeline.run()
                 else:
