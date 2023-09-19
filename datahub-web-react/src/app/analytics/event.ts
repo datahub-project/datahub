@@ -35,6 +35,8 @@ export enum EventType {
     SearchBarExploreAllClickEvent,
     SearchResultsExploreAllClickEvent,
     SearchAcrossLineageEvent,
+    VisualLineageViewEvent,
+    VisualLineageExpandGraphEvent,
     SearchAcrossLineageResultsViewEvent,
     DownloadAsCsvEvent,
     SignUpEvent,
@@ -340,12 +342,23 @@ export interface HomePageRecommendationClickEvent extends BaseEvent {
     index?: number;
 }
 
+export interface VisualLineageViewEvent extends BaseEvent {
+    type: EventType.VisualLineageViewEvent;
+    entityType?: EntityType;
+}
+
+export interface VisualLineageExpandGraphEvent extends BaseEvent {
+    type: EventType.VisualLineageExpandGraphEvent;
+    targetEntityType?: EntityType;
+}
+
 export interface SearchAcrossLineageEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageEvent;
     query: string;
     entityTypeFilter?: EntityType;
     pageNumber: number;
     originPath: string;
+    maxDegree?: string;
 }
 export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     type: EventType.SearchAcrossLineageResultsViewEvent;
@@ -353,6 +366,7 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     entityTypeFilter?: EntityType;
     page?: number;
     total: number;
+    maxDegree?: string;
 }
 
 export interface DownloadAsCsvEvent extends BaseEvent {
@@ -641,6 +655,8 @@ export type Event =
     | RecommendationImpressionEvent
     | SearchAcrossLineageEvent
     | SearchAcrossLineageResultsViewEvent
+    | VisualLineageViewEvent
+    | VisualLineageExpandGraphEvent
     | DownloadAsCsvEvent
     | RecommendationClickEvent
     | HomePageRecommendationClickEvent

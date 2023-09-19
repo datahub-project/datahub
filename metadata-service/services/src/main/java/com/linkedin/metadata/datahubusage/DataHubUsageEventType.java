@@ -67,6 +67,8 @@ public enum DataHubUsageEventType {
   MANUALLY_DELETE_LINEAGE_EVENT("ManuallyDeleteLineageEvent"),
   LINEAGE_GRAPH_TIME_RANGE_SELECTION_EVENT("LineageGraphTimeRangeSelectionEvent"),
   LINEAGE_TAB_TIME_RANGE_SELECTION_EVENT("LineageTabTimeRangeSelectionEvent"),
+  VISUAL_LINEAGE_EXPAND_GRAPH_EVENT("VisualLineageExpandGraphEvent"),
+  VISUAL_LINEAGE_VIEW_EVENT("VisualLineageViewEvent"),
   CREATE_QUERY_EVENT("CreateQueryEvent"),
   DELETE_QUERY_EVENT("DeleteQueryEvent"),
   UPDATE_QUERY_EVENT("UpdateQueryEvent"),
