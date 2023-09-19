@@ -49,7 +49,7 @@ Then, create a secret to store the API Key Client Secret:
 
 ### Configure Recipe
 
-Navigate to the **Sources** tab and click **Create new source**
+Navigate to the **Sources** tab and click **Create new source**.
 
   <p align="center">
     <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
@@ -151,7 +151,7 @@ Now that you have created a DataHub specific API key and Deploy Key with the rel
 
 ### Configure Recipe
 
-Navigate to the **Sources** tab and click **Create new source**
+Navigate to the **Sources** tab and click **Create new source**.
 
   <p align="center">
     <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_click_create_new_source_button.png"/>
