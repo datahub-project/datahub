@@ -53,6 +53,7 @@ public enum DataHubUsageEventType {
   SHOW_STANDARD_HOME_PAGE_EVENT("ShowStandardHomepageEvent"),
   CREATE_GLOSSARY_ENTITY_EVENT("CreateGlossaryEntityEvent"),
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
+  MOVE_DOMAIN_EVENT("MoveDomainEvent"),
   CREATE_INGESTION_SOURCE_EVENT("CreateIngestionSourceEvent"),
   UPDATE_INGESTION_SOURCE_EVENT("UpdateIngestionSourceEvent"),
   DELETE_INGESTION_SOURCE_EVENT("DeleteIngestionSourceEvent"),
