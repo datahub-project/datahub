@@ -437,6 +437,7 @@ module.exports = {
           Observability: [
             "docs/managed-datahub/observe/freshness-assertions",
             "docs/managed-datahub/observe/volume-assertions",
+            "docs/managed-datahub/observe/custom-assertions",
           ],
         },
       ],
