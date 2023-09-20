@@ -6,13 +6,14 @@ import { BrowseProvider } from './BrowseContext';
 import SidebarLoadingError from './SidebarLoadingError';
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '../../onboarding/config/SearchOnboardingConfig';
 import useSidebarEntities from './useSidebarEntities';
+import { ANTD_GRAY_V2 } from '../../entity/shared/constants';
 
 const Sidebar = styled.div<{ visible: boolean; width: number }>`
     height: 100%;
     width: ${(props) => (props.visible ? `${props.width}px` : '0')};
     transition: width 250ms ease-in-out;
     border-right: 1px solid ${(props) => props.theme.styles['border-color-base']};
-    background-color: #f8f9fa;
+    background-color: ${ANTD_GRAY_V2[1]};
     background: white;
 `;
 
