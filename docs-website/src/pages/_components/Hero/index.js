@@ -8,7 +8,6 @@ import { QuestionCircleOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
 import CodeBlock from "@theme/CodeBlock";
 import CardCTAs from "../CardCTAs";
-import { Card } from "antd";
 
 const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
