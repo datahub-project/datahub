@@ -41,6 +41,7 @@ const platformSelection = [
     'urn:li:dataPlatform:hive',
     'urn:li:dataPlatform:kudu',
     'urn:li:dataPlatform:postgres',
+    'urn:li:dataPlatform:app',
 ];
 
 export const CsvForm = () => {
