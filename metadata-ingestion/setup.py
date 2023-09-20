@@ -41,7 +41,7 @@ framework_common = {
     "expandvars>=0.6.5",
     "avro-gen3==0.7.10",
     # "avro-gen3 @ git+https://github.com/acryldata/avro_gen@master#egg=avro-gen3",
-    "avro>=1.10.2,<1.11",
+    "avro>=1.10.2,<=1.11.2",
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
