@@ -1,6 +1,5 @@
 package app;
 
-import auth.AuthUtils;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
