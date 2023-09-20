@@ -441,10 +441,17 @@ type FeatureFlagsConfig {
   Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
   """
   showAcrylInfo: Boolean!
+
   """
   Whether we should show AccessManagement tab in the datahub UI.
   """
   showAccessManagement: Boolean!
+
+  """
+  Enables the nested Domains feature that allows users to have sub-Domains.
+  If this is off, Domains appear "flat" again.
+  """
+  nestedDomainsEnabled: Boolean!
 }
 
 """
