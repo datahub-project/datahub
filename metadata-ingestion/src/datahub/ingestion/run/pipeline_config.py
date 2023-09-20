@@ -57,9 +57,9 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
-    generate_memory_profiles: bool = Field(
-        default=False,
-        description=("Generate memray memory dumps for ingestion process."),
+    generate_memory_profiles: Optional[str] = Field(
+        default=None,
+        description=("Generate memray memory dumps for ingestion process by providing a path to write the dump file in."),
     )
 
 

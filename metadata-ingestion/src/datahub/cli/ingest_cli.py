@@ -132,9 +132,8 @@ def run(
         with click_spinner.spinner(disable=no_spinner):
             try:
                 if pipeline.config.flags.generate_memory_profiles:
-                    logger.info(pipeline)
                     with memray.Tracker(
-                        f"/tmp/ingestion/memray/{pipeline.config.source.type}-{pipeline.config.pipeline_name}-{pipeline.config.run_id}.bin"
+                        f"{pipeline.config.flags.generate_memory_profiles}/{pipeline.config.run_id}.bin"
                     ):
                         pipeline.run()
                 else:
