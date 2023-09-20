@@ -5,11 +5,14 @@ title: Configuration
 
 Now that you have created a DataHub specific API key with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
-## Configure Looker Ingestion 
+## Configure Secrets
 
-### Configure Secrets
+You have to create two secrets to configure connection with Looker or LookerML.
 
-Within DataHub, navigate to the **Ingestion** tab in the top, right corner of your screen
+* `LOOKER_CLIENT_ID`
+* `LOOKER_CLIENT_SECRET`
+
+On your DataHub instance, navigate to the **Ingestion** tab in the top, right corner of your screen.
 
 <p align="center">
   <img width="75%" alt="Navigate to the &quot;Ingestion Tab&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_ingestion_button.png"/>
@@ -25,27 +28,20 @@ Navigate to the **Secrets** tab and click **Create new secret**.
    <img width="75%" alt="Secrets Tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_secrets_tab.png"/>
 </p>
 
-Create a client id secret:
-
-* Enter a name like `LOOKER_CLIENT_ID` - we will use this later to refer to the `API Key Client ID`
-* Enter the `API Key Client ID`
-* Optionally add a description
-* Click **Create**
+First, create a secret for the **Client Id**. The value should be the **Client Id** of the API key created in the [prior step](http://localhost:3000/docs/next/quick-ingestion-guides/looker/setup#create-an-api-key). 
 
 <p align="center">
    <img width="70%" alt="API Key Client ID" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-client-id-secret.png"/>
 </p>
 
-Then, create a secret to store the API Key Client Secret:
-
-* Enter a name like `LOOKER_CLIENT_SECRET` - we will use this later to refer to the client secret
-* Enter the client secret
-* Optionally add a description
-* Click **Create**
+Then, create a secret for the **Client Secret**. The value should be the **Client Secret** of the API key created in the [prior step](http://localhost:3000/docs/next/quick-ingestion-guides/looker/setup#create-an-api-key). 
 
 <p align="center">
    <img width="70%" alt="API Key client secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-client-secret.png"/>
 </p>
+
+
+## Configure Looker Ingestion 
 
 ### Configure Recipe
 
@@ -61,9 +57,9 @@ Choose `Looker`.
     <img width="70%" alt="Select Looker from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-choose-looker.png"/>
   </p>
 
-Enter details into the Looker Recipe. You need to set minimum 3 field in the recipe:
+Enter the details into the Looker Recipe.
 
-* **Base URL:** This is your looker instance URL. (For example https://abc.cloud.looker.com)
+* **Base URL:** This is your looker instance URL. (i.e. `https://<your-looker-instance>.cloud.looker.com`)
 * **Client ID:** Use the secret LOOKER_CLIENT_ID with the format `${LOOKER_CLIENT_ID}`.
 * **Client Secret:** Use the secret LOOKER_CLIENT_SECRET with the format `${LOOKER_CLIENT_SECRET}`.
 
@@ -80,12 +76,12 @@ Optionally, use the `dashboard_pattern` and `chart_pattern` fields to filter for
               - "258829b1-82b1-4bdb-b9fb-6722c718bbd3"
 
 Your recipe should look something like this:
+
 <p align="center">
   <img width="70%" alt="Looker Recipe" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-source-recipe.png"/>
 </p>
 
-
-After completing the recipe, click **Next**.    
+ After completing the recipe, click **Next**. 
 
 ### Schedule Execution
 
@@ -119,33 +115,7 @@ You will now find your new ingestion source running.
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-running.png"/>
 </p>  
 
-### Validate Ingestion Runs
-
-View the latest status of ingestion runs on the Ingestion page.
-
-<p align="center">
-  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-succeeded.png"/>
-</p>  
-
-Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run.
-
-<p align="center">
-  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-history.png"/>
-</p>
-
-From the Ingestion Run Details page, pick **View All** to see which entities were ingested.
-
-<p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-detail.png"/>
-</p>  
-
-Pick an entity from the list to manually validate if it contains the detail you expected.
-
-<p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-ingestion-assets.png"/>
-</p>  
-
-## Configuring LookML Connector
+## Configure LookML Connector
 
 Now that you have created a DataHub specific API key and Deploy Key with the relevant access in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
 
@@ -163,11 +133,11 @@ Choose `LooML`.
     <img width="70%" alt="Select Looker from the options" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-choose-lookml.png"/>
   </p>
 
-Enter details into the Looker Recipe. You need to set minimum 5 field in the recipe for this quick ingestion guide:
+Enter the details into the Looker Recipe. You need to set minimum 5 field in the recipe for this quick ingestion guide:
 
-* **GitHub Repo:** This is your github repository where LookML model are stored. You can provide full URL (example: https://gitlab.com/gitlab-org/gitlab) or organization/repo in this case connector assume it is GitHub repo
+* **GitHub Repository:** This is your github repository where LookML model are stored. You can provide full URL (example: https://gitlab.com/gitlab-org/gitlab) or organization/repo in this case connector assume it is GitHub repo
 * **GitHub Deploy Key:** Copy the content of `looker_datahub_deploy_key` and paste into this filed.
-* **Looker Base URL:** This is your looker instance URL. (For example, https://abc.cloud.looker.com)
+* **Looker Base URL:** This is your looker instance URL. (i.e. https://abc.cloud.looker.com)
 * **Looker Client ID:** Use the secret LOOKER_CLIENT_ID with the format `${LOOKER_CLIENT_ID}`.
 * **Looker Client Secret:** Use the secret LOOKER_CLIENT_SECRET with the format `${LOOKER_CLIENT_SECRET}`.
 
@@ -210,7 +180,7 @@ You will now find your new ingestion source running.
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-running.png"/>
 </p>  
 
-### Validate Ingestion Runs
+## Validate Ingestion Runs
 
 View the latest status of ingestion runs on the Ingestion page.
 
@@ -218,7 +188,7 @@ View the latest status of ingestion runs on the Ingestion page.
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-succeeded.png"/>
 </p>  
 
-Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run.
+Click the `+` sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run.
 
 <p align="center">
   <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-ingestion-history.png"/>

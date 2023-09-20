@@ -9,17 +9,14 @@ title: Setup
 In order to configure ingestion from Looker, you'll first have to ensure you have an API key to access the Looker resources.
 
 ### Login To Looker Instance
-Login to `https://<your-looker-instance-name>.cloud.looker.com`. 
 
-### Navigate to Admin Panel
-Navigate to `Admin Panel` on looker home page.
+Login to your Looker instance(e.g. `https://<your-looker-instance-name>.cloud.looker.com`).
+
+Navigate to **Admin Panel** & click **Roles** to open Roles Panel.
 
 <p align="center">
    <img width="75%" alt="Looker home page" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-home-page.png"/>
 </p>
-
-### Open Roles Panel
-Click `Roles` to open `Roles Panel`.
 
 <p align="center">
    <img width="30%" alt="Looker roles search" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-roles-search.png"/>
@@ -27,13 +24,13 @@ Click `Roles` to open `Roles Panel`.
 
 ### Create A New Permission Set
 
-On `Role Panel`, go to `New Permission Set`.
+On **Roles Panel**, click **New Permission Set**.
 
    <p align="center">
    <img width="75%" alt="Looker new permission set" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-new-permission-set-button.png"/>
    </p>
 
-Set name for `New Permission Set` (For example, `DataHub Connector Permission Set`) and select the following permissions.
+Set name for the new permission set (e.g. *DataHub Connector Permission Set*) and select the following permissions.
 
 <details>
 <summary>Permission List</summary>
@@ -56,26 +53,26 @@ Set name for `New Permission Set` (For example, `DataHub Connector Permission Se
 
 </details>
 
-After selecting all permissions mentioned above, click `New Permission Set` at the bottom of the page.
+After selecting all permissions mentioned above, click **New Permission Set** at the bottom of the page.
 
-   <p align="center">
-   <img width="75%" alt="Looker permission set window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-permission-set-window.png"/>
-   </p>
+<p align="center">
+<img width="75%" alt="Looker permission set window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-permission-set-window.png"/>
+</p>
 
 ### Create A Role
 
-On `Role Panel`, go to `New Role`.
+On **Roles** Panel, click **New Role**.
 
-   <p align="center">
-   <img width="75%" alt="Looker new role button" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-new-role-button.png"/>
-   </p>
+<p align="center">
+<img width="75%" alt="Looker new role button" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-new-role-button.png"/>
+</p>
 
-Set name for `New Role` (For example, `DataHub Extractor`) and set following fields on this window. 
+Set name for the new role (e.g. *DataHub Extractor*) and set following fields on this window. 
 
-- Set `Permission Set` to permission set created in previous step (i.e `DataHub Connector Permission Set`)
-- Set `Model Set` to `All`
+- Set **Permission Set** to permission set created in previous step (i.e *DataHub Connector Permission Set*)
+- Set **Model Set** to `All`
 
-Finally, click `New Role` at the bottom of the page. 
+Finally, click **New Role** at the bottom of the page. 
 
    <p align="center">
    <img width="75%" alt="Looker new role window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-new-role-window.png"/>
@@ -83,24 +80,24 @@ Finally, click `New Role` at the bottom of the page.
 
 ### Create A New User
 
-On `Admin Panel`, click `Users` to open `Users Panel`
+On **Admin** Panel, click **Users** to open users panel.
 
    <p align="center">
    <img width="75%" alt="Looker user search" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-user-search.png"/>
    </p>
 
-Click `Add Users`. 
+Click **Add Users**. 
 
    <p align="center">
    <img width="75%" alt="Looker add user" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-add-user-button.png"/>
    </p>
 
-On `Adding a new user`, set detail in following fields. 
+On **Adding a new user**, set detail in following fields. 
 
-- Add user's `Email Addresses` 
-- Set `Roles` to the role created in previous step i.e. `DataHub Extractor`
+- Add user's **Email Addresses**.
+- Set **Roles** to the role created in previous step (e.g. *DataHub Extractor*) 
 
-Finally, click `Save`.
+Finally, click **Save**.
 
 <p align="center">
 <img width="75%" alt="Looker new user window" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-add-new-user.png"/>
@@ -108,22 +105,22 @@ Finally, click `Save`.
 
 ### Create An API Key
 
-On `User Panel`, click on newly created user on `User Panel`.
+On **User** Panel, click on the newly created user. 
 
-   <p align="center">
-   <img width="75%" alt="Looker user panel" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-user-panel.png"/>
-   </p>
+<p align="center">
+<img width="75%" alt="Looker user panel" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-user-panel.png"/>
+</p>
 
-Click `Edit Keys` to open `API Key Panel`. 
+Click **Edit Keys** to open **API Key** Panel. 
 
-   <p align="center">
-   <img width="75%" alt="Looker user view" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-user-view.png"/>
-   </p>
+<p align="center">
+<img width="75%" alt="Looker user view" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-user-view.png"/>
+</p>
 
-On `API Key Panel`, click `New API Key` to generate a new `Client Id` and `Client Secret`.
-   <p align="center">
-   <img width="75%" alt="Looker new api key" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-api-key.png"/>
-   </p>
+On **API Key** Panel, click **New API Key** to generate a new **Client Id** and **Client Secret**.
+<p align="center">
+<img width="75%" alt="Looker new api key" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/looker-api-key.png"/>
+</p>
 
 ## LookML Prerequisites
 
@@ -144,7 +141,7 @@ This will typically generate two file like below.
 
 First, login to [GitHub](https://github.com). 
 
-Navigate to `GitHub Repository` -> `Settings` -> `Deploy Keys` and add public key (i.e. looker_datahub_deploy_key.pub) as deploy key with read access 
+Navigate to **GitHub Repository** -> **Settings** -> **Deploy Keys** and add public key (e.g. `looker_datahub_deploy_key.pub`) as deploy key with read access. 
 
 <p align="center">
 <img width="75%" alt="Looker home page" src="http://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/looker/lookml-deploy-key.png"/>
@@ -154,6 +151,6 @@ Make note of the private key file, you will need to paste the contents of the fi
 
 ## Next Steps
 
-Once you've done all the above steps, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
+Once you've done all the above steps, it's time to move on to [configuring the actual ingestion source](configuration.md) within DataHub.
 
 _Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!_
