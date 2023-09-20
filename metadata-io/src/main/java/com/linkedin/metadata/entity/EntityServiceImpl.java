@@ -1149,12 +1149,13 @@ public class EntityServiceImpl implements EntityService {
   }
 
   @Override
-  public void ingestEntity(Entity entity, AuditStamp auditStamp) {
+  public SystemMetadata ingestEntity(Entity entity, AuditStamp auditStamp) {
     SystemMetadata generatedSystemMetadata = new SystemMetadata();
     generatedSystemMetadata.setRunId(DEFAULT_RUN_ID);
     generatedSystemMetadata.setLastObserved(System.currentTimeMillis());
 
     ingestEntity(entity, auditStamp, generatedSystemMetadata);
+    return generatedSystemMetadata;
   }
 
   @Override
@@ -1541,6 +1542,13 @@ public class EntityServiceImpl implements EntityService {
     Objects.requireNonNull(urn, "urn is required");
     final RecordTemplate statusAspect = getLatestAspect(urn, STATUS_ASPECT_NAME);
     return statusAspect != null && ((Status) statusAspect).isRemoved();
+  }
+
+  @Override
+  public Boolean exists(Urn urn, String aspectName) {
+    EntityAspectIdentifier dbKey = new EntityAspectIdentifier(urn.toString(), aspectName, ASPECT_LATEST_VERSION);
+    Map<EntityAspectIdentifier, EntityAspect> aspects = _aspectDao.batchGet(Set.of(dbKey));
+    return aspects.values().stream().anyMatch(Objects::nonNull);
   }
 
   @Nullable

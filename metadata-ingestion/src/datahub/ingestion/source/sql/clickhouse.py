@@ -38,7 +38,6 @@ from datahub.ingestion.source.sql.sql_common import (
     logger,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -147,7 +146,6 @@ class ClickHouseConfig(
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
     def get_sql_alchemy_url(self, current_db=None):
-
         url = make_url(
             super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
         )
@@ -158,42 +156,11 @@ class ClickHouseConfig(
             )
 
         # We can setup clickhouse ingestion in sqlalchemy_uri form and config form.
-
-        # If we use sqlalchemu_uri form then super().get_sql_alchemy_url doesn't
-        # update current_db because it return self.sqlalchemy_uri without any update.
-        # This code bellow needed for rewriting sqlalchemi_uri and replace database with current_db.from
-        # For the future without python3.7 and sqlalchemy 1.3 support we can use code
-        # url=url.set(db=current_db), but not now.
-
         # Why we need to update database in uri at all?
         # Because we get database from sqlalchemy inspector and inspector we form from url inherited from
         # TwoTierSQLAlchemySource and SQLAlchemySource
-
         if self.sqlalchemy_uri and current_db:
-            self.scheme = url.drivername
-            self.username = url.username
-            self.password = (
-                pydantic.SecretStr(str(url.password))
-                if url.password
-                else pydantic.SecretStr("")
-            )
-            if url.host and url.port:
-                self.host_port = url.host + ":" + str(url.port)
-            elif url.host:
-                self.host_port = url.host
-            # untill released https://github.com/python/mypy/pull/15174
-            self.uri_opts = {str(k): str(v) for (k, v) in url.query.items()}
-
-            url = make_url(
-                make_sqlalchemy_uri(
-                    self.scheme,
-                    self.username,
-                    self.password.get_secret_value() if self.password else None,
-                    self.host_port,
-                    current_db if current_db else self.database,
-                    uri_opts=self.uri_opts,
-                )
-            )
+            url = url.set(database=current_db)
 
         return str(url)
 

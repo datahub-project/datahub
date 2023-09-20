@@ -30,6 +30,8 @@ public class SendMAEStep implements UpgradeStep {
 
   private static final int DEFAULT_BATCH_SIZE = 1000;
   private static final long DEFAULT_BATCH_DELAY_MS = 250;
+
+  private static final int DEFAULT_STARTING_OFFSET = 0;
   private static final int DEFAULT_THREADS = 1;
 
   private final Database _server;
@@ -83,6 +85,7 @@ public class SendMAEStep implements UpgradeStep {
     result.batchSize = getBatchSize(context.parsedArgs());
     result.numThreads = getThreadCount(context.parsedArgs());
     result.batchDelayMs = getBatchDelayMs(context.parsedArgs());
+    result.start = getStartingOffset(context.parsedArgs());
     if (containsKey(context.parsedArgs(), RestoreIndices.ASPECT_NAME_ARG_NAME)) {
       result.aspectName = context.parsedArgs().get(RestoreIndices.ASPECT_NAME_ARG_NAME).get();
     }
@@ -124,7 +127,7 @@ public class SendMAEStep implements UpgradeStep {
       final int rowCount = getRowCount(args);
       context.report().addLine(String.format("Found %s latest aspects in aspects table in %.2f minutes.",
               rowCount, (float) (System.currentTimeMillis() - startTime) / 1000 / 60));
-      int start = 0;
+      int start = args.start;
 
       List<Future<RestoreIndicesResult>> futures = new ArrayList<>();
       startTime = System.currentTimeMillis();
@@ -184,6 +187,10 @@ public class SendMAEStep implements UpgradeStep {
 
   private int getBatchSize(final Map<String, Optional<String>> parsedArgs) {
     return getInt(parsedArgs, DEFAULT_BATCH_SIZE, RestoreIndices.BATCH_SIZE_ARG_NAME);
+  }
+
+  private int getStartingOffset(final Map<String, Optional<String>> parsedArgs) {
+    return getInt(parsedArgs, DEFAULT_STARTING_OFFSET, RestoreIndices.STARTING_OFFSET_ARG_NAME);
   }
 
   private long getBatchDelayMs(final Map<String, Optional<String>> parsedArgs) {
