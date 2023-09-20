@@ -147,7 +147,7 @@ Once these are in place, you're ready to create your Custom Assertions!
 6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. Make sure to use the fully qualified name of the Table in your query.
 
 <p align="center">
-  <img width=60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
+  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
 </p>
 
 7. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
