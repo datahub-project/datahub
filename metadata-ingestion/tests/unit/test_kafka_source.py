@@ -8,6 +8,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
 )
+from freezegun import freeze_time
 
 from datahub.emitter.mce_builder import (
     OwnerType,
@@ -532,6 +533,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     assert len(workunits) == 2
 
 
+@freeze_time("2023-09-20 10:00:00")
 @patch(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
