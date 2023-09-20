@@ -711,6 +711,7 @@ setuptools.setup(
                 ]
             )
         ),
+        "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
