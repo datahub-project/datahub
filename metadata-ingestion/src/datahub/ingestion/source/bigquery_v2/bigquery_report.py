@@ -6,6 +6,7 @@ from typing import Counter, Dict, List, Optional
 
 import pydantic
 
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
@@ -16,7 +17,7 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BigQuerySchemaApiPerfReport:
+class BigQuerySchemaApiPerfReport(Report):
     list_projects = PerfTimer()
     list_datasets = PerfTimer()
     get_columns_for_dataset = PerfTimer()
@@ -25,7 +26,7 @@ class BigQuerySchemaApiPerfReport:
     get_views_for_dataset = PerfTimer()
 
 
-class BigQueryAuditLogApiPerfReport:
+class BigQueryAuditLogApiPerfReport(Report):
     get_exported_log_entries = PerfTimer()
     list_log_entries = PerfTimer()
 
