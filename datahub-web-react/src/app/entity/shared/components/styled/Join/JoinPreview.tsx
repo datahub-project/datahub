@@ -180,8 +180,15 @@ export const JoinPreview = ({ joinData, baseEntityUrn, prePageType }: Props) => 
                     pagination={false}
                 />
             </Row>
-            <p className="all-content-heading">Join details</p>
-            <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
+            {prePageType === 'Dataset' && (
+                <Row>
+                    <p className="all-content-heading">Join details</p>
+                    <div>
+                        <p className="all-content-info">{joinData?.properties?.joinFieldMapping?.details}</p>
+                        <p className="all-content-info">{joinData?.editableProperties?.description}</p>
+                    </div>
+                </Row>
+            )}
         </div>
     );
 };

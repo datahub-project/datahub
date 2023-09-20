@@ -45,7 +45,9 @@ export const CreateJoinModal = ({
     const table2Dataset = editJoin?.properties?.datasetB || table2?.dataset;
     const table2DatasetSchema = editJoin?.properties?.datasetB || table2Schema?.dataset;
 
-    const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
+    // const [details, setDetails] = useState<string>(editJoin?.properties?.joinFieldMapping?.details || '');
+    const [details, setDetails] = useState<string>(editJoin?.editableProperties?.description || '');
+
     const [joinName, setJoinName] = useState<string>(editJoin?.properties?.name || editJoin?.joinId || '');
     const [tableData, setTableData] = useState<JoinDataType[]>(
         editJoin?.properties?.joinFieldMapping?.fieldMappings?.map((item, index) => {
@@ -97,6 +99,9 @@ export const CreateJoinModal = ({
                 variables: {
                     urn: editJoin?.urn || '',
                     input: {
+                        editableProperties: {
+                            description: details,
+                        },
                         properties: {
                             dataSetA: table1Dataset?.urn || '',
                             datasetB: table2Dataset?.urn || '',
@@ -104,7 +109,7 @@ export const CreateJoinModal = ({
                             createdBy: editJoin?.properties?.createdActor?.urn || user?.urn,
                             createdAt: editJoin?.properties?.createdTime || 0,
                             joinFieldmapping: {
-                                details,
+                                details: 'dummy TODO remove',
                                 fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,
@@ -120,12 +125,15 @@ export const CreateJoinModal = ({
             createMutation({
                 variables: {
                     input: {
+                        editableProperties: {
+                            description: details,
+                        },
                         properties: {
                             dataSetA: table1Dataset?.urn || '',
                             datasetB: table2Dataset?.urn || '',
                             name: joinName,
                             joinFieldmapping: {
-                                details,
+                                details: 'dummy TODO remove',
                                 fieldMappings: tableData.map((r) => {
                                     return {
                                         afield: r.field1Name,

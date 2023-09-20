@@ -360,7 +360,7 @@ type JoinFieldMapping {
     """
     Any transformation logic or notes pertaining to this specific join
     """
-    details: String!
+    details: String
 }
 
 """
