@@ -2,11 +2,9 @@ import { FolderOpenOutlined } from '@ant-design/icons';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
+import { Entity } from '../../../types.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
-
-const NUM_VISIBLE_NODES = 2;
 
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
@@ -14,7 +12,6 @@ const ParentNodesWrapper = styled.div`
     display: flex;
     align-items: center;
     margin-bottom: 3px;
-    max-width: 220px;
     overflow: hidden;
 `;
 
@@ -27,54 +24,62 @@ export const ArrowWrapper = styled.span`
     margin: 0 3px;
 `;
 
+const StyledTooltip = styled(Tooltip)`
+    display: flex;
+    white-space: nowrap;
+    overflow: hidden;
+`;
+
+const DEFAULT_NUM_VISIBLE = 2;
+
 interface Props {
-    glossaryTerm: GlossaryTerm;
+    parentEntities: Entity[];
+    numVisible?: number;
 }
 
-export default function ParentNodes({ glossaryTerm }: Props) {
+export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const parentNodes: GlossaryNode[] = glossaryTerm.parentNodes?.nodes || [];
-    // parent nodes are returned with direct parent first
-    const orderedParentNodes = [...parentNodes].reverse();
-    const visibleNodes = orderedParentNodes.slice(orderedParentNodes.length - NUM_VISIBLE_NODES);
-    const numHiddenNodes = orderedParentNodes.length - NUM_VISIBLE_NODES;
-    const includeNodePathTooltip = parentNodes.length > NUM_VISIBLE_NODES;
+    // parent nodes/domains are returned with direct parent first
+    const orderedParentEntities = [...parentEntities].reverse();
+    const numHiddenEntities = orderedParentEntities.length - numVisible;
+    const hasHiddenEntities = numHiddenEntities > 0;
+    const visibleNodes = hasHiddenEntities ? orderedParentEntities.slice(numHiddenEntities) : orderedParentEntities;
 
-    if (!parentNodes.length) return null;
+    if (!parentEntities.length) return null;
 
     return (
-        <Tooltip
-            overlayStyle={includeNodePathTooltip ? { maxWidth: 450 } : { display: 'none' }}
+        <StyledTooltip
+            overlayStyle={hasHiddenEntities ? { maxWidth: 450 } : { display: 'none' }}
             placement="top"
             title={
                 <>
-                    {orderedParentNodes.map((glossaryNode, index) => (
+                    {orderedParentEntities.map((parentEntity, index) => (
                         <>
                             <FolderOpenOutlined />
                             <ParentNode color="white">
-                                {entityRegistry.getDisplayName(EntityType.GlossaryNode, glossaryNode)}
+                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity)}
                             </ParentNode>
-                            {index !== orderedParentNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
+                            {index !== orderedParentEntities.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
                         </>
                     ))}
                 </>
             }
         >
             <ParentNodesWrapper>
-                {numHiddenNodes > 0 &&
-                    [...Array(numHiddenNodes)].map(() => (
+                {hasHiddenEntities &&
+                    [...Array(numHiddenEntities)].map(() => (
                         <>
                             <FolderOpenOutlined />
                             <ArrowWrapper>{'>'}</ArrowWrapper>
                         </>
                     ))}
-                {visibleNodes.map((glossaryNode, index) => {
-                    const displayName = entityRegistry.getDisplayName(EntityType.GlossaryNode, glossaryNode);
+                {visibleNodes.map((parentEntity, index) => {
+                    const displayName = entityRegistry.getDisplayName(parentEntity.type, parentEntity);
                     return (
                         <>
                             <FolderOpenOutlined />
-                            <ParentNode ellipsis={!includeNodePathTooltip ? { tooltip: displayName } : true}>
+                            <ParentNode ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}>
                                 {displayName}
                             </ParentNode>
                             {index !== visibleNodes.length - 1 && <ArrowWrapper>{'>'}</ArrowWrapper>}
@@ -82,6 +87,6 @@ export default function ParentNodes({ glossaryTerm }: Props) {
                     );
                 })}
             </ParentNodesWrapper>
-        </Tooltip>
+        </StyledTooltip>
     );
 }

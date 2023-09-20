@@ -543,15 +543,7 @@ class SnowflakeV2Source(
 
         self.connection.close()
 
-        lru_cache_functions: List[Callable] = [
-            self.data_dictionary.get_tables_for_database,
-            self.data_dictionary.get_views_for_database,
-            self.data_dictionary.get_columns_for_schema,
-            self.data_dictionary.get_pk_constraints_for_schema,
-            self.data_dictionary.get_fk_constraints_for_schema,
-        ]
-        for func in lru_cache_functions:
-            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
+        self.report_cache_info()
 
         # TODO: The checkpoint state for stale entity detection can be committed here.
 
@@ -595,6 +587,17 @@ class SnowflakeV2Source(
             self.config.include_usage_stats or self.config.include_operational_stats
         ) and self.usage_extractor:
             yield from self.usage_extractor.get_usage_workunits(discovered_datasets)
+
+    def report_cache_info(self):
+        lru_cache_functions: List[Callable] = [
+            self.data_dictionary.get_tables_for_database,
+            self.data_dictionary.get_views_for_database,
+            self.data_dictionary.get_columns_for_schema,
+            self.data_dictionary.get_pk_constraints_for_schema,
+            self.data_dictionary.get_fk_constraints_for_schema,
+        ]
+        for func in lru_cache_functions:
+            self.report.lru_cache_info[func.__name__] = func.cache_info()._asdict()  # type: ignore
 
     def report_warehouse_failure(self):
         if self.config.warehouse is not None:
