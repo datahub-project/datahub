@@ -63,9 +63,11 @@ task codegen(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadat
 }
 
 task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPackage, ':metadata-events:mxe-schemas:build']) {
+  def package_name = project.findProperty('package_name')
+  def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && " +
-    "./scripts/custom_package_codegen.sh ${package_name} ${package_version}"
+    "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
 task install(dependsOn: [installPackage, codegen])

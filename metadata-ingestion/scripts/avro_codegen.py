@@ -438,7 +438,7 @@ if TYPE_CHECKING or not _custom_package_path:
     from ._schema_classes import _Aspect
 else:
     _custom_package = importlib.import_module(_custom_package_path)
-    locals().update(_custom_package.__dict__)
+    globals().update(_custom_package.__dict__)
 
 """
         )

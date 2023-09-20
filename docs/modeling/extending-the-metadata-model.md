@@ -205,7 +205,7 @@ The Aspect has four key components: its properties, the @Aspect annotation, the 
 - **@Relationship annotation**: These annotations create edges between the Entity’s Urn and the destination of the
   annotated field when the entities are ingested. @Relationship annotations must be applied to fields of type Urn. In
   the case of DashboardInfo, the `charts` field is an Array of Urns. The @Relationship annotation cannot be applied
-  directly to an array of Urns. That’s why you see the use of an Annotation override (`”/\*”:) to apply the @Relationship
+  directly to an array of Urns. That’s why you see the use of an Annotation override (`"/*":`) to apply the @Relationship
   annotation to the Urn directly. Read more about overrides in the annotation docs further down on this page.
 
 After you create your Aspect, you need to attach to all the entities that it applies to.
