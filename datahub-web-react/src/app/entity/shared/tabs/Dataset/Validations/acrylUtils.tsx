@@ -295,10 +295,10 @@ export const getCronAsText = (interval: string) => {
     };
 };
 
-export const canManageAssertionMonitor = (monitor: Monitor, connectionForEntityExists: boolean) => {
+export const canManageAssertionMonitor = (monitor: any, connectionForEntityExists: boolean) => {
     if (connectionForEntityExists) return true;
 
-    const assertionParameters = monitor.info?.assertionMonitor?.assertions?.[0]?.parameters;
+    const assertionParameters = monitor?.info?.assertionMonitor?.assertions?.[0]?.parameters;
     return (
         assertionParameters?.datasetFreshnessParameters?.sourceType === DatasetFreshnessSourceType.DatahubOperation ||
         assertionParameters?.datasetVolumeParameters?.sourceType === DatasetVolumeSourceType.DatahubDatasetProfile
