@@ -6,7 +6,7 @@ title: Overview
 ## What You Will Get Out of This Guide
 
 This guide will help you set up the Looker & LookML connectors to begin ingesting metadata into DataHub.
-Upon completing this guide, you will have a recurring ingestion pipeline that will extract metadata from Looker & LookML and load it into DataHub. 
+Upon completing this guide, you will have a recurring ingestion pipeline to extract metadata from Looker & LookML and load it into DataHub. 
 
 ### Looker
 
@@ -27,7 +27,7 @@ To get complete Looker metadata integration (including Looker views and lineage 
 
 ### LookML 
 
-LookMl connector will include to following LookML asset types:
+LookMl connector will include the following LookML asset types:
 
 * [LookML views from model files in a project](https://cloud.google.com/looker/docs/reference/param-view-view)
 * [Metadata for dimensions](https://cloud.google.com/looker/docs/reference/param-field-dimension)
@@ -41,7 +41,7 @@ To get complete Looker metadata integration (including Looker views and lineage 
 :::
 
 ## Next Steps
-Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
+Please continue to the [setup guide](setup.md), where we'll describe the prerequisites.
 
 ### Reference
 
