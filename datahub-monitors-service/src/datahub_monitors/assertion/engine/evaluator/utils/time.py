@@ -9,6 +9,7 @@ MIN_PREV_CRON_INTERVAL_MS = 30000  # 30 seconds minimum
 SECONDS_TO_MILLISECONDS = 1000
 MINUTE_TO_MILLISECONDS = SECONDS_TO_MILLISECONDS * 60
 HOUR_TO_MILLISECONDS = MINUTE_TO_MILLISECONDS * 60
+DAY_TO_MILLISECONDS = HOUR_TO_MILLISECONDS * 24
 
 
 def get_next_cron_schedule_time(schedule: CronSchedule) -> int:
@@ -43,6 +44,8 @@ def get_milliseconds_for_unit(unit: CalendarInterval) -> int:
         return HOUR_TO_MILLISECONDS
     elif unit == CalendarInterval.MINUTE:
         return MINUTE_TO_MILLISECONDS
+    elif unit == CalendarInterval.DAY:
+        return DAY_TO_MILLISECONDS
     else:
         raise Exception(
             f"Failed to retrieve milliseconds for unit {unit}. Unrecognized unit received!"
