@@ -33,17 +33,27 @@ function EntityName(props: Props) {
     const { urn, entityType, entityData } = useEntityData();
     const entityName = entityData ? entityRegistry.getDisplayName(entityType, entityData) : '';
     const [updatedName, setUpdatedName] = useState(entityName);
+    const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
         setUpdatedName(entityName);
     }, [entityName]);
 
-    const [updateName] = useUpdateNameMutation();
+    const [updateName, { loading: isMutatingName }] = useUpdateNameMutation();
 
-    const handleSaveName = (name: string) => {
+    const handleStartEditing = () => {
+        setIsEditing(true);
+    };
+
+    const handleChangeName = (name: string) => {
+        if (name === entityName) {
+            setIsEditing(false);
+            return;
+        }
         setUpdatedName(name);
         updateName({ variables: { input: { name, urn } } })
             .then(() => {
+                setIsEditing(false);
                 message.success({ content: 'Name Updated', duration: 2 });
                 refetch();
                 if (isInGlossaryContext) {
@@ -62,13 +72,19 @@ function EntityName(props: Props) {
     return (
         <>
             {isNameEditable ? (
-                <EntityTitle level={3} editable={{ onChange: handleSaveName }}>
+                <EntityTitle
+                    level={3}
+                    disabled={isMutatingName}
+                    editable={{
+                        editing: isEditing,
+                        onChange: handleChangeName,
+                        onStart: handleStartEditing,
+                    }}
+                >
                     {updatedName}
                 </EntityTitle>
             ) : (
-                <EntityTitle level={3}>
-                    {entityData && entityRegistry.getDisplayName(entityType, entityData)}
-                </EntityTitle>
+                <EntityTitle level={3}>{entityName}</EntityTitle>
             )}
         </>
     );
