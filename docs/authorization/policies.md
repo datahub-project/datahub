@@ -167,9 +167,9 @@ For example, the following resource filter will apply the policy to datasets, ch
         ]
       }
     }
-  }
+}
 ```
-N.B: `resources` should be part of the `info` object of a policy.
+Where `resources` is inside the `info` aspect of a Policy.
 
 Supported fields are as follows
 
