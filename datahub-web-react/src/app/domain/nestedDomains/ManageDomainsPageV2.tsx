@@ -17,6 +17,7 @@ const PageWrapper = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 `;
 
 const Header = styled.div`
