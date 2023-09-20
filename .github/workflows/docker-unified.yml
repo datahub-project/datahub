@@ -58,7 +58,7 @@ jobs:
           echo "full_tag=$(get_tag)-full" >> $GITHUB_OUTPUT
           echo "unique_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
           echo "unique_slim_tag=$(get_unique_tag)-slim" >> $GITHUB_OUTPUT
-          echo "unique_full_tag=$(get_unique_tag)-full" >> $GITHUB_OUTPUT
+          echo "unique_full_tag=$(get_unique_tag)" >> $GITHUB_OUTPUT
           echo "python_release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
