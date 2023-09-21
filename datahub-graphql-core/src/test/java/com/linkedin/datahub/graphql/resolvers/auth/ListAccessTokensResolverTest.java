@@ -10,15 +10,15 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
-import junit.framework.TestCase;
 import org.mockito.Mockito;
+import org.testng.annotations.Test;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 
-public class ListAccessTokensResolverTest extends TestCase {
+public class ListAccessTokensResolverTest {
 
-//  @Test
+  @Test
   public void testGetSuccess() throws Exception {
     final DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     final QueryContext mockAllowContext = TestUtils.getMockAllowContext();
@@ -36,13 +36,13 @@ public class ListAccessTokensResolverTest extends TestCase {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
     final EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.when(mockClient.filter(
+    Mockito.when(Mockito.eq(mockClient.filter(
         Mockito.eq(Constants.ACCESS_TOKEN_ENTITY_NAME),
             Mockito.eq(buildFilter(filters, Collections.emptyList())),
             Mockito.notNull(),
             Mockito.eq(input.getStart()),
             Mockito.eq(input.getCount()),
-            Mockito.eq(getAuthentication(mockEnv))))
+            Mockito.eq(getAuthentication(mockEnv)))))
         .thenReturn(null);
 
     final ListAccessTokensResolver resolver = new ListAccessTokensResolver(mockClient);

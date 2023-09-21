@@ -5,7 +5,7 @@ import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.ebean.Database;
 import javax.annotation.Nonnull;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.opensearch.client.RestHighLevelClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
