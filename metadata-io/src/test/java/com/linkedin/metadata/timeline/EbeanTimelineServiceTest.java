@@ -27,7 +27,7 @@ public class EbeanTimelineServiceTest extends TimelineServiceTest<EbeanAspectDao
 
   @BeforeMethod
   public void setupTest() {
-    Database server = EbeanTestUtils.createTestServer();
+    Database server = EbeanTestUtils.createTestServer(EbeanTimelineServiceTest.class.getSimpleName());
     _aspectDao = new EbeanAspectDao(server);
     _aspectDao.setConnectionValidated(true);
     _entityTimelineService = new TimelineServiceImpl(_aspectDao, _testEntityRegistry);
