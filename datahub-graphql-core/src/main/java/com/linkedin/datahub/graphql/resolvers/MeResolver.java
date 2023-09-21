@@ -12,7 +12,7 @@ import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.PlatformPrivileges;
 import com.linkedin.datahub.graphql.types.corpuser.mappers.CorpUserMapper;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
 
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
-import static com.linkedin.metadata.Constants.*;
 
 
 /**
@@ -37,10 +36,10 @@ import static com.linkedin.metadata.Constants.*;
  */
 public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUser>> {
 
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final FeatureFlags _featureFlags;
 
-  public MeResolver(final EntityClient entityClient, final FeatureFlags featureFlags) {
+  public MeResolver(final SystemEntityClient entityClient, final FeatureFlags featureFlags) {
     _entityClient = entityClient;
     _featureFlags = featureFlags;
   }
@@ -52,8 +51,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
       try {
         // 1. Get currently logged in user profile.
         final Urn userUrn = Urn.createFromString(context.getActorUrn());
-        final EntityResponse gmsUser = _entityClient.batchGetV2(CORP_USER_ENTITY_NAME,
-                Collections.singleton(userUrn), null, context.getAuthentication()).get(userUrn);
+        final EntityResponse gmsUser = _entityClient.batchGetV2(Collections.singleton(userUrn),
+                CorpUserMapper.REQUIRED_ASPECTS).get(userUrn);
         final CorpUser corpUser = CorpUserMapper.map(gmsUser, _featureFlags);
 
         // 2. Get platform privileges

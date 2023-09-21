@@ -26,6 +26,8 @@ import com.linkedin.metadata.key.CorpUserKey;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import java.util.Set;
+
 import static com.linkedin.metadata.Constants.*;
 
 
@@ -37,6 +39,16 @@ import static com.linkedin.metadata.Constants.*;
 public class CorpUserMapper {
 
     public static final CorpUserMapper INSTANCE = new CorpUserMapper();
+
+    // Consider caching implications if modified
+    public static final Set<String> REQUIRED_ASPECTS = Set.of(
+            CORP_USER_KEY_ASPECT_NAME,
+            CORP_USER_INFO_ASPECT_NAME,
+            CORP_USER_EDITABLE_INFO_ASPECT_NAME,
+            GLOBAL_TAGS_ASPECT_NAME,
+            CORP_USER_STATUS_ASPECT_NAME,
+            CORP_USER_CREDENTIALS_ASPECT_NAME,
+            CORP_USER_SETTINGS_ASPECT_NAME);
 
     public static CorpUser map(@Nonnull final EntityResponse entityResponse) {
         return INSTANCE.apply(entityResponse, null);

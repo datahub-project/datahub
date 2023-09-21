@@ -316,6 +316,8 @@ usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
 
+foo: bar
+
 cache:
   primary:
     ttlSeconds: ${CACHE_TTL_SECONDS:600}
@@ -327,3 +329,27 @@ cache:
     lineage:
       ttlSeconds: ${CACHE_SEARCH_LINEAGE_TTL_SECONDS:86400} # 1 day
       lightningThreshold: ${CACHE_SEARCH_LINEAGE_LIGHTNING_THRESHOLD:300}
+  client:
+    usageClient:
+      enabled: ${CACHE_CLIENT_USAGE_CLIENT_ENABLED:true}
+      statsEnabled: ${CACHE_CLIENT_USAGE_CLIENT_STATS_ENABLED:true}
+      statsIntervalSeconds: ${CACHE_CLIENT_USAGE_CLIENT_STATS_INTERVAL_SECONDS:120}
+      defaultTTLSeconds: ${CACHE_CLIENT_USAGE_CLIENT_TTL_SECONDS:86400} # 1 day
+      maxBytes: ${CACHE_CLIENT_USAGE_CLIENT_MAX_BYTES:52428800} # 50MB
+    entityClient:
+      enabled: ${CACHE_CLIENT_ENTITY_CLIENT_ENABLED:true}
+      statsEnabled: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_ENABLED:true}
+      statsIntervalSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_STATS_INTERVAL_SECONDS:120}
+      defaultTTLSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS:0} # do not cache entity/aspects by default
+      maxBytes: ${CACHE_CLIENT_USAGE_ENTITY_MAX_BYTES:104857600} # 100MB
+      entityAspectTTLSeconds:
+        # cache user aspects for 60s
+        corpuser:
+          corpUserKey: 60
+          corpUserInfo: 60
+          corpUserEditableInfo: 60
+          corpUserStatus: 60
+          globalTags: 60
+          status: 60
+          corpUserCredentials: 60
+          corpUserSettings: 60

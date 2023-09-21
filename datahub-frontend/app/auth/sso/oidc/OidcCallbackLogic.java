@@ -13,7 +13,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpGroupInfo;
 import com.linkedin.identity.CorpUserEditableInfo;
@@ -78,13 +78,14 @@ import static play.mvc.Results.internalServerError;
 public class OidcCallbackLogic extends DefaultCallbackLogic<Result, PlayWebContext> {
 
   private final SsoManager _ssoManager;
-  private final EntityClient _entityClient;
+  private final SystemEntityClient _entityClient;
   private final Authentication _systemAuthentication;
   private final AuthServiceClient _authClient;
   private final CookieConfigs _cookieConfigs;
 
   public OidcCallbackLogic(final SsoManager ssoManager, final Authentication systemAuthentication,
-      final EntityClient entityClient, final AuthServiceClient authClient, final CookieConfigs cookieConfigs) {
+                           final SystemEntityClient entityClient, final AuthServiceClient authClient,
+                           final CookieConfigs cookieConfigs) {
     _ssoManager = ssoManager;
     _systemAuthentication = systemAuthentication;
     _entityClient = entityClient;
