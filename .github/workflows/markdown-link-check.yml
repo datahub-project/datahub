@@ -23,6 +23,6 @@ jobs:
       with:
         use-quiet-mode: yes
         config-file: .github/scripts/markdown-check-config.json
-        folder-path: docs-website/genDocs
+        folder-path: ./docs-website/genDocs
         check-modified-files-only: yes
         file-extension: .md
