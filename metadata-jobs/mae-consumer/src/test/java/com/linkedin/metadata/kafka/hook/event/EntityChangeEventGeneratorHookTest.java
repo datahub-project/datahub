@@ -64,7 +64,6 @@ import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
 import java.net.URISyntaxException;
 import java.util.Map;
-import java.util.Set;
 
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;

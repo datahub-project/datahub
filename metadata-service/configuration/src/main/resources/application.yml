@@ -316,8 +316,6 @@ usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
   numRetries: ${USAGE_CLIENT_NUM_RETRIES:3}
 
-foo: bar
-
 cache:
   primary:
     ttlSeconds: ${CACHE_TTL_SECONDS:600}
@@ -343,13 +341,13 @@ cache:
       defaultTTLSeconds: ${CACHE_CLIENT_ENTITY_CLIENT_TTL_SECONDS:0} # do not cache entity/aspects by default
       maxBytes: ${CACHE_CLIENT_USAGE_ENTITY_MAX_BYTES:104857600} # 100MB
       entityAspectTTLSeconds:
-        # cache user aspects for 60s
+        # cache user aspects for 20s
         corpuser:
-          corpUserKey: 60
-          corpUserInfo: 60
-          corpUserEditableInfo: 60
-          corpUserStatus: 60
-          globalTags: 60
-          status: 60
-          corpUserCredentials: 60
-          corpUserSettings: 60
+          corpUserKey: 20
+          corpUserInfo: 20
+          corpUserEditableInfo: 20
+          corpUserStatus: 20
+          globalTags: 20
+          status: 20
+          corpUserCredentials: 20
+          corpUserSettings: 20
