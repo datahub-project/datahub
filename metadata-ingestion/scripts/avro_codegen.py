@@ -435,7 +435,7 @@ if TYPE_CHECKING or not _custom_package_path:
     from ._schema_classes import *
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
-    from ._schema_classes import _Aspect
+    from ._schema_classes import _Aspect, __SCHEMA_TYPES
 else:
     _custom_package = importlib.import_module(_custom_package_path)
     globals().update(_custom_package.__dict__)
