@@ -14,11 +14,12 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashSet;
+
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
 import static com.linkedin.datahub.graphql.resolvers.ingest.IngestTestUtils.*;
+import static org.testng.Assert.assertThrows;
 
 public class GetIngestionSourceResolverTest {
 

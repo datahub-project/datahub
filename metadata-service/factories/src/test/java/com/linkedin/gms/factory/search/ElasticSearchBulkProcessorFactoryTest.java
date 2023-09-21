@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import org.elasticsearch.action.support.WriteRequest;
+import org.opensearch.action.support.WriteRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.SpringBootTest;
