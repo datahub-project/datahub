@@ -5,7 +5,7 @@ import itertools
 import logging
 import pathlib
 from collections import defaultdict
-from typing import Dict, List, Optional, Set, Tuple, TypedDict, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -13,6 +13,7 @@ import sqlglot.errors
 import sqlglot.lineage
 import sqlglot.optimizer.qualify
 import sqlglot.optimizer.qualify_columns
+from mypy_extensions import TypedDict
 from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import (
