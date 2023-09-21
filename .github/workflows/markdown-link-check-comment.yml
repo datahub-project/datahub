@@ -4,11 +4,13 @@ on:
   workflow_run:
     workflows: [ "markdown-link-check" ]
     types:
-    - completed
+      - completed
 
 defaults:
   run:
     shell: pwsh
+#env:
+#  WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
 
 jobs:
   main:
@@ -16,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+#      with:
+#        ref: ${{ env.WORKFLOW_HEAD_SHA }}
     - name: Run markdown link check log parser
       id: mlc-log-parser
       uses: edumserrano/markdown-link-check-log-parser@v1
