@@ -99,11 +99,10 @@ The **Condition Type**: This defines the conditions under which the Assertion wi
 - **Is Not Equal To**: The assertion will fail if the query result is not equal to the configured value
 - **Is Greater Than**: The assertion will fail if the query result is greater than the configured value
 - **Is Less Than**: The assertion will fail if the query result is less than the configured value
-- **Is False**: The assertion will fail if the query result is false (i.e. 0)
 - **Is outside a range**: The assertion will fail if the query result is outside the configured range
-- **Grows More Than**: The assertion will fail if the query result grows more than the configured range. This can be either a percentage (**Percentage**) or an absolute value (**Differential**).
-- **Grows Less Than**: The assertion will fail if the query result grows less than the configured percentage. This can be either a percentage (**Percentage**) or an absolute value (**Differential**).
-- **Growth is outside a range**: The assertion will fail if the query result growth is outside the configured range. This can be either a percentage (**Percentage**) or an absolute value (**Differential**).
+- **Grows More Than**: The assertion will fail if the query result grows more than the configured range. This can be either a percentage (**Percentage**) or a number (**Value**).
+- **Grows Less Than**: The assertion will fail if the query result grows less than the configured percentage. This can be either a percentage (**Percentage**) or a number (**Value**).
+- **Growth is outside a range**: The assertion will fail if the query result growth is outside the configured range. This can be either a percentage (**Percentage**) or a number (**Value**).
   
 Custom Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
